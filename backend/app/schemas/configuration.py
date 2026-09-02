@@ -132,19 +132,21 @@ class PlatformLogoUploadInput(ContractModel):
 PlatformLogoInput = PlatformLogoUploadInput
 
 
-class PlatformLogoUploadOut(PlatformLogoUploadInput):
+class PlatformLogoUpload(PlatformLogoUploadInput):
     url: HttpUrl
 
 
-class PlatformLogoExternalOut(ContractModel):
+class PlatformLogoExternal(ContractModel):
     """部署前外链 Logo 的只读投影。"""
 
     source: Literal["EXTERNAL"]
     url: HttpUrl
 
 
+PlatformLogoUploadOut = PlatformLogoUpload
+PlatformLogoExternalOut = PlatformLogoExternal
 PlatformLogoOut = Annotated[
-    PlatformLogoUploadOut | PlatformLogoExternalOut,
+    PlatformLogoUpload | PlatformLogoExternal,
     Field(discriminator="source"),
 ]
 

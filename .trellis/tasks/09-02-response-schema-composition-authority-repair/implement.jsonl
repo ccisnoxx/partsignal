@@ -1,0 +1,8 @@
+{"file":".trellis/spec/backend/index.md","reason":"确认 backend 分层、合同 owner 与实施前必读入口。"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"约束公共 ErrorEnvelope 与 runtime OpenAPI schema，不引入第二套错误或私有 schema workaround。"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"确定 backend pytest、ruff、mypy 与依赖锁定质量门禁。"}
+{"file":".trellis/spec/frontend/index.md","reason":"确认 generated API schema 的 frontend owner 与 consumer 边界。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"确定 api:check、typecheck 和定向 model test 门禁。"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"约束 OpenAPI、runtime schema 与 generated client 的单一权威同步。"}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"防止新增第二套 schema 映射、helper 或兼容层。"}
+{"file":".trellis/tasks/09-02-response-schema-composition-authority-repair/research/allof-authority-defect.md","reason":"提供全部 15 个不可满足 component、37 个 operation 及 instance-validation 证据。"}

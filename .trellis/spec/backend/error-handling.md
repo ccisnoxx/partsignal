@@ -1,5 +1,63 @@
 # Backend 错误处理契约
 
+## Scenario：修复不可满足的 response schema composition
+
+### 1. Scope / Trigger
+
+- 当公共 OpenAPI 使用 `allOf` 从 `additionalProperties: false` 的基础对象增加派生字段，或 comparator 两侧一致但真实 payload 仍被标准 validator 拒绝时触发。
+
+### 2. Signatures
+
+- 公共派生 response 使用完整 `type: object`、合并后的 `properties` / `required` 与 `additionalProperties: false`。
+- Runtime owner 优先使用 `ContractModel(extra="forbid")` 的默认 Pydantic JSON Schema。
+
+### 3. Contracts
+
+- `contracts/openapi.yaml` 是可编辑 authority；generated client 只能由合同生成。
+- 展平时派生层同名字段覆盖基础层，字段约束必须与真实 validation/serialization owner 一致。
+- 不得用 `__get_pydantic_json_schema__`、Pydantic 私有 handler、硬编码 ref、runtime overlay 或 comparator filter 镜像不可满足合同。
+- 修订 schema composition 不得改变实际 payload、status、media type、Header、权限、service、事务或 error-domain mapping。
+
+### 4. Validation & Error Matrix
+
+| 条件 | 必需证据 | 处理 |
+|---|---|---|
+| Static/runtime schema 形状相同 | production comparator | 仍需 instance validation，不把“两侧相同”视为可满足 |
+| 真实 model dump 被任一侧拒绝 | Draft 2020-12 errors | 修订 authority 与 runtime owner，禁止 baseline/allowlist |
+| 派生层重定义同名字段 | runtime model field | 展平后保留派生层定义 |
+| 真实 dump 双端通过 | unknown-field 负例也双端拒绝 | composition 修订可验收 |
+
+### 5. Good / Base / Bad Cases
+
+- Good：完整 inventory 的真实 `model_dump(mode="json")` 在 static/runtime 两侧均通过，且 unknown field 两侧均拒绝。
+- Base：没有同名覆盖的单层继承直接合并 properties/required，并保持所有字段约束。
+- Bad：只让 comparator 返回空列表；开放基础对象；依赖 private schema hook；过滤 schema drift。
+
+### 6. Tests Required
+
+- Contract：逐 component 断言无缺失字段、required 并集、关闭对象和原字段约束。
+- Instance：使用标准 Draft 2020-12 validator 验证真实 Pydantic dump 的双端正例和 unknown-field 负例。
+- Operation：投影完整受影响 success operation 集合，直接断言生产 comparator 的完整 failure list 为 `[]`。
+- Generated：运行 canonical generator、generated check、frontend typecheck 与受影响 consumer tests。
+
+### 7. Wrong vs Correct
+
+```yaml
+# Wrong：closed base 会拒绝 derived_field
+allOf:
+  - $ref: '#/components/schemas/ClosedBase'
+  - type: object
+    properties: {derived_field: {type: string}}
+
+# Correct：完整派生对象统一拥有 closure
+type: object
+additionalProperties: false
+required: [base_field, derived_field]
+properties:
+  base_field: {type: string}
+  derived_field: {type: string}
+```
+
 ## Scenario：将数据库唯一约束映射为稳定字段错误
 
 ### 1. Scope / Trigger

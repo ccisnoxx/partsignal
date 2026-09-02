@@ -303,10 +303,12 @@ def test_audit_contract_separates_list_metadata_from_safe_detail() -> None:
     assert schemas["AuditChange"]["properties"]["before"] == {
         "$ref": "#/components/schemas/AuditSafeValue"
     }
-    assert schemas["AuditLogDetail"]["allOf"][1]["properties"]["facts"] == {
+    assert schemas["AuditLogDetail"]["properties"]["facts"] == {
         "type": "object",
         "additionalProperties": {"$ref": "#/components/schemas/AuditSafeValue"},
     }
+    assert schemas["AuditLogDetail"]["type"] == "object"
+    assert schemas["AuditLogDetail"]["additionalProperties"] is False
     assert set(detail_operation["responses"]) == {"200", "401", "403", "404", "409", "422"}
 
 
@@ -570,7 +572,18 @@ def test_query_topic_list_contract_preserves_full_list_and_adds_v2_read_model() 
         "geo_optimization_count",
         "observation_count",
     }
-    assert schemas["QueryTopicListItem"]["allOf"][1]["required"] == ["references"]
+    assert schemas["QueryTopicListItem"]["required"] == [
+        "canonical_question",
+        "intent_type",
+        "variants",
+        "id",
+        "available_actions",
+        "deletion",
+        "primary_task",
+        "revision",
+        "created_at",
+        "references",
+    ]
     for name in ("QueryTopicCreate", "QueryTopicUpdate"):
         variants = schemas[name]["properties"]["variants"]
         assert variants["items"]["minLength"] == 1
@@ -986,7 +999,9 @@ def test_content_task_detail_contract_is_one_compact_read_model() -> None:
         "activity",
     }
     assert "body_markdown" not in str(detail)
-    assert document["components"]["schemas"]["ContentTask"]["allOf"][1]["required"] == [
+    assert set(document["components"]["schemas"]["ContentTask"]["required"]) == {
+        "product_id",
+        "fact_version_id",
         "id",
         "platform_profile_id",
         "query_topic_id",
@@ -1001,7 +1016,7 @@ def test_content_task_detail_contract_is_one_compact_read_model() -> None:
         "created_by",
         "created_at",
         "archived_at",
-    ]
+    }
 
 
 def test_content_version_detail_contract_is_readonly_and_compact() -> None:
@@ -1321,9 +1336,7 @@ def test_phase_b_shared_contract_shapes_are_explicit() -> None:
     assert [branch["$ref"] for branch in generation_union] == generation_refs
     assert [
         branch["$ref"]
-        for branch in schemas["GenerationJobDetail"]["allOf"][1]["properties"][
-            "input_snapshot"
-        ]["anyOf"]
+        for branch in schemas["GenerationJobDetail"]["properties"]["input_snapshot"]["anyOf"]
     ] == generation_refs + humanization_refs
     assert [
         branch["$ref"]
@@ -1351,6 +1364,93 @@ def test_phase_b_shared_contract_shapes_are_explicit() -> None:
         assert response["headers"] == {
             "Content-Disposition": {"required": True, "schema": {"type": "string"}}
         }
+
+
+def test_response_components_are_flattened_closed_objects() -> None:
+    """response 派生组件必须是完整、封闭且不依赖 closed base 的对象。"""
+    contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+    schemas = yaml.safe_load(contract.read_text(encoding="utf-8"))["components"]["schemas"]
+    expected_properties = {
+        "AuditLogDetail": {
+            "id", "actor_id", "actor", "business_module", "action", "target_type",
+            "target_id", "outcome", "primary_task", "request_id", "created_at", "changes",
+            "facts", "result_message", "error_code", "related_entry",
+        },
+        "QueryTopic": {
+            "canonical_question", "intent_type", "variants", "id", "available_actions",
+            "deletion", "primary_task", "revision", "created_at",
+        },
+        "QueryTopicListItem": {
+            "canonical_question", "intent_type", "variants", "id", "available_actions",
+            "deletion", "primary_task", "revision", "created_at", "references",
+        },
+        "PlatformLogoUpload": {"source", "file_id", "url"},
+        "PlatformPromptUpdate": {"name", "template_markdown", "expected_revision"},
+        "PlatformPromptListItem": {
+            "id", "name", "revision", "updated_at", "updated_by", "bound_platform_count",
+            "available_actions",
+        },
+        "PlatformPromptDetail": {
+            "id", "name", "revision", "updated_at", "updated_by", "bound_platform_count",
+            "available_actions", "template_markdown", "created_at", "bound_platforms",
+        },
+        "ContentTask": {
+            "product_id", "fact_version_id", "platform_profile_id", "id", "query_topic_id",
+            "source_published_content_issue_id", "current_content_version_id", "workflow_stage",
+            "primary_task", "available_actions", "deletion", "status", "revision", "created_by",
+            "created_at", "archived_at",
+        },
+        "ContentTaskListItem": {
+            "product_id", "fact_version_id", "platform_profile_id", "id", "query_topic_id",
+            "source_published_content_issue_id", "current_content_version_id", "workflow_stage",
+            "primary_task", "available_actions", "deletion", "status", "revision", "created_by",
+            "created_at", "archived_at", "identifier", "product", "platform", "current_content",
+            "latest_generation_status", "updated_at",
+        },
+        "GenerationJobDetail": {
+            "id", "content_task_id", "job_type", "source_content_version_id", "status",
+            "workflow_stage", "primary_task", "available_actions", "attempt_count",
+            "content_version_id", "retry_of_id", "error_code", "error_summary",
+            "provider_request_id", "response_duration_ms", "prompt_tokens", "completion_tokens",
+            "total_tokens", "created_at", "started_at", "finished_at", "input_snapshot",
+        },
+        "PlatformAccount": {
+            "platform_profile_id", "label", "account_identifier", "id", "is_active",
+            "workflow_stage", "primary_task", "available_actions", "deletion", "revision",
+        },
+        "GeoInsightPublicationOption": {"id", "label", "platform_name"},
+        "GeoInsightRatePoint": {"numerator", "denominator", "value", "date"},
+        "GeoInsightDecliningContent": {
+            "published_article_id", "product_id", "content_platform_id", "title",
+            "content_platform", "observation_count", "discovery_rate", "mention_rate",
+            "accuracy_rate", "primary_task", "optimization_action", "basis",
+        },
+        "GeoInsightLongUnmentionedContent": {
+            "published_article_id", "product_id", "content_platform_id", "title",
+            "content_platform", "observation_count", "discovery_rate", "mention_rate",
+            "accuracy_rate", "primary_task", "optimization_action", "unmentioned_days",
+            "last_mentioned_at",
+        },
+    }
+    assert {
+        name
+        for name, schema in schemas.items()
+        if name in expected_properties and "allOf" in schema
+    } == set()
+    expected_required = {
+        "GenerationJobDetail": {
+            "id", "content_task_id", "job_type", "source_content_version_id", "status",
+            "workflow_stage", "primary_task", "available_actions", "attempt_count", "created_at",
+            "input_snapshot",
+        }
+    }
+    for name, properties in expected_properties.items():
+        schema = schemas[name]
+        assert "allOf" not in schema
+        assert schema["type"] == "object"
+        assert schema["additionalProperties"] is False
+        assert set(schema["properties"]) == properties
+        assert set(schema["required"]) == expected_required.get(name, properties)
 
 
 @pytest.mark.parametrize("provider_status", [502, 504])

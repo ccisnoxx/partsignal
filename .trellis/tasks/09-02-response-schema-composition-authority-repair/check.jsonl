@@ -1,0 +1,6 @@
+{"file":".trellis/spec/backend/error-handling.md","reason":"复核 schema 修订未改变 ErrorEnvelope、实际错误行为或引入私有 hook。"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"复核 required validation、依赖 lock 与 backend 质量门禁。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"复核 generated 文件来源、api:check、typecheck 与 consumer 零改动。"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"复核 static/runtime/generated 三层权威一致性。"}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"复核没有第二套 schema mapping、baseline、allowlist 或兼容层。"}
+{"file":".trellis/tasks/09-02-response-schema-composition-authority-repair/research/allof-authority-defect.md","reason":"按完整 15-component / 37-operation inventory 做独立 review，不允许抽样。"}

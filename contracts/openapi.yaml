@@ -3801,19 +3801,31 @@ components:
         page_size: {type: integer}
         total: {type: integer}
     AuditLogDetail:
-      allOf:
-        - {$ref: '#/components/schemas/AuditLog'}
-        - type: object
-          additionalProperties: false
-          required: [changes, facts, result_message, error_code, related_entry]
-          properties:
-            changes: {type: array, items: {$ref: '#/components/schemas/AuditChange'}}
-            facts:
-              type: object
-              additionalProperties: {$ref: '#/components/schemas/AuditSafeValue'}
-            result_message: {type: string}
-            error_code: {type: [string, 'null']}
-            related_entry: {$ref: '#/components/schemas/AuditRelatedEntry'}
+      type: object
+      additionalProperties: false
+      required: [id, actor_id, actor, business_module, action, target_type, target_id, outcome, primary_task, request_id, created_at, changes, facts, result_message, error_code, related_entry]
+      properties:
+        id: {type: string, format: uuid}
+        actor_id: {type: [string, 'null'], format: uuid}
+        actor:
+          anyOf:
+            - {$ref: '#/components/schemas/AuditActor'}
+            - {type: 'null'}
+        business_module: {$ref: '#/components/schemas/AuditModule'}
+        action: {type: string}
+        target_type: {type: string}
+        target_id: {type: [string, 'null']}
+        outcome: {$ref: '#/components/schemas/AuditOutcome'}
+        primary_task: {type: string, const: VIEW_LOG_DETAIL}
+        request_id: {type: string}
+        created_at: {type: string, format: date-time}
+        changes: {type: array, items: {$ref: '#/components/schemas/AuditChange'}}
+        facts:
+          type: object
+          additionalProperties: {$ref: '#/components/schemas/AuditSafeValue'}
+        result_message: {type: string}
+        error_code: {type: [string, 'null']}
+        related_entry: {$ref: '#/components/schemas/AuditRelatedEntry'}
     AuditLogFilterOptions:
       type: object
       additionalProperties: false
@@ -4173,22 +4185,24 @@ components:
         intent_type: {$ref: '#/components/schemas/IntentType'}
         variants: {type: array, minItems: 1, uniqueItems: true, items: {type: string, minLength: 1}}
     QueryTopic:
-      allOf:
-        - {$ref: '#/components/schemas/QueryTopicCreate'}
-        - type: object
-          required: [id, available_actions, deletion, primary_task, revision, created_at]
-          properties:
-            id: {type: string, format: uuid}
-            available_actions:
-              type: array
-              items: {type: string, enum: [UPDATE, DELETE]}
-            deletion:
-              anyOf:
-                - {$ref: '#/components/schemas/DeletionProjection'}
-                - {type: 'null'}
-            primary_task: {type: string, const: USE_FOR_OBSERVATION}
-            revision: {type: integer}
-            created_at: {type: string, format: date-time}
+      type: object
+      additionalProperties: false
+      required: [canonical_question, intent_type, variants, id, available_actions, deletion, primary_task, revision, created_at]
+      properties:
+        canonical_question: {type: string, minLength: 1}
+        intent_type: {$ref: '#/components/schemas/IntentType'}
+        variants: {type: array, minItems: 1, uniqueItems: true, items: {type: string, minLength: 1}}
+        id: {type: string, format: uuid}
+        available_actions:
+          type: array
+          items: {type: string, enum: [UPDATE, DELETE]}
+        deletion:
+          anyOf:
+            - {$ref: '#/components/schemas/DeletionProjection'}
+            - {type: 'null'}
+        primary_task: {type: string, const: USE_FOR_OBSERVATION}
+        revision: {type: integer}
+        created_at: {type: string, format: date-time}
     QueryTopicList:
       type: object
       additionalProperties: false
@@ -4207,12 +4221,25 @@ components:
         geo_optimization_count: {type: integer, minimum: 0}
         observation_count: {type: integer, minimum: 0}
     QueryTopicListItem:
-      allOf:
-        - {$ref: '#/components/schemas/QueryTopic'}
-        - type: object
-          required: [references]
-          properties:
-            references: {$ref: '#/components/schemas/QueryTopicReferenceSummary'}
+      type: object
+      additionalProperties: false
+      required: [canonical_question, intent_type, variants, id, available_actions, deletion, primary_task, revision, created_at, references]
+      properties:
+        canonical_question: {type: string, minLength: 1}
+        intent_type: {$ref: '#/components/schemas/IntentType'}
+        variants: {type: array, minItems: 1, uniqueItems: true, items: {type: string, minLength: 1}}
+        id: {type: string, format: uuid}
+        available_actions:
+          type: array
+          items: {type: string, enum: [UPDATE, DELETE]}
+        deletion:
+          anyOf:
+            - {$ref: '#/components/schemas/DeletionProjection'}
+            - {type: 'null'}
+        primary_task: {type: string, const: USE_FOR_OBSERVATION}
+        revision: {type: integer}
+        created_at: {type: string, format: date-time}
+        references: {$ref: '#/components/schemas/QueryTopicReferenceSummary'}
     QueryTopicListPage:
       type: object
       additionalProperties: false
@@ -4281,12 +4308,13 @@ components:
         file_id: {type: string, format: uuid}
         preview: {$ref: '#/components/schemas/SignedUrl'}
     PlatformLogoUpload:
-      allOf:
-        - {$ref: '#/components/schemas/PlatformLogoUploadInput'}
-        - type: object
-          required: [url]
-          properties:
-            url: {type: string, format: uri, minLength: 1, maxLength: 2083}
+      type: object
+      additionalProperties: false
+      required: [source, file_id, url]
+      properties:
+        source: {type: string, const: UPLOAD}
+        file_id: {type: string, format: uuid}
+        url: {type: string, format: uri, minLength: 1, maxLength: 2083}
     PlatformLogoExternal:
       type: object
       additionalProperties: false
@@ -4479,23 +4507,27 @@ components:
         name: {type: string, minLength: 1, maxLength: 300}
         template_markdown: {type: string, minLength: 1}
     PlatformPromptUpdate:
-      allOf:
-        - {$ref: '#/components/schemas/PlatformPromptCreate'}
-        - type: object
-          required: [expected_revision]
-          properties:
-            expected_revision: {type: integer, minimum: 0}
+      type: object
+      additionalProperties: false
+      required: [name, template_markdown, expected_revision]
+      properties:
+        name: {type: string, minLength: 1, maxLength: 300}
+        template_markdown: {type: string, minLength: 1}
+        expected_revision: {type: integer, minimum: 0}
     PlatformPromptListItem:
-      allOf:
-        - {$ref: '#/components/schemas/PlatformPromptReference'}
-        - type: object
-          required: [updated_by, bound_platform_count, available_actions]
-          properties:
-            updated_by: {type: string, format: uuid}
-            bound_platform_count: {type: integer, minimum: 0}
-            available_actions:
-              type: array
-              items: {type: string, enum: [UPDATE, DELETE]}
+      type: object
+      additionalProperties: false
+      required: [id, name, revision, updated_at, updated_by, bound_platform_count, available_actions]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string, minLength: 1, maxLength: 300}
+        revision: {type: integer, minimum: 0}
+        updated_at: {type: string, format: date-time}
+        updated_by: {type: string, format: uuid}
+        bound_platform_count: {type: integer, minimum: 0}
+        available_actions:
+          type: array
+          items: {type: string, enum: [UPDATE, DELETE]}
     PlatformPromptBoundPlatform:
       type: object
       additionalProperties: false
@@ -4505,16 +4537,24 @@ components:
         name: {type: string, minLength: 1, maxLength: 160}
         slug: {type: string}
     PlatformPromptDetail:
-      allOf:
-        - {$ref: '#/components/schemas/PlatformPromptListItem'}
-        - type: object
-          required: [template_markdown, created_at, bound_platforms]
-          properties:
-            template_markdown: {type: string}
-            created_at: {type: string, format: date-time}
-            bound_platforms:
-              type: array
-              items: {$ref: '#/components/schemas/PlatformPromptBoundPlatform'}
+      type: object
+      additionalProperties: false
+      required: [id, name, revision, updated_at, updated_by, bound_platform_count, available_actions, template_markdown, created_at, bound_platforms]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string, minLength: 1, maxLength: 300}
+        revision: {type: integer, minimum: 0}
+        updated_at: {type: string, format: date-time}
+        updated_by: {type: string, format: uuid}
+        bound_platform_count: {type: integer, minimum: 0}
+        available_actions:
+          type: array
+          items: {type: string, enum: [UPDATE, DELETE]}
+        template_markdown: {type: string}
+        created_at: {type: string, format: date-time}
+        bound_platforms:
+          type: array
+          items: {$ref: '#/components/schemas/PlatformPromptBoundPlatform'}
     PlatformPromptList:
       type: object
       additionalProperties: false
@@ -4839,30 +4879,31 @@ components:
             - {$ref: '#/components/schemas/ContentTaskRequestedProduct'}
             - {type: 'null'}
     ContentTask:
-      allOf:
-        - {$ref: '#/components/schemas/ContentTaskCreate'}
-        - type: object
-          required: [id, platform_profile_id, query_topic_id, source_published_content_issue_id, current_content_version_id, workflow_stage, primary_task, available_actions, deletion, status, revision, created_by, created_at, archived_at]
-          properties:
-            id: {type: string, format: uuid}
-            platform_profile_id: {type: [string, 'null'], format: uuid}
-            query_topic_id: {type: [string, 'null'], format: uuid}
-            source_published_content_issue_id: {type: [string, 'null'], format: uuid}
-            current_content_version_id: {type: [string, 'null'], format: uuid}
-            workflow_stage: {type: string, enum: [NO_DRAFT, GENERATING, GENERATION_FAILED, DRAFT, REVIEW_PENDING, CHANGES_REQUESTED, APPROVED, PUBLISHING, VERIFIED, CANCELLED]}
-            primary_task: {type: string, enum: [CREATE_FIRST_DRAFT, VIEW_GENERATION_PROGRESS, HANDLE_GENERATION_FAILURE, EDIT_AND_SUBMIT_REVIEW, REVIEW_CONTENT, REVISE_CONTENT, START_PUBLICATION, CONTINUE_PUBLICATION, VIEW_FULL_LINEAGE, VIEW_CANCELLATION]}
-            available_actions:
-              type: array
-              items: {type: string, enum: [CANCEL, DELETE, ARCHIVE, RESTORE, PERMANENT_DELETE, CREATE_GENERATION_JOB, CREATE_MANUAL_VERSION]}
-            deletion:
-              anyOf:
-                - {$ref: '#/components/schemas/DeletionProjection'}
-                - {type: 'null'}
-            status: {$ref: '#/components/schemas/ContentTaskStatus'}
-            revision: {type: integer}
-            created_by: {type: string, format: uuid}
-            created_at: {type: string, format: date-time}
-            archived_at: {type: [string, 'null'], format: date-time}
+      type: object
+      additionalProperties: false
+      required: [product_id, fact_version_id, platform_profile_id, id, query_topic_id, source_published_content_issue_id, current_content_version_id, workflow_stage, primary_task, available_actions, deletion, status, revision, created_by, created_at, archived_at]
+      properties:
+        product_id: {type: string, format: uuid}
+        fact_version_id: {type: string, format: uuid}
+        platform_profile_id: {type: [string, 'null'], format: uuid}
+        id: {type: string, format: uuid}
+        query_topic_id: {type: [string, 'null'], format: uuid}
+        source_published_content_issue_id: {type: [string, 'null'], format: uuid}
+        current_content_version_id: {type: [string, 'null'], format: uuid}
+        workflow_stage: {type: string, enum: [NO_DRAFT, GENERATING, GENERATION_FAILED, DRAFT, REVIEW_PENDING, CHANGES_REQUESTED, APPROVED, PUBLISHING, VERIFIED, CANCELLED]}
+        primary_task: {type: string, enum: [CREATE_FIRST_DRAFT, VIEW_GENERATION_PROGRESS, HANDLE_GENERATION_FAILURE, EDIT_AND_SUBMIT_REVIEW, REVIEW_CONTENT, REVISE_CONTENT, START_PUBLICATION, CONTINUE_PUBLICATION, VIEW_FULL_LINEAGE, VIEW_CANCELLATION]}
+        available_actions:
+          type: array
+          items: {type: string, enum: [CANCEL, DELETE, ARCHIVE, RESTORE, PERMANENT_DELETE, CREATE_GENERATION_JOB, CREATE_MANUAL_VERSION]}
+        deletion:
+          anyOf:
+            - {$ref: '#/components/schemas/DeletionProjection'}
+            - {type: 'null'}
+        status: {$ref: '#/components/schemas/ContentTaskStatus'}
+        revision: {type: integer}
+        created_by: {type: string, format: uuid}
+        created_at: {type: string, format: date-time}
+        archived_at: {type: [string, 'null'], format: date-time}
     ContentTaskList:
       type: object
       additionalProperties: false
@@ -4904,23 +4945,43 @@ components:
         version: {type: integer, minimum: 1}
         source_type: {type: string, enum: [AI, HUMAN]}
     ContentTaskListItem:
-      allOf:
-        - {$ref: '#/components/schemas/ContentTask'}
-        - type: object
-          required: [identifier, product, platform, current_content, latest_generation_status, updated_at]
-          properties:
-            identifier: {type: string, pattern: '^CT-[0-9A-F]{8}$'}
-            product: {$ref: '#/components/schemas/ContentTaskProductSummary'}
-            platform: {$ref: '#/components/schemas/ContentTaskPlatformSummary'}
-            current_content:
-              anyOf:
-                - {$ref: '#/components/schemas/ContentTaskCurrentContentSummary'}
-                - {type: 'null'}
-            latest_generation_status:
-              anyOf:
-                - {$ref: '#/components/schemas/GenerationJobStatus'}
-                - {type: 'null'}
-            updated_at: {type: string, format: date-time}
+      type: object
+      additionalProperties: false
+      required: [product_id, fact_version_id, platform_profile_id, id, query_topic_id, source_published_content_issue_id, current_content_version_id, workflow_stage, primary_task, available_actions, deletion, status, revision, created_by, created_at, archived_at, identifier, product, platform, current_content, latest_generation_status, updated_at]
+      properties:
+        product_id: {type: string, format: uuid}
+        fact_version_id: {type: string, format: uuid}
+        platform_profile_id: {type: [string, 'null'], format: uuid}
+        id: {type: string, format: uuid}
+        query_topic_id: {type: [string, 'null'], format: uuid}
+        source_published_content_issue_id: {type: [string, 'null'], format: uuid}
+        current_content_version_id: {type: [string, 'null'], format: uuid}
+        workflow_stage: {type: string, enum: [NO_DRAFT, GENERATING, GENERATION_FAILED, DRAFT, REVIEW_PENDING, CHANGES_REQUESTED, APPROVED, PUBLISHING, VERIFIED, CANCELLED]}
+        primary_task: {type: string, enum: [CREATE_FIRST_DRAFT, VIEW_GENERATION_PROGRESS, HANDLE_GENERATION_FAILURE, EDIT_AND_SUBMIT_REVIEW, REVIEW_CONTENT, REVISE_CONTENT, START_PUBLICATION, CONTINUE_PUBLICATION, VIEW_FULL_LINEAGE, VIEW_CANCELLATION]}
+        available_actions:
+          type: array
+          items: {type: string, enum: [CANCEL, DELETE, ARCHIVE, RESTORE, PERMANENT_DELETE, CREATE_GENERATION_JOB, CREATE_MANUAL_VERSION]}
+        deletion:
+          anyOf:
+            - {$ref: '#/components/schemas/DeletionProjection'}
+            - {type: 'null'}
+        status: {$ref: '#/components/schemas/ContentTaskStatus'}
+        revision: {type: integer}
+        created_by: {type: string, format: uuid}
+        created_at: {type: string, format: date-time}
+        archived_at: {type: [string, 'null'], format: date-time}
+        identifier: {type: string, pattern: '^CT-[0-9A-F]{8}$'}
+        product: {$ref: '#/components/schemas/ContentTaskProductSummary'}
+        platform: {$ref: '#/components/schemas/ContentTaskPlatformSummary'}
+        current_content:
+          anyOf:
+            - {$ref: '#/components/schemas/ContentTaskCurrentContentSummary'}
+            - {type: 'null'}
+        latest_generation_status:
+          anyOf:
+            - {$ref: '#/components/schemas/GenerationJobStatus'}
+            - {type: 'null'}
+        updated_at: {type: string, format: date-time}
     ContentTaskDetailTask:
       type: object
       additionalProperties: false
@@ -5444,18 +5505,40 @@ components:
         started_at: {type: [string, 'null'], format: date-time}
         finished_at: {type: [string, 'null'], format: date-time}
     GenerationJobDetail:
-      allOf:
-        - {$ref: '#/components/schemas/GenerationJob'}
-        - type: object
-          required: [input_snapshot]
-          properties:
-            input_snapshot:
-              anyOf:
-                - {$ref: '#/components/schemas/LegacyGenerationSnapshot'}
-                - {$ref: '#/components/schemas/MarkdownGenerationSnapshotV2'}
-                - {$ref: '#/components/schemas/GenerationSnapshot'}
-                - {$ref: '#/components/schemas/LegacyHumanizationSnapshot'}
-                - {$ref: '#/components/schemas/HumanizationSnapshot'}
+      type: object
+      additionalProperties: false
+      required: [id, content_task_id, job_type, source_content_version_id, status, workflow_stage, primary_task, available_actions, attempt_count, created_at, input_snapshot]
+      properties:
+        id: {type: string, format: uuid}
+        content_task_id: {type: string, format: uuid}
+        job_type: {$ref: '#/components/schemas/GenerationJobType'}
+        source_content_version_id: {type: [string, 'null'], format: uuid}
+        status: {$ref: '#/components/schemas/GenerationJobStatus'}
+        workflow_stage: {type: string, enum: [IN_PROGRESS, SUCCEEDED, RETRYABLE_FAILURE, HISTORICAL_FAILURE]}
+        primary_task: {type: string, enum: [VIEW_EXECUTION_PROGRESS, VIEW_GENERATED_CONTENT, HANDLE_FAILURE, VIEW_FAILURE]}
+        available_actions:
+          type: array
+          items: {type: string, enum: [RETRY]}
+        attempt_count: {type: integer}
+        content_version_id: {type: [string, 'null'], format: uuid}
+        retry_of_id: {type: [string, 'null'], format: uuid}
+        error_code: {type: [string, 'null']}
+        error_summary: {type: [string, 'null']}
+        provider_request_id: {type: [string, 'null']}
+        response_duration_ms: {type: [integer, 'null'], minimum: 0}
+        prompt_tokens: {type: [integer, 'null'], minimum: 0}
+        completion_tokens: {type: [integer, 'null'], minimum: 0}
+        total_tokens: {type: [integer, 'null'], minimum: 0}
+        created_at: {type: string, format: date-time}
+        started_at: {type: [string, 'null'], format: date-time}
+        finished_at: {type: [string, 'null'], format: date-time}
+        input_snapshot:
+          anyOf:
+            - {$ref: '#/components/schemas/LegacyGenerationSnapshot'}
+            - {$ref: '#/components/schemas/MarkdownGenerationSnapshotV2'}
+            - {$ref: '#/components/schemas/GenerationSnapshot'}
+            - {$ref: '#/components/schemas/LegacyHumanizationSnapshot'}
+            - {$ref: '#/components/schemas/HumanizationSnapshot'}
     LegacyGenerationSnapshot:
       type: object
       additionalProperties: false
@@ -5960,23 +6043,25 @@ components:
         account_identifier: {type: string, minLength: 1, maxLength: 200}
         expected_revision: {type: integer, minimum: 0}
     PlatformAccount:
-      allOf:
-        - {$ref: '#/components/schemas/PlatformAccountCreate'}
-        - type: object
-          required: [id, is_active, workflow_stage, primary_task, available_actions, deletion, revision]
-          properties:
-            id: {type: string, format: uuid}
-            is_active: {type: boolean}
-            workflow_stage: {type: string, enum: [PLATFORM_DISABLED, ACCOUNT_DISABLED, OPERATIONAL]}
-            primary_task: {type: string, enum: [HANDLE_PLATFORM, ENABLE_ACCOUNT, MANAGE_ACCOUNT]}
-            available_actions:
-              type: array
-              items: {type: string, enum: [UPDATE, ENABLE, DISABLE, DELETE]}
-            deletion:
-              anyOf:
-                - {$ref: '#/components/schemas/DeletionProjection'}
-                - {type: 'null'}
-            revision: {type: integer, minimum: 0}
+      type: object
+      additionalProperties: false
+      required: [platform_profile_id, label, account_identifier, id, is_active, workflow_stage, primary_task, available_actions, deletion, revision]
+      properties:
+        platform_profile_id: {type: string, format: uuid}
+        label: {type: string, minLength: 1, maxLength: 160}
+        account_identifier: {type: string, minLength: 1, maxLength: 200}
+        id: {type: string, format: uuid}
+        is_active: {type: boolean}
+        workflow_stage: {type: string, enum: [PLATFORM_DISABLED, ACCOUNT_DISABLED, OPERATIONAL]}
+        primary_task: {type: string, enum: [HANDLE_PLATFORM, ENABLE_ACCOUNT, MANAGE_ACCOUNT]}
+        available_actions:
+          type: array
+          items: {type: string, enum: [UPDATE, ENABLE, DISABLE, DELETE]}
+        deletion:
+          anyOf:
+            - {$ref: '#/components/schemas/DeletionProjection'}
+            - {type: 'null'}
+        revision: {type: integer, minimum: 0}
     PlatformAccountList:
       type: object
       additionalProperties: false
@@ -7833,12 +7918,13 @@ components:
         id: {type: string, format: uuid}
         label: {type: string}
     GeoInsightPublicationOption:
-      allOf:
-        - {$ref: '#/components/schemas/GeoInsightOption'}
-        - type: object
-          required: [platform_name]
-          properties:
-            platform_name: {type: string}
+      type: object
+      additionalProperties: false
+      required: [id, label, platform_name]
+      properties:
+        id: {type: string, format: uuid}
+        label: {type: string}
+        platform_name: {type: string}
     GeoInsightFilterOptions:
       type: object
       additionalProperties: false
@@ -7858,12 +7944,14 @@ components:
         denominator: {type: integer, minimum: 0}
         value: {type: [number, 'null'], minimum: 0, maximum: 1}
     GeoInsightRatePoint:
-      allOf:
-        - {$ref: '#/components/schemas/GeoInsightRateValue'}
-        - type: object
-          required: [date]
-          properties:
-            date: {type: string, format: date}
+      type: object
+      additionalProperties: false
+      required: [numerator, denominator, value, date]
+      properties:
+        numerator: {type: integer, minimum: 0}
+        denominator: {type: integer, minimum: 0}
+        value: {type: [number, 'null'], minimum: 0, maximum: 1}
+        date: {type: string, format: date}
     GeoInsightRateTrend:
       type: object
       additionalProperties: false
@@ -7932,20 +8020,46 @@ components:
         previous_value: {type: number, minimum: 0, maximum: 1}
         decline: {type: number, minimum: 0, maximum: 1}
     GeoInsightDecliningContent:
-      allOf:
-        - {$ref: '#/components/schemas/GeoInsightContentPerformance'}
-        - type: object
-          required: [basis]
-          properties:
-            basis: {type: array, items: {$ref: '#/components/schemas/GeoInsightDeclineBasis'}}
+      type: object
+      additionalProperties: false
+      required: [published_article_id, product_id, content_platform_id, title, content_platform, observation_count, discovery_rate, mention_rate, accuracy_rate, primary_task, optimization_action, basis]
+      properties:
+        published_article_id: {type: string, format: uuid}
+        product_id: {type: string, format: uuid}
+        content_platform_id: {type: string, format: uuid}
+        title: {type: string}
+        content_platform: {type: string}
+        observation_count: {type: integer, minimum: 0}
+        discovery_rate: {$ref: '#/components/schemas/GeoInsightRateValue'}
+        mention_rate: {$ref: '#/components/schemas/GeoInsightRateValue'}
+        accuracy_rate: {$ref: '#/components/schemas/GeoInsightRateValue'}
+        primary_task: {type: string, enum: [VIEW_CONTENT_PERFORMANCE, CREATE_OPTIMIZATION_TASK]}
+        optimization_action:
+          anyOf:
+            - {$ref: '#/components/schemas/GeoInsightOptimizationAction'}
+            - {type: 'null'}
+        basis: {type: array, items: {$ref: '#/components/schemas/GeoInsightDeclineBasis'}}
     GeoInsightLongUnmentionedContent:
-      allOf:
-        - {$ref: '#/components/schemas/GeoInsightContentPerformance'}
-        - type: object
-          required: [unmentioned_days, last_mentioned_at]
-          properties:
-            unmentioned_days: {type: integer, minimum: 0}
-            last_mentioned_at: {type: [string, 'null'], format: date-time}
+      type: object
+      additionalProperties: false
+      required: [published_article_id, product_id, content_platform_id, title, content_platform, observation_count, discovery_rate, mention_rate, accuracy_rate, primary_task, optimization_action, unmentioned_days, last_mentioned_at]
+      properties:
+        published_article_id: {type: string, format: uuid}
+        product_id: {type: string, format: uuid}
+        content_platform_id: {type: string, format: uuid}
+        title: {type: string}
+        content_platform: {type: string}
+        observation_count: {type: integer, minimum: 0}
+        discovery_rate: {$ref: '#/components/schemas/GeoInsightRateValue'}
+        mention_rate: {$ref: '#/components/schemas/GeoInsightRateValue'}
+        accuracy_rate: {$ref: '#/components/schemas/GeoInsightRateValue'}
+        primary_task: {type: string, enum: [VIEW_CONTENT_PERFORMANCE, CREATE_OPTIMIZATION_TASK]}
+        optimization_action:
+          anyOf:
+            - {$ref: '#/components/schemas/GeoInsightOptimizationAction'}
+            - {type: 'null'}
+        unmentioned_days: {type: integer, minimum: 0}
+        last_mentioned_at: {type: [string, 'null'], format: date-time}
     GeoInsightContentRankings:
       type: object
       additionalProperties: false

@@ -2264,7 +2264,22 @@ export interface components {
             page_size: number;
             total: number;
         };
-        AuditLogDetail: components["schemas"]["AuditLog"] & {
+        AuditLogDetail: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            actor_id: string | null;
+            actor: components["schemas"]["AuditActor"] | null;
+            business_module: components["schemas"]["AuditModule"];
+            action: string;
+            target_type: string;
+            target_id: string | null;
+            outcome: components["schemas"]["AuditOutcome"];
+            /** @constant */
+            primary_task: "VIEW_LOG_DETAIL";
+            request_id: string;
+            /** Format: date-time */
+            created_at: string;
             changes: components["schemas"]["AuditChange"][];
             facts: {
                 [key: string]: components["schemas"]["AuditSafeValue"];
@@ -2536,7 +2551,10 @@ export interface components {
             intent_type: components["schemas"]["IntentType"];
             variants: string[];
         };
-        QueryTopic: components["schemas"]["QueryTopicCreate"] & {
+        QueryTopic: {
+            canonical_question: string;
+            intent_type: components["schemas"]["IntentType"];
+            variants: string[];
             /** Format: uuid */
             id: string;
             available_actions: ("UPDATE" | "DELETE")[];
@@ -2557,7 +2575,19 @@ export interface components {
             geo_optimization_count: number;
             observation_count: number;
         };
-        QueryTopicListItem: components["schemas"]["QueryTopic"] & {
+        QueryTopicListItem: {
+            canonical_question: string;
+            intent_type: components["schemas"]["IntentType"];
+            variants: string[];
+            /** Format: uuid */
+            id: string;
+            available_actions: ("UPDATE" | "DELETE")[];
+            deletion: components["schemas"]["DeletionProjection"] | null;
+            /** @constant */
+            primary_task: "USE_FOR_OBSERVATION";
+            revision: number;
+            /** Format: date-time */
+            created_at: string;
             references: components["schemas"]["QueryTopicReferenceSummary"];
         };
         QueryTopicListPage: {
@@ -2606,15 +2636,16 @@ export interface components {
             file_id: string;
             preview: components["schemas"]["SignedUrl"];
         };
-        PlatformLogoUpload: components["schemas"]["PlatformLogoUploadInput"] & {
-            /** Format: uri */
-            url: string;
-        } & {
+        PlatformLogoUpload: {
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
             source: "UPLOAD";
+            /** Format: uuid */
+            file_id: string;
+            /** Format: uri */
+            url: string;
         };
         PlatformLogoExternal: {
             /**
@@ -2760,10 +2791,18 @@ export interface components {
             name: string;
             template_markdown: string;
         };
-        PlatformPromptUpdate: components["schemas"]["PlatformPromptCreate"] & {
+        PlatformPromptUpdate: {
+            name: string;
+            template_markdown: string;
             expected_revision: number;
         };
-        PlatformPromptListItem: components["schemas"]["PlatformPromptReference"] & {
+        PlatformPromptListItem: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            revision: number;
+            /** Format: date-time */
+            updated_at: string;
             /** Format: uuid */
             updated_by: string;
             bound_platform_count: number;
@@ -2775,7 +2814,17 @@ export interface components {
             name: string;
             slug: string;
         };
-        PlatformPromptDetail: components["schemas"]["PlatformPromptListItem"] & {
+        PlatformPromptDetail: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            revision: number;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: uuid */
+            updated_by: string;
+            bound_platform_count: number;
+            available_actions: ("UPDATE" | "DELETE")[];
             template_markdown: string;
             /** Format: date-time */
             created_at: string;
@@ -3049,11 +3098,15 @@ export interface components {
             platforms: components["schemas"]["ContentTaskCreationPlatformOption"][];
             requested_product: components["schemas"]["ContentTaskRequestedProduct"] | null;
         };
-        ContentTask: components["schemas"]["ContentTaskCreate"] & {
+        ContentTask: {
             /** Format: uuid */
-            id: string;
+            product_id: string;
+            /** Format: uuid */
+            fact_version_id: string;
             /** Format: uuid */
             platform_profile_id: string | null;
+            /** Format: uuid */
+            id: string;
             /** Format: uuid */
             query_topic_id: string | null;
             /** Format: uuid */
@@ -3104,7 +3157,35 @@ export interface components {
             /** @enum {string} */
             source_type: "AI" | "HUMAN";
         };
-        ContentTaskListItem: components["schemas"]["ContentTask"] & {
+        ContentTaskListItem: {
+            /** Format: uuid */
+            product_id: string;
+            /** Format: uuid */
+            fact_version_id: string;
+            /** Format: uuid */
+            platform_profile_id: string | null;
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            query_topic_id: string | null;
+            /** Format: uuid */
+            source_published_content_issue_id: string | null;
+            /** Format: uuid */
+            current_content_version_id: string | null;
+            /** @enum {string} */
+            workflow_stage: "NO_DRAFT" | "GENERATING" | "GENERATION_FAILED" | "DRAFT" | "REVIEW_PENDING" | "CHANGES_REQUESTED" | "APPROVED" | "PUBLISHING" | "VERIFIED" | "CANCELLED";
+            /** @enum {string} */
+            primary_task: "CREATE_FIRST_DRAFT" | "VIEW_GENERATION_PROGRESS" | "HANDLE_GENERATION_FAILURE" | "EDIT_AND_SUBMIT_REVIEW" | "REVIEW_CONTENT" | "REVISE_CONTENT" | "START_PUBLICATION" | "CONTINUE_PUBLICATION" | "VIEW_FULL_LINEAGE" | "VIEW_CANCELLATION";
+            available_actions: ("CANCEL" | "DELETE" | "ARCHIVE" | "RESTORE" | "PERMANENT_DELETE" | "CREATE_GENERATION_JOB" | "CREATE_MANUAL_VERSION")[];
+            deletion: components["schemas"]["DeletionProjection"] | null;
+            status: components["schemas"]["ContentTaskStatus"];
+            revision: number;
+            /** Format: uuid */
+            created_by: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            archived_at: string | null;
             identifier: string;
             product: components["schemas"]["ContentTaskProductSummary"];
             platform: components["schemas"]["ContentTaskPlatformSummary"];
@@ -3512,7 +3593,38 @@ export interface components {
             /** Format: date-time */
             finished_at?: string | null;
         };
-        GenerationJobDetail: components["schemas"]["GenerationJob"] & {
+        GenerationJobDetail: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            content_task_id: string;
+            job_type: components["schemas"]["GenerationJobType"];
+            /** Format: uuid */
+            source_content_version_id: string | null;
+            status: components["schemas"]["GenerationJobStatus"];
+            /** @enum {string} */
+            workflow_stage: "IN_PROGRESS" | "SUCCEEDED" | "RETRYABLE_FAILURE" | "HISTORICAL_FAILURE";
+            /** @enum {string} */
+            primary_task: "VIEW_EXECUTION_PROGRESS" | "VIEW_GENERATED_CONTENT" | "HANDLE_FAILURE" | "VIEW_FAILURE";
+            available_actions: "RETRY"[];
+            attempt_count: number;
+            /** Format: uuid */
+            content_version_id?: string | null;
+            /** Format: uuid */
+            retry_of_id?: string | null;
+            error_code?: string | null;
+            error_summary?: string | null;
+            provider_request_id?: string | null;
+            response_duration_ms?: number | null;
+            prompt_tokens?: number | null;
+            completion_tokens?: number | null;
+            total_tokens?: number | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            started_at?: string | null;
+            /** Format: date-time */
+            finished_at?: string | null;
             input_snapshot: components["schemas"]["LegacyGenerationSnapshot"] | components["schemas"]["MarkdownGenerationSnapshotV2"] | components["schemas"]["GenerationSnapshot"] | components["schemas"]["LegacyHumanizationSnapshot"] | components["schemas"]["HumanizationSnapshot"];
         };
         LegacyGenerationSnapshot: {
@@ -3947,7 +4059,11 @@ export interface components {
             account_identifier: string;
             expected_revision: number;
         };
-        PlatformAccount: components["schemas"]["PlatformAccountCreate"] & {
+        PlatformAccount: {
+            /** Format: uuid */
+            platform_profile_id: string;
+            label: string;
+            account_identifier: string;
             /** Format: uuid */
             id: string;
             is_active: boolean;
@@ -5054,7 +5170,10 @@ export interface components {
             id: string;
             label: string;
         };
-        GeoInsightPublicationOption: components["schemas"]["GeoInsightOption"] & {
+        GeoInsightPublicationOption: {
+            /** Format: uuid */
+            id: string;
+            label: string;
             platform_name: string;
         };
         GeoInsightFilterOptions: {
@@ -5069,7 +5188,10 @@ export interface components {
             denominator: number;
             value: number | null;
         };
-        GeoInsightRatePoint: components["schemas"]["GeoInsightRateValue"] & {
+        GeoInsightRatePoint: {
+            numerator: number;
+            denominator: number;
+            value: number | null;
             /** Format: date */
             date: string;
         };
@@ -5130,10 +5252,40 @@ export interface components {
             previous_value: number;
             decline: number;
         };
-        GeoInsightDecliningContent: components["schemas"]["GeoInsightContentPerformance"] & {
+        GeoInsightDecliningContent: {
+            /** Format: uuid */
+            published_article_id: string;
+            /** Format: uuid */
+            product_id: string;
+            /** Format: uuid */
+            content_platform_id: string;
+            title: string;
+            content_platform: string;
+            observation_count: number;
+            discovery_rate: components["schemas"]["GeoInsightRateValue"];
+            mention_rate: components["schemas"]["GeoInsightRateValue"];
+            accuracy_rate: components["schemas"]["GeoInsightRateValue"];
+            /** @enum {string} */
+            primary_task: "VIEW_CONTENT_PERFORMANCE" | "CREATE_OPTIMIZATION_TASK";
+            optimization_action: components["schemas"]["GeoInsightOptimizationAction"] | null;
             basis: components["schemas"]["GeoInsightDeclineBasis"][];
         };
-        GeoInsightLongUnmentionedContent: components["schemas"]["GeoInsightContentPerformance"] & {
+        GeoInsightLongUnmentionedContent: {
+            /** Format: uuid */
+            published_article_id: string;
+            /** Format: uuid */
+            product_id: string;
+            /** Format: uuid */
+            content_platform_id: string;
+            title: string;
+            content_platform: string;
+            observation_count: number;
+            discovery_rate: components["schemas"]["GeoInsightRateValue"];
+            mention_rate: components["schemas"]["GeoInsightRateValue"];
+            accuracy_rate: components["schemas"]["GeoInsightRateValue"];
+            /** @enum {string} */
+            primary_task: "VIEW_CONTENT_PERFORMANCE" | "CREATE_OPTIMIZATION_TASK";
+            optimization_action: components["schemas"]["GeoInsightOptimizationAction"] | null;
             unmentioned_days: number;
             /** Format: date-time */
             last_mentioned_at: string | null;

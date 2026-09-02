@@ -432,3 +432,34 @@
 ### Next Steps
 
 - 恢复 09-01-runtime-response-metadata-wave-1，在已修复 authority 上继续 Phase C metadata 对齐。
+
+
+## Session 196: 完成运行时 Response Metadata Wave 1
+
+**Date**: 2026-09-02
+**Task**: 完成运行时 Response Metadata Wave 1
+**Branch**: `main`
+
+### Summary
+
+恢复并完成 foundation、configuration、identity、files 共 61 个 operation 的运行时 response metadata；required validation 与独立 review 通过，Task 已归档。
+
+### Main Changes
+
+- 建立唯一 ErrorEnvelope wire schema 与显式 error_responses metadata helper。
+- 按 authority matrix 对齐 Wave 1 的逐 operation status、422、特殊 5xx 与 CSV metadata。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `377570a` | (see git log) |
+
+### Testing
+
+- [OK] Wave 1 聚焦测试 128 passed；行为 sentinels 6 passed；contract comparator tests 48 passed。
+- [OK] ruff、mypy、默认合同 gate、Task/whitespace/scope gates 全部通过；全局 response report 按预期 rc=1。
+
+### Status
+
+[OK] **Completed**

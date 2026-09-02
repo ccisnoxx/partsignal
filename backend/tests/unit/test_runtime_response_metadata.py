@@ -1,4 +1,4 @@
-"""Wave 1 路由运行时 response metadata 与冻结合同的逐操作校验。"""
+"""Wave 1/2 路由运行时 response metadata 与冻结合同的逐操作校验。"""
 
 from __future__ import annotations
 
@@ -145,6 +145,195 @@ WAVE_1_GROUPS = {
     },
 }
 
+WAVE_2_OPERATION_IDS = (
+    "listProducts",
+    "createProduct",
+    "getProduct",
+    "getProductDetail",
+    "updateProduct",
+    "deleteProduct",
+    "getProductFactsDraft",
+    "replaceProductFactsDraft",
+    "listProductFactHistory",
+    "listFactVersions",
+    "submitProductFactReview",
+    "getProductFactReviewContext",
+    "getFactVersion",
+    "deleteFactVersion",
+    "getFactReviewContext",
+    "approveFactVersion",
+    "requestFactVersionChanges",
+    "retireFactVersion",
+    "listQueryTopics",
+    "listQueryTopicItems",
+    "createQueryTopic",
+    "updateQueryTopic",
+    "deleteQueryTopic",
+    "listPlatformProfiles",
+    "createPlatformProfile",
+    "listContentTasks",
+    "createContentTask",
+    "getContentTaskCreationOptions",
+    "getContentTask",
+    "getContentTaskDetail",
+    "getContentEditorContext",
+    "deleteContentTask",
+    "cancelContentTask",
+    "archiveContentTask",
+    "restoreContentTask",
+    "getContentTaskPermanentDeletionPreview",
+    "permanentlyDeleteContentTask",
+    "getContentTaskGenerationOptions",
+    "getPlatformPromptPreviewOptions",
+    "createGenerationJob",
+    "createHumanizationJob",
+    "listGenerationJobs",
+    "getGenerationJob",
+    "retryGenerationJob",
+    "listContentTaskVersions",
+    "createManualContentVersion",
+    "getContentVersion",
+    "getContentVersionDetail",
+    "updateContentDraft",
+    "deleteContentDraft",
+    "getContentTaskReviewContext",
+    "getContentReviewContext",
+    "createContentRevision",
+    "abandonContentVersion",
+    "submitContentVersion",
+    "approveContentVersion",
+    "requestContentVersionChanges",
+    "compareContentVersions",
+)
+
+WAVE_2_GROUPS = {
+    "product_facts": {
+        "listProducts",
+        "createProduct",
+        "getProduct",
+        "getProductDetail",
+        "updateProduct",
+        "deleteProduct",
+        "getProductFactsDraft",
+        "replaceProductFactsDraft",
+        "listProductFactHistory",
+        "listFactVersions",
+        "submitProductFactReview",
+        "getProductFactReviewContext",
+        "getFactVersion",
+        "deleteFactVersion",
+        "getFactReviewContext",
+        "approveFactVersion",
+        "requestFactVersionChanges",
+        "retireFactVersion",
+    },
+    "planning": {
+        "listQueryTopics",
+        "listQueryTopicItems",
+        "createQueryTopic",
+        "updateQueryTopic",
+        "deleteQueryTopic",
+        "listPlatformProfiles",
+        "createPlatformProfile",
+        "listContentTasks",
+        "createContentTask",
+        "getContentTaskCreationOptions",
+        "getContentTask",
+        "getContentTaskDetail",
+        "getContentEditorContext",
+        "deleteContentTask",
+        "cancelContentTask",
+        "archiveContentTask",
+        "restoreContentTask",
+        "getContentTaskPermanentDeletionPreview",
+        "permanentlyDeleteContentTask",
+    },
+    "production": {
+        "getContentTaskGenerationOptions",
+        "getPlatformPromptPreviewOptions",
+        "createGenerationJob",
+        "createHumanizationJob",
+        "listGenerationJobs",
+        "getGenerationJob",
+        "retryGenerationJob",
+        "listContentTaskVersions",
+        "createManualContentVersion",
+        "getContentVersion",
+        "getContentVersionDetail",
+        "updateContentDraft",
+        "deleteContentDraft",
+        "getContentTaskReviewContext",
+        "getContentReviewContext",
+        "createContentRevision",
+        "abandonContentVersion",
+        "submitContentVersion",
+        "approveContentVersion",
+        "requestContentVersionChanges",
+        "compareContentVersions",
+    },
+}
+
+WAVE_2_EXPECTED_STATUSES = {
+    "listProducts": {"200", "401", "403", "422"},
+    "createProduct": {"201", "401", "403", "409", "422"},
+    "getProduct": {"200", "401", "403", "404", "422"},
+    "getProductDetail": {"200", "401", "403", "404", "422"},
+    "updateProduct": {"200", "401", "403", "404", "409", "422"},
+    "deleteProduct": {"204", "401", "403", "404", "409", "422"},
+    "getProductFactsDraft": {"200", "401", "403", "404", "422"},
+    "replaceProductFactsDraft": {"200", "401", "403", "404", "409", "422"},
+    "listProductFactHistory": {"200", "401", "403", "404", "422"},
+    "listFactVersions": {"200", "401", "403", "404", "422"},
+    "submitProductFactReview": {"201", "401", "403", "404", "409", "422"},
+    "getProductFactReviewContext": {"200", "401", "403", "404", "422"},
+    "getFactVersion": {"200", "401", "403", "404", "422"},
+    "deleteFactVersion": {"204", "401", "403", "404", "409", "422"},
+    "getFactReviewContext": {"200", "401", "403", "404", "422"},
+    "approveFactVersion": {"200", "401", "403", "404", "409", "422"},
+    "requestFactVersionChanges": {"200", "401", "403", "404", "409", "422"},
+    "retireFactVersion": {"200", "401", "403", "404", "409", "422"},
+    "listQueryTopics": {"200", "401", "403"},
+    "listQueryTopicItems": {"200", "401", "403", "422"},
+    "createQueryTopic": {"201", "401", "403", "422"},
+    "updateQueryTopic": {"200", "401", "403", "404", "409", "422"},
+    "deleteQueryTopic": {"204", "401", "403", "404", "409", "422"},
+    "listPlatformProfiles": {"200", "401", "403", "422"},
+    "createPlatformProfile": {"201", "401", "403", "404", "409", "422"},
+    "listContentTasks": {"200", "401", "403", "422"},
+    "createContentTask": {"201", "401", "403", "404", "409", "422"},
+    "getContentTaskCreationOptions": {"200", "401", "403", "422"},
+    "getContentTask": {"200", "401", "403", "404", "422"},
+    "getContentTaskDetail": {"200", "401", "403", "404", "422"},
+    "getContentEditorContext": {"200", "401", "403", "404", "409", "422"},
+    "deleteContentTask": {"204", "401", "403", "404", "409", "422"},
+    "cancelContentTask": {"200", "401", "403", "404", "409", "422"},
+    "archiveContentTask": {"200", "401", "403", "404", "409", "422"},
+    "restoreContentTask": {"200", "401", "403", "404", "409", "422"},
+    "getContentTaskPermanentDeletionPreview": {"200", "401", "403", "404", "409", "422"},
+    "permanentlyDeleteContentTask": {"204", "401", "403", "404", "409", "422"},
+    "getContentTaskGenerationOptions": {"200", "401", "403", "404", "409", "422"},
+    "getPlatformPromptPreviewOptions": {"200", "401", "403", "404", "422"},
+    "createGenerationJob": {"202", "401", "403", "404", "409", "422"},
+    "createHumanizationJob": {"202", "401", "403", "404", "409", "422"},
+    "listGenerationJobs": {"200", "401", "403", "404", "422"},
+    "getGenerationJob": {"200", "401", "403", "404", "422"},
+    "retryGenerationJob": {"202", "401", "403", "404", "409", "422"},
+    "listContentTaskVersions": {"200", "401", "403", "404", "422"},
+    "createManualContentVersion": {"201", "401", "403", "404", "409", "422"},
+    "getContentVersion": {"200", "401", "403", "404", "422"},
+    "getContentVersionDetail": {"200", "401", "403", "404", "409", "422"},
+    "updateContentDraft": {"200", "401", "403", "404", "409", "422"},
+    "deleteContentDraft": {"204", "401", "403", "404", "409", "422"},
+    "getContentTaskReviewContext": {"200", "401", "403", "404", "409", "422"},
+    "getContentReviewContext": {"200", "401", "403", "404", "409", "422"},
+    "createContentRevision": {"201", "401", "403", "404", "409", "422"},
+    "abandonContentVersion": {"200", "401", "403", "404", "409", "422"},
+    "submitContentVersion": {"200", "401", "403", "404", "409", "422"},
+    "approveContentVersion": {"200", "401", "403", "404", "409", "422"},
+    "requestContentVersionChanges": {"200", "401", "403", "404", "409", "422"},
+    "compareContentVersions": {"200", "401", "403", "404", "422"},
+}
+
 
 def _contract_document() -> dict[str, Any]:
     path = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
@@ -160,19 +349,21 @@ def _operation_map(document: dict[str, Any]) -> dict[str, dict[str, Any]]:
     }
 
 
-def _wave_projection(document: dict[str, Any]) -> dict[str, Any]:
+def _wave_projection(
+    document: dict[str, Any], operation_ids: tuple[str, ...]
+) -> dict[str, Any]:
     projected = deepcopy(document)
     projected["paths"] = {
         path: {
             method: operation
             for method, operation in path_item.items()
             if isinstance(operation, dict)
-            and operation.get("operationId") in WAVE_1_OPERATION_IDS
+            and operation.get("operationId") in operation_ids
         }
         for path, path_item in document["paths"].items()
         if any(
             isinstance(operation, dict)
-            and operation.get("operationId") in WAVE_1_OPERATION_IDS
+            and operation.get("operationId") in operation_ids
             for operation in path_item.values()
         )
     }
@@ -203,6 +394,23 @@ def test_wave_1_inventory_is_complete(
     assert set(WAVE_1_OPERATION_IDS) <= set(runtime)
 
 
+def test_wave_2_inventory_is_complete(
+    wave_operations: tuple[dict[str, Any], dict[str, Any]]
+) -> None:
+    contract, runtime = wave_operations
+    assert len(WAVE_2_OPERATION_IDS) == 58
+    assert len(set(WAVE_2_OPERATION_IDS)) == 58
+    assert {name: len(ids) for name, ids in WAVE_2_GROUPS.items()} == {
+        "product_facts": 18,
+        "planning": 19,
+        "production": 21,
+    }
+    assert set().union(*WAVE_2_GROUPS.values()) == set(WAVE_2_OPERATION_IDS)
+    assert set(WAVE_2_EXPECTED_STATUSES) == set(WAVE_2_OPERATION_IDS)
+    assert set(WAVE_2_OPERATION_IDS) <= set(contract)
+    assert set(WAVE_2_OPERATION_IDS) <= set(runtime)
+
+
 @pytest.mark.parametrize("operation_id", WAVE_1_OPERATION_IDS)
 def test_each_wave_operation_has_exact_frozen_response_statuses(
     operation_id: str, wave_operations: tuple[dict[str, Any], dict[str, Any]]
@@ -211,11 +419,72 @@ def test_each_wave_operation_has_exact_frozen_response_statuses(
     assert set(runtime[operation_id]["responses"]) == set(contract[operation_id]["responses"])
 
 
+@pytest.mark.parametrize("operation_id", WAVE_2_OPERATION_IDS)
+def test_each_wave_2_operation_has_explicit_expected_response_statuses(
+    operation_id: str, wave_operations: tuple[dict[str, Any], dict[str, Any]]
+) -> None:
+    contract, runtime = wave_operations
+    expected = WAVE_2_EXPECTED_STATUSES[operation_id]
+    assert set(contract[operation_id]["responses"]) == expected
+    assert set(runtime[operation_id]["responses"]) == expected
+
+
 def test_wave_response_comparator_has_no_differences() -> None:
-    contract = _wave_projection(_contract_document())
-    runtime = _wave_projection(app.openapi())
-    failures = compare_response_contracts(contract, runtime)
+    failures = compare_response_contracts(
+        _wave_projection(_contract_document(), WAVE_1_OPERATION_IDS),
+        _wave_projection(app.openapi(), WAVE_1_OPERATION_IDS),
+    )
     assert failures == []
+
+
+def test_wave_2_response_comparator_has_no_differences() -> None:
+    failures = compare_response_contracts(
+        _wave_projection(_contract_document(), WAVE_2_OPERATION_IDS),
+        _wave_projection(app.openapi(), WAVE_2_OPERATION_IDS),
+    )
+    assert failures == []
+
+
+@pytest.mark.parametrize("operation_id", WAVE_2_OPERATION_IDS)
+def test_wave_2_error_statuses_use_project_error_envelope(
+    operation_id: str, wave_operations: tuple[dict[str, Any], dict[str, Any]]
+) -> None:
+    _, runtime = wave_operations
+    expected_statuses = WAVE_2_EXPECTED_STATUSES[operation_id]
+    responses = runtime[operation_id]["responses"]
+    error_statuses = expected_statuses - {"200", "201", "202", "204"}
+    for status_code in error_statuses:
+        assert responses[status_code]["content"]["application/json"]["schema"] == {
+            "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+    if operation_id == "listQueryTopics":
+        assert "422" not in responses
+        assert "4XX" not in responses
+        assert "default" not in responses
+    else:
+        assert responses["422"]["content"]["application/json"]["schema"] == {
+            "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+
+
+def test_wave_2_success_occurrences_and_response_boundaries(
+    wave_operations: tuple[dict[str, Any], dict[str, Any]]
+) -> None:
+    _, runtime = wave_operations
+    success_occurrences = {
+        status_code: sum(
+            status_code in WAVE_2_EXPECTED_STATUSES[operation_id]
+            for operation_id in WAVE_2_OPERATION_IDS
+        )
+        for status_code in ("200", "201", "202", "204")
+    }
+    assert success_occurrences == {"200": 42, "201": 7, "202": 3, "204": 6}
+    for operation_id in WAVE_2_OPERATION_IDS:
+        responses = runtime[operation_id]["responses"]
+        assert not {code for code in responses if code.startswith("5")}
+        assert all("headers" not in response for response in responses.values())
+        if "204" in WAVE_2_EXPECTED_STATUSES[operation_id]:
+            assert "content" not in responses["204"]
 
 
 @pytest.mark.parametrize("operation_id", WAVE_1_OPERATION_IDS)

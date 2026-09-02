@@ -10,7 +10,7 @@ from pydantic import BeforeValidator
 from sqlalchemy import select
 
 from app.deps import AdminUser, CsrfProtected, CurrentUser, DbSession, EngineerUser
-from app.errors import not_found
+from app.errors import error_responses, not_found
 from app.models.configuration import QueryTopic
 from app.models.content import ContentTask
 from app.schemas.common import CommandRequest, RevisionRequest
@@ -89,7 +89,12 @@ def _content_task_read_snapshot(db: DbSession) -> None:
     db.connection(execution_options={"isolation_level": "REPEATABLE READ"})
 
 
-@router.get("/query-topics", response_model=QueryTopicList, operation_id="listQueryTopics")
+@router.get(
+    "/query-topics",
+    response_model=QueryTopicList,
+    operation_id="listQueryTopics",
+    responses=error_responses(401, 403),
+)
 def list_query_topics(db: DbSession, user: CurrentUser) -> QueryTopicList:
     topics = list(db.scalars(select(QueryTopic).order_by(QueryTopic.created_at)))
     return QueryTopicList(
@@ -101,6 +106,7 @@ def list_query_topics(db: DbSession, user: CurrentUser) -> QueryTopicList:
     "/query-topics/list-items",
     response_model=QueryTopicListPage,
     operation_id="listQueryTopicItems",
+    responses=error_responses(401, 403, 422),
 )
 def list_query_topic_items(
     db: DbSession,
@@ -126,6 +132,7 @@ def list_query_topic_items(
     response_model=QueryTopicOut,
     status_code=status.HTTP_201_CREATED,
     operation_id="createQueryTopic",
+    responses=error_responses(401, 403, 422),
 )
 def create_query_topic(
     payload: QueryTopicCreate,
@@ -144,6 +151,7 @@ def create_query_topic(
     "/query-topics/{query_topic_id}",
     response_model=QueryTopicOut,
     operation_id="updateQueryTopic",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def update_query_topic(
     query_topic_id: uuid.UUID,
@@ -167,6 +175,7 @@ def update_query_topic(
     "/query-topics/{query_topic_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     operation_id="deleteQueryTopic",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def delete_query_topic(
     query_topic_id: uuid.UUID,
@@ -187,7 +196,10 @@ def delete_query_topic(
 
 
 @router.get(
-    "/platform-profiles", response_model=PlatformProfileList, operation_id="listPlatformProfiles"
+    "/platform-profiles",
+    response_model=PlatformProfileList,
+    operation_id="listPlatformProfiles",
+    responses=error_responses(401, 403, 422),
 )
 def list_platform_profiles(
     db: DbSession,
@@ -218,6 +230,7 @@ def list_platform_profiles(
     response_model=PlatformProfileOut,
     status_code=status.HTTP_201_CREATED,
     operation_id="createPlatformProfile",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def create_platform_profile(
     payload: PlatformProfileCreate,
@@ -232,7 +245,12 @@ def create_platform_profile(
     return platform_profile_out(db, profile, can_manage=True)
 
 
-@router.get("/content-tasks", response_model=ContentTaskList, operation_id="listContentTasks")
+@router.get(
+    "/content-tasks",
+    response_model=ContentTaskList,
+    operation_id="listContentTasks",
+    responses=error_responses(401, 403, 422),
+)
 def list_content_tasks(
     db: DbSession,
     user: CurrentUser,
@@ -268,6 +286,7 @@ def list_content_tasks(
     response_model=ContentTaskOut,
     status_code=status.HTTP_201_CREATED,
     operation_id="createContentTask",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def create_content_task(
     payload: ContentTaskCreate,
@@ -292,6 +311,7 @@ def create_content_task(
     response_model=ContentTaskCreationOptions,
     operation_id="getContentTaskCreationOptions",
     dependencies=[Depends(_content_task_read_snapshot)],
+    responses=error_responses(401, 403, 422),
 )
 def get_content_task_creation_options(
     db: DbSession,
@@ -305,6 +325,7 @@ def get_content_task_creation_options(
     "/content-tasks/{content_task_id}",
     response_model=ContentTaskOut,
     operation_id="getContentTask",
+    responses=error_responses(401, 403, 404, 422),
 )
 def get_content_task(
     content_task_id: uuid.UUID, db: DbSession, user: CurrentUser
@@ -320,6 +341,7 @@ def get_content_task(
     response_model=ContentTaskDetail,
     operation_id="getContentTaskDetail",
     dependencies=[Depends(_content_task_read_snapshot)],
+    responses=error_responses(401, 403, 404, 422),
 )
 def get_content_task_detail(
     content_task_id: uuid.UUID,
@@ -334,6 +356,7 @@ def get_content_task_detail(
     response_model=ContentEditorContext,
     operation_id="getContentEditorContext",
     dependencies=[Depends(_content_task_read_snapshot)],
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def get_content_editor_context(
     content_task_id: uuid.UUID,
@@ -348,6 +371,7 @@ def get_content_editor_context(
     "/content-tasks/{content_task_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     operation_id="deleteContentTask",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def delete_content_task(
     content_task_id: uuid.UUID,
@@ -371,6 +395,7 @@ def delete_content_task(
     "/content-tasks/{content_task_id}/cancel",
     response_model=ContentTaskOut,
     operation_id="cancelContentTask",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def cancel_content_task(
     content_task_id: uuid.UUID,
@@ -395,6 +420,7 @@ def cancel_content_task(
     "/content-tasks/{content_task_id}/archive",
     response_model=ContentTaskOut,
     operation_id="archiveContentTask",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def archive_content_task(
     content_task_id: uuid.UUID,
@@ -415,6 +441,7 @@ def archive_content_task(
     "/content-tasks/{content_task_id}/restore",
     response_model=ContentTaskOut,
     operation_id="restoreContentTask",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def restore_content_task(
     content_task_id: uuid.UUID,
@@ -435,6 +462,7 @@ def restore_content_task(
     "/content-tasks/{content_task_id}/permanent-deletion-preview",
     response_model=ContentTaskPermanentDeletionPreview,
     operation_id="getContentTaskPermanentDeletionPreview",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def get_content_task_permanent_deletion_preview(
     content_task_id: uuid.UUID,
@@ -448,6 +476,7 @@ def get_content_task_permanent_deletion_preview(
     "/content-tasks/{content_task_id}/permanent-delete",
     status_code=status.HTTP_204_NO_CONTENT,
     operation_id="permanentlyDeleteContentTask",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def permanently_delete_content_task(
     content_task_id: uuid.UUID,

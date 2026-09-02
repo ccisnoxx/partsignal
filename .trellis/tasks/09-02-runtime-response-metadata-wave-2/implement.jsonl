@@ -1,0 +1,7 @@
+{"file":".trellis/spec/backend/index.md","reason":"加载 backend 规范入口与适用质量边界。"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"复用唯一 ErrorEnvelope/error_responses，并保持逐 operation 显式 status 与实际错误行为不变。"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"约束 TestClient、pytest、ruff、mypy 与失败可见性。"}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"直接复用 Wave 1 helper/test projection，禁止第二套 schema 或状态模板。"}
+{"file":".trellis/tasks/09-02-runtime-response-metadata-wave-2/research/wave-2-operation-ownership.md","reason":"提供 58 个 operation 的完整身份、目标 status、422、success shape 与 runtime owner。"}
+{"file":".trellis/tasks/archive/2026-09/09-01-frozen-contract-authority-reconciliation/research/final-response-authority-matrix.jsonl","reason":"提供 Phase B 逐 operation 最终 status 与 escape/transform authority。"}
+{"file":".trellis/tasks/archive/2026-09/09-01-runtime-response-metadata-wave-1/research/wave-1-operation-ownership.md","reason":"提供共享 ErrorEnvelope/helper 与 Wave 1 回归边界。"}

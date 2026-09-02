@@ -1,0 +1,6 @@
+{"file":".trellis/spec/backend/error-handling.md","reason":"复核 58 个 operation 的显式 status、ErrorEnvelope 与行为不变合同。"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"复核 required validation、TestClient 边界和失败归因。"}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"复核没有重复 helper、共享可变模板、baseline 或 overlay。"}
+{"file":".trellis/tasks/09-02-runtime-response-metadata-wave-2/research/wave-2-operation-ownership.md","reason":"按完整 18/19/21 inventory 做 Review，禁止抽样。"}
+{"file":".trellis/tasks/archive/2026-09/09-01-frozen-contract-authority-reconciliation/research/final-response-authority-matrix.jsonl","reason":"独立核对每个 status 的 Phase B authority，不从 runtime 猜测。"}
+{"file":".trellis/tasks/archive/2026-09/09-01-runtime-response-metadata-wave-1/research/wave-1-operation-ownership.md","reason":"复核共享 helper 未破坏已完成的 61-operation Wave 1。"}

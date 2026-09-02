@@ -16,7 +16,7 @@ from app.deps import (
     EngineerUser,
     assert_account_types,
 )
-from app.errors import AppError, not_found
+from app.errors import AppError, error_responses, not_found
 from app.models.ai_generation import GenerationJob
 from app.models.configuration import (
     ContentHumanizationPrompt,
@@ -165,6 +165,7 @@ def generation_job_detail(db: DbSession, job: GenerationJob) -> GenerationJobDet
     "/content-tasks/{content_task_id}/generation-options",
     response_model=GenerationOptions,
     operation_id="getContentTaskGenerationOptions",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def get_generation_options(
     content_task_id: uuid.UUID, db: DbSession, _user: CurrentUser
@@ -201,6 +202,7 @@ def get_generation_options(
     "/platform-prompts/{platform_prompt_id}/preview-options",
     response_model=PlatformPromptPreviewOptions,
     operation_id="getPlatformPromptPreviewOptions",
+    responses=error_responses(401, 403, 404, 422),
 )
 def get_prompt_preview_options(
     platform_prompt_id: uuid.UUID,
@@ -216,6 +218,7 @@ def get_prompt_preview_options(
     response_model=GenerationJobOut,
     status_code=status.HTTP_202_ACCEPTED,
     operation_id="createGenerationJob",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def create_generation_job(
     content_task_id: uuid.UUID,
@@ -242,6 +245,7 @@ def create_generation_job(
     response_model=GenerationJobOut,
     status_code=status.HTTP_202_ACCEPTED,
     operation_id="createHumanizationJob",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def create_humanization_job(
     content_version_id: uuid.UUID,
@@ -268,6 +272,7 @@ def create_humanization_job(
     "/content-tasks/{content_task_id}/generation-jobs",
     response_model=GenerationJobList,
     operation_id="listGenerationJobs",
+    responses=error_responses(401, 403, 404, 422),
 )
 def list_generation_jobs(
     content_task_id: uuid.UUID, db: DbSession, _user: CurrentUser
@@ -289,6 +294,7 @@ def list_generation_jobs(
     "/generation-jobs/{generation_job_id}",
     response_model=GenerationJobDetail,
     operation_id="getGenerationJob",
+    responses=error_responses(401, 403, 404, 422),
 )
 def get_generation_job(
     generation_job_id: uuid.UUID, db: DbSession, _user: CurrentUser
@@ -304,6 +310,7 @@ def get_generation_job(
     response_model=GenerationJobOut,
     status_code=status.HTTP_202_ACCEPTED,
     operation_id="retryGenerationJob",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def retry_generation_job(
     generation_job_id: uuid.UUID,
@@ -327,6 +334,7 @@ def retry_generation_job(
     "/content-tasks/{content_task_id}/content-versions",
     response_model=ContentVersionList,
     operation_id="listContentTaskVersions",
+    responses=error_responses(401, 403, 404, 422),
 )
 def list_content_task_versions(
     content_task_id: uuid.UUID, db: DbSession, _user: CurrentUser
@@ -348,6 +356,7 @@ def list_content_task_versions(
     response_model=ContentVersionOut,
     status_code=status.HTTP_201_CREATED,
     operation_id="createManualContentVersion",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def create_manual_content_version(
     content_task_id: uuid.UUID,
@@ -372,6 +381,7 @@ def create_manual_content_version(
     "/content-versions/{content_version_id}",
     response_model=ContentVersionOut,
     operation_id="getContentVersion",
+    responses=error_responses(401, 403, 404, 422),
 )
 def get_content_version(
     content_version_id: uuid.UUID, db: DbSession, _user: CurrentUser
@@ -387,6 +397,7 @@ def get_content_version(
     response_model=ContentVersionDetail,
     operation_id="getContentVersionDetail",
     dependencies=[Depends(_content_review_snapshot)],
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def content_version_detail(
     content_version_id: uuid.UUID, db: DbSession, _user: CurrentUser
@@ -399,6 +410,7 @@ def content_version_detail(
     "/content-versions/{content_version_id}",
     response_model=ContentVersionOut,
     operation_id="updateContentDraft",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def update_content_draft(
     content_version_id: uuid.UUID,
@@ -423,6 +435,7 @@ def update_content_draft(
     "/content-versions/{content_version_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     operation_id="deleteContentDraft",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def delete_content_draft(
     content_version_id: uuid.UUID,
@@ -447,6 +460,7 @@ def delete_content_draft(
     response_model=ContentReviewContext,
     operation_id="getContentTaskReviewContext",
     dependencies=[Depends(_content_review_snapshot)],
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def content_task_review_context(
     content_task_id: uuid.UUID, db: DbSession, user: CurrentUser
@@ -463,6 +477,7 @@ def content_task_review_context(
     "/content-versions/{content_version_id}/review-context",
     response_model=ContentReviewContext,
     operation_id="getContentReviewContext",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def content_review_context(
     content_version_id: uuid.UUID, db: DbSession, user: CurrentUser
@@ -478,6 +493,7 @@ def content_review_context(
     response_model=ContentVersionOut,
     status_code=status.HTTP_201_CREATED,
     operation_id="createContentRevision",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def create_content_revision(
     content_version_id: uuid.UUID,
@@ -501,6 +517,7 @@ def create_content_revision(
     "/content-versions/{content_version_id}/abandon",
     response_model=ContentVersionOut,
     operation_id="abandonContentVersion",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def abandon_content_version(
     content_version_id: uuid.UUID,
@@ -525,6 +542,7 @@ def abandon_content_version(
     "/content-versions/{content_version_id}/submit-review",
     response_model=ContentVersionOut,
     operation_id="submitContentVersion",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def submit_content_version(
     content_version_id: uuid.UUID,
@@ -549,6 +567,7 @@ def submit_content_version(
     "/content-versions/{content_version_id}/approve",
     response_model=ContentVersionOut,
     operation_id="approveContentVersion",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def approve_content_version(
     content_version_id: uuid.UUID,
@@ -574,6 +593,7 @@ def approve_content_version(
     "/content-versions/{content_version_id}/request-changes",
     response_model=ContentVersionOut,
     operation_id="requestContentVersionChanges",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def request_content_changes(
     content_version_id: uuid.UUID,
@@ -599,6 +619,7 @@ def request_content_changes(
     "/content-versions/{content_version_id}/compare/{other_version_id}",
     response_model=ContentDiff,
     operation_id="compareContentVersions",
+    responses=error_responses(401, 403, 404, 422),
 )
 def compare_content_versions(
     content_version_id: uuid.UUID, other_version_id: uuid.UUID, db: DbSession, _user: CurrentUser

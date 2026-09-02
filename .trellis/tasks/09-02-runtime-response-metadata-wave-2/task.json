@@ -1,0 +1,35 @@
+{
+  "id": "runtime-response-metadata-wave-2",
+  "name": "runtime-response-metadata-wave-2",
+  "title": "运行时响应元数据 Wave 2",
+  "description": "已同步 product/content 领域 58 个 operation 的 FastAPI runtime response metadata；required validation 与独立只读 Review 已通过，等待提交范围修正后收尾。",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": "backend-runtime-response-metadata-wave-2",
+  "package": null,
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-09-02",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "08-31-non-2xx-contract-check",
+  "relatedFiles": [
+    "backend/app/routers/product_facts.py",
+    "backend/app/routers/planning.py",
+    "backend/app/routers/production.py",
+    "backend/tests/unit/test_runtime_response_metadata.py"
+  ],
+  "notes": "",
+  "meta": {
+    "phase": "D",
+    "operation_count": 58,
+    "planning_only": false
+  }
+}

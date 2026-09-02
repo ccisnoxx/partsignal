@@ -17,7 +17,7 @@ from app.deps import (
     EngineerUser,
     assert_account_types,
 )
-from app.errors import not_found
+from app.errors import error_responses, not_found
 from app.models.product_facts import (
     FactVersion,
     Product,
@@ -76,7 +76,12 @@ def _product_read_snapshot(db: DbSession) -> None:
     db.connection(execution_options={"isolation_level": "REPEATABLE READ"})
 
 
-@router.get("/products", response_model=ProductList, operation_id="listProducts")
+@router.get(
+    "/products",
+    response_model=ProductList,
+    operation_id="listProducts",
+    responses=error_responses(401, 403, 422),
+)
 def list_products(
     db: DbSession,
     user: CurrentUser,
@@ -105,6 +110,7 @@ def list_products(
     response_model=ProductOut,
     status_code=status.HTTP_201_CREATED,
     operation_id="createProduct",
+    responses=error_responses(401, 403, 409, 422),
 )
 def create_product(
     payload: ProductCreate,
@@ -119,7 +125,12 @@ def create_product(
     return product_out(db, product, can_delete=editor.account_type == "ADMIN")
 
 
-@router.get("/products/{product_id}", response_model=ProductOut, operation_id="getProduct")
+@router.get(
+    "/products/{product_id}",
+    response_model=ProductOut,
+    operation_id="getProduct",
+    responses=error_responses(401, 403, 404, 422),
+)
 def get_product(product_id: uuid.UUID, db: DbSession, user: CurrentUser) -> ProductOut:
     product = db.get(Product, product_id)
     if product is None:
@@ -132,6 +143,7 @@ def get_product(product_id: uuid.UUID, db: DbSession, user: CurrentUser) -> Prod
     response_model=ProductDetail,
     operation_id="getProductDetail",
     dependencies=[Depends(_product_read_snapshot)],
+    responses=error_responses(401, 403, 404, 422),
 )
 def get_product_detail(
     product_id: uuid.UUID,
@@ -142,7 +154,12 @@ def get_product_detail(
     return product_detail_out(db, product_id, actor=user)
 
 
-@router.patch("/products/{product_id}", response_model=ProductOut, operation_id="updateProduct")
+@router.patch(
+    "/products/{product_id}",
+    response_model=ProductOut,
+    operation_id="updateProduct",
+    responses=error_responses(401, 403, 404, 409, 422),
+)
 def update_product(
     product_id: uuid.UUID,
     payload: ProductUpdate,
@@ -162,7 +179,10 @@ def update_product(
 
 
 @router.delete(
-    "/products/{product_id}", status_code=status.HTTP_204_NO_CONTENT, operation_id="deleteProduct"
+    "/products/{product_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    operation_id="deleteProduct",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def delete_product(
     product_id: uuid.UUID,
@@ -186,6 +206,7 @@ def delete_product(
     response_model=ProductFactsDraft,
     operation_id="getProductFactsDraft",
     dependencies=[Depends(_product_read_snapshot)],
+    responses=error_responses(401, 403, 404, 422),
 )
 def get_product_facts(
     product_id: uuid.UUID, db: DbSession, _user: CurrentUser
@@ -200,6 +221,7 @@ def get_product_facts(
     "/products/{product_id}/facts",
     response_model=ProductFactsDraft,
     operation_id="replaceProductFactsDraft",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def replace_product_facts(
     product_id: uuid.UUID,
@@ -223,6 +245,7 @@ def replace_product_facts(
     response_model=ProductFactHistoryList,
     operation_id="listProductFactHistory",
     dependencies=[Depends(_product_read_snapshot)],
+    responses=error_responses(401, 403, 404, 422),
 )
 def list_product_fact_history(
     product_id: uuid.UUID,
@@ -244,6 +267,7 @@ def list_product_fact_history(
     "/products/{product_id}/fact-versions",
     response_model=FactVersionList,
     operation_id="listFactVersions",
+    responses=error_responses(401, 403, 404, 422),
 )
 def list_fact_versions(product_id: uuid.UUID, db: DbSession, user: CurrentUser) -> FactVersionList:
     if db.get(Product, product_id) is None:
@@ -265,6 +289,7 @@ def list_fact_versions(product_id: uuid.UUID, db: DbSession, user: CurrentUser) 
     response_model=FactVersionOut,
     status_code=status.HTTP_201_CREATED,
     operation_id="submitProductFactReview",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def submit_product_fact_review(
     product_id: uuid.UUID,
@@ -290,6 +315,7 @@ def submit_product_fact_review(
     response_model=ProductFactReviewWorkspace,
     operation_id="getProductFactReviewContext",
     dependencies=[Depends(_product_read_snapshot)],
+    responses=error_responses(401, 403, 404, 422),
 )
 def product_fact_review_context(
     product_id: uuid.UUID, db: DbSession, user: CurrentUser
@@ -306,6 +332,7 @@ def product_fact_review_context(
     "/fact-versions/{fact_version_id}",
     response_model=FactVersionOut,
     operation_id="getFactVersion",
+    responses=error_responses(401, 403, 404, 422),
 )
 def get_fact_version(
     fact_version_id: uuid.UUID, db: DbSession, user: CurrentUser
@@ -320,6 +347,7 @@ def get_fact_version(
     "/fact-versions/{fact_version_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     operation_id="deleteFactVersion",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def delete_fact_version(
     fact_version_id: uuid.UUID,
@@ -341,6 +369,7 @@ def delete_fact_version(
     response_model=FactReviewContext,
     operation_id="getFactReviewContext",
     dependencies=[Depends(_product_read_snapshot)],
+    responses=error_responses(401, 403, 404, 422),
 )
 def fact_review_context(
     fact_version_id: uuid.UUID, db: DbSession, user: CurrentUser
@@ -355,6 +384,7 @@ def fact_review_context(
     "/fact-versions/{fact_version_id}/approve",
     response_model=FactVersionOut,
     operation_id="approveFactVersion",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def approve_fact_version(
     fact_version_id: uuid.UUID,
@@ -379,6 +409,7 @@ def approve_fact_version(
     "/fact-versions/{fact_version_id}/request-changes",
     response_model=FactVersionOut,
     operation_id="requestFactVersionChanges",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def request_fact_changes(
     fact_version_id: uuid.UUID,
@@ -403,6 +434,7 @@ def request_fact_changes(
     "/fact-versions/{fact_version_id}/retire",
     response_model=FactVersionOut,
     operation_id="retireFactVersion",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def retire_fact_version(
     fact_version_id: uuid.UUID,

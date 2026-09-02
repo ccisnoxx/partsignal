@@ -1,0 +1,5 @@
+{"file":".trellis/spec/backend/publication-workbench-guidelines.md","reason":"Review 同一 Work 严格事件顺序、latest-event 行为与换版核验资格没有漂移。"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Review required gate、失败停止条件和独立复审边界。"}
+{"file":".trellis/tasks/09-02-publication-event-time-order-authority-repair/research/root-cause-and-authority.md","reason":"独立核对根因、所有 writer/reader、方案取舍和残余风险。"}
+{"file":".trellis/tasks/09-02-publication-event-time-order-authority-repair/research/baseline-touch-set.md","reason":"Review 精确 diff/index 与 Wave 3、artifacts、既有脏文件保护。"}
+{"file":".trellis/tasks/archive/2026-08/08-30-publication-verification-final-authority/prd.md","reason":"确认没有通过弱化测试背离原始并发验收合同。"}

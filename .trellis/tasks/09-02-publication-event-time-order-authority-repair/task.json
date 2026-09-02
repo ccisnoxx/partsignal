@@ -1,0 +1,40 @@
+{
+  "id": "publication-event-time-order-authority-repair",
+  "name": "publication-event-time-order-authority-repair",
+  "title": "Publication 事件时间顺序 Authority 修复",
+  "description": "调查并修复 PublicationWorkEvent 跨应用/数据库时钟域导致的锁内事件时间顺序不稳定；保持 Wave 3 in_progress 及其候选改动不动。",
+  "status": "in_progress",
+  "dev_type": "backend",
+  "scope": "backend",
+  "package": "backend",
+  "priority": "P1",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-09-02",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "backend/app/services/publication.py",
+    "backend/tests/integration/test_publication_workflow.py",
+    ".trellis/spec/backend/publication-workbench-guidelines.md"
+  ],
+  "notes": "用户已批准并已运行 task.py start。生产 owner、测试与稳定 spec 候选已实施；正式 Publication 19 passed、后续受影响 sentinels 2 passed、Workbench 1 passed及静态门禁通过。经用户额外批准，future-history 窗口已从 +1s 改为 +1 day，最终 affected-path 独立 Review 无 MEDIUM+。当前等待独立提交计划确认；Wave 3 继续保持 in_progress 且未被本 Task 修改。",
+  "meta": {
+    "blocks": "09-02-runtime-response-metadata-wave-3",
+    "baseline_commit": "1d937d5ba44ac06af7c68b57f76cc3388714ea90",
+    "baseline_porcelain_count": 550,
+    "baseline_porcelain_sha256": "cd37e4877751f6cf3a73f5c963ec6ee50d8c9378af5447e928463fba03cebe66",
+    "staged_artifact_deletions": 543,
+    "root_cause": "PublicationWorkEvent.created_at compares PostgreSQL transaction time with application-host wall time",
+    "recommended_owner": "backend/app/services/publication.py::_work_event",
+    "review_status": "passed_after_user_approved_extra_targeted_round",
+    "remaining_issue": null
+  }
+}

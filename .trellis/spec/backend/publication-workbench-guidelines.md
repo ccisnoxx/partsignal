@@ -337,6 +337,7 @@ context = get_publication_workspace_context(db=db, work_id=work_id, actor=actor)
 - `switch_candidate` 必须同时满足同一任务、任务当前版本、不同于工作绑定版本、内容和事实均为 `APPROVED`；Context 与 switch command 使用同一资格规则。
 - 无论换版前工作处于 `AWAITING_VERIFICATION` 还是 `ACTION_REQUIRED`，最新事件为 `CONTENT_VERSION_CHANGED` 时，服务端都必须撤回 `VERIFY` 并将 `REGISTER_RESULT` 作为 `primary_action`；只有新的 `RESULT_REGISTERED` 才能重新开放 `VERIFY`。
 - 同一 Work 的事件时间必须按 Work 锁内命令顺序严格单调；不得让 PostgreSQL 事务起始时间 `now()` 把后执行的 `CONTENT_VERSION_CHANGED` 排到先提交的 `RESULT_REGISTERED` 之前。
+- 事件候选 `created_at` 必须在取得 Work 锁并读取已有事件后使用 PostgreSQL `clock_timestamp()`；事务级 `now()` 与应用主机墙钟都不是事件顺序 authority，数据库时钟回拨或精度碰撞时仍由 `+1µs` 下限保持严格单调。
 - 换版只更新工作绑定的版本与 hash，并追加含 old/new version IDs 的事件；不得沿用旧页面结果伪造新内容已登记。
 - Content Task 的共享投影只在当前批准版本既是 work 绑定版本、又存在同版本 `FAILED PublicationVerification` 时返回 `PUBLISHING / REVISE_CONTENT`；换版会更新 `work.content_version_id`，因此不能仅比较 current/work ID。切到尚无失败快照的新版本后必须返回 `PUBLISHING / CONTINUE_PUBLICATION`，旧版本失败快照不得污染新版本入口。
 

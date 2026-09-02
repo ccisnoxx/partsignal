@@ -1,0 +1,5 @@
+{"file":".trellis/spec/backend/publication-workbench-guidelines.md","reason":"实施时保持同一 Work 锁内事件严格单调、换版后 latest-event barrier 与 read/write authority。"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"实施时遵守真实 PostgreSQL、HTTP sentinel、失败归因与完整共享 writer 回归要求。"}
+{"file":".trellis/tasks/09-02-publication-event-time-order-authority-repair/research/root-cause-and-authority.md","reason":"采用已验证的跨时钟根因、唯一 writer/reader inventory 与 clock_timestamp 方案。"}
+{"file":".trellis/tasks/09-02-publication-event-time-order-authority-repair/research/baseline-touch-set.md","reason":"保护 Wave 3 候选与 543 个 staged artifacts 等任务外状态。"}
+{"file":".trellis/tasks/archive/2026-08/08-30-publication-verification-final-authority/design.md","reason":"保持原始双 Session 并发不变量、Work 锁顺序和不新增第二排序字段的设计。"}

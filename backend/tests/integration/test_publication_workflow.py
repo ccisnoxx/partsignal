@@ -74,6 +74,7 @@ from app.schemas.publication import (
     PublishedContentRepairTaskCreate,
 )
 from app.security import hash_token
+from app.services import publication as publication_service
 from app.services.content_planning import delete_query_topic, query_topics_out
 from app.services.content_production import create_content_revision, update_content_draft
 from app.services.geo_observation import geo_publication_candidates
@@ -1698,8 +1699,15 @@ def test_failed_verification_remains_pending_then_completes_and_opens_issue() ->
 
 
 @pytest.mark.integration
-def test_publication_verification_final_authority_rejects_awaiting_switch_over_http() -> None:
+def test_publication_verification_final_authority_rejects_awaiting_switch_over_http(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """AWAITING 换版后真实 HTTP 核验被拒绝，缺事件同样显式失败。"""
+    class ForbiddenApplicationClock:
+        @classmethod
+        def now(cls, *_args: object, **_kwargs: object) -> datetime:
+            raise AssertionError("发布事件不得读取应用进程时钟")
+
     with temporary_database() as database_url:
         engine = create_engine(database_url)
         with Session(engine, expire_on_commit=False) as db:
@@ -1791,21 +1799,23 @@ def test_publication_verification_final_authority_rejects_awaiting_switch_over_h
             with Session(engine, expire_on_commit=False) as register_db:
                 register_actor = register_db.get(User, actor_id)
                 assert register_actor is not None
-                awaiting = register_publication_result(
-                    db=register_db,
-                    work_id=work_id,
-                    payload=PublicationResultUpdate(
-                        actual_title="仍属于旧内容的公开标题",
-                        final_url=(
-                            "https://community.example.invalid/articles/authority-old-result"
+                with monkeypatch.context() as patch:
+                    patch.setattr(publication_service, "datetime", ForbiddenApplicationClock)
+                    awaiting = register_publication_result(
+                        db=register_db,
+                        work_id=work_id,
+                        payload=PublicationResultUpdate(
+                            actual_title="仍属于旧内容的公开标题",
+                            final_url=(
+                                "https://community.example.invalid/articles/authority-old-result"
+                            ),
+                            published_at="2026-08-03T10:30:00Z",
+                            expected_revision=failed_revision,
+                            comment="换版前修正旧内容结果",
                         ),
-                        published_at="2026-08-03T10:30:00Z",
-                        expected_revision=failed_revision,
-                        comment="换版前修正旧内容结果",
-                    ),
-                    actor=register_actor,
-                    request_id="verification-authority-reregister-old",
-                )
+                        actor=register_actor,
+                        request_id="verification-authority-reregister-old",
+                    )
                 result_registered_event = register_db.scalar(
                     select(PublicationWorkEvent)
                     .where(
@@ -1821,17 +1831,19 @@ def test_publication_verification_final_authority_rejects_awaiting_switch_over_h
                 assert result_registered_event is not None
                 assert switch_transaction_started_at < result_registered_event.created_at
             assert awaiting.status == "AWAITING_VERIFICATION"
-            switched = switch_publication_content_version(
-                db=switch_db,
-                work_id=work_id,
-                payload=PublicationContentVersionSwitchRequest(
-                    content_version_id=replacement_id,
-                    expected_revision=awaiting.revision,
-                    comment="等待核验阶段切换到新批准版本",
-                ),
-                actor=switch_actor,
-                request_id="verification-authority-switch",
-            )
+            with monkeypatch.context() as patch:
+                patch.setattr(publication_service, "datetime", ForbiddenApplicationClock)
+                switched = switch_publication_content_version(
+                    db=switch_db,
+                    work_id=work_id,
+                    payload=PublicationContentVersionSwitchRequest(
+                        content_version_id=replacement_id,
+                        expected_revision=awaiting.revision,
+                        comment="等待核验阶段切换到新批准版本",
+                    ),
+                    actor=switch_actor,
+                    request_id="verification-authority-switch",
+                )
             assert switched.status == "AWAITING_VERIFICATION"
             assert switched.content_version_id == replacement_id
             assert "VERIFY" not in switched.available_actions
@@ -1847,6 +1859,7 @@ def test_publication_verification_final_authority_rejects_awaiting_switch_over_h
             )
             assert latest_event is not None
             assert latest_event.action == "CONTENT_VERSION_CHANGED"
+            assert result_registered_event.created_at < latest_event.created_at
             before_http_rejection = _publication_verification_snapshot(switch_db, work_id)
             switched_revision = switched.revision
 
@@ -1931,6 +1944,68 @@ def test_publication_verification_final_authority_rejects_awaiting_switch_over_h
             assert _publication_verification_snapshot(db, malformed_work.id) == (
                 before_missing_event
             )
+
+
+@pytest.mark.integration
+def test_publication_event_timestamp_uses_strict_database_clock_floor() -> None:
+    """数据库时钟落后于历史事件时，后续事件仍严格递增一微秒。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine, expire_on_commit=False) as db:
+            graph = _seed_graph(db, content_hash="8" * 64)
+            actor = graph["user"]
+            content = graph["content"]
+            account = graph["account"]
+            assert isinstance(actor, User)
+            assert isinstance(content, ContentVersion)
+            assert isinstance(account, PlatformAccount)
+            work = create_publication_work(
+                db=db,
+                payload=PublicationWorkCreate(
+                    content_version_id=content.id,
+                    platform_account_id=account.id,
+                ),
+                actor=actor,
+                request_id="event-clock-floor-create",
+                idempotency_key="event-clock-floor-create-key",
+            )
+
+            database_now = db.scalar(select(func.clock_timestamp()))
+            assert database_now is not None
+            previous_max = database_now + timedelta(days=1)
+            assert previous_max > database_now
+            db.add(
+                PublicationWorkEvent(
+                    publication_work_id=work.id,
+                    action="PREPARATION_UPDATED",
+                    from_status="PREPARING",
+                    to_status="PREPARING",
+                    comment="未来时间的合法历史事件",
+                    actor_id=actor.id,
+                    created_at=previous_max,
+                )
+            )
+            db.commit()
+
+            updated = update_publication_preparation(
+                db=db,
+                work_id=work.id,
+                payload=PublicationPreparationUpdate(
+                    platform_account_id=account.id,
+                    expected_revision=work.revision,
+                    comment="追加数据库时钟下限回归事件",
+                ),
+                actor=actor,
+                request_id="event-clock-floor-append",
+            )
+            events = db.scalars(
+                select(PublicationWorkEvent)
+                .where(PublicationWorkEvent.publication_work_id == work.id)
+                .order_by(PublicationWorkEvent.created_at, PublicationWorkEvent.id)
+            ).all()
+            assert events[-1].action == "PREPARATION_UPDATED"
+            assert events[-1].created_at == previous_max + timedelta(microseconds=1)
+            assert updated.latest_event.action == "PREPARATION_UPDATED"
 
 
 @pytest.mark.integration

@@ -435,8 +435,10 @@ def _work_event(
             PublicationWorkEvent.publication_work_id == work.id
         )
     )
-    created_at = datetime.now(UTC)
-    # PostgreSQL now() 是事务起始时间，不能表达等待 Work 锁后的真实命令顺序。
+    created_at = db.scalar(select(func.clock_timestamp()))
+    # 事件顺序必须使用取得 Work 锁后的数据库实时时钟，不能混用事务起始时间或应用主机时钟。
+    if created_at is None:
+        raise RuntimeError("PostgreSQL 未返回发布事件时间")
     if latest_created_at is not None and created_at <= latest_created_at:
         created_at = latest_created_at + timedelta(microseconds=1)
     db.add(

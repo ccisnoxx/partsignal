@@ -534,3 +534,37 @@
 ### Next Steps
 
 - 确认 Wave 3 基线后，按单独批准启动 09-02-runtime-response-metadata-wave-3。
+
+
+## Session 199: 修复 Publication 事件时间顺序 Authority
+
+**Date**: 2026-09-02
+**Task**: 修复 Publication 事件时间顺序 Authority
+**Branch**: `main`
+
+### Summary
+
+将 PublicationWorkEvent 事件时间统一到 Work 锁后的 PostgreSQL clock_timestamp，并以真实双 Session、应用时钟禁用 guard 和 max+1µs 回拨 sentinel 完成验证；Wave 3 保持 in_progress。
+
+### Main Changes
+
+- 修正 backend/app/services/publication.py 的唯一事件时间 writer，保留严格单调下限。
+- 增强 publication PostgreSQL 回归并补充稳定规范；独立 Review 最终无 MEDIUM+。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `562d2bcea35b91168c9722e1020935467d549606` | (see git log) |
+
+### Testing
+
+- [OK] Publication workflow 19 passed；最终受影响 sentinels 2 passed；Workbench latest-action 1 passed；ruff、mypy、diff、合同无 diff和 Trellis validate通过。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 恢复 09-02-runtime-response-metadata-wave-3，重跑其四个 PostgreSQL sentinels、Wave 1/2/3 comparator和全局 response report。

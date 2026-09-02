@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-4.md`
-- **Total Sessions**: 198
+- **Total Sessions**: 199
 - **Last Active**: 2026-09-02
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-4.md` | ~536 | Active |
+| `journal-4.md` | ~570 | Active |
 | `journal-3.md` | ~1983 | Archived |
 | `journal-2.md` | ~1986 | Archived |
 | `journal-1.md` | ~1990 | Archived |
@@ -32,6 +32,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 199 | 2026-09-02 | 修复 Publication 事件时间顺序 Authority | `562d2bcea35b91168c9722e1020935467d549606` | `main` |
 | 198 | 2026-09-02 | 完成 GEO 响应 Schema Identity Authority 修复 | `89245be8` | `main` |
 | 197 | 2026-09-02 | 运行时响应元数据 Wave 2 收尾 | `eb22dc68` | `main` |
 | 196 | 2026-09-02 | 完成运行时 Response Metadata Wave 1 | `377570a` | `main` |

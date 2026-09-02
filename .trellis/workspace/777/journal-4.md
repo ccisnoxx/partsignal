@@ -463,3 +463,38 @@
 ### Status
 
 [OK] **Completed**
+
+
+## Session 197: 运行时响应元数据 Wave 2 收尾
+
+**Date**: 2026-09-02
+**Task**: 运行时响应元数据 Wave 2 收尾
+**Branch**: `main`
+
+### Summary
+
+完成 Wave 2 运行时响应元数据实施；修正未推送工作提交的范围污染，保留任务外工作区变化；required validation 与独立 Review 记录完整，并归档该子任务。
+
+### Main Changes
+
+- 为 product_facts、planning、production 路由补齐显式非 2xx runtime response metadata，并扩展聚焦回归测试。
+- 将工作提交精确修正为产品代码、聚焦测试、Wave 2 Trellis 材料及父任务 child 记录，不纳入 .gitignore、artifacts 或 configuration.py。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `eb22dc68` | (see git log) |
+
+### Testing
+
+- [OK] 聚焦 metadata 测试 247 passed；sentinel 测试 11 passed；comparator 测试 48 passed。
+- [OK] 默认 contract check、Ruff、mypy、task validator 与 git diff whitespace 检查通过；全局无过滤报告按预期以既有 drift 返回 1。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 父任务继续保持 planning；本次未开始 Phase E，未 push。

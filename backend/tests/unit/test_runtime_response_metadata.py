@@ -334,6 +334,14 @@ WAVE_2_EXPECTED_STATUSES = {
     "compareContentVersions": {"200", "401", "403", "404", "422"},
 }
 
+GEO_SUCCESS_OPERATION_IDS = (
+    "listGeoObservations",
+    "createGeoObservation",
+    "getGeoObservation",
+    "getGeoObservationDetail",
+    "getGeoObservationCorrectionContext",
+)
+
 
 def _contract_document() -> dict[str, Any]:
     path = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
@@ -367,6 +375,22 @@ def _wave_projection(
             for operation in path_item.values()
         )
     }
+    return projected
+
+
+def _success_wave_projection(
+    document: dict[str, Any], operation_ids: tuple[str, ...]
+) -> dict[str, Any]:
+    # 投影只用于比较，不能修改 FastAPI 缓存的 runtime OpenAPI 文档。
+    projected = deepcopy(_wave_projection(document, operation_ids))
+    for path_item in projected["paths"].values():
+        for operation in path_item.values():
+            if isinstance(operation, dict) and "operationId" in operation:
+                operation["responses"] = {
+                    status: response
+                    for status, response in operation["responses"].items()
+                    if str(status).startswith("2")
+                }
     return projected
 
 
@@ -441,6 +465,100 @@ def test_wave_2_response_comparator_has_no_differences() -> None:
     failures = compare_response_contracts(
         _wave_projection(_contract_document(), WAVE_2_OPERATION_IDS),
         _wave_projection(app.openapi(), WAVE_2_OPERATION_IDS),
+    )
+    assert failures == []
+
+
+def test_geo_success_schema_identity_and_alias_compatibility() -> None:
+    """验证 GEO success response 的五个受影响操作与 Python 兼容别名。"""
+    contract = _contract_document()
+    runtime = app.openapi()
+    assert len(GEO_SUCCESS_OPERATION_IDS) == 5
+    assert len(set(GEO_SUCCESS_OPERATION_IDS)) == 5
+    for document in (contract, runtime):
+        operation_ids = set(_operation_map(document))
+        assert set(GEO_SUCCESS_OPERATION_IDS) <= operation_ids
+
+    schemas = runtime["components"]["schemas"]
+    assert "LegacyGeoObservation" in schemas
+    assert "ManualGeoObservation" in schemas
+    assert "LegacyGeoObservationOut" not in schemas
+    assert "ManualGeoObservationOut" not in schemas
+
+    from datetime import UTC, datetime
+    from uuid import uuid4
+
+    from app.schemas.geo_files import (
+        LegacyGeoObservation,
+        LegacyGeoObservationOut,
+        ManualGeoObservation,
+        ManualGeoObservationOut,
+    )
+
+    assert LegacyGeoObservationOut is LegacyGeoObservation
+    assert ManualGeoObservationOut is ManualGeoObservation
+    identifier = uuid4()
+    timestamp = datetime(2026, 9, 1, tzinfo=UTC)
+    recorder = {"id": identifier, "username": "tester", "display_name": "测试用户"}
+    legacy_payload = {
+        "observation_kind": "LEGACY_MODEL_RESULT",
+        "id": identifier,
+        "query_topic_id": identifier,
+        "product_id": identifier,
+        "product_label": "产品",
+        "actual_prompt": "问题",
+        "model_name": "模型",
+        "model_version": None,
+        "tested_at": timestamp,
+        "web_search_enabled": True,
+        "answer_summary": "摘要",
+        "mentioned": True,
+        "recommendation": "RECOMMENDED",
+        "accuracy": "ACCURATE",
+        "citations": [],
+        "published_article_ids": [],
+        "attachment_file_ids": [],
+        "notes": "备注",
+        "supersedes_id": None,
+        "tested_by": identifier,
+        "recorder": recorder,
+        "is_current": True,
+        "workflow_stage": "LEGACY",
+        "primary_task": "VIEW_HISTORICAL_RECORD",
+        "available_actions": ["CORRECT"],
+        "created_at": timestamp,
+    }
+    manual_payload = {
+        "observation_kind": "MANUAL_ARTICLE_SEARCH",
+        "id": identifier,
+        "query_topic_id": None,
+        "product_id": identifier,
+        "product_label": "产品",
+        "search_platform": "平台",
+        "search_query": "问题",
+        "tested_at": timestamp,
+        "article_results": [],
+        "attachment_file_ids": [],
+        "notes": "备注",
+        "supersedes_id": None,
+        "tested_by": identifier,
+        "recorder": recorder,
+        "is_current": True,
+        "workflow_stage": "READY",
+        "primary_task": "VIEW_ANALYSIS",
+        "available_actions": [],
+        "created_at": timestamp,
+    }
+    assert LegacyGeoObservationOut.model_validate(legacy_payload).model_dump(mode="json") == (
+        LegacyGeoObservation.model_validate(legacy_payload).model_dump(mode="json")
+    )
+    assert ManualGeoObservationOut.model_validate(manual_payload).model_dump(mode="json") == (
+        ManualGeoObservation.model_validate(manual_payload).model_dump(mode="json")
+    )
+
+    failures = compare_response_contracts(
+        _success_wave_projection(contract, GEO_SUCCESS_OPERATION_IDS),
+        _success_wave_projection(runtime, GEO_SUCCESS_OPERATION_IDS),
     )
     assert failures == []
 

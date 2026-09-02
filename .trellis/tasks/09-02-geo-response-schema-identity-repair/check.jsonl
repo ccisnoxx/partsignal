@@ -1,0 +1,6 @@
+{"file":".trellis/spec/backend/error-handling.md","reason":"Review public schema identity、Pydantic 默认生成与无第二 authority。"}
+{"file":".trellis/spec/backend/publication-workbench-guidelines.md","reason":"Review GEO payload、权限、状态与 service 行为保持。"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Review 5-operation comparator、HTTP sentinel 与 validation gate。"}
+{"file":".trellis/tasks/09-02-geo-response-schema-identity-repair/research/schema-identity-audit.md","reason":"独立核对 3 个 failure、5-operation closure、direct alias probe 与 rejected alternatives。"}
+{"file":".trellis/tasks/09-02-geo-response-schema-identity-repair/research/baseline-touch-set.md","reason":"Review exact diff/index 与既有脏文件保持。"}
+{"file":".trellis/tasks/09-02-runtime-response-metadata-wave-3/research/wave-3-operation-ownership.md","reason":"Review prerequisite 与 Wave 3 status metadata 的边界及 194 条预期剩余差异。"}

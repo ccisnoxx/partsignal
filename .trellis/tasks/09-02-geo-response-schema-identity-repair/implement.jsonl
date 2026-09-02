@@ -1,0 +1,9 @@
+{"file":".trellis/spec/backend/error-handling.md","reason":"遵循 public schema authority、默认 Pydantic schema 与禁止 duplicate/custom fallback 的稳定约束。"}
+{"file":".trellis/spec/backend/publication-workbench-guidelines.md","reason":"保持 GEO observation read model、追加式历史与服务端权限/状态 authority。"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"规划 schema comparator、真实 model/HTTP sentinel 与失败归因。"}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"使用 direct compatibility alias，避免第二套模型或重复 schema owner。"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"检查 runtime component identity、static OpenAPI、generated client 与 consumer 边界。"}
+{"file":".trellis/tasks/09-02-geo-response-schema-identity-repair/research/schema-identity-audit.md","reason":"实现两个 canonical class identity、compatibility alias 与 5-operation closure 的直接证据。"}
+{"file":".trellis/tasks/09-02-geo-response-schema-identity-repair/research/baseline-touch-set.md","reason":"保护既有 dirty tree 与 Wave 3 planning artifacts。"}
+{"file":".trellis/tasks/09-02-runtime-response-metadata-wave-3/research/wave-3-operation-ownership.md","reason":"确认本 prerequisite 只移除 3 条 success drift，不承担 43-operation error metadata。"}
+{"file":".trellis/tasks/archive/2026-09/09-02-response-schema-composition-authority-repair/design.md","reason":"复用已批准的默认 Pydantic schema、无 private hook 和 public identity兼容原则。"}

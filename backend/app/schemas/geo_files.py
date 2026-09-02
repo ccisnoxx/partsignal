@@ -36,7 +36,7 @@ class GeoCitation(ContractModel):
     published_article_id: uuid.UUID | None = None
 
 
-class LegacyGeoObservationOut(ContractModel):
+class LegacyGeoObservation(ContractModel):
     """迁移前模型观测的只读投影，不再接受新写入。"""
 
     observation_kind: Literal["LEGACY_MODEL_RESULT"]
@@ -132,7 +132,7 @@ class GeoObservationCreate(ContractModel):
         return values
 
 
-class ManualGeoObservationOut(ContractModel):
+class ManualGeoObservation(ContractModel):
     observation_kind: Literal["MANUAL_ARTICLE_SEARCH"]
     id: uuid.UUID
     query_topic_id: uuid.UUID | None
@@ -158,8 +158,12 @@ class ManualGeoObservationOut(ContractModel):
     created_at: datetime
 
 
+LegacyGeoObservationOut = LegacyGeoObservation
+ManualGeoObservationOut = ManualGeoObservation
+
+
 GeoObservationOut = Annotated[
-    LegacyGeoObservationOut | ManualGeoObservationOut,
+    LegacyGeoObservation | ManualGeoObservation,
     Field(discriminator="observation_kind"),
 ]
 

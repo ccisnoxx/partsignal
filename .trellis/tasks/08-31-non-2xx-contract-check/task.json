@@ -23,7 +23,9 @@
     "09-01-frozen-contract-authority-reconciliation",
     "09-01-runtime-response-metadata-wave-1",
     "09-02-response-schema-composition-authority-repair",
-    "09-02-runtime-response-metadata-wave-2"
+    "09-02-runtime-response-metadata-wave-2",
+    "09-02-runtime-response-metadata-wave-3",
+    "09-02-geo-response-schema-identity-repair"
   ],
   "parent": "08-30-frontend-v2-functional-contract-conformance-baseline",
   "relatedFiles": [],

@@ -127,7 +127,7 @@ UV_CACHE_DIR=.cache/uv uv run --project backend ruff check backend/app/routers b
 UV_CACHE_DIR=.cache/uv uv run --project backend mypy --config-file backend/pyproject.toml backend/app
 ```
 
-每个 wave 子任务把自己的测试 marker/参数限定为 authority matrix 中该 wave 拥有的全部 operation，并要求该集合零漂移；不得只挑代表 operation。另运行以下无 filter 的全量诊断保存 task evidence；预期在 Phase F 前非零，不能把它包装成成功门禁或把输出复制为 checker allowlist/baseline：
+每个 wave 子任务把自己的测试 marker/参数限定为 authority matrix 中该 wave 拥有的全部 operation，并要求该集合零漂移；不得只挑代表 operation。另运行以下无 filter 的全量诊断保存 task evidence，不把输出复制为 checker allowlist/baseline。Wave 1/2 与 GEO schema-identity prerequisite 完成后仍有后续 operation-specific drift，预期退出 1；Wave 3 是最后一组 operation-specific response drift，完成后预期零差异并退出 0。Phase X 必须同时同步 static/runtime 的 400 与 response Header，从 0 开始并保持 0；Phase F 只激活已零漂移的默认门禁：
 
 ```bash
 UV_CACHE_DIR=.cache/uv uv run --project backend python -m app.tools.contract_check \

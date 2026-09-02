@@ -498,3 +498,39 @@
 ### Next Steps
 
 - 父任务继续保持 planning；本次未开始 Phase E，未 push。
+
+
+## Session 198: 完成 GEO 响应 Schema Identity Authority 修复
+
+**Date**: 2026-09-02
+**Task**: 完成 GEO 响应 Schema Identity Authority 修复
+**Branch**: `main`
+
+### Summary
+
+对齐 GEO runtime OpenAPI canonical component identity，保留 *Out 直接对象别名与实际 HTTP 行为；完成 required gates、全局 194/rc1 诊断和独立只读 Review。
+
+### Main Changes
+
+- 将 LegacyGeoObservation 与 ManualGeoObservation 设为 canonical Pydantic class identity，并保留旧 *Out import alias。
+- 增加 5-operation success-only production comparator 投影测试、component identity 与 validation/serialization 等价断言。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `89245be8` | (see git log) |
+
+### Testing
+
+- [OK] 248 个 Wave 1/2 runtime metadata tests、4 个 GEO contract sentinels、3 个 schema-instance tests、48 个 comparator tests 全部通过。
+- [OK] 静态 contract_check、ruff、mypy、diff-check、Trellis validate 与独立只读 Review 通过。
+- [OK] 无 filter response report 精确为 194：155 missing_status + 39 个 422 schema_drift，exit 1，success drift 为 0。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 确认 Wave 3 基线后，按单独批准启动 09-02-runtime-response-metadata-wave-3。

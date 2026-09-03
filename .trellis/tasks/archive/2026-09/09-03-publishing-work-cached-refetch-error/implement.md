@@ -38,8 +38,8 @@
 
 - [x] 本文件已更新为实际验证结果；未运行 optional suites 保持 `NOT_RUN` 并写明原因。
 - [x] 已判断无需更新稳定 spec：现有 `state-management.md` 和 `available-actions-contract.md` 已完整覆盖 cached refetch error 与服务端动作权威，本 Task 只修复实现漂移。
-- [ ] 提交产品代码前给出路径受限 commit plan 并取得用户确认；不得带入现有任务外 dirty/index。
-- [ ] 提交后按 `trellis-finish-work` 完成归档与 journal；不得 push。
+- [x] 提交产品代码前已给出路径受限 commit plan 并取得用户确认；工作提交为 `7e7e155caf342fbdb71532992f3ccf6fb5b5ce68`，未带入现有任务外 dirty/index。
+- [x] 已按 `trellis-finish-work` 完成显式归档与 Session 210 journal 写入；bookkeeping 提交均采用路径隔离，不 push。
 
 ## 2. Required Validation
 

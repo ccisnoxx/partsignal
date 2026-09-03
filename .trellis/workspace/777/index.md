@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-4.md`
-- **Total Sessions**: 207
+- **Total Sessions**: 208
 - **Last Active**: 2026-09-03
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-4.md` | ~869 | Active |
+| `journal-4.md` | ~904 | Active |
 | `journal-3.md` | ~1983 | Archived |
 | `journal-2.md` | ~1986 | Archived |
 | `journal-1.md` | ~1990 | Archived |
@@ -32,6 +32,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 208 | 2026-09-03 | Query Topic 409 显式重载网络新鲜度 | `4a17eb547e4dc489bb11de7922ad63ec36fa68c8` | `main` |
 | 207 | 2026-09-03 | 完成 Frontend V2 功能合同一致性基线收尾 | `e84a5dab`, `4a7979e8`, `5add828a`, `15250902`, `56f92699`, `abd41e1c`, `180d0ad3`, `000a0d27`, `b2bc3c68`, `78635bdb`, `6a3dd72d` | `main` |
 | 206 | 2026-09-03 | 修复 Platform Prompt 名称单独保存状态 | `6a3dd72d72857f3f6c642c10d720fd3a9e4470ee` | `main` |
 | 205 | 2026-09-03 | 修复移动触控目标与审计空态 | `78635bdb96f1238f4447ef2c5fa7d6a8b66d3fc1`, `a2255a52abe0847ee03e2d697cfb0bbfe9a5b25d` | `main` |

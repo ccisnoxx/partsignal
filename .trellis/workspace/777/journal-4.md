@@ -867,3 +867,38 @@
 ### Next Steps
 
 - 继续暂缓 integrity-error-domain-mapping；后续从矩阵中剩余的独立合同决策或 P1/P2/P3 Task 另行选择。
+
+
+## Session 208: Query Topic 409 显式重载网络新鲜度
+
+**Date**: 2026-09-03
+**Task**: Query Topic 409 显式重载网络新鲜度
+**Branch**: `main`
+
+### Summary
+
+修复 Query Topic 编辑与删除在 409 后的显式 reload 可能复用 fresh cache 或旧在途请求的问题；共享恢复 helper 强制采纳点击后新请求，失败保持草稿、冲突和禁用状态且不自动重放 mutation。
+
+### Main Changes
+
+- 新增 domain-local fresh options helper：exact cancel 后以单次 staleTime=0 复用既有 query options。
+- 扩展 generated-type GEO Topics fixture 与编辑/删除回归，覆盖 fresh cache、旧在途请求、GET 失败和最新 revision 人工重试。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4a17eb547e4dc489bb11de7922ad63ec36fa68c8` | (see git log) |
+
+### Testing
+
+- [OK] 正式 Query Topic mobile/desktop Playwright gate：14 passed / 16.3s。
+- [OK] frontend lint、typecheck、api:check、Task validate 和 task-scope diff check 均通过。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 优先单独规划 query-topic-dialog-live-projection；继续暂缓 integrity-error-domain-mapping。

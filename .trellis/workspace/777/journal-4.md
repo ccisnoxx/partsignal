@@ -937,3 +937,40 @@
 ### Next Steps
 
 - 继续从已确认的前端一致性缺口中选择独立 Task；integrity-error-domain-mapping 继续暂缓。
+
+
+## Session 210: Publishing Work 缓存刷新失败保留投影
+
+**Date**: 2026-09-04
+**Task**: Publishing Work 缓存刷新失败保留投影
+**Branch**: `main`
+
+### Summary
+
+修复 /publishing/work 三个独立 read model 在已有缓存时后台刷新失败隐藏当前投影的问题；保留指标、Ready Queue、工作列表与分页，提供区块级告警和独立重试，并补齐 component 与 production-artifact 回归。
+
+### Main Changes
+
+- Summary、Ready Queue、Work List 区分初始失败与 cached refetch error；已有 data 时保留服务端投影。
+- 新增局部陈旧数据告警、真实 request_id 和逐区块重试，不改变 query options、START 409 或幂等语义。
+- 补充失败重试仍保留投影和无缓存 exact key 不回退旧数据的回归证据。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `7e7e155caf342fbdb71532992f3ccf6fb5b5ce68` | (see git log) |
+
+### Testing
+
+- [OK] Focused component 8/8 通过；frontend lint、typecheck、api:check 通过。
+- [OK] Production-artifact Playwright mobile/desktop 10/10 通过，正式 gate 仅运行一次。
+- [OK] 独立只读 Review 经一次定向补测后复核通过；Task validate 与限定 diff-check 通过。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 等待用户选择 baseline matrix 中下一项独立修复；继续暂缓 integrity-error-domain-mapping。

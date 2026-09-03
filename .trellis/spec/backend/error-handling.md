@@ -173,3 +173,70 @@ def list_items() -> ItemList: ...
 @router.get("/items", responses=error_responses(401, 403))
 def list_items() -> ItemList: ...
 ```
+
+## Scenario：同步跨切面 Request Context Metadata
+
+### 1. Scope / Trigger
+
+- 当 HTTP middleware 对全部 API operation 统一接收、生成、校验或回写 request ID，而 FastAPI runtime OpenAPI、冻结合同与 generated client 需要同步表达这一既有行为时触发。
+- 该同步只增加跨切面声明；不得改变 middleware、Cookie、业务错误、权限、事务、状态转换、router 或 service 行为。
+
+### 2. Signatures
+
+- Runtime owner 位于 `backend/app/main.py`：`REQUEST_ID_HEADER_NAME`、`REQUEST_ID_MIN_LENGTH`、`REQUEST_ID_MAX_LENGTH`、`REQUEST_ID_PATTERN`。
+- Runtime merge：`_merge_request_context_metadata(document: dict[str, Any]) -> None`；它只接收 FastAPI 生成的内存 document，不读取冻结合同。
+- Request component：`#/components/parameters/RequestIdHeader`。
+- Response Header component：`#/components/headers/RequestIdResponseHeader`。
+- 非法输入 response：`400 -> #/components/responses/ErrorResponse -> ErrorEnvelope`。
+
+### 3. Contracts
+
+- Request Header 名为 `X-Request-ID`，`in: header`、`required: false`；schema 固定为 `type: string`、`minLength: 1`、`maxLength: 100`、`pattern: '^[\x20-\x7E]+$'`。
+- Header 缺失时服务端生成 UUID；合法调用方值原样写回。空值、超过 100 字符、non-ASCII 或不可打印字符在进入 endpoint 前返回 `400 ErrorEnvelope`。
+- 每个 operation 必须显式声明该 request Parameter 和 400；不得使用 `default`、`4XX`、filter、allowlist 或按 method/router 猜测其他业务状态。
+- 每个已声明 response（含 204、CSV、成功、业务错误和新增 400）必须声明 required `X-Request-ID` response Header，schema 与 request 值域相同。
+- Merge 只能追加上述 metadata。剥离 Parameter、400 和 response Header 后，原 operation status/schema/media/Header 必须与 FastAPI raw document 完全相同；CSV 的 `Content-Disposition` 与 204 no-body 语义不得改变。
+- login/logout 的多个 `Set-Cookie` occurrence 由独立 HTTP sentinel 逐项验证，不得合并为逗号值，也不得伪装为 OpenAPI 单值 Header Object。
+- `contracts/openapi.yaml` 是可编辑 static authority；runtime owner 不得反向读取它。`schema.d.ts` 只能运行 `npm --prefix frontend run api:generate` 生成，optional request Header 不得迫使现有调用方传参。
+- Custom OpenAPI 必须先在局部 document 完成 merge，再一次性写入 `app.openapi_schema`；merge 冲突时 cache 保持未发布，后续调用不得静默返回 raw 或 partial document。
+
+### 4. Validation & Error Matrix
+
+| 条件 | 实际 HTTP 行为 | OpenAPI / cache 行为 |
+|---|---|---|
+| Header 缺失 | 生成 UUID，并在正常或错误 response 回写 | request Parameter 保持 optional |
+| 1 或 100 个可打印 ASCII 字符 | 接受并原样回写 | request/response schema 接受 |
+| 空值、101 字符、non-ASCII、控制字符或 DEL | endpoint 前返回 `400 VALIDATION_ERROR`；envelope `request_id` 与 response Header 一致 | 每个 operation 显式引用 `400 ErrorResponse` |
+| 正常、业务错误或 validation error response | middleware 都写回 `X-Request-ID` | 每个已声明 response 都有 required Header |
+| CSV 或 204 | CSV bytes/media/文件名不变；204 仍无 body | 保留 `Content-Disposition`；不得给 204 增加 content |
+| component、同名 Header 或 400 冲突 | 不改变业务处理 | merge 显式失败，`app.openapi_schema` 不得缓存 partial document |
+| login/logout 多 Cookie | 保留多个独立 `Set-Cookie` occurrence 及当前安全属性 | OpenAPI 不声明 `Set-Cookie` |
+
+### 5. Good / Base / Bad Cases
+
+- Good：static/runtime operation 集合精确一致；当前 162 个 operation、1023 个 response occurrence 全量覆盖，完整无 filter response report 退出 0，generated request Header 仍为 optional。
+- Base：新增 operation 自动继承同一 runtime metadata；static contract、全量计数与 generated client 在同一 Task 显式同步。
+- Bad：逐 route 复制 request-id metadata；runtime 从 `openapi.yaml` 做 overlay；只抽样若干 endpoint；把多个 Cookie 合并；先发布 raw cache 再原地 merge；用 comparator filter 隐藏漂移。
+
+### 6. Tests Required
+
+- Request boundary：覆盖缺失 UUID、1/100、空/101、raw non-ASCII、控制字符/DEL，以及正常 response 和 endpoint 422 都回写 Header。
+- Error identity：非法值的 `ErrorEnvelope.error.request_id` 必须与 response Header 一致。
+- Full inventory：static/runtime operationId 唯一且集合相同；当前断言 162 个 request Parameter、162 个显式 400、1023 个 required response Header，无 `default`/`4XX`。
+- Non-interference：raw 与 augmented 剥离 Phase X metadata 后逐 operation 深比较；当前原始 response occurrence 为 861，两个 CSV 保留 `Content-Disposition`，20 个 204 无 content。
+- Cookie：逐 raw Header occurrence 锁定 login/logout 各两个 Cookie 的名称、值或删除语义、Path、SameSite、Secure、HttpOnly 与 Max-Age；递归断言 OpenAPI 不含 `Set-Cookie`。
+- Cache：强制 merge 抛错，断言 merge 内及异常后 `app.openapi_schema is None`，并恢复测试前 cache。
+- Generated / gates：运行 canonical generator、`api:check`、frontend typecheck、受影响 consumers、`make contract-check` 与无 filter response report。
+
+### 7. Wrong vs Correct
+
+```python
+# Wrong：raw document 先进入共享 cache，merge 失败或并发读取会暴露 partial schema
+app.openapi_schema = get_openapi(title=app.title, version=app.version, routes=app.routes)
+_merge_request_context_metadata(app.openapi_schema)
+
+# Correct：局部 document 完整合并成功后再原子发布
+schema = get_openapi(title=app.title, version=app.version, routes=app.routes)
+_merge_request_context_metadata(schema)
+app.openapi_schema = schema
+```

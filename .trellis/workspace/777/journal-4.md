@@ -902,3 +902,38 @@
 ### Next Steps
 
 - 优先单独规划 query-topic-dialog-live-projection；继续暂缓 integrity-error-domain-mapping。
+
+
+## Session 209: Query Topic Dialog 实时投影
+
+**Date**: 2026-09-03
+**Task**: Query Topic Dialog 实时投影
+**Branch**: `main`
+
+### Summary
+
+完成 Query Topic 查看引用与删除 Dialog 的 intent-by-ID 和 exact 列表实时投影修复；删除资格原位切换、确认使用最新 revision，409 被动刷新不解冻。正式双 project production-artifact E2E 20 项通过，独立审查无遗留问题。
+
+### Main Changes
+
+- 查看引用与删除 Dialog 从当前 exact Query Topic 列表派生名称、引用、动作、删除条件与 revision。
+- 删除确认拒绝 fetching/error/missing/blockers，409 仅在 fresh options 与当前列表显式恢复成功后解冻。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e2d6d1014ef46bca8e9446c3bb7635f9ad0bd74d` | (see git log) |
+
+### Testing
+
+- [OK] Query Topics foundation-mobile + foundation-desktop production-artifact E2E：20 passed，20.3s。
+- [OK] lint、typecheck、api:check、Task validate、task-scope diff check 全部通过。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 继续从已确认的前端一致性缺口中选择独立 Task；integrity-error-domain-mapping 继续暂缓。

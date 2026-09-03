@@ -1,1 +1,4 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file":".trellis/spec/frontend/state-management.md","reason":"复核 Prompt dirty/validity、canonical reset、revision conflict 与服务端动作不变量。"}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"复核没有第二套表单状态、公共 primitive 改动或客户端权限推导。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"复核定向 Vitest、lint、typecheck、production-artifact E2E 与未运行项记录。"}
+{"file":".trellis/tasks/09-03-platform-prompt-name-save-state/research/p2-004-root-cause.md","reason":"按历史缺陷、条件订阅根因和本地非稳定复现边界检查实现与结论。"}

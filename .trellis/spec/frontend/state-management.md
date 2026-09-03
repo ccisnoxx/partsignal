@@ -49,6 +49,22 @@ Questions to answer:
 - Prompt 保存成功后用 mutation 返回值替换名称、正文基线和 revision；`REVISION_CONFLICT` 必须保留本地草稿并提供显式重载。脏草稿在切换 Prompt 标签、模板、站内路由或刷新/关闭前提示，不能通过查询失效静默覆盖。
 - Prompt 输出预览按创建响应中的 Job ID 从任务级作业列表轮询，成功后读取不可变内容版本；已有结果属于原快照，Prompt 后续保存不得把该结果改标为当前配置预览。
 
+### React Hook Form 保存资格订阅
+
+使用 React Hook Form `formState` 决定保存资格时，参与资格判断的 Proxy 字段必须在组件 render 中无条件读取，再用于布尔组合。不得把 `isValid` 的属性读取放在 `isDirty` 之后的短路表达式里；clean 首屏会跳过 getter，特定校验/render 时序下可能出现 dirty 已更新但 validity 没有推动页面重绘。
+
+```tsx
+// 错误：clean 首屏不会读取或订阅 isValid。
+const isDirty = form.formState.isDirty;
+const canSave = isDirty && form.formState.isValid && !mutation.isPending;
+
+// 正确：首个 render 就订阅两个保存资格字段。
+const { isDirty, isValid } = form.formState;
+const canSave = isDirty && isValid && !mutation.isPending;
+```
+
+不得用 `trigger()` effect、重复 schema 解析或平行 dirty/valid 布尔值补偿订阅缺失。回归测试应从用户可见行为证明任一合法字段单独变化都能启用保存，并断言 exact mutation payload 与 canonical response reset；不要断言 React Hook Form 私有订阅结构。
+
 ### 删除 URL 当前对象
 
 删除由路径或查询参数选中的当前对象成功后，先从集合缓存投影中过滤已删除 ID，再清理 URL 身份；详情 query 使用 `refetchType: 'none'` 标记失效，不能在旧身份仍有活动 observer 时调用 `removeQueries`，否则会重新 GET 已删除资源。随后正常失效集合查询，让服务端列表校准缓存；删除失败不得修改集合、URL 或详情。

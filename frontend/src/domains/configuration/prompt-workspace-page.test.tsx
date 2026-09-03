@@ -330,6 +330,46 @@ describe('PromptWorkspacePage', () => {
     expect(EditorView.findFromDOM(markdown)?.state.doc.toString()).toBe('# 草稿');
   });
 
+  it('未绑定 Prompt 仅修改名称即可单次保存，并采用 canonical response 清除 dirty', async () => {
+    mockReads();
+    const canonical = prompt({
+      id: secondPromptId,
+      name: '产品简报 Prompt-已更新',
+      revision: 3,
+      bound_platform_count: 0,
+      bound_platforms: [],
+    });
+    const put = vi.spyOn(api, 'PUT').mockResolvedValue(response(canonical));
+    renderWorkspace(`/settings/prompts?promptId=${secondPromptId}`);
+
+    const name = await screen.findByRole('textbox', { name: 'Prompt 名称' });
+    const markdown = await screen.findByRole('textbox', { name: 'Prompt Markdown' });
+    expect(name).toHaveValue('产品简报 Prompt');
+    expect(EditorView.findFromDOM(markdown)?.state.doc.toString()).toBe('# 写作约束');
+    await userEvent.clear(name);
+    await userEvent.type(name, '产品简报 Prompt-已更新');
+
+    const save = await screen.findByRole('button', { name: '保存 Prompt' });
+    await waitFor(() => expect(save).toBeEnabled());
+    expect(screen.queryByRole('dialog', { name: '保存将影响绑定平台' })).not.toBeInTheDocument();
+    await userEvent.click(save);
+
+    await waitFor(() => expect(put).toHaveBeenCalledOnce());
+    expect(put).toHaveBeenCalledWith('/api/v1/platform-prompts/{platform_prompt_id}', {
+      body: {
+        name: '产品简报 Prompt-已更新',
+        template_markdown: '# 写作约束',
+        expected_revision: 2,
+      },
+      params: {
+        path: { platform_prompt_id: secondPromptId },
+        header: { 'X-CSRF-Token': auth.csrfToken },
+      },
+    });
+    expect(await screen.findByText('未修改 · Revision 3')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '保存 Prompt' })).toHaveAttribute('aria-disabled', 'true');
+  });
+
   it('保存前读取最新影响范围，确认后单次 PUT，并精确失效跨域消费者', async () => {
     let current = prompt();
     const get = mockReads(() => current);
@@ -507,7 +547,7 @@ describe('PromptWorkspacePage', () => {
     }));
     const save = await screen.findByRole('button', { name: '保存 Prompt' });
     await waitFor(() => expect(save).toBeEnabled());
-    const updateForm = save.closest('form');
+    const updateForm = screen.getByRole('textbox', { name: 'Prompt 名称' }).closest('form');
     if (!updateForm) throw new Error('测试未找到 Prompt 更新表单');
     fireEvent.submit(updateForm);
     const impact = await screen.findByRole('dialog', { name: '保存将影响绑定平台' });

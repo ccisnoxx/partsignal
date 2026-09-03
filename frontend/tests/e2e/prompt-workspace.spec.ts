@@ -75,6 +75,43 @@ test('管理员从导航进入 Prompt Workspace，并完成 create/update/delete
   });
 });
 
+test('新建 Prompt 后仅修改名称即可保存并采用 canonical revision', async ({
+  page,
+  promptWorkspaceApi,
+}) => {
+  await page.goto('/settings/prompts?new=1');
+  await page.getByRole('textbox', { name: 'Prompt 名称' }).fill('名称单独保存 Prompt');
+  await page.getByRole('textbox', { name: 'Prompt Markdown' }).fill('# 名称单独保存正文');
+  await page.getByRole('button', { name: '创建 Prompt' }).click();
+  await expect(page).toHaveURL(`/settings/prompts?promptId=${createdPromptId}`);
+
+  const name = page.getByRole('textbox', { name: 'Prompt 名称' });
+  await name.fill('名称单独保存 Prompt-已更新');
+  await expect(page.getByText('有未保存修改 · 基于 Revision 0', { exact: true })).toBeVisible();
+  const save = page.getByRole('button', { name: '保存 Prompt', exact: true });
+  await expect(save).toBeEnabled();
+  await save.click();
+
+  await expect.poll(() => promptWorkspaceApi.requests.length).toBe(2);
+  expect(promptWorkspaceApi.requests[0]).toMatchObject({
+    body: { name: '名称单独保存 Prompt', template_markdown: '# 名称单独保存正文' },
+    csrfToken: 'platforms-e2e-csrf',
+    method: 'POST',
+  });
+  expect(promptWorkspaceApi.requests[1]).toMatchObject({
+    body: {
+      expected_revision: 0,
+      name: '名称单独保存 Prompt-已更新',
+      template_markdown: '# 名称单独保存正文',
+    },
+    csrfToken: 'platforms-e2e-csrf',
+    method: 'PUT',
+    promptId: createdPromptId,
+  });
+  await expect(page.getByText('未修改 · Revision 1')).toBeVisible();
+  await expect(save).toBeDisabled();
+});
+
 test('Preview 显式选择并确认真实首稿，按返回 Job 轮询到不可变版本', async ({
   page,
   promptWorkspaceApi,

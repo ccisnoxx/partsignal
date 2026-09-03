@@ -1,1 +1,5 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file":".trellis/spec/frontend/state-management.md","reason":"遵循 Prompt 本地草稿、dirty/validity、canonical response、revision conflict 与显式 reload/no replay 合同。"}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"在 Configuration domain 的真实 PromptEditor owner 做最小修复，不改变共享 primitive 或服务端动作边界。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"使用定向 component 与 production-artifact Playwright 证明保存状态和请求行为。"}
+{"file":".trellis/spec/frontend/directory-structure.md","reason":"保持 routes -> domains -> design-system/shared 的既有依赖与测试文件所有权。"}
+{"file":".trellis/tasks/09-03-platform-prompt-name-save-state/research/p2-004-root-cause.md","reason":"依据历史运行证据、当前源码、RHF Proxy 订阅机制与本地诊断结论实施。"}

@@ -432,7 +432,7 @@ function PromptEditor({
     },
   });
   const markdown = useWatch({ control: form.control, name: 'template_markdown' });
-  const isDirty = form.formState.isDirty;
+  const { isDirty, isValid } = form.formState;
   const actions = prompt ? resolvePromptActions(prompt) : { canDelete: false, canUpdate: true };
 
   useEffect(() => {
@@ -529,7 +529,7 @@ function PromptEditor({
   }
   if (requestId) summary.push({ id: 'request', message: `请求 ID：${requestId}` });
 
-  const canSave = actions.canUpdate && isDirty && form.formState.isValid && !save.isPending && !conflict;
+  const canSave = actions.canUpdate && isDirty && isValid && !save.isPending && !conflict;
   const stickyActions: StickyAction[] = [{
     key: creating ? 'CREATE' : 'UPDATE',
     label: save.isPending ? '保存中…' : creating ? '创建 Prompt' : '保存 Prompt',
@@ -541,7 +541,7 @@ function PromptEditor({
         ? '请先重新加载服务端版本'
         : !isDirty
           ? '当前没有未保存修改'
-          : !form.formState.isValid
+          : !isValid
             ? '请先修正表单错误'
             : '正在保存',
     onSelect: () => void form.handleSubmit(requestSave)(),

@@ -759,3 +759,42 @@
 ### Next Steps
 
 - 先轮换已暴露的旧管理员密码；后续按独立 Task 处理 P2-001、P2-003、P2-004，不自动开始 integrity-error-domain-mapping。
+
+
+## Session 205: 修复移动触控目标与审计空态
+
+**Date**: 2026-09-03
+**Task**: 修复移动触控目标与审计空态
+**Branch**: `main`
+
+### Summary
+
+完成 P2-001 登录移动触控高度与 P2-003 系统审计移动空态修复；创建但未启动独立 P2-004 Prompt 保存状态 Task。
+
+### Main Changes
+
+- 登录页四个关键控件在 320/375px 达到至少 44px，768/1440px 保持 32px。
+- 系统审计空态在 320/375px 的 TableShell 初始可见区域内呈现，未改变共享表格合同。
+- 创建 09-03-platform-prompt-name-save-state 规划 Task，保持未启动。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `78635bdb96f1238f4447ef2c5fa7d6a8b66d3fc1` | (see git log) |
+| `a2255a52abe0847ee03e2d697cfb0bbfe9a5b25d` | (see git log) |
+
+### Testing
+
+- [OK] 定向 Vitest：2 files、9 tests 通过。
+- [OK] frontend lint 与 typecheck 通过。
+- [OK] 定向 production-artifact Playwright：17 passed、1 个 desktop 移动专属用例按设计 skipped。
+- [OK] 独立只读 Review 无 material finding。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 继续规划并实施 09-03-platform-prompt-name-save-state；暂不创建或启动 integrity-error-domain-mapping。

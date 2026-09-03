@@ -678,3 +678,49 @@
 ### Next Steps
 
 - 返回父任务 08-31-non-2xx-contract-check，单独执行最终集成核对与收尾授权。
+
+
+## Session 203: 完成完整 Response 合同门禁父任务收尾
+
+**Date**: 2026-09-03
+**Task**: 完成完整 Response 合同门禁父任务收尾
+**Branch**: `main`
+
+### Summary
+
+完成九个直属子任务的最终集成核对；独立修复 HEAD、OPTIONS、TRACE operation 被 comparator 静默忽略的问题；复用 Phase F 正式 gate 证据并运行修复后的定向验证、独立 Review 与唯一一次 make contract-check；随后归档修复 Task 和父任务。
+
+### Main Changes
+
+- 默认 response comparator 现覆盖 OpenAPI 3.1 八种 operation 方法，并以默认 check() 双向 mutation 防止 false-green。
+- 父任务 prd、design、implement 已按真实提交、验证与 Review 证据更新为最终状态。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `000a0d27` | (see git log) |
+| `b2bc3c68` | (see git log) |
+| `4ccd6ea7` | (see git log) |
+| `8dffb1ac` | (see git log) |
+| `7be5b979` | (see git log) |
+| `377570a9` | (see git log) |
+| `eb22dc68` | (see git log) |
+| `89245be8` | (see git log) |
+| `562d2bce` | (see git log) |
+| `cbb39f87` | (see git log) |
+| `7e539c88` | (see git log) |
+| `8f29f329` | (see git log) |
+
+### Testing
+
+- [OK] 契约定向测试 68 passed，runtime frozen-operation 快照 1 passed，独立合并复核 69 passed，Ruff 通过。
+- [OK] 修复后唯一一次 make contract-check 通过；父任务 validate、archive/status/parent、Git 范围和 162/1023 inventory 检查通过。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 继续当前 v2-live-readonly-acceptance；不要开始 integrity-error-domain-mapping，除非用户另行授权。

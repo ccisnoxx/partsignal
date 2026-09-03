@@ -1,5 +1,11 @@
 # 完整 Response 合同门禁设计
 
+## 0. 最终实现状态
+
+本设计已由 Phase A、B、Composition Authority、Runtime Metadata Wave 1/2/3、GEO Schema Identity、Phase X 与 Phase F 分阶段落地。最终默认 `check()` 只调用一次完整 response comparator，并继续执行既有 security scheme、operationId、parameter、security 与 requestBody 检查；旧 `successful_response()`、首个 2xx shortcut 和 `--response-report` 过渡入口已经删除。
+
+最终 Review 发现 checker 的方法枚举缺少 `head/options/trace`；独立修复 `b2bc3c6` 已将唯一 comparator 扩展为 OpenAPI 3.1 八种 operation 方法，并以默认 `check()` 双向 mutation 冻结 missing/extra operation。冻结合同与 runtime OpenAPI 当前均覆盖 162 个 operation、1023 个 response occurrence、162 个 request `X-Request-ID` Header、162 个显式 400 和 1023 个 response `X-Request-ID` Header。`contracts/openapi.yaml`、runtime `app.openapi()`、generated client 与测试保持独立权威链，runtime builder 不读取冻结合同。login/logout 多实例 `Set-Cookie` 仍只由 HTTP sentinel 保证。
+
 ## 1. 不变量与权威顺序
 
 最终门禁比较两个独立产物：
@@ -155,7 +161,7 @@ authority 范围分三类：
 
 ### 9.1 Comparator core
 
-只增加纯 comparator、mutation tests 与调用同一 comparator 的只读 `--response-report` 诊断入口，不接入默认 live `check()`；现有 `make contract-check` 行为保持，父 Task 明确未完成。report 对全量 drift 返回非零并稳定输出，不提供 suppress/filter/allowlist 参数。回滚只需删除新 comparator/test/report 入口，不影响 runtime 或合同。
+Phase A 只增加纯 comparator、mutation tests 与调用同一 comparator 的只读 `--response-report` 诊断入口，当时未接入默认 live `check()`。该 report 对全量 drift 返回非零且不提供 suppress/filter/allowlist 参数；它仅是阶段性诊断入口，已在 Phase F 删除。
 
 ### 9.2 Authority reconciliation
 
@@ -163,7 +169,7 @@ authority 范围分三类：
 
 ### 9.3 Runtime metadata waves
 
-按 router domain 分三波，每波只同步 metadata 和对应测试，不改 service/权限/状态/事务。每波使用完整 authority matrix 在测试中选取该 wave 拥有的全部 operation，调用同一纯 comparator 并要求该 domain 零漂移；这是阶段验收输入，不进入生产 checker，也不是忽略列表。每波另运行无 filter 的 `--response-report` 保存全量剩余差异，不把输出作为可提交 baseline 或预期值。
+按 router domain 分三波，每波只同步 metadata 和对应测试，不改 service/权限/状态/事务。每波使用完整 authority matrix 在测试中选取该 wave 拥有的全部 operation，调用同一纯 comparator 并要求该 domain 零漂移；这是阶段验收输入，不进入生产 checker，也不是忽略列表。每波曾运行无 filter 的 `--response-report` 保存全量剩余差异，未把输出作为可提交 baseline 或预期值；Wave 1/2 按预期非零，Wave 3 在 GEO identity 与 Publication event-time 前置修复后归零。
 
 ### 9.4 Cross-cutting request context metadata
 
@@ -171,7 +177,11 @@ authority 范围分三类：
 
 ### 9.5 Final activation
 
-所有 authority 与 metadata wave 归零后，`check()` 接入完整 comparator，删除 `successful_response()` 和旧 response shortcut。Makefile/CI 已调用同一 module，预期无需改 workflow；最终用实际命令确认。
+所有 authority 与 metadata wave 归零后，`check()` 已接入完整 comparator，删除 `successful_response()`、旧 response shortcut 与 report-only CLI 分支。Makefile/CI 未修改，继续通过同一 module 和 `make contract-check` 使用唯一默认门禁；Phase F 的实际命令与独立 Review 已确认该调用链。
+
+### 9.6 Final method coverage repair
+
+父任务收尾 Review 用 `HEAD /probe` contract-only 最小反例证明原枚举会 false-green。独立修复只扩充 checker 的方法集合，并通过默认 `check()` 参数化覆盖 `HEAD`、`OPTIONS`、`TRACE` 的 contract-only/runtime-only 诊断；Path Item `summary`、`description`、`servers` 继续不作为 operation，shared `parameters` 继续合并。该修复不改 runtime OpenAPI、公共合同、generated client、CORS 或业务 HTTP 行为。
 
 中间阶段不长期保留 report-only 完成状态；任何未归零差异都会阻止父 Task 关闭。
 

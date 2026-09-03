@@ -4,7 +4,17 @@
 
 把 `backend/app/tools/contract_check.py` 从“只比较首个 2xx response”提升为覆盖每个 operation 完整 response status key 集合和机器可执行 response shape 的可靠合同门禁，使冻结 OpenAPI、FastAPI runtime OpenAPI 与已确认的实际 HTTP 行为可以独立互证，而不是比较同一来源与自身。
 
-本 Task 是 `08-30-frontend-v2-functional-contract-conformance-baseline` 的 3E 独立后续 Task。本轮只完成审计、比较语义冻结和可评审规划，不运行 `task.py start`，不修改产品代码、OpenAPI、generated client、业务行为或生产数据。
+本 Task 是 `08-30-frontend-v2-functional-contract-conformance-baseline` 的 3E 独立后续 Task。最终实现已经由九个直属子任务分阶段完成；父任务本身只承担来源要求、依赖顺序、最终集成核对与归档，不再修改产品代码、OpenAPI、generated client、业务行为或生产数据。
+
+## Final Integrated State
+
+- Phase A、B、Composition Authority、三个 Runtime Metadata Wave、GEO Schema Identity、Phase X 与 Phase F 九个直属子任务均已归档为 `completed`，且 `parent` 均指向本 Task。
+- Publication event-time authority 修复 `562d2bce` 与 response comparator HTTP method coverage 修复 `b2bc3c6` 是独立阻塞修复，不是本 Task 的直属 child；后者已归档为 `completed`，并关闭最终 Review 发现的 `HEAD`、`OPTIONS`、`TRACE` false-green。
+- 最终门禁激活提交为 `000a0d27`，方法覆盖修复提交为 `b2bc3c6`。默认 `check()` 只调用唯一完整 response comparator；`successful_response()`、首个 2xx shortcut 与 `--response-report` 过渡入口均已删除。
+- checker 覆盖 OpenAPI 3.1 八种 operation 方法；当前冻结合同与 runtime OpenAPI 均精确覆盖 162 个 operation、1023 个 response occurrence、162 个 `X-Request-ID` request Header、162 个显式 400 和 1023 个 required response `X-Request-ID` Header。
+- login/logout 的多个 `Set-Cookie` 继续由 HTTP sentinel 逐 occurrence 保证，OpenAPI 未声明失真的单值 `Set-Cookie` Header。
+- `contracts/openapi.yaml`、runtime `app.openapi()`、canonical generated client、相关测试、Makefile/CI 与稳定 specs 当前一致。`b2bc3c6` 只修改 checker、定向测试和既有 backend spec，没有改变公共合同、runtime metadata 或 generated client。
+- 父任务没有改变既定业务 HTTP 行为、权限、事务、状态转换或数据库合同。
 
 ## Confirmed Baseline
 
@@ -35,21 +45,23 @@
 12. CI 继续通过 `make contract-check` 调用同一最终门禁；frontend `api:check` 继续证明 generated client 与最终冻结合同一致。CI trigger 是否扩展到 push/PR 不属于本 Task。
 13. 任何必须改变实际 HTTP 状态、业务 error code、权限或异常映射的发现必须拆为独立业务/合同 Task；3E 只建立并启用完整 response 合同门禁及其必要 metadata/冻结合同同步。
 
-## Delivery Boundary
+## Delivery History
 
-156 个集合差异、现有合同遗漏、7 个成功 shape 差异与跨切面 400 无法在一个实现 diff 中安全收敛。推荐把当前 Task 作为 3E 集成父任务，保持唯一目标“建立完整 response 合同门禁”，由以下可独立 review 的子任务顺序完成：
+156 个集合差异、现有合同遗漏、7 个成功 shape 差异与跨切面 400 没有压入一个实现 diff，而是由本 3E 集成父任务按以下可独立 review 的子任务顺序完成：
 
-1. comparator core 与 mutation tests；不切换现有 live gate。
-2. response authority reconciliation：修正静态 OpenAPI、generated client 与局部静态合同测试，不改变实际行为。
+1. comparator core 与 mutation tests；阶段内不切换 live gate。
+2. response authority reconciliation 与 schema composition authority repair：修正静态 OpenAPI、generated client、runtime schema owner 与局部合同测试，不改变实际 payload。
 3. runtime response metadata 三个 domain wave：foundation/config/identity/files；product/content；publication/GEO/workbench。
-4. 跨切面 `X-Request-ID` request Header、162 个 operation 的 400 response 与所有已声明 response 的 `X-Request-ID` Header 作为单独同步子任务；来源只能是 middleware 的实际常量/行为，不得读取冻结合同覆盖 runtime。
-5. 最终启用完整 comparator，删除首个 2xx 旧路径，执行全量合同门禁。
+4. GEO schema identity 与 Publication event-time authority 前置修复，关闭 Wave 3 的 success-schema 与真实 PostgreSQL sentinel 阻塞。
+5. 跨切面 `X-Request-ID` request Header、162 个 operation 的 400 response 与所有已声明 response 的 `X-Request-ID` Header 单独同步；runtime owner 来自 middleware 的实际常量/行为，不读取冻结合同覆盖 runtime。
+6. 最终启用完整 comparator，删除首个 2xx 旧路径和 report-only 入口，执行正式 full-scope gate。
+7. 父任务最终 Review 发现 checker 漏枚举三种合法 OpenAPI 方法；独立修复 Task 补齐八种方法和默认 `check()` 双向 mutation，并重新运行受影响定向验证及一次 `make contract-check`。
 
-中间子任务不得声称门禁完成；父任务只有在最终门禁启用且零漂移后才完成。规划批准后创建并启动第一个子任务，不启动本父任务。
+中间子任务没有提前声称默认门禁完成；Phase F 在前序零漂移后完成激活，方法覆盖修复关闭最终 Review gap。本父任务未被作为直接实现任务启动。
 
 ## Public Contract Impact
 
-需要公共合同变更，但只允许反映已经存在且经证据确认的 HTTP 行为：
+已完成的公共合同变更只反映既有且经证据确认的 HTTP 行为：
 
 - 补齐当前静态合同漏掉的依赖/command/error statuses，并删除 `testAIModel` 不会逃逸的 502/504。
 - 修正 149 个 validation-capable operation 的 422 status/`ErrorEnvelope` metadata。
@@ -62,22 +74,22 @@
 
 ## Acceptance Criteria
 
-- [ ] checker 比较双方每个 operation 的完整规范化 response status key 集合。
-- [ ] 任意 status 只存在于一侧时失败，并输出 path、method、missing/extra status；不使用交集、allowlist 或 baseline。
-- [ ] 多个 2xx 全部比较；第二个 2xx 缺失或 shape 漂移会失败。
-- [ ] `default`、`1XX`–`5XX` 与显式 status 作为不同 key 精确比较；显式 code 不因 range/default 覆盖而被判等。
-- [ ] 双方共有且有 JSON body 的每个 status 递归比较字段、required、nullability、组合结构和机器约束。
-- [ ] 一侧有 body、另一侧无 body，或 media/schema 只存在于一侧时失败；CSV/header 漂移同样可定位。
-- [ ] 双方 204 均无 body 时通过；任一侧 204 添加 body 时失败。
-- [ ] 非 2xx `ErrorEnvelope` 的字段、required、类型或约束漂移时失败；runtime 422 不再指向 `HTTPValidationError`。
-- [ ] response/schema/header `$ref`、安全 `allOf`、`anyOf`、`oneOf` 和 nullable 表达按冻结语义展开；等价写法通过，真实语义漂移失败，`oneOf` 分支 multiplicity 不被去重。
-- [ ] description/title/examples 等 annotation 不造成失败；声明的 headers 进入完整比较，大小写归一化碰撞和非法 schema/content 组合失败；links 不被静默忽略。
-- [ ] authority matrix 覆盖 `X-Request-ID`、`Content-Disposition`、login/logout `Set-Cookie` 与统一 ErrorEnvelope；前两类进入 OpenAPI parity，Cookie 保留多实例 HTTP sentinel，`details` required 与实际 handler 一致。
-- [ ] mutation tests 至少覆盖 missing status、extra status、非 2xx schema、multi-2xx、204 body、media、header、ref/composition 和 nullable drift。
-- [ ] authority sync 逐项基于真实依赖/命令/行为证据；不批量猜测 401/403/404/409，不改变业务 HTTP 状态、error code、权限、事务或异常映射。
-- [ ] 最终 `make contract-check`、backend 定向测试和 frontend `api:check` 通过；CI 继续执行同一 `make contract-check`。
-- [ ] `app.openapi()` 未读取或合并 `contracts/openapi.yaml`，不存在 ignored route/status 机制或统一默认 ErrorResponse 覆盖。
-- [ ] 现有 `v2-live-readonly-acceptance` 保持 `in_progress`，父基线保持 `planning`；既有 dirty files/artifacts 不被纳入。
+- [x] checker 比较双方每个 operation 的完整规范化 response status key 集合，并覆盖 OpenAPI 3.1 八种 operation 方法。
+- [x] 任意 status 只存在于一侧时失败，并输出 path、method、missing/extra status；不使用交集、allowlist 或 baseline。
+- [x] 多个 2xx 全部比较；第二个 2xx 缺失或 shape 漂移会失败。
+- [x] `default`、`1XX`–`5XX` 与显式 status 作为不同 key 精确比较；显式 code 不因 range/default 覆盖而被判等。
+- [x] 双方共有且有 JSON body 的每个 status 递归比较字段、required、nullability、组合结构和机器约束。
+- [x] 一侧有 body、另一侧无 body，或 media/schema 只存在于一侧时失败；CSV/header 漂移同样可定位。
+- [x] 双方 204 均无 body 时通过；任一侧 204 添加 body 时失败。
+- [x] 非 2xx `ErrorEnvelope` 的字段、required、类型或约束漂移时失败；runtime 422 不再指向 `HTTPValidationError`。
+- [x] response/schema/header `$ref`、安全 `allOf`、`anyOf`、`oneOf` 和 nullable 表达按冻结语义展开；等价写法通过，真实语义漂移失败，`oneOf` 分支 multiplicity 不被去重。
+- [x] description/title/examples 等 annotation 不造成失败；声明的 headers 进入完整比较，大小写归一化碰撞和非法 schema/content 组合失败；links 不被静默忽略。
+- [x] authority matrix 覆盖 `X-Request-ID`、`Content-Disposition`、login/logout `Set-Cookie` 与统一 ErrorEnvelope；前两类进入 OpenAPI parity，Cookie 保留多实例 HTTP sentinel，`details` required 与实际 handler 一致。
+- [x] mutation tests 覆盖 missing/extra operation、missing/extra status、非 2xx schema、multi-2xx、204 body、media、header、ref/composition、nullable 及 `HEAD`/`OPTIONS`/`TRACE` 双向漂移。
+- [x] authority sync 逐项基于真实依赖/命令/行为证据；不批量猜测 401/403/404/409，不改变业务 HTTP 状态、error code、权限、事务或异常映射。
+- [x] 最终 `make contract-check`、backend 定向测试和 frontend `api:check` 通过；CI 继续执行同一 `make contract-check`。
+- [x] `app.openapi()` 未读取或合并 `contracts/openapi.yaml`，不存在 ignored route/status/method 机制或统一默认 ErrorResponse 覆盖。
+- [x] 现有 `v2-live-readonly-acceptance` 保持 `in_progress`，父基线保持 `planning`；既有 dirty files/artifacts 未被纳入。
 
 ## Out of Scope
 
@@ -91,4 +103,4 @@
 
 ## Review Gate
 
-本轮 planning artifacts 与研究材料等待人工批准。批准前不运行 `task.py start`，不创建实现子任务，不修改产品代码或公共合同；若批准后规划发生实质变化，重新进入 review gate。
+九个直属子任务与两个独立阻塞修复均已有工作提交、required validation 和 Review 证据。Phase F 候选 `000a0d27` 的正式 full-scope gate 与方法修复 `b2bc3c6` 后唯一一次 `make contract-check` 均通过；最终 release-gate targeted re-review 无未解决 MEDIUM+。父任务收尾只运行 task validation、父文档 whitespace、Git 范围、archive/status/parent 与当前 inventory 核对，不再重复正式门禁。

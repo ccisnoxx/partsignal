@@ -6,6 +6,24 @@
 
 性质：静态只读审计 + 已有运行证据复核；本文件不代表已执行全套测试或生产写验证。
 
+## 0. 2026-09-03 最终收尾快照
+
+下表的逐路由结论保留 2026-08-30 审计时点事实；本节记录之后由独立 Task 形成的处置结果，不把历史缺口改写为“从未存在”。当前只读核对确认 37 条 canonical 路由仍全部存在，默认 `make contract-check` 已覆盖冻结 OpenAPI 与 FastAPI runtime 的完整 response 合同，generated client 只读再生成零漂移。
+
+| 原始发现 | 最终处置 | 证据 |
+|---|---|---|
+| 发布换版后可复用旧登记结果核验新内容（P0） | 已由独立 Task 关闭；read model 与 command guard 共享换版后重新登记资格 | `4a7979e8` |
+| `/geo/topics` 显式合法 `page_size` 返回 422（P1 blocker） | 已关闭；真实 FastAPI HTTP 边界覆盖 10/20/50、默认 20 和非法值 422 | `5add828a` |
+| GEO optimization 可在锁外复算并落库 stale basis（P1） | 已关闭；复算进入统一资源锁域，并以真实 PostgreSQL 并发测试证明 | `15250902` |
+| Content Editor `SUBMIT_REVIEW` 409 恢复不一致（P1） | 已关闭；统一 conflict owner，仅显式 reload 成功后采用 canonical context | `56f92699` |
+| Platform/Profile/Account/User 删除 Dialog 保存陈旧投影（P1） | 已关闭；本地仅保存稳定 ID，展示、资格和 revision 从当前 exact query projection 派生 | `abd41e1c` |
+| Audit 未知 action 击穿整页（P1） | 已关闭；坏行和坏筛选项局部严格失败，不泄漏未知 token | `180d0ad3` |
+| contract checker 忽略非 2xx 和部分 HTTP method（P1） | 已关闭；默认门禁比较完整 status/media/Header/schema/Link，并覆盖八种 OpenAPI operation method | `000a0d27`、`b2bc3c68` |
+
+六个直属子任务均已归档为 `completed`，parent 关系正确。`publication-verification-final-authority` 是原矩阵推荐的首个独立 P0 Task，不是父 Task 的直属 child，但同样已归档完成。
+
+后续线上只读验收仍保留 2026-08-30 的 `FAIL`、`NOT_RUN` 和 `BLOCKED` 证据；其后独立完成的移动触控目标/审计空态修复 `78635bdb` 与 Prompt 名称单独编辑保存状态修复 `6a3dd72d` 不反向改写该验收结果。矩阵中其余合同决策、P1/P2/P3 和测试收口建议没有因本父 Task 归档而自动完成。`integrity-error-domain-mapping` 按用户要求继续暂缓，未创建、未启动。
+
 ## 1. 读表说明
 
 ### 1.1 证据层级
@@ -22,7 +40,7 @@
 - 37 条文档 canonical 路由均存在；未发现 canonical URL 缺失。route tree 见 `frontend/src/routeTree.gen.ts`。
 - 所有 `/_app` 路由统一经过认证与 `must_change_password` gate：`frontend/src/routes/_app/route.tsx`。管理员路由统一经过 `frontend/src/routes/_app/_admin/route.tsx`，前端 403 只作 UX boundary，服务端仍为最终权限 owner。
 - API DTO 从 `frontend/src/shared/api/generated/schema.d.ts` 引用；生产代码除服务端签名文件传输 URL 外未发现 raw API 旁路或第二套 response DTO。
-- generated schema 与 `contracts/openapi.yaml` 的只读再生成 diff 为零，二者均有 128 个 path。backend runtime operation map 与冻结合同共有 162 个 `(path, method, operationId)`，但当前 contract checker 只比较请求和首个 2xx response，不能证明非 2xx response 集合/shape 一致。
+- 初始审计时 generated schema 与 `contracts/openapi.yaml` 的只读再生成 diff 为零，二者均有 128 个 path；backend runtime operation map 与冻结合同共有 162 个 `(path, method, operationId)`。当时 checker 只比较请求和首个 2xx response；该缺口后来由 `non-2xx-contract-check` 及方法覆盖修复关闭，当前默认门禁比较每个 operation 的完整 response contract。
 
 ### 1.3 严重度
 
@@ -140,6 +158,8 @@ Task：`query-topic-list-page-size-http-parsing-blocker`。只修改 backend rou
 
 ## 9. 后续 Task 依赖顺序
 
+以下表格保留初始审计提出的依赖计划；已关闭项和继续暂缓项以本文件第 0 节为准。未出现在直属 child 列表中的建议仍只是独立后续候选，不因本父 Task 完成而被创建或启动。
+
 ### 9.1 执行序列
 
 | 顺序 | Task | 目标 | 依赖 |
@@ -175,6 +195,8 @@ Task：`query-topic-list-page-size-http-parsing-blocker`。只修改 backend rou
 
 `publication-verification-final-authority`
 
+最终状态：已完成并归档，工作提交为 `4a7979e8`。
+
 ### 唯一评审目标
 
 发布工作切换 `content_version_id` 后，旧的登记结果立即失效；服务端read model和verification command共享同一资格不变量，只有新的 `RESULT_REGISTERED` 才重新开放 `VERIFY`。不改变OpenAPI shape，不修改数据库结构，不处理其他Publication UI或P2错误态。
@@ -196,3 +218,4 @@ Task：`query-topic-list-page-size-http-parsing-blocker`。只修改 backend rou
 - OpenAPI/generated同步和backend operation map一致，不等于业务语义、query binding或非2xx合同一致；本文件已单独列出这些缺口。
 - `/geo/topics` 使用已有部署只读证据和本地HTTP边界复现；没有在本Task重新操作生产环境。
 - 数据库trigger/migration未做全量实现审计；数据库结论限定为本次路由对应的service/ORM行为与`contracts/database.md`对照。
+- 2026-09-03 父 Task 收尾只运行路由闭集、完整 contract/generated gate、Trellis 文档与 Git/归档关系轻量核对；没有重复运行各子任务已经通过的完整 Vitest、Playwright、backend integration、真实 PostgreSQL 并发或仓库级 `make verify`。

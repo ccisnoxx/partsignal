@@ -27,27 +27,45 @@
 - [x] 每个缺口映射到独立 Task，明确合同决策前置项和依赖顺序。
 - [x] 选出首个实施 Task，并冻结精确验收标准。
 
+## Phase D：最终集成核对
+
+- [x] 六个直属 child 均存在于 archive，`status=completed`，`parent=08-30-frontend-v2-functional-contract-conformance-baseline`。
+- [x] 首个推荐 P0 Task `publication-verification-final-authority` 已独立完成；直属子任务的工作提交和归档提交均位于当前 `HEAD` ancestry。
+- [x] 当前文档定义的 37 条 canonical 路由在 `frontend/src/routeTree.gen.ts` 全部存在，无重复或缺失。
+- [x] 当前默认 `make contract-check` 使用唯一完整 response comparator；冻结 OpenAPI、runtime document 和 generated client 零漂移。
+- [x] 原始矩阵保留审计时点事实，并增加最终处置台账；未完成项没有被写成已关闭。
+- [x] 本次无需修改产品代码、公共合同、generated client、测试、数据库合同或业务设计文档。
+
 ## Required Validation
 
 本 Task 的必需验证均为只读：
 
 ```bash
-cd frontend && diff -u src/shared/api/generated/schema.d.ts <(./node_modules/.bin/openapi-typescript ../contracts/openapi.yaml)
-PYTHONPATH=backend backend/.venv/bin/python -m app.tools.contract_check
+make contract-check
 python3 ./.trellis/scripts/task.py validate .trellis/tasks/08-30-frontend-v2-functional-contract-conformance-baseline
 ! rg -n '[[:blank:]]+$' .trellis/tasks/08-30-frontend-v2-functional-contract-conformance-baseline
 ```
 
-预期：generated diff 退出码 0；当前合同检查器报告语义一致；Task 文档通过结构校验且无 context truncation warning；新增文档无行尾 whitespace。`contract_check` 的通过只证明其当前实现覆盖的 operation/request/首个 2xx response，不用于否定非 2xx response drift。
+另以只读脚本从信息架构表提取 37 条 canonical 路由，去除 search 参数后与 `routeTree.gen.ts` 的 `fullPath` 集合逐项比对；并核对六个 child 的 archive/status/parent、关键提交 ancestry、任务范围 diff 和任务外 dirty/index 指纹。
+
+### Actual Validation Result
+
+- 37 条 canonical 路由：`37` 条、`37` 个唯一值、`missing=[]`。
+- `make contract-check`：通过；FastAPI runtime 与冻结 OpenAPI 的完整契约一致，`openapi-typescript 7.13.0` 只读再生成与 canonical generated client 一致。
+- 父 Task `task.py validate`、文档 trailing-whitespace 与 task-scope `git diff --check`：最终文档更新后均通过。
+- 当前 static/runtime inventory 均为 128 paths、162 operations、1023 responses；operation key、operationId 与 status 集合精确一致。
+- 六个直属 child 的 archive/status/parent 核对通过；工作提交为 `5add828a`、`15250902`、`56f92699`、`abd41e1c`、`180d0ad3`，完整 response 门禁的最终激活与方法覆盖提交为 `000a0d27`、`b2bc3c68`。
+- 首个推荐 P0 修复提交 `4a7979e8` 已归档完成。后续线上验收及两个独立 P2 修复任务已有各自证据，不改变原始审计结论。
 
 ## Optional Validation Not Run
 
-- 不运行 Vitest、Playwright、backend 全套或真实 PostgreSQL 并发测试：本 Task 不修改代码，重型套件不能关闭本轮已识别的特定覆盖缺口。
-- 不发起生产请求或生产写操作：`/geo/topics` 使用已有只读复现证据；部署后重验留给独立修复 Task。
+- 本次父 Task 收尾不重复运行完整 Vitest、Playwright、backend unit/integration、真实 PostgreSQL 并发或 `make verify`。父 Task 不修改产品代码；各独立修复 Task 已记录其定向 unit/integration/E2E、lint、type、contract 和 Review 证据，重复仓库级套件不会增加对本次文档归档边界的直接证明。
+- 不发起生产请求或生产写操作。2026-08-30 的线上验收结果继续按归档 Task 保留；本次只复核当前本地合同和路由闭集。
+- 未运行项保持 `NOT_RUN`，不写成通过；残余风险是矩阵中尚未启动的独立合同决策、P1/P2/P3 修复和最终测试收口仍需各自 Task 验证。
 
 ## Review Checklist
 
-- [ ] 人工确认 P0/P1 排序和 Task 边界。
-- [ ] 人工确认 Article 与 AI operation history 两个合同决策项的 owner。
-- [ ] 人工批准首个实施 Task 后再创建/启动该 Task。
-- [ ] 本基线通过 review 后再完成或归档，不自动提交、推送或启动修复。
+- [x] 人工确认 P0/P1 排序和 Task 边界；已完成项均以独立 Task 实施、验证和归档。
+- [x] Article 与 AI operation history 保持独立合同决策 owner；本父 Task 不替它们决定语义或创建实现。
+- [x] 首个实施 Task `publication-verification-final-authority` 经独立批准、实施、验证和归档。
+- [x] 本基线完成最终 review 后才进入归档；提交使用路径受限方式，不 push，不启动 `integrity-error-domain-mapping`。

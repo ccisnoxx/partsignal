@@ -64,3 +64,15 @@ OpenAPI/schema 同步不能证明 FastAPI query binding 正确。`/geo/topics` �
 ## 6. 交付形式
 
 完整证据和逐路由结论写入 `research/route-conformance-matrix.md`。聊天只汇报关键结论、优先顺序、首个实施 Task 和验证限制，避免复制 37 行长表。
+
+## 7. 最终集成与归档边界
+
+原始矩阵继续作为 2026-08-30 时点的审计快照，不回写成“从未存在缺口”。最终状态通过矩阵顶部的处置台账表达，区分三类事实：
+
+1. 已由独立 Task、工作提交、定向验证和 Review 关闭的缺口；
+2. 已完成规划但仍需独立合同决策或实现的后续项；
+3. 线上验收中的 `FAIL`、`NOT_RUN` 或 `BLOCKED` 结果，不因代码随后修复或父 Task 归档而篡改。
+
+父 Task 不承载产品修复。最终收尾只核对归档关系、提交 ancestry、37 路由闭集、完整 response contract gate 和 generated client 同步，并更新自身文档。若核对要求修改产品代码、OpenAPI、generated client、测试、数据库合同或业务设计文档，应停止归档并转入独立 Task；本次核对未出现该情况。
+
+`integrity-error-domain-mapping` 与 Article、AI operation history 等合同决策继续保持独立边界。父 Task 的归档既不授权这些工作，也不把未决语义解释为已符合。

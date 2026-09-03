@@ -4,6 +4,12 @@
 
 建立 Frontend V2 37 条 canonical 路由的功能合同一致性基线，逐路由对照信息架构、业务流程、服务端 read model、命令资格、权限、状态转换、OpenAPI、generated client 与现有测试，形成可审阅的差距矩阵和独立后续 Task 依赖顺序。本 Task 只审计和计划，不修改业务代码、公共合同、数据库结构或生产数据。
 
+## Final Closeout State
+
+本审计已完成并通过最终集成核对。37 条 canonical 路由仍全部存在，冻结 OpenAPI、FastAPI runtime document 与 generated client 当前一致；父 Task 的六个直属修复子任务均已归档为 `completed`，且 parent 关系正确。最初推荐的 P0 `publication-verification-final-authority` 也已作为独立 Task 完成。
+
+父 Task 的完成表示“审计闭集、证据分层、缺口分类和后续 Task 边界已交付”，不表示矩阵中的所有后续项都已实施，也不表示 2026-08-30 的线上验收从 `FAIL` 改为 `PASS`。`integrity-error-domain-mapping` 按用户要求继续暂缓，未在本次收尾中创建或启动；其他未实施项仍保持独立后续工作。
+
 ## Authoritative Inputs
 
 - 根 `AGENTS.md`、`frontend/AGENTS.md`、`backend/AGENTS.md`。
@@ -62,7 +68,9 @@
 - [x] 每个缺口映射到一个独立后续 Task 或明确的合同决策 Task，并给出依赖顺序。
 - [x] 推荐第一个实施 Task，并给出可直接写入其 PRD 的精确验收标准。
 - [x] 本 Task 未修改业务代码、公共合同、数据库、生产数据或现有用户改动。
+- [x] 最终核对确认六个直属子任务均已归档完成，当前 37 路由闭集和合同/generated 一致性未回退。
+- [x] 最终收尾只更新本 Task 文档和 Trellis 状态，不修改产品代码、公共合同、generated client、测试、数据库合同或业务设计文档。
 
 ## Review Gate
 
-本 Task 的审计材料进入人工 review 后再决定是否完成/归档。后续实现从推荐的独立 Task 开始，不在本 Task 内调用 `task.py start` 或顺手修复。
+审计材料和处置边界已完成人工 review；用户于 2026-09-03 授权继续核对并收尾本 Task。后续实现仍必须使用独立 Task，本次归档不顺手处理任何未完成缺口，也不启动 `integrity-error-domain-mapping`。

@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import {
   columnFilteringFeature,
   createColumnHelper,
@@ -80,6 +80,13 @@ type DeleteTarget = {
   revision: number;
   focusReturn: HTMLElement | null;
 };
+
+async function fetchFreshQueryTopics(queryClient: QueryClient) {
+  const options = queryTopicsQueryOptions();
+  // 409 恢复只能采纳点击后新发起的请求，不能复用 fresh cache 或旧在途响应。
+  await queryClient.cancelQueries({ exact: true, queryKey: options.queryKey });
+  return queryClient.fetchQuery({ ...options, staleTime: 0 });
+}
 
 const topicTableFeatures = tableFeatures({
   columnFilteringFeature,
@@ -519,7 +526,7 @@ function QueryTopicEditorDialog({
     if (!topic) return;
     setReloadError(undefined);
     try {
-      const full = await queryClient.fetchQuery(queryTopicsQueryOptions());
+      const full = await fetchFreshQueryTopics(queryClient);
       const current = full.items.find((item) => item.id === topic.id);
       if (!current) throw new Error('该 Query Topic 已不存在');
       form.reset(queryTopicFormValues(current));
@@ -700,7 +707,7 @@ function QueryTopicDeleteDialog({
     if (!target) return;
     setReloadMessage(undefined);
     try {
-      const full = await queryClient.fetchQuery(queryTopicsQueryOptions());
+      const full = await fetchFreshQueryTopics(queryClient);
       const current = full.items.find((item) => item.id === target.id);
       if (!current) {
         setReloadMessage('该 Query Topic 已不存在。');

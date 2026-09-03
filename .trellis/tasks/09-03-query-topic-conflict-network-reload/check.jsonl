@@ -1,0 +1,4 @@
+{"file":".trellis/spec/frontend/state-management.md","reason":"复核 fresh-cache/在途请求不能解除 409，失败保持本地状态且 mutation 不自动重放。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"复核双 project E2E、generated-type fixture、请求计数和未声明 API 失败边界。"}
+{"file":".trellis/spec/backend/available-actions-contract.md","reason":"复核 canonical revision 与 DELETE 动作资格仍由最新服务端响应决定。"}
+{"file":".trellis/tasks/09-03-query-topic-conflict-network-reload/research/query-topic-reload-cache-audit.md","reason":"逐项核对根因是否在单一 owner 修复、两个入口是否覆盖且未越过排除边界。"}

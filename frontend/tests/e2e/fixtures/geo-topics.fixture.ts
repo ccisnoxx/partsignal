@@ -5,6 +5,7 @@ import { URL } from 'node:url';
 import type { components } from '../../../src/shared/api/generated/schema';
 
 type ListMode = 'success' | 'empty' | 'error' | 'loading';
+type OptionsMode = 'success' | 'error' | 'loading';
 type MutationMode = 'success' | 'conflict' | 'in-use';
 type QueryTopicCreate = components['schemas']['QueryTopicCreate'];
 type QueryTopicUpdate = components['schemas']['QueryTopicUpdate'];
@@ -21,8 +22,12 @@ type MutationRequest = {
 type GeoTopicsController = {
   listRequests: URL[];
   mutationRequests: MutationRequest[];
+  optionsRequests: URL[];
   releaseLoading: () => void;
+  releaseOptionsLoading: () => void;
+  resetMutationConflicts: () => void;
   setListMode: (mode: ListMode) => void;
+  setOptionsMode: (mode: OptionsMode) => void;
   setMutationMode: (mode: MutationMode) => void;
 };
 
@@ -103,8 +108,10 @@ function queryTopicOut(item: QueryTopicListItem): components['schemas']['QueryTo
 const test = base.extend<GeoTopicsFixtures>({
   geoTopicsApi: [async ({ page }, use) => {
     let listMode: ListMode = 'success';
+    let optionsMode: OptionsMode = 'success';
     let mutationMode: MutationMode = 'success';
     let releaseList: (() => void) | undefined;
+    let releaseOptions: (() => void) | undefined;
     let currentItems: QueryTopicListItem[] = [
       blockedTopic,
       deletableTopic,
@@ -116,13 +123,18 @@ const test = base.extend<GeoTopicsFixtures>({
       } satisfies QueryTopicListItem)),
     ];
     const listRequests: URL[] = [];
+    const optionsRequests: URL[] = [];
     const mutationRequests: MutationRequest[] = [];
     const conflicted = new Set<string>();
     const unexpectedRequests: string[] = [];
     const runtimeErrors: string[] = [];
 
     page.on('console', (message) => {
-      if (message.type() === 'error' && !message.text().includes('409 (Conflict)')) {
+      if (
+        message.type() === 'error'
+        && !message.text().includes('409 (Conflict)')
+        && !message.text().includes('503 (Service Unavailable)')
+      ) {
         runtimeErrors.push(`console.error: ${message.text()}`);
       }
     });
@@ -183,6 +195,17 @@ const test = base.extend<GeoTopicsFixtures>({
         return;
       }
       if (method === 'GET' && url.pathname === '/api/v1/query-topics') {
+        optionsRequests.push(url);
+        if (optionsMode === 'loading') {
+          await new Promise<void>((resolve) => { releaseOptions = resolve; });
+        }
+        if (optionsMode === 'error') {
+          await route.fulfill({
+            status: 503,
+            json: errorEnvelope('QUERY_TOPIC_OPTIONS_FAILED', 'Query Topic 规范版本读取失败', 'req-topic-options'),
+          });
+          return;
+        }
         await route.fulfill({
           status: 200,
           json: { items: currentItems.map(queryTopicOut) } satisfies components['schemas']['QueryTopicList'],
@@ -282,8 +305,12 @@ const test = base.extend<GeoTopicsFixtures>({
     await use({
       listRequests,
       mutationRequests,
+      optionsRequests,
       releaseLoading: () => releaseList?.(),
+      releaseOptionsLoading: () => releaseOptions?.(),
+      resetMutationConflicts: () => conflicted.clear(),
       setListMode: (mode) => { listMode = mode; },
+      setOptionsMode: (mode) => { optionsMode = mode; },
       setMutationMode: (mode) => { mutationMode = mode; },
     });
 

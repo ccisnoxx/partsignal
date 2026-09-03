@@ -1,0 +1,5 @@
+{"file":".trellis/spec/frontend/index.md","reason":"加载 canonical frontend 包入口与相关规范索引。"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"约束 TanStack Query 单一服务端状态 owner、409 显式恢复、失败冻结与禁止自动重放。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"约束 generated-type 严格 fixture、预期 409 UX、未声明 API 显式失败与前端质量门禁。"}
+{"file":".trellis/spec/backend/available-actions-contract.md","reason":"保持服务端 revision、available_actions、受约束删除与 409 恢复的跨层最终权威。"}
+{"file":".trellis/tasks/09-03-query-topic-conflict-network-reload/research/query-topic-reload-cache-audit.md","reason":"提供根因、两个受影响入口、现有测试缺口、最小 owner 与明确排除项。"}

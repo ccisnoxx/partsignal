@@ -142,16 +142,48 @@ test('创建与更新携带 CSRF/revision；409 保留草稿并只在显式 relo
   expect(geoTopicsApi.mutationRequests.filter((item) => item.method === 'PATCH')).toHaveLength(1);
 
   geoTopicsApi.setMutationMode('success');
+  geoTopicsApi.setOptionsMode('loading');
+  const optionsBeforeInFlightReload = geoTopicsApi.optionsRequests.length;
   await dialog.getByRole('button', { name: '重新读取规范版本' }).click();
+  await expect.poll(() => geoTopicsApi.optionsRequests.length).toBe(optionsBeforeInFlightReload + 1);
+  geoTopicsApi.setOptionsMode('success');
+  await dialog.getByRole('button', { name: '重新读取规范版本' }).click();
+  await expect.poll(() => geoTopicsApi.optionsRequests.length).toBe(optionsBeforeInFlightReload + 2);
+  geoTopicsApi.releaseOptionsLoading();
   await expect(dialog.getByLabel('标准问题')).toHaveValue(`${blockedTopic.canonical_question}（外部更新）`);
+  await expect.poll(() => geoTopicsApi.optionsRequests.length).toBe(optionsBeforeInFlightReload + 2);
+  await expect(dialog.getByRole('button', { name: '保存', exact: true })).toBeEnabled();
+
+  await dialog.getByLabel('标准问题').fill('第二次本地草稿');
+  geoTopicsApi.resetMutationConflicts();
+  geoTopicsApi.setMutationMode('conflict');
+  await dialog.getByRole('button', { name: '保存', exact: true }).click();
+  await expect(dialog.getByText(/req-topic-conflict/)).toBeVisible();
+  expect(geoTopicsApi.mutationRequests.filter((item) => item.method === 'PATCH')).toHaveLength(2);
+
+  geoTopicsApi.setOptionsMode('error');
+  const optionsBeforeFailure = geoTopicsApi.optionsRequests.length;
+  await dialog.getByRole('button', { name: '重新读取规范版本' }).click();
+  await expect.poll(() => geoTopicsApi.optionsRequests.length).toBe(optionsBeforeFailure + 1);
+  await expect(dialog.getByLabel('标准问题')).toHaveValue('第二次本地草稿');
+  await expect(dialog.getByText(/req-topic-conflict/)).toBeVisible();
+  await expect(dialog.getByRole('button', { name: '保存', exact: true })).toBeDisabled();
+  expect(geoTopicsApi.mutationRequests.filter((item) => item.method === 'PATCH')).toHaveLength(2);
+
+  geoTopicsApi.setOptionsMode('success');
+  geoTopicsApi.setMutationMode('success');
+  await dialog.getByRole('button', { name: '重新读取规范版本' }).click();
+  await expect.poll(() => geoTopicsApi.optionsRequests.length).toBe(optionsBeforeFailure + 2);
+  await expect(dialog.getByLabel('标准问题')).toHaveValue(`${blockedTopic.canonical_question}（外部更新）（外部更新）`);
   await expect(dialog.getByRole('button', { name: '保存', exact: true })).toBeEnabled();
   await dialog.getByLabel('标准问题').fill('人工确认后的问题');
   await dialog.getByRole('button', { name: '保存', exact: true }).click();
   await expect(dialog).toHaveCount(0);
   const patches = geoTopicsApi.mutationRequests.filter((item) => item.method === 'PATCH');
-  expect(patches).toHaveLength(2);
+  expect(patches).toHaveLength(3);
   expect(patches[0]?.expectedRevision).toBe(blockedTopic.revision);
   expect(patches[1]?.expectedRevision).toBe(blockedTopic.revision + 1);
+  expect(patches[2]?.expectedRevision).toBe(blockedTopic.revision + 2);
 });
 
 test('DELETE 只对服务端允许的行出现，确认后只发送一次 expected_revision', async ({
@@ -199,12 +231,26 @@ test('DELETE 409 不自动重放，显式 reload revision 后才允许再次确�
   geoTopicsApi.setMutationMode('success');
   await dialog.getByRole('button', { name: '重新读取规范版本' }).click();
   await expect(dialog.getByText(`已读取 revision ${deletableTopic.revision + 1}`)).toBeVisible();
+  await expect.poll(() => geoTopicsApi.optionsRequests.length).toBe(1);
   await expect(dialog.getByRole('button', { name: '确认删除' })).toBeEnabled();
+
+  geoTopicsApi.resetMutationConflicts();
+  geoTopicsApi.setMutationMode('conflict');
+  await dialog.getByRole('button', { name: '确认删除' }).click();
+  await expect(dialog.getByText(/req-topic-conflict/)).toBeVisible();
+  expect(geoTopicsApi.mutationRequests.filter((item) => item.method === 'DELETE')).toHaveLength(2);
+
+  geoTopicsApi.setMutationMode('success');
+  const optionsBeforeSecondReload = geoTopicsApi.optionsRequests.length;
+  await dialog.getByRole('button', { name: '重新读取规范版本' }).click();
+  await expect.poll(() => geoTopicsApi.optionsRequests.length).toBe(optionsBeforeSecondReload + 1);
+  await expect(dialog.getByText(`已读取 revision ${deletableTopic.revision + 2}`)).toBeVisible();
   await dialog.getByRole('button', { name: '确认删除' }).click();
   const deletes = geoTopicsApi.mutationRequests.filter((item) => item.method === 'DELETE');
-  expect(deletes).toHaveLength(2);
+  expect(deletes).toHaveLength(3);
   expect(deletes[0]?.expectedRevision).toBe(deletableTopic.revision);
   expect(deletes[1]?.expectedRevision).toBe(deletableTopic.revision + 1);
+  expect(deletes[2]?.expectedRevision).toBe(deletableTopic.revision + 2);
 });
 
 test('DELETE 引用竞态显示服务端最新类型、数量和 canonical resolve links', async ({

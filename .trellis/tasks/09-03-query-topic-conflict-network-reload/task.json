@@ -1,0 +1,30 @@
+{
+  "id": "query-topic-conflict-network-reload",
+  "name": "query-topic-conflict-network-reload",
+  "title": "Query Topic 409 显式重载网络新鲜度",
+  "description": "修复 P1 一致性缺口：Query Topic PATCH/DELETE 返回 409 后，显式重新读取必须等待点击后发起的完整 options 网络请求成功，不能采用 30 秒 fresh cache 或点击前在途响应，也不能自动重放 mutation。",
+  "status": "in_progress",
+  "dev_type": "fix",
+  "scope": "frontend",
+  "package": "frontend",
+  "priority": "P1",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-09-03",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "frontend/src/domains/geo/query-topic-list-page.tsx",
+    "frontend/tests/e2e/fixtures/geo-topics.fixture.ts",
+    "frontend/tests/e2e/geo-topics.spec.ts"
+  ],
+  "notes": "独立修复 Task；不吸收 query-topic-dialog-live-projection，也不启动 integrity-error-domain-mapping。",
+  "meta": {}
+}

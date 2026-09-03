@@ -2,14 +2,15 @@
 
 ## 1. 测试边界
 
-波次 0–1 把线上系统视为匿名不可变外部目标；波次 2 在用户授权下增加一次登录 POST，登录后仅允许 GET 页面数据、导航和本地 UI 操作；波次 3 在正面确认 Staging 身份后，通过 V2 页面对唯一 TEST 聚合执行最小业务 mutation 并按精确 ID/revision 清理；波次 4 只规划高风险或外部副作用流程。任何波次都不通过 API 直调、数据库、fixture 或 mock 构造线上通过结果。
+波次 0–1 把线上系统视为匿名不可变外部目标；波次 2 的每个获授权认证 run 只执行一次登录 POST，登录后仅允许 GET 页面数据、导航和本地 UI 操作；波次 3 在正面确认 Staging 身份后，通过 V2 页面对唯一 TEST 聚合执行最小业务 mutation 并按精确 ID/revision 清理；波次 4 只规划高风险或外部副作用流程。任何波次都不通过 API 直调、数据库、fixture 或 mock 构造线上通过结果。
 
 ```text
 公开 URL
   ↓ 真实 TLS/HTTP
 独立 playwright-cli Chromium 会话
   ├─ 波次 0–1：匿名 context（已关闭）
-  ├─ 波次 2–3：同一临时已认证 context（一次登录，不保存状态）
+  ├─ 波次 2：三个分别获授权的临时 context（每个 run 一次登录，不保存状态）
+  ├─ 波次 3：另行获授权的临时 context（一次登录，W3-A 后关闭）
   ├─ DOM snapshot：结构、名称、焦点、URL
   ├─ screenshot：当前可见视觉证据
   ├─ console/pageerror：运行时错误
@@ -34,13 +35,13 @@
 
 ## 3. 会话与运行标识
 
-- 波次 0–1 使用已完成 run `20260830-175056-v2-readonly`；波次 2 单独生成 `YYYYMMDD-HHMMSS-v2-auth-readonly`，使用北京时间，禁止把不同 run 的截图混成当前证据。
-- 波次 2 浏览器会话固定为 `v2-auth-readonly-<HHMMSS>`，不使用 `default`，也不复用已关闭的匿名会话。
-- 波次 2 使用一个临时 Chromium context；不使用持久 profile、storage state 或外部 Chrome 会话。关闭 context 即丢弃 Cookie 和认证态，不执行 logout。
-- 凭据由不回显的临时进程输入提供，只存在于登录动作所需的进程内存。实现不得把密码放入命令参数、源文件、临时脚本正文、日志或截图。
+- 波次 0–1 使用 run `20260830-175056-v2-readonly`；波次 2 实际由 `20260830-191717-v2-auth-readonly`、`20260830-192848-v2-auth-resume`、`20260830-195237-v2-auth-final` 三个分别获授权的 run 完成；波次 3 使用 `20260830-204002-v3-staging-business`。不同 run 的截图和结论保持独立。
+- 每个 run 使用包含任务标识和 run id 的独立非 `default` 会话，不复用已关闭的匿名或认证会话。每个认证 run 只登录一次；首轮会话关闭和续跑执行错误后都停止，得到新授权才开启后续 run。
+- 每个认证 run 使用临时 Chromium context；不使用持久 profile、storage state 或外部 Chrome 会话。关闭 context 即丢弃 Cookie 和认证态，不执行 logout。
+- 凭据由不回显的临时进程输入提供，未写入命令参数、源文件、临时文件、报告、截图或 storage state。波次 3 实际执行中，`playwright-cli` 的生成代码输出仍回显密码，一次请求诊断又回显临时 CSRF header；因此该工具路径不能视为秘密安全，旧密码必须轮换，后续登录需要新授权。
 - 首次 `open` 后先观察 URL、标题、DOM 和可见状态，再执行任何点击、键盘或 resize。
 - 每次动作前使用最新 snapshot 定位；动作后用 DOM 或 screenshot 证明状态变化。
-- 在登录动作前安装请求观察器：只允许一次 `POST /api/v1/auth/login`，此后业务请求必须为 GET。出现未预期写请求时停止，不依赖事后报告来补救。
+- 波次 2 在登录动作前安装请求观察器：只允许一次 `POST /api/v1/auth/login`，此后业务请求必须为 GET。波次 3 只允许 TEST registry 预先记录的写请求；任一波次出现未预期写请求时停止，不依赖事后报告来补救。
 
 ## 4. 测试矩阵
 
@@ -150,9 +151,11 @@ artifacts/deployed-acceptance/<run-id>/
 └── wave4-risk-matrix.md
 ```
 
-波次 2 输出使用独立的 `artifacts/deployed-acceptance/<run-id>-v2-auth-readonly/`，包括 `acceptance-report.md`、逐项结果和按步骤编号截图。审计详情、AI 配置和用户列表在截图前先检查敏感信息；若无法安全持久化，只保留脱敏文本结论，不保存截图。
+波次 2 各 run 输出使用独立的 `artifacts/deployed-acceptance/<run-id>/`，包括 `acceptance-report.md` 和按步骤编号截图。审计详情、AI 配置和用户列表在截图前先检查敏感信息；无法安全持久化时只保留脱敏文本结论，不保存截图。
 
-波次 3 复用同一临时认证 context，但输出独立的 `artifacts/deployed-acceptance/<run-id>-v3-staging-business/`。测试数据 registry 只记录前缀、对象类型、精确 ID、revision、状态和清理结果，不记录密码、Cookie、CSRF、Authorization、正文中的敏感内容或完整请求 Header。
+波次 3 使用另行获授权的独立 context，并输出独立的 `artifacts/deployed-acceptance/<run-id>-v3-staging-business/`。测试数据 registry 只记录前缀、对象类型、精确 ID、revision、状态和清理结果，不记录密码、Cookie、CSRF、Authorization、正文中的敏感内容或完整请求 Header。
+
+完整 artifact 在提交 `e898c06158c31cb417ca6507c8902d34405fe04c` 中可追溯；任务 `research/` 中的脱敏摘要是收尾时仍留在任务目录内的稳定证据。当前 index 中的任务外 artifact 清理覆盖这五个 run，本任务不恢复或提交该清理。
 
 截图在保存后使用本地图片查看能力检查。空白、错误状态、加载中、裁剪错误、错误窗口或敏感内容截图不进入报告。console/request 证据只保留脱敏摘要；不持久化完整网络请求、Cookie 或 Header。
 
@@ -181,7 +184,7 @@ artifacts/deployed-acceptance/<run-id>/
 
 ## 8. 回滚与清理
 
-波次 0–2 除一次获授权登录外无业务写入。波次 3 的回滚是按 TEST registry 反向依赖顺序执行页面清理，并在每步前重新获取 revision；审计历史按合同保留。清理完成或停止后关闭本任务精确命名的浏览器会话，不创建 storage state、不点击 logout，关闭临时 context 后认证态不可复用。
+波次 0–2 除各独立 run 获授权的一次登录外无业务写入。波次 3 的回滚按 TEST registry 对已执行 W3-A 对象反向清理，并在每步前重新获取 revision；审计历史按合同保留。清理完成或停止后关闭本任务精确命名的浏览器会话，不创建 storage state、不点击 logout，关闭临时 context 后认证态不可复用。
 
 ## 9. 兼容性与延期
 

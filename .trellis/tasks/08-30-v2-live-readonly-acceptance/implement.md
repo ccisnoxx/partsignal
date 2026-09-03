@@ -204,7 +204,17 @@ git diff --check
 - [x] 没有修改或提交产品代码和既有未提交文件。
 - [x] AC11–AC15 均有明确结果：波次 2 的 375×900、账户菜单、移动 Sheet、Escape/焦点恢复与系统页已补齐；AC11 在波次 3 因 CLI 工具输出回显敏感值转为 `FAIL`，虽未落盘但要求轮换密码。
 - [x] 已认证截图来自波次 2 当前 run，且不含密码、Cookie、Token、API key、敏感 Header 或不适合持久化的个人信息。
-- [x] 已完成的登录后路由和搜索行为未发现业务 mutation；唯一写请求为获授权登录。
+- [x] 波次 2 已完成的登录后路由和搜索行为未发现业务 mutation；每个 run 的唯一写请求为获授权登录。波次 3 仅执行 TEST registry 预先记录的获授权创建、编辑与清理请求。
 - [x] 波次 2 会话已关闭，认证态未持久化，未执行 logout。
 - [x] AC16–AC20 均有当前结果：AC16 `PASS`；AC17–AC19 对已执行 Product/Platform Type/Prompt 流程均有精确 registry、revision、网络结果、审计与清理证据且无业务对象残留；未执行的条件性分支保持 `NOT_RUN/BLOCKED`；AC20 通过。
 - [x] 波次 4 风险矩阵完成且没有执行其中任何动作。
+
+## 14. 最终收尾记录
+
+- 任务执行状态：`completed`；产品验收结论：`FAIL`。完成验收任务不等于产品通过验收。
+- 波次 0–1：`FAIL（P2）`；波次 2：`FAIL（P1/P2）`；波次 3 W3-A：三个 TEST 对象均 `CLEANED`，本轮因 `P2-004` 与敏感输出事件为 `FAIL`；W3-B/W3-C：`BLOCKED`；波次 4：`NOT_RUN`。
+- PRD AC1–AC20 已逐项回填最终状态。AC11 明确为 `FAIL`；AC5/AC6 保留 `NOT_RUN`，没有把工具无法证明的检查写成通过。
+- 多次认证均来自不同 run 的后续明确授权，每个 run 只登录一次；没有自动重登、复用已关闭 context 或保存 storage state。波次 3 工具输出事件后，旧管理员密码不再复用。
+- 完整 artifact 在提交 `e898c06158c31cb417ca6507c8902d34405fe04c` 中可追溯，任务材料提交为 `50aff8b4f1b646f747e6c75729fbd752e8567736`。当前 index 中任务外的 543 个 artifact 删除包含本任务五个 run 的 71 个文件；收尾不恢复、不取消暂存、不提交这些删除。
+- 2026-09-03 收尾只读复核：公开首页 200，live 200，ready 200（PostgreSQL/Redis 均为 `ok`）；Trellis validate 通过；任务文档 trailing-whitespace 检查通过；浏览器清单为 `browsers=[]`、`servers=[]`。该探测只证明当前公开健康状态，不覆盖或改写 2026-08-30 的各 run 结论。
+- 收尾不修改产品代码、公共合同、generated client、测试、Makefile、CI、数据库合同或业务设计文档，也不开始 `integrity-error-domain-mapping`。

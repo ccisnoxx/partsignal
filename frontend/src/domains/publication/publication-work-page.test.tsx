@@ -7,6 +7,7 @@ import { TooltipProvider } from '@/design-system/primitives/tooltip';
 import { api } from '@/shared/api/client';
 import { PublicationWorkPage } from './publication-work-page';
 import type { PublicationReadyItem, PublicationWorkSearch } from './publication-work.model';
+import { publicationWorkListQueryOptions } from './publication.api';
 import {
   account,
   createdWork,
@@ -249,5 +250,132 @@ describe('PublicationWorkPage', () => {
     renderPage({ page: 1, pageSize: 20, status: 'ACTION_REQUIRED' });
     expect(await screen.findByText('未找到匹配工作')).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: '清除筛选' })).toHaveLength(2);
+  });
+
+  it('缓存刷新失败时保留三个投影，并由各区块独立重试', async () => {
+    const modes = { summary: 'success', ready: 'success', works: 'success' };
+    const get = vi.spyOn(api, 'GET').mockImplementation(async (path, request) => {
+      if (path === '/api/v1/publication-workbench-summary') {
+        if (modes.summary === 'error') return structuredError(503, 'SUMMARY_REFRESH_FAILED', 'req-summary-refresh');
+        return { data: publicationSummary, response: Response.json(publicationSummary) } as never;
+      }
+      if (path === '/api/v1/publication-ready-items') {
+        if (modes.ready === 'error') return structuredError(503, 'READY_REFRESH_FAILED', 'req-ready-refresh');
+        const data = { items: [readyItem, noAccountReadyItem] };
+        return { data, response: Response.json(data) } as never;
+      }
+      if (path === '/api/v1/publication-works') {
+        if (modes.works === 'error') return structuredError(503, 'WORKS_REFRESH_FAILED', 'req-works-refresh');
+        const query = (request as { params?: { query?: { page?: number; page_size?: number } } })
+          .params?.query;
+        const data = {
+          items: [workListItem],
+          page: query?.page ?? 1,
+          page_size: query?.page_size ?? 20,
+          total: 21,
+        };
+        return { data, response: Response.json(data) } as never;
+      }
+      throw new Error(`未声明 GET：${path}`);
+    });
+    const { queryClient } = renderPage();
+    expect(await screen.findByText('已开始发布')).toBeInTheDocument();
+
+    modes.summary = 'error';
+    modes.ready = 'error';
+    modes.works = 'error';
+    await Promise.all([
+      queryClient.refetchQueries({ queryKey: ['publication', 'summary'], exact: true }),
+      queryClient.refetchQueries({ queryKey: ['publication', 'ready-items'], exact: true }),
+      queryClient.refetchQueries({
+        queryKey: publicationWorkListQueryOptions({ page: 1, pageSize: 20 }).queryKey,
+        exact: true,
+      }),
+    ]);
+    await waitFor(() => expect(screen.getAllByRole('alert')).toHaveLength(3));
+
+    const summary = screen.getByRole('heading', { name: '运营摘要' }).closest('section')!;
+    const ready = screen.getByRole('heading', { name: 'Ready Queue' }).closest('section')!;
+    const works = screen.getByRole('heading', { name: '发布工作列表' }).closest('section')!;
+    expect(within(summary).getByRole('alert')).toHaveTextContent('后台刷新失败，已保留当前数据');
+    expect(within(summary).getByRole('alert')).toHaveTextContent('req-summary-refresh');
+    expect(within(summary).getByText('待开始')).toBeInTheDocument();
+    expect(within(ready).getByRole('alert')).toHaveTextContent('req-ready-refresh');
+    expect(within(ready).getByRole('button', { name: '开始发布' })).toBeInTheDocument();
+    expect(within(works).getByRole('alert')).toHaveTextContent('req-works-refresh');
+    expect(within(works).getByText(workListItem.content_title)).toBeInTheDocument();
+    expect(within(works).getByRole('button', { name: '下一页' })).toBeInTheDocument();
+    expect(screen.getAllByRole('alert')).toHaveLength(3);
+
+    const countFor = (path: string) => get.mock.calls.filter((call) => call[0] === path).length;
+    const summaryRequests = countFor('/api/v1/publication-workbench-summary');
+    const readyRequests = countFor('/api/v1/publication-ready-items');
+    const workRequests = countFor('/api/v1/publication-works');
+
+    await userEvent.click(within(works).getByRole('button', { name: '重试刷新' }));
+    await waitFor(() => expect(countFor('/api/v1/publication-works')).toBe(workRequests + 1));
+    expect(within(works).getByRole('alert')).toHaveTextContent('req-works-refresh');
+    expect(within(works).getByText(workListItem.content_title)).toBeInTheDocument();
+    expect(within(works).getByRole('button', { name: '下一页' })).toBeInTheDocument();
+    const failedWorkRequests = countFor('/api/v1/publication-works');
+
+    modes.summary = 'success';
+    await userEvent.click(within(summary).getByRole('button', { name: '重试刷新' }));
+    await waitFor(() => expect(within(summary).queryByRole('alert')).not.toBeInTheDocument());
+    expect(countFor('/api/v1/publication-workbench-summary')).toBe(summaryRequests + 1);
+    expect(countFor('/api/v1/publication-ready-items')).toBe(readyRequests);
+    expect(countFor('/api/v1/publication-works')).toBe(failedWorkRequests);
+
+    modes.ready = 'success';
+    await userEvent.click(within(ready).getByRole('button', { name: '重试刷新' }));
+    await waitFor(() => expect(within(ready).queryByRole('alert')).not.toBeInTheDocument());
+    expect(countFor('/api/v1/publication-ready-items')).toBe(readyRequests + 1);
+    expect(countFor('/api/v1/publication-works')).toBe(failedWorkRequests);
+
+    modes.works = 'success';
+    await userEvent.click(within(works).getByRole('button', { name: '重试刷新' }));
+    await waitFor(() => expect(within(works).queryByRole('alert')).not.toBeInTheDocument());
+    expect(countFor('/api/v1/publication-works')).toBe(failedWorkRequests + 1);
+    expect(screen.queryAllByRole('alert')).toHaveLength(0);
+  });
+
+  it('切换到无缓存的 Work List exact key 初始失败时不回退旧 key 投影', async () => {
+    const get = mockPublicationGet();
+    const originalImplementation = get.getMockImplementation();
+    if (!originalImplementation) throw new Error('Publication GET mock 缺少默认实现');
+    let failFilteredWorkList = false;
+    get.mockImplementation(async (path, request) => {
+      if (path === '/api/v1/publication-works' && failFilteredWorkList) {
+        return structuredError(503, 'WORKS_FILTERED_UNAVAILABLE', 'req-works-filtered');
+      }
+      return originalImplementation(path, request);
+    });
+    const { onContentProjectionChange, onSearchChange, queryClient, view } = renderPage();
+    expect(await screen.findByText('已开始发布')).toBeInTheDocument();
+
+    failFilteredWorkList = true;
+    const filteredSearch: PublicationWorkSearch = {
+      page: 2,
+      pageSize: 20,
+      status: 'ACTION_REQUIRED',
+    };
+    view.rerender(
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <PublicationWorkPage
+            csrfToken="publication-csrf"
+            onContentProjectionChange={onContentProjectionChange}
+            onSearchChange={onSearchChange}
+            search={filteredSearch}
+          />
+        </TooltipProvider>
+      </QueryClientProvider>,
+    );
+
+    const works = screen.getByRole('heading', { name: '发布工作列表' }).closest('section')!;
+    await waitFor(() => expect(within(works).getByRole('alert')).toHaveTextContent('req-works-filtered'));
+    expect(within(works).queryByRole('row', { name: /PartSignal · PS-LNA-01/ })).not.toBeInTheDocument();
+    expect(within(works).queryByRole('navigation', { name: '表格分页' })).not.toBeInTheDocument();
+    expect(within(works).getByRole('alert')).toHaveTextContent('发布工作列表加载失败');
   });
 });

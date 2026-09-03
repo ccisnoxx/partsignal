@@ -1,0 +1,6 @@
+{"file":".trellis/spec/frontend/index.md","reason":"注入前端 pre-development checklist 与 package 边界。"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"约束 TanStack Query 服务端状态 ownership、cached refetch error 与 Publication read model 行为。"}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"约束页面局部状态组件、错误/空态、可访问交互与避免不必要抽象。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"约束 focused component 与 production-artifact Playwright 验证、fixture 和失败归因。"}
+{"file":".trellis/spec/backend/available-actions-contract.md","reason":"确认 cached available_actions 仅用于 UI 投影，服务端仍是动作权限和状态转换的最终权威。"}
+{"file":".trellis/tasks/09-03-publishing-work-cached-refetch-error/research/current-state-audit.md","reason":"提供根因、正确模式、现有 fixture 能力和测试缺口的当前代码证据。"}

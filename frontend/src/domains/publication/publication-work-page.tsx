@@ -140,7 +140,7 @@ function PublicationWorkPage({
           query={works}
           search={search}
         />
-        {!works.isPending && !works.error && (
+        {!works.isPending && works.data && (
           <TablePagination
             onPageIndexChange={(pageIndex) => changeSearch({ page: pageIndex + 1 }, false)}
             onPageSizeChange={(pageSize) => changeSearch({
@@ -170,25 +170,30 @@ function PublicationSummary({ query }: { query: SummaryQuery }) {
     <section className="space-y-3" aria-labelledby="publication-summary-title">
       <div className="flex items-center justify-between gap-3">
         <h2 className="type-section-title" id="publication-summary-title">运营摘要</h2>
-        {query.error && <Button onClick={() => void query.refetch()} size="sm" variant="outline">重试</Button>}
       </div>
-      {query.isPending ? (
+      {query.isPending && !query.data ? (
         <div aria-busy="true" aria-label="正在读取发布运营摘要" className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {[0, 1, 2, 3].map((item) => <Skeleton className="h-24 rounded-xl" key={item} />)}
         </div>
-      ) : query.error ? (
+      ) : query.error && !query.data ? (
         <p className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">
           {errorMessage(query.error)}
+          <Button className="ml-3" onClick={() => void query.refetch()} size="sm" type="button" variant="outline">重试</Button>
         </p>
       ) : (
-        <dl className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          {metrics.map(([label, value]) => (
-            <div className="rounded-xl border border-border-subtle bg-surface-panel p-4" key={label}>
-              <dt className="text-sm text-text-secondary">{label}</dt>
-              <dd className="mt-2 font-heading text-3xl font-semibold tabular-nums">{value}</dd>
-            </div>
-          ))}
-        </dl>
+        <>
+          {query.data && query.error && (
+            <CachedRefreshAlert error={query.error} onRetry={query.refetch} surface="运营摘要" />
+          )}
+          <dl className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            {metrics.map(([label, value]) => (
+              <div className="rounded-xl border border-border-subtle bg-surface-panel p-4" key={label}>
+                <dt className="text-sm text-text-secondary">{label}</dt>
+                <dd className="mt-2 font-heading text-3xl font-semibold tabular-nums">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </>
       )}
     </section>
   );
@@ -214,34 +219,41 @@ function ReadyQueue({
           <h2 className="type-section-title" id="ready-queue-title">Ready Queue</h2>
           <p className="mt-1 text-sm text-text-secondary">等待创建发布工作的已批准内容。</p>
         </div>
-        {query.error && <Button onClick={() => void query.refetch()} size="sm" variant="outline">重试</Button>}
       </div>
-      {query.isPending ? (
+      {query.isPending && !query.data ? (
         <div aria-busy="true" aria-label="正在读取待开始内容" className="grid gap-3 lg:grid-cols-2">
           <Skeleton className="h-40 rounded-xl" />
           <Skeleton className="h-40 rounded-xl" />
         </div>
-      ) : query.error ? (
+      ) : query.error && !query.data ? (
         <p className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">
           {errorMessage(query.error)}
+          <Button className="ml-3" onClick={() => void query.refetch()} size="sm" type="button" variant="outline">重试</Button>
         </p>
-      ) : query.data.items.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border p-6 text-center" role="status">
-          <h3 className="font-medium">暂无待开始内容</h3>
-          <p className="mt-1 text-sm text-text-secondary">当前没有尚未创建发布工作的批准内容。</p>
-        </div>
       ) : (
-        <div className="grid gap-3 lg:grid-cols-2">
-          {query.data.items.map((item) => (
-            <ReadyQueueItem
-              csrfToken={csrfToken}
-              item={item}
-              key={item.content_version.id}
-              onConflict={onConflict}
-              onCreated={onCreated}
-            />
-          ))}
-        </div>
+        <>
+          {query.data && query.error && (
+            <CachedRefreshAlert error={query.error} onRetry={query.refetch} surface="Ready Queue" />
+          )}
+          {query.data.items.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-border p-6 text-center" role="status">
+              <h3 className="font-medium">暂无待开始内容</h3>
+              <p className="mt-1 text-sm text-text-secondary">当前没有尚未创建发布工作的批准内容。</p>
+            </div>
+          ) : (
+            <div className="grid gap-3 lg:grid-cols-2">
+              {query.data.items.map((item) => (
+                <ReadyQueueItem
+                  csrfToken={csrfToken}
+                  item={item}
+                  key={item.content_version.id}
+                  onConflict={onConflict}
+                  onCreated={onCreated}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
     </section>
   );
@@ -357,47 +369,71 @@ function PublicationWorkTable({
 }) {
   const rows = query.data?.items ?? [];
   return (
-    <TableShell regionLabel="发布工作列表">
-      <thead>
-        <tr>
-          <th data-column-role="primary" scope="col">内容</th>
-          <th data-column-role="metadata" scope="col">平台 / 账号</th>
-          <th data-column-role="status" scope="col">当前阶段</th>
-          <th data-column-role="metadata" scope="col">最近情况</th>
-          <th data-column-role="date" scope="col">更新时间</th>
-          <th data-column-role="actions" scope="col">操作</th>
-        </tr>
-      </thead>
-      {query.isPending ? (
-        <TableSkeleton columnRoles={workColumnRoles} />
-      ) : query.error ? (
-        <EmptyTable
-          action={<Button onClick={() => void query.refetch()} variant="outline">重试</Button>}
-          colSpan={6}
-          description={errorMessage(query.error)}
-          kind="error"
-          title="发布工作列表加载失败"
-        />
-      ) : query.data.total === 0 ? (
-        <EmptyTable
-          action={search.status ? <Button onClick={onClearFilter} variant="outline">清除筛选</Button> : undefined}
-          colSpan={6}
-          description={search.status ? '没有符合当前阶段筛选的发布工作。' : '当前没有活动发布工作。'}
-          kind={search.status ? 'filtered-empty' : 'empty'}
-          title={search.status ? '未找到匹配工作' : '暂无活动发布工作'}
-        />
-      ) : (
-        <tbody>
-          {rows.map((work) => (
-            <PublicationWorkRow
-              created={work.id === createdWorkId}
-              key={work.id}
-              work={work}
-            />
-          ))}
-        </tbody>
+    <>
+      {query.data && query.error && (
+        <CachedRefreshAlert error={query.error} onRetry={query.refetch} surface="发布工作列表" />
       )}
-    </TableShell>
+      <TableShell regionLabel="发布工作列表">
+        <thead>
+          <tr>
+            <th data-column-role="primary" scope="col">内容</th>
+            <th data-column-role="metadata" scope="col">平台 / 账号</th>
+            <th data-column-role="status" scope="col">当前阶段</th>
+            <th data-column-role="metadata" scope="col">最近情况</th>
+            <th data-column-role="date" scope="col">更新时间</th>
+            <th data-column-role="actions" scope="col">操作</th>
+          </tr>
+        </thead>
+        {query.isPending && !query.data ? (
+          <TableSkeleton columnRoles={workColumnRoles} />
+        ) : query.error && !query.data ? (
+          <EmptyTable
+            action={<Button onClick={() => void query.refetch()} type="button" variant="outline">重试</Button>}
+            colSpan={6}
+            description={errorMessage(query.error)}
+            kind="error"
+            title="发布工作列表加载失败"
+          />
+        ) : query.data?.total === 0 ? (
+          <EmptyTable
+            action={search.status ? <Button onClick={onClearFilter} variant="outline">清除筛选</Button> : undefined}
+            colSpan={6}
+            description={search.status ? '没有符合当前阶段筛选的发布工作。' : '当前没有活动发布工作。'}
+            kind={search.status ? 'filtered-empty' : 'empty'}
+            title={search.status ? '未找到匹配工作' : '暂无活动发布工作'}
+          />
+        ) : (
+          <tbody>
+            {rows.map((work) => (
+              <PublicationWorkRow
+                created={work.id === createdWorkId}
+                key={work.id}
+                work={work}
+              />
+            ))}
+          </tbody>
+        )}
+      </TableShell>
+    </>
+  );
+}
+
+function CachedRefreshAlert({
+  error,
+  onRetry,
+  surface,
+}: {
+  error: unknown;
+  onRetry: () => Promise<unknown>;
+  surface: string;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-warning/30 bg-warning/5 p-4" role="alert">
+      <p className="break-words text-sm text-warning">
+        {surface}后台刷新失败，已保留当前数据：{errorMessage(error)}
+      </p>
+      <Button onClick={() => void onRetry()} size="sm" type="button" variant="outline">重试刷新</Button>
+    </div>
   );
 }
 

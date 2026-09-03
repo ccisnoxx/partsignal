@@ -118,3 +118,62 @@ test('三个 surface 状态独立，目标宽度只允许 TableRegion 局部滚�
   await expect(page.getByText('req-ready')).toBeVisible();
   await expect(page.getByText('req-works')).toBeVisible();
 });
+
+test('成功缓存经 hidden→visible focus 刷新失败时保留投影，并按区块独立恢复', async ({ page, publicationApi }) => {
+  await page.goto(canonical);
+  await expect(page.getByRole('button', { name: '开始发布' })).toBeVisible();
+  await expect(page.getByText('已开始发布')).toHaveCount(20);
+  expect(publicationApi.summaryRequests).toHaveLength(1);
+  expect(publicationApi.readyRequests).toHaveLength(1);
+  expect(publicationApi.listRequests).toHaveLength(1);
+
+  publicationApi.setSummaryMode('error');
+  publicationApi.setReadyMode('error');
+  publicationApi.setWorkMode('error');
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    window.dispatchEvent(new Event('visibilitychange'));
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    window.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect.poll(() => publicationApi.summaryRequests.length).toBe(2);
+  await expect.poll(() => publicationApi.readyRequests.length).toBe(2);
+  await expect.poll(() => publicationApi.listRequests.length).toBe(2);
+
+  const summary = page.getByRole('region', { name: '运营摘要' });
+  const ready = page.getByRole('region', { name: 'Ready Queue' });
+  const works = page.locator('section[aria-labelledby="active-publication-work-title"]');
+  await expect(page.getByRole('alert')).toHaveCount(3);
+  await expect(summary.getByText('待开始')).toBeVisible();
+  await expect(summary.getByText('7')).toBeVisible();
+  await expect(ready.getByText('如何选择低噪声放大器')).toBeVisible();
+  await expect(ready.getByRole('button', { name: '开始发布' })).toBeVisible();
+  await expect(works.getByText('如何选择低噪声放大器 01')).toBeVisible();
+  await expect(works.getByRole('button', { name: '下一页' })).toBeVisible();
+  await expect(summary.getByRole('alert')).toContainText('req-summary');
+  await expect(ready.getByRole('alert')).toContainText('req-ready');
+  await expect(works.getByRole('alert')).toContainText('req-works');
+
+  const summaryRequests = publicationApi.summaryRequests.length;
+  const readyRequests = publicationApi.readyRequests.length;
+  const workRequests = publicationApi.listRequests.length;
+  publicationApi.setSummaryMode('success');
+  await summary.getByRole('button', { name: '重试刷新' }).click();
+  await expect(summary.getByRole('alert')).toHaveCount(0);
+  expect(publicationApi.summaryRequests).toHaveLength(summaryRequests + 1);
+  expect(publicationApi.readyRequests).toHaveLength(readyRequests);
+  expect(publicationApi.listRequests).toHaveLength(workRequests);
+
+  publicationApi.setReadyMode('success');
+  await ready.getByRole('button', { name: '重试刷新' }).click();
+  await expect(ready.getByRole('alert')).toHaveCount(0);
+  expect(publicationApi.readyRequests).toHaveLength(readyRequests + 1);
+  expect(publicationApi.listRequests).toHaveLength(workRequests);
+
+  publicationApi.setWorkMode('success');
+  await works.getByRole('button', { name: '重试刷新' }).click();
+  await expect(works.getByRole('alert')).toHaveCount(0);
+  expect(publicationApi.listRequests).toHaveLength(workRequests + 1);
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  await expect(page.getByText('已开始发布')).toHaveCount(20);
+});

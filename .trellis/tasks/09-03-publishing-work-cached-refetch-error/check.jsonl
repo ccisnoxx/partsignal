@@ -1,0 +1,5 @@
+{"file":".trellis/spec/frontend/state-management.md","reason":"复核 initial error 与 cached refetch error 分流、exact query ownership 和无 hidden fallback。"}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"复核错误告警、重试、空态、分页与交互可访问性。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"复核 component/E2E gate、production fixture 严格性与测试成本边界。"}
+{"file":".trellis/spec/backend/available-actions-contract.md","reason":"复核 stale action projection 未被误当授权或本地重算。"}
+{"file":".trellis/tasks/09-03-publishing-work-cached-refetch-error/research/current-state-audit.md","reason":"以核实的根因、同域模式和现有测试缺口对照最终 diff。"}

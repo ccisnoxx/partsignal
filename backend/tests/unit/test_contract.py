@@ -26,12 +26,75 @@ from app.services import ai_configuration, file_records
 from app.services.credentials import CredentialCipher
 from app.services.openai_client import OpenAICompatibleClient
 from app.services.storage import StorageUnavailable
-from app.tools.contract_check import check
+from app.tools.contract_check import check, operation_map, resolve_schema
+
+
+def _statuses(*values: str) -> set[str]:
+    """为既有业务 status 集合加入跨切面 request-context 400。"""
+    return {*values, "400"}
 
 
 def test_runtime_openapi_matches_frozen_operations() -> None:
     contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
     assert check(contract) == []
+
+
+def test_static_request_context_metadata_covers_all_operations_and_responses() -> None:
+    """静态合同逐操作声明 request ID、400 信封和全部 response Header。"""
+    contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+    document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+    operations = operation_map(document)
+    assert len(operations) == 162
+    assert len({operation["operationId"] for operation in operations.values()}) == 162
+    assert sum(len(operation["responses"]) for operation in operations.values()) == 1023
+
+    expected_parameter = {
+        "name": "X-Request-ID",
+        "in": "header",
+        "required": False,
+        "schema": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": r"^[\x20-\x7E]+$",
+        },
+    }
+    expected_header = {
+        "required": True,
+        "schema": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": r"^[\x20-\x7E]+$",
+        },
+    }
+    assert document["components"]["parameters"]["RequestIdHeader"] == expected_parameter
+    assert document["components"]["headers"]["RequestIdResponseHeader"] == expected_header
+    error_response = document["components"]["responses"]["ErrorResponse"]
+    assert error_response["content"] == {
+        "application/json": {"schema": {"$ref": "#/components/schemas/ErrorEnvelope"}}
+    }
+    assert error_response["headers"]["X-Request-ID"] == {
+        "$ref": "#/components/headers/RequestIdResponseHeader"
+    }
+
+    for operation in operations.values():
+        parameters = [
+            resolve_schema(document, parameter)
+            for parameter in operation.get("parameters", [])
+            if resolve_schema(document, parameter).get("name") == "X-Request-ID"
+        ]
+        assert parameters == [expected_parameter]
+        assert operation["responses"]["400"] == {
+            "$ref": "#/components/responses/ErrorResponse"
+        }
+        assert "default" not in operation["responses"]
+        assert "4XX" not in operation["responses"]
+        for response in operation["responses"].values():
+            resolved = resolve_schema(document, response)
+            assert resolved["headers"]["X-Request-ID"] == {
+                "$ref": "#/components/headers/RequestIdResponseHeader"
+            }
 
 
 def test_frozen_response_status_signatures_cover_every_operation() -> None:
@@ -228,7 +291,7 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
         ),
     }
     expected = {
-        operation_id: set(statuses)
+        operation_id: set(statuses) | {"400"}
         for statuses, operation_ids in expected_by_signature.items()
         for operation_id in operation_ids
     }
@@ -270,9 +333,10 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
     assert {
         operation_id for operation_id, statuses in expected.items() if "422" not in statuses
     } == validation_free
-    assert expected["testAIModel"] == {"200", "401", "403", "404", "409", "422"}
+    assert expected["testAIModel"] == {"200", "400", "401", "403", "404", "409", "422"}
     assert expected["discoverAIChannelModels"] == {
         "200",
+        "400",
         "401",
         "403",
         "404",
@@ -283,6 +347,7 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
     }
     assert expected["completeFileUpload"] == {
         "200",
+        "400",
         "401",
         "403",
         "404",
@@ -309,7 +374,7 @@ def test_audit_contract_separates_list_metadata_from_safe_detail() -> None:
     }
     assert schemas["AuditLogDetail"]["type"] == "object"
     assert schemas["AuditLogDetail"]["additionalProperties"] is False
-    assert set(detail_operation["responses"]) == {"200", "401", "403", "404", "409", "422"}
+    assert set(detail_operation["responses"]) == _statuses("200", "401", "403", "404", "409", "422")
 
 
 def test_user_management_contract_is_revisioned_and_typed() -> None:
@@ -328,7 +393,7 @@ def test_user_management_contract_is_revisioned_and_typed() -> None:
     }
 
     reset = paths["/api/v1/users/{user_id}/reset-password"]["post"]
-    assert set(reset["responses"]) == {"200", "401", "403", "404", "409", "422"}
+    assert set(reset["responses"]) == _statuses("200", "401", "403", "404", "409", "422")
     assert reset["responses"]["200"]["content"]["application/json"]["schema"] == {
         "$ref": "#/components/schemas/User"
     }
@@ -355,8 +420,11 @@ def test_geo_observation_list_contract_is_compact_and_preserves_v1() -> None:
     paths = document["paths"]
     schemas = document["components"]["schemas"]
     operation = paths["/api/v1/geo-observations/list-items"]["get"]
+    query_parameters = [
+        parameter for parameter in operation["parameters"] if "name" in parameter
+    ]
 
-    assert [parameter["name"] for parameter in operation["parameters"]] == [
+    assert [parameter["name"] for parameter in query_parameters] == [
         "search",
         "product_id",
         "geo_platform",
@@ -368,8 +436,8 @@ def test_geo_observation_list_contract_is_compact_and_preserves_v1() -> None:
         "page",
         "page_size",
     ]
-    assert operation["parameters"][-1]["schema"]["enum"] == [10, 20, 50]
-    assert set(operation["responses"]) == {"200", "401", "403", "409", "422"}
+    assert query_parameters[-1]["schema"]["enum"] == [10, 20, 50]
+    assert set(operation["responses"]) == _statuses("200", "401", "403", "409", "422")
     assert operation["responses"]["200"]["content"]["application/json"]["schema"] == {
         "$ref": "#/components/schemas/GeoObservationListPage"
     }
@@ -409,12 +477,12 @@ def test_geo_observation_list_contract_is_compact_and_preserves_v1() -> None:
     assert "422" in paths["/api/v1/geo-observations/{observation_id}"]["delete"][
         "responses"
     ]
-    assert set(paths["/api/v1/geo-observation-publications"]["get"]["responses"]) == {
+    assert set(paths["/api/v1/geo-observation-publications"]["get"]["responses"]) == _statuses(
         "200", "401", "403", "404", "422"
-    }
-    assert set(paths["/api/v1/geo-observations"]["post"]["responses"]) == {
+    )
+    assert set(paths["/api/v1/geo-observations"]["post"]["responses"]) == _statuses(
         "201", "401", "403", "404", "409", "422"
-    }
+    )
     assert set(schemas["GeoArticleResultCreate"]["required"]) == {
         "published_article_id", "discovered", "mentioned", "accuracy"
     }
@@ -553,14 +621,17 @@ def test_query_topic_list_contract_preserves_full_list_and_adds_v2_read_model() 
     paths = document["paths"]
     schemas = document["components"]["schemas"]
     operation = paths["/api/v1/query-topics/list-items"]["get"]
+    query_parameters = [
+        parameter for parameter in operation["parameters"] if "name" in parameter
+    ]
 
-    assert [parameter["name"] for parameter in operation["parameters"]] == [
+    assert [parameter["name"] for parameter in query_parameters] == [
         "q",
         "sort",
         "page",
         "page_size",
     ]
-    assert operation["parameters"][-1]["schema"]["enum"] == [10, 20, 50]
+    assert query_parameters[-1]["schema"]["enum"] == [10, 20, 50]
     assert operation["responses"]["200"]["content"]["application/json"]["schema"] == {
         "$ref": "#/components/schemas/QueryTopicListPage"
     }
@@ -597,8 +668,11 @@ def test_platform_list_contract_exposes_readiness_options_and_delete_revision() 
     paths = document["paths"]
     schemas = document["components"]["schemas"]
     operation = paths["/api/v1/platform-profiles"]["get"]
+    query_parameters = [
+        parameter for parameter in operation["parameters"] if "name" in parameter
+    ]
 
-    assert [parameter["name"] for parameter in operation["parameters"]] == [
+    assert [parameter["name"] for parameter in query_parameters] == [
         "q",
         "platform_type_id",
         "status",
@@ -669,7 +743,7 @@ def test_ai_channel_list_contract_is_safe_and_revisioned() -> None:
         assert operation["responses"]["200"]["content"]["application/json"]["schema"] == {
             "$ref": "#/components/schemas/AIChannelSummary"
         }
-        assert set(operation["responses"]) == {"200", "401", "403", "404", "409", "422"}
+        assert set(operation["responses"]) == _statuses("200", "401", "403", "404", "409", "422")
 
     delete_operation = paths["/api/v1/ai-channels/{channel_id}"]["delete"]
     assert delete_operation["parameters"][1] == {
@@ -678,7 +752,7 @@ def test_ai_channel_list_contract_is_safe_and_revisioned() -> None:
         "required": True,
         "schema": {"type": "integer", "minimum": 0},
     }
-    assert set(delete_operation["responses"]) == {"204", "401", "403", "404", "409", "422"}
+    assert set(delete_operation["responses"]) == _statuses("204", "401", "403", "404", "409", "422")
 
     header = schemas["AIChannelHeader"]
     assert "value" not in header["properties"]
@@ -689,31 +763,17 @@ def test_ai_channel_list_contract_is_safe_and_revisioned() -> None:
         "required": True,
         "schema": {"type": "integer", "minimum": 0},
     }
-    assert set(header_delete["responses"]) == {"204", "401", "403", "404", "409", "422"}
+    assert set(header_delete["responses"]) == _statuses("204", "401", "403", "404", "409", "422")
 
     revision_body = {"$ref": "#/components/requestBodies/RevisionRequest"}
     discovery = paths["/api/v1/ai-channels/{channel_id}/discover-models"]["post"]
     assert discovery["requestBody"] == revision_body
-    assert set(discovery["responses"]) == {
-        "200",
-        "401",
-        "403",
-        "404",
-        "409",
-        "422",
-        "502",
-        "504",
-    }
+    assert set(discovery["responses"]) == _statuses(
+        "200", "401", "403", "404", "409", "422", "502", "504"
+    )
     model_test = paths["/api/v1/ai-models/{model_id}/test"]["post"]
     assert model_test["requestBody"] == revision_body
-    assert set(model_test["responses"]) == {
-        "200",
-        "401",
-        "403",
-        "404",
-        "409",
-        "422",
-    }
+    assert set(model_test["responses"]) == _statuses("200", "401", "403", "404", "409", "422")
     model_delete = paths["/api/v1/ai-models/{model_id}"]["delete"]
     assert model_delete["parameters"][1] == {
         "name": "expected_revision",
@@ -721,7 +781,7 @@ def test_ai_channel_list_contract_is_safe_and_revisioned() -> None:
         "required": True,
         "schema": {"type": "integer", "minimum": 0},
     }
-    assert set(model_delete["responses"]) == {"204", "401", "403", "404", "409", "422"}
+    assert set(model_delete["responses"]) == _statuses("204", "401", "403", "404", "409", "422")
 
 
 def test_platform_type_contract_exposes_count_bounds_and_delete_revision() -> None:
@@ -752,18 +812,22 @@ def test_platform_type_contract_exposes_count_bounds_and_delete_revision() -> No
         "description": "当前平台类型 revision",
         "schema": {"type": "integer", "minimum": 0},
     }
-    assert set(paths["/api/v1/platform-types"]["get"]["responses"]) == {
+    assert set(paths["/api/v1/platform-types"]["get"]["responses"]) == _statuses(
         "200", "401", "403"
-    }
-    assert set(paths["/api/v1/platform-types"]["post"]["responses"]) == {
+    )
+    assert set(paths["/api/v1/platform-types"]["post"]["responses"]) == _statuses(
         "201", "401", "403", "409", "422"
-    }
-    assert set(paths["/api/v1/platform-types/{platform_type_id}"]["patch"]["responses"]) == {
+    )
+    assert set(
+        paths["/api/v1/platform-types/{platform_type_id}"]["patch"]["responses"]
+    ) == _statuses(
         "200", "401", "403", "404", "409", "422"
-    }
-    assert set(paths["/api/v1/platform-types/{platform_type_id}"]["delete"]["responses"]) == {
+    )
+    assert set(
+        paths["/api/v1/platform-types/{platform_type_id}"]["delete"]["responses"]
+    ) == _statuses(
         "204", "401", "403", "404", "409", "422"
-    }
+    )
 
 
 def test_geo_observation_detail_contract_is_one_readonly_generated_union() -> None:
@@ -774,7 +838,7 @@ def test_geo_observation_detail_contract_is_one_readonly_generated_union() -> No
     schemas = document["components"]["schemas"]
     operation = paths["/api/v1/geo-observations/{observation_id}/detail"]["get"]
 
-    assert set(operation["responses"]) == {"200", "401", "403", "404", "409", "422"}
+    assert set(operation["responses"]) == _statuses("200", "401", "403", "404", "409", "422")
     assert operation["responses"]["200"]["content"]["application/json"]["schema"] == {
         "$ref": "#/components/schemas/GeoObservationDetail"
     }
@@ -830,7 +894,7 @@ def test_geo_observation_correction_context_reuses_detail_and_append_contract() 
     operation = paths["/api/v1/geo-observations/{observation_id}/correction-context"]["get"]
 
     assert operation["operationId"] == "getGeoObservationCorrectionContext"
-    assert set(operation["responses"]) == {"200", "401", "403", "404", "409", "422"}
+    assert set(operation["responses"]) == _statuses("200", "401", "403", "404", "409", "422")
     assert operation["responses"]["200"]["content"]["application/json"]["schema"] == {
         "$ref": "#/components/schemas/GeoObservationCorrectionContext"
     }
@@ -860,17 +924,12 @@ def test_geo_insight_contract_projects_actor_aware_optimization_source() -> None
     paths = document["paths"]
     schemas = document["components"]["schemas"]
 
-    assert set(paths["/api/v1/geo-insights"]["get"]["responses"]) == {
-        "200",
-        "401",
-        "403",
-        "404",
-        "409",
-        "422",
-    }
+    assert set(paths["/api/v1/geo-insights"]["get"]["responses"]) == _statuses(
+        "200", "401", "403", "404", "409", "422"
+    )
     assert set(
         paths["/api/v1/geo-insights/optimization-content-tasks"]["post"]["responses"]
-    ) == {"201", "401", "403", "404", "409", "422"}
+    ) == _statuses("201", "401", "403", "404", "409", "422")
     assert set(schemas["GeoInsightOptimizationAction"]["required"]) == {
         "rule_code",
         "date_from",
@@ -895,9 +954,9 @@ def test_published_content_issue_contract_has_one_workspace_read_model_and_real_
     context = document["components"]["schemas"]["PublishedContentIssueWorkspaceContext"]
 
     assert set(context["required"]) == {"issue", "article", "repair_task"}
-    assert set(paths["/api/v1/published-content-issues"]["get"]["responses"]) == {
+    assert set(paths["/api/v1/published-content-issues"]["get"]["responses"]) == _statuses(
         "200", "401", "403", "409", "422"
-    }
+    )
     for path, method, success in (
         ("/api/v1/published-articles/{article_id}/issues", "post", "201"),
         ("/api/v1/published-content-issues/{issue_id}", "get", "200"),
@@ -906,9 +965,9 @@ def test_published_content_issue_contract_has_one_workspace_read_model_and_real_
         ("/api/v1/published-content-issues/{issue_id}/repair-task", "post", "201"),
         ("/api/v1/published-content-issues/{issue_id}/resolve", "post", "200"),
     ):
-        assert set(paths[path][method]["responses"]) == {
+        assert set(paths[path][method]["responses"]) == _statuses(
             success, "401", "403", "404", "409", "422"
-        }
+        )
 
 
 def test_publication_work_read_contract_matches_runtime_error_matrix() -> None:
@@ -918,7 +977,7 @@ def test_publication_work_read_contract_matches_runtime_error_matrix() -> None:
     paths = document["paths"]
 
     list_responses = paths["/api/v1/publication-works"]["get"]["responses"]
-    assert set(list_responses) == {"200", "401", "403", "409", "422"}
+    assert set(list_responses) == _statuses("200", "401", "403", "409", "422")
     for status in ("401", "403", "409", "422"):
         assert list_responses[status] == {"$ref": "#/components/responses/ErrorResponse"}
 
@@ -927,7 +986,7 @@ def test_publication_work_read_contract_matches_runtime_error_matrix() -> None:
         "/api/v1/publication-works/{work_id}/workspace-context",
     ):
         responses = paths[path]["get"]["responses"]
-        assert set(responses) == {"200", "401", "403", "404", "409", "422"}
+        assert set(responses) == _statuses("200", "401", "403", "404", "409", "422")
         for status in ("401", "403", "404", "409", "422"):
             assert responses[status] == {"$ref": "#/components/responses/ErrorResponse"}
 
@@ -939,7 +998,7 @@ def test_product_create_contract_declares_input_limits_and_error_responses() -> 
     operation = document["paths"]["/api/v1/products"]["post"]
     product_create = document["components"]["schemas"]["ProductCreate"]
 
-    assert set(operation["responses"]) == {"201", "401", "403", "409", "422"}
+    assert set(operation["responses"]) == _statuses("201", "401", "403", "409", "422")
     for field_name in ("part_number", "brand", "category"):
         assert product_create["properties"][field_name]["minLength"] == 1
         assert product_create["properties"][field_name]["maxLength"] == 160
@@ -962,8 +1021,8 @@ def test_content_task_creation_contract_is_three_fields_with_one_options_read_mo
     assert set(schemas["ContentTaskCreate"]["properties"]) == set(
         schemas["ContentTaskCreate"]["required"]
     )
-    assert set(create["responses"]) == {"201", "401", "403", "404", "409", "422"}
-    assert set(options["responses"]) == {"200", "401", "403", "422"}
+    assert set(create["responses"]) == _statuses("201", "401", "403", "404", "409", "422")
+    assert set(options["responses"]) == _statuses("200", "401", "403", "422")
     assert (
         schemas["ContentTaskCreationProductOption"]["properties"]["approved_fact_versions"][
             "minItems"
@@ -985,7 +1044,7 @@ def test_content_task_detail_contract_is_one_compact_read_model() -> None:
     operation = document["paths"]["/api/v1/content-tasks/{content_task_id}/detail"]["get"]
     detail = document["components"]["schemas"]["ContentTaskDetail"]
 
-    assert set(operation["responses"]) == {"200", "401", "403", "404", "422"}
+    assert set(operation["responses"]) == _statuses("200", "401", "403", "404", "422")
     assert set(detail["required"]) == {
         "task",
         "product",
@@ -1028,7 +1087,7 @@ def test_content_version_detail_contract_is_readonly_and_compact() -> None:
     detail = schemas["ContentVersionDetail"]
     content = schemas["ContentVersionDetailContent"]
 
-    assert set(operation["responses"]) == {"200", "401", "403", "404", "409", "422"}
+    assert set(operation["responses"]) == _statuses("200", "401", "403", "404", "409", "422")
     assert set(detail["required"]) == {
         "content",
         "fact_version",
@@ -1074,7 +1133,7 @@ def test_product_detail_contract_is_compact_and_update_has_matching_limits() -> 
     detail = document["components"]["schemas"]["ProductDetail"]
     update = document["components"]["schemas"]["ProductUpdate"]
 
-    assert set(operation["responses"]) == {"200", "401", "403", "404", "422"}
+    assert set(operation["responses"]) == _statuses("200", "401", "403", "404", "422")
     assert set(detail["required"]) == {
         "product",
         "approved_fact",
@@ -1099,9 +1158,9 @@ def test_fact_workspace_contract_is_a_complete_single_read_model() -> None:
     draft = document["components"]["schemas"]["ProductFactsDraft"]
     context = document["components"]["schemas"]["ProductFactsProductContext"]
 
-    assert set(path["get"]["responses"]) == {"200", "401", "403", "404", "422"}
-    assert set(path["put"]["responses"]) == {"200", "401", "403", "404", "409", "422"}
-    assert set(submission["responses"]) == {"201", "401", "403", "404", "409", "422"}
+    assert set(path["get"]["responses"]) == _statuses("200", "401", "403", "404", "422")
+    assert set(path["put"]["responses"]) == _statuses("200", "401", "403", "404", "409", "422")
+    assert set(submission["responses"]) == _statuses("201", "401", "403", "404", "409", "422")
     assert set(draft["required"]) == {
         "product_id",
         "product",
@@ -1135,8 +1194,8 @@ def test_fact_review_contract_locates_target_and_declares_command_errors() -> No
     approve = paths["/api/v1/fact-versions/{fact_version_id}/approve"]["post"]
     request_changes = paths["/api/v1/fact-versions/{fact_version_id}/request-changes"]["post"]
 
-    assert set(product_context["responses"]) == {"200", "401", "403", "404", "422"}
-    assert set(version_detail["responses"]) == {"200", "401", "403", "404", "422"}
+    assert set(product_context["responses"]) == _statuses("200", "401", "403", "404", "422")
+    assert set(version_detail["responses"]) == _statuses("200", "401", "403", "404", "422")
     assert {
         "id",
         "product_id",
@@ -1149,16 +1208,11 @@ def test_fact_review_contract_locates_target_and_declares_command_errors() -> No
         "created_by",
         "created_at",
     } <= set(schemas["FactVersion"]["required"])
-    assert set(exact_context["responses"]) == {"200", "401", "403", "404", "422"}
-    assert set(approve["responses"]) == {"200", "401", "403", "404", "409", "422"}
-    assert set(request_changes["responses"]) == {
-        "200",
-        "401",
-        "403",
-        "404",
-        "409",
-        "422",
-    }
+    assert set(exact_context["responses"]) == _statuses("200", "401", "403", "404", "422")
+    assert set(approve["responses"]) == _statuses("200", "401", "403", "404", "409", "422")
+    assert set(request_changes["responses"]) == _statuses(
+        "200", "401", "403", "404", "409", "422"
+    )
     assert set(schemas["FactReviewContext"]["required"]) == {
         "fact_version",
         "diff",
@@ -1361,8 +1415,12 @@ def test_phase_b_shared_contract_shapes_are_explicit() -> None:
         )
         response = operation["responses"]["200"]
         assert response["content"] == {"text/csv": {"schema": {"type": "string"}}}
-        assert response["headers"] == {
-            "Content-Disposition": {"required": True, "schema": {"type": "string"}}
+        assert response["headers"]["Content-Disposition"] == {
+            "required": True,
+            "schema": {"type": "string"},
+        }
+        assert response["headers"]["X-Request-ID"] == {
+            "$ref": "#/components/headers/RequestIdResponseHeader"
         }
 
 

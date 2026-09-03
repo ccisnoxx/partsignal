@@ -5499,6 +5499,7 @@ export interface components {
         /** @description 业务或校验错误 */
         ErrorResponse: {
             headers: {
+                "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                 [name: string]: unknown;
             };
             content: {
@@ -5508,6 +5509,7 @@ export interface components {
         /** @description 更新后的事实版本 */
         FactVersionResponse: {
             headers: {
+                "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                 [name: string]: unknown;
             };
             content: {
@@ -5517,6 +5519,7 @@ export interface components {
         /** @description 更新后的内容版本 */
         ContentVersionResponse: {
             headers: {
+                "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                 [name: string]: unknown;
             };
             content: {
@@ -5525,6 +5528,7 @@ export interface components {
         };
     };
     parameters: {
+        RequestIdHeader: string;
         CsrfHeader: string;
         IdempotencyKey: string;
         Page: number;
@@ -5558,7 +5562,9 @@ export interface components {
             };
         };
     };
-    headers: never;
+    headers: {
+        RequestIdResponseHeader: string;
+    };
     pathItems: never;
 }
 export type $defs = Record<string, never>;
@@ -5566,7 +5572,9 @@ export interface operations {
     getLiveHealth: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -5575,18 +5583,22 @@ export interface operations {
             /** @description 进程存活 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["HealthResponse"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
         };
     };
     getReadyHealth: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -5595,19 +5607,23 @@ export interface operations {
             /** @description PostgreSQL 和 Redis 就绪 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["HealthResponse"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             503: components["responses"]["ErrorResponse"];
         };
     };
     login: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -5620,12 +5636,14 @@ export interface operations {
             /** @description 登录成功并设置会话 Cookie */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["AuthSession"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
         };
@@ -5635,6 +5653,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path?: never;
             cookie?: never;
@@ -5644,10 +5663,12 @@ export interface operations {
             /** @description 已撤销会话 */
             204: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content?: never;
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
@@ -5656,7 +5677,9 @@ export interface operations {
     getCurrentUser: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -5665,6 +5688,7 @@ export interface operations {
             /** @description 当前用户 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -5674,17 +5698,21 @@ export interface operations {
             /** @description 当前无会话 */
             204: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content?: never;
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
         };
     };
     getCsrfToken: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -5693,12 +5721,14 @@ export interface operations {
             /** @description 当前会话 CSRF Token */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["CsrfToken"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
         };
@@ -5708,6 +5738,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path?: never;
             cookie?: never;
@@ -5721,10 +5752,12 @@ export interface operations {
             /** @description 密码已修改且其他会话已撤销 */
             204: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content?: never;
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
@@ -5741,7 +5774,9 @@ export interface operations {
                 page?: number;
                 page_size?: number;
             };
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -5750,12 +5785,14 @@ export interface operations {
             /** @description 稳定分页的用户列表及不受筛选影响的全局实时摘要 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["UserList"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
@@ -5766,6 +5803,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path?: never;
             cookie?: never;
@@ -5779,12 +5817,14 @@ export interface operations {
             /** @description 已创建默认启用且首次登录必须修改临时密码的用户 */
             201: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["User"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
@@ -5796,6 +5836,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path?: never;
             cookie?: never;
@@ -5809,12 +5850,14 @@ export interface operations {
             /** @description 合法批量命令的逐项成功与预期失败结果 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["UserBulkStatusResult"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
@@ -5829,7 +5872,9 @@ export interface operations {
                 /** @description 省略时导出全部状态 */
                 status?: components["schemas"]["UserStatus"];
             };
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -5839,12 +5884,14 @@ export interface operations {
             200: {
                 headers: {
                     "Content-Disposition": string;
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "text/csv": string;
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
@@ -5857,6 +5904,7 @@ export interface operations {
             };
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 user_id: string;
@@ -5868,10 +5916,12 @@ export interface operations {
             /** @description 已删除停用用户及其会话 */
             204: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content?: never;
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -5884,6 +5934,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 user_id: string;
@@ -5899,12 +5950,14 @@ export interface operations {
             /** @description 已更新用户账号类型或启用状态 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["User"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -5917,6 +5970,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 user_id: string;
@@ -5932,12 +5986,14 @@ export interface operations {
             /** @description 已设置临时密码、撤销目标用户会话并返回安全用户投影 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["User"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -5961,7 +6017,9 @@ export interface operations {
                 request_id?: string;
                 keyword?: string;
             };
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -5970,12 +6028,14 @@ export interface operations {
             /** @description 追加式审计日志 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["AuditLogList"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
@@ -5984,7 +6044,9 @@ export interface operations {
     getAuditLogFilterOptions: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -5993,12 +6055,14 @@ export interface operations {
             /** @description 当前审计表中真实存在的动作和对象类型 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["AuditLogFilterOptions"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
         };
@@ -6006,7 +6070,9 @@ export interface operations {
     getAuditLog: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 audit_log_id: string;
             };
@@ -6017,12 +6083,14 @@ export interface operations {
             /** @description 只包含白名单摘要的审计详情 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["AuditLogDetail"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -6040,7 +6108,9 @@ export interface operations {
                 fact_status?: components["schemas"]["ProductFactStatus"];
                 workflow_stage?: components["schemas"]["ProductWorkflowStage"];
             };
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -6049,12 +6119,14 @@ export interface operations {
             /** @description 产品列表 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ProductList"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
@@ -6065,6 +6137,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path?: never;
             cookie?: never;
@@ -6078,12 +6151,14 @@ export interface operations {
             /** @description 已创建 */
             201: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["Product"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
@@ -6093,7 +6168,9 @@ export interface operations {
     getProduct: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 product_id: components["parameters"]["ProductId"];
             };
@@ -6104,12 +6181,14 @@ export interface operations {
             /** @description 产品详情 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["Product"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -6123,6 +6202,7 @@ export interface operations {
             };
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 product_id: components["parameters"]["ProductId"];
@@ -6134,10 +6214,12 @@ export interface operations {
             /** @description 已删除未被历史引用的产品及当前事实工作区 */
             204: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content?: never;
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -6150,6 +6232,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 product_id: components["parameters"]["ProductId"];
@@ -6165,12 +6248,14 @@ export interface operations {
             /** @description 已更新 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["Product"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -6181,7 +6266,9 @@ export interface operations {
     getProductDetail: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 product_id: components["parameters"]["ProductId"];
             };
@@ -6192,12 +6279,14 @@ export interface operations {
             /** @description 单次请求可完整绘制的产品详情读模型 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ProductDetail"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -6207,7 +6296,9 @@ export interface operations {
     getProductFactsDraft: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 product_id: components["parameters"]["ProductId"];
             };
@@ -6218,12 +6309,14 @@ export interface operations {
             /** @description 单次请求可完整绘制的当前事实工作区 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ProductFactsDraft"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -6235,6 +6328,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 product_id: components["parameters"]["ProductId"];
@@ -6250,12 +6344,14 @@ export interface operations {
             /** @description 已保存事实工作区 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ProductFactsDraft"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -6266,7 +6362,9 @@ export interface operations {
     listFactVersions: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 product_id: components["parameters"]["ProductId"];
             };
@@ -6277,12 +6375,14 @@ export interface operations {
             /** @description 事实版本 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["FactVersionList"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -6295,7 +6395,9 @@ export interface operations {
                 page?: number;
                 page_size?: 10 | 20 | 50;
             };
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 product_id: components["parameters"]["ProductId"];
             };
@@ -6306,12 +6408,14 @@ export interface operations {
             /** @description 产品事实版本历史 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ProductFactHistoryList"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -6321,7 +6425,9 @@ export interface operations {
     getProductFactReviewContext: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 product_id: components["parameters"]["ProductId"];
             };
@@ -6332,12 +6438,14 @@ export interface operations {
             /** @description 单次请求可完整绘制的当前事实审核工作台 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ProductFactReviewWorkspace"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -6349,6 +6457,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 product_id: components["parameters"]["ProductId"];
@@ -6364,12 +6473,14 @@ export interface operations {
             /** @description 已从事实工作区原子创建待审核快照 */
             201: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["FactVersion"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -6380,7 +6491,9 @@ export interface operations {
     getFactVersion: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 fact_version_id: components["parameters"]["FactVersionId"];
             };
@@ -6391,12 +6504,14 @@ export interface operations {
             /** @description 事实版本详情 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["FactVersion"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -6408,6 +6523,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 fact_version_id: components["parameters"]["FactVersionId"];
@@ -6419,10 +6535,12 @@ export interface operations {
             /** @description 已删除事实版本及其从属审核记录 */
             204: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content?: never;
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -6433,7 +6551,9 @@ export interface operations {
     getFactReviewContext: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 fact_version_id: components["parameters"]["FactVersionId"];
             };
@@ -6444,12 +6564,14 @@ export interface operations {
             /** @description 不可变事实快照与目标版本自身的完整审核历史 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["FactReviewContext"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -6461,6 +6583,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 fact_version_id: components["parameters"]["FactVersionId"];
@@ -6470,6 +6593,7 @@ export interface operations {
         requestBody: components["requestBodies"]["CommandRequest"];
         responses: {
             200: components["responses"]["FactVersionResponse"];
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -6482,6 +6606,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 fact_version_id: components["parameters"]["FactVersionId"];
@@ -6491,6 +6616,7 @@ export interface operations {
         requestBody: components["requestBodies"]["RequestChangesCommand"];
         responses: {
             200: components["responses"]["FactVersionResponse"];
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -6503,6 +6629,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 fact_version_id: components["parameters"]["FactVersionId"];
@@ -6512,6 +6639,7 @@ export interface operations {
         requestBody: components["requestBodies"]["CommandRequest"];
         responses: {
             200: components["responses"]["FactVersionResponse"];
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -6522,7 +6650,9 @@ export interface operations {
     listQueryTopics: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -6531,12 +6661,14 @@ export interface operations {
             /** @description 目标问题列表 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["QueryTopicList"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
         };
@@ -6546,6 +6678,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path?: never;
             cookie?: never;
@@ -6559,12 +6692,14 @@ export interface operations {
             /** @description 已创建 */
             201: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["QueryTopic"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
@@ -6578,7 +6713,9 @@ export interface operations {
                 page?: number;
                 page_size?: 10 | 20 | 50;
             };
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -6587,12 +6724,14 @@ export interface operations {
             /** @description Frontend V2 使用的 Query Topic 服务端搜索、排序与分页列表 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["QueryTopicListPage"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
@@ -6605,6 +6744,7 @@ export interface operations {
             };
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 query_topic_id: string;
@@ -6616,10 +6756,12 @@ export interface operations {
             /** @description 目标问题已删除 */
             204: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content?: never;
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -6632,6 +6774,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 query_topic_id: string;
@@ -6647,12 +6790,14 @@ export interface operations {
             /** @description 已更新目标问题 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["QueryTopic"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -6675,7 +6820,9 @@ export interface operations {
                 /** @description 与 page 同时提供时启用服务端分页 */
                 page_size?: 10 | 20 | 50;
             };
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -6684,12 +6831,14 @@ export interface operations {
             /** @description 平台配置列表 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PlatformProfileList"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
@@ -6700,6 +6849,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path?: never;
             cookie?: never;
@@ -6713,12 +6863,14 @@ export interface operations {
             /** @description 已创建平台 */
             201: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PlatformProfile"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -6731,6 +6883,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path?: never;
             cookie?: never;
@@ -6744,12 +6897,14 @@ export interface operations {
             /** @description 已从 Icon Horse 导入一张待管理员确认的 Logo 候选 */
             201: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PlatformLogoCandidate"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
@@ -6766,7 +6921,9 @@ export interface operations {
                 status?: components["schemas"]["PlatformProfileStatus"];
                 configuration_status?: components["schemas"]["PlatformConfigurationStatus"];
             };
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -6776,12 +6933,14 @@ export interface operations {
             200: {
                 headers: {
                     "Content-Disposition": string;
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "text/csv": string;
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
@@ -6790,7 +6949,9 @@ export interface operations {
     getPlatformProfile: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 platform_profile_id: components["parameters"]["PlatformProfileId"];
             };
@@ -6801,12 +6962,14 @@ export interface operations {
             /** @description 平台管理详情与实时引用摘要 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PlatformProfileDetail"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -6820,6 +6983,7 @@ export interface operations {
             };
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 platform_profile_id: components["parameters"]["PlatformProfileId"];
@@ -6831,10 +6995,12 @@ export interface operations {
             /** @description 已删除停用且没有开放内容任务或非终态发布工作的具体平台；平台账号随聚合清理 */
             204: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content?: never;
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -6847,6 +7013,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 platform_profile_id: components["parameters"]["PlatformProfileId"];
@@ -6862,12 +7029,14 @@ export interface operations {
             /** @description 已更新平台身份或类型归属 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PlatformProfile"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -6880,6 +7049,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 platform_profile_id: components["parameters"]["PlatformProfileId"];
@@ -6891,12 +7061,14 @@ export interface operations {
             /** @description 已启用平台；启用状态不代表配置完整 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PlatformProfile"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -6909,6 +7081,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 platform_profile_id: components["parameters"]["PlatformProfileId"];
@@ -6920,12 +7093,14 @@ export interface operations {
             /** @description 已停用平台；既有账号、配置与历史保持不变 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PlatformProfile"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -6936,7 +7111,9 @@ export interface operations {
     listPlatformPrompts: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -6945,12 +7122,14 @@ export interface operations {
             /** @description 可复用平台 Prompt 模板列表 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PlatformPromptList"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
         };
@@ -6960,6 +7139,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path?: never;
             cookie?: never;
@@ -6973,12 +7153,14 @@ export interface operations {
             /** @description 已创建可复用 Prompt */
             201: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PlatformPromptDetail"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
@@ -6988,7 +7170,9 @@ export interface operations {
     getPlatformPrompt: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 platform_prompt_id: string;
             };
@@ -6999,12 +7183,14 @@ export interface operations {
             /** @description Prompt 正文与当前绑定平台 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PlatformPromptDetail"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -7016,6 +7202,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 platform_prompt_id: string;
@@ -7031,12 +7218,14 @@ export interface operations {
             /** @description 已按 revision 更新共享 Prompt */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PlatformPromptDetail"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -7051,6 +7240,7 @@ export interface operations {
             };
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 platform_prompt_id: string;
@@ -7062,10 +7252,12 @@ export interface operations {
             /** @description 已原子解绑全部平台并删除 Prompt */
             204: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content?: never;
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -7076,7 +7268,9 @@ export interface operations {
     getPlatformPromptPreviewOptions: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 platform_prompt_id: string;
             };
@@ -7087,12 +7281,14 @@ export interface operations {
             /** @description Prompt 当前可用于真实首稿生成的任务上下文与模型 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PlatformPromptPreviewOptions"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -7102,7 +7298,9 @@ export interface operations {
     getContentHumanizationPrompt: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -7111,6 +7309,7 @@ export interface operations {
             /** @description 当前全局自然化 Prompt */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -7120,10 +7319,12 @@ export interface operations {
             /** @description 全局自然化 Prompt 尚未配置 */
             204: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content?: never;
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
         };
@@ -7133,6 +7334,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path?: never;
             cookie?: never;
@@ -7146,12 +7348,14 @@ export interface operations {
             /** @description 已首次创建或按修订号更新自然化 Prompt */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ContentHumanizationPrompt"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
@@ -7161,7 +7365,9 @@ export interface operations {
     listPlatformTypes: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -7170,12 +7376,14 @@ export interface operations {
             /** @description 按 lower(name)、id 稳定排序的平台类型列表 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PlatformTypeList"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
         };
@@ -7185,6 +7393,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path?: never;
             cookie?: never;
@@ -7198,12 +7407,14 @@ export interface operations {
             /** @description 已创建平台类型 */
             201: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PlatformType"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
@@ -7218,6 +7429,7 @@ export interface operations {
             };
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 platform_type_id: components["parameters"]["PlatformTypeId"];
@@ -7229,10 +7441,12 @@ export interface operations {
             /** @description 已删除未被引用的平台类型 */
             204: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content?: never;
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -7245,6 +7459,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 platform_type_id: components["parameters"]["PlatformTypeId"];
@@ -7260,12 +7475,14 @@ export interface operations {
             /** @description 已更新平台类型 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PlatformType"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -7284,7 +7501,9 @@ export interface operations {
                 page?: number;
                 page_size?: 10 | 20 | 50;
             };
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -7293,12 +7512,14 @@ export interface operations {
             /** @description 服务端筛选、排序和分页后的 AI 渠道摘要列表 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["AIChannelList"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
@@ -7309,6 +7530,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path?: never;
             cookie?: never;
@@ -7322,12 +7544,14 @@ export interface operations {
             /** @description 已创建默认停用的渠道 */
             201: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["AIChannel"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
@@ -7336,7 +7560,9 @@ export interface operations {
     getAIChannel: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 channel_id: components["parameters"]["AIChannelId"];
             };
@@ -7347,12 +7573,14 @@ export interface operations {
             /** @description 渠道详情和安全 Header 元数据 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["AIChannel"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -7366,6 +7594,7 @@ export interface operations {
             };
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 channel_id: components["parameters"]["AIChannelId"];
@@ -7377,10 +7606,12 @@ export interface operations {
             /** @description 已物理删除渠道、Header 和模型 */
             204: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content?: never;
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -7393,6 +7624,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 channel_id: components["parameters"]["AIChannelId"];
@@ -7408,12 +7640,14 @@ export interface operations {
             /** @description 已更新渠道，连接变化会重置测试状态 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["AIChannel"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -7426,7 +7660,9 @@ export interface operations {
             query?: {
                 period?: "7d" | "30d" | "90d" | "all";
             };
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 channel_id: components["parameters"]["AIChannelId"];
             };
@@ -7437,12 +7673,14 @@ export interface operations {
             /** @description 正式生成与自然化作业的渠道时间窗统计 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["AIChannelUsageSummary"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -7455,7 +7693,9 @@ export interface operations {
                 page?: components["parameters"]["Page"];
                 page_size?: components["parameters"]["PageSize"];
             };
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 channel_id: components["parameters"]["AIChannelId"];
             };
@@ -7466,12 +7706,14 @@ export interface operations {
             /** @description 渠道、Header 与关联模型的脱敏审计记录 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["AuditLogList"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -7483,6 +7725,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 channel_id: components["parameters"]["AIChannelId"];
@@ -7498,12 +7741,14 @@ export interface operations {
             /** @description 已替换密钥并重置渠道模型测试 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["AIChannel"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -7516,6 +7761,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 channel_id: components["parameters"]["AIChannelId"];
@@ -7527,12 +7773,14 @@ export interface operations {
             /** @description 已启用至少存在一个通过测试模型的渠道 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["AIChannelSummary"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -7545,6 +7793,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 channel_id: components["parameters"]["AIChannelId"];
@@ -7556,12 +7805,14 @@ export interface operations {
             /** @description 已停用渠道 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["AIChannelSummary"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -7574,6 +7825,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 channel_id: components["parameters"]["AIChannelId"];
@@ -7585,12 +7837,14 @@ export interface operations {
             /** @description 远端模型标识，仅供选择且不落库 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["DiscoveredModelList"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -7605,6 +7859,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 channel_id: components["parameters"]["AIChannelId"];
@@ -7620,12 +7875,14 @@ export interface operations {
             /** @description 已创建渠道 Header 并重置测试状态 */
             201: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["AIChannel"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -7640,6 +7897,7 @@ export interface operations {
             };
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 header_id: components["parameters"]["AIChannelHeaderId"];
@@ -7651,10 +7909,12 @@ export interface operations {
             /** @description 已删除 Header 并重置测试状态 */
             204: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content?: never;
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -7667,6 +7927,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 header_id: components["parameters"]["AIChannelHeaderId"];
@@ -7682,12 +7943,14 @@ export interface operations {
             /** @description 已更新 Header 并重置测试状态 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["AIChannel"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -7698,7 +7961,9 @@ export interface operations {
     listAIModels: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 channel_id: components["parameters"]["AIChannelId"];
             };
@@ -7709,12 +7974,14 @@ export interface operations {
             /** @description 渠道模型列表 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["AIModelList"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -7726,6 +7993,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 channel_id: components["parameters"]["AIChannelId"];
@@ -7741,12 +8009,14 @@ export interface operations {
             /** @description 已创建默认停用且未测试的模型 */
             201: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["AIModel"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -7760,6 +8030,7 @@ export interface operations {
             };
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 model_id: components["parameters"]["AIModelId"];
@@ -7771,10 +8042,12 @@ export interface operations {
             /** @description 已物理删除模型 */
             204: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content?: never;
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -7787,6 +8060,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 model_id: components["parameters"]["AIModelId"];
@@ -7802,12 +8076,14 @@ export interface operations {
             /** @description 已更新模型，调用配置变化会重置测试 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["AIModel"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -7820,6 +8096,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 model_id: components["parameters"]["AIModelId"];
@@ -7831,12 +8108,14 @@ export interface operations {
             /** @description 已执行不含业务数据的模型测试 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["AIModel"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -7849,6 +8128,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 model_id: components["parameters"]["AIModelId"];
@@ -7860,12 +8140,14 @@ export interface operations {
             /** @description 已启用通过测试的模型 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["AIModel"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -7878,6 +8160,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 model_id: components["parameters"]["AIModelId"];
@@ -7889,12 +8172,14 @@ export interface operations {
             /** @description 已停用模型 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["AIModel"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -7926,7 +8211,9 @@ export interface operations {
                 /** @description 与 page 同时提供时启用服务端分页 */
                 page_size?: 10 | 20 | 50;
             };
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -7935,12 +8222,14 @@ export interface operations {
             /** @description 内容任务列表 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ContentTaskList"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
@@ -7952,6 +8241,7 @@ export interface operations {
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
                 "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path?: never;
             cookie?: never;
@@ -7965,12 +8255,14 @@ export interface operations {
             /** @description 已创建或返回同一幂等请求已创建的任务 */
             201: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ContentTask"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -7984,7 +8276,9 @@ export interface operations {
                 /** @description 返回 URL handoff 指定产品的当前资格状态 */
                 requested_product_id?: string;
             };
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -7993,12 +8287,14 @@ export interface operations {
             /** @description 新建内容任务的当前可选产品、已批准事实版本和活动平台 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ContentTaskCreationOptions"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
@@ -8007,7 +8303,9 @@ export interface operations {
     getContentTask: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 content_task_id: components["parameters"]["ContentTaskId"];
             };
@@ -8018,12 +8316,14 @@ export interface operations {
             /** @description 内容任务详情 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ContentTask"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -8037,6 +8337,7 @@ export interface operations {
             };
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 content_task_id: components["parameters"]["ContentTaskId"];
@@ -8048,10 +8349,12 @@ export interface operations {
             /** @description 已删除未成功发布的完整内部任务聚合 */
             204: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content?: never;
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -8062,7 +8365,9 @@ export interface operations {
     getContentTaskDetail: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 content_task_id: components["parameters"]["ContentTaskId"];
             };
@@ -8073,12 +8378,14 @@ export interface operations {
             /** @description 内容任务紧凑详情 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ContentTaskDetail"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -8088,7 +8395,9 @@ export interface operations {
     getContentEditorContext: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 content_task_id: components["parameters"]["ContentTaskId"];
             };
@@ -8099,12 +8408,14 @@ export interface operations {
             /** @description Content Editor 首屏一致快照 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ContentEditorContext"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -8115,7 +8426,9 @@ export interface operations {
     getContentTaskReviewContext: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 content_task_id: components["parameters"]["ContentTaskId"];
             };
@@ -8126,12 +8439,14 @@ export interface operations {
             /** @description 任务当前主线的正文、冻结事实、差异、追溯与完整审核历史 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ContentReviewContext"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -8142,7 +8457,9 @@ export interface operations {
     getContentTaskGenerationOptions: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 content_task_id: components["parameters"]["ContentTaskId"];
             };
@@ -8153,12 +8470,14 @@ export interface operations {
             /** @description 锁定平台、只读 Prompt 和当前可用模型 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["GenerationOptions"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -8171,6 +8490,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 content_task_id: components["parameters"]["ContentTaskId"];
@@ -8182,12 +8502,14 @@ export interface operations {
             /** @description 已取消内容任务 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ContentTask"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -8200,6 +8522,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 content_task_id: components["parameters"]["ContentTaskId"];
@@ -8211,12 +8534,14 @@ export interface operations {
             /** @description 已归档完成任务，仅改变默认可见性 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ContentTask"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -8229,6 +8554,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 content_task_id: components["parameters"]["ContentTaskId"];
@@ -8240,12 +8566,14 @@ export interface operations {
             /** @description 已恢复归档任务，不改变业务状态 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ContentTask"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -8256,7 +8584,9 @@ export interface operations {
     getContentTaskPermanentDeletionPreview: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 content_task_id: components["parameters"]["ContentTaskId"];
             };
@@ -8267,12 +8597,14 @@ export interface operations {
             /** @description 已归档任务的实时内部删除范围和登记 URL */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ContentTaskPermanentDeletionPreview"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -8285,6 +8617,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 content_task_id: components["parameters"]["ContentTaskId"];
@@ -8300,10 +8633,12 @@ export interface operations {
             /** @description 已永久删除内部任务聚合；不处理外部页面 */
             204: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content?: never;
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -8314,7 +8649,9 @@ export interface operations {
     listGenerationJobs: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 content_task_id: components["parameters"]["ContentTaskId"];
             };
@@ -8325,12 +8662,14 @@ export interface operations {
             /** @description 任务的全部生成作业 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["GenerationJobList"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -8343,6 +8682,7 @@ export interface operations {
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
                 "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 content_task_id: components["parameters"]["ContentTaskId"];
@@ -8358,12 +8698,14 @@ export interface operations {
             /** @description 已创建或返回幂等作业 */
             202: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["GenerationJob"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -8374,7 +8716,9 @@ export interface operations {
     listContentTaskVersions: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 content_task_id: components["parameters"]["ContentTaskId"];
             };
@@ -8385,12 +8729,14 @@ export interface operations {
             /** @description 任务的全部内容版本 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ContentVersionList"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -8402,6 +8748,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 content_task_id: components["parameters"]["ContentTaskId"];
@@ -8417,12 +8764,14 @@ export interface operations {
             /** @description 已创建无 AI 来源的人工首稿 */
             201: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ContentVersion"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -8436,6 +8785,7 @@ export interface operations {
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
                 "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 content_version_id: components["parameters"]["ContentVersionId"];
@@ -8451,12 +8801,14 @@ export interface operations {
             /** @description 已创建或返回幂等自然化作业 */
             202: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["GenerationJob"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -8467,7 +8819,9 @@ export interface operations {
     getGenerationJob: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 generation_job_id: components["parameters"]["GenerationJobId"];
             };
@@ -8478,12 +8832,14 @@ export interface operations {
             /** @description 生成作业 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["GenerationJobDetail"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -8496,6 +8852,7 @@ export interface operations {
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
                 "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 generation_job_id: components["parameters"]["GenerationJobId"];
@@ -8507,12 +8864,14 @@ export interface operations {
             /** @description 已创建重试作业 */
             202: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["GenerationJob"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -8523,7 +8882,9 @@ export interface operations {
     getContentVersion: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 content_version_id: components["parameters"]["ContentVersionId"];
             };
@@ -8534,12 +8895,14 @@ export interface operations {
             /** @description 内容版本 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ContentVersion"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -8551,6 +8914,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 content_version_id: components["parameters"]["ContentVersionId"];
@@ -8564,6 +8928,7 @@ export interface operations {
         };
         responses: {
             200: components["responses"]["ContentVersionResponse"];
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -8578,6 +8943,7 @@ export interface operations {
             };
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 content_version_id: components["parameters"]["ContentVersionId"];
@@ -8589,10 +8955,12 @@ export interface operations {
             /** @description 已彻底删除符合条件的人工未审核草稿 */
             204: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content?: never;
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -8603,7 +8971,9 @@ export interface operations {
     getContentReviewContext: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 content_version_id: components["parameters"]["ContentVersionId"];
             };
@@ -8614,12 +8984,14 @@ export interface operations {
             /** @description 当前正文、冻结事实、差异、追溯与完整审核历史 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ContentReviewContext"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -8630,7 +9002,9 @@ export interface operations {
     getContentVersionDetail: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 content_version_id: components["parameters"]["ContentVersionId"];
             };
@@ -8641,12 +9015,14 @@ export interface operations {
             /** @description 不可变内容版本详情快照 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ContentVersionDetail"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -8659,6 +9035,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 content_version_id: components["parameters"]["ContentVersionId"];
@@ -8674,12 +9051,14 @@ export interface operations {
             /** @description 已创建新版本 */
             201: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ContentVersion"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -8692,6 +9071,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 content_version_id: components["parameters"]["ContentVersionId"];
@@ -8701,6 +9081,7 @@ export interface operations {
         requestBody: components["requestBodies"]["CommandRequest"];
         responses: {
             200: components["responses"]["ContentVersionResponse"];
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -8713,6 +9094,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 content_version_id: components["parameters"]["ContentVersionId"];
@@ -8722,6 +9104,7 @@ export interface operations {
         requestBody: components["requestBodies"]["CommandRequest"];
         responses: {
             200: components["responses"]["ContentVersionResponse"];
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -8734,6 +9117,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 content_version_id: components["parameters"]["ContentVersionId"];
@@ -8743,6 +9127,7 @@ export interface operations {
         requestBody: components["requestBodies"]["CommandRequest"];
         responses: {
             200: components["responses"]["ContentVersionResponse"];
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -8755,6 +9140,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 content_version_id: components["parameters"]["ContentVersionId"];
@@ -8764,6 +9150,7 @@ export interface operations {
         requestBody: components["requestBodies"]["RequestChangesCommand"];
         responses: {
             200: components["responses"]["ContentVersionResponse"];
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -8774,7 +9161,9 @@ export interface operations {
     compareContentVersions: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 content_version_id: components["parameters"]["ContentVersionId"];
                 other_version_id: string;
@@ -8786,12 +9175,14 @@ export interface operations {
             /** @description Markdown 行级差异 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ContentDiff"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -8801,7 +9192,9 @@ export interface operations {
     getPublicationPackage: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 content_version_id: components["parameters"]["ContentVersionId"];
             };
@@ -8812,12 +9205,14 @@ export interface operations {
             /** @description 由批准 Markdown 派生的人工发布包 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PublicationPackage"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -8828,7 +9223,9 @@ export interface operations {
     listPublicationReadyItems: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -8837,12 +9234,14 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PublicationReadyItemList"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
         };
@@ -8850,7 +9249,9 @@ export interface operations {
     getPublicationWorkbenchSummary: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -8859,12 +9260,14 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PublicationWorkbenchSummary"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
         };
@@ -8875,7 +9278,9 @@ export interface operations {
                 /** @description 仅返回指定具体平台的账号标识 */
                 platform_profile_id?: string;
             };
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -8884,12 +9289,14 @@ export interface operations {
             /** @description 发布账号列表 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PlatformAccountList"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
@@ -8900,6 +9307,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path?: never;
             cookie?: never;
@@ -8913,12 +9321,14 @@ export interface operations {
             /** @description 已创建 */
             201: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PlatformAccount"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -8933,6 +9343,7 @@ export interface operations {
             };
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 platform_account_id: string;
@@ -8944,10 +9355,12 @@ export interface operations {
             /** @description 已删除未被发布工作引用的平台账号 */
             204: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content?: never;
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -8960,6 +9373,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 platform_account_id: string;
@@ -8975,12 +9389,14 @@ export interface operations {
             /** @description 已更新发布账号 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PlatformAccount"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -8993,6 +9409,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 platform_account_id: string;
@@ -9004,12 +9421,14 @@ export interface operations {
             /** @description 已启用发布账号 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PlatformAccount"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -9022,6 +9441,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 platform_account_id: string;
@@ -9033,12 +9453,14 @@ export interface operations {
             /** @description 已停用发布账号 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PlatformAccount"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -9055,7 +9477,9 @@ export interface operations {
                 platform_account_id?: string | null;
                 content_task_id?: string | null;
             };
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -9064,12 +9488,14 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PublicationWorkList"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
@@ -9082,6 +9508,7 @@ export interface operations {
             header: {
                 "Idempotency-Key": string;
                 "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path?: never;
             cookie?: never;
@@ -9095,12 +9522,14 @@ export interface operations {
             /** @description Successful Response */
             201: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PublicationWork"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -9111,7 +9540,9 @@ export interface operations {
     getPublicationWork: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 work_id: string;
             };
@@ -9122,12 +9553,14 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PublicationWork"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -9138,7 +9571,9 @@ export interface operations {
     getPublicationWorkspaceContext: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 work_id: string;
             };
@@ -9149,12 +9584,14 @@ export interface operations {
             /** @description 同一 PostgreSQL 快照中的发布工作台上下文 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PublicationWorkspaceContext"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -9167,6 +9604,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 work_id: string;
@@ -9182,12 +9620,14 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PublicationWork"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -9200,6 +9640,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 work_id: string;
@@ -9215,12 +9656,14 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PublicationWork"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -9233,6 +9676,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 work_id: string;
@@ -9248,12 +9692,14 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PublicationWork"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -9266,6 +9712,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 work_id: string;
@@ -9281,12 +9728,14 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PublicationWork"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -9299,6 +9748,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 work_id: string;
@@ -9314,12 +9764,14 @@ export interface operations {
             /** @description 发布工作已切换到同任务当前批准版本 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PublicationWork"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -9332,6 +9784,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 work_id: string;
@@ -9347,12 +9800,14 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PublicationWork"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -9368,7 +9823,9 @@ export interface operations {
                 search?: string | null;
                 sort?: components["schemas"]["PublishedArticleSort"];
             };
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -9377,12 +9834,14 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PublishedArticleList"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
@@ -9392,7 +9851,9 @@ export interface operations {
     getPublishedArticle: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 article_id: string;
             };
@@ -9403,12 +9864,14 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PublishedArticle"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -9419,7 +9882,9 @@ export interface operations {
     previewPublishedArticlePermanentDeletion: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 article_id: string;
             };
@@ -9430,12 +9895,14 @@ export interface operations {
             /** @description 发布成果的实时内部删除范围；不处理外部页面 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PublishedArticlePermanentDeletionPreview"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -9448,6 +9915,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 article_id: string;
@@ -9463,10 +9931,12 @@ export interface operations {
             /** @description 已永久删除内部发布聚合并恢复来源任务；不处理外部页面 */
             204: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content?: never;
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -9479,6 +9949,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 article_id: string;
@@ -9494,12 +9965,14 @@ export interface operations {
             /** @description Successful Response */
             201: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PublishedContentIssue"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -9514,7 +9987,9 @@ export interface operations {
                 page_size?: number;
                 status?: components["schemas"]["PublishedContentIssueStatus"] | null;
             };
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -9523,12 +9998,14 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PublishedContentIssueList"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
@@ -9538,7 +10015,9 @@ export interface operations {
     getPublishedContentIssue: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 issue_id: string;
             };
@@ -9549,12 +10028,14 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PublishedContentIssue"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -9565,7 +10046,9 @@ export interface operations {
     getPublishedContentIssueWorkspaceContext: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 issue_id: string;
             };
@@ -9576,12 +10059,14 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PublishedContentIssueWorkspaceContext"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -9592,7 +10077,9 @@ export interface operations {
     getPublishedContentRepairContext: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 issue_id: string;
             };
@@ -9603,12 +10090,14 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PublishedContentRepairContext"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -9621,6 +10110,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 issue_id: string;
@@ -9636,12 +10126,14 @@ export interface operations {
             /** @description Successful Response */
             201: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ContentTask"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -9654,6 +10146,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 issue_id: string;
@@ -9669,12 +10162,14 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PublishedContentIssue"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -9687,7 +10182,9 @@ export interface operations {
             query: {
                 product_id: string;
             };
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -9696,12 +10193,14 @@ export interface operations {
             /** @description 产品当前全部可观测公开文章 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["GeoPublicationCandidateList"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -9732,7 +10231,9 @@ export interface operations {
                 only_mine?: boolean;
                 include_history?: boolean;
             };
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -9741,12 +10242,14 @@ export interface operations {
             /** @description 分页观测列表；默认只返回纠正链尾 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["GeoObservationList"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
@@ -9758,6 +10261,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path?: never;
             cookie?: never;
@@ -9771,12 +10275,14 @@ export interface operations {
             /** @description 已追加观测 */
             201: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["GeoObservation"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -9798,7 +10304,9 @@ export interface operations {
                 page?: number;
                 page_size?: 10 | 20 | 50;
             };
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -9807,12 +10315,14 @@ export interface operations {
             /** @description Frontend V2 GEO 观测紧凑列表；只返回纠正链尾 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["GeoObservationListPage"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
@@ -9822,7 +10332,9 @@ export interface operations {
     getGeoObservation: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 observation_id: string;
             };
@@ -9833,12 +10345,14 @@ export interface operations {
             /** @description 观测详情；纠正历史可直接读取 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["GeoObservation"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -9851,6 +10365,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 observation_id: string;
@@ -9862,10 +10377,12 @@ export interface operations {
             /** @description 人工观测完整更正链已删除 */
             204: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content?: never;
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -9876,7 +10393,9 @@ export interface operations {
     getGeoObservationDetail: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 observation_id: string;
             };
@@ -9887,12 +10406,14 @@ export interface operations {
             /** @description Frontend V2 GEO 观测只读详情；一次返回成果、证据与完整更正链 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["GeoObservationDetail"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -9903,7 +10424,9 @@ export interface operations {
     getGeoObservationCorrectionContext: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 observation_id: string;
             };
@@ -9914,12 +10437,14 @@ export interface operations {
             /** @description Frontend V2 GEO 更正工作台上下文；一次返回只读历史与当前文章候选 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["GeoObservationCorrectionContext"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -9948,7 +10473,9 @@ export interface operations {
                 only_mine?: boolean;
                 include_history?: boolean;
             };
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -9957,12 +10484,14 @@ export interface operations {
             /** @description 与观测列表筛选范围一致的 GEO 指标 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["GeoMetrics"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
@@ -9979,7 +10508,9 @@ export interface operations {
                 published_article_id?: string;
                 query_topic_id?: string;
             };
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -9988,12 +10519,14 @@ export interface operations {
             /** @description 同一筛选范围内的人工 GEO 洞察、筛选选项与数据完整性 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["GeoInsights"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -10004,7 +10537,9 @@ export interface operations {
     getDashboardSummary: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -10013,12 +10548,14 @@ export interface operations {
             /** @description 需要行动的工作台摘要 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["DashboardSummary"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
         };
@@ -10026,7 +10563,9 @@ export interface operations {
     getWorkbench: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -10035,12 +10574,14 @@ export interface operations {
             /** @description Frontend V2 可直接绘制的 Workbench 聚合读模型 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["WorkbenchAggregate"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
@@ -10052,6 +10593,7 @@ export interface operations {
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
                 "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path?: never;
             cookie?: never;
@@ -10065,12 +10607,14 @@ export interface operations {
             /** @description 已创建带不可变 GEO 来源快照的内容任务 */
             201: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ContentTask"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -10083,6 +10627,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path?: never;
             cookie?: never;
@@ -10096,12 +10641,14 @@ export interface operations {
             /** @description 已创建限时上传意图 */
             201: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["UploadIntent"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
@@ -10112,6 +10659,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 file_id: components["parameters"]["FileId"];
@@ -10123,12 +10671,14 @@ export interface operations {
             /** @description HEAD 校验成功 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["FileRecord"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -10140,7 +10690,9 @@ export interface operations {
     getFileRecord: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 file_id: components["parameters"]["FileId"];
             };
@@ -10151,12 +10703,14 @@ export interface operations {
             /** @description 文件元数据 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["FileRecord"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -10168,6 +10722,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
             path: {
                 file_id: components["parameters"]["FileId"];
@@ -10179,12 +10734,14 @@ export interface operations {
             /** @description 已中止未完成上传 */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["FileRecord"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
@@ -10195,7 +10752,9 @@ export interface operations {
     getFileDownloadUrl: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
             path: {
                 file_id: components["parameters"]["FileId"];
             };
@@ -10206,12 +10765,14 @@ export interface operations {
             /** @description 短期下载 URL */
             200: {
                 headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["SignedUrl"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];

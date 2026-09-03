@@ -1,0 +1,10 @@
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"复用 FastAPI/OpenAPI 与现有 comparator owner，避免 162 个 endpoint 重复实现。"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"约束 runtime、static contract、generated client 和 tests 的单向数据流。"}
+{"file":".trellis/spec/backend/index.md","reason":"加载 backend 规范入口。"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"保持 ErrorEnvelope、显式 status 与 metadata/行为 owner 边界。"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"约束 TestClient、targeted tests、ruff/mypy 与失败可见性。"}
+{"file":".trellis/spec/frontend/index.md","reason":"加载 canonical frontend 与 generated type 规范入口。"}
+{"file":".trellis/spec/frontend/type-safety.md","reason":"generated schema 是前端 API 类型唯一来源。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"约束 api:check、typecheck、consumer tests 与 canonical 命令。"}
+{"file":".trellis/tasks/09-02-cross-cutting-request-context-metadata/research/request-context-authority-audit.md","reason":"提供 162/861/1023 inventory、middleware authority 和 owner 决策。"}
+{"file":".trellis/tasks/09-02-cross-cutting-request-context-metadata/research/generated-client-cookie-and-isolation-audit.md","reason":"提供 generated impact、Cookie sentinel 和 dirty isolation。"}

@@ -8,8 +8,16 @@ from typing import Any
 
 import pytest
 import yaml
+from fastapi.openapi.utils import get_openapi
 
-from app.main import app
+import app.main as main_module
+from app.main import (
+    REQUEST_ID_HEADER_NAME,
+    REQUEST_ID_MAX_LENGTH,
+    REQUEST_ID_MIN_LENGTH,
+    REQUEST_ID_PATTERN,
+    app,
+)
 from app.tools.contract_check import compare_response_contracts
 
 WAVE_1_OPERATION_IDS = (
@@ -498,6 +506,10 @@ GEO_SUCCESS_OPERATION_IDS = (
     "getGeoObservationCorrectionContext",
 )
 
+# Phase X 为所有既有波次追加同一个跨切面 400；业务错误状态集合本身不变。
+for _expected_statuses in (*WAVE_2_EXPECTED_STATUSES.values(), *WAVE_3_EXPECTED_STATUSES.values()):
+    _expected_statuses.add("400")
+
 
 def _contract_document() -> dict[str, Any]:
     path = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
@@ -511,6 +523,53 @@ def _operation_map(document: dict[str, Any]) -> dict[str, dict[str, Any]]:
         for operation in path_item.values()
         if isinstance(operation, dict) and "operationId" in operation
     }
+
+
+def _resolved_response(document: dict[str, Any], response: dict[str, Any]) -> dict[str, Any]:
+    reference = response.get("$ref")
+    if not isinstance(reference, str):
+        return response
+    prefix = "#/components/"
+    assert reference.startswith(prefix)
+    section, name = reference[len(prefix) :].split("/", maxsplit=1)
+    resolved = document["components"][section][name]
+    assert isinstance(resolved, dict)
+    return resolved
+
+
+def _resolved_runtime_response(response: dict[str, Any]) -> dict[str, Any]:
+    """使用完整 runtime document 解析 operation projection 中的 response ref。"""
+    return _resolved_response(app.openapi(), response)
+
+
+def _strip_request_context_metadata(document: dict[str, Any]) -> dict[str, Any]:
+    """移除 Phase X 字段，以证明 custom builder 不改动原 route metadata。"""
+    stripped = deepcopy(document)
+    for path_item in stripped["paths"].values():
+        for operation in path_item.values():
+            if not isinstance(operation, dict) or "operationId" not in operation:
+                continue
+            original_parameters = operation.get("parameters")
+            operation["parameters"] = [
+                parameter
+                for parameter in original_parameters or []
+                if not (
+                    isinstance(parameter, dict)
+                    and parameter.get("$ref")
+                    == "#/components/parameters/RequestIdHeader"
+                )
+            ]
+            if not operation["parameters"]:
+                operation.pop("parameters")
+            operation["responses"].pop("400", None)
+            for response in operation["responses"].values():
+                resolved = _resolved_response(stripped, response)
+                headers = resolved.get("headers", {})
+                if isinstance(headers, dict):
+                    headers.pop(REQUEST_ID_HEADER_NAME, None)
+                    if not headers:
+                        resolved.pop("headers", None)
+    return stripped
 
 
 def _wave_projection(
@@ -572,6 +631,86 @@ def test_wave_1_inventory_is_complete(
     assert set().union(*WAVE_1_GROUPS.values()) == set(WAVE_1_OPERATION_IDS)
     assert set(WAVE_1_OPERATION_IDS) <= set(contract)
     assert set(WAVE_1_OPERATION_IDS) <= set(runtime)
+
+
+def test_runtime_request_context_covers_all_operations_and_responses() -> None:
+    runtime = app.openapi()
+    operations = _operation_map(runtime)
+
+    assert len(operations) == 162
+    assert len(set(operations)) == 162
+    assert sum(len(operation["responses"]) for operation in operations.values()) == 1023
+    parameter_ref = {"$ref": "#/components/parameters/RequestIdHeader"}
+    header_ref = {"$ref": "#/components/headers/RequestIdResponseHeader"}
+    parameter_schema = {
+        "type": "string",
+        "minLength": REQUEST_ID_MIN_LENGTH,
+        "maxLength": REQUEST_ID_MAX_LENGTH,
+        "pattern": REQUEST_ID_PATTERN,
+    }
+    assert runtime["components"]["parameters"]["RequestIdHeader"] == {
+        "name": REQUEST_ID_HEADER_NAME,
+        "in": "header",
+        "required": False,
+        "schema": parameter_schema,
+    }
+    assert runtime["components"]["responses"]["ErrorResponse"] == {
+        "description": "业务或校验错误",
+        "headers": {REQUEST_ID_HEADER_NAME: header_ref},
+        "content": {
+            "application/json": {
+                "schema": {"$ref": "#/components/schemas/ErrorEnvelope"}
+            }
+        },
+    }
+    for operation in operations.values():
+        assert sum(parameter == parameter_ref for parameter in operation["parameters"]) == 1
+        assert operation["responses"]["400"] == {
+            "$ref": "#/components/responses/ErrorResponse"
+        }
+        assert "default" not in operation["responses"]
+        assert "4XX" not in operation["responses"]
+        for response in operation["responses"].values():
+            resolved = _resolved_response(runtime, response)
+            assert resolved["headers"][REQUEST_ID_HEADER_NAME] == header_ref
+    assert runtime["components"]["headers"]["RequestIdResponseHeader"] == {
+        "required": True,
+        "schema": parameter_schema,
+    }
+
+
+def test_runtime_request_context_merge_does_not_change_route_metadata() -> None:
+    raw = get_openapi(title=app.title, version=app.version, routes=app.routes)
+    augmented = app.openapi()
+    stripped = _strip_request_context_metadata(augmented)
+
+    assert sum(len(operation["responses"]) for operation in _operation_map(raw).values()) == 861
+    assert sum(
+        len(operation["responses"]) for operation in _operation_map(stripped).values()
+    ) == 861
+    assert compare_response_contracts(raw, stripped) == []
+    assert _operation_map(raw) == _operation_map(stripped)
+
+
+def test_custom_openapi_does_not_cache_document_when_metadata_merge_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """merge 失败前不得发布 raw 或 partial OpenAPI document。"""
+    cached_schema = app.openapi_schema
+    app.openapi_schema = None
+
+    def reject_merge(document: dict[str, Any]) -> None:
+        assert document["paths"]
+        assert app.openapi_schema is None
+        raise RuntimeError("metadata conflict")
+
+    monkeypatch.setattr(main_module, "_merge_request_context_metadata", reject_merge)
+    try:
+        with pytest.raises(RuntimeError, match="metadata conflict"):
+            main_module._custom_openapi()
+        assert app.openapi_schema is None
+    finally:
+        app.openapi_schema = cached_schema
 
 
 def test_wave_2_inventory_is_complete(
@@ -642,7 +781,9 @@ def test_wave_3_error_responses_use_project_error_envelope(
     responses = runtime[operation_id]["responses"]
     error_statuses = expected_statuses - {"200", "201", "202", "204"}
     for status_code in error_statuses:
-        assert responses[status_code]["content"]["application/json"]["schema"] == {
+        assert _resolved_runtime_response(responses[status_code])["content"][
+            "application/json"
+        ]["schema"] == {
             "$ref": "#/components/schemas/ErrorEnvelope"
         }
     assert not {code for code in responses if code.startswith("5")}
@@ -684,7 +825,10 @@ def test_wave_3_success_occurrences_and_response_boundaries(
     assert error_occurrences == {"401": 43, "403": 43, "404": 32, "409": 37, "422": 39}
     for operation_id in WAVE_3_OPERATION_IDS:
         responses = runtime[operation_id]["responses"]
-        assert all("headers" not in response for response in responses.values())
+        assert all(
+            REQUEST_ID_HEADER_NAME in _resolved_runtime_response(response).get("headers", {})
+            for response in responses.values()
+        )
         for status_code in ("200", "201"):
             if status_code in responses:
                 assert set(responses[status_code]["content"]) == {"application/json"}
@@ -829,7 +973,9 @@ def test_wave_2_error_statuses_use_project_error_envelope(
     responses = runtime[operation_id]["responses"]
     error_statuses = expected_statuses - {"200", "201", "202", "204"}
     for status_code in error_statuses:
-        assert responses[status_code]["content"]["application/json"]["schema"] == {
+        assert _resolved_runtime_response(responses[status_code])["content"][
+            "application/json"
+        ]["schema"] == {
             "$ref": "#/components/schemas/ErrorEnvelope"
         }
     if operation_id == "listQueryTopics":
@@ -837,7 +983,9 @@ def test_wave_2_error_statuses_use_project_error_envelope(
         assert "4XX" not in responses
         assert "default" not in responses
     else:
-        assert responses["422"]["content"]["application/json"]["schema"] == {
+        assert _resolved_runtime_response(responses["422"])["content"][
+            "application/json"
+        ]["schema"] == {
             "$ref": "#/components/schemas/ErrorEnvelope"
         }
 
@@ -857,7 +1005,10 @@ def test_wave_2_success_occurrences_and_response_boundaries(
     for operation_id in WAVE_2_OPERATION_IDS:
         responses = runtime[operation_id]["responses"]
         assert not {code for code in responses if code.startswith("5")}
-        assert all("headers" not in response for response in responses.values())
+        assert all(
+            REQUEST_ID_HEADER_NAME in _resolved_runtime_response(response).get("headers", {})
+            for response in responses.values()
+        )
         if "204" in WAVE_2_EXPECTED_STATUSES[operation_id]:
             assert "content" not in responses["204"]
 
@@ -870,14 +1021,16 @@ def test_error_statuses_use_project_error_envelope(
     expected_statuses = set(contract[operation_id]["responses"])
     responses = runtime[operation_id]["responses"]
     if "422" in expected_statuses:
-        schema = responses["422"]["content"]["application/json"]["schema"]
+        schema = _resolved_runtime_response(responses["422"])["content"][
+            "application/json"
+        ]["schema"]
         assert schema == {"$ref": "#/components/schemas/ErrorEnvelope"}
     else:
         assert "422" not in responses
     for status_code, response in responses.items():
         if status_code not in {"401", "403", "404", "409", "422", "502", "503", "504"}:
             continue
-        assert response["content"]["application/json"]["schema"] == {
+        assert _resolved_runtime_response(response)["content"]["application/json"]["schema"] == {
             "$ref": "#/components/schemas/ErrorEnvelope"
         }
 
@@ -893,8 +1046,8 @@ def test_error_envelope_schema_has_single_required_wire_shape() -> None:
 
 def test_health_special_errors_and_csv_metadata() -> None:
     operations = _operation_map(app.openapi())
-    assert set(operations["getLiveHealth"]["responses"]) == {"200"}
-    assert set(operations["getReadyHealth"]["responses"]) == {"200", "503"}
+    assert set(operations["getLiveHealth"]["responses"]) == {"200", "400"}
+    assert set(operations["getReadyHealth"]["responses"]) == {"200", "400", "503"}
     assert set(operations["discoverAIChannelModels"]["responses"]) >= {"502", "504"}
     assert "503" in operations["createPlatformLogoCandidate"]["responses"]
     assert "503" in operations["completeFileUpload"]["responses"]
@@ -906,6 +1059,9 @@ def test_health_special_errors_and_csv_metadata() -> None:
         assert response["headers"]["Content-Disposition"] == {
             "required": True,
             "schema": {"type": "string"},
+        }
+        assert response["headers"][REQUEST_ID_HEADER_NAME] == {
+            "$ref": "#/components/headers/RequestIdResponseHeader"
         }
 
 

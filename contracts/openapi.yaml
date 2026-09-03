@@ -24,29 +24,38 @@ paths:
     get:
       tags: [health]
       operationId: getLiveHealth
+      parameters: [{$ref: '#/components/parameters/RequestIdHeader'}]
       security: []
       responses:
         '200':
           description: 进程存活
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/HealthResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/health/ready:
     get:
       tags: [health]
       operationId: getReadyHealth
+      parameters: [{$ref: '#/components/parameters/RequestIdHeader'}]
       security: []
       responses:
         '200':
           description: PostgreSQL 和 Redis 就绪
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/HealthResponse'}
         '503': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/auth/login:
     post:
       tags: [auth]
       operationId: login
+      parameters: [{$ref: '#/components/parameters/RequestIdHeader'}]
       security: []
       requestBody:
         required: true
@@ -56,60 +65,82 @@ paths:
       responses:
         '200':
           description: 登录成功并设置会话 Cookie
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AuthSession'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/auth/logout:
     post:
       tags: [auth]
       operationId: logout
-      parameters: [{$ref: '#/components/parameters/CsrfHeader'}]
+      parameters: [{$ref: '#/components/parameters/CsrfHeader'}, {$ref: '#/components/parameters/RequestIdHeader'}]
       responses:
-        '204': {description: 已撤销会话}
+        '204':
+          description: 已撤销会话
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/auth/me:
     get:
       tags: [auth]
       operationId: getCurrentUser
+      parameters: [{$ref: '#/components/parameters/RequestIdHeader'}]
       responses:
         '200':
           description: 当前用户
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/User'}
-        '204': {description: 当前无会话}
+        '204':
+          description: 当前无会话
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/auth/csrf:
     get:
       tags: [auth]
       operationId: getCsrfToken
+      parameters: [{$ref: '#/components/parameters/RequestIdHeader'}]
       responses:
         '200':
           description: 当前会话 CSRF Token
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/CsrfToken'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/auth/change-password:
     post:
       tags: [auth]
       operationId: changePassword
-      parameters: [{$ref: '#/components/parameters/CsrfHeader'}]
+      parameters: [{$ref: '#/components/parameters/CsrfHeader'}, {$ref: '#/components/parameters/RequestIdHeader'}]
       requestBody:
         required: true
         content:
           application/json:
             schema: {$ref: '#/components/schemas/ChangePasswordRequest'}
       responses:
-        '204': {description: 密码已修改且其他会话已撤销}
+        '204':
+          description: 密码已修改且其他会话已撤销
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/users:
     get:
       tags: [identity]
@@ -120,19 +151,23 @@ paths:
         - {name: status, in: query, description: 省略时返回全部状态, schema: {$ref: '#/components/schemas/UserStatus'}}
         - {name: page, in: query, schema: {type: integer, minimum: 1, default: 1}}
         - {name: page_size, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 20}}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
         '200':
           description: 稳定分页的用户列表及不受筛选影响的全局实时摘要
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/UserList'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
     post:
       tags: [identity]
       operationId: createUser
-      parameters: [{$ref: '#/components/parameters/CsrfHeader'}]
+      parameters: [{$ref: '#/components/parameters/CsrfHeader'}, {$ref: '#/components/parameters/RequestIdHeader'}]
       requestBody:
         required: true
         content:
@@ -141,6 +176,8 @@ paths:
       responses:
         '201':
           description: 已创建默认启用且首次登录必须修改临时密码的用户
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/User'}
@@ -148,11 +185,12 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/users/bulk-status:
     post:
       tags: [identity]
       operationId: bulkUpdateUserStatus
-      parameters: [{$ref: '#/components/parameters/CsrfHeader'}]
+      parameters: [{$ref: '#/components/parameters/CsrfHeader'}, {$ref: '#/components/parameters/RequestIdHeader'}]
       requestBody:
         required: true
         content:
@@ -161,12 +199,15 @@ paths:
       responses:
         '200':
           description: 合法批量命令的逐项成功与预期失败结果
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/UserBulkStatusResult'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/users/export:
     get:
       tags: [identity]
@@ -175,6 +216,7 @@ paths:
         - {name: q, in: query, description: 按用户名或显示名称进行大小写不敏感的字面量包含搜索, schema: {type: string, maxLength: 200}}
         - {name: account_type, in: query, schema: {$ref: '#/components/schemas/AccountType'}}
         - {name: status, in: query, description: 省略时导出全部状态, schema: {$ref: '#/components/schemas/UserStatus'}}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
         '200':
           description: 当前筛选范围内、按用户列表稳定顺序生成的 UTF-8 BOM CSV
@@ -182,12 +224,14 @@ paths:
             Content-Disposition:
               required: true
               schema: {type: string}
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             text/csv:
               schema: {type: string}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/users/{user_id}:
     patch:
       tags: [identity]
@@ -198,6 +242,7 @@ paths:
           required: true
           schema: {type: string, format: uuid}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody:
         required: true
         content:
@@ -206,6 +251,8 @@ paths:
       responses:
         '200':
           description: 已更新用户账号类型或启用状态
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/User'}
@@ -214,6 +261,7 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
     delete:
       tags: [identity]
       operationId: deleteUser
@@ -224,13 +272,18 @@ paths:
           schema: {type: string, format: uuid}
         - {name: expected_revision, in: query, required: true, schema: {type: integer, minimum: 0}}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
-        '204': {description: 已删除停用用户及其会话}
+        '204':
+          description: 已删除停用用户及其会话
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/users/{user_id}/reset-password:
     post:
       tags: [identity]
@@ -241,6 +294,7 @@ paths:
           required: true
           schema: {type: string, format: uuid}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody:
         required: true
         content:
@@ -249,6 +303,8 @@ paths:
       responses:
         '200':
           description: 已设置临时密码、撤销目标用户会话并返回安全用户投影
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/User'}
@@ -257,6 +313,7 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/audit-logs:
     get:
       tags: [identity]
@@ -274,27 +331,35 @@ paths:
         - {name: outcome, in: query, schema: {$ref: '#/components/schemas/AuditOutcome'}}
         - {name: request_id, in: query, schema: {type: string, maxLength: 100}}
         - {name: keyword, in: query, schema: {type: string, minLength: 1, maxLength: 100}}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
         '200':
           description: 追加式审计日志
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AuditLogList'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/audit-logs/filter-options:
     get:
       tags: [identity]
       operationId: getAuditLogFilterOptions
+      parameters: [{$ref: '#/components/parameters/RequestIdHeader'}]
       responses:
         '200':
           description: 当前审计表中真实存在的动作和对象类型
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AuditLogFilterOptions'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/audit-logs/{audit_log_id}:
     get:
       tags: [identity]
@@ -304,9 +369,12 @@ paths:
           in: path
           required: true
           schema: {type: string, format: uuid}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
         '200':
           description: 只包含白名单摘要的审计详情
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AuditLogDetail'}
@@ -315,6 +383,7 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/products:
     get:
       tags: [product-facts]
@@ -326,19 +395,23 @@ paths:
         - {name: sort, in: query, schema: {$ref: '#/components/schemas/ProductSort'}}
         - {name: fact_status, in: query, schema: {$ref: '#/components/schemas/ProductFactStatus'}}
         - {name: workflow_stage, in: query, schema: {$ref: '#/components/schemas/ProductWorkflowStage'}}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
         '200':
           description: 产品列表
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ProductList'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
     post:
       tags: [product-facts]
       operationId: createProduct
-      parameters: [{$ref: '#/components/parameters/CsrfHeader'}]
+      parameters: [{$ref: '#/components/parameters/CsrfHeader'}, {$ref: '#/components/parameters/RequestIdHeader'}]
       requestBody:
         required: true
         content:
@@ -347,6 +420,8 @@ paths:
       responses:
         '201':
           description: 已创建
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/Product'}
@@ -354,14 +429,18 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/products/{product_id}:
     parameters: [{$ref: '#/components/parameters/ProductId'}]
     get:
       tags: [product-facts]
       operationId: getProduct
+      parameters: [{$ref: '#/components/parameters/RequestIdHeader'}]
       responses:
         '200':
           description: 产品详情
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/Product'}
@@ -369,10 +448,11 @@ paths:
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
     patch:
       tags: [product-facts]
       operationId: updateProduct
-      parameters: [{$ref: '#/components/parameters/CsrfHeader'}]
+      parameters: [{$ref: '#/components/parameters/CsrfHeader'}, {$ref: '#/components/parameters/RequestIdHeader'}]
       requestBody:
         required: true
         content:
@@ -381,6 +461,8 @@ paths:
       responses:
         '200':
           description: 已更新
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/Product'}
@@ -389,6 +471,7 @@ paths:
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
     delete:
       tags: [product-facts]
       operationId: deleteProduct
@@ -396,21 +479,29 @@ paths:
         - {$ref: '#/components/parameters/ProductId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
         - {name: expected_revision, in: query, required: true, schema: {type: integer, minimum: 0}}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
-        '204': {description: 已删除未被历史引用的产品及当前事实工作区}
+        '204':
+          description: 已删除未被历史引用的产品及当前事实工作区
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/products/{product_id}/detail:
     parameters: [{$ref: '#/components/parameters/ProductId'}]
     get:
       tags: [product-facts]
       operationId: getProductDetail
+      parameters: [{$ref: '#/components/parameters/RequestIdHeader'}]
       responses:
         '200':
           description: 单次请求可完整绘制的产品详情读模型
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ProductDetail'}
@@ -418,14 +509,18 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/products/{product_id}/facts:
     parameters: [{$ref: '#/components/parameters/ProductId'}]
     get:
       tags: [product-facts]
       operationId: getProductFactsDraft
+      parameters: [{$ref: '#/components/parameters/RequestIdHeader'}]
       responses:
         '200':
           description: 单次请求可完整绘制的当前事实工作区
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ProductFactsDraft'}
@@ -433,10 +528,11 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
     put:
       tags: [product-facts]
       operationId: replaceProductFactsDraft
-      parameters: [{$ref: '#/components/parameters/CsrfHeader'}]
+      parameters: [{$ref: '#/components/parameters/CsrfHeader'}, {$ref: '#/components/parameters/RequestIdHeader'}]
       requestBody:
         required: true
         content:
@@ -445,6 +541,8 @@ paths:
       responses:
         '200':
           description: 已保存事实工作区
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ProductFactsDraft'}
@@ -453,14 +551,18 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/products/{product_id}/fact-versions:
     parameters: [{$ref: '#/components/parameters/ProductId'}]
     get:
       tags: [product-facts]
       operationId: listFactVersions
+      parameters: [{$ref: '#/components/parameters/RequestIdHeader'}]
       responses:
         '200':
           description: 事实版本
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/FactVersionList'}
@@ -468,6 +570,7 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/products/{product_id}/fact-history:
     parameters: [{$ref: '#/components/parameters/ProductId'}]
     get:
@@ -480,9 +583,12 @@ paths:
         - name: page_size
           in: query
           schema: {type: integer, enum: [10, 20, 50], default: 20}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
         '200':
           description: 产品事实版本历史
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ProductFactHistoryList'}
@@ -490,14 +596,18 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/products/{product_id}/fact-review-context:
     parameters: [{$ref: '#/components/parameters/ProductId'}]
     get:
       tags: [review]
       operationId: getProductFactReviewContext
+      parameters: [{$ref: '#/components/parameters/RequestIdHeader'}]
       responses:
         '200':
           description: 单次请求可完整绘制的当前事实审核工作台
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ProductFactReviewWorkspace'}
@@ -505,12 +615,13 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/products/{product_id}/fact-review-submissions:
     parameters: [{$ref: '#/components/parameters/ProductId'}]
     post:
       tags: [product-facts]
       operationId: submitProductFactReview
-      parameters: [{$ref: '#/components/parameters/CsrfHeader'}]
+      parameters: [{$ref: '#/components/parameters/CsrfHeader'}, {$ref: '#/components/parameters/RequestIdHeader'}]
       requestBody:
         required: true
         content:
@@ -519,6 +630,8 @@ paths:
       responses:
         '201':
           description: 已从事实工作区原子创建待审核快照
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/FactVersion'}
@@ -527,14 +640,18 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/fact-versions/{fact_version_id}:
     parameters: [{$ref: '#/components/parameters/FactVersionId'}]
     get:
       tags: [product-facts]
       operationId: getFactVersion
+      parameters: [{$ref: '#/components/parameters/RequestIdHeader'}]
       responses:
         '200':
           description: 事实版本详情
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/FactVersion'}
@@ -542,25 +659,32 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
     delete:
       tags: [product-facts]
       operationId: deleteFactVersion
-      parameters: [{$ref: '#/components/parameters/CsrfHeader'}]
+      parameters: [{$ref: '#/components/parameters/CsrfHeader'}, {$ref: '#/components/parameters/RequestIdHeader'}]
       responses:
-        '204': {description: 已删除事实版本及其从属审核记录}
+        '204':
+          description: 已删除事实版本及其从属审核记录
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/fact-versions/{fact_version_id}/review-context:
     get:
       tags: [review]
       operationId: getFactReviewContext
-      parameters: [{$ref: '#/components/parameters/FactVersionId'}]
+      parameters: [{$ref: '#/components/parameters/FactVersionId'}, {$ref: '#/components/parameters/RequestIdHeader'}]
       responses:
         '200':
           description: 不可变事实快照与目标版本自身的完整审核历史
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/FactReviewContext'}
@@ -568,6 +692,7 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/fact-versions/{fact_version_id}/approve:
     post:
       tags: [review]
@@ -575,6 +700,7 @@ paths:
       parameters:
         - {$ref: '#/components/parameters/FactVersionId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody: {$ref: '#/components/requestBodies/CommandRequest'}
       responses:
         '200': {$ref: '#/components/responses/FactVersionResponse'}
@@ -583,6 +709,7 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/fact-versions/{fact_version_id}/request-changes:
     post:
       tags: [review]
@@ -590,6 +717,7 @@ paths:
       parameters:
         - {$ref: '#/components/parameters/FactVersionId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody: {$ref: '#/components/requestBodies/RequestChangesCommand'}
       responses:
         '200': {$ref: '#/components/responses/FactVersionResponse'}
@@ -598,6 +726,7 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/fact-versions/{fact_version_id}/retire:
     post:
       tags: [review]
@@ -605,6 +734,7 @@ paths:
       parameters:
         - {$ref: '#/components/parameters/FactVersionId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody: {$ref: '#/components/requestBodies/CommandRequest'}
       responses:
         '200': {$ref: '#/components/responses/FactVersionResponse'}
@@ -613,22 +743,27 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/query-topics:
     get:
       tags: [planning]
       operationId: listQueryTopics
+      parameters: [{$ref: '#/components/parameters/RequestIdHeader'}]
       responses:
         '200':
           description: 目标问题列表
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/QueryTopicList'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
     post:
       tags: [planning]
       operationId: createQueryTopic
-      parameters: [{$ref: '#/components/parameters/CsrfHeader'}]
+      parameters: [{$ref: '#/components/parameters/CsrfHeader'}, {$ref: '#/components/parameters/RequestIdHeader'}]
       requestBody:
         required: true
         content:
@@ -637,12 +772,15 @@ paths:
       responses:
         '201':
           description: 已创建
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/QueryTopic'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/query-topics/list-items:
     get:
       tags: [planning]
@@ -656,15 +794,19 @@ paths:
             default: QUESTION_ASC
         - {name: page, in: query, schema: {type: integer, minimum: 1, default: 1}}
         - {name: page_size, in: query, schema: {type: integer, enum: [10, 20, 50], default: 20}}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
         '200':
           description: Frontend V2 使用的 Query Topic 服务端搜索、排序与分页列表
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/QueryTopicListPage'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/query-topics/{query_topic_id}:
     patch:
       tags: [planning]
@@ -675,6 +817,7 @@ paths:
           required: true
           schema: {type: string, format: uuid}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody:
         required: true
         content:
@@ -683,6 +826,8 @@ paths:
       responses:
         '200':
           description: 已更新目标问题
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/QueryTopic'}
@@ -691,6 +836,7 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
     delete:
       tags: [planning]
       operationId: deleteQueryTopic
@@ -704,13 +850,18 @@ paths:
           required: true
           schema: {type: integer, minimum: 0}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
-        '204': {description: 目标问题已删除}
+        '204':
+          description: 目标问题已删除
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/platform-profiles:
     get:
       tags: [planning]
@@ -741,19 +892,23 @@ paths:
           in: query
           description: 与 page 同时提供时启用服务端分页
           schema: {type: integer, enum: [10, 20, 50]}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
         '200':
           description: 平台配置列表
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/PlatformProfileList'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
     post:
       tags: [planning]
       operationId: createPlatformProfile
-      parameters: [{$ref: '#/components/parameters/CsrfHeader'}]
+      parameters: [{$ref: '#/components/parameters/CsrfHeader'}, {$ref: '#/components/parameters/RequestIdHeader'}]
       requestBody:
         required: true
         content:
@@ -762,6 +917,8 @@ paths:
       responses:
         '201':
           description: 已创建平台
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/PlatformProfile'}
@@ -770,11 +927,12 @@ paths:
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/platform-logo-candidates:
     post:
       tags: [configuration]
       operationId: createPlatformLogoCandidate
-      parameters: [{$ref: '#/components/parameters/CsrfHeader'}]
+      parameters: [{$ref: '#/components/parameters/CsrfHeader'}, {$ref: '#/components/parameters/RequestIdHeader'}]
       requestBody:
         required: true
         content:
@@ -783,6 +941,8 @@ paths:
       responses:
         '201':
           description: 已从 Icon Horse 导入一张待管理员确认的 Logo 候选
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/PlatformLogoCandidate'}
@@ -791,6 +951,7 @@ paths:
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
         '503': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/platform-profiles/export:
     get:
       tags: [configuration]
@@ -809,6 +970,7 @@ paths:
         - name: configuration_status
           in: query
           schema: {$ref: '#/components/schemas/PlatformConfigurationStatus'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
         '200':
           description: 当前筛选和权限范围内的 UTF-8 BOM CSV
@@ -816,20 +978,24 @@ paths:
             Content-Disposition:
               required: true
               schema: {type: string}
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             text/csv:
               schema: {type: string}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/platform-profiles/{platform_profile_id}:
     get:
       tags: [configuration]
       operationId: getPlatformProfile
-      parameters: [{$ref: '#/components/parameters/PlatformProfileId'}]
+      parameters: [{$ref: '#/components/parameters/PlatformProfileId'}, {$ref: '#/components/parameters/RequestIdHeader'}]
       responses:
         '200':
           description: 平台管理详情与实时引用摘要
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/PlatformProfileDetail'}
@@ -837,12 +1003,14 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
     patch:
       tags: [configuration]
       operationId: updatePlatformProfile
       parameters:
         - {$ref: '#/components/parameters/PlatformProfileId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody:
         required: true
         content:
@@ -851,6 +1019,8 @@ paths:
       responses:
         '200':
           description: 已更新平台身份或类型归属
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/PlatformProfile'}
@@ -859,6 +1029,7 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
     delete:
       tags: [configuration]
       operationId: deletePlatformProfile
@@ -869,13 +1040,18 @@ paths:
           required: true
           schema: {type: integer, minimum: 0}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
-        '204': {description: 已删除停用且没有开放内容任务或非终态发布工作的具体平台；平台账号随聚合清理}
+        '204':
+          description: 已删除停用且没有开放内容任务或非终态发布工作的具体平台；平台账号随聚合清理
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/platform-profiles/{platform_profile_id}/enable:
     post:
       tags: [configuration]
@@ -883,10 +1059,13 @@ paths:
       parameters:
         - {$ref: '#/components/parameters/PlatformProfileId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody: {$ref: '#/components/requestBodies/RevisionRequest'}
       responses:
         '200':
           description: 已启用平台；启用状态不代表配置完整
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/PlatformProfile'}
@@ -895,6 +1074,7 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/platform-profiles/{platform_profile_id}/disable:
     post:
       tags: [configuration]
@@ -902,10 +1082,13 @@ paths:
       parameters:
         - {$ref: '#/components/parameters/PlatformProfileId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody: {$ref: '#/components/requestBodies/RevisionRequest'}
       responses:
         '200':
           description: 已停用平台；既有账号、配置与历史保持不变
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/PlatformProfile'}
@@ -914,23 +1097,29 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/platform-prompts:
     get:
       tags: [configuration]
       operationId: listPlatformPrompts
+      parameters: [{$ref: '#/components/parameters/RequestIdHeader'}]
       responses:
         '200':
           description: 可复用平台 Prompt 模板列表
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/PlatformPromptList'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
     post:
       tags: [configuration]
       operationId: createPlatformPrompt
       parameters:
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody:
         required: true
         content:
@@ -939,6 +1128,8 @@ paths:
       responses:
         '201':
           description: 已创建可复用 Prompt
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/PlatformPromptDetail'}
@@ -946,15 +1137,19 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/platform-prompts/{platform_prompt_id}:
     get:
       tags: [configuration]
       operationId: getPlatformPrompt
       parameters:
         - {name: platform_prompt_id, in: path, required: true, schema: {type: string, format: uuid}}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
         '200':
           description: Prompt 正文与当前绑定平台
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/PlatformPromptDetail'}
@@ -962,12 +1157,14 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
     put:
       tags: [configuration]
       operationId: updatePlatformPrompt
       parameters:
         - {name: platform_prompt_id, in: path, required: true, schema: {type: string, format: uuid}}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody:
         required: true
         content:
@@ -976,6 +1173,8 @@ paths:
       responses:
         '200':
           description: 已按 revision 更新共享 Prompt
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/PlatformPromptDetail'}
@@ -984,6 +1183,7 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
     delete:
       tags: [configuration]
       operationId: deletePlatformPrompt
@@ -994,22 +1194,30 @@ paths:
           required: true
           schema: {type: integer, minimum: 0}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
-        '204': {description: 已原子解绑全部平台并删除 Prompt}
+        '204':
+          description: 已原子解绑全部平台并删除 Prompt
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/platform-prompts/{platform_prompt_id}/preview-options:
     get:
       tags: [production]
       operationId: getPlatformPromptPreviewOptions
       parameters:
         - {name: platform_prompt_id, in: path, required: true, schema: {type: string, format: uuid}}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
         '200':
           description: Prompt 当前可用于真实首稿生成的任务上下文与模型
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/PlatformPromptPreviewOptions'}
@@ -1017,23 +1225,31 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-humanization-prompt:
     get:
       tags: [configuration]
       operationId: getContentHumanizationPrompt
+      parameters: [{$ref: '#/components/parameters/RequestIdHeader'}]
       responses:
         '200':
           description: 当前全局自然化 Prompt
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ContentHumanizationPrompt'}
-        '204': {description: 全局自然化 Prompt 尚未配置}
+        '204':
+          description: 全局自然化 Prompt 尚未配置
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
     put:
       tags: [configuration]
       operationId: putContentHumanizationPrompt
-      parameters: [{$ref: '#/components/parameters/CsrfHeader'}]
+      parameters: [{$ref: '#/components/parameters/CsrfHeader'}, {$ref: '#/components/parameters/RequestIdHeader'}]
       requestBody:
         required: true
         content:
@@ -1042,6 +1258,8 @@ paths:
       responses:
         '200':
           description: 已首次创建或按修订号更新自然化 Prompt
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ContentHumanizationPrompt'}
@@ -1049,22 +1267,27 @@ paths:
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/platform-types:
     get:
       tags: [configuration]
       operationId: listPlatformTypes
+      parameters: [{$ref: '#/components/parameters/RequestIdHeader'}]
       responses:
         '200':
           description: 按 lower(name)、id 稳定排序的平台类型列表
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/PlatformTypeList'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
     post:
       tags: [configuration]
       operationId: createPlatformType
-      parameters: [{$ref: '#/components/parameters/CsrfHeader'}]
+      parameters: [{$ref: '#/components/parameters/CsrfHeader'}, {$ref: '#/components/parameters/RequestIdHeader'}]
       requestBody:
         required: true
         content:
@@ -1073,6 +1296,8 @@ paths:
       responses:
         '201':
           description: 已创建平台类型
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/PlatformType'}
@@ -1080,6 +1305,7 @@ paths:
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/platform-types/{platform_type_id}:
     patch:
       tags: [configuration]
@@ -1087,6 +1313,7 @@ paths:
       parameters:
         - {$ref: '#/components/parameters/PlatformTypeId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody:
         required: true
         content:
@@ -1095,6 +1322,8 @@ paths:
       responses:
         '200':
           description: 已更新平台类型
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/PlatformType'}
@@ -1103,6 +1332,7 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
     delete:
       tags: [configuration]
       operationId: deletePlatformType
@@ -1110,13 +1340,18 @@ paths:
         - {$ref: '#/components/parameters/PlatformTypeId'}
         - {name: expected_revision, in: query, required: true, description: 当前平台类型 revision, schema: {type: integer, minimum: 0}}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
-        '204': {description: 已删除未被引用的平台类型}
+        '204':
+          description: 已删除未被引用的平台类型
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/ai-channels:
     get:
       tags: [configuration]
@@ -1128,19 +1363,23 @@ paths:
         - {name: sort, in: query, schema: {$ref: '#/components/schemas/AIChannelSort'}}
         - {name: page, in: query, schema: {type: integer, minimum: 1, default: 1}}
         - {name: page_size, in: query, schema: {type: integer, enum: [10, 20, 50], default: 20}}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
         '200':
           description: 服务端筛选、排序和分页后的 AI 渠道摘要列表
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AIChannelList'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
     post:
       tags: [configuration]
       operationId: createAIChannel
-      parameters: [{$ref: '#/components/parameters/CsrfHeader'}]
+      parameters: [{$ref: '#/components/parameters/CsrfHeader'}, {$ref: '#/components/parameters/RequestIdHeader'}]
       requestBody:
         required: true
         content:
@@ -1149,20 +1388,25 @@ paths:
       responses:
         '201':
           description: 已创建默认停用的渠道
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AIChannel'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/ai-channels/{channel_id}:
     get:
       tags: [configuration]
       operationId: getAIChannel
-      parameters: [{$ref: '#/components/parameters/AIChannelId'}]
+      parameters: [{$ref: '#/components/parameters/AIChannelId'}, {$ref: '#/components/parameters/RequestIdHeader'}]
       responses:
         '200':
           description: 渠道详情和安全 Header 元数据
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AIChannel'}
@@ -1170,12 +1414,14 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
     patch:
       tags: [configuration]
       operationId: updateAIChannel
       parameters:
         - {$ref: '#/components/parameters/AIChannelId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody:
         required: true
         content:
@@ -1184,6 +1430,8 @@ paths:
       responses:
         '200':
           description: 已更新渠道，连接变化会重置测试状态
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AIChannel'}
@@ -1192,6 +1440,7 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
     delete:
       tags: [configuration]
       operationId: deleteAIChannel
@@ -1199,13 +1448,18 @@ paths:
         - {$ref: '#/components/parameters/AIChannelId'}
         - {name: expected_revision, in: query, required: true, schema: {type: integer, minimum: 0}}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
-        '204': {description: 已物理删除渠道、Header 和模型}
+        '204':
+          description: 已物理删除渠道、Header 和模型
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/ai-channels/{channel_id}/usage-summary:
     get:
       tags: [configuration]
@@ -1218,9 +1472,12 @@ paths:
             type: string
             enum: [7d, 30d, 90d, all]
             default: 30d
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
         '200':
           description: 正式生成与自然化作业的渠道时间窗统计
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AIChannelUsageSummary'}
@@ -1228,6 +1485,7 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/ai-channels/{channel_id}/audit-logs:
     get:
       tags: [configuration]
@@ -1236,9 +1494,12 @@ paths:
         - {$ref: '#/components/parameters/AIChannelId'}
         - {$ref: '#/components/parameters/Page'}
         - {$ref: '#/components/parameters/PageSize'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
         '200':
           description: 渠道、Header 与关联模型的脱敏审计记录
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AuditLogList'}
@@ -1246,6 +1507,7 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/ai-channels/{channel_id}/api-key:
     put:
       tags: [configuration]
@@ -1253,6 +1515,7 @@ paths:
       parameters:
         - {$ref: '#/components/parameters/AIChannelId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody:
         required: true
         content:
@@ -1261,6 +1524,8 @@ paths:
       responses:
         '200':
           description: 已替换密钥并重置渠道模型测试
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AIChannel'}
@@ -1269,6 +1534,7 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/ai-channels/{channel_id}/enable:
     post:
       tags: [configuration]
@@ -1276,10 +1542,13 @@ paths:
       parameters:
         - {$ref: '#/components/parameters/AIChannelId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody: {$ref: '#/components/requestBodies/RevisionRequest'}
       responses:
         '200':
           description: 已启用至少存在一个通过测试模型的渠道
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AIChannelSummary'}
@@ -1288,6 +1557,7 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/ai-channels/{channel_id}/disable:
     post:
       tags: [configuration]
@@ -1295,10 +1565,13 @@ paths:
       parameters:
         - {$ref: '#/components/parameters/AIChannelId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody: {$ref: '#/components/requestBodies/RevisionRequest'}
       responses:
         '200':
           description: 已停用渠道
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AIChannelSummary'}
@@ -1307,6 +1580,7 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/ai-channels/{channel_id}/discover-models:
     post:
       tags: [configuration]
@@ -1314,10 +1588,13 @@ paths:
       parameters:
         - {$ref: '#/components/parameters/AIChannelId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody: {$ref: '#/components/requestBodies/RevisionRequest'}
       responses:
         '200':
           description: 远端模型标识，仅供选择且不落库
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/DiscoveredModelList'}
@@ -1328,6 +1605,7 @@ paths:
         '422': {$ref: '#/components/responses/ErrorResponse'}
         '502': {$ref: '#/components/responses/ErrorResponse'}
         '504': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/ai-channels/{channel_id}/headers:
     post:
       tags: [configuration]
@@ -1335,6 +1613,7 @@ paths:
       parameters:
         - {$ref: '#/components/parameters/AIChannelId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody:
         required: true
         content:
@@ -1343,6 +1622,8 @@ paths:
       responses:
         '201':
           description: 已创建渠道 Header 并重置测试状态
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AIChannel'}
@@ -1351,6 +1632,7 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/ai-channel-headers/{header_id}:
     patch:
       tags: [configuration]
@@ -1358,6 +1640,7 @@ paths:
       parameters:
         - {$ref: '#/components/parameters/AIChannelHeaderId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody:
         required: true
         content:
@@ -1366,6 +1649,8 @@ paths:
       responses:
         '200':
           description: 已更新 Header 并重置测试状态
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AIChannel'}
@@ -1374,6 +1659,7 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
     delete:
       tags: [configuration]
       operationId: deleteAIChannelHeader
@@ -1381,21 +1667,28 @@ paths:
         - {$ref: '#/components/parameters/AIChannelHeaderId'}
         - {name: expected_channel_revision, in: query, required: true, schema: {type: integer, minimum: 0}}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
-        '204': {description: 已删除 Header 并重置测试状态}
+        '204':
+          description: 已删除 Header 并重置测试状态
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/ai-channels/{channel_id}/models:
     get:
       tags: [configuration]
       operationId: listAIModels
-      parameters: [{$ref: '#/components/parameters/AIChannelId'}]
+      parameters: [{$ref: '#/components/parameters/AIChannelId'}, {$ref: '#/components/parameters/RequestIdHeader'}]
       responses:
         '200':
           description: 渠道模型列表
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AIModelList'}
@@ -1403,12 +1696,14 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
     post:
       tags: [configuration]
       operationId: createAIModel
       parameters:
         - {$ref: '#/components/parameters/AIChannelId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody:
         required: true
         content:
@@ -1417,6 +1712,8 @@ paths:
       responses:
         '201':
           description: 已创建默认停用且未测试的模型
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AIModel'}
@@ -1424,6 +1721,7 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/ai-models/{model_id}:
     patch:
       tags: [configuration]
@@ -1431,6 +1729,7 @@ paths:
       parameters:
         - {$ref: '#/components/parameters/AIModelId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody:
         required: true
         content:
@@ -1439,6 +1738,8 @@ paths:
       responses:
         '200':
           description: 已更新模型，调用配置变化会重置测试
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AIModel'}
@@ -1447,6 +1748,7 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
     delete:
       tags: [configuration]
       operationId: deleteAIModel
@@ -1454,13 +1756,18 @@ paths:
         - {$ref: '#/components/parameters/AIModelId'}
         - {name: expected_revision, in: query, required: true, schema: {type: integer, minimum: 0}}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
-        '204': {description: 已物理删除模型}
+        '204':
+          description: 已物理删除模型
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/ai-models/{model_id}/test:
     post:
       tags: [configuration]
@@ -1468,10 +1775,13 @@ paths:
       parameters:
         - {$ref: '#/components/parameters/AIModelId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody: {$ref: '#/components/requestBodies/RevisionRequest'}
       responses:
         '200':
           description: 已执行不含业务数据的模型测试
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AIModel'}
@@ -1480,6 +1790,7 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/ai-models/{model_id}/enable:
     post:
       tags: [configuration]
@@ -1487,10 +1798,13 @@ paths:
       parameters:
         - {$ref: '#/components/parameters/AIModelId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody: {$ref: '#/components/requestBodies/RevisionRequest'}
       responses:
         '200':
           description: 已启用通过测试的模型
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AIModel'}
@@ -1499,6 +1813,7 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/ai-models/{model_id}/disable:
     post:
       tags: [configuration]
@@ -1506,10 +1821,13 @@ paths:
       parameters:
         - {$ref: '#/components/parameters/AIModelId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody: {$ref: '#/components/requestBodies/RevisionRequest'}
       responses:
         '200':
           description: 已停用模型
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AIModel'}
@@ -1518,6 +1836,7 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-tasks:
     get:
       tags: [planning]
@@ -1563,21 +1882,26 @@ paths:
           in: query
           description: 与 page 同时提供时启用服务端分页
           schema: {type: integer, enum: [10, 20, 50]}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
         '200':
           description: 内容任务列表
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ContentTaskList'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
     post:
       tags: [planning]
       operationId: createContentTask
       parameters:
         - {$ref: '#/components/parameters/CsrfHeader'}
         - {$ref: '#/components/parameters/IdempotencyKey'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody:
         required: true
         content:
@@ -1586,6 +1910,8 @@ paths:
       responses:
         '201':
           description: 已创建或返回同一幂等请求已创建的任务
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ContentTask'}
@@ -1594,6 +1920,7 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-tasks/creation-options:
     get:
       tags: [planning]
@@ -1603,23 +1930,30 @@ paths:
           in: query
           description: 返回 URL handoff 指定产品的当前资格状态
           schema: {type: string, format: uuid}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
         '200':
           description: 新建内容任务的当前可选产品、已批准事实版本和活动平台
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ContentTaskCreationOptions'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-tasks/{content_task_id}:
     parameters: [{$ref: '#/components/parameters/ContentTaskId'}]
     get:
       tags: [planning]
       operationId: getContentTask
+      parameters: [{$ref: '#/components/parameters/RequestIdHeader'}]
       responses:
         '200':
           description: 内容任务详情
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ContentTask'}
@@ -1627,6 +1961,7 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
     delete:
       tags: [planning]
       operationId: deleteContentTask
@@ -1636,21 +1971,28 @@ paths:
           in: query
           required: true
           schema: {type: integer, minimum: 0}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
-        '204': {description: 已删除未成功发布的完整内部任务聚合}
+        '204':
+          description: 已删除未成功发布的完整内部任务聚合
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-tasks/{content_task_id}/detail:
     get:
       tags: [planning]
       operationId: getContentTaskDetail
-      parameters: [{$ref: '#/components/parameters/ContentTaskId'}]
+      parameters: [{$ref: '#/components/parameters/ContentTaskId'}, {$ref: '#/components/parameters/RequestIdHeader'}]
       responses:
         '200':
           description: 内容任务紧凑详情
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ContentTaskDetail'}
@@ -1658,14 +2000,17 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-tasks/{content_task_id}/editor-context:
     get:
       tags: [planning]
       operationId: getContentEditorContext
-      parameters: [{$ref: '#/components/parameters/ContentTaskId'}]
+      parameters: [{$ref: '#/components/parameters/ContentTaskId'}, {$ref: '#/components/parameters/RequestIdHeader'}]
       responses:
         '200':
           description: Content Editor 首屏一致快照
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ContentEditorContext'}
@@ -1674,14 +2019,17 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-tasks/{content_task_id}/review-context:
     get:
       tags: [review]
       operationId: getContentTaskReviewContext
-      parameters: [{$ref: '#/components/parameters/ContentTaskId'}]
+      parameters: [{$ref: '#/components/parameters/ContentTaskId'}, {$ref: '#/components/parameters/RequestIdHeader'}]
       responses:
         '200':
           description: 任务当前主线的正文、冻结事实、差异、追溯与完整审核历史
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ContentReviewContext'}
@@ -1690,14 +2038,17 @@ paths:
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-tasks/{content_task_id}/generation-options:
     get:
       tags: [production]
       operationId: getContentTaskGenerationOptions
-      parameters: [{$ref: '#/components/parameters/ContentTaskId'}]
+      parameters: [{$ref: '#/components/parameters/ContentTaskId'}, {$ref: '#/components/parameters/RequestIdHeader'}]
       responses:
         '200':
           description: 锁定平台、只读 Prompt 和当前可用模型
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/GenerationOptions'}
@@ -1706,6 +2057,7 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-tasks/{content_task_id}/cancel:
     post:
       tags: [planning]
@@ -1713,10 +2065,13 @@ paths:
       parameters:
         - {$ref: '#/components/parameters/ContentTaskId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody: {$ref: '#/components/requestBodies/CommandRequest'}
       responses:
         '200':
           description: 已取消内容任务
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ContentTask'}
@@ -1725,6 +2080,7 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-tasks/{content_task_id}/archive:
     post:
       tags: [planning]
@@ -1732,10 +2088,13 @@ paths:
       parameters:
         - {$ref: '#/components/parameters/ContentTaskId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody: {$ref: '#/components/requestBodies/RevisionRequest'}
       responses:
         '200':
           description: 已归档完成任务，仅改变默认可见性
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ContentTask'}
@@ -1744,6 +2103,7 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-tasks/{content_task_id}/restore:
     post:
       tags: [planning]
@@ -1751,10 +2111,13 @@ paths:
       parameters:
         - {$ref: '#/components/parameters/ContentTaskId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody: {$ref: '#/components/requestBodies/RevisionRequest'}
       responses:
         '200':
           description: 已恢复归档任务，不改变业务状态
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ContentTask'}
@@ -1763,14 +2126,17 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-tasks/{content_task_id}/permanent-deletion-preview:
     get:
       tags: [planning]
       operationId: getContentTaskPermanentDeletionPreview
-      parameters: [{$ref: '#/components/parameters/ContentTaskId'}]
+      parameters: [{$ref: '#/components/parameters/ContentTaskId'}, {$ref: '#/components/parameters/RequestIdHeader'}]
       responses:
         '200':
           description: 已归档任务的实时内部删除范围和登记 URL
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ContentTaskPermanentDeletionPreview'}
@@ -1779,6 +2145,7 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-tasks/{content_task_id}/permanent-delete:
     post:
       tags: [planning]
@@ -1786,26 +2153,33 @@ paths:
       parameters:
         - {$ref: '#/components/parameters/ContentTaskId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody:
         required: true
         content:
           application/json:
             schema: {$ref: '#/components/schemas/ContentTaskPermanentDeleteRequest'}
       responses:
-        '204': {description: 已永久删除内部任务聚合；不处理外部页面}
+        '204':
+          description: 已永久删除内部任务聚合；不处理外部页面
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-tasks/{content_task_id}/generation-jobs:
     get:
       tags: [production]
       operationId: listGenerationJobs
-      parameters: [{$ref: '#/components/parameters/ContentTaskId'}]
+      parameters: [{$ref: '#/components/parameters/ContentTaskId'}, {$ref: '#/components/parameters/RequestIdHeader'}]
       responses:
         '200':
           description: 任务的全部生成作业
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/GenerationJobList'}
@@ -1813,6 +2187,7 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
     post:
       tags: [production]
       operationId: createGenerationJob
@@ -1820,6 +2195,7 @@ paths:
         - {$ref: '#/components/parameters/ContentTaskId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
         - {$ref: '#/components/parameters/IdempotencyKey'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody:
         required: true
         content:
@@ -1828,6 +2204,8 @@ paths:
       responses:
         '202':
           description: 已创建或返回幂等作业
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/GenerationJob'}
@@ -1836,14 +2214,17 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-tasks/{content_task_id}/content-versions:
     get:
       tags: [production]
       operationId: listContentTaskVersions
-      parameters: [{$ref: '#/components/parameters/ContentTaskId'}]
+      parameters: [{$ref: '#/components/parameters/ContentTaskId'}, {$ref: '#/components/parameters/RequestIdHeader'}]
       responses:
         '200':
           description: 任务的全部内容版本
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ContentVersionList'}
@@ -1851,6 +2232,7 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-tasks/{content_task_id}/manual-versions:
     post:
       tags: [production]
@@ -1858,6 +2240,7 @@ paths:
       parameters:
         - {$ref: '#/components/parameters/ContentTaskId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody:
         required: true
         content:
@@ -1866,6 +2249,8 @@ paths:
       responses:
         '201':
           description: 已创建无 AI 来源的人工首稿
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ContentVersion'}
@@ -1874,6 +2259,7 @@ paths:
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-versions/{content_version_id}/humanization-jobs:
     post:
       tags: [production]
@@ -1882,6 +2268,7 @@ paths:
         - {$ref: '#/components/parameters/ContentVersionId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
         - {$ref: '#/components/parameters/IdempotencyKey'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody:
         required: true
         content:
@@ -1890,6 +2277,8 @@ paths:
       responses:
         '202':
           description: 已创建或返回幂等自然化作业
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/GenerationJob'}
@@ -1898,14 +2287,17 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/generation-jobs/{generation_job_id}:
     get:
       tags: [production]
       operationId: getGenerationJob
-      parameters: [{$ref: '#/components/parameters/GenerationJobId'}]
+      parameters: [{$ref: '#/components/parameters/GenerationJobId'}, {$ref: '#/components/parameters/RequestIdHeader'}]
       responses:
         '200':
           description: 生成作业
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/GenerationJobDetail'}
@@ -1913,6 +2305,7 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/generation-jobs/{generation_job_id}/retry:
     post:
       tags: [production]
@@ -1921,9 +2314,12 @@ paths:
         - {$ref: '#/components/parameters/GenerationJobId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
         - {$ref: '#/components/parameters/IdempotencyKey'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
         '202':
           description: 已创建重试作业
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/GenerationJob'}
@@ -1932,14 +2328,17 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-versions/{content_version_id}:
     get:
       tags: [production]
       operationId: getContentVersion
-      parameters: [{$ref: '#/components/parameters/ContentVersionId'}]
+      parameters: [{$ref: '#/components/parameters/ContentVersionId'}, {$ref: '#/components/parameters/RequestIdHeader'}]
       responses:
         '200':
           description: 内容版本
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ContentVersion'}
@@ -1947,12 +2346,14 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
     put:
       tags: [production]
       operationId: updateContentDraft
       parameters:
         - {$ref: '#/components/parameters/ContentVersionId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody:
         required: true
         content:
@@ -1965,6 +2366,7 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
     delete:
       tags: [production]
       operationId: deleteContentDraft
@@ -1975,21 +2377,28 @@ paths:
           in: query
           required: true
           schema: {type: integer, minimum: 0}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
-        '204': {description: 已彻底删除符合条件的人工未审核草稿}
+        '204':
+          description: 已彻底删除符合条件的人工未审核草稿
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-versions/{content_version_id}/review-context:
     get:
       tags: [review]
       operationId: getContentReviewContext
-      parameters: [{$ref: '#/components/parameters/ContentVersionId'}]
+      parameters: [{$ref: '#/components/parameters/ContentVersionId'}, {$ref: '#/components/parameters/RequestIdHeader'}]
       responses:
         '200':
           description: 当前正文、冻结事实、差异、追溯与完整审核历史
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ContentReviewContext'}
@@ -1998,14 +2407,17 @@ paths:
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-versions/{content_version_id}/detail:
     get:
       tags: [production]
       operationId: getContentVersionDetail
-      parameters: [{$ref: '#/components/parameters/ContentVersionId'}]
+      parameters: [{$ref: '#/components/parameters/ContentVersionId'}, {$ref: '#/components/parameters/RequestIdHeader'}]
       responses:
         '200':
           description: 不可变内容版本详情快照
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ContentVersionDetail'}
@@ -2014,6 +2426,7 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-versions/{content_version_id}/revisions:
     post:
       tags: [production]
@@ -2021,6 +2434,7 @@ paths:
       parameters:
         - {$ref: '#/components/parameters/ContentVersionId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody:
         required: true
         content:
@@ -2029,6 +2443,8 @@ paths:
       responses:
         '201':
           description: 已创建新版本
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ContentVersion'}
@@ -2037,6 +2453,7 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-versions/{content_version_id}/submit-review:
     post:
       tags: [review]
@@ -2044,6 +2461,7 @@ paths:
       parameters:
         - {$ref: '#/components/parameters/ContentVersionId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody: {$ref: '#/components/requestBodies/CommandRequest'}
       responses:
         '200': {$ref: '#/components/responses/ContentVersionResponse'}
@@ -2052,6 +2470,7 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-versions/{content_version_id}/abandon:
     post:
       tags: [production]
@@ -2059,6 +2478,7 @@ paths:
       parameters:
         - {$ref: '#/components/parameters/ContentVersionId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody: {$ref: '#/components/requestBodies/CommandRequest'}
       responses:
         '200': {$ref: '#/components/responses/ContentVersionResponse'}
@@ -2067,6 +2487,7 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-versions/{content_version_id}/approve:
     post:
       tags: [review]
@@ -2074,6 +2495,7 @@ paths:
       parameters:
         - {$ref: '#/components/parameters/ContentVersionId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody: {$ref: '#/components/requestBodies/CommandRequest'}
       responses:
         '200': {$ref: '#/components/responses/ContentVersionResponse'}
@@ -2082,6 +2504,7 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-versions/{content_version_id}/request-changes:
     post:
       tags: [review]
@@ -2089,6 +2512,7 @@ paths:
       parameters:
         - {$ref: '#/components/parameters/ContentVersionId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody: {$ref: '#/components/requestBodies/RequestChangesCommand'}
       responses:
         '200': {$ref: '#/components/responses/ContentVersionResponse'}
@@ -2097,6 +2521,7 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-versions/{content_version_id}/compare/{other_version_id}:
     get:
       tags: [review]
@@ -2107,9 +2532,12 @@ paths:
           in: path
           required: true
           schema: {type: string, format: uuid}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
         '200':
           description: Markdown 行级差异
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ContentDiff'}
@@ -2117,14 +2545,17 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-versions/{content_version_id}/publication-package:
     get:
       tags: [publication]
       operationId: getPublicationPackage
-      parameters: [{$ref: '#/components/parameters/ContentVersionId'}]
+      parameters: [{$ref: '#/components/parameters/ContentVersionId'}, {$ref: '#/components/parameters/RequestIdHeader'}]
       responses:
         '200':
           description: 由批准 Markdown 派生的人工发布包
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/PublicationPackage'}
@@ -2133,21 +2564,26 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/publication-ready-items:
     get:
       tags:
       - publication
       summary: List Publication Ready Items
       operationId: listPublicationReadyItems
+      parameters: [{$ref: '#/components/parameters/RequestIdHeader'}]
       responses:
         '200':
           description: Successful Response
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PublicationReadyItemList'
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
       security:
       - sessionCookie: []
   /api/v1/publication-workbench-summary:
@@ -2156,15 +2592,19 @@ paths:
       - publication
       summary: Get Publication Workbench Summary
       operationId: getPublicationWorkbenchSummary
+      parameters: [{$ref: '#/components/parameters/RequestIdHeader'}]
       responses:
         '200':
           description: Successful Response
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PublicationWorkbenchSummary'
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
       security:
       - sessionCookie: []
   /api/v1/platform-accounts:
@@ -2176,19 +2616,23 @@ paths:
           in: query
           description: 仅返回指定具体平台的账号标识
           schema: {type: string, format: uuid}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
         '200':
           description: 发布账号列表
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/PlatformAccountList'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
     post:
       tags: [publication]
       operationId: createPlatformAccount
-      parameters: [{$ref: '#/components/parameters/CsrfHeader'}]
+      parameters: [{$ref: '#/components/parameters/CsrfHeader'}, {$ref: '#/components/parameters/RequestIdHeader'}]
       requestBody:
         required: true
         content:
@@ -2197,6 +2641,8 @@ paths:
       responses:
         '201':
           description: 已创建
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/PlatformAccount'}
@@ -2205,6 +2651,7 @@ paths:
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/platform-accounts/{platform_account_id}:
     patch:
       tags: [publication]
@@ -2212,6 +2659,7 @@ paths:
       parameters:
         - {name: platform_account_id, in: path, required: true, schema: {type: string, format: uuid}}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody:
         required: true
         content:
@@ -2220,6 +2668,8 @@ paths:
       responses:
         '200':
           description: 已更新发布账号
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/PlatformAccount'}
@@ -2228,6 +2678,7 @@ paths:
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
     delete:
       tags: [publication]
       operationId: deletePlatformAccount
@@ -2235,13 +2686,18 @@ paths:
         - {name: platform_account_id, in: path, required: true, schema: {type: string, format: uuid}}
         - {name: expected_revision, in: query, required: true, schema: {type: integer, minimum: 0}}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
-        '204': {description: 已删除未被发布工作引用的平台账号}
+        '204':
+          description: 已删除未被发布工作引用的平台账号
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/platform-accounts/{platform_account_id}/enable:
     post:
       tags: [publication]
@@ -2249,10 +2705,13 @@ paths:
       parameters:
         - {name: platform_account_id, in: path, required: true, schema: {type: string, format: uuid}}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody: {$ref: '#/components/requestBodies/RevisionRequest'}
       responses:
         '200':
           description: 已启用发布账号
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/PlatformAccount'}
@@ -2261,6 +2720,7 @@ paths:
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/platform-accounts/{platform_account_id}/disable:
     post:
       tags: [publication]
@@ -2268,10 +2728,13 @@ paths:
       parameters:
         - {name: platform_account_id, in: path, required: true, schema: {type: string, format: uuid}}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody: {$ref: '#/components/requestBodies/RevisionRequest'}
       responses:
         '200':
           description: 已停用发布账号
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/PlatformAccount'}
@@ -2280,6 +2743,7 @@ paths:
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/publication-works:
     post:
       tags:
@@ -2304,6 +2768,7 @@ paths:
           type: string
           minLength: 32
           title: X-Csrf-Token
+      - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody:
         required: true
         content:
@@ -2313,6 +2778,8 @@ paths:
       responses:
         '201':
           description: Successful Response
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema:
@@ -2323,6 +2790,7 @@ paths:
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422':
           $ref: '#/components/responses/ErrorResponse'
+        '400': {$ref: '#/components/responses/ErrorResponse'}
     get:
       tags:
       - publication
@@ -2374,9 +2842,12 @@ paths:
             format: uuid
           - type: 'null'
           title: Content Task Id
+      - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
         '200':
           description: Successful Response
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema:
@@ -2386,6 +2857,7 @@ paths:
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422':
           $ref: '#/components/responses/ErrorResponse'
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/publication-works/{work_id}:
     get:
       tags:
@@ -2402,9 +2874,12 @@ paths:
           type: string
           format: uuid
           title: Work Id
+      - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
         '200':
           description: Successful Response
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema:
@@ -2415,6 +2890,7 @@ paths:
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422':
           $ref: '#/components/responses/ErrorResponse'
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/publication-works/{work_id}/workspace-context:
     get:
       tags: [publication]
@@ -2427,9 +2903,12 @@ paths:
           in: path
           required: true
           schema: {type: string, format: uuid}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
         '200':
           description: 同一 PostgreSQL 快照中的发布工作台上下文
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/PublicationWorkspaceContext'}
@@ -2438,6 +2917,7 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/publication-works/{work_id}/preparation:
     patch:
       tags:
@@ -2461,6 +2941,7 @@ paths:
           type: string
           minLength: 32
           title: X-Csrf-Token
+      - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody:
         required: true
         content:
@@ -2470,6 +2951,8 @@ paths:
       responses:
         '200':
           description: Successful Response
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema:
@@ -2480,6 +2963,7 @@ paths:
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422':
           $ref: '#/components/responses/ErrorResponse'
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/publication-works/{work_id}/platform-review:
     post:
       tags:
@@ -2503,6 +2987,7 @@ paths:
           type: string
           minLength: 32
           title: X-Csrf-Token
+      - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody:
         required: true
         content:
@@ -2512,6 +2997,8 @@ paths:
       responses:
         '200':
           description: Successful Response
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema:
@@ -2522,6 +3009,7 @@ paths:
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422':
           $ref: '#/components/responses/ErrorResponse'
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/publication-works/{work_id}/result:
     put:
       tags:
@@ -2545,6 +3033,7 @@ paths:
           type: string
           minLength: 32
           title: X-Csrf-Token
+      - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody:
         required: true
         content:
@@ -2554,6 +3043,8 @@ paths:
       responses:
         '200':
           description: Successful Response
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema:
@@ -2564,6 +3055,7 @@ paths:
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422':
           $ref: '#/components/responses/ErrorResponse'
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/publication-works/{work_id}/verifications:
     post:
       tags:
@@ -2587,6 +3079,7 @@ paths:
           type: string
           minLength: 32
           title: X-Csrf-Token
+      - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody:
         required: true
         content:
@@ -2596,6 +3089,8 @@ paths:
       responses:
         '200':
           description: Successful Response
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema:
@@ -2606,6 +3101,7 @@ paths:
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422':
           $ref: '#/components/responses/ErrorResponse'
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/publication-works/{work_id}/content-version:
     post:
       tags: [publication]
@@ -2616,6 +3112,7 @@ paths:
           required: true
           schema: {type: string, format: uuid}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody:
         required: true
         content:
@@ -2624,6 +3121,8 @@ paths:
       responses:
         '200':
           description: 发布工作已切换到同任务当前批准版本
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/PublicationWork'}
@@ -2632,6 +3131,7 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/publication-works/{work_id}/close:
     post:
       tags:
@@ -2655,6 +3155,7 @@ paths:
           type: string
           minLength: 32
           title: X-Csrf-Token
+      - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody:
         required: true
         content:
@@ -2664,6 +3165,8 @@ paths:
       responses:
         '200':
           description: Successful Response
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema:
@@ -2674,6 +3177,7 @@ paths:
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422':
           $ref: '#/components/responses/ErrorResponse'
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/published-articles:
     get:
       tags:
@@ -2715,9 +3219,12 @@ paths:
         schema:
           $ref: '#/components/schemas/PublishedArticleSort'
           default: VERIFIED_DESC
+      - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
         '200':
           description: Successful Response
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema:
@@ -2727,6 +3234,7 @@ paths:
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422':
           $ref: '#/components/responses/ErrorResponse'
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/published-articles/{article_id}:
     get:
       tags:
@@ -2743,9 +3251,12 @@ paths:
           type: string
           format: uuid
           title: Article Id
+      - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
         '200':
           description: Successful Response
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema:
@@ -2756,6 +3267,7 @@ paths:
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422':
           $ref: '#/components/responses/ErrorResponse'
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/published-articles/{article_id}/permanent-deletion-preview:
     get:
       tags:
@@ -2772,9 +3284,12 @@ paths:
           type: string
           format: uuid
           title: Article Id
+      - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
         '200':
           description: 发布成果的实时内部删除范围；不处理外部页面
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema:
@@ -2788,6 +3303,7 @@ paths:
         '409':
           $ref: '#/components/responses/ErrorResponse'
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/published-articles/{article_id}/permanent-delete:
     post:
       tags:
@@ -2811,6 +3327,7 @@ paths:
           type: string
           minLength: 32
           title: X-Csrf-Token
+      - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody:
         required: true
         content:
@@ -2820,6 +3337,8 @@ paths:
       responses:
         '204':
           description: 已永久删除内部发布聚合并恢复来源任务；不处理外部页面
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
         '401':
           $ref: '#/components/responses/ErrorResponse'
         '403':
@@ -2830,6 +3349,7 @@ paths:
           $ref: '#/components/responses/ErrorResponse'
         '422':
           $ref: '#/components/responses/ErrorResponse'
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/published-articles/{article_id}/issues:
     post:
       tags:
@@ -2853,6 +3373,7 @@ paths:
           type: string
           minLength: 32
           title: X-Csrf-Token
+      - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody:
         required: true
         content:
@@ -2862,6 +3383,8 @@ paths:
       responses:
         '201':
           description: Successful Response
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema:
@@ -2876,6 +3399,7 @@ paths:
           $ref: '#/components/responses/ErrorResponse'
         '422':
           $ref: '#/components/responses/ErrorResponse'
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/published-content-issues:
     get:
       tags:
@@ -2910,9 +3434,12 @@ paths:
           - $ref: '#/components/schemas/PublishedContentIssueStatus'
           - type: 'null'
           title: Status
+      - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
         '200':
           description: Successful Response
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema:
@@ -2925,6 +3452,7 @@ paths:
           $ref: '#/components/responses/ErrorResponse'
         '422':
           $ref: '#/components/responses/ErrorResponse'
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/published-content-issues/{issue_id}:
     get:
       tags:
@@ -2941,9 +3469,12 @@ paths:
           type: string
           format: uuid
           title: Issue Id
+      - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
         '200':
           description: Successful Response
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema:
@@ -2958,6 +3489,7 @@ paths:
           $ref: '#/components/responses/ErrorResponse'
         '422':
           $ref: '#/components/responses/ErrorResponse'
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/published-content-issues/{issue_id}/workspace-context:
     get:
       tags:
@@ -2974,9 +3506,12 @@ paths:
           type: string
           format: uuid
           title: Issue Id
+      - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
         '200':
           description: Successful Response
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema:
@@ -2991,6 +3526,7 @@ paths:
           $ref: '#/components/responses/ErrorResponse'
         '422':
           $ref: '#/components/responses/ErrorResponse'
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/published-content-issues/{issue_id}/repair-context:
     get:
       tags:
@@ -3007,9 +3543,12 @@ paths:
           type: string
           format: uuid
           title: Issue Id
+      - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
         '200':
           description: Successful Response
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema:
@@ -3024,6 +3563,7 @@ paths:
           $ref: '#/components/responses/ErrorResponse'
         '422':
           $ref: '#/components/responses/ErrorResponse'
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/published-content-issues/{issue_id}/repair-task:
     post:
       tags:
@@ -3047,6 +3587,7 @@ paths:
           type: string
           minLength: 32
           title: X-Csrf-Token
+      - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody:
         required: true
         content:
@@ -3056,6 +3597,8 @@ paths:
       responses:
         '201':
           description: Successful Response
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema:
@@ -3070,6 +3613,7 @@ paths:
           $ref: '#/components/responses/ErrorResponse'
         '422':
           $ref: '#/components/responses/ErrorResponse'
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/published-content-issues/{issue_id}/resolve:
     post:
       tags:
@@ -3093,6 +3637,7 @@ paths:
           type: string
           minLength: 32
           title: X-Csrf-Token
+      - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody:
         required: true
         content:
@@ -3102,6 +3647,8 @@ paths:
       responses:
         '200':
           description: Successful Response
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema:
@@ -3116,6 +3663,7 @@ paths:
           $ref: '#/components/responses/ErrorResponse'
         '422':
           $ref: '#/components/responses/ErrorResponse'
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/geo-observation-publications:
     get:
       tags: [observation]
@@ -3125,9 +3673,12 @@ paths:
           in: query
           required: true
           schema: {type: string, format: uuid}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
         '200':
           description: 产品当前全部可观测公开文章
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/GeoPublicationCandidateList'}
@@ -3135,6 +3686,7 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/geo-observations:
     get:
       tags: [observation]
@@ -3160,9 +3712,12 @@ paths:
         - {name: recorder_search, in: query, schema: {type: string, maxLength: 200}}
         - {name: only_mine, in: query, schema: {type: boolean, default: false}}
         - {name: include_history, in: query, schema: {type: boolean, default: false}}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
         '200':
           description: 分页观测列表；默认只返回纠正链尾
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/GeoObservationList'}
@@ -3170,10 +3725,11 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
     post:
       tags: [observation]
       operationId: createGeoObservation
-      parameters: [{$ref: '#/components/parameters/CsrfHeader'}]
+      parameters: [{$ref: '#/components/parameters/CsrfHeader'}, {$ref: '#/components/parameters/RequestIdHeader'}]
       requestBody:
         required: true
         content:
@@ -3182,6 +3738,8 @@ paths:
       responses:
         '201':
           description: 已追加观测
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/GeoObservation'}
@@ -3190,6 +3748,7 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/geo-observations/list-items:
     get:
       tags: [observation]
@@ -3209,9 +3768,12 @@ paths:
             default: OBSERVED_DESC
         - {name: page, in: query, schema: {type: integer, minimum: 1, default: 1}}
         - {name: page_size, in: query, schema: {type: integer, enum: [10, 20, 50], default: 20}}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
         '200':
           description: Frontend V2 GEO 观测紧凑列表；只返回纠正链尾
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/GeoObservationListPage'}
@@ -3219,15 +3781,19 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/geo-observations/{observation_id}:
     get:
       tags: [observation]
       operationId: getGeoObservation
       parameters:
         - {name: observation_id, in: path, required: true, schema: {type: string, format: uuid}}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
         '200':
           description: 观测详情；纠正历史可直接读取
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/GeoObservation'}
@@ -3236,28 +3802,37 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
     delete:
       tags: [observation]
       operationId: deleteGeoObservation
       parameters:
         - {name: observation_id, in: path, required: true, schema: {type: string, format: uuid}}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
-        '204': {description: 人工观测完整更正链已删除}
+        '204':
+          description: 人工观测完整更正链已删除
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/geo-observations/{observation_id}/detail:
     get:
       tags: [observation]
       operationId: getGeoObservationDetail
       parameters:
         - {name: observation_id, in: path, required: true, schema: {type: string, format: uuid}}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
         '200':
           description: Frontend V2 GEO 观测只读详情；一次返回成果、证据与完整更正链
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/GeoObservationDetail'}
@@ -3266,15 +3841,19 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/geo-observations/{observation_id}/correction-context:
     get:
       tags: [observation]
       operationId: getGeoObservationCorrectionContext
       parameters:
         - {name: observation_id, in: path, required: true, schema: {type: string, format: uuid}}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
         '200':
           description: Frontend V2 GEO 更正工作台上下文；一次返回只读历史与当前文章候选
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/GeoObservationCorrectionContext'}
@@ -3283,6 +3862,7 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/geo-metrics:
     get:
       tags: [observation]
@@ -3305,15 +3885,19 @@ paths:
         - {name: recorder_search, in: query, schema: {type: string, maxLength: 200}}
         - {name: only_mine, in: query, schema: {type: boolean, default: false}}
         - {name: include_history, in: query, schema: {type: boolean, default: false}}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
         '200':
           description: 与观测列表筛选范围一致的 GEO 指标
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/GeoMetrics'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/geo-insights:
     get:
       tags: [observation]
@@ -3326,9 +3910,12 @@ paths:
         - {name: geo_platform, in: query, schema: {type: string, maxLength: 160}}
         - {name: published_article_id, in: query, schema: {type: string, format: uuid}}
         - {name: query_topic_id, in: query, schema: {type: string, format: uuid}}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
         '200':
           description: 同一筛选范围内的人工 GEO 洞察、筛选选项与数据完整性
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/GeoInsights'}
@@ -3337,31 +3924,40 @@ paths:
         '422': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/dashboard/summary:
     get:
       tags: [observation]
       operationId: getDashboardSummary
+      parameters: [{$ref: '#/components/parameters/RequestIdHeader'}]
       responses:
         '200':
           description: 需要行动的工作台摘要
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/DashboardSummary'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/workbench:
     get:
       tags: [workbench]
       operationId: getWorkbench
+      parameters: [{$ref: '#/components/parameters/RequestIdHeader'}]
       responses:
         '200':
           description: Frontend V2 可直接绘制的 Workbench 聚合读模型
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/WorkbenchAggregate'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/geo-insights/optimization-content-tasks:
     post:
       tags: [observation]
@@ -3369,6 +3965,7 @@ paths:
       parameters:
         - {$ref: '#/components/parameters/CsrfHeader'}
         - {$ref: '#/components/parameters/IdempotencyKey'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       requestBody:
         required: true
         content:
@@ -3377,6 +3974,8 @@ paths:
       responses:
         '201':
           description: 已创建带不可变 GEO 来源快照的内容任务
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ContentTask'}
@@ -3385,11 +3984,12 @@ paths:
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/files/upload-intents:
     post:
       tags: [files]
       operationId: createFileUploadIntent
-      parameters: [{$ref: '#/components/parameters/CsrfHeader'}]
+      parameters: [{$ref: '#/components/parameters/CsrfHeader'}, {$ref: '#/components/parameters/RequestIdHeader'}]
       requestBody:
         required: true
         content:
@@ -3398,12 +3998,15 @@ paths:
       responses:
         '201':
           description: 已创建限时上传意图
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/UploadIntent'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/files/{file_id}/complete:
     post:
       tags: [files]
@@ -3411,9 +4014,12 @@ paths:
       parameters:
         - {$ref: '#/components/parameters/FileId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
         '200':
           description: HEAD 校验成功
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/FileRecord'}
@@ -3423,14 +4029,17 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '503': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/files/{file_id}:
     get:
       tags: [files]
       operationId: getFileRecord
-      parameters: [{$ref: '#/components/parameters/FileId'}]
+      parameters: [{$ref: '#/components/parameters/FileId'}, {$ref: '#/components/parameters/RequestIdHeader'}]
       responses:
         '200':
           description: 文件元数据
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/FileRecord'}
@@ -3438,6 +4047,7 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/files/{file_id}/abort:
     post:
       tags: [files]
@@ -3445,9 +4055,12 @@ paths:
       parameters:
         - {$ref: '#/components/parameters/FileId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
         '200':
           description: 已中止未完成上传
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/FileRecord'}
@@ -3456,14 +4069,17 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/files/{file_id}/download-url:
     get:
       tags: [files]
       operationId: getFileDownloadUrl
-      parameters: [{$ref: '#/components/parameters/FileId'}]
+      parameters: [{$ref: '#/components/parameters/FileId'}, {$ref: '#/components/parameters/RequestIdHeader'}]
       responses:
         '200':
           description: 短期下载 URL
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/SignedUrl'}
@@ -3472,6 +4088,7 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
 components:
   securitySchemes:
     sessionCookie:
@@ -3479,6 +4096,15 @@ components:
       in: cookie
       name: partsignal_session
   parameters:
+    RequestIdHeader:
+      name: X-Request-ID
+      in: header
+      required: false
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 100
+        pattern: '^[\x20-\x7E]+$'
     CsrfHeader:
       name: X-CSRF-Token
       in: header
@@ -3508,6 +4134,14 @@ components:
     GenerationJobId: {name: generation_job_id, in: path, required: true, schema: {type: string, format: uuid}}
     ContentVersionId: {name: content_version_id, in: path, required: true, schema: {type: string, format: uuid}}
     FileId: {name: file_id, in: path, required: true, schema: {type: string, format: uuid}}
+  headers:
+    RequestIdResponseHeader:
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 100
+        pattern: '^[\x20-\x7E]+$'
   requestBodies:
     CommandRequest:
       required: true
@@ -3527,16 +4161,22 @@ components:
   responses:
     ErrorResponse:
       description: 业务或校验错误
+      headers:
+        X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
       content:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}
     FactVersionResponse:
       description: 更新后的事实版本
+      headers:
+        X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
       content:
         application/json:
           schema: {$ref: '#/components/schemas/FactVersion'}
     ContentVersionResponse:
       description: 更新后的内容版本
+      headers:
+        X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
       content:
         application/json:
           schema: {$ref: '#/components/schemas/ContentVersion'}

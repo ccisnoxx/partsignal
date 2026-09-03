@@ -1,0 +1,7 @@
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"复核 static/runtime/generated 同步和无第二 authority。"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"复核 400/ErrorEnvelope/Header 与 operation-specific metadata。"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"复核全量断言、behavior sentinel 与失败收敛。"}
+{"file":".trellis/spec/frontend/type-safety.md","reason":"复核 generated Header optionality 与 consumer 类型影响。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"复核 canonical generator/api:check/typecheck/test。"}
+{"file":".trellis/tasks/09-02-cross-cutting-request-context-metadata/research/request-context-authority-audit.md","reason":"复核 162/1023 覆盖与 runtime owner。"}
+{"file":".trellis/tasks/09-02-cross-cutting-request-context-metadata/research/generated-client-cookie-and-isolation-audit.md","reason":"复核 Cookie raw occurrence、generated diff 与 staged isolation。"}

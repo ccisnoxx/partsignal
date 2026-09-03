@@ -1,0 +1,3 @@
+{"file":".trellis/spec/backend/error-handling.md","reason":"核对默认门禁是否真正覆盖全部 OpenAPI operation 和完整 response。"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"核对定向测试、失败归因和 Review 证据。"}
+{"file":".trellis/spec/guides/index.md","reason":"核对跨层与复用思考边界。"}

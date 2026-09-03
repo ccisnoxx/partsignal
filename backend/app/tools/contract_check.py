@@ -12,7 +12,7 @@ from typing import Any, cast
 
 import yaml
 
-HTTP_METHODS = {"get", "post", "put", "patch", "delete"}
+HTTP_METHODS = {"get", "put", "post", "delete", "options", "head", "patch", "trace"}
 _STATUS_CODE = re.compile(r"^[1-5][0-9]{2}$")
 _STATUS_RANGE = re.compile(r"^[1-5]XX$")
 

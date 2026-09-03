@@ -252,11 +252,13 @@ app.openapi_schema = schema
 - CLI：`python -m app.tools.contract_check [contract_path]`；`contract_path` 省略时读取仓库的 `contracts/openapi.yaml`。
 - 纯比较器：`compare_response_contracts(contract_document, runtime_document) -> list[dict[str, Any]]`。
 - 默认门禁：`check(contract_path: Path) -> list[str]`；它只调用一次完整 response 比较器，并继续执行 security scheme、operationId、parameter、security 与 requestBody 检查。
+- Operation 方法集合：`get`、`put`、`post`、`delete`、`options`、`head`、`patch`、`trace`。
 
 ### 3. Contracts
 
 - `check()` 必须对 `app.openapi()` 的深拷贝执行比较，不得修改或污染共享 OpenAPI cache。
 - 完整 response 比较器唯一拥有 operation/status 集合，以及 schema、media type、Header、Link 和 local reference 的漂移诊断；旧的首个 2xx 特判、重复 path 检查和 `--response-report` 不得恢复。
+- operation 枚举必须覆盖上述八种 OpenAPI 方法；不得因当前路由只使用其中一部分而静默忽略其他合法方法。Path Item 的 `summary`、`description`、`servers`、`parameters` 等非 operation 固定字段不作为 operation，其中 shared `parameters` 继续合并到各 operation。
 - 诊断必须按稳定键排序；response 诊断使用稳定 JSON 序列化，保留 `kind`、`pointer`、`direction`、`message` 与必要的两侧证据。
 - OpenAPI `paths` 下的 `x-*` Specification Extension 可包含任意 JSON 值并被忽略；其他 path key 必须以 `/` 开头且 Path Item 必须是 mapping，无法解释的输入必须显式失败。
 
@@ -276,7 +278,7 @@ app.openapi_schema = schema
 
 ### 6. Tests Required
 
-- 单元 mutation：覆盖缺失/新增 status、later 2xx 与错误 schema、media type、`X-Request-ID`、`Content-Disposition`、Link，并断言 pointer、kind 和 direction。
+- 单元 mutation：覆盖缺失/新增 status、later 2xx 与错误 schema、media type、`X-Request-ID`、`Content-Disposition`、Link；另通过默认 `check()` 参数化覆盖 contract-only/runtime-only 的 `HEAD`、`OPTIONS`、`TRACE` operation，并断言 pointer、kind 和 direction。
 - 调用链：断言默认 `check()` 恰好调用一次 `compare_response_contracts()`，缺失 operation 不出现旧 path 文本重复诊断。
 - CLI：覆盖默认/显式路径的 0、漂移与 unsupported 的 1、文件/YAML/无法解释结构的 2，以及 `paths.x-*` 任意 JSON 值。
 - 集成：`make contract-check` 与 frontend `api:check` 必须保持通过。

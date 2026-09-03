@@ -1,0 +1,5 @@
+{"file":".trellis/spec/backend/index.md","reason":"确认 backend spec 路由和适用质量门禁。"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"遵守默认完整 OpenAPI response 门禁的唯一 comparator、全 operation 覆盖和失败语义。"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"遵守 backend 定向测试和 Review 约束。"}
+{"file":".trellis/spec/guides/index.md","reason":"检查共享思考指南路由。"}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"评估重复 OpenAPI 方法常量，避免不必要抽象或再次漂移。"}

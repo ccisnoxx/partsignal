@@ -30,6 +30,20 @@ def _document(response: dict[str, Any] | None = None) -> dict[str, Any]:
     }
 
 
+def _operation_document(method: str) -> dict[str, Any]:
+    return {
+        "openapi": "3.1.0",
+        "paths": {
+            "/probe": {
+                method: {
+                    "operationId": f"probe_{method}",
+                    "responses": {"200": {"description": "ok"}},
+                }
+            }
+        },
+    }
+
+
 def _json_response(schema: dict[str, Any], status: str = "200") -> dict[str, Any]:
     document = _document()
     document["paths"]["/items/{id}"]["get"]["responses"] = {
@@ -730,6 +744,84 @@ def test_paths_extensions_are_ignored_regardless_of_value_shape() -> None:
     runtime["paths"]["x-primitive"] = ["a different extension value"]
     runtime["paths"]["x-object"] = {"different": {"extension": None}}
     assert compare_response_contracts(contract, runtime) == []
+
+
+@pytest.mark.parametrize("method", ["head", "options", "trace"])
+def test_default_check_reports_contract_only_extended_http_operation(
+    method: str, tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    contract = _operation_document(method)
+    failures = _structured_failures(
+        _check_document(tmp_path, monkeypatch, contract, {"openapi": "3.1.0", "paths": {}})
+    )
+    expected_operation = {**contract["paths"]["/probe"][method], "parameters": []}
+
+    assert failures == [
+        {
+            "contract": expected_operation,
+            "direction": "missing_in_runtime",
+            "kind": "missing_operation",
+            "message": "operation 仅存在于 contract",
+            "pointer": f"/paths/~1probe/{method}",
+            "runtime": None,
+        }
+    ]
+
+
+@pytest.mark.parametrize("method", ["head", "options", "trace"])
+def test_default_check_reports_runtime_only_extended_http_operation(
+    method: str, tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runtime = _operation_document(method)
+    failures = _structured_failures(
+        _check_document(tmp_path, monkeypatch, {"openapi": "3.1.0", "paths": {}}, runtime)
+    )
+    expected_operation = {**runtime["paths"]["/probe"][method], "parameters": []}
+
+    assert failures == [
+        {
+            "contract": None,
+            "direction": "missing_in_contract",
+            "kind": "extra_operation",
+            "message": "operation 仅存在于 runtime",
+            "pointer": f"/paths/~1probe/{method}",
+            "runtime": expected_operation,
+        }
+    ]
+
+
+def test_default_check_ignores_path_item_metadata_and_merges_shared_parameters(
+    tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    contract = _operation_document("get")
+    contract["paths"]["/probe"].update(
+        {
+            "summary": "合同摘要",
+            "description": "合同描述",
+            "servers": [{"url": "https://contract.example"}],
+            "parameters": [
+                {
+                    "name": "X-Trace",
+                    "in": "header",
+                    "required": True,
+                    "schema": {"type": "string"},
+                }
+            ],
+        }
+    )
+    runtime = deepcopy(contract)
+    runtime["paths"]["/probe"].update(
+        {
+            "summary": "运行时摘要",
+            "description": "运行时描述",
+            "servers": [{"url": "https://runtime.example"}],
+        }
+    )
+    runtime["paths"]["/probe"]["parameters"][0]["required"] = False
+
+    failures = _check_document(tmp_path, monkeypatch, contract, runtime)
+
+    assert failures == ["('/probe', 'get') 参数 ('X-Trace', 'header') required 漂移"]
 
 
 @pytest.mark.parametrize(

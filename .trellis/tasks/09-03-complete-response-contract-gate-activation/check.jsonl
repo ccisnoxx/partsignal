@@ -1,0 +1,9 @@
+{"file":".trellis/spec/backend/error-handling.md","reason":"复核默认门禁未改变 ErrorEnvelope、metadata、request context 或 HTTP 行为。"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"复核测试、lint、mypy、失败归因与范围。"}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"复核不存在第二套 response comparator、filter 或 fallback。"}
+{"file":".trellis/spec/infra/ci-execution.md","reason":"复核 Makefile/CI 继续复用同一默认 gate。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"复核 frontend api:check 与 generated client 未被修改。"}
+{"file":".trellis/tasks/09-03-complete-response-contract-gate-activation/research/checker-call-chain.md","reason":"按真实调用链检查唯一 comparator、旧路径删除和诊断排序。"}
+{"file":".trellis/tasks/09-03-complete-response-contract-gate-activation/research/test-mutation-matrix.md","reason":"按 mutation matrix 检查 failure 类型、方向、pointer 与非自证测试。"}
+{"file":".trellis/tasks/09-03-complete-response-contract-gate-activation/research/integration-history-audit.md","reason":"复核集成入口零修改和 Phase F 范围。"}
+{"file":".trellis/tasks/09-03-complete-response-contract-gate-activation/research/current-zero-drift-baseline.md","reason":"复核完整 162/1023 零漂移与 Header/links 边界。"}

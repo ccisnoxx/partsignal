@@ -146,14 +146,6 @@ def json_schema(content_owner: dict[str, Any]) -> dict[str, Any] | None:
     return cast(dict[str, Any], media.get("schema")) if media else None
 
 
-def successful_response(operation: dict[str, Any]) -> dict[str, Any] | None:
-    """旧 checker 的首个 2xx 路径，Phase A 保留供默认 gate 使用。"""
-    for code, response in operation.get("responses", {}).items():
-        if str(code).startswith("2"):
-            return cast(dict[str, Any], response)
-    return None
-
-
 def compare_shape(
     contract_document: dict[str, Any],
     runtime_document: dict[str, Any],
@@ -162,7 +154,7 @@ def compare_shape(
     label: str,
     failures: list[str],
 ) -> None:
-    """递归比较旧 checker 使用的字段、必填性和机器约束。"""
+    """递归比较 requestBody 使用的字段、必填性和机器约束。"""
     left = resolve_schema(contract_document, contract_schema)
     right = resolve_schema(runtime_document, runtime_schema)
     left_fields = set(left.get("properties", {}))
@@ -215,13 +207,29 @@ def compare_shape(
 
 def operation_map(document: dict[str, Any]) -> dict[tuple[str, str], dict[str, Any]]:
     operations: dict[tuple[str, str], dict[str, Any]] = {}
-    for path, item in document.get("paths", {}).items():
+    paths = document.get("paths", {})
+    if not isinstance(paths, dict):
+        raise _ComparatorError("OpenAPI document.paths 必须是 mapping")
+    for path, item in paths.items():
+        if isinstance(path, str) and path.startswith("x-"):
+            continue
+        if not isinstance(path, str) or not path.startswith("/"):
+            raise _ComparatorError("Path key 必须是以 '/' 开头的 string")
+        if not isinstance(item, dict):
+            raise _ComparatorError("Path Item 必须是 mapping 且 path 必须是 string")
         shared_parameters = item.get("parameters", [])
+        if not isinstance(shared_parameters, list):
+            raise _ComparatorError("Path Item parameters 必须是 array")
         for method, operation in item.items():
             if method not in HTTP_METHODS:
                 continue
+            if not isinstance(operation, dict):
+                raise _ComparatorError(f"operation {path}/{method} 必须是 mapping")
+            operation_parameters = operation.get("parameters", [])
+            if not isinstance(operation_parameters, list):
+                raise _ComparatorError(f"operation {path}/{method} parameters 必须是 array")
             merged = dict(operation)
-            merged["parameters"] = [*shared_parameters, *operation.get("parameters", [])]
+            merged["parameters"] = [*shared_parameters, *operation_parameters]
             operations[(path, method)] = merged
     return operations
 
@@ -231,8 +239,13 @@ def parameter_map(
 ) -> dict[tuple[str, str], dict[str, Any]]:
     """按名称和位置展开参数引用，供必填性与约束比较。"""
     parameters: dict[tuple[str, str], dict[str, Any]] = {}
-    for parameter in operation.get("parameters", []):
+    raw_parameters = operation.get("parameters", [])
+    if not isinstance(raw_parameters, list):
+        raise _ComparatorError("operation parameters 必须是 array")
+    for parameter in raw_parameters:
         resolved = resolve_schema(document, parameter)
+        if not isinstance(resolved.get("name"), str) or not isinstance(resolved.get("in"), str):
+            raise _ComparatorError("Parameter 必须包含 name 和 in")
         parameters[(resolved["name"], resolved["in"])] = resolved
     return parameters
 
@@ -1374,40 +1387,44 @@ def compare_response_contracts(
 
 
 def check(contract_path: Path) -> list[str]:
-    """返回所有旧版契约漂移；默认 gate 不接入 response comparator。"""
+    """执行完整默认契约门禁并返回稳定排序后的漂移诊断。"""
     from app.main import app
 
     contract = yaml.safe_load(contract_path.read_text(encoding="utf-8"))
-    runtime = app.openapi()
-    legacy_failures: list[str] = []
+    runtime = copy.deepcopy(app.openapi())
+    response_failures = compare_response_contracts(contract, runtime)
+    failures: list[str] = []
     contract_ops, runtime_ops = operation_map(contract), operation_map(runtime)
-    contract_schemes = contract.get("components", {}).get("securitySchemes", {})
-    runtime_schemes = runtime.get("components", {}).get("securitySchemes", {})
+    contract_components = contract.get("components", {})
+    runtime_components = runtime.get("components", {})
+    if not isinstance(contract_components, dict) or not isinstance(runtime_components, dict):
+        raise _ComparatorError("OpenAPI document.components 必须是 mapping")
+    contract_schemes = contract_components.get("securitySchemes", {})
+    runtime_schemes = runtime_components.get("securitySchemes", {})
+    if not isinstance(contract_schemes, dict) or not isinstance(runtime_schemes, dict):
+        raise _ComparatorError("securitySchemes 必须是 mapping")
     for name, expected in contract_schemes.items():
         actual = runtime_schemes.get(name)
         if actual is None:
-            legacy_failures.append(f"缺少安全方案 {name}")
+            failures.append(f"缺少安全方案 {name}")
             continue
+        if not isinstance(expected, dict) or not isinstance(actual, dict):
+            raise _ComparatorError(f"安全方案 {name} 必须是 mapping")
         for field in ("type", "in", "name"):
             if expected.get(field) != actual.get(field):
-                legacy_failures.append(f"安全方案 {name}.{field} 漂移")
-    if set(contract_ops) != set(runtime_ops):
-        legacy_failures.append(
-            f"路径漂移: missing={sorted(set(contract_ops) - set(runtime_ops))}, "
-            f"extra={sorted(set(runtime_ops) - set(contract_ops))}"
-        )
+                failures.append(f"安全方案 {name}.{field} 漂移")
     for key in sorted(set(contract_ops).intersection(runtime_ops)):
         left_op, right_op = contract_ops[key], runtime_ops[key]
         if left_op.get("operationId") != right_op.get("operationId"):
-            legacy_failures.append(f"{key} operationId 漂移")
-        compare_parameters(contract, runtime, left_op, right_op, str(key), legacy_failures)
+            failures.append(f"{key} operationId 漂移")
+        compare_parameters(contract, runtime, left_op, right_op, str(key), failures)
         left_security = left_op.get("security", contract.get("security", []))
         right_security = right_op.get("security", runtime.get("security", []))
         if left_security != right_security:
-            legacy_failures.append(f"{key} security 漂移")
+            failures.append(f"{key} security 漂移")
         left_body, right_body = left_op.get("requestBody"), right_op.get("requestBody")
         if bool(left_body) != bool(right_body):
-            legacy_failures.append(f"{key} requestBody 存在性漂移")
+            failures.append(f"{key} requestBody 存在性漂移")
         elif left_body and right_body:
             left_schema, right_schema = (
                 json_schema(resolve_schema(contract, left_body)),
@@ -1415,19 +1432,14 @@ def check(contract_path: Path) -> list[str]:
             )
             if left_schema and right_schema:
                 compare_shape(
-                    contract, runtime, left_schema, right_schema, f"{key} request", legacy_failures
+                    contract, runtime, left_schema, right_schema, f"{key} request", failures
                 )
-        left_response, right_response = successful_response(left_op), successful_response(right_op)
-        if left_response and right_response:
-            left_schema, right_schema = (
-                json_schema(resolve_schema(contract, left_response)),
-                json_schema(resolve_schema(runtime, right_response)),
-            )
-            if left_schema and right_schema:
-                compare_shape(
-                    contract, runtime, left_schema, right_schema, f"{key} response", legacy_failures
-                )
-    return legacy_failures
+    failures.extend(
+        json.dumps(failure, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        for failure in response_failures
+    )
+    failures.sort()
+    return failures
 
 
 def _default_contract_path() -> Path:
@@ -1435,37 +1447,19 @@ def _default_contract_path() -> Path:
 
 
 def main() -> None:
-    """命令行入口；response report 与旧默认 gate 使用不同的执行路径。"""
+    """命令行入口；默认执行完整 response 与非 response 契约门禁。"""
     parser = argparse.ArgumentParser(description="检查 FastAPI 与 OpenAPI 契约漂移")
     parser.add_argument("contract_path", nargs="?", type=Path, default=_default_contract_path())
-    parser.add_argument("--response-report", action="store_true", help="报告完整 response drift")
     args = parser.parse_args()
-    if args.response_report:
-        from app.main import app
-
-        try:
-            contract = yaml.safe_load(args.contract_path.read_text(encoding="utf-8"))
-            runtime = copy.deepcopy(app.openapi())
-            report_failures = compare_response_contracts(contract, runtime)
-        except (OSError, yaml.YAMLError, _ComparatorError) as error:
-            print(f"response-report error: {error}", file=sys.stderr)
-            raise SystemExit(2) from None
-        for failure in report_failures:
-            print(
-                json.dumps(failure, ensure_ascii=False, sort_keys=True, separators=(",", ":")),
-                file=sys.stderr,
-            )
-        report_code = 2 if any(
-            failure["kind"] == "unsupported"
-            or failure["direction"].startswith("invalid_in_")
-            for failure in report_failures
-        ) else 1 if report_failures else 0
-        raise SystemExit(report_code)
-    failures = check(args.contract_path)
+    try:
+        failures = check(args.contract_path)
+    except (OSError, UnicodeError, yaml.YAMLError, _ComparatorError) as error:
+        print(f"contract-check error: {error}", file=sys.stderr)
+        raise SystemExit(2) from None
     if failures:
         print("\n".join(failures), file=sys.stderr)
         raise SystemExit(1)
-    print("FastAPI 运行时操作与 OpenAPI 0.1.1 递归 Schema 语义一致。")
+    print("FastAPI 运行时操作与 OpenAPI 完整契约一致。")
 
 
 if __name__ == "__main__":

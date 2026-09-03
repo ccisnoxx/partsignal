@@ -1,0 +1,10 @@
+{"file":".trellis/spec/backend/index.md","reason":"加载 backend 入口与本任务适用规范。"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"保持完整 response metadata、ErrorEnvelope、request context 与 comparator 的既定权威边界。"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"约束 backend 定向测试、失败可见性和质量检查。"}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"确保默认 gate 复用唯一 comparator，不复制 normalization 或 response checker。"}
+{"file":".trellis/spec/infra/ci-execution.md","reason":"保持 Makefile/CI 的单一合同门禁调用链。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"保持 canonical frontend api:check 与 generated client 只读边界。"}
+{"file":".trellis/tasks/09-03-complete-response-contract-gate-activation/research/checker-call-chain.md","reason":"提供默认旧路径、完整 comparator 覆盖、排序和调用方证据。"}
+{"file":".trellis/tasks/09-03-complete-response-contract-gate-activation/research/test-mutation-matrix.md","reason":"提供默认 gate mutation 测试缺口、断言策略和只读 sentinel 边界。"}
+{"file":".trellis/tasks/09-03-complete-response-contract-gate-activation/research/integration-history-audit.md","reason":"提供 Makefile/CI/frontend 调用链、历史 Phase 依赖与 report-only 删除依据。"}
+{"file":".trellis/tasks/09-03-complete-response-contract-gate-activation/research/current-zero-drift-baseline.md","reason":"提供 162 operation、1023 response occurrence 与完整 comparator 零漂移基线。"}

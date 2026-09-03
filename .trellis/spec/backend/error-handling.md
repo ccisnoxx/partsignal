@@ -214,7 +214,7 @@ def list_items() -> ItemList: ...
 
 ### 5. Good / Base / Bad Cases
 
-- Good：static/runtime operation 集合精确一致；当前 162 个 operation、1023 个 response occurrence 全量覆盖，完整无 filter response report 退出 0，generated request Header 仍为 optional。
+- Good：static/runtime operation 集合精确一致；当前 162 个 operation、1023 个 response occurrence 由默认完整契约门禁全量覆盖并退出 0，generated request Header 仍为 optional。
 - Base：新增 operation 自动继承同一 runtime metadata；static contract、全量计数与 generated client 在同一 Task 显式同步。
 - Bad：逐 route 复制 request-id metadata；runtime 从 `openapi.yaml` 做 overlay；只抽样若干 endpoint；把多个 Cookie 合并；先发布 raw cache 再原地 merge；用 comparator filter 隐藏漂移。
 
@@ -226,7 +226,7 @@ def list_items() -> ItemList: ...
 - Non-interference：raw 与 augmented 剥离 Phase X metadata 后逐 operation 深比较；当前原始 response occurrence 为 861，两个 CSV 保留 `Content-Disposition`，20 个 204 无 content。
 - Cookie：逐 raw Header occurrence 锁定 login/logout 各两个 Cookie 的名称、值或删除语义、Path、SameSite、Secure、HttpOnly 与 Max-Age；递归断言 OpenAPI 不含 `Set-Cookie`。
 - Cache：强制 merge 抛错，断言 merge 内及异常后 `app.openapi_schema is None`，并恢复测试前 cache。
-- Generated / gates：运行 canonical generator、`api:check`、frontend typecheck、受影响 consumers、`make contract-check` 与无 filter response report。
+- Generated / gates：运行 canonical generator、`api:check`、frontend typecheck、受影响 consumers 与默认执行完整响应比较的 `make contract-check`。
 
 ### 7. Wrong vs Correct
 
@@ -239,4 +239,55 @@ _merge_request_context_metadata(app.openapi_schema)
 schema = get_openapi(title=app.title, version=app.version, routes=app.routes)
 _merge_request_context_metadata(schema)
 app.openapi_schema = schema
+```
+
+## Scenario：默认执行完整 OpenAPI response 契约门禁
+
+### 1. Scope / Trigger
+
+- 当 `contracts/openapi.yaml`、FastAPI runtime OpenAPI 或契约检查入口变化时触发；默认门禁必须覆盖全部 operation 的全部 response，不提供只检查部分 response 的兼容开关。
+
+### 2. Signatures
+
+- CLI：`python -m app.tools.contract_check [contract_path]`；`contract_path` 省略时读取仓库的 `contracts/openapi.yaml`。
+- 纯比较器：`compare_response_contracts(contract_document, runtime_document) -> list[dict[str, Any]]`。
+- 默认门禁：`check(contract_path: Path) -> list[str]`；它只调用一次完整 response 比较器，并继续执行 security scheme、operationId、parameter、security 与 requestBody 检查。
+
+### 3. Contracts
+
+- `check()` 必须对 `app.openapi()` 的深拷贝执行比较，不得修改或污染共享 OpenAPI cache。
+- 完整 response 比较器唯一拥有 operation/status 集合，以及 schema、media type、Header、Link 和 local reference 的漂移诊断；旧的首个 2xx 特判、重复 path 检查和 `--response-report` 不得恢复。
+- 诊断必须按稳定键排序；response 诊断使用稳定 JSON 序列化，保留 `kind`、`pointer`、`direction`、`message` 与必要的两侧证据。
+- OpenAPI `paths` 下的 `x-*` Specification Extension 可包含任意 JSON 值并被忽略；其他 path key 必须以 `/` 开头且 Path Item 必须是 mapping，无法解释的输入必须显式失败。
+
+### 4. Validation & Error Matrix
+
+| 条件 | CLI exit code | 输出 |
+|---|---:|---|
+| 完整 static/runtime 契约一致 | 0 | 成功信息写 stdout |
+| 可比较的 operation/status/schema/media/Header/Link 漂移，或比较器报告 unsupported | 1 | 稳定排序诊断写 stderr |
+| 文件读取、编码、YAML 或顶层/section 结构无法解释 | 2 | `contract-check error: ...` 写 stderr |
+
+### 5. Good / Base / Bad Cases
+
+- Good：later 2xx、非 2xx、CSV Header、request ID Header 与 Link 任一 mutation 都由默认命令阻断，并给出准确 direction。
+- Base：完整一致文档直接运行默认命令退出 0；不需要额外 flag。
+- Bad：只比较第一个 2xx；保留 opt-in response flag；把非法文档当成空 mapping；重复报告同一个缺失 operation。
+
+### 6. Tests Required
+
+- 单元 mutation：覆盖缺失/新增 status、later 2xx 与错误 schema、media type、`X-Request-ID`、`Content-Disposition`、Link，并断言 pointer、kind 和 direction。
+- 调用链：断言默认 `check()` 恰好调用一次 `compare_response_contracts()`，缺失 operation 不出现旧 path 文本重复诊断。
+- CLI：覆盖默认/显式路径的 0、漂移与 unsupported 的 1、文件/YAML/无法解释结构的 2，以及 `paths.x-*` 任意 JSON 值。
+- 集成：`make contract-check` 与 frontend `api:check` 必须保持通过。
+
+### 7. Wrong vs Correct
+
+```python
+# Wrong：完整响应检查需要调用方显式 opt in，默认路径仍可能漏过非首个 2xx 或错误响应。
+if args.response_report:
+    failures = compare_response_contracts(contract, runtime)
+
+# Correct：默认检查只有一条完整响应比较路径。
+response_failures = compare_response_contracts(contract, runtime)
 ```

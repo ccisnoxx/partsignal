@@ -26,7 +26,8 @@
     "09-02-runtime-response-metadata-wave-2",
     "09-02-runtime-response-metadata-wave-3",
     "09-02-geo-response-schema-identity-repair",
-    "09-02-cross-cutting-request-context-metadata"
+    "09-02-cross-cutting-request-context-metadata",
+    "09-03-complete-response-contract-gate-activation"
   ],
   "parent": "08-30-frontend-v2-functional-contract-conformance-baseline",
   "relatedFiles": [],

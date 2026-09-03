@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 from copy import deepcopy
 from typing import Any
@@ -13,7 +14,7 @@ from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
 
-from app.tools.contract_check import compare_response_contracts, json_pointer, main
+from app.tools.contract_check import check, compare_response_contracts, json_pointer, main
 
 
 class _ItemPayload(BaseModel):
@@ -42,6 +43,66 @@ def _json_response(schema: dict[str, Any], status: str = "200") -> dict[str, Any
 
 def _failures(contract: dict[str, Any], runtime: dict[str, Any]) -> list[dict[str, Any]]:
     return compare_response_contracts(contract, runtime)
+
+
+def _default_gate_document() -> dict[str, Any]:
+    document = _json_response(
+        {
+            "type": "object",
+            "required": ["code"],
+            "properties": {"code": {"type": "string"}},
+        }
+    )
+    document["paths"]["/items/{id}"]["get"]["responses"]["200"]["headers"] = {
+        "X-Request-ID": {"required": True, "schema": {"type": "string"}}
+    }
+    document["paths"]["/items/{id}"]["get"]["responses"]["404"] = {
+        "description": "not found",
+        "content": {
+            "application/json": {
+                "schema": {
+                    "type": "object",
+                    "required": ["code"],
+                    "properties": {"code": {"type": "string"}},
+                }
+            }
+        },
+    }
+    return document
+
+
+def _csv_document() -> dict[str, Any]:
+    return _document(
+        {
+            "description": "ok",
+            "content": {"text/csv": {"schema": {"type": "string"}}},
+            "headers": {
+                "X-Request-ID": {"required": True, "schema": {"type": "string"}},
+                "Content-Disposition": {
+                    "required": True,
+                    "schema": {"type": "string"},
+                },
+            },
+        }
+    )
+
+
+def _check_document(
+    tmp_path: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    contract: dict[str, Any],
+    runtime: dict[str, Any],
+) -> list[str]:
+    from app.main import app
+
+    path = tmp_path / "contract.json"
+    path.write_text(json.dumps(contract), encoding="utf-8")
+    monkeypatch.setattr(app, "openapi", lambda: deepcopy(runtime))
+    return check(path)
+
+
+def _structured_failures(failures: list[str]) -> list[dict[str, Any]]:
+    return [json.loads(failure) for failure in failures if failure.startswith("{")]
 
 
 def test_equal_no_body_and_annotation_only_mutation_pass() -> None:
@@ -661,20 +722,155 @@ def test_json_pointer_rejects_noncanonical_array_indices(token: str) -> None:
     assert failures[0]["kind"] == "unsupported"
 
 
-def test_cli_report_positional_path_invalid_document_and_default_gate(
-    tmp_path: Any, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+def test_paths_extensions_are_ignored_regardless_of_value_shape() -> None:
+    contract = _document()
+    runtime = deepcopy(contract)
+    contract["paths"]["x-primitive"] = "extension value"
+    contract["paths"]["x-object"] = {"nested": ["extension", {"value": True}]}
+    runtime["paths"]["x-primitive"] = ["a different extension value"]
+    runtime["paths"]["x-object"] = {"different": {"extension": None}}
+    assert compare_response_contracts(contract, runtime) == []
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "missing_non_2xx",
+        "extra_status",
+        "second_success",
+        "error_schema",
+        "media",
+        "request_id_header",
+        "unsupported_links",
+    ],
+)
+def test_default_check_catches_complete_response_mutations(
+    mutation: str, tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    contract = _default_gate_document()
+    runtime = deepcopy(contract)
+    operation = runtime["paths"]["/items/{id}"]["get"]
+    expected_kind: str
+    expected_pointer: str
+    expected_direction: str
+    if mutation == "missing_non_2xx":
+        del operation["responses"]["404"]
+        expected_kind = "missing_status"
+        expected_pointer = "/paths/~1items~1{id}/get/responses/404"
+        expected_direction = "missing_in_runtime"
+    elif mutation == "extra_status":
+        operation["responses"]["409"] = {"description": "conflict"}
+        expected_kind = "extra_status"
+        expected_pointer = "/paths/~1items~1{id}/get/responses/409"
+        expected_direction = "missing_in_contract"
+    elif mutation == "second_success":
+        success_response = {
+            "description": "created",
+            "content": {"application/json": {"schema": {"type": "string"}}},
+        }
+        contract["paths"]["/items/{id}"]["get"]["responses"]["201"] = success_response
+        operation["responses"]["201"] = deepcopy(success_response)
+        operation["responses"]["201"]["content"]["application/json"]["schema"] = {
+            "type": "integer"
+        }
+        expected_kind = "schema_drift"
+        expected_pointer = (
+            "/paths/~1items~1{id}/get/responses/201/content/application~1json/schema/type"
+        )
+        expected_direction = "different"
+    elif mutation == "error_schema":
+        operation["responses"]["404"]["content"]["application/json"]["schema"]["properties"][
+            "code"
+        ] = {"type": "integer"}
+        expected_kind = "schema_drift"
+        expected_pointer = (
+            "/paths/~1items~1{id}/get/responses/404/content/application~1json/schema/"
+            "properties/code/type"
+        )
+        expected_direction = "different"
+    elif mutation == "media":
+        operation["responses"]["200"]["content"] = {
+            "text/plain": {"schema": {"type": "string"}}
+        }
+        expected_kind = "missing_media"
+        expected_pointer = "/paths/~1items~1{id}/get/responses/200/content/application~1json"
+        expected_direction = "missing_in_runtime"
+    elif mutation == "request_id_header":
+        operation["responses"]["200"]["headers"]["X-Request-ID"]["required"] = False
+        expected_kind = "header_drift"
+        expected_pointer = "/paths/~1items~1{id}/get/responses/200/headers/x-request-id"
+        expected_direction = "different"
+    else:
+        operation["responses"]["200"]["links"] = {}
+        expected_kind = "unsupported"
+        expected_pointer = "/paths/~1items~1{id}/get/responses/200"
+        expected_direction = "different"
+
+    failures = _structured_failures(_check_document(tmp_path, monkeypatch, contract, runtime))
+    matching = [item for item in failures if item["kind"] == expected_kind]
+    assert matching
+    assert any(
+        item["pointer"] == expected_pointer and item["direction"] == expected_direction
+        for item in matching
+    )
+
+
+def test_default_check_catches_csv_content_disposition_header_mutation(
+    tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    contract = _csv_document()
+    runtime = deepcopy(contract)
+    runtime["paths"]["/items/{id}"]["get"]["responses"]["200"]["headers"][
+        "Content-Disposition"
+    ]["required"] = False
+
+    failures = _structured_failures(_check_document(tmp_path, monkeypatch, contract, runtime))
+    assert any(
+        item["kind"] == "header_drift"
+        and item["pointer"] == "/paths/~1items~1{id}/get/responses/200/headers/content-disposition"
+        and item["direction"] == "different"
+        for item in failures
+    )
+
+
+def test_default_check_uses_comparator_once_and_owns_operation_drift(
+    tmp_path: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     import app.tools.contract_check as checker
+    from app.main import app
+
+    contract = _default_gate_document()
+    runtime = deepcopy(contract)
+    del runtime["paths"]["/items/{id}"]
+    path = tmp_path / "contract.json"
+    path.write_text(json.dumps(contract), encoding="utf-8")
+    monkeypatch.setattr(app, "openapi", lambda: deepcopy(runtime))
+    original = checker.compare_response_contracts
+    calls = 0
+
+    def counted_compare(left: dict[str, Any], right: dict[str, Any]) -> list[dict[str, Any]]:
+        nonlocal calls
+        calls += 1
+        return original(left, right)
+
+    monkeypatch.setattr(checker, "compare_response_contracts", counted_compare)
+    failures = check(path)
+    assert calls == 1
+    assert any(json.loads(item)["kind"] == "missing_operation" for item in failures)
+    assert not any(item.startswith("路径漂移:") for item in failures)
+
+
+def test_cli_default_gate_positional_path_invalid_document_and_default_gate(
+    tmp_path: Any, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     from app.main import app
 
     valid = tmp_path / "contract.json"
     valid.write_text('{"openapi":"3.1.0","paths":{}}', encoding="utf-8")
     monkeypatch.setattr(app, "openapi", lambda: {"openapi": "3.1.0", "paths": {}})
-    monkeypatch.setattr(sys, "argv", ["contract_check", "--response-report", str(valid)])
-    with pytest.raises(SystemExit) as report_exit:
-        main()
-    assert report_exit.value.code == 0
-    assert capsys.readouterr().err == ""
+    monkeypatch.setattr(sys, "argv", ["contract_check", str(valid)])
+    main()
+    assert "完整契约一致" in capsys.readouterr().out
 
     drift = tmp_path / "drift.json"
     drift.write_text(
@@ -698,7 +894,7 @@ def test_cli_report_positional_path_invalid_document_and_default_gate(
             },
         },
     )
-    monkeypatch.setattr(sys, "argv", ["contract_check", "--response-report", str(drift)])
+    monkeypatch.setattr(sys, "argv", ["contract_check", str(drift)])
     with pytest.raises(SystemExit) as drift_exit:
         main()
     assert drift_exit.value.code == 1
@@ -730,36 +926,52 @@ def test_cli_report_positional_path_invalid_document_and_default_gate(
             },
         },
     )
-    monkeypatch.setattr(sys, "argv", ["contract_check", "--response-report", str(unsupported)])
+    monkeypatch.setattr(sys, "argv", ["contract_check", str(unsupported)])
     with pytest.raises(SystemExit) as unsupported_exit:
         main()
-    assert unsupported_exit.value.code == 2
+    assert unsupported_exit.value.code == 1
     assert "unsupported" in capsys.readouterr().err
 
     invalid = tmp_path / "invalid.json"
     invalid.write_text('{"openapi":"3.1.0"}', encoding="utf-8")
-    monkeypatch.setattr(sys, "argv", ["contract_check", "--response-report", str(invalid)])
+    monkeypatch.setattr(sys, "argv", ["contract_check", str(invalid)])
     with pytest.raises(SystemExit) as invalid_exit:
         main()
     assert invalid_exit.value.code == 2
-    assert "response-report error" in capsys.readouterr().err
+    assert "contract-check error" in capsys.readouterr().err
 
     malformed = tmp_path / "malformed.yaml"
     malformed.write_text("[unterminated", encoding="utf-8")
-    monkeypatch.setattr(sys, "argv", ["contract_check", "--response-report", str(malformed)])
+    monkeypatch.setattr(sys, "argv", ["contract_check", str(malformed)])
     with pytest.raises(SystemExit) as malformed_exit:
         main()
     assert malformed_exit.value.code == 2
 
-    monkeypatch.setattr(checker, "check", lambda _: [])
-    monkeypatch.setattr(
-        checker,
-        "compare_response_contracts",
-        lambda *_: pytest.fail("full comparator invoked"),
-    )
-    monkeypatch.setattr(sys, "argv", ["contract_check", str(valid)])
-    main()
-    assert "递归 Schema 语义一致" in capsys.readouterr().out
+
+@pytest.mark.parametrize(
+    "document",
+    [
+        {"openapi": "3.1.0", "paths": {"items": {}}},
+        {"openapi": "3.1.0", "paths": {"/x": None}},
+        {"openapi": "3.1.0", "paths": {}, "components": []},
+    ],
+)
+def test_cli_rejects_uninterpretable_document_sections(
+    document: dict[str, Any],
+    tmp_path: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from app.main import app
+
+    path = tmp_path / "invalid.json"
+    path.write_text(json.dumps(document), encoding="utf-8")
+    monkeypatch.setattr(app, "openapi", lambda: {"openapi": "3.1.0", "paths": {}})
+    monkeypatch.setattr(sys, "argv", ["contract_check", str(path)])
+    with pytest.raises(SystemExit) as exit_info:
+        main()
+    assert exit_info.value.code == 2
+    assert capsys.readouterr().err.startswith("contract-check error: ")
 
 
 def test_status_collision_reports_the_invalid_document_side() -> None:

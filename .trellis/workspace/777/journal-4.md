@@ -642,3 +642,39 @@
 ### Next Steps
 
 - Phase F 保持未启动；仅在单独批准后进入其规划。
+
+
+## Session 202: 激活完整 Response Contract 默认门禁
+
+**Date**: 2026-09-03
+**Task**: 激活完整 Response Contract 默认门禁
+**Branch**: `main`
+
+### Summary
+
+完成 Phase F：默认契约检查接入唯一完整 response comparator，删除旧首个 2xx 与 report-only 路径，补齐 mutation/CLI 回归、规范和任务证据，并通过独立检查、只读 Review 与一次正式 full-scope gate。
+
+### Main Changes
+
+- 默认 check() 完整覆盖 operation/status/schema/media/Header/Link，保留非 response 检查并稳定输出诊断。
+- 删除 --response-report 与 successful_response，明确 CLI 退出码 0/1/2 和不可解释文档失败边界。
+- 归档 09-03-complete-response-contract-gate-activation，任务外 dirty/index 保持不变。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `000a0d27` | (see git log) |
+
+### Testing
+
+- [OK] 契约单元测试 121 passed；request-context/runtime-metadata 相关测试 352 passed。
+- [OK] make contract-check、Ruff、mypy、frontend api:check、Trellis validate 与旧符号扫描全部通过。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 返回父任务 08-31-non-2xx-contract-check，单独执行最终集成核对与收尾授权。

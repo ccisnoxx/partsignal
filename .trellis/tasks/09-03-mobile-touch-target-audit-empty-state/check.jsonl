@@ -1,0 +1,4 @@
+{"file":".trellis/spec/frontend/visual-system.md","reason":"复核 44px 触控目标、窄屏无根溢出与 TableShell 可达性。"}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"复核未扩大共享 primitive API、未复制组件且保留查询与权限行为。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"复核定向 Vitest、lint、typecheck 与真实浏览器几何证据。"}
+{"file":".trellis/tasks/09-03-mobile-touch-target-audit-empty-state/research/mobile-touch-audit.md","reason":"按研究确认的缺陷根因、影响面和非目标执行独立 Review。"}

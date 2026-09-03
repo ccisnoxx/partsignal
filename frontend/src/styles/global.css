@@ -289,6 +289,16 @@
   }
 
   @media (max-width: 767px) {
+    .audit-list-table {
+      min-width: 100%;
+      table-layout: fixed;
+    }
+
+    .audit-list-table [data-column-role='primary'] {
+      min-width: 0;
+      width: auto;
+    }
+
     .platform-list-table {
       min-width: 100%;
       table-layout: fixed;

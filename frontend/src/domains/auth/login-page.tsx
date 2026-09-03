@@ -73,6 +73,7 @@ function LoginPage({ onSubmit }: LoginPageProps) {
                 aria-required={context['aria-required']}
                 autoComplete="username"
                 autoFocus
+                className="h-11 md:h-8"
                 disabled={isSubmitting}
                 id={context.inputId}
               />
@@ -91,12 +92,14 @@ function LoginPage({ onSubmit }: LoginPageProps) {
                   aria-invalid={context['aria-invalid']}
                   aria-required={context['aria-required']}
                   autoComplete="current-password"
+                  className="h-11 md:h-8"
                   disabled={isSubmitting}
                   id={context.inputId}
                   type={passwordVisible ? 'text' : 'password'}
                 />
                 <Button
                   aria-label={passwordVisible ? '隐藏密码' : '显示密码'}
+                  className="h-11 md:h-8"
                   disabled={isSubmitting}
                   onClick={() => setPasswordVisible((visible) => !visible)}
                   type="button"
@@ -107,7 +110,7 @@ function LoginPage({ onSubmit }: LoginPageProps) {
               </div>
             )}
           />
-          <Button className="w-full" disabled={isSubmitting} type="submit">
+          <Button className="h-11 w-full md:h-8" disabled={isSubmitting} type="submit">
             {isSubmitting ? '登录中…' : '登录'}
           </Button>
         </form>

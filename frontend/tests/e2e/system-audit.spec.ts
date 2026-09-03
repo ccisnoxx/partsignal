@@ -35,6 +35,57 @@ test('canonical URL、七列、导航与全部 server 参数映射成立', async
   });
 });
 
+test('移动端筛选空态在 TableShell 初始可见区内且页面根无溢出', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'foundation-mobile', '空态几何在移动端项目验证');
+  const emptySearch = '/system/audit?page=1&pageSize=20&createdFrom=2026-08-13T00%3A00%3A00.000Z&createdTo=2026-08-16T00%3A00%3A00.000Z&module=CONFIGURATION&outcome=FAILED';
+
+  for (const width of [320, 375]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(emptySearch);
+    const status = page.getByRole('status');
+    const region = page.getByRole('region', { name: '系统审计日志' });
+    const reset = page.getByRole('button', { name: '重置筛选' });
+    await expect(region).toBeVisible();
+    await expect(status).toBeVisible();
+    await expect(status).toContainText('未找到审计日志');
+    await expect(status).toContainText('当前筛选范围没有审计记录。');
+    await expect(reset).toBeVisible();
+    await reset.focus();
+    await expect(reset).toBeFocused();
+
+    await expect.poll(async () => {
+      return region.evaluate((element) => {
+        const table = element.querySelector('table');
+        const statusElement = element.querySelector<HTMLElement>('[role="status"]');
+        const regionRect = element.getBoundingClientRect();
+        const statusRect = statusElement?.getBoundingClientRect();
+        if (!table || !statusRect) return false;
+        return table.getBoundingClientRect().width <= element.clientWidth + 1
+          && statusRect.left >= regionRect.left - 1
+          && statusRect.right <= regionRect.left + element.clientWidth + 1;
+      });
+    }, { message: `${width}px 审计空态几何应稳定` }).toBe(true);
+
+    const geometry = await region.evaluate((element) => {
+      const table = element.querySelector('table');
+      const statusElement = element.querySelector<HTMLElement>('[role="status"]');
+      const regionRect = element.getBoundingClientRect();
+      const statusRect = statusElement?.getBoundingClientRect();
+      return {
+        regionClientWidth: element.clientWidth,
+        regionLeft: regionRect.left,
+        statusLeft: statusRect?.left ?? 0,
+        statusRight: statusRect ? statusRect.right : 0,
+        tableWidth: table?.getBoundingClientRect().width ?? 0,
+      };
+    });
+    expect(geometry.tableWidth, `${width}px 审计表格不应宽于 TableShell region`).toBeLessThanOrEqual(geometry.regionClientWidth + 1);
+    expect(geometry.statusLeft, `${width}px 空态左边界应在 TableShell 初始可见区内`).toBeGreaterThanOrEqual(geometry.regionLeft - 1);
+    expect(geometry.statusRight, `${width}px 空态右边界应在 TableShell 初始可见区内`).toBeLessThanOrEqual(geometry.regionLeft + geometry.regionClientWidth + 1);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), `${width}px 页面根不应横向溢出`).toBe(true);
+  }
+});
+
 test('详情严格 lazy，并由 row click/Enter/Space 驱动自适应容器与焦点恢复', async ({ page, systemAuditApi }, testInfo) => {
   await page.goto('/system/audit');
   const first = page.getByRole('row', { name: /更新 AI 渠道/ }).first();

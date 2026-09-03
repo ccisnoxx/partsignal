@@ -1,0 +1,5 @@
+{"file":".trellis/spec/frontend/visual-system.md","reason":"遵循移动端 44×44 触控目标、TableShell 局部滚动与 320/375 响应式合同。"}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"在调用方和 feature table owner 做最小修复，保持共享 primitive 与业务数据流边界。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"使用 production-artifact Playwright 几何证据并按 frontend gate 运行验证。"}
+{"file":".trellis/spec/frontend/directory-structure.md","reason":"保持 auth、audit、design-system 与全局样式的既有职责划分。"}
+{"file":".trellis/tasks/09-03-mobile-touch-target-audit-empty-state/research/mobile-touch-audit.md","reason":"使用已确认缺陷证据、真实 owner、最小修复边界和测试建议。"}

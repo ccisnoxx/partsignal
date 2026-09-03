@@ -164,6 +164,37 @@ test('匿名登录在权威生产 CSP 下无违规与运行时错误', async ({ 
   expect(runtimeErrors, '匿名登录不得出现 CSP 或运行时错误').toEqual([]);
 });
 
+test('登录关键控件在移动端满足触控目标且桌面保持紧凑高度', async ({ page }, testInfo: TestInfo) => {
+  await page.goto('/login');
+  const widths = testInfo.project.name === 'foundation-mobile' ? [320, 375] : [768, 1440];
+
+  for (const width of widths) {
+    await page.setViewportSize({ width, height: 900 });
+    const controls = [
+      ['用户名', page.getByRole('textbox', { name: '用户名' })],
+      ['密码', page.getByLabel(/^密码/)],
+      ['显示密码', page.getByRole('button', { name: '显示密码' })],
+      ['登录', page.getByRole('button', { name: '登录' })],
+    ] as const;
+    await Promise.all(controls.map(([, control]) => expect(control).toBeVisible()));
+
+    await expect.poll(async () => {
+      const boxes = await Promise.all(controls.map(([, control]) => control.boundingBox()));
+      return boxes.every((box) => (
+        box !== null && (width < 768 ? box.height >= 44 : box.height === 32)
+      ));
+    }, { message: `${width}px 登录控件几何应稳定` }).toBe(true);
+
+    const boxes = await Promise.all(controls.map(([, control]) => control.boundingBox()));
+    boxes.forEach((box, index) => {
+      const [label] = controls[index];
+      expect(box, `${width}px ${label} 控件必须有可测量边界`).not.toBeNull();
+      if (width < 768) expect(box!.height, `${width}px ${label} 控件触控高度`).toBeGreaterThanOrEqual(44);
+      else expect(box!.height, `${width}px ${label} 控件应保持桌面紧凑高度`).toBe(32);
+    });
+  }
+});
+
 test('Auth production artifact 完成强制改密、自助改密、ENGINEER 403 与退出', async ({ page }, testInfo: TestInfo) => {
   const runtimeErrors: string[] = [];
   page.on('console', (message) => {

@@ -832,3 +832,38 @@
 ### Next Steps
 
 - 继续 08-30-frontend-v2-functional-contract-conformance-baseline 的最终核对/收尾；暂不创建或启动 integrity-error-domain-mapping。
+
+
+## Session 207: 完成 Frontend V2 功能合同一致性基线收尾
+
+**Date**: 2026-09-03
+**Task**: 完成 Frontend V2 功能合同一致性基线收尾
+**Branch**: `main`
+
+### Summary
+
+完成 37 条 canonical 路由功能合同一致性基线的最终集成核对；确认六个直属子任务归档关系、关键提交 ancestry、完整 response contract gate 和 generated client 一致，保留原始 FAIL/NOT_RUN 与未决后续项；父任务仅文档收口并归档，未创建或启动 integrity-error-domain-mapping。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e84a5dab` | (see git log) |
+| `4a7979e8` | (see git log) |
+| `5add828a` | (see git log) |
+| `15250902` | (see git log) |
+| `56f92699` | (see git log) |
+| `abd41e1c` | (see git log) |
+| `180d0ad3` | (see git log) |
+| `000a0d27` | (see git log) |
+| `b2bc3c68` | (see git log) |
+| `78635bdb` | (see git log) |
+| `6a3dd72d` | (see git log) |
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 继续暂缓 integrity-error-domain-mapping；后续从矩阵中剩余的独立合同决策或 P1/P2/P3 Task 另行选择。

@@ -798,3 +798,37 @@
 ### Next Steps
 
 - 继续规划并实施 09-03-platform-prompt-name-save-state；暂不创建或启动 integrity-error-domain-mapping。
+
+
+## Session 206: 修复 Platform Prompt 名称单独保存状态
+
+**Date**: 2026-09-03
+**Task**: 修复 Platform Prompt 名称单独保存状态
+**Branch**: `main`
+
+### Summary
+
+消除 PromptEditor 对 isValid 的条件订阅竞态，补齐名称单独编辑的组件与 production-artifact 回归，并归档 09-03-platform-prompt-name-save-state。
+
+### Main Changes
+
+- PromptEditor 从首个 render 无条件订阅 isDirty/isValid，保留既有权限、revision、冲突与 canonical reset 合同。
+- 新增名称单独保存的 component 与 mobile/desktop production-artifact 测试，并将 RHF Proxy 订阅约束写入 frontend 状态规范。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `6a3dd72d72857f3f6c642c10d720fd3a9e4470ee` | (see git log) |
+
+### Testing
+
+- [OK] Prompt component Vitest 10/10、frontend lint、typecheck、Prompt Playwright 10/10、Trellis validate 与范围 diff 检查通过。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 继续 08-30-frontend-v2-functional-contract-conformance-baseline 的最终核对/收尾；暂不创建或启动 integrity-error-domain-mapping。

@@ -1,0 +1,5 @@
+{"file":".trellis/spec/frontend/state-management.md","reason":"复核 target 未复制服务端行、confirm 同步读取 exact query、被动刷新不解除 409 freeze。"}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"复核阻断/不可执行 Dialog、RowActions、关闭完成与焦点返回语义。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"复核双 project production-artifact E2E、generated fixture 和未声明错误边界。"}
+{"file":".trellis/spec/backend/available-actions-contract.md","reason":"复核前端未按引用数/角色推导 DELETE，服务端仍是权限、revision 与引用的最终门禁。"}
+{"file":".trellis/tasks/09-03-query-topic-dialog-live-projection/research/query-topic-dialog-projection-audit.md","reason":"逐项检查根因是否在单一 owner 修复、live transition/409/焦点回归是否完整且未越界。"}

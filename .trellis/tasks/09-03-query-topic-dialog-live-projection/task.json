@@ -1,0 +1,31 @@
+{
+  "id": "query-topic-dialog-live-projection",
+  "name": "query-topic-dialog-live-projection",
+  "title": "Query Topic Dialog 实时投影",
+  "description": "修复 Query Topic 查看引用与删除 Dialog 保存旧行快照的问题：Dialog intent 只保存稳定 ID 与焦点返回点，展示和删除资格从当前 exact 列表投影实时派生，并覆盖跨标签页聚焦刷新后的引用、动作、revision 与目标消失行为。",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": "frontend",
+  "package": "frontend",
+  "priority": "P1",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-09-03",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "frontend/src/domains/geo/query-topic-list-page.tsx",
+    "frontend/tests/e2e/fixtures/geo-topics.fixture.ts",
+    "frontend/tests/e2e/geo-topics.spec.ts",
+    ".trellis/spec/frontend/state-management.md"
+  ],
+  "notes": "独立前端状态所有权修复；不修改编辑 Dialog 的草稿/409 基线，不修改 backend、OpenAPI、generated client 或数据库合同；继续暂缓 integrity-error-domain-mapping。",
+  "meta": {}
+}

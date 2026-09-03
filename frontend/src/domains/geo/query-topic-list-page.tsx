@@ -11,7 +11,7 @@ import {
   type PaginationState,
   useTable,
 } from '@tanstack/react-table';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FormProvider, useFieldArray, useForm, type FieldPath } from 'react-hook-form';
 
 import { ColumnHeader } from '@/design-system/data-table/column-header';
@@ -45,6 +45,7 @@ import {
   SelectValue,
 } from '@/design-system/primitives/select';
 import { contentKeys } from '@/domains/content/content.api';
+import type { components } from '@/shared/api/generated/schema';
 import {
   createQueryTopic,
   deleteQueryTopic,
@@ -73,13 +74,13 @@ import {
 
 type TopicColumnMeta = { role?: ColumnRole };
 type EditorTarget = { topic?: QueryTopicListItem; focusReturn: HTMLElement | null };
-type ReferenceTarget = { topic: QueryTopicListItem; focusReturn: HTMLElement | null };
-type DeleteTarget = {
+type QueryTopicDialogIntent = {
   id: string;
-  question: string;
-  revision: number;
   focusReturn: HTMLElement | null;
 };
+type ReferenceTarget = QueryTopicDialogIntent;
+type DeleteTarget = QueryTopicDialogIntent;
+type QueryTopicListPageData = components['schemas']['QueryTopicListPage'];
 
 async function fetchFreshQueryTopics(queryClient: QueryClient) {
   const options = queryTopicsQueryOptions();
@@ -109,15 +110,45 @@ function QueryTopicListPage({
 }: QueryTopicListPageProps) {
   const queryClient = useQueryClient();
   const createButtonRef = useRef<HTMLButtonElement>(null);
+  const previousTopicListKey = useRef<string | undefined>(undefined);
   const topics = useQuery(queryTopicListQueryOptions(search));
   const [editor, setEditor] = useState<EditorTarget>();
   const [referenceTarget, setReferenceTarget] = useState<ReferenceTarget>();
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>();
   const rows = topics.data?.items ?? [];
+  const referenceTopic = referenceTarget
+    ? rows.find((item) => item.id === referenceTarget.id)
+    : undefined;
+  const deleteTopic = deleteTarget
+    ? rows.find((item) => item.id === deleteTarget.id)
+    : undefined;
   const total = topics.data?.total ?? 0;
   const pageCount = Math.ceil(total / search.pageSize);
   const pagination: PaginationState = { pageIndex: search.page - 1, pageSize: search.pageSize };
   const sorting = queryTopicSortToSorting(search.sort);
+
+  const activeTopicListKey = [search.q ?? '', search.page, search.pageSize, search.sort].join('\u0000');
+
+  // exact query 发生切换时，旧列表范围内的 Dialog 意图不得带到新范围。
+  useEffect(() => {
+    if (previousTopicListKey.current === activeTopicListKey) return;
+    previousTopicListKey.current = activeTopicListKey;
+    setReferenceTarget(undefined);
+    setDeleteTarget(undefined);
+  }, [activeTopicListKey]);
+
+  // 只有成功列表投影确认目标消失时才清理意图；保留 stale data 的刷新错误仍可继续展示旧投影。
+  useEffect(() => {
+    if (!topics.data) return;
+    if (referenceTarget && !referenceTopic) {
+      // exact list 已确认目标不在当前投影，清理不能复用的 Dialog 意图。
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setReferenceTarget(undefined);
+    }
+    if (deleteTarget && !deleteTopic) {
+      setDeleteTarget(undefined);
+    }
+  }, [deleteTarget, deleteTopic, referenceTarget, referenceTopic, topics.data]);
 
   function changeSearch(changes: Partial<QueryTopicSearch>, resetPage = true) {
     void onSearchChange({
@@ -149,16 +180,11 @@ function QueryTopicListPage({
       return;
     }
     if (command === 'view-references') {
-      setReferenceTarget({ topic, focusReturn: focusReturn ?? null });
+      setReferenceTarget({ id: topic.id, focusReturn: focusReturn ?? null });
       return;
     }
     if (command === 'delete-topic') {
-      setDeleteTarget({
-        id: topic.id,
-        question: topic.canonical_question,
-        revision: topic.revision,
-        focusReturn: focusReturn ?? null,
-      });
+      setDeleteTarget({ id: topic.id, focusReturn: focusReturn ?? null });
       return;
     }
     throw new Error(`Query Topics 收到未知页面命令：${command}`);
@@ -319,23 +345,30 @@ function QueryTopicListPage({
           topic={editor.topic}
         />
       )}
-      <QueryTopicReferencesDialog
-        key={referenceTarget?.topic.id ?? 'closed'}
-        onClose={() => setReferenceTarget(undefined)}
-        target={referenceTarget}
-      />
-      <QueryTopicDeleteDialog
-        csrfToken={csrfToken}
-        key={deleteTarget?.id ?? 'closed'}
-        onClose={() => setDeleteTarget(undefined)}
-        onDeleted={async () => {
-          setDeleteTarget(undefined);
-          await invalidateConsumers();
-          if (rows.length === 1 && search.page > 1) changeSearch({ page: search.page - 1 }, false);
-        }}
-        queryClient={queryClient}
-        target={deleteTarget}
-      />
+      {referenceTarget && referenceTopic && (
+        <QueryTopicReferencesDialog
+          onClose={() => setReferenceTarget(undefined)}
+          topic={referenceTopic}
+          target={referenceTarget}
+        />
+      )}
+      {deleteTarget && deleteTopic && (
+        <QueryTopicDeleteDialog
+          csrfToken={csrfToken}
+          onClose={() => setDeleteTarget(undefined)}
+          onDeleted={async () => {
+            setDeleteTarget(undefined);
+            await invalidateConsumers();
+            if (rows.length === 1 && search.page > 1) changeSearch({ page: search.page - 1 }, false);
+          }}
+          queryClient={queryClient}
+          queryError={topics.error}
+          queryFetching={topics.isFetching}
+          search={search}
+          topic={deleteTopic}
+          target={deleteTarget}
+        />
+      )}
     </section>
   );
 }
@@ -619,34 +652,37 @@ function QueryTopicEditorDialog({
 
 function QueryTopicReferencesDialog({
   onClose,
+  topic,
   target,
 }: {
   onClose: () => void;
+  topic?: QueryTopicListItem;
   target?: ReferenceTarget;
 }) {
-  const [finalFocus] = useState(target?.focusReturn ?? null);
-  const [open, setOpen] = useState(Boolean(target));
-  const hrefs = target ? queryTopicReferenceHrefs(target.topic.id) : undefined;
+  const [open, setOpen] = useState(true);
+  if (!target || !topic) return null;
+  const activeTarget = target;
+  const hrefs = queryTopicReferenceHrefs(target.id);
   return (
     <Dialog
       onOpenChange={setOpen}
       onOpenChangeComplete={(next) => { if (!next) onClose(); }}
       open={open}
     >
-      <DialogContent finalFocus={() => finalFocus}>
+      <DialogContent finalFocus={() => activeTarget.focusReturn?.isConnected ? activeTarget.focusReturn : null}>
         <DialogHeader>
           <DialogTitle>业务引用与删除条件</DialogTitle>
-          <DialogDescription>{target?.topic.canonical_question}</DialogDescription>
+          <DialogDescription>{topic.canonical_question}</DialogDescription>
         </DialogHeader>
-        {target && hrefs && (
+        {hrefs && (
           <ul className="space-y-2">
-            <ReferenceLink count={target.topic.references.content_task_count} href={hrefs.contentTasks} label="Content Task" />
-            <ReferenceLink count={target.topic.references.geo_optimization_count} href={hrefs.geoOptimization} label="GEO Optimization 来源" />
-            <ReferenceLink count={target.topic.references.observation_count} href={hrefs.observations} label="Observation" />
+            <ReferenceLink count={topic.references.content_task_count} href={hrefs.contentTasks} label="Content Task" />
+            <ReferenceLink count={topic.references.geo_optimization_count} href={hrefs.geoOptimization} label="GEO Optimization 来源" />
+            <ReferenceLink count={topic.references.observation_count} href={hrefs.observations} label="Observation" />
           </ul>
         )}
         <p className="text-xs text-text-muted">
-          {deletionGuidance(target?.topic)} 执行删除时服务端仍会重新校验。
+          {deletionGuidance(topic)} 执行删除时服务端仍会重新校验。
         </p>
         <DialogFooter><DialogClose render={<Button variant="outline" />}>关闭</DialogClose></DialogFooter>
       </DialogContent>
@@ -663,6 +699,13 @@ function ReferenceLink({ count, href, label }: { count: number; href: string; la
   );
 }
 
+type QueryTopicReferenceLink = {
+  type: string;
+  count: number;
+  href: string;
+  label: string;
+};
+
 function deletionGuidance(topic?: QueryTopicListItem) {
   if (!topic?.deletion) return '服务端未向当前账号提供删除管理上下文。';
   return topic.deletion.blockers.length > 0
@@ -675,31 +718,58 @@ function QueryTopicDeleteDialog({
   onClose,
   onDeleted,
   queryClient,
+  queryError,
+  queryFetching,
+  search,
+  topic,
   target,
 }: {
   csrfToken: string | null;
   onClose: () => void;
   onDeleted: () => Promise<void>;
   queryClient: ReturnType<typeof useQueryClient>;
+  queryError: unknown;
+  queryFetching: boolean;
+  search: QueryTopicSearch;
+  topic?: QueryTopicListItem;
   target?: DeleteTarget;
 }) {
-  const [finalFocus] = useState(target?.focusReturn ?? null);
-  const [open, setOpen] = useState(Boolean(target));
-  const [revision, setRevision] = useState(target?.revision ?? 0);
+  const [open, setOpen] = useState(true);
   const [reloadMessage, setReloadMessage] = useState<string>();
+  const exactKey = queryTopicListQueryOptions(search).queryKey;
   const remove = useMutation({
-    mutationFn: () => {
-      if (!target) throw new Error('缺少待删除 Query Topic');
-      return deleteQueryTopic(target.id, revision, csrfToken);
-    },
+    mutationFn: (variables: { id: string; expectedRevision: number }) => (
+      deleteQueryTopic(variables.id, variables.expectedRevision, csrfToken)
+    ),
   });
+  if (!target || !topic) return null;
+  const activeTarget = target;
+  const current = topic;
+  const blockers = current.deletion?.blockers ?? [];
+  const hasDeleteProjection = current.deletion !== null && current.available_actions.includes('DELETE');
+  const queryState = queryClient.getQueryState(exactKey);
+  const isFetching = queryFetching || queryState?.fetchStatus === 'fetching';
+  const queryHasError = Boolean(queryError || queryState?.error);
+  const conflict = remove.error instanceof GeoRequestError && remove.error.status === 409;
+  const canDelete = !isFetching && !queryHasError && !conflict && hasDeleteProjection && blockers.length === 0;
 
   async function confirm() {
+    if (!canDelete) return;
+    const latestState = queryClient.getQueryState(exactKey);
+    if (!latestState || latestState.fetchStatus === 'fetching' || latestState.error) return;
+    const latest = queryClient.getQueryData<QueryTopicListPageData>(exactKey)
+      ?.items.find((item) => item.id === activeTarget.id);
+    if (!latest) return;
+    if (
+      latest.deletion === null
+      || !latest.available_actions.includes('DELETE')
+      || latest.deletion.blockers.length > 0
+    ) return;
     try {
-      await remove.mutateAsync();
+      await remove.mutateAsync({ id: latest.id, expectedRevision: latest.revision });
       await onDeleted();
     } catch {
-      // mutation.error 负责展示结构化错误，Dialog 保持打开。
+      // 删除冲突保留当前确认上下文，只有显式重新加载才解除冻结。
     }
   }
 
@@ -707,40 +777,50 @@ function QueryTopicDeleteDialog({
     if (!target) return;
     setReloadMessage(undefined);
     try {
-      const full = await fetchFreshQueryTopics(queryClient);
-      const current = full.items.find((item) => item.id === target.id);
-      if (!current) {
+      await fetchFreshQueryTopics(queryClient);
+      const listOptions = queryTopicListQueryOptions(search);
+      // 校准当前 exact list 时也不能采纳点击前的在途响应。
+      await queryClient.cancelQueries({ exact: true, queryKey: listOptions.queryKey });
+      const list = await queryClient.fetchQuery({
+        ...listOptions,
+        staleTime: 0,
+      });
+      const latest = list.items.find((item) => item.id === activeTarget.id);
+      if (!latest) {
         setReloadMessage('该 Query Topic 已不存在。');
         return;
       }
-      if (!current.available_actions.includes('DELETE')) {
-        setReloadMessage('服务端当前不再允许删除；请关闭后查看最新引用条件。');
-        await queryClient.invalidateQueries({ queryKey: geoKeys.topicLists() });
-        return;
-      }
-      setRevision(current.revision);
       remove.reset();
-      setReloadMessage(`已读取 revision ${current.revision}，请重新确认。`);
+      setReloadMessage(`已读取 revision ${latest.revision}，请重新确认。`);
     } catch (error) {
       setReloadMessage(errorMessage(error));
     }
   }
 
-  const conflict = remove.error instanceof GeoRequestError && remove.error.status === 409;
-  const referenceLinks = queryTopicDeleteReferenceLinks(remove.error, target?.id);
+  const referenceLinks = blockers.length > 0
+    ? queryTopicProjectionReferenceLinks(current)
+    : queryTopicDeleteReferenceLinks(remove.error, activeTarget.id);
   return (
     <Dialog
       onOpenChange={(next) => { if (!remove.isPending) setOpen(next); }}
       onOpenChangeComplete={(next) => { if (!next) onClose(); }}
       open={open}
     >
-      <DialogContent finalFocus={() => finalFocus} showCloseButton={!remove.isPending}>
+      <DialogContent finalFocus={() => activeTarget.focusReturn?.isConnected ? activeTarget.focusReturn : null} showCloseButton={!remove.isPending}>
         <DialogHeader>
           <DialogTitle>删除 Query Topic？</DialogTitle>
           <DialogDescription>
-            将删除“{target?.question}”。服务端会使用 expected_revision 重新校验权限与引用。
+            {blockers.length > 0
+              ? `“${current.canonical_question}”当前存在业务引用，暂不可删除。`
+              : hasDeleteProjection
+                ? `将删除“${current.canonical_question}”。服务端会使用 expected_revision 重新校验权限与引用。`
+                : `“${current.canonical_question}”当前未提供删除资格。`}
           </DialogDescription>
         </DialogHeader>
+        {isFetching && <p className="text-sm text-text-secondary" role="status">正在同步 Query Topic 投影…</p>}
+        {queryHasError && <p className="text-sm text-destructive" role="alert">当前 Query Topic 列表刷新失败，无法确认最新删除资格。</p>}
+        {blockers.length > 0 && <p className="text-sm text-destructive" role="alert">当前存在业务引用阻断，必须先处理引用后才能删除。</p>}
+        {!blockers.length && !hasDeleteProjection && !queryHasError && <p className="text-sm text-text-secondary" role="status">服务端当前未提供删除资格。</p>}
         {remove.error && <p className="text-sm text-destructive" role="alert">{errorMessage(remove.error)}</p>}
         {referenceLinks.length > 0 && (
           <ul className="space-y-2">
@@ -760,16 +840,18 @@ function QueryTopicDeleteDialog({
         {reloadMessage && <p className="text-sm text-text-secondary" role="status">{reloadMessage}</p>}
         <DialogFooter>
           <DialogClose disabled={remove.isPending} render={<Button variant="outline" />}>取消</DialogClose>
-          <Button disabled={remove.isPending || conflict} onClick={() => void confirm()} type="button" variant="destructive">
-            {remove.isPending ? '删除中…' : '确认删除'}
-          </Button>
+          {hasDeleteProjection && blockers.length === 0 && (
+            <Button disabled={!canDelete || remove.isPending} onClick={() => void confirm()} type="button" variant="destructive">
+              {remove.isPending ? '删除中…' : '确认删除'}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
 
-function queryTopicDeleteReferenceLinks(error: unknown, topicId?: string) {
+function queryTopicDeleteReferenceLinks(error: unknown, topicId?: string): QueryTopicReferenceLink[] {
   if (
     !topicId
     || !(error instanceof GeoRequestError)
@@ -794,6 +876,25 @@ function queryTopicDeleteReferenceLinks(error: unknown, topicId?: string) {
     }
     return [];
   });
+}
+
+function queryTopicProjectionReferenceLinks(topic: QueryTopicListItem): QueryTopicReferenceLink[] {
+  const hrefs = queryTopicReferenceHrefs(topic.id);
+  const links: QueryTopicReferenceLink[] = [];
+  for (const blocker of topic.deletion?.blockers ?? []) {
+    if (blocker.type === 'CONTENT_TASK') {
+      links.push({ type: blocker.type, count: blocker.count, href: hrefs.contentTasks, label: 'Content Task' });
+      continue;
+    }
+    if (blocker.type === 'GEO_OPTIMIZATION_SOURCE') {
+      links.push({ type: blocker.type, count: blocker.count, href: hrefs.geoOptimization, label: 'GEO Optimization 来源' });
+      continue;
+    }
+    if (blocker.type === 'GEO_OBSERVATION') {
+      links.push({ type: blocker.type, count: blocker.count, href: hrefs.observations, label: 'Observation' });
+    }
+  }
+  return links;
 }
 
 function mapTopicMutationError(error: unknown) {

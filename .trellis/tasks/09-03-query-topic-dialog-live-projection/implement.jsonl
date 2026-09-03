@@ -1,0 +1,6 @@
+{"file":".trellis/spec/frontend/index.md","reason":"加载 canonical frontend 包入口与相关规范索引。"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"约束 Dialog intent-by-ID、exact query 派生、confirm-time revision、409 freeze 与断开焦点处理。"}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"约束 RowActions、Base UI Dialog、危险操作 surface 与 finalFocus，不以动态 key 破坏关闭语义。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"约束 production-artifact Playwright、generated-type fixture、未声明请求/运行时错误和前端质量门禁。"}
+{"file":".trellis/spec/backend/available-actions-contract.md","reason":"保持 Query Topic actions/deletion/references/revision 的服务端权威及删除命令最终校验。"}
+{"file":".trellis/tasks/09-03-query-topic-dialog-live-projection/research/query-topic-dialog-projection-audit.md","reason":"提供根因、受影响 Dialog、既有模式、409 兼容约束、测试缺口与已确认设计决定。"}

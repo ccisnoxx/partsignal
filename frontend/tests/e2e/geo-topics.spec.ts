@@ -45,6 +45,130 @@ test('五列只消费服务端动作，primary 携带 canonical handoff，引用
   await expect(trigger).toBeFocused();
 });
 
+test('引用 Dialog 从当前 exact list projection 实时更新', async ({ page, geoTopicsApi }) => {
+  await page.goto(canonical);
+  await page.getByRole('button', { name: `更多操作：${blockedTopic.canonical_question}` }).click();
+  await page.getByRole('menuitem', { name: '查看删除条件或引用情况' }).click();
+  const dialog = page.getByRole('dialog', { name: '业务引用与删除条件' });
+
+  geoTopicsApi.setProjection(topicIds.blocked, {
+    canonical_question: '如何在低噪声场景选择放大器？（最新）',
+    references: { content_task_count: 7, geo_optimization_count: 0, observation_count: 4 },
+    deletion: { blockers: [] },
+  });
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    window.dispatchEvent(new Event('visibilitychange'));
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    window.dispatchEvent(new Event('visibilitychange'));
+  });
+
+  await expect(dialog).toContainText('如何在低噪声场景选择放大器？（最新）');
+  await expect(dialog.getByRole('link', { name: '7 条' })).toBeVisible();
+  await expect(dialog.getByRole('link', { name: '4 条' })).toBeVisible();
+  await expect(dialog).toContainText('服务端投影当前没有直接引用阻断。');
+});
+
+test('删除 Dialog 按最新 blocker/资格原位切换，并以最新 revision 确认', async ({
+  page,
+  geoTopicsApi,
+}) => {
+  await page.goto(canonical);
+  await page.getByRole('button', { name: `更多操作：${deletableTopic.canonical_question}` }).click();
+  await page.getByRole('menuitem', { name: '删除', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: '删除 Query Topic？' });
+
+  geoTopicsApi.setProjection(topicIds.deletable, {
+    canonical_question: '如何比较射频器件？（存在引用）',
+    available_actions: ['UPDATE'],
+    references: { content_task_count: 1, geo_optimization_count: 0, observation_count: 0 },
+    deletion: { blockers: [{ type: 'CONTENT_TASK', count: 1 }] },
+    revision: 9,
+  });
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    window.dispatchEvent(new Event('visibilitychange'));
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    window.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect(dialog).toContainText('如何比较射频器件？（存在引用）');
+  await expect(dialog).toContainText('当前存在业务引用阻断');
+  await expect(dialog.getByRole('button', { name: '确认删除' })).toHaveCount(0);
+  expect(geoTopicsApi.mutationRequests.filter((item) => item.method === 'DELETE')).toHaveLength(0);
+
+  geoTopicsApi.setProjection(topicIds.deletable, {
+    available_actions: ['UPDATE', 'DELETE'],
+    references: { content_task_count: 0, geo_optimization_count: 0, observation_count: 0 },
+    deletion: { blockers: [] },
+    revision: 9,
+  });
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    window.dispatchEvent(new Event('visibilitychange'));
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    window.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect(dialog.getByRole('button', { name: '确认删除' })).toBeEnabled();
+
+  geoTopicsApi.setProjection(topicIds.deletable, { revision: 10 });
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    window.dispatchEvent(new Event('visibilitychange'));
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    window.dispatchEvent(new Event('visibilitychange'));
+  });
+  await dialog.getByRole('button', { name: '确认删除' }).click();
+  await expect.poll(() => geoTopicsApi.mutationRequests.filter((item) => item.method === 'DELETE').at(-1)?.expectedRevision)
+    .toBe(10);
+});
+
+test('删除确认在 exact list fetching/error/目标消失时保持阻断', async ({ page, geoTopicsApi }) => {
+  await page.goto(canonical);
+  await page.getByRole('button', { name: `更多操作：${deletableTopic.canonical_question}` }).click();
+  await page.getByRole('menuitem', { name: '删除', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: '删除 Query Topic？' });
+
+  geoTopicsApi.setListMode('loading');
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    window.dispatchEvent(new Event('visibilitychange'));
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    window.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect(dialog.getByRole('button', { name: '确认删除' })).toBeDisabled();
+  expect(geoTopicsApi.mutationRequests.filter((item) => item.method === 'DELETE')).toHaveLength(0);
+  geoTopicsApi.releaseLoading();
+  await expect(dialog.getByRole('button', { name: '确认删除' })).toBeEnabled();
+
+  geoTopicsApi.setListMode('error');
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    window.dispatchEvent(new Event('visibilitychange'));
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    window.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect(dialog.getByText('当前 Query Topic 列表刷新失败', { exact: false })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: '确认删除' })).toBeDisabled();
+  geoTopicsApi.setListMode('success');
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    window.dispatchEvent(new Event('visibilitychange'));
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    window.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect(dialog.getByRole('button', { name: '确认删除' })).toBeEnabled();
+
+  geoTopicsApi.removeProjection(topicIds.deletable);
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    window.dispatchEvent(new Event('visibilitychange'));
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    window.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect(dialog).toHaveCount(0);
+  expect(geoTopicsApi.mutationRequests.filter((item) => item.method === 'DELETE')).toHaveLength(0);
+});
+
 test('搜索、排序、分页进入 URL/API，direct、refresh、Back/Forward 保持 canonical', async ({
   page,
   geoTopicsApi,
@@ -134,6 +258,16 @@ test('创建与更新携带 CSRF/revision；409 保留草稿并只在显式 relo
   await page.getByRole('menuitem', { name: '编辑' }).click();
   dialog = page.getByRole('dialog', { name: '编辑 Query Topic' });
   await dialog.getByLabel('标准问题').fill('本地草稿问题');
+  geoTopicsApi.setProjection(topicIds.blocked, {
+    references: { content_task_count: 8, geo_optimization_count: 1, observation_count: 3 },
+  });
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    window.dispatchEvent(new Event('visibilitychange'));
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    window.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect(dialog.getByLabel('标准问题')).toHaveValue('本地草稿问题');
   geoTopicsApi.setMutationMode('conflict');
   await dialog.getByRole('button', { name: '保存', exact: true }).click();
   await expect(dialog.getByText('当前输入已保留，不会自动重放')).toBeVisible();
@@ -225,6 +359,19 @@ test('DELETE 409 不自动重放，显式 reload revision 后才允许再次确�
   const dialog = page.getByRole('dialog', { name: '删除 Query Topic？' });
   await dialog.getByRole('button', { name: '确认删除' }).click();
   await expect(dialog.getByText(/req-topic-conflict/)).toBeVisible();
+  await expect(dialog.getByRole('button', { name: '确认删除' })).toBeDisabled();
+  expect(geoTopicsApi.mutationRequests.filter((item) => item.method === 'DELETE')).toHaveLength(1);
+
+  geoTopicsApi.setProjection(topicIds.deletable, {
+    canonical_question: '被动刷新后的删除名称',
+  });
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    window.dispatchEvent(new Event('visibilitychange'));
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    window.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect(dialog).toContainText('被动刷新后的删除名称');
   await expect(dialog.getByRole('button', { name: '确认删除' })).toBeDisabled();
   expect(geoTopicsApi.mutationRequests.filter((item) => item.method === 'DELETE')).toHaveLength(1);
 

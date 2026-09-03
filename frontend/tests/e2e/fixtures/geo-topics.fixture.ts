@@ -26,9 +26,11 @@ type GeoTopicsController = {
   releaseLoading: () => void;
   releaseOptionsLoading: () => void;
   resetMutationConflicts: () => void;
+  removeProjection: (id: string) => void;
   setListMode: (mode: ListMode) => void;
   setOptionsMode: (mode: OptionsMode) => void;
   setMutationMode: (mode: MutationMode) => void;
+  setProjection: (id: string, changes: Partial<QueryTopicListItem>) => void;
 };
 
 type GeoTopicsFixtures = { geoTopicsApi: GeoTopicsController };
@@ -309,9 +311,17 @@ const test = base.extend<GeoTopicsFixtures>({
       releaseLoading: () => releaseList?.(),
       releaseOptionsLoading: () => releaseOptions?.(),
       resetMutationConflicts: () => conflicted.clear(),
+      removeProjection: (id) => {
+        currentItems = currentItems.filter((item) => item.id !== id);
+      },
       setListMode: (mode) => { listMode = mode; },
       setOptionsMode: (mode) => { optionsMode = mode; },
       setMutationMode: (mode) => { mutationMode = mode; },
+      setProjection: (id, changes) => {
+        const index = currentItems.findIndex((item) => item.id === id);
+        if (index < 0) throw new Error(`未知 Query Topic：${id}`);
+        currentItems[index] = { ...currentItems[index]!, ...changes };
+      },
     });
 
     expect(unexpectedRequests, 'Topics 页面不得依赖未声明 API 或浏览器逐行 join').toEqual([]);

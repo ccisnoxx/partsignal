@@ -602,3 +602,43 @@
 ### Next Steps
 
 - 父任务 08-31-non-2xx-contract-check 保持开放；Phase X、Phase F 尚未创建或启动，等待独立批准。
+
+
+## Session 201: 完成跨切面 Request Context Metadata 同步
+
+**Date**: 2026-09-03
+**Task**: 完成跨切面 Request Context Metadata 同步
+**Branch**: `main`
+
+### Summary
+
+依据既有 middleware 行为同步全部 162 个 operation 的 X-Request-ID request/400/response metadata，保持 static/runtime/generated 零差异，并完成 Cookie sentinel、全量验证与独立 Review。
+
+### Main Changes
+
+- 在 backend/app/main.py 集中拥有 request-context constants 与 custom OpenAPI merge，成功后才原子发布 cache。
+- 同步 contracts/openapi.yaml 与 canonical generated schema，覆盖 162 个 operation 和 1023 个 response occurrence。
+- 新增 request-id 边界、login/logout 多 Set-Cookie、static/runtime 非干扰与完整 inventory 回归。
+- 将跨切面合同与 publish-after-merge 规则写入 backend error-handling code-spec。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `7e539c88` | (see git log) |
+| `8f29f329` | (see git log) |
+
+### Testing
+
+- [OK] Backend 指定测试集 459 passed；修复后相关 targeted tests、Ruff 与 mypy 通过。
+- [OK] make contract-check 通过；无 filter response report 退出码 0。
+- [OK] api:generate/api:check、frontend typecheck 与 5 个 generated-client consumer 测试通过。
+- [OK] Trellis validate、diff/index isolation 与独立只读 Review 通过。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- Phase F 保持未启动；仅在单独批准后进入其规划。

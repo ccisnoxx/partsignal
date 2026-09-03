@@ -724,3 +724,38 @@
 ### Next Steps
 
 - 继续当前 v2-live-readonly-acceptance；不要开始 integrity-error-domain-mapping，除非用户另行授权。
+
+
+## Session 204: 完成 V2 线上验收任务收尾
+
+**Date**: 2026-09-03
+**Task**: 完成 V2 线上验收任务收尾
+**Branch**: `main`
+
+### Summary
+
+完成 v2-live-readonly-acceptance 最终文档一致性修正与归档；严格保留 FAIL、NOT_RUN、BLOCKED 结论，未重新登录或修改产品代码。
+
+### Main Changes
+
+- 补齐 AC1–AC20 单值最终状态，明确任务完成不等于产品验收通过。
+- 显式归档 08-30-v2-live-readonly-acceptance，并将完整 artifact 锚定到既有提交 e898c061。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4e28bf682d0c615e00cb0f3a672ebe74cc17aea0` | (see git log) |
+
+### Testing
+
+- [OK] Trellis validate、任务文档 trailing-whitespace、git diff checks 与路径范围核对通过；公开首页/live/ready 均为 HTTP 200。
+- [OK] Playwright 清单为 browsers=[]、servers=[]；未启动新浏览器或再次使用旧凭据。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 先轮换已暴露的旧管理员密码；后续按独立 Task 处理 P2-001、P2-003、P2-004，不自动开始 integrity-error-domain-mapping。

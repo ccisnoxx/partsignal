@@ -75,7 +75,7 @@ properties:
 
 - 只读取驱动已确认的 `error.orig.diag.constraint_name`，不得解析数据库英文错误文本。
 - `details.errors[]` 使用与 FastAPI validation error 一致的结构：`loc`、`msg`、`type`。
-- 可定位请求字段的 `loc` 固定为 `["body", "<field>"]`；未知约束必须原样上抛，交给既有全局处理。
+- 可定位请求字段的 `loc` 固定为 `["body", "<field>"]`；未知约束必须原样上抛，交给框架默认 server-error boundary。
 - 例：产品 normalized brand + part number 的约束 `uq_products_normalized_brand` 映射为 `409 PRODUCT_ALREADY_EXISTS`，并分别定位 `part_number` 与 `brand`。
 
 ### 4. Validation & Error Matrix
@@ -84,7 +84,7 @@ properties:
 |---|---|---|
 | 请求 schema 校验失败 | 不进入命令 | `422 VALIDATION_ERROR` + 原始字段 `loc` |
 | 已确认唯一约束冲突 | `rollback()` 后抛稳定 `AppError` | `409` + 业务 code + 字段 errors |
-| 其他 `IntegrityError` | 不改写、不吞掉 | 由既有全局边界显式失败 |
+| 其他 `IntegrityError` | 不改写、不吞掉 | 由框架默认 server-error boundary 返回 500 |
 | 成功 | commit canonical row | 对应成功 response schema |
 
 ### 5. Good / Base / Bad Cases
@@ -114,6 +114,40 @@ except IntegrityError as error:
     db.rollback()
     raise AppError("PRODUCT_ALREADY_EXISTS", message, 409, details) from error
 ```
+
+## Scenario：未知 IntegrityError 的默认 server-error boundary
+
+### 1. Scope / Trigger
+
+- 当 PostgreSQL 约束失败未被服务层以已确认的 constraint identity 显式映射时触发。
+- 该边界只负责避免错误领域伪装；未知数据库异常不属于稳定的公共业务错误协议。
+
+### 2. Contracts
+
+- 应用不得注册全局 SQLAlchemy `IntegrityError` handler，也不得把未知约束转换为 `409 REVISION_CONFLICT` 或其他猜测的业务 code。
+- 未知 `IntegrityError` 原样向上抛出，由 FastAPI/Starlette 默认 server-error boundary 返回 HTTP 500；依赖层仍负责请求 Session 的 rollback/close。
+- 默认 500 的 body、code、Header 和 media type 不构成冻结的 `ErrorEnvelope` 公共合同；不得据此新增 OpenAPI 500 response、generated 类型或前端分支。
+- 既有服务层对真实 revision conflict、状态冲突和已确认约束的 `AppError` mapper 不受该边界影响，继续返回对应 ErrorEnvelope。
+
+### 3. Validation & Error Matrix
+
+| 条件 | 服务行为 | API |
+|---|---|---|
+| 已确认约束 identity | 在最窄事务边界 rollback 后抛稳定 `AppError` | 既有 409 business code/details |
+| 未知 `IntegrityError` | 不读取或解析数据库错误文本，不吞掉、不重写 | 默认 server-error boundary 返回 500 |
+| 失败请求结束 | 由请求 Session 依赖 rollback/close | 后续独立查询可继续执行 |
+
+### 4. Good / Base / Bad Cases
+
+- Good：真实 PostgreSQL duplicate AI Model HTTP sentinel 使用 `debug=False` 和 `raise_server_exceptions=False`，验证 500、无 SQL/表名/约束/stack 泄漏、无第二条模型和成功审计，且 revision 与后续独立查询不变。
+- Base：只断言默认 500 状态和非泄漏，不冻结框架默认错误 body。
+- Bad：重新注册全局 `IntegrityError` handler、将所有数据库错误返回 `REVISION_CONFLICT`、把默认 500 body 填入 OpenAPI 或解析 `str(error)` 分类。
+
+### 5. Tests Required
+
+- Runtime unit：断言应用 exception handler 集合保留 `AppError` 与 `RequestValidationError`，不包含 SQLAlchemy `IntegrityError`。
+- Backend integration：用真实 PostgreSQL 唯一约束触发 HTTP sentinel，并在新 Session 中检查业务行、模型计数、revision、成功审计及后续查询。
+- Regression：真实 revision conflict 与既有已确认 constraint mapper 继续通过原有 status/code/details 测试。
 
 ## Scenario：同步运行时 OpenAPI 错误响应 metadata
 

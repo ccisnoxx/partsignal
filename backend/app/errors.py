@@ -8,7 +8,6 @@ from fastapi import Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from sqlalchemy.exc import IntegrityError
 
 from app.schemas.common import ErrorEnvelope
 
@@ -71,11 +70,6 @@ async def validation_error_handler(request: Request, error: RequestValidationErr
             jsonable_encoder({"errors": error.errors()}),
         ),
     )
-
-
-async def integrity_error_handler(request: Request, error: IntegrityError) -> JSONResponse:
-    """数据库唯一性和约束冲突统一显式返回，不伪装成功。"""
-    return error_response(request, AppError("REVISION_CONFLICT", "数据约束冲突", 409))
 
 
 def not_found(resource: str) -> AppError:

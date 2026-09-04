@@ -8,9 +8,12 @@ from typing import Any
 
 import pytest
 import yaml
+from fastapi.exceptions import RequestValidationError
 from fastapi.openapi.utils import get_openapi
+from sqlalchemy.exc import IntegrityError
 
 import app.main as main_module
+from app.errors import AppError
 from app.main import (
     REQUEST_ID_HEADER_NAME,
     REQUEST_ID_MAX_LENGTH,
@@ -1042,6 +1045,13 @@ def test_error_envelope_schema_has_single_required_wire_shape() -> None:
     assert envelope["required"] == ["error"]
     assert detail["required"] == ["code", "message", "details", "request_id"]
     assert detail["properties"]["details"]["default"] == {}
+
+
+def test_app_exception_handlers_keep_known_boundaries_without_global_integrity_mapping() -> None:
+    """未知数据库约束不应被应用级 handler 伪装成 revision 冲突。"""
+    assert AppError in app.exception_handlers
+    assert RequestValidationError in app.exception_handlers
+    assert IntegrityError not in app.exception_handlers
 
 
 def test_health_special_errors_and_csv_metadata() -> None:

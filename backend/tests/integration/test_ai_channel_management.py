@@ -105,6 +105,137 @@ def _ai_channel_list_statement_count(engine: Engine, *, q: str | None = None) ->
 
 
 @pytest.mark.integration
+def test_unknown_ai_model_integrity_error_uses_default_server_error_boundary() -> None:
+    """真实唯一约束失败必须返回 500，且请求事务不能留下任何部分写入。"""
+    with temporary_database("head") as (_, database_url, _, _):
+        engine = create_engine(database_url)
+        session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+        with session_factory() as db:
+            admin = User(
+                username=f"ai-integrity-admin-{uuid.uuid4().hex[:8]}",
+                display_name="AI 约束边界管理员",
+                password_hash="not-used",
+                account_type="ADMIN",
+            )
+            db.add(admin)
+            db.commit()
+
+        csrf_token = "ai-integrity-csrf-token-with-more-than-32-characters"
+        request_id = f"ai-model-duplicate-{uuid.uuid4().hex}"
+
+        def override_db() -> Iterator[Session]:
+            with session_factory() as db:
+                yield db
+
+        current_session = SimpleNamespace(
+            user=admin,
+            csrf_hash=hash_token(csrf_token),
+            last_seen_at=None,
+        )
+        app.dependency_overrides[get_db] = override_db
+        app.dependency_overrides[get_current_session] = lambda: current_session
+        assert app.debug is False
+        client = TestClient(app, raise_server_exceptions=False)
+        try:
+            created_channel = client.post(
+                "/api/v1/ai-channels",
+                headers={"X-CSRF-Token": csrf_token},
+                json={
+                    "name": "Unknown Integrity 渠道",
+                    "description": "唯一约束 sentinel",
+                    "protocol_type": "openai-compatible-chat-completions",
+                    "provider_brand": "OPENAI",
+                    "base_url": "https://8.8.8.8/v1",
+                    "api_key": "integrity-channel-key",
+                    "timeout_seconds": 30,
+                },
+            )
+            assert created_channel.status_code == 201, created_channel.text
+            channel_id = uuid.UUID(created_channel.json()["id"])
+
+            created_model = client.post(
+                f"/api/v1/ai-channels/{channel_id}/models",
+                headers={"X-CSRF-Token": csrf_token},
+                json={
+                    "display_name": "唯一约束模型",
+                    "model_id": "duplicate-integrity-model",
+                    "request_parameters": {},
+                },
+            )
+            assert created_model.status_code == 201, created_model.text
+            model_id = uuid.UUID(created_model.json()["id"])
+
+            with session_factory() as db:
+                channel_before = db.get(AIChannel, channel_id)
+                model_before = db.get(AIModel, model_id)
+                assert channel_before is not None
+                assert model_before is not None
+                channel_revision_before = channel_before.revision
+                model_revision_before = model_before.revision
+                model_count_before = len(
+                    list(db.scalars(select(AIModel).where(AIModel.channel_id == channel_id)))
+                )
+
+            duplicate = client.post(
+                f"/api/v1/ai-channels/{channel_id}/models",
+                headers={"X-CSRF-Token": csrf_token, "X-Request-ID": request_id},
+                json={
+                    "display_name": "不应落库的重复模型",
+                    "model_id": "duplicate-integrity-model",
+                    "request_parameters": {},
+                },
+            )
+            assert duplicate.status_code == 500
+            assert duplicate.status_code != 409
+            response_text = duplicate.text.lower()
+            assert "revision_conflict" not in response_text
+            assert not any(
+                fragment in response_text
+                for fragment in (
+                    "duplicate key",
+                    "23505",
+                    "uq_ai_models_channel_id",
+                    "ai_models",
+                    "uniqueviolation",
+                    "violates",
+                    "constraint",
+                    "postgres",
+                    "database",
+                    "sql",
+                    "sqlalchemy",
+                    "psycopg",
+                    "traceback",
+                    "stack trace",
+                )
+            )
+
+            with session_factory() as db:
+                channel_after = db.get(AIChannel, channel_id)
+                models_after = list(
+                    db.scalars(select(AIModel).where(AIModel.channel_id == channel_id))
+                )
+                duplicate_success_audits = list(
+                    db.scalars(
+                        select(AuditLog).where(
+                            AuditLog.request_id == request_id,
+                            AuditLog.action == "ai_model.created",
+                            AuditLog.outcome == "SUCCESS",
+                        )
+                    )
+                )
+                assert channel_after is not None
+                assert channel_after.revision == channel_revision_before
+                assert len(models_after) == model_count_before == 1
+                assert models_after[0].id == model_id
+                assert models_after[0].revision == model_revision_before
+                assert duplicate_success_audits == []
+                assert db.scalar(select(1)) == 1
+        finally:
+            app.dependency_overrides.clear()
+            client.close()
+
+
+@pytest.mark.integration
 def test_ai_channel_api_enforces_permissions_contract_and_secret_redaction(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

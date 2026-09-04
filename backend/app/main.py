@@ -14,7 +14,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 from redis import Redis
 from sqlalchemy import text
-from sqlalchemy.exc import IntegrityError
 
 from app.config import settings
 from app.db import engine
@@ -23,7 +22,6 @@ from app.errors import (
     app_error_handler,
     error_response,
     error_responses,
-    integrity_error_handler,
     validation_error_handler,
 )
 from app.routers.configuration import router as configuration_router
@@ -258,7 +256,6 @@ app.add_middleware(
 )
 app.add_exception_handler(AppError, app_error_handler)  # type: ignore[arg-type]
 app.add_exception_handler(RequestValidationError, validation_error_handler)  # type: ignore[arg-type]
-app.add_exception_handler(IntegrityError, integrity_error_handler)  # type: ignore[arg-type]
 
 
 @app.middleware("http")

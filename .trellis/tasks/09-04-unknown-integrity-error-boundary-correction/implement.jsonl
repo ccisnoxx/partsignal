@@ -1,0 +1,7 @@
+{"file":".trellis/spec/backend/index.md","reason":"后端分层入口和相关规范路由。"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"统一 AppError、数据库约束映射与 unknown exception boundary 的权威规范。"}
+{"file":".trellis/spec/backend/database-guidelines.md","reason":"事务 rollback、PostgreSQL 约束身份与数据完整性要求。"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"后端测试、静态检查和副作用证明要求。"}
+{"file":".trellis/tasks/09-04-integrity-error-domain-mapping/research/backend-integrity-paths.md","reason":"全局 handler、现有 service mapper 和受影响路径的已审查证据。"}
+{"file":".trellis/tasks/09-04-integrity-error-domain-mapping/research/testing-strategy.md","reason":"T1 真实 PostgreSQL sentinel、回归目标和验证命令。"}
+{"file":".trellis/tasks/09-04-integrity-error-domain-mapping/research/transaction-handler-design.md","reason":"请求 Session rollback/close 与 handler 边界设计证据。"}

@@ -1,0 +1,13 @@
+{"file":".trellis/spec/backend/error-handling.md","reason":"复核未知 IntegrityError 未被伪装、已知 mapper 精确且不泄露数据库细节。"}
+{"file":".trellis/spec/backend/database-guidelines.md","reason":"复核真实 PostgreSQL diagnostics、事务原子性、并发单写和失败无成功副作用。"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"复核 targeted integration、合同检查、失败归因和验证证据。"}
+{"file":".trellis/spec/backend/available-actions-contract.md","reason":"复核只有真实 revision 或已批准 stale producer 使用 REVISION_CONFLICT。"}
+{"file":".trellis/spec/backend/publication-workbench-guidelines.md","reason":"复核 publication/GEO 不可变历史、event、audit 与删除边界。"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"复核前端没有把 blocker、幂等或 context 错误误投影为 revision reload。"}
+{"file":".trellis/spec/frontend/type-safety.md","reason":"复核 error code projection 与 generated contract 没有形成第二类型系统。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"复核 15 个生产 consumer 的具体测试、api:check 和 typecheck 覆盖。"}
+{"file":".trellis/tasks/09-04-integrity-error-domain-mapping/research/database-constraint-companion.csv","reason":"逐行核对真实 service/operation/current/recommended/transaction/test 字段，无模板占位或错误 mapper。"}
+{"file":".trellis/tasks/09-04-integrity-error-domain-mapping/research/backend-integrity-paths.md","reason":"复核本地 catch、全局 handler、worker 和未捕获写入边界无遗漏。"}
+{"file":".trellis/tasks/09-04-integrity-error-domain-mapping/research/revision-conflict-producer-inventory.md","reason":"复核 62 个 producer 分类均有实施或合同决策 owner。"}
+{"file":".trellis/tasks/09-04-integrity-error-domain-mapping/research/transaction-handler-design.md","reason":"复核 root/nested rollback、begin_nested 前置 flush 和无部分副作用。"}
+{"file":".trellis/tasks/09-04-integrity-error-domain-mapping/research/testing-strategy.md","reason":"复核 T1–T6 文件边界、测试 owner 与 required command 一一对应。"}

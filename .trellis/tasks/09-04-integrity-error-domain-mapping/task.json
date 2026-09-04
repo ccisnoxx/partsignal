@@ -1,0 +1,28 @@
+{
+  "id": "integrity-error-domain-mapping",
+  "name": "integrity-error-domain-mapping",
+  "title": "IntegrityError 领域错误映射",
+  "description": "只读建立 PostgreSQL constraint → service command → domain error 权威映射与后续实施拆分，不启动实施。",
+  "status": "planning",
+  "dev_type": null,
+  "scope": "planning-only",
+  "package": null,
+  "priority": "P1",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-09-04",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "09-04-unknown-integrity-error-boundary-correction"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

@@ -1,0 +1,17 @@
+{"file":".trellis/spec/backend/index.md","reason":"加载后端包规范入口、适用质量门禁与稳定 owner 边界。"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"约束 ErrorEnvelope、领域错误、未知异常显式失败与敏感信息边界。"}
+{"file":".trellis/spec/backend/database-guidelines.md","reason":"约束 PostgreSQL 最终权威、并发竞态、事务回滚与审计副作用。"}
+{"file":".trellis/spec/backend/available-actions-contract.md","reason":"保持 expected_revision、服务端状态转换权威和 409 不自动重放语义。"}
+{"file":".trellis/spec/backend/ai-configuration-guidelines.md","reason":"T1 AI Model sentinel 与外部调用后 revision snapshot stale 的既有合同。"}
+{"file":".trellis/spec/backend/publication-workbench-guidelines.md","reason":"publication/GEO 事务、不可变历史和错误语义边界。"}
+{"file":".trellis/spec/frontend/index.md","reason":"T6 前端包边界、生成合同与适用规范入口。"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"约束 409/revision 恢复、显式 reload 与 query state owner。"}
+{"file":".trellis/spec/frontend/type-safety.md","reason":"约束 generated client、开放 error code 与本地 projection 类型。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"约束 T6 定向测试、typecheck、api:check 与 production artifact。"}
+{"file":".trellis/tasks/09-04-integrity-error-domain-mapping/research/database-constraint-matrix.md","reason":"数据库 enforcement 分类、诊断协议和当前/目标映射的审计说明。"}
+{"file":".trellis/tasks/09-04-integrity-error-domain-mapping/research/database-constraint-companion.csv","reason":"逐 enforcement row 的 service、operation、当前处理、目标处理和测试 owner 权威输入。"}
+{"file":".trellis/tasks/09-04-integrity-error-domain-mapping/research/backend-integrity-paths.md","reason":"所有 IntegrityError catch、flush/commit 和全局 handler 路径基线。"}
+{"file":".trellis/tasks/09-04-integrity-error-domain-mapping/research/revision-conflict-producer-inventory.md","reason":"区分真实 revision、批准的 snapshot stale、误用和待决 producer。"}
+{"file":".trellis/tasks/09-04-integrity-error-domain-mapping/research/transaction-handler-design.md","reason":"root rollback、SAVEPOINT 前置 flush、未知异常和副作用所有权设计。"}
+{"file":".trellis/tasks/09-04-integrity-error-domain-mapping/research/api-frontend-impact.md","reason":"公共 response contract、generated client 与前端 409 consumer 影响证据。"}
+{"file":".trellis/tasks/09-04-integrity-error-domain-mapping/research/testing-strategy.md","reason":"T1–T6 的 production/test/required-command 对照与一次性门禁。"}

@@ -974,3 +974,40 @@
 ### Next Steps
 
 - 等待用户选择 baseline matrix 中下一项独立修复；继续暂缓 integrity-error-domain-mapping。
+
+
+## Session 211: 完成 Unknown IntegrityError 默认失败边界
+
+**Date**: 2026-09-04
+**Task**: 完成 Unknown IntegrityError 默认失败边界
+**Branch**: `main`
+
+### Summary
+
+删除全局 IntegrityError 到 REVISION_CONFLICT 的错误映射，使未知数据库完整性错误进入框架默认 500 边界；真实 PostgreSQL HTTP sentinel、相关回归、静态检查、唯一正式合同门与独立 Review 均通过，父规划任务保持 planning。
+
+### Main Changes
+
+- 删除应用级 IntegrityError handler 及注册，不新增公共错误码、稳定 500 信封或 OpenAPI/generated client 变更。
+- 新增真实 PostgreSQL duplicate AI Model sentinel，证明 500 不泄漏、无第二条模型、无成功审计、revision 不变且后续独立查询可用。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `43c252da` | (see git log) |
+
+### Testing
+
+- [OK] runtime metadata 与 contract unit tests：401 passed。
+- [OK] AI channel PostgreSQL integration：5 passed；Platform Type mapper/revision 回归：2 passed。
+- [OK] Ruff、mypy、git diff --check 通过；本任务唯一一次 make contract-check 退出 0。
+- [OK] 独立 trellis-check：PASS，无 MEDIUM 及以上 finding，未修改代码或测试。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 仅 T1 已归档；父规划任务 09-04-integrity-error-domain-mapping 保持 planning，后续按独立授权推进。

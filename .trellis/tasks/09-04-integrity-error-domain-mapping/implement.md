@@ -149,27 +149,36 @@ T2-C 还必须先处理 `putContentHumanizationPrompt` 的已知语义误用：`
 
 ### 3.1 目标
 
-- 给重复 username 选择并冻结准确 domain code；预检与 `uq_users_username` race 返回一致结果。
-- 保留 delete user 的 command-scoped `23503 -> USER_IN_USE`；用预检后新增引用的 race 证明最终数据库防线。
+- 复用已获批 T3-C 的 `409 USER_USERNAME_EXISTS`；预检与 `23505 + uq_users_username` race 返回一致结果，其他 diagnostics 保持 unknown。
+- 保留 delete user 的 command-scoped `23503 -> USER_IN_USE` 固定 fallback；用两种确定性锁序场景和一条独立真实 `23503` fallback sentinel 证明最终数据库防线，不再要求引用穿透现有 User row lock。
 
 ### 3.2 文件边界
 
 - `backend/app/services/identity.py`
-- `backend/app/routers/identity.py`（仅 T3-C 要求 runtime metadata 时）
 - `backend/tests/integration/test_identity_management.py`
-- `backend/tests/unit/test_runtime_response_metadata.py`
+- `frontend/src/domains/identity/user-list.model.ts`
+- `frontend/src/domains/identity/user-list.model.test.ts`
 - `frontend/src/domains/identity/user-list-page.tsx`
 - `frontend/src/domains/identity/user-list-page.test.tsx`
+- `contracts/database.md`
+- `docs/frontend-v2/05-business-actions-state-and-api-contract.md`
+- `.trellis/spec/backend/database-guidelines.md`
+- `.trellis/spec/frontend/state-management.md`
 
-进入 T3 前必须完成 T3-C identity contract decision；T3-C 边界为 `contracts/openapi.yaml`（仅 wire 变化时）、`docs/frontend-v2/05-business-actions-state-and-api-contract.md`、`.trellis/spec/backend/error-handling.md`、`backend/tests/unit/test_contract.py`、`frontend/src/domains/identity/user-list.model.test.ts`。generated schema 只在 OpenAPI 实际变化时同步。
+`contracts/openapi.yaml`、`backend/app/routers/identity.py`、`backend/tests/unit/test_contract.py`、`backend/tests/unit/test_runtime_response_metadata.py`、`backend/app/errors.py`、identity ORM/migration schema、`frontend/src/domains/identity/user.api.ts`、generated schema 与 `.trellis/spec/backend/error-handling.md` 只作为零 diff validation targets。
+
+进入 T3 前必须完成并批准 `09-05-identity-integrity-error-contract-decision` 的 targeted re-review；该 T3-C 永不执行 `task.py start`。批准后另建 `identity-integrity-error-domain-mapping` implementation child，由新 child 自有 reviewable 三份规划与真实 `implement.jsonl`/`check.jsonl`，显式写明对 T3-C 的依赖，并只启动新 child。
 
 ### 3.3 Required validation
 
 - duplicate username 双事务 race：恰一 user + 一准确 field/domain error；
-- 删除 FK race：`23503`、`USER_IN_USE`、references、用户仍存在；
+- 删除锁序 A：引用事务先持有真实 FK row，delete 被数据库观测为等待；引用提交后 delete precheck 返回 `USER_IN_USE + details.references`，用户与引用仍存在；
+- 删除锁序 B：delete 已持有 User `FOR UPDATE` 并完成零引用 precheck，引用写入被数据库观测为等待；delete 提交后引用方得到真实 `23503`，最终无用户、无引用、无悬空行；
+- delete fallback sentinel：已提交真实引用加 test-only counter bypass，使 delete flush 命中真实 `23503`，返回固定 `USER_IN_USE` message 与 `{}`，用户/引用仍存在；
+- 锁序测试使用 test-only event/barrier、`pg_stat_activity` wait 证据和有界 timeout，不使用 `sleep`，不修改 production lock；
 - 无 `user.created`/`user.deleted` 成功审计残留；
 - 真正 expected_revision 仍为 `REVISION_CONFLICT`；
-- contract/generated/frontend projection 一致。
+- contract/runtime/generated 零 diff，frontend projection、定向 ESLint、backend Ruff/mypy、`git diff --check` 一致通过；正式 gate 只运行一次，`make verify` 若被选择则替代单独 `make contract-check`。
 
 ## Phase 4：T4 content/generation constraints
 

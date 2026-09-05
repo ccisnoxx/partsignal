@@ -165,6 +165,125 @@ describe('UserListPage', () => {
     expect(document.body).not.toHaveTextContent('create-secret-123');
   });
 
+  it('用户名 duplicate 只定位 username，保留安全草稿、清除密码并允许显式重试', async () => {
+    const list = result([]);
+    const get = vi.spyOn(api, 'GET').mockResolvedValue({ data: list, response: Response.json(list) } as never);
+    const created = managedUser({ id: '00000000-0000-4000-8000-000000000010', username: 'renamed-user', revision: 0 });
+    const post = vi.spyOn(api, 'POST').mockResolvedValueOnce({
+      error: {
+        error: {
+          code: 'USER_USERNAME_EXISTS',
+          message: '服务端用户名冲突',
+          details: {
+            errors: [{ loc: ['body', 'username'], msg: '用户名已存在', type: 'user_username_exists' }],
+          },
+          request_id: 'req-user-duplicate',
+        },
+      },
+      response: Response.json({}, { status: 409 }),
+    } as never).mockResolvedValueOnce({
+      data: created,
+      response: Response.json(created, { status: 201 }),
+    } as never);
+    const { queryClient } = renderUsers();
+
+    await userEvent.click(await screen.findByRole('button', { name: '新增用户' }));
+    const dialog = await screen.findByRole('dialog', { name: '新增用户' });
+    const username = within(dialog).getByRole('textbox', { name: '用户名' });
+    const displayName = within(dialog).getByRole('textbox', { name: '显示名称' });
+    const password = within(dialog).getByLabelText(/临时密码/);
+    await userEvent.type(username, 'existing-user');
+    await userEvent.type(displayName, '保留名称');
+    await userEvent.type(password, 'duplicate-secret-123');
+    await userEvent.click(within(dialog).getByRole('combobox', { name: '账号类型' }));
+    await userEvent.click(await screen.findByRole('option', { name: 'ADMIN' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: '创建用户' }));
+
+    expect(await within(dialog).findByText('用户名已存在', { selector: 'p' })).toBeInTheDocument();
+    expect(within(dialog).getByRole('alert', { name: '请修正以下问题' })).toHaveTextContent('请求 ID：req-user-duplicate');
+    expect(username).toHaveAttribute('aria-invalid', 'true');
+    expect(username).toHaveAttribute('aria-describedby', 'user-create-username-error');
+    expect(username).toHaveFocus();
+    expect(username).toHaveValue('existing-user');
+    expect(displayName).toHaveValue('保留名称');
+    expect(within(dialog).getByRole('combobox', { name: '账号类型' })).toHaveTextContent('ADMIN');
+    expect(password).toHaveValue('');
+    expect(get).toHaveBeenCalledOnce();
+    expect(post).toHaveBeenCalledOnce();
+    await waitFor(() => expect(JSON.stringify(
+      queryClient.getMutationCache().getAll().map((item) => item.state.variables),
+    )).not.toContain('duplicate-secret-123'));
+    expect(post).toHaveBeenNthCalledWith(1, '/api/v1/users', {
+      body: {
+        username: 'existing-user',
+        display_name: '保留名称',
+        temporary_password: 'duplicate-secret-123',
+        account_type: 'ADMIN',
+      },
+      params: { header: { 'X-CSRF-Token': auth.csrfToken } },
+    });
+
+    await userEvent.clear(username);
+    await userEvent.type(username, 'renamed-user');
+    await userEvent.type(password, 'retry-secret-123');
+    await userEvent.click(within(dialog).getByRole('button', { name: '创建用户' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '新增用户' })).not.toBeInTheDocument());
+    expect(post).toHaveBeenCalledTimes(2);
+    expect(post).toHaveBeenNthCalledWith(2, '/api/v1/users', {
+      body: {
+        username: 'renamed-user',
+        display_name: '保留名称',
+        temporary_password: 'retry-secret-123',
+        account_type: 'ADMIN',
+      },
+      params: { header: { 'X-CSRF-Token': auth.csrfToken } },
+    });
+    expect(get).toHaveBeenCalledTimes(2);
+  });
+
+  it('malformed 或未知 duplicate diagnostics 只显示 summary，不猜字段且清除密码', async () => {
+    const list = result([]);
+    const get = vi.spyOn(api, 'GET').mockResolvedValue({ data: list, response: Response.json(list) } as never);
+    const post = vi.spyOn(api, 'POST').mockResolvedValue({
+      error: {
+        error: {
+          code: 'USER_USERNAME_EXISTS',
+          message: '用户名已存在，请检查输入',
+          details: { errors: [{ loc: ['body', 'display_name'], msg: '用户名已存在' }] },
+          request_id: 'req-user-malformed',
+        },
+      },
+      response: Response.json({}, { status: 409 }),
+    } as never);
+    const { queryClient } = renderUsers();
+
+    await userEvent.click(await screen.findByRole('button', { name: '新增用户' }));
+    const dialog = await screen.findByRole('dialog', { name: '新增用户' });
+    const username = within(dialog).getByRole('textbox', { name: '用户名' });
+    const displayName = within(dialog).getByRole('textbox', { name: '显示名称' });
+    const password = within(dialog).getByLabelText(/临时密码/);
+    await userEvent.type(username, 'existing-user');
+    await userEvent.type(displayName, '保留名称');
+    await userEvent.type(password, 'malformed-secret-123');
+    await userEvent.click(within(dialog).getByRole('button', { name: '创建用户' }));
+
+    const summary = await within(dialog).findByRole('alert', { name: '请修正以下问题' });
+    expect(summary).toHaveTextContent('用户名已存在，请检查输入');
+    expect(summary).toHaveTextContent('请求 ID：req-user-malformed');
+    expect(username).toHaveAttribute('aria-invalid', 'false');
+    expect(username).not.toHaveAttribute('aria-describedby', 'user-create-username-error');
+    expect(username).toHaveValue('existing-user');
+    expect(displayName).toHaveValue('保留名称');
+    expect(within(dialog).getByRole('combobox', { name: '账号类型' })).toHaveTextContent('ENGINEER');
+    expect(password).toHaveValue('');
+    expect(screen.getByRole('dialog', { name: '新增用户' })).toBeInTheDocument();
+    expect(get).toHaveBeenCalledOnce();
+    expect(post).toHaveBeenCalledOnce();
+    await waitFor(() => expect(JSON.stringify(
+      queryClient.getMutationCache().getAll().map((item) => item.state.variables),
+    )).not.toContain('malformed-secret-123'));
+  });
+
   it('reset 409 保留对话框与输入、不重放，reload 时销毁密码', async () => {
     const target = managedUser({
       must_change_password: true,

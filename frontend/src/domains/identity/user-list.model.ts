@@ -8,6 +8,7 @@ type UserList = components['schemas']['UserList'];
 type AccountType = components['schemas']['AccountType'];
 type UserStatus = components['schemas']['UserStatus'];
 type UserListApiParams = NonNullable<operations['listUsers']['parameters']['query']>;
+type ErrorDetail = components['schemas']['ErrorDetail'];
 type UserAvailableAction = User['available_actions'][number];
 type UserCommand =
   | 'edit-user'
@@ -233,6 +234,46 @@ type UserCreateFormValues = z.output<typeof userCreateFormSchema>;
 type UserEditFormValues = z.output<typeof userEditFormSchema>;
 type ResetPasswordFormValues = z.output<typeof resetPasswordFormSchema>;
 
+type UserCreateErrorMapping =
+  | { kind: 'username'; fieldMessage: string; requestId?: string }
+  | { kind: 'summary'; formMessage: string; requestId?: string };
+
+function mapUserCreateError(detail: ErrorDetail): UserCreateErrorMapping {
+  const requestId = isRecord(detail) && typeof detail.request_id === 'string'
+    ? detail.request_id
+    : undefined;
+  const message = isRecord(detail) && typeof detail.message === 'string'
+    ? detail.message
+    : '创建用户失败';
+  const details = isRecord(detail) && isRecord(detail.details) ? detail.details : undefined;
+  const issues = details?.errors;
+  const canonicalMessage = Array.isArray(issues)
+    ? issues.reduce<string | undefined>((found, issue) => {
+      if (found !== undefined || !isRecord(issue) || !Array.isArray(issue.loc)) return found;
+      if (
+        issue.loc.length === 2
+        && issue.loc[0] === 'body'
+        && issue.loc[1] === 'username'
+        && typeof issue.msg === 'string'
+      ) return issue.msg;
+      return found;
+    }, undefined)
+    : undefined;
+
+  if (isRecord(detail) && detail.code === 'USER_USERNAME_EXISTS' && canonicalMessage !== undefined) {
+    return {
+      kind: 'username',
+      fieldMessage: canonicalMessage.trim() || message.trim() || '用户名已存在',
+      requestId,
+    };
+  }
+  return { kind: 'summary', formMessage: message, requestId };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object');
+}
+
 function assertNever(value: never): never {
   throw new Error(`用户列表收到未处理的合同 token：${String(value)}`);
 }
@@ -242,6 +283,7 @@ export {
   accountTypeValues,
   canonicalUserSearchRecord,
   hasUserFilters,
+  mapUserCreateError,
   isCanonicalUserSearch,
   normalizeUserPageSize,
   resetPasswordFormSchema,
@@ -259,6 +301,7 @@ export type {
   User,
   UserCommand,
   UserCreateFormValues,
+  UserCreateErrorMapping,
   UserEditFormValues,
   UserList,
   UserListApiParams,

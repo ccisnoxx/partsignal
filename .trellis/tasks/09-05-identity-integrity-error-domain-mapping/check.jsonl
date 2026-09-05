@@ -1,0 +1,11 @@
+{"file":".trellis/spec/backend/index.md","reason":"复核 backend 变更覆盖规范入口定义的质量门槛。"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"复核 exact diagnostics allowlist、unknown 500、ErrorEnvelope 与 request ID 无漂移。"}
+{"file":".trellis/spec/backend/database-guidelines.md","reason":"复核事务、锁序、审计原子性与真实 PostgreSQL 23505/23503 证据；按 research 路由完整读取。"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"执行 backend review、lint、类型和测试质量检查。"}
+{"file":".trellis/spec/frontend/index.md","reason":"复核 canonical frontend 规范和开发门槛。"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"复核安全草稿、secret 清除、字段投影、request ID 与显式重试；按 research 路由完整读取。"}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"复核字段错误、summary、焦点和可访问性交互。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"执行 frontend 测试、ESLint、typecheck 与回归检查。"}
+{"file":".trellis/spec/frontend/type-safety.md","reason":"复核 generated ErrorDetail 的类型边界和 malformed fallback。"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"复核 database 到 UI 的完整数据流和 owner 一致性。"}
+{"file":".trellis/tasks/09-05-identity-integrity-error-domain-mapping/research/approved-contract-and-context-routing.md","reason":"复核实现是否遵守获批 T3-C 合同、零 diff owner 与完整上下文要求。"}

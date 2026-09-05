@@ -7,8 +7,11 @@ import io
 import os
 import subprocess
 import sys
+import threading
+import time
 import uuid
 from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -20,7 +23,8 @@ import psycopg
 import pytest
 from fastapi.testclient import TestClient
 from psycopg import sql
-from sqlalchemy import create_engine, event, select
+from sqlalchemy import create_engine, event, select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 import app.services.identity as identity_service
@@ -28,13 +32,16 @@ from app.audit import contains_sensitive_key
 from app.config import settings
 from app.db import get_db
 from app.deps import get_current_session
+from app.errors import AppError
 from app.main import app
 from app.models.configuration import PlatformType
 from app.models.identity import AuditLog, SessionRecord, User
 from app.models.product_facts import Product
 from app.schemas.common import (
+    AccountType,
     UserBulkStatusItem,
     UserBulkStatusRequest,
+    UserCreate,
     UserStatus,
 )
 from app.security import hash_token
@@ -80,6 +87,25 @@ def temporary_database() -> Iterator[str]:
             admin_connection.execute(
                 sql.SQL("DROP DATABASE {} WITH (FORCE)").format(sql.Identifier(database_name))
             )
+
+
+def _wait_for_postgresql_lock(
+    session_factory: sessionmaker[Session], pid: int, timeout_seconds: float = 10
+) -> None:
+    """在有界时间内从 pg_stat_activity 确认指定会话确实等待锁。"""
+    deadline = time.monotonic() + timeout_seconds
+    with session_factory() as observer:
+        while time.monotonic() < deadline:
+            waiting = observer.execute(
+                text(
+                    "SELECT 1 FROM pg_stat_activity "
+                    "WHERE pid = :pid AND wait_event_type = 'Lock'"
+                ),
+                {"pid": pid},
+            ).scalar_one_or_none()
+            if waiting == 1:
+                return
+    raise AssertionError(f"PostgreSQL 会话 {pid} 未在限定时间内进入锁等待")
 
 
 @pytest.mark.integration
@@ -445,6 +471,701 @@ def test_user_query_export_and_temporary_password_flow() -> None:
 
 
 @pytest.mark.integration
+def test_create_user_duplicate_precheck_and_postgresql_race() -> None:
+    """预检与 PostgreSQL 唯一约束竞态共享领域错误，且失败事务可继续使用。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+        with session_factory() as db:
+            actor = User(
+                username="identity-race-admin",
+                display_name="身份竞态管理员",
+                password_hash="not-used",
+                account_type="ADMIN",
+            )
+            existing = User(
+                username="normalized-duplicate",
+                display_name="已有用户",
+                password_hash="not-used",
+                account_type="ENGINEER",
+            )
+            db.add_all([actor, existing])
+            db.commit()
+            actor_id = actor.id
+
+        csrf_token = "identity-race-csrf-token-more-than-32-characters"
+
+        def override_db() -> Iterator[Session]:
+            with session_factory() as db:
+                yield db
+
+        with session_factory() as db:
+            actor_for_http = db.get(User, actor_id)
+            assert actor_for_http is not None
+        current_session = SimpleNamespace(
+            user=actor_for_http,
+            csrf_hash=hash_token(csrf_token),
+            last_seen_at=None,
+        )
+        app.dependency_overrides[get_db] = override_db
+        app.dependency_overrides[get_current_session] = lambda: current_session
+        client = TestClient(app)
+        try:
+            duplicate = client.post(
+                "/api/v1/users",
+                headers={
+                    "X-CSRF-Token": csrf_token,
+                    "X-Request-ID": "identity-precheck-request",
+                },
+                json={
+                    "username": "  NORMALIZED-DUPLICATE  ",
+                    "display_name": "重复用户",
+                    "temporary_password": "DuplicatePass!2026",
+                    "account_type": "ENGINEER",
+                },
+            )
+            assert duplicate.status_code == 409
+            duplicate_error = duplicate.json()["error"]
+            assert duplicate_error == {
+                "code": "USER_USERNAME_EXISTS",
+                "message": "用户名已存在",
+                "details": {
+                    "errors": [
+                        {
+                            "loc": ["body", "username"],
+                            "msg": "用户名已存在",
+                            "type": "user_username_exists",
+                        }
+                    ]
+                },
+                "request_id": "identity-precheck-request",
+            }
+        finally:
+            app.dependency_overrides.clear()
+            client.close()
+
+        race_barrier = threading.Barrier(2)
+
+        def wait_after_username_precheck(
+            db: Session, _flush_context: Any, _instances: Any
+        ) -> None:
+            if db.info.get("identity_race") and any(
+                isinstance(instance, User) for instance in db.new
+            ):
+                race_barrier.wait(timeout=10)
+
+        event.listen(Session, "before_flush", wait_after_username_precheck)
+
+        def run_race(
+            request_id: str,
+        ) -> tuple[str, AppError | None, BaseException | uuid.UUID | None]:
+            db = session_factory()
+            db.info["identity_race"] = True
+            try:
+                actor = db.get(User, actor_id)
+                assert actor is not None
+                payload = UserCreate(
+                    username="  RACE-NORMALIZED  ",
+                    display_name="竞态用户",
+                    temporary_password="RacePassword!2026",
+                    account_type=AccountType.ENGINEER,
+                )
+                user = identity_service.create_user(
+                    db=db, payload=payload, actor=actor, request_id=request_id
+                )
+                return "success", None, user.id
+            except AppError as error:
+                cause = error.__cause__
+                # 服务层已回滚唯一冲突；同一失败 Session 必须仍能读取事务数据。
+                assert db.scalar(select(User.id).where(User.id == actor_id)) == actor_id
+                return "app_error", error, cause
+            except Exception as error:
+                return "exception", None, error
+            finally:
+                db.close()
+
+        try:
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                futures = [
+                    executor.submit(run_race, "identity-race-one"),
+                    executor.submit(run_race, "identity-race-two"),
+                ]
+                results = [future.result(timeout=20) for future in futures]
+        finally:
+            event.remove(Session, "before_flush", wait_after_username_precheck)
+
+        assert sorted(result[0] for result in results) == ["app_error", "success"]
+        failure = next(result for result in results if result[0] == "app_error")
+        failure_error = failure[1]
+        assert failure_error is not None
+        assert failure_error.status_code == 409
+        assert failure_error.code == "USER_USERNAME_EXISTS"
+        assert failure_error.message == "用户名已存在"
+        assert failure_error.details == duplicate_error["details"]
+        cause = failure[2]
+        assert cause is not None
+        assert getattr(getattr(cause, "orig", None), "sqlstate", None) == "23505"
+        assert (
+            getattr(getattr(getattr(cause, "orig", None), "diag", None), "constraint_name", None)
+            == "uq_users_username"
+        )
+
+        winner_id = next(result[2] for result in results if result[0] == "success")
+        assert isinstance(winner_id, uuid.UUID)
+        with session_factory() as db:
+            matching_users = list(
+                db.scalars(select(User).where(User.username == "race-normalized"))
+            )
+            assert len(matching_users) == 1
+            assert matching_users[0].id == winner_id
+            created_audits = list(
+                db.scalars(
+                    select(AuditLog).where(
+                        AuditLog.action == "user.created",
+                        AuditLog.request_id.in_(
+                            ["identity-race-one", "identity-race-two"]
+                        ),
+                    )
+                )
+            )
+            assert len(created_audits) == 1
+            assert created_audits[0].target_id == str(winner_id)
+            assert list(db.scalars(select(SessionRecord))) == []
+
+        with session_factory() as db:
+            assert db.scalar(select(User.id).where(User.id == actor_id)) == actor_id
+        engine.dispose()
+
+
+@pytest.mark.integration
+def test_delete_user_real_foreign_key_fallback_is_atomic(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """即使引用计数投影失效，真实 PostgreSQL 23503 仍返回固定删除错误并回滚。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+        with session_factory() as db:
+            actor = User(
+                username="delete-fallback-admin",
+                display_name="删除回退管理员",
+                password_hash="not-used",
+                account_type="ADMIN",
+            )
+            target = User(
+                username="delete-fallback-target",
+                display_name="删除回退目标",
+                password_hash="not-used",
+                account_type="ENGINEER",
+                is_active=False,
+            )
+            db.add_all([actor, target])
+            db.flush()
+            reference = PlatformType(
+                name="删除回退真实引用",
+                slug=f"delete-fallback-{uuid.uuid4().hex[:12]}",
+                created_by=target.id,
+            )
+            session = SessionRecord(
+                token_hash=hash_token("delete-fallback-session"),
+                csrf_hash=hash_token("delete-fallback-csrf"),
+                user_id=target.id,
+                expires_at=datetime.now(UTC) + timedelta(hours=1),
+            )
+            db.add_all([reference, session])
+            db.commit()
+            target_id = target.id
+            reference_id = reference.id
+
+        def skip_reference_projection(
+            _db: Session, _user_ids: list[uuid.UUID]
+        ) -> dict[uuid.UUID, int]:
+            return {}
+
+        monkeypatch.setattr(
+            identity_service,
+            "_user_business_reference_counts",
+            skip_reference_projection,
+        )
+        with session_factory() as db:
+            stored_actor = db.get(User, actor.id)
+            assert stored_actor is not None
+            with pytest.raises(AppError) as raised:
+                identity_service.delete_user(
+                    db=db,
+                    user_id=target_id,
+                    expected_revision=0,
+                    actor=stored_actor,
+                    request_id="delete-fallback-request",
+                )
+            error = raised.value
+            assert error.status_code == 409
+            assert error.code == "USER_IN_USE"
+            assert error.message == "用户仍有业务历史引用，不能删除"
+            assert error.details == {}
+            cause = error.__cause__
+            assert cause is not None
+            assert getattr(getattr(cause, "orig", None), "sqlstate", None) == "23503"
+            assert db.get(User, target_id) is not None
+            assert db.get(PlatformType, reference_id) is not None
+            assert db.scalar(
+                select(SessionRecord.id).where(SessionRecord.user_id == target_id)
+            ) is not None
+            assert db.scalar(
+                select(AuditLog.id).where(
+                    AuditLog.action == "user.deleted",
+                    AuditLog.request_id == "delete-fallback-request",
+                )
+            ) is None
+        with session_factory() as db:
+            assert db.get(User, target_id) is not None
+            assert db.get(PlatformType, reference_id) is not None
+            assert db.scalar(
+                select(SessionRecord.id).where(SessionRecord.user_id == target_id)
+            ) is not None
+            assert db.scalar(
+                select(AuditLog.id).where(
+                    AuditLog.action == "user.deleted",
+                    AuditLog.request_id == "delete-fallback-request",
+                )
+            ) is None
+        engine.dispose()
+
+
+@pytest.mark.integration
+def test_delete_user_non_foreign_key_integrity_error_is_not_mapped() -> None:
+    """删除 flush 中的其他真实完整性错误必须原抛，不能伪装成 USER_IN_USE。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+        duplicate_slug = f"delete-unknown-{uuid.uuid4().hex[:12]}"
+        with session_factory() as db:
+            actor = User(
+                username="delete-unknown-admin",
+                display_name="删除未知错误管理员",
+                password_hash="not-used",
+                account_type="ADMIN",
+            )
+            target = User(
+                username="delete-unknown-target",
+                display_name="删除未知错误目标",
+                password_hash="not-used",
+                account_type="ENGINEER",
+                is_active=False,
+            )
+            db.add_all([actor, target])
+            db.flush()
+            existing_type = PlatformType(
+                name="删除未知错误既有分类",
+                slug=duplicate_slug,
+                created_by=actor.id,
+            )
+            db.add(existing_type)
+            db.commit()
+            actor_id = actor.id
+            target_id = target.id
+            existing_type_id = existing_type.id
+
+        with session_factory() as db:
+            injected = False
+
+            def inject_unrelated_unique_conflict(
+                session: Session, _flush_context: Any, _instances: Any
+            ) -> None:
+                nonlocal injected
+                if injected or not any(
+                    isinstance(instance, User) and instance.id == target_id
+                    for instance in session.deleted
+                ):
+                    return
+                injected = True
+                session.add(
+                    PlatformType(
+                        name="删除未知错误重复分类",
+                        slug=duplicate_slug,
+                        created_by=actor_id,
+                    )
+                )
+
+            event.listen(db, "before_flush", inject_unrelated_unique_conflict)
+            try:
+                stored_actor = db.get(User, actor_id)
+                assert stored_actor is not None
+                with pytest.raises(IntegrityError) as raised:
+                    identity_service.delete_user(
+                        db=db,
+                        user_id=target_id,
+                        expected_revision=0,
+                        actor=stored_actor,
+                        request_id="delete-unknown-request",
+                    )
+                error = raised.value
+                assert getattr(error.orig, "sqlstate", None) == "23505"
+                assert (
+                    getattr(getattr(error.orig, "diag", None), "constraint_name", None)
+                    == "uq_platform_types_slug"
+                )
+                db.rollback()
+                assert db.get(User, target_id) is not None
+                assert db.get(PlatformType, existing_type_id) is not None
+            finally:
+                event.remove(db, "before_flush", inject_unrelated_unique_conflict)
+
+        with session_factory() as db:
+            assert db.get(User, target_id) is not None
+            assert db.get(PlatformType, existing_type_id) is not None
+            assert db.scalar(
+                select(AuditLog.id).where(
+                    AuditLog.action == "user.deleted",
+                    AuditLog.request_id == "delete-unknown-request",
+                )
+            ) is None
+        engine.dispose()
+
+
+@pytest.mark.integration
+def test_delete_user_reference_transaction_wins_and_is_rechecked() -> None:
+    """引用事务先行时，删除等待后必须返回丰富预检错误并保留双方记录。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+        with session_factory() as db:
+            actor = User(
+                username="delete-lock-a-admin",
+                display_name="删除锁场景 A 管理员",
+                password_hash="not-used",
+                account_type="ADMIN",
+            )
+            target = User(
+                username="delete-lock-a-target",
+                display_name="删除锁场景 A 目标",
+                password_hash="not-used",
+                account_type="ENGINEER",
+                is_active=False,
+            )
+            db.add_all([actor, target])
+            db.commit()
+            actor_id = actor.id
+            target_id = target.id
+
+        reference_db = session_factory()
+        reference_id = uuid.uuid4()
+        reference_db.add(
+            PlatformType(
+                id=reference_id,
+                name="删除锁场景 A 引用",
+                slug=f"delete-lock-a-{uuid.uuid4().hex[:12]}",
+                created_by=target_id,
+            )
+        )
+        reference_db.flush()
+        lock_requested = threading.Event()
+        worker_pid: dict[str, int] = {}
+
+        def observe_delete_lock(
+            connection: Any,
+            _cursor: Any,
+            statement: str,
+            _parameters: Any,
+            _context: Any,
+            _executemany: bool,
+        ) -> None:
+            if (
+                connection.info.get("delete_lock_a_worker")
+                and statement.lstrip().upper().startswith("LOCK TABLE USERS")
+            ):
+                lock_requested.set()
+
+        event.listen(engine, "before_cursor_execute", observe_delete_lock)
+
+        def delete_worker() -> AppError | None:
+            with session_factory() as db:
+                db.connection().info["delete_lock_a_worker"] = True
+                worker_pid["pid"] = int(db.scalar(text("SELECT pg_backend_pid()")))
+                stored_actor = db.get(User, actor_id)
+                assert stored_actor is not None
+                try:
+                    identity_service.delete_user(
+                        db=db,
+                        user_id=target_id,
+                        expected_revision=0,
+                        actor=stored_actor,
+                        request_id="delete-lock-a-request",
+                    )
+                except AppError as error:
+                    return error
+                return None
+
+        try:
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                try:
+                    future = executor.submit(delete_worker)
+                    assert lock_requested.wait(timeout=10)
+                    _wait_for_postgresql_lock(session_factory, worker_pid["pid"])
+                    reference_db.commit()
+                    error = future.result(timeout=20)
+                finally:
+                    reference_db.close()
+        finally:
+            event.remove(engine, "before_cursor_execute", observe_delete_lock)
+
+        assert error is not None
+        assert error.code == "USER_IN_USE"
+        assert error.message == "用户仍被以下对象引用：业务历史（1）"
+        assert error.details == {
+            "references": [{"type": "USER_BUSINESS_HISTORY", "count": 1}]
+        }
+        with session_factory() as db:
+            assert db.get(User, target_id) is not None
+            assert db.get(PlatformType, reference_id) is not None
+            assert db.scalar(
+                select(AuditLog.id).where(
+                    AuditLog.action == "user.deleted",
+                    AuditLog.request_id == "delete-lock-a-request",
+                )
+            ) is None
+        engine.dispose()
+
+
+@pytest.mark.integration
+def test_delete_user_lock_wins_and_reference_gets_real_foreign_key_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """删除事务先锁定目标时，后续引用写入必须等待并得到真实 23503。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+        with session_factory() as db:
+            actor = User(
+                username="delete-lock-b-admin",
+                display_name="删除锁场景 B 管理员",
+                password_hash="not-used",
+                account_type="ADMIN",
+            )
+            target = User(
+                username="delete-lock-b-target",
+                display_name="删除锁场景 B 目标",
+                password_hash="not-used",
+                account_type="ENGINEER",
+                is_active=False,
+            )
+            db.add_all([actor, target])
+            db.commit()
+            actor_id = actor.id
+            target_id = target.id
+
+        precheck_done = threading.Event()
+        release_delete = threading.Event()
+        original_counts = identity_service._user_business_reference_counts
+
+        def pause_after_precheck(
+            db: Session, user_ids: list[uuid.UUID]
+        ) -> dict[uuid.UUID, int]:
+            counts = original_counts(db, user_ids)
+            if db.info.get("delete_lock_b_worker"):
+                precheck_done.set()
+                assert release_delete.wait(timeout=10)
+            return counts
+
+        monkeypatch.setattr(
+            identity_service,
+            "_user_business_reference_counts",
+            pause_after_precheck,
+        )
+        reference_id = uuid.uuid4()
+        insert_started = threading.Event()
+        reference_pid: dict[str, int] = {}
+
+        def observe_reference_insert(
+            connection: Any,
+            _cursor: Any,
+            statement: str,
+            _parameters: Any,
+            _context: Any,
+            _executemany: bool,
+        ) -> None:
+            if (
+                connection.info.get("delete_lock_b_reference")
+                and statement.lstrip().upper().startswith("INSERT INTO PLATFORM_TYPES")
+            ):
+                insert_started.set()
+
+        event.listen(engine, "before_cursor_execute", observe_reference_insert)
+
+        def delete_worker() -> str:
+            with session_factory() as db:
+                db.connection().info["delete_lock_b_worker"] = True
+                db.info["delete_lock_b_worker"] = True
+                stored_actor = db.get(User, actor_id)
+                assert stored_actor is not None
+                identity_service.delete_user(
+                    db=db,
+                    user_id=target_id,
+                    expected_revision=0,
+                    actor=stored_actor,
+                    request_id="delete-lock-b-request",
+                )
+                return "deleted"
+
+        def reference_worker() -> tuple[str, IntegrityError | None]:
+            reference_db = session_factory()
+            try:
+                reference_db.connection().info["delete_lock_b_reference"] = True
+                reference_pid["pid"] = int(
+                    reference_db.scalar(text("SELECT pg_backend_pid()"))
+                )
+                reference_db.add(
+                    PlatformType(
+                        id=reference_id,
+                        name="删除锁场景 B 引用",
+                        slug=f"delete-lock-b-{uuid.uuid4().hex[:12]}",
+                        created_by=target_id,
+                    )
+                )
+                try:
+                    reference_db.flush()
+                except IntegrityError as error:
+                    reference_db.rollback()
+                    return "foreign_key_error", error
+                return "unexpected_success", None
+            finally:
+                reference_db.close()
+
+        try:
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                delete_future = executor.submit(delete_worker)
+                assert precheck_done.wait(timeout=10)
+                reference_future = executor.submit(reference_worker)
+                assert insert_started.wait(timeout=10)
+                _wait_for_postgresql_lock(session_factory, reference_pid["pid"])
+                release_delete.set()
+                assert delete_future.result(timeout=20) == "deleted"
+                reference_result, reference_error = reference_future.result(timeout=20)
+        finally:
+            release_delete.set()
+            event.remove(engine, "before_cursor_execute", observe_reference_insert)
+
+        assert reference_result == "foreign_key_error"
+        assert reference_error is not None
+        assert reference_error.orig.sqlstate == "23503"
+        with session_factory() as db:
+            assert db.get(User, target_id) is None
+            assert db.get(PlatformType, reference_id) is None
+            assert db.scalar(
+                select(AuditLog.id).where(
+                    AuditLog.action == "user.deleted",
+                    AuditLog.request_id == "delete-lock-b-request",
+                )
+            ) is not None
+        engine.dispose()
+
+
+@pytest.mark.integration
+def test_create_user_unknown_unique_constraint_is_not_mapped() -> None:
+    """真实的非用户名唯一冲突继续原抛，避免扩大 username allowlist。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+        with session_factory() as db:
+            actor = User(
+                username="identity-unknown-admin",
+                display_name="未知错误管理员",
+                password_hash="not-used",
+                account_type="ADMIN",
+            )
+            db.add(actor)
+            db.commit()
+            actor_id = actor.id
+
+        def force_primary_key_collision(
+            _mapper: Any, _connection: Any, user: User
+        ) -> None:
+            if user.username == "unknown-pk-sentinel":
+                user.id = actor_id
+
+        event.listen(User, "before_insert", force_primary_key_collision)
+        try:
+            with session_factory() as db:
+                actor = db.get(User, actor_id)
+                assert actor is not None
+                with pytest.raises(IntegrityError) as raised:
+                    identity_service.create_user(
+                        db=db,
+                        payload=UserCreate(
+                            username="unknown-pk-sentinel",
+                            display_name="未知唯一冲突",
+                            temporary_password="UnknownPass!2026",
+                            account_type=AccountType.ENGINEER,
+                        ),
+                        actor=actor,
+                        request_id="identity-unknown-request",
+                    )
+                error = raised.value
+                assert getattr(error.orig, "sqlstate", None) == "23505"
+                assert (
+                    getattr(getattr(error.orig, "diag", None), "constraint_name", None)
+                    == "pk_users"
+                )
+                db.rollback()
+                assert db.get(User, actor_id) is not None
+        finally:
+            event.remove(User, "before_insert", force_primary_key_collision)
+        engine.dispose()
+
+
+@pytest.mark.integration
+def test_create_user_missing_unique_diagnostics_is_not_mapped(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """缺失 diagnostics 时保持原 IntegrityError，并在显式回滚后恢复 Session。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+        with session_factory() as db:
+            actor = User(
+                username="identity-missing-diagnostics-admin",
+                display_name="缺失诊断管理员",
+                password_hash="not-used",
+                account_type="ADMIN",
+            )
+            db.add(actor)
+            db.commit()
+            actor_id = actor.id
+
+        missing_diagnostics = SimpleNamespace(sqlstate="23505")
+        original_error = IntegrityError(
+            "username duplicate diagnostics unavailable",
+            {},
+            missing_diagnostics,
+        )
+
+        def fail_flush() -> None:
+            raise original_error
+
+        with session_factory() as db:
+            actor = db.get(User, actor_id)
+            assert actor is not None
+            db.autoflush = False
+            monkeypatch.setattr(db, "flush", fail_flush)
+            with pytest.raises(IntegrityError) as raised:
+                identity_service.create_user(
+                    db=db,
+                    payload=UserCreate(
+                        username="identity-missing-diagnostics-user",
+                        display_name="缺失诊断用户",
+                        temporary_password="MissingDiagnostics!2026",
+                        account_type=AccountType.ENGINEER,
+                    ),
+                    actor=actor,
+                    request_id="identity-missing-diagnostics-request",
+                )
+            assert raised.value is original_error
+            db.rollback()
+            assert db.get(User, actor_id) is not None
+        engine.dispose()
+
+
+@pytest.mark.integration
 def test_user_list_query_count_is_constant() -> None:
     """用户列表的 SQL 次数不得随当前页行数或历史引用密度增长。"""
     with temporary_database() as database_url:
@@ -675,13 +1396,22 @@ def test_user_delete_and_reset_password_boundaries() -> None:
             referenced = client.delete(
                 f"/api/v1/users/{referenced_target_id}",
                 params={"expected_revision": 0},
-                headers={"X-CSRF-Token": csrf_token},
+                headers={
+                    "X-CSRF-Token": csrf_token,
+                    "X-Request-ID": "delete-reference-precheck",
+                },
             )
             assert referenced.status_code == 409
-            assert referenced.json()["error"]["code"] == "USER_IN_USE"
-            assert referenced.json()["error"]["details"]["references"] == [
-                {"type": "USER_BUSINESS_HISTORY", "count": 1}
-            ]
+            assert referenced.json()["error"] == {
+                "code": "USER_IN_USE",
+                "message": "用户仍被以下对象引用：业务历史（1）",
+                "details": {
+                    "references": [
+                        {"type": "USER_BUSINESS_HISTORY", "count": 1}
+                    ]
+                },
+                "request_id": "delete-reference-precheck",
+            }
 
             seven_characters = client.post(
                 f"/api/v1/users/{reset_target_id}/reset-password",

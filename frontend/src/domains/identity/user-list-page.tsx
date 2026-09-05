@@ -56,6 +56,7 @@ import {
   accountTypeRegistry,
   accountTypeValues,
   hasUserFilters,
+  mapUserCreateError,
   normalizeUserPageSize,
   resetPasswordFormSchema,
   resolveUserActions,
@@ -68,6 +69,7 @@ import {
   type User,
   type UserCommand,
   type UserCreateFormValues,
+  type UserCreateErrorMapping,
   type UserEditFormValues,
   type UserSearch,
   type UserStatus,
@@ -611,7 +613,7 @@ function CreateUserDialog({
   onClose: () => void;
   onCreated: (user: User) => Promise<void>;
 }) {
-  const [error, setError] = useState<string>();
+  const [error, setError] = useState<UserCreateErrorMapping>();
   const form = useForm<UserCreateFormValues>({
     defaultValues: { username: '', display_name: '', temporary_password: '', account_type: 'ENGINEER' },
     resolver: zodResolver(userCreateFormSchema),
@@ -620,6 +622,7 @@ function CreateUserDialog({
 
   async function submit(values: UserCreateFormValues) {
     setError(undefined);
+    form.clearErrors();
     try {
       const created = await create.mutateAsync(values);
       create.reset();
@@ -627,11 +630,21 @@ function CreateUserDialog({
       onClose();
       await onCreated(created);
     } catch (reason) {
-      setError(errorMessage(reason));
+      const detail = reason instanceof UserRequestError ? reason.detail : undefined;
+      const mapped = detail
+        ? mapUserCreateError(detail)
+        : { kind: 'summary' as const, formMessage: errorMessage(reason) };
+      setError(mapped);
+      if (mapped.kind === 'username') form.setError('username', { type: 'server', message: mapped.fieldMessage });
       form.setValue('temporary_password', '');
       create.reset();
+      if (mapped.kind === 'username') form.setFocus('username');
     }
   }
+
+  const summaryErrors = [];
+  if (error?.kind === 'summary') summaryErrors.push({ id: 'server-message', message: error.formMessage });
+  if (error?.requestId) summaryErrors.push({ id: 'server-request-id', message: `请求 ID：${error.requestId}` });
 
   return (
     <Dialog onOpenChange={(open) => !open && !create.isPending && onClose()} open>
@@ -642,7 +655,7 @@ function CreateUserDialog({
         </DialogHeader>
         <FormProvider {...form}>
           <form className="grid gap-4 sm:grid-cols-2" id="user-create-form" noValidate onSubmit={form.handleSubmit(submit)}>
-            <ErrorSummary className="sm:col-span-2" errors={error ? [{ id: 'server', message: error }] : []} />
+            <ErrorSummary className="sm:col-span-2" errors={summaryErrors} />
             <FormField<UserCreateFormValues, 'username'>
               id="user-create-username"
               label="用户名"

@@ -147,7 +147,7 @@ HTTP request
 | `uq_products_normalized_brand` / create/update product | 409 `PRODUCT_ALREADY_EXISTS`，定位 brand/part_number | 保留，补真实 `23505 + constraint_name` 与双事务竞态证明 |
 | `uq_platform_types_slug` / create/update platform type | 409 `PLATFORM_TYPE_SLUG_EXISTS`，定位 slug | 保留，补 diagnostics 与副作用断言 |
 | `uq_platform_accounts_profile_identifier_normalized` / create/update account | 409 `PLATFORM_ACCOUNT_IDENTIFIER_EXISTS`，定位 account_identifier | 保留，补真正双连接竞态而非仅 monkeypatch 预检 |
-| delete user 的 FK `23503` | 409 `USER_IN_USE` + references | 保持 command-scoped；补预检后插入引用的真实 race 和失败审计断言 |
+| delete user 的 FK `23503` | precheck 为 409 `USER_IN_USE` + references；flush fallback 为固定 message + `{}` | 保持 command-scoped；分别补确定性锁序证据、真实 `23503` fallback sentinel 和失败审计断言 |
 
 ### 6.2 已有 code、识别方式错误
 
@@ -243,9 +243,11 @@ T2-C 同时负责冻结 `putContentHumanizationPrompt` 的资源缺失语义：`
 
 T3-C 先决定 `uq_users_username` 的准确 code/message/details 和前端行为；现有 409 status/envelope 若不变，记录“不改 OpenAPI schema”的依据，不能因为 `ErrorDetail.code` 是 string 就跳过业务合同决策。
 
-T3-C 精确文件边界：`contracts/openapi.yaml`（仅需冻结 wire 时）、`docs/frontend-v2/05-business-actions-state-and-api-contract.md`、`.trellis/spec/backend/error-handling.md`、`backend/tests/unit/test_contract.py`、`frontend/src/domains/identity/user-list.model.test.ts`。T3 实现边界：`backend/app/services/identity.py`、`backend/app/routers/identity.py`（仅 T3-C 要求 metadata 时）、`backend/tests/integration/test_identity_management.py`、`backend/tests/unit/test_runtime_response_metadata.py`、`frontend/src/domains/identity/user-list-page.tsx` 与 `user-list-page.test.tsx`；generated schema 仅在 T3-C 改 OpenAPI 时同步。
+T3-C 已由 `09-05-identity-integrity-error-contract-decision` 细化；该 child 是最终合同 owner，永久保持 planning-only，不作为 implementation target。其 targeted re-review 通过且用户显式批准最新规划后，另建 `identity-integrity-error-domain-mapping` implementation child，并在新 child 文档中显式声明依赖本 T3-C；只对新 child 准备 manifests 和执行 `task.py start`。
 
-T3 目标：使 username 预检与真实 23505 race 返回同一获批 code；保留 delete user command-scoped `23503 -> USER_IN_USE` 并补 race/副作用证明。依赖 T1 与 T3-C，可与 T2 并行；不得混入用户权限或状态转换改造。
+T3 允许修改：`backend/app/services/identity.py`、`backend/tests/integration/test_identity_management.py`、`frontend/src/domains/identity/user-list.model.ts`、`user-list.model.test.ts`、`user-list-page.tsx`、`user-list-page.test.tsx`、`contracts/database.md`、`docs/frontend-v2/05-business-actions-state-and-api-contract.md`、`.trellis/spec/backend/database-guidelines.md`、`.trellis/spec/frontend/state-management.md`。`contracts/openapi.yaml`、`backend/app/routers/identity.py`、`backend/tests/unit/test_contract.py`、`test_runtime_response_metadata.py`、`backend/app/errors.py`、identity ORM/migration schema、`frontend/src/domains/identity/user.api.ts`、generated schema 与 `.trellis/spec/backend/error-handling.md` 只作为零 diff validation targets。若证据要求改变任一只读 owner，停止并回到 contract review。
+
+T3 目标：使 username 预检与真实 `23505 + uq_users_username` race 返回同一获批 `USER_USERNAME_EXISTS`；其他 diagnostics 保持 unknown。保留 delete user command-scoped `23503 -> USER_IN_USE` 的固定 fallback，并把删除数据完整性证明拆成三个独立证据：引用先行时 delete 等待后由 precheck 返回 references；delete 锁先行时引用写入等待、delete 提交后引用方得到真实 `23503` 且无悬空行；已提交引用加 test-only counter bypass 确定触发 delete command 自身的真实 `23503` fallback。并发测试必须使用 event/barrier、数据库 wait 证据与有界 timeout，不使用 `sleep`，也不得削弱 production lock。T3 依赖 T1 与获批 T3-C，可与 T2 并行；不得混入用户权限或状态转换改造。
 
 ### T4：content/generation 已有码收敛与待决项隔离
 

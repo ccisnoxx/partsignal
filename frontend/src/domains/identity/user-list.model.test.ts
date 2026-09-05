@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   canonicalUserSearchRecord,
   isCanonicalUserSearch,
+  mapUserCreateError,
   resolveUserActions,
   userSearchSchema,
   userSearchToApiParams,
@@ -75,5 +76,66 @@ describe('用户列表 URL 与动作模型', () => {
       .toThrow('未处理的合同 token');
     expect(() => resolveUserActions(managedUser({ available_actions: ['UPDATE', 'DELETE'] }), false))
       .toThrow('矛盾的 DELETE projection');
+  });
+
+  it('create duplicate 只按 exact code 与 body.username 定位字段并保留 request ID', () => {
+    expect(mapUserCreateError({
+      code: 'USER_USERNAME_EXISTS',
+      message: '服务端展示文案',
+      details: {
+        errors: [{ loc: ['body', 'username'], msg: '用户名已存在', type: 'user_username_exists' }],
+      },
+      request_id: 'req-user-duplicate',
+    })).toEqual({
+      kind: 'username',
+      fieldMessage: '用户名已存在',
+      requestId: 'req-user-duplicate',
+    });
+  });
+
+  it('create duplicate 的空 field message 仍按 exact code 与 loc 定位，不把 message 当分支条件', () => {
+    expect(mapUserCreateError({
+      code: 'USER_USERNAME_EXISTS',
+      message: '服务端展示文案',
+      details: { errors: [{ loc: ['body', 'username'], msg: '' }] },
+      request_id: 'req-user-empty-message',
+    })).toEqual({
+      kind: 'username',
+      fieldMessage: '服务端展示文案',
+      requestId: 'req-user-empty-message',
+    });
+  });
+
+  it('create duplicate 的 malformed、unknown loc 或其他 code 只回退 summary', () => {
+    const cases = [
+      { details: {}, code: 'USER_USERNAME_EXISTS' },
+      { details: { errors: [{ loc: ['body', 'display_name'], msg: '用户名已存在' }] }, code: 'USER_USERNAME_EXISTS' },
+      { details: { errors: [{ loc: ['body', 'username'], msg: '用户名已存在' }] }, code: 'OTHER_ERROR' },
+      { details: { errors: [{ loc: ['body', 'username'], msg: 42 }] }, code: 'USER_USERNAME_EXISTS' },
+    ];
+    for (const input of cases) {
+      expect(mapUserCreateError({
+        ...input,
+        message: '无法创建用户',
+        request_id: 'req-user-fallback',
+      })).toEqual({
+        kind: 'summary',
+        formMessage: '无法创建用户',
+        requestId: 'req-user-fallback',
+      });
+    }
+  });
+
+  it('malformed detail 不抛异常且使用安全 summary fallback', () => {
+    expect(mapUserCreateError({
+      code: 'USER_USERNAME_EXISTS',
+      message: '用户名已存在',
+      details: { errors: 'not-an-array' },
+      request_id: 'req-user-malformed',
+    })).toEqual({
+      kind: 'summary',
+      formMessage: '用户名已存在',
+      requestId: 'req-user-malformed',
+    });
   });
 });

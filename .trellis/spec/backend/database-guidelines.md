@@ -64,6 +64,83 @@ PostgreSQL 是业务状态唯一来源，Alembic 是唯一迁移入口。历史�
 - 单个和批量状态命令共享同一锁、revision、最后有效管理员和会话撤销规则。批量按 UUID 稳定锁行，预期的用户不存在、revision 冲突和最后管理员保护逐项失败；非预期数据库、审计或程序错误回滚整批。
 - 停用、重新启用、改名或调整账号类型始终更新同一用户 UUID。只有停用且没有业务历史引用的账号可按下节契约物理删除；CSV 导出只记录非敏感筛选与行数审计，不保存正文。
 
+## 场景：用户身份唯一约束的精确错误映射
+
+### 1. 范围与触发条件
+
+- 修改用户创建、`users.username` identity、`IntegrityError` 映射、创建失败审计或用户删除数据库最终防线时适用。
+- 本场景只拥有 identity command 的精确数据库映射；不建立全局 constraint registry，不改变 OpenAPI wire、账号权限、状态机、删除引用定义或数据库 schema。
+
+### 2. 签名
+
+```text
+POST /api/v1/users
+username identity: payload.username.strip().lower()
+unique owner: uq_users_username
+duplicate diagnostics: sqlstate=23505 + constraint_name=uq_users_username
+duplicate response: 409 USER_USERNAME_EXISTS
+delete fallback: command-scoped sqlstate=23503 -> 409 USER_IN_USE
+```
+
+### 3. 合同
+
+- username 预检与新增 User `flush()` 必须复用同一个私有 conflict 构造器，返回 message `用户名已存在` 和 `details.errors=[{"loc":["body","username"],"msg":"用户名已存在","type":"user_username_exists"}]`；request ID 继续由统一错误信封注入。
+- flush 路径只允许同时匹配 `23505` 与 `uq_users_username`。sqlstate、constraint 不同或 diagnostics 缺失时原异常继续上抛；禁止错误文本解析、字段猜测、constraint alias、rollback 后查询分类和宽泛 23505 fallback。
+- User flush 必须先于 `user.created` SUCCESS audit；命中唯一约束后 rollback，不能留下第二个 User、SessionRecord、revision 或成功审计。失败 Session 清理后必须可继续使用。
+- `delete_user()` 继续先取得现有用户状态锁和 User `FOR UPDATE`，再检查 revision、启用状态与业务引用。预检命中时返回动态 message 与 `details.references`；delete flush 命中真实 23503 时返回固定 message `用户仍有业务历史引用，不能删除` 与 `{}`，不得在 rollback 后查询并伪造 references。
+- delete 的 production lock、引用口径、审计顺序和 schema 不为测试改变。测试只允许以 test-only event/barrier 控制已经存在的边界。
+
+### 4. 校验与错误矩阵
+
+| 条件 | 结果 |
+|---|---|
+| username 预检命中 | `409 USER_USERNAME_EXISTS` + `body.username` field error |
+| 两事务均越过预检，败者命中 `23505 + uq_users_username` | 与预检除 request ID 外完全相同的领域响应 |
+| 真实 23505 但 constraint 不同 | 原 `IntegrityError` 上抛，进入既有 unknown 500 边界 |
+| sqlstate 或 diagnostics 缺失 | 原异常上抛，不猜 username duplicate |
+| delete 引用预检命中 | `409 USER_IN_USE` + 动态摘要 + `details.references` |
+| delete command 内真实 23503 | `409 USER_IN_USE` + 固定 message + `{}`，事务回滚 |
+| delete command 内非 23503 IntegrityError | 原异常上抛 |
+
+### 5. 正常、基础与失败案例
+
+- 正常：两个独立 Session 并发创建 normalize 后相同的 username，PostgreSQL 只提交一个 User；败者得到字段可定位错误且没有成功审计。
+- 基础：数据库已有 username 时预检直接返回相同领域合同；用户修改 username 并重新提交，不需要 revision reload。
+- 失败：把所有 23505 映射成 username duplicate，或从数据库 message/请求字段推断 constraint，会隐藏 PK、未来约束和数据库故障。
+- 失败：为了制造 delete race 移除 User 行锁，或在 23503 rollback 后重查引用，会改变 production 数据完整性与响应时点。
+
+### 6. 必需测试
+
+- 真实 PostgreSQL catalog/diagnostics 断言 `uq_users_username`、23505 和不同 constraint 反例；mock 只能补充缺失 diagnostics 分支，不能替代真实获批约束。
+- 两个独立 Session/connection 在双方越过 precheck 后通过 test-only barrier 竞争，断言恰一成功、恰一领域错误、恰一 normalized User，且预检/constraint 响应除 request ID 外相同。
+- 新 Session 断言败者无 `user.created` SUCCESS、无第二行或 SessionRecord；失败 Session rollback 后可查询。
+- delete 锁序 A：引用事务先持有真实 FK row，数据库 wait 证据确认 delete 等待；引用提交后由预检返回 references，User/reference 保留。
+- delete 锁序 B：delete 已持有 User `FOR UPDATE` 并完成零引用预检，数据库 wait 证据确认引用写等待；delete 提交后引用方得到真实 23503，最终无 User/reference/悬空行。
+- 独立 fallback sentinel：已提交真实引用并仅以 test-only wrapper 绕过 reference counter，使 delete flush 触发真实 23503；断言固定 fallback、失败原子性与 Session cleanup。
+- 所有并发测试使用 event/barrier、`pg_stat_activity` wait 和有界 timeout，禁止 `sleep`、伪造数据库异常或修改 production lock/schema。
+
+### 7. 错误与正确示例
+
+错误：捕获任意 23505，或只依赖预检。
+
+```python
+if getattr(error.orig, "sqlstate", None) == "23505":
+    raise username_exists()
+```
+
+正确：数据库是最终裁决者，service 只映射 command 已批准的结构化 diagnostics。
+
+```python
+if (
+    getattr(error.orig, "sqlstate", None) == "23505"
+    and getattr(getattr(error.orig, "diag", None), "constraint_name", None)
+    == "uq_users_username"
+):
+    db.rollback()
+    raise user_username_conflict() from error
+raise
+```
+
 ## 场景：身份密码长度边界
 
 ### 1. 范围与触发条件

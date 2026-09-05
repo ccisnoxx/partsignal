@@ -1073,11 +1073,75 @@ const actor = log.actor;
 
 ## System Users State
 
+### 1. Scope / Trigger
+
+- 修改 `/system/users`、UserList 查询/选择、用户创建与密码草稿、删除确认或 identity 结构化错误投影时适用。
+- 本场景只拥有 Users 页面状态与错误恢复，不复制服务端 username normalization、权限、constraint 或删除资格规则。
+
+### 2. Signatures
+
+```text
+URL: /system/users?q&accountType&status&page&pageSize
+GET: /api/v1/users?q&account_type&status&page&page_size
+POST /api/v1/users -> User | ErrorEnvelope
+create duplicate: 409 USER_USERNAME_EXISTS
+field loc: ["body", "username"]
+query key: userKeys.list(exactApiParams)
+```
+
+### 3. Contracts
+
 - canonical URL 固定由 `q/accountType/status/page/pageSize` 持有，默认显式 `status=ENABLED&page=1&pageSize=20`；`ALL` 调用 API 时省略 status。首屏只读取 UserList，不做逐行请求或客户端 summary/action 推导。
 - selection 是页面本地状态，绑定 canonical scope 和 `{id,username,revision}`。换筛选/页码/页大小立即整体清空；refetch 后已选项消失或 revision 变化也整体清空并提示，revision 未变才保留。
-- create/edit/reset 与非删除确认 Dialog 拥有各自草稿；删除 intent 只保存 User ID/命令/focus，名称、资格与 DELETE revision 从当前 exact UserList query 派生。任意删除 409 即使被动 query 更新也保持冻结，只有显式 reload 成功才解除；create/edit/reset 继续沿用各自既有冲突 baseline。create/reset 的 password owner 随 Dialog 卸载，mutation `gcTime=0`，关闭/成功/reload 后不得留在 cache 或 DOM。
+- create/edit/reset 与非删除确认 Dialog 拥有各自草稿。create/reset 的 password owner 随 Dialog 卸载，mutation `gcTime=0`，关闭、成功和所有失败恢复都不得把 secret 留在 cache、错误文本、反馈或 DOM。
+- create user 的纯 mapper 只在 `code === "USER_USERNAME_EXISTS"` 且某个 `details.errors[].loc` 精确等于 `['body','username']` 时返回 username field error。message 只展示，不参与分支；details 缺失、malformed、unknown loc 或其他 code 返回 form summary，不猜字段。
+- 创建失败保持 Dialog，保留 username/display name/account type，清空 temporary password。canonical duplicate 把焦点移到 username；inline 与 summary 都显示 request ID。用户修改 username、重新输入密码后显式重试。
+- duplicate 不进入 revision freeze/reload，不自动 GET/replay，不调用成功回调或成功 query invalidation。创建成功仍关闭 Dialog、清空表单并刷新 Users list。
+- 删除 intent 只保存 User ID/命令/focus，名称、资格与 DELETE revision 从当前 exact UserList query 派生。任意删除 409 即使被动 query 更新也保持冻结，只有显式 reload 成功才解除；delete `USER_IN_USE` 继续使用既有删除恢复，不与 create duplicate 混用。
 - bulk disable 使用业务页 custom confirmation；200 partial 清空 selection 并保留脱敏 username/code/message 反馈，顶层失败保留 selection/confirm。成功只失效 Users lists，成功项包含当前 actor 时等待 auth refresh。
 - blocker 只展示服务端 count 并允许刷新列表；`USER_BUSINESS_HISTORY` 精确链接到 `/system/audit?actorId=<user-id>`，Users 页面不读取 Audit。
+
+### 4. Validation & Error Matrix
+
+| 条件 | 页面处理 |
+| --- | --- |
+| exact `USER_USERNAME_EXISTS` + exact username loc | username inline error、焦点回到 username、request ID 可见 |
+| duplicate details 缺失、malformed 或 loc 未知 | form summary 显示服务端 message 与 request ID，不猜字段 |
+| 其他 create 错误 | form summary；安全草稿保留、temporary password 清空 |
+| 用户修改 username 并重新输入密码 | 只在显式提交时发送第二次 POST |
+| create 失败 | 不调用 `onCreated`，不失效 Users query，不 reload/replay |
+| create 成功 | Dialog 关闭、表单与 secret 清空、Users list 刷新 |
+| delete 任意 409 | 保持既有冻结确认和显式 reload，不套用 create 恢复 |
+
+### 5. Good / Base / Bad Cases
+
+- Good：数据库竞态返回 canonical duplicate 后，用户在原 Dialog 看到 username 字段错误和 request ID，非敏感字段不丢失，密码为空；修正后显式重试成功。
+- Base：旧服务端或异常 details 没有可识别 loc，页面显示 summary 和 request ID，仍清除密码且不错误标记字段。
+- Bad：看到 message 包含“用户名”就定位字段、把任意 409 当 revision conflict、自动 reload/replay，或保留 temporary password 方便重试。
+
+### 6. Tests Required
+
+- model unit 覆盖 canonical loc、details 缺失、malformed errors、unknown loc、其他 code、message 不参与分支和 request ID。
+- component 覆盖可访问字段错误、focus、username/display name/account type 保留、temporary password 清空、inline/summary request ID、显式重试和失败后无成功 invalidation。
+- component 同时覆盖成功 close/reset/refresh，以及 duplicate 不出现 revision reload/freeze 或自动第二次请求。
+- 定向 Vitest 后运行 frontend typecheck 与 owned files ESLint；generated schema 和 `user.api.ts` 保持零 diff。
+
+### 7. Wrong vs Correct
+
+```tsx
+// Wrong：按 message 或 status 猜字段/恢复类型，并保留 secret 自动重试。
+if (error.status === 409 || error.message.includes('用户名')) {
+  await reloadAndReplay(values);
+}
+
+// Correct：纯 mapper 只消费 exact code + loc；页面清空 secret 后等待显式重试。
+const projection = mapUserCreateError(error.detail);
+form.setValue('temporary_password', '');
+if (projection.kind === 'username') {
+  form.setError('username', { message: projection.fieldMessage });
+  form.setFocus('username');
+}
+```
 
 ## System Audit State
 

@@ -400,7 +400,7 @@ def create_user(*, db: Session, payload: UserCreate, actor: User, request_id: st
     """创建默认启用且首次登录必须修改临时密码的内部用户。"""
     username = payload.username.strip().lower()
     if db.scalar(select(User.id).where(User.username == username)) is not None:
-        raise AppError("REVISION_CONFLICT", "用户名已存在", 409)
+        raise _user_username_conflict()
     user = User(
         username=username,
         display_name=payload.display_name.strip(),
@@ -409,7 +409,18 @@ def create_user(*, db: Session, payload: UserCreate, actor: User, request_id: st
         must_change_password=True,
     )
     db.add(user)
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError as error:
+        original = error.orig
+        if (
+            getattr(original, "sqlstate", None) == "23505"
+            and getattr(getattr(original, "diag", None), "constraint_name", None)
+            == "uq_users_username"
+        ):
+            db.rollback()
+            raise _user_username_conflict() from error
+        raise
     append_audit(
         db,
         AuditEntry(
@@ -426,6 +437,24 @@ def create_user(*, db: Session, payload: UserCreate, actor: User, request_id: st
     )
     db.commit()
     return user
+
+
+def _user_username_conflict() -> AppError:
+    """构造用户名唯一冲突的统一领域错误，供预检和数据库竞态复用。"""
+    return AppError(
+        "USER_USERNAME_EXISTS",
+        "用户名已存在",
+        409,
+        {
+            "errors": [
+                {
+                    "loc": ["body", "username"],
+                    "msg": "用户名已存在",
+                    "type": "user_username_exists",
+                }
+            ]
+        },
+    )
 
 
 def _update_user_locked(

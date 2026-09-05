@@ -1,0 +1,10 @@
+{"file":".trellis/spec/backend/index.md","reason":"检查 backend 变更是否覆盖规范入口定义的质量门槛。"}
+{"file":".trellis/spec/backend/ai-configuration-guidelines.md","reason":"复核 AI 配置与自然化 Prompt 的稳定合同和副作用边界。"}
+{"file":".trellis/tasks/09-04-configuration-integrity-error-domain-mapping/research/context-routing.md","reason":"路由超大数据库与前端状态规范的 child-side 完整读取，避免原生上下文注入截断。"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"复核精确 constraint allowlist、unknown 500、ErrorEnvelope 和 contract/runtime 同步。"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"执行 backend review、lint 与测试质量检查。"}
+{"file":".trellis/spec/frontend/index.md","reason":"检查 canonical frontend 规范和开发门槛是否满足。"}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"复核表单错误展示、request ID 与可访问性交互。"}
+{"file":".trellis/spec/frontend/type-safety.md","reason":"复核 generated 类型消费和结构化错误解析边界。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"执行 frontend 测试、ESLint、typecheck 与回归检查。"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"复核 database→service→contract→generated→UI 全链路一致性。"}

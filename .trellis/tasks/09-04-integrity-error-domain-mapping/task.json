@@ -19,7 +19,9 @@
   "pr_url": null,
   "subtasks": [],
   "children": [
-    "09-04-unknown-integrity-error-boundary-correction"
+    "09-04-unknown-integrity-error-boundary-correction",
+    "09-04-configuration-integrity-error-contract-decision",
+    "09-04-configuration-integrity-error-domain-mapping"
   ],
   "parent": null,
   "relatedFiles": [],

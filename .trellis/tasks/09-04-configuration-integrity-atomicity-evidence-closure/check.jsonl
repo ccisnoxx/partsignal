@@ -1,0 +1,4 @@
+{"file":".trellis/tasks/09-04-configuration-integrity-atomicity-evidence-closure/research/atomicity-gap.md","reason":"独立 check 用于核对待关闭 MEDIUM、允许文件和既有验证基线。"}
+{"file":".trellis/tasks/09-04-configuration-integrity-atomicity-evidence-closure/research/dirty-baseline.md","reason":"独立 check 用于区分父任务已有测试与子任务新增证据。"}
+{"file":".trellis/spec/backend/ai-configuration-guidelines.md","reason":"独立 check 核对 Header/Model 失败原子性、模型失效与 SUCCESS audit 边界。"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"独立 check 核对 mapped 409 的 rollback 与后续 Session 可用性。"}

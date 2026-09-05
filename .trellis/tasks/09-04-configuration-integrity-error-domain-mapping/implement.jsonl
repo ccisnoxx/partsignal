@@ -1,0 +1,10 @@
+{"file":".trellis/spec/backend/index.md","reason":"确认 backend 规范入口及本任务需要加载的 active guidelines。"}
+{"file":".trellis/spec/backend/ai-configuration-guidelines.md","reason":"约束 AI Header/Model identity、自然化 Prompt 与配置副作用边界。"}
+{"file":".trellis/tasks/09-04-configuration-integrity-error-domain-mapping/research/context-routing.md","reason":"路由超大数据库与前端状态规范的 child-side 完整读取，避免原生上下文注入截断。"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"约束 IntegrityError 精确 diagnostics、unknown 500、ErrorEnvelope 与 runtime metadata。"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"提供 backend 实现与定向质量检查约束。"}
+{"file":".trellis/spec/frontend/index.md","reason":"确认 canonical frontend 入口及对应开发前检查。"}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"约束表单组件错误展示、交互和可访问性实现。"}
+{"file":".trellis/spec/frontend/type-safety.md","reason":"约束 generated API 类型与结构化错误投影。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"约束 frontend 测试、lint、类型检查与浏览器验收边界。"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"本任务跨数据库、service、OpenAPI、generated client 与 UI，需要核对端到端数据流。"}

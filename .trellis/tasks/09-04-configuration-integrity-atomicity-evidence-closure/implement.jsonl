@@ -1,0 +1,4 @@
+{"file":".trellis/tasks/09-04-configuration-integrity-atomicity-evidence-closure/research/atomicity-gap.md","reason":"子任务待补的四条失败路径、当前绿色基线和已排除方案。"}
+{"file":".trellis/tasks/09-04-configuration-integrity-atomicity-evidence-closure/research/dirty-baseline.md","reason":"两个目标测试文件的父任务 diff 哈希，用于保留已有未提交改动。"}
+{"file":".trellis/spec/backend/ai-configuration-guidelines.md","reason":"AI Header/Model duplicate、flush 副作用顺序、revision 和审计稳定合同。"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"已确认约束映射、unknown IntegrityError、rollback 与失败 Session 边界。"}

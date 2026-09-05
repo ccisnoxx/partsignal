@@ -1,0 +1,6 @@
+{"file":".trellis/spec/backend/index.md","reason":"按 backend 质量门禁审查文件边界与验证证据。"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"审查 allowlist 精确性、unknown 原抛与 ErrorEnvelope 边界。"}
+{"file":".trellis/tasks/09-05-humanization-job-integrity-error-domain-mapping/research/parent-and-spec-evidence.md","reason":"注入父 T4 与完整 database/error-handling spec 的任务相关审查规则，避免超大 spec 截断。"}
+{"file":".trellis/tasks/09-05-humanization-job-integrity-error-domain-mapping/research/humanization-flow-evidence.md","reason":"审查两 caller、task lock、worker Session 与原子性覆盖。"}
+{"file":".trellis/tasks/09-05-humanization-job-integrity-error-domain-mapping/research/postgres-catalog-evidence.md","reason":"核对 current-head catalog/真实 diagnostics 是否满足实施门禁。"}
+{"file":".trellis/tasks/09-05-humanization-job-integrity-error-domain-mapping/research/contract-surface-evidence.md","reason":"核对公共合同、generated、Frontend V2 与 schema 零 diff。"}

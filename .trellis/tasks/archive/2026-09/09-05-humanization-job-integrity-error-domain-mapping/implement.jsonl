@@ -1,0 +1,6 @@
+{"file":".trellis/spec/backend/index.md","reason":"加载 backend 规范索引与适用质量门禁。"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"约束精确 diagnostics、AppError 映射、unknown 500 与事务 owner。"}
+{"file":".trellis/tasks/09-05-humanization-job-integrity-error-domain-mapping/research/parent-and-spec-evidence.md","reason":"注入父 T4 与完整 database/error-handling spec 的任务相关事务、幂等和 PostgreSQL 边界，避免超大 spec 截断。"}
+{"file":".trellis/tasks/09-05-humanization-job-integrity-error-domain-mapping/research/humanization-flow-evidence.md","reason":"提供两条 caller、_create_job、原子性、worker 与测试缺口证据。"}
+{"file":".trellis/tasks/09-05-humanization-job-integrity-error-domain-mapping/research/postgres-catalog-evidence.md","reason":"提供目标 constraint/index 类型、开发 catalog 限制与 current-head diagnostics 门禁。"}
+{"file":".trellis/tasks/09-05-humanization-job-integrity-error-domain-mapping/research/contract-surface-evidence.md","reason":"证明 OpenAPI、runtime、generated、Frontend V2 与 schema 可保持零变更。"}

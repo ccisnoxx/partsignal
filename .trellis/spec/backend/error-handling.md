@@ -248,7 +248,7 @@ def list_items() -> ItemList: ...
 
 ### 5. Good / Base / Bad Cases
 
-- Good：static/runtime operation 集合精确一致；当前 162 个 operation、1023 个 response occurrence 由默认完整契约门禁全量覆盖并退出 0，generated request Header 仍为 optional。
+- Good：static/runtime operation 集合精确一致；当前 162 个 operation、1024 个 response occurrence 由默认完整契约门禁全量覆盖并退出 0，generated request Header 仍为 optional。
 - Base：新增 operation 自动继承同一 runtime metadata；static contract、全量计数与 generated client 在同一 Task 显式同步。
 - Bad：逐 route 复制 request-id metadata；runtime 从 `openapi.yaml` 做 overlay；只抽样若干 endpoint；把多个 Cookie 合并；先发布 raw cache 再原地 merge；用 comparator filter 隐藏漂移。
 
@@ -256,8 +256,8 @@ def list_items() -> ItemList: ...
 
 - Request boundary：覆盖缺失 UUID、1/100、空/101、raw non-ASCII、控制字符/DEL，以及正常 response 和 endpoint 422 都回写 Header。
 - Error identity：非法值的 `ErrorEnvelope.error.request_id` 必须与 response Header 一致。
-- Full inventory：static/runtime operationId 唯一且集合相同；当前断言 162 个 request Parameter、162 个显式 400、1023 个 required response Header，无 `default`/`4XX`。
-- Non-interference：raw 与 augmented 剥离 Phase X metadata 后逐 operation 深比较；当前原始 response occurrence 为 861，两个 CSV 保留 `Content-Disposition`，20 个 204 无 content。
+- Full inventory：static/runtime operationId 唯一且集合相同；当前断言 162 个 request Parameter、162 个显式 400、1024 个 required response Header，无 `default`/`4XX`。
+- Non-interference：raw 与 augmented 剥离 Phase X metadata 后逐 operation 深比较；当前原始 response occurrence 为 862，两个 CSV 保留 `Content-Disposition`，20 个 204 无 content。
 - Cookie：逐 raw Header occurrence 锁定 login/logout 各两个 Cookie 的名称、值或删除语义、Path、SameSite、Secure、HttpOnly 与 Max-Age；递归断言 OpenAPI 不含 `Set-Cookie`。
 - Cache：强制 merge 抛错，断言 merge 内及异常后 `app.openapi_schema is None`，并恢复测试前 cache。
 - Generated / gates：运行 canonical generator、`api:check`、frontend typecheck、受影响 consumers 与默认执行完整响应比较的 `make contract-check`。

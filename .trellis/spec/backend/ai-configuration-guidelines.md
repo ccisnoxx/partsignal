@@ -34,6 +34,8 @@
 - Chat Completions 正文必须直接解析为仅含 `title`、`summary`、`body_markdown`、`tags` 的非空 JSON 对象，不做提取、修复或补值。
 - 模型“测试连接”与正式生成必须使用不同解析边界：测试请求只发送一条内容为 `hi` 的用户消息，并仅验证标准 `choices[0].message.content` 字符串；不得用业务草稿四字段 Schema 判断连接是否可用。
 - 模型写操作按“渠道行 -> 模型行”顺序加锁。模型测试在读取配置后释放行锁，外部调用结束再按渠道和模型修订号回写；测试期间配置变化返回 `REVISION_CONFLICT`。
+- Header 名在同一渠道内以 `(channel_id, casefold(name))` 唯一，Model ID 以 `(channel_id, trim(model_id))` 且大小写敏感地唯一。预检和 PostgreSQL 竞态路径必须共用稳定错误合同：`uq_ai_channel_headers_channel_id -> AI_CHANNEL_HEADER_NAME_EXISTS/body.name`、`uq_ai_models_channel_id -> AI_MODEL_ID_EXISTS/body.model_id`。只有 `sqlstate=23505` 与精确 constraint 同时命中才可映射 409；其他 `IntegrityError` 继续原抛。
+- Header/Model update 必须先校验 revision，再检查 identity。可能失败的 flush 必须先于模型失效、状态清理与 SUCCESS audit；duplicate 或未知约束失败不得留下第二行、revision/test-state 漂移或成功审计。
 - 渠道 DELETE 必须提交 non-negative `expected_revision` query；Header DELETE 必须提交 non-negative `expected_channel_revision` query。两者锁定真实目标后比较所属渠道 revision，过期返回 `REVISION_CONFLICT`。渠道启停也在 revision 后拒绝同态目标并返回 `INVALID_STATE_TRANSITION`，且只返回安全 `AIChannelSummary`。渠道与 Header 物理删除必须先以 `SELECT ... FOR UPDATE` 锁定删除目标，再追加成功审计和执行副作用。同一目标的两个并发 DELETE 必须分别返回 `204`、`404`；只能产生一条成功审计，Header 删除引起的渠道/模型失效和 revision 递增也只能执行一次。
 - API 提交 Job 后的 Broker 故障不得把业务作业改为失败；Beat 只补投递超龄 `PENDING`，Worker 只有完成原子 `PENDING -> RUNNING` 声明后才能调用供应商。
 - `RUNNING` 租约必须按冻结快照的 `timeout_seconds + GENERATION_FINALIZE_GRACE_SECONDS` 计算；租约过期形成 `FAILED/WORKER_LOST`，不得自动再次调用供应商。
@@ -45,6 +47,7 @@
 - Prompt 名称全局唯一。PUT 与 DELETE 都必须携带当前 `expected_revision`；服务锁定模板行后比较修订号，过期命令返回 `REVISION_CONFLICT`。Prompt 删除与平台换绑复用同一个事务 advisory lock；删除会原子解绑全部当前平台并递增平台 revision，平台删除仍不级联删除模板。
 - 平台集合的可空 `platform_prompt` 摘要只能批量投影当前外键目标；配置完整性只由绑定是否存在派生，不得保存 `prompt_configured`、`prompt_updated_at` 或其他平行汇总字段。
 - 文章自然化只使用 `content_humanization_prompts.id=1` 的全局当前 Prompt。迁移不得种子默认值；管理员通过 `GET/PUT /api/v1/content-humanization-prompt` 首次创建或按 revision 更新，不提供删除、平台副本、用户临时 Prompt 或代码回退。
+- 全局自然化 Prompt 四状态固定为：不存在且 `expected_revision=null` 创建 revision 0；不存在且携带任意整数返回 `409 HUMANIZATION_PROMPT_MISSING`；存在且 revision 匹配时更新；存在且 `expected_revision` 为 null 或不匹配时返回 `409 REVISION_CONFLICT`。missing/stale 均不得写入 singleton、递增 revision 或记录成功审计，GET 缺失仍返回 204。
 - Prompt Preview Options 的 context 必须先按当前 Prompt 绑定预筛，再由 `content_tasks_out` 的 `CREATE_GENERATION_JOB` 最终筛选并稳定排序；model 与既有 generation-options 共用 enabled channel + enabled/test `PASSED` 查询。响应只含 Prompt、Task、Product、Platform、Fact version 和 model identity，不得返回 Markdown、actions、Job history、snapshot 或凭据；稀疏/稠密结果必须保持固定查询次数。
 - 配置页输出预览只接受已保存、clean 且 Detail revision 与 options 一致的 Prompt，并要求用户显式选择 context/model。确认后必须创建现有 `GENERATE` 或 `HUMANIZE` 作业，以同 command signature 的稳定随机 `Idempotency-Key` 提交，按任务级作业列表中的返回 Job ID 轮询后读取不可变 `ContentVersion`；payload 变化或 `IDEMPOTENCY_CONFLICT` 才废弃 key。不得新增无痕模型调用、预览专用结果源、自动重试，或为显示预览读取含完整输入快照的作业详情。
 - Preview create/terminal 只失效 Preview Options 和 Content 当前 list/detail/editor projections；create 另失效 exact task Job list。Prompt update/delete 与 Platform bind/unbind 失效 Preview Options root；历史 Job/Version 不因当前配置变化而失效或改写。
@@ -105,6 +108,9 @@
 - 并发断言：作业创建锁定任务并读取当前平台 Prompt 与冻结事实；过期租约后的迟到响应不能写入成功结果。
 - 恢复断言：首次投递缺失、Broker 已接受但元数据未提交、重复消息和并发恢复均至多产生一次供应商调用和一个内容版本。
 - 模型测试并发断言：外部调用期间配置可更新，但旧测试结果不得覆盖更新后的 `UNTESTED` 状态。
+- Identity 并发断言：Header 按渠道锁串行化后必须一成功一具名 409；Model 用独立 Session/connection 使双方通过预检后竞争真实约束。每个 mapper 断言 cause 的 `sqlstate` 与 `constraint_name`，并用 AI Model 的真实 check constraint 和 primary key 反例证明未列名错误仍为默认 500 且不泄漏数据库文本。
+- Revision 优先级断言：Header、Model 与 Platform Prompt update 必须同时提交已存在 identity 和合法非负的 stale revision，并断言 `REVISION_CONFLICT` 优先、持久状态及 SUCCESS audit 不漂移。当前 revision 为 0 时应先持久化递增真实行再提交旧 revision，不得用非法 `-1` 或未来 revision 代替 stale 证据。
+- 全局自然化 Prompt 必须覆盖首次创建、missing、current update 与 stale 四状态，并断言 missing/stale 无行、revision 或成功审计副作用。
 - 删除并发断言：使用隔离 PostgreSQL、独立请求会话和同步屏障同时删除同一渠道及同一 Header；分别断言状态码为 `[204, 404]`、成功审计恰好一条、级联最终状态正确，且 Header 删除只递增一次渠道和模型 revision。
 - 快照 Header 断言：只发送快照锁定的普通 Header 和敏感 Header 名称；敏感值取当前配置，新增名称被忽略，缺失名称返回 `AI_CONFIGURATION_DELETED`。
 - 固定地址断言：混合公网/私网解析整体拒绝；连接只能使用首次解析集合；peer 越界时零 HTTP 字节；真实本地 CA/HTTPS 替身验证 SNI、证书 hostname 和 Host。

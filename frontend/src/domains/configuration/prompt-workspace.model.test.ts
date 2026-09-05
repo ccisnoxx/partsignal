@@ -99,7 +99,7 @@ describe('Prompt Workspace model', () => {
     expect(mapPromptFormError(new PromptRequestError('重复', 409, {
       code: 'PLATFORM_PROMPT_NAME_EXISTS',
       message: 'Prompt 名称已存在',
-      details: {},
+      details: { errors: [{ loc: ['body', 'name'], msg: 'Prompt 名称已存在', type: 'platform_prompt_name_exists' }] },
       request_id: 'req-name',
     }))).toMatchObject({
       code: 'PLATFORM_PROMPT_NAME_EXISTS',
@@ -115,6 +115,17 @@ describe('Prompt Workspace model', () => {
       code: 'REVISION_CONFLICT',
       formMessage: 'Prompt 已变化',
       requestId: 'req-revision',
+    });
+    expect(mapPromptFormError(new PromptRequestError('重复', 409, {
+      code: 'PLATFORM_PROMPT_NAME_EXISTS',
+      message: 'Prompt 名称已存在',
+      details: {},
+      request_id: 'req-name-summary',
+    }))).toMatchObject({
+      code: 'PLATFORM_PROMPT_NAME_EXISTS',
+      fields: {},
+      formMessage: 'Prompt 名称已存在',
+      requestId: 'req-name-summary',
     });
   });
 });

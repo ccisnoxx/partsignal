@@ -46,7 +46,7 @@ def test_static_request_context_metadata_covers_all_operations_and_responses() -
     operations = operation_map(document)
     assert len(operations) == 162
     assert len({operation["operationId"] for operation in operations.values()}) == 162
-    assert sum(len(operation["responses"]) for operation in operations.values()) == 1023
+    assert sum(len(operation["responses"]) for operation in operations.values()) == 1024
 
     expected_parameter = {
         "name": "X-Request-ID",
@@ -173,7 +173,6 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
             "listGeoObservations",
             "listGeoObservationItems",
         ),
-        ("201", "401", "403", "404", "422"): ("createAIModel",),
         ("201", "401", "403", "409", "422"): (
             "createUser",
             "createProduct",
@@ -256,6 +255,7 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
             "createPublishedContentRepairTask",
             "createGeoObservation",
             "createGeoOptimizationContentTask",
+            "createAIModel",
         ),
         ("201", "401", "403", "409", "422", "503"): (
             "createPlatformLogoCandidate",

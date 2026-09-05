@@ -294,6 +294,8 @@ Workbench 的数据来源，也不得与新 aggregate 在浏览器合并。
 
 前端基于 `code` 做 UX，禁止解析任意英文 message 判断业务。
 
+全局自然化 Prompt 保存时，`HUMANIZATION_PROMPT_MISSING` 表示提交的历史 baseline 已不存在：保留本地 Markdown 并显式 GET；GET 204 后只切换为 `expected_revision=null` 的 create baseline，仍须用户再次确认，禁止立即重放。只有资源存在且 revision 不匹配时才进入 `REVISION_CONFLICT` stale 模式；显式 GET 200 后展示 canonical revision，并保留未提交草稿供人工复核，禁止自动覆盖、合并或重放。
+
 ## 18. 权限
 
 服务端负责最终授权和 action eligibility；前端根据 capability 改善体验、隐藏不相关入口，但不把隐藏 UI 当权限边界。
@@ -357,6 +359,7 @@ https://github.com/ccisnoxx/partsignal/blob/main/docs/GEO%E5%A4%9A%E5%B9%B3%E5%8
 - canonical Tab 为 `overview|accounts|generation`。Accounts 仅进入时按平台读取；Prompt options 仅 ADMIN 进入 Generation 时读取。Prompt options 使用既有稳定 reference list，不读取 Prompt Detail 拼候选。
 - Overview 和 Generation 各自持有 RHF+Zod 草稿，但共享 Detail 的当前 Platform revision。Overview PATCH 保留当前 Prompt；Generation PATCH 保留当前身份字段；任一保存只发送一个完整 `PlatformProfileUpdate`，不得拆成多个 PATCH。
 - `REVISION_CONFLICT` 保留未提交字段、Logo 或 Prompt 选择，不自动重放；只有用户显式 reload 才放弃草稿并采用服务端新 baseline。
+- Prompt create/update 的 `PLATFORM_PROMPT_NAME_EXISTS` 只在 `details.errors[].loc=["body","name"]` 合法时定位 name；details 缺失、结构错误或 loc 未知时展示 form summary 与 request ID，不得凭 code 或 message 回填字段。
 - Logo 上传复用通用文件 transfer 与现有 `PLATFORM_LOGO` 生命周期。SVG 在浏览器边界明确拒绝；官网候选必须显式请求、预览和再次确认，保存 Platform PATCH 前不得进入平台投影。
 - Platform mutation 精确失效 Platform List、当前 Detail，以及受状态/身份/Prompt 影响的 Content creation/reference/generation options 和 Publication ready/workspace 消费者；删除后移除已删除平台的 Detail/Accounts cache。不得清空整个 QueryClient。
 
@@ -396,6 +399,7 @@ https://github.com/ccisnoxx/partsignal/blob/main/docs/GEO%E5%A4%9A%E5%B9%B3%E5%8
 - 创建提交完整 `AIChannelCreate`，响应不含 API Key；成功按响应 ID 进入 `/settings/ai/$channelId?tab=basic`。Detail 是 Workspace 唯一首屏服务端状态，`basic/request` 共享一个表单与 revision baseline。
 - 配置保存提交完整 `AIChannelUpdate.expected_revision`。409 保留非敏感草稿并冻结旧 baseline，只有显式 reload 才重置；失败不得 optimistic、自动 replay 或失效消费者。
 - API Key 与普通/敏感 Header 值都只写不回显，secret mutation 不保留查询或 mutation cache。Header DELETE 使用 `expected_channel_revision`；写成功返回 canonical Detail，删除后显式重读 Detail。
+- `AI_CHANNEL_HEADER_NAME_EXISTS` 只按 exact code 与 `details.errors[].loc=["body","name"]` 定位 Header name；保留 `name/isSensitive`，任意保存失败都清空 `value` 并要求重新输入。Identity duplicate 不进入 revision conflict lock，不 reload、不自动 replay、不执行成功 invalidation；字段错误与 form summary 都必须展示 request ID。
 - 渠道与 Header 动作只消费服务端 token。成功精确失效 AI lists/models/logsRoot、Prompt Preview Options 与 Content generation-options；删除另移除 exact Detail/models/usageRoot/logsRoot 并返回 canonical List。
 
 ## 29. AI Channel Models revision、action 与 cache 边界
@@ -403,6 +407,7 @@ https://github.com/ccisnoxx/partsignal/blob/main/docs/GEO%E5%A4%9A%E5%B9%B3%E5%8
 - `tab=models` 才读取 `aiChannelKeys.models(channelId)`。`DISCOVER_MODELS/CREATE_MODEL` 决定集合入口，`TEST_MODEL` 导航到 Models；模型行穷尽消费自己的 `primary_task/available_actions`，`VIEW_MODEL_RUNTIME` 进入渠道 Usage。
 - discovery body 使用当前渠道 revision，并在 Provider 调用前后由服务端复核；test body 与 enable/disable body、delete query 使用当前模型 revision。create 没有 expected revision。所有 stale/no-op 都由服务端锁内拒绝，浏览器不 optimistic、不 retry/replay。
 - discovery 结果只留在 Dialog；`ADD_MODEL` 仅预填 create，`VIEW_CONFIGURED_MODEL` 定位现有行。模型 JSON 参数只允许 object，拒绝 `model/messages/stream`。
+- `AI_MODEL_ID_EXISTS` 只按 exact code 与 `details.errors[].loc=["body","model_id"]` 定位 `modelId`，保留显示名、Model ID 与参数 JSON 草稿。Identity duplicate 不进入 revision conflict lock，不 reload、不自动 replay、不执行成功 invalidation；malformed details 进入 form summary 并保留 request ID。
 - discovery 不失效；create/test 只刷新 AI 投影，update/enable/disable/delete 才另失效 Prompt Preview Options root 与 Content generation-options；失败/409 不写 cache、不失效。Usage 与历史永不因此刷新或改写。
 
 ## 30. AI Channel Runtime 只读统计与安全审计边界

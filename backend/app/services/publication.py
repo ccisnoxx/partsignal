@@ -225,11 +225,16 @@ def _platform_account_identifier_conflict() -> AppError:
 
 
 def _flush_platform_account(db: Session) -> None:
+    """只把已确认的账号标识唯一约束映射为领域错误。"""
     try:
         db.flush()
     except IntegrityError as error:
+        sqlstate = getattr(error.orig, "sqlstate", None)
         constraint_name = getattr(getattr(error.orig, "diag", None), "constraint_name", None)
-        if constraint_name == "uq_platform_accounts_profile_identifier_normalized":
+        if (
+            sqlstate == "23505"
+            and constraint_name == "uq_platform_accounts_profile_identifier_normalized"
+        ):
             db.rollback()
             raise _platform_account_identifier_conflict() from error
         raise

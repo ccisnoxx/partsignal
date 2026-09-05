@@ -38,6 +38,25 @@ _QUERY_TOPIC_BLOCKERS = (
 )
 
 
+def _platform_slug_conflict() -> AppError:
+    """返回可定位到平台 slug 字段的稳定重复错误。"""
+    message = "平台 slug 已存在"
+    return AppError(
+        "PLATFORM_SLUG_EXISTS",
+        message,
+        409,
+        {
+            "errors": [
+                {
+                    "loc": ["body", "slug"],
+                    "msg": message,
+                    "type": "platform_slug_exists",
+                }
+            ]
+        },
+    )
+
+
 class ContentTaskFactProductMismatch(Exception):
     """目标事实版本不属于内容任务产品。"""
 
@@ -317,7 +336,7 @@ def create_platform_profile(
         if selected_prompt_id is None:
             raise not_found("平台 Prompt")
     if db.scalar(select(PlatformProfile.id).where(PlatformProfile.slug == payload.slug)):
-        raise AppError("PLATFORM_SLUG_EXISTS", "平台 slug 已存在", 409)
+        raise _platform_slug_conflict()
     logo_file_id = lock_platform_logo_change(
         db,
         current_file_id=None,
@@ -338,10 +357,13 @@ def create_platform_profile(
     try:
         db.flush()
     except IntegrityError as error:
+        orig = error.orig
+        sqlstate = getattr(orig, "sqlstate", None)
+        constraint_name = getattr(getattr(orig, "diag", None), "constraint_name", None)
+        if sqlstate != "23505" or constraint_name != "uq_platform_profiles_slug":
+            raise
         db.rollback()
-        if db.scalar(select(PlatformProfile.id).where(PlatformProfile.slug == payload.slug)):
-            raise AppError("PLATFORM_SLUG_EXISTS", "平台 slug 已存在", 409) from error
-        raise
+        raise _platform_slug_conflict() from error
     db.commit()
     return profile
 

@@ -152,7 +152,7 @@ def test_platform_account_api_projects_actor_actions_and_supports_crud() -> None
 def test_platform_account_identifier_conflicts_share_one_field_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """预检与真实唯一约束竞态都返回同一个字段错误。"""
+    """预检与真实唯一约束路径都返回同一个字段错误。"""
     with temporary_database() as database_url:
         engine = create_engine(database_url)
         with Session(engine, expire_on_commit=False) as db:
@@ -200,6 +200,13 @@ def test_platform_account_identifier_conflicts_share_one_field_error(
                         "type": "platform_account_identifier_exists",
                     }
                 ]
+            cause = constrained.value.__cause__
+            assert cause is not None
+            assert getattr(cause.orig, "sqlstate", None) == "23505"
+            assert (
+                getattr(getattr(cause.orig, "diag", None), "constraint_name", None)
+                == "uq_platform_accounts_profile_identifier_normalized"
+            )
             assert db.scalar(select(func.count(PlatformAccount.id))) == 1
 
 

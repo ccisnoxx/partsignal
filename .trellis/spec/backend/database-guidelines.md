@@ -367,6 +367,7 @@ result = cleanup_platform_logo_files(storage=storage)
 ### 3. 契约
 
 - `platform_profiles.is_active` 是平台启停的唯一持久状态；既有 `configuration_complete/configuration_status` 只表示存在当前 `PlatformPrompt`。readiness 是独立实时投影：缺 Prompt 优先为 `MISSING_PROMPT`，已有 Prompt 但没有启用账号为 `MISSING_ACCOUNT`，其余为 `COMPLETE`；不得混用语义或保存派生状态。
+- `platform_profiles.slug` 的并发最终权威是 `uq_platform_profiles_slug`。业务预检和该约束的 `sqlstate=23505` 路径必须返回同一 `409 PLATFORM_SLUG_EXISTS` 及 `body.slug` 字段错误；其他 SQLSTATE、constraint 或 diagnostics 缺失时原样上抛。
 - 停用后仍允许查看、编辑、维护 Prompt 及重新启用，但新建普通/修复 `ContentTask`、`PlatformAccount` 或 `PublicationWork` 必须先以 `FOR UPDATE` 锁定平台并返回 `PLATFORM_DISABLED`；不得停用既有账号或改写 Prompt、任务、发布及观测历史。
 - 平台管理汇总、配置完整性、账号数量和引用数量只做 PostgreSQL 实时投影。账号批量聚合必须在同一次查询中区分全部账号与 `is_active=true` 的可用账号；引用数按 `ContentTask.platform_profile_id` 统计唯一任务；最近 30 天使用同一 UTC `as_of` 的半开区间 `[as_of - 30 days, as_of)`。
 - 列表筛选、稳定排序和分页复用同一查询条件；无分页参数时保留完整参考集合语义，`page` 与 `page_size` 只能成对出现。`readiness_status` 只筛选 readiness，旧 `configuration_status` 继续筛选 Prompt-only 完整性；CSV 导出保持既有筛选合同。
@@ -374,7 +375,7 @@ result = cleanup_platform_logo_files(storage=storage)
 - 没有管理权限时，服务端返回 `primary_task=null`、空 `available_actions` 和 `deletion=null`；前端不得自行推导权限。启停和删除命令必须在行锁内校验 revision、状态和阻断项；同态启停返回 `INVALID_STATE_TRANSITION`，删除必须携带 revision，账号只作为清理影响而非删除阻断项。
 - Detail 与 List 必须调用同一个 Platform projection 和稳定类型 options owner。Detail 不携带账号行或全部 Prompt；账号和 Prompt reference 按 Tab 延迟读取，避免首屏 waterfall 与巨型响应。
 - Platform Account DELETE 使用 `DELETE /api/v1/platform-accounts/{id}?expected_revision=<revision>`，query 必填。服务复用 Platform → Account 锁序并在持锁期间先校验 revision、后统计非终态 PublicationWork；PublicationWork 创建使用同一锁序，终态历史只保留账号 snapshot，不阻断删除。
-- 同平台 `lower(btrim(account_identifier))` 唯一性以 `uq_platform_accounts_profile_identifier_normalized` 为最终权威。业务预检与该约束的 `IntegrityError` 路径必须返回相同 `PLATFORM_ACCOUNT_IDENTIFIER_EXISTS` 与 `body.account_identifier` 字段错误；未知约束错误不得吞掉或改写。
+- 同平台 `lower(btrim(account_identifier))` 唯一性以 `uq_platform_accounts_profile_identifier_normalized` 为最终权威。业务预检与该约束的 `sqlstate=23505` 路径必须返回相同 `PLATFORM_ACCOUNT_IDENTIFIER_EXISTS` 与 `body.account_identifier` 字段错误；其他 SQLSTATE、constraint 或 diagnostics 缺失时原样上抛。
 
 ### 4. 状态与异常矩阵
 
@@ -403,7 +404,7 @@ result = cleanup_platform_logo_files(storage=storage)
 
 - `GET /api/v1/platform-types`、POST、PATCH、DELETE 均只允许 ADMIN；普通用户不获得只读类型管理模式。
 - `PlatformType.platform_count` 是全部直接 `PlatformProfile` 引用数，包含 Enabled 与 Disabled；必须与 deletion blocker 在同一 grouped query 中批量计算，列表固定使用 `lower(name), id`，不得逐行查询或客户端计数。
-- `name` 不唯一，由请求 schema trim 后限制 1–160；`slug` 限制 1–100 且只接受小写字母、数字、连字符，允许更新。只有 `uq_platform_types_slug` 映射为 `409 PLATFORM_TYPE_SLUG_EXISTS` 与 `body.slug` 字段错误，未知 IntegrityError 继续抛出。
+- `name` 不唯一，由请求 schema trim 后限制 1–160；`slug` 限制 1–100 且只接受小写字母、数字、连字符，允许更新。只有 `sqlstate=23505` 且 constraint 精确为 `uq_platform_types_slug` 时映射 `409 PLATFORM_TYPE_SLUG_EXISTS` 与 `body.slug` 字段错误，其他 SQLSTATE、constraint 或 diagnostics 缺失时继续原抛。
 - PATCH 使用 body `expected_revision`；DELETE 使用 required query `expected_revision`。两者锁行后先比较 revision；DELETE 再统计 PlatformProfile，非零返回 `PLATFORM_TYPE_IN_USE`，不得自动 GET 或重放。
 - contract/integration tests 必须覆盖 runtime OpenAPI、一致字段边界、ADMIN 403、稳定顺序、Enabled/Disabled count/blocker、create/update constraint、stale DELETE 优先级及 sparse/dense 固定两查询。
 
@@ -442,6 +443,7 @@ result = cleanup_platform_logo_files(storage=storage)
 - `ContentRevisionCreate.tags` 必须至少包含一个标签，且每个标签至少包含一个非空白字符；人工首稿与人工修订前端复用同一必填规则，服务端请求模型仍是最终校验权威。标签不自动 trim、去重、补默认值或增加未批准的数量/长度限制。
 - 发布工作、平台账号和修复任务沿用 `ContentTask.platform_profile_id`；修复任务只允许重新选择同产品的批准事实版本，并继承原文章任务的平台。
 - Prompt 可按 revision 删除；服务在同一事务自动解绑全部当前平台并递增平台 revision。删除后新 AI 生成因缺少绑定显式失败，历史作业继续从不可变快照读取，v2 可按原快照重试，v1 禁止重试。
+- `platform_prompts.name` 全局唯一的最终权威是 `uq_platform_prompt_templates_name`。create/update 预检和该约束的 `sqlstate=23505` 路径必须共用 `409 PLATFORM_PROMPT_NAME_EXISTS` 及 `body.name` 字段错误；update 仍先校验 revision，并在成功审计与绑定影响提交前 flush。其他 SQLSTATE、constraint 或 diagnostics 缺失时原样上抛。
 
 ### 4. 校验与错误矩阵
 

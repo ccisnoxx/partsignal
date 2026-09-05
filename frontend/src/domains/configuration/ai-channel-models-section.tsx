@@ -37,6 +37,7 @@ import {
   aiModelFormSchema,
   aiModelFormValues,
   isAIChannelRevisionConflict,
+  mapAIModelFormError,
   resolveAIChannelWorkspaceActions,
   resolveAIModelActions,
   toAIModelCreate,
@@ -283,12 +284,17 @@ function AIModelDialog({
       : createAIModel(channelId, toAIModelCreate(values), csrfToken),
   });
   const conflict = isAIChannelRevisionConflict(save.error);
+  const errorProjection = save.error ? mapAIModelFormError(save.error) : { fields: {} };
   async function submit(values: AIModelFormValues) {
+    form.clearErrors();
     try {
       await save.mutateAsync(values);
       await onSaved(model ? 'update' : 'create');
-    } catch {
-      // mutation.error 在当前 Dialog 内展示；冲突时保留草稿并锁定旧 revision。
+    } catch (error) {
+      const mapped = mapAIModelFormError(error);
+      if (mapped.fields.modelId) {
+        form.setError('modelId', { type: 'server', message: mapped.fields.modelId });
+      }
     }
   }
   return (
@@ -296,7 +302,10 @@ function AIModelDialog({
       <DialogContent finalFocus={finalFocus} showCloseButton={!save.isPending}>
         <DialogHeader><DialogTitle>{model ? '编辑模型' : '新增模型'}</DialogTitle><DialogDescription>请求参数只接受 JSON 对象；model、messages 与 stream 由服务端管理。</DialogDescription></DialogHeader>
         <FormProvider {...form}><form className="space-y-4" id="ai-model-form" noValidate onSubmit={form.handleSubmit(submit)}>
-          <ErrorSummary errors={save.error ? [{ id: 'server', message: errorMessage(save.error) }] : []} />
+          <ErrorSummary errors={[
+            ...(errorProjection.formMessage ? [{ id: 'server', message: errorProjection.formMessage }] : []),
+            ...(errorProjection.requestId ? [{ id: 'request', message: `请求 ID：${errorProjection.requestId}` }] : []),
+          ]} />
           {conflict && <Button onClick={() => void onReload()} type="button" variant="outline">重新加载模型列表</Button>}
           <FormField<AIModelFormValues, 'displayName'> id="ai-model-display-name" label="显示名称" name="displayName" required render={(context) => <Input {...context.field} aria-describedby={context['aria-describedby']} aria-invalid={context['aria-invalid']} autoFocus disabled={save.isPending || conflict} id={context.inputId} />} />
           <FormField<AIModelFormValues, 'modelId'> id="ai-model-id" label="Model ID" name="modelId" required render={(context) => <Input {...context.field} aria-describedby={context['aria-describedby']} aria-invalid={context['aria-invalid']} disabled={save.isPending || conflict} id={context.inputId} />} />

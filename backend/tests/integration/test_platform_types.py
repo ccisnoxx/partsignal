@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
 from types import SimpleNamespace
 
 import pytest
@@ -12,13 +14,28 @@ from sqlalchemy import create_engine, event, func, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
+import app.services.content_planning as content_planning_service
+import app.services.platform_configuration as platform_configuration_service
 from app.db import get_db
 from app.deps import get_current_session
+from app.errors import AppError
 from app.main import app
-from app.models.configuration import PlatformProfile, PlatformType
+from app.models.configuration import PlatformProfile, PlatformPrompt, PlatformType
 from app.models.identity import User
+from app.models.publication import PlatformAccount
+from app.schemas.configuration import (
+    PlatformProfileCreate,
+    PlatformPromptCreate,
+    PlatformTypeCreate,
+)
+from app.schemas.publication import PlatformAccountCreate
 from app.security import hash_token
-from app.services.platform_configuration import platform_types_out
+from app.services.platform_configuration import (
+    create_platform_prompt,
+    create_platform_type,
+    platform_types_out,
+)
+from app.services.publication import create_platform_account
 from tests.integration.test_publication_workflow import _seed_graph, temporary_database
 
 
@@ -216,6 +233,163 @@ def test_platform_type_api_is_admin_only_and_supports_contract_crud() -> None:
         ]
         assert missing_revision.status_code == 422
         assert deleted.status_code == 204
+
+
+@pytest.mark.integration
+def test_platform_type_constraint_mapper_preserves_postgresql_diagnostics() -> None:
+    """绕过预检触发真实 slug 约束，并保留可核验的 PostgreSQL diagnostics。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine, expire_on_commit=False) as db:
+            graph = _seed_graph(db)
+            actor = graph["user"]
+            source = graph["profile"]
+            assert isinstance(actor, User)
+            assert isinstance(source, PlatformProfile)
+            duplicate = PlatformType(
+                name="重复类型",
+                slug=db.get(PlatformType, source.platform_type_id).slug,
+                created_by=actor.id,
+            )
+            db.add(duplicate)
+            with pytest.raises(AppError) as raised:
+                platform_configuration_service._flush_platform_type(db)
+
+            cause = raised.value.__cause__
+            assert cause is not None
+            assert getattr(cause.orig, "sqlstate", None) == "23505"
+            assert (
+                getattr(getattr(cause.orig, "diag", None), "constraint_name", None)
+                == "uq_platform_types_slug"
+            )
+            assert raised.value.code == "PLATFORM_TYPE_SLUG_EXISTS"
+            assert raised.value.details == {
+                "errors": [
+                    {
+                        "loc": ["body", "slug"],
+                        "msg": "平台类型 slug 已存在",
+                        "type": "platform_type_slug_exists",
+                    }
+                ]
+            }
+            db.rollback()
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("owner", ["type", "profile", "prompt", "account"])
+def test_platform_identity_concurrency_uses_owner_specific_contract(owner: str) -> None:
+    """四类平台 identity 均在真实独立 Session 中验证并发最终结果。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine) as db:
+            graph = _seed_graph(db)
+            actor = graph["user"]
+            profile = graph["profile"]
+            assert isinstance(actor, User)
+            assert isinstance(profile, PlatformProfile)
+            actor_id = actor.id
+            platform_type_id = profile.platform_type_id
+            profile_id = profile.id
+        start_barrier = Barrier(2)
+
+        def create_identity(request_id: str) -> tuple[str, AppError | None]:
+            with Session(engine) as db:
+                race_actor = db.get(User, actor_id)
+                assert race_actor is not None
+                if owner == "prompt":
+                    original_scalar = db.scalar
+                    synchronized = False
+
+                    def synchronized_scalar(
+                        statement: object, *args: object, **kwargs: object
+                    ) -> object:
+                        nonlocal synchronized
+                        result = original_scalar(statement, *args, **kwargs)
+                        if not synchronized:
+                            synchronized = True
+                            start_barrier.wait(timeout=30)
+                        return result
+
+                    db.scalar = synchronized_scalar
+                else:
+                    start_barrier.wait(timeout=30)
+                try:
+                    if owner == "type":
+                        create_platform_type(
+                            db=db,
+                            payload=PlatformTypeCreate(
+                                name="并发类型", slug="concurrent-type"
+                            ),
+                            actor=race_actor,
+                            request_id=request_id,
+                        )
+                    elif owner == "profile":
+                        content_planning_service.create_platform_profile(
+                            db=db,
+                            payload=PlatformProfileCreate(
+                                name="并发平台",
+                                slug="concurrent-profile",
+                                allowed_domains=["concurrent.example.invalid"],
+                                platform_type_id=platform_type_id,
+                                platform_prompt_id=None,
+                            ),
+                            actor=race_actor,
+                            request_id=request_id,
+                        )
+                    elif owner == "prompt":
+                        create_platform_prompt(
+                            db=db,
+                            payload=PlatformPromptCreate(
+                                name="并发 Prompt", template_markdown="并发模板"
+                            ),
+                            actor=race_actor,
+                            request_id=request_id,
+                        )
+                    else:
+                        create_platform_account(
+                            db=db,
+                            payload=PlatformAccountCreate(
+                                platform_profile_id=profile_id,
+                                label="并发账号",
+                                account_identifier="concurrent-account",
+                            ),
+                            actor=race_actor,
+                            request_id=request_id,
+                        )
+                except AppError as error:
+                    return "error", error
+                return "success", None
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            results = list(executor.map(create_identity, [f"{owner}-race-1", f"{owner}-race-2"]))
+        assert [result[0] for result in results].count("success") == 1
+        conflict = next(result[1] for result in results if result[1] is not None)
+        expected = {
+            "type": ("PLATFORM_TYPE_SLUG_EXISTS", "uq_platform_types_slug"),
+            "profile": ("PLATFORM_SLUG_EXISTS", None),
+            "prompt": ("PLATFORM_PROMPT_NAME_EXISTS", "uq_platform_prompt_templates_name"),
+            "account": ("PLATFORM_ACCOUNT_IDENTIFIER_EXISTS", None),
+        }[owner]
+        assert conflict.code == expected[0]
+        if expected[1] is not None:
+            cause = conflict.__cause__
+            assert cause is not None
+            assert getattr(cause.orig, "sqlstate", None) == "23505"
+            assert getattr(getattr(cause.orig, "diag", None), "constraint_name", None) == (
+                expected[1]
+            )
+        identity_rows = {
+            "type": (PlatformType, PlatformType.slug == "concurrent-type"),
+            "profile": (PlatformProfile, PlatformProfile.slug == "concurrent-profile"),
+            "prompt": (PlatformPrompt, PlatformPrompt.name == "并发 Prompt"),
+            "account": (
+                PlatformAccount,
+                PlatformAccount.account_identifier == "concurrent-account",
+            ),
+        }
+        row_model, row_filter = identity_rows[owner]
+        with Session(engine) as db:
+            assert db.scalar(select(func.count()).select_from(row_model).where(row_filter)) == 1
 
 
 @pytest.mark.integration

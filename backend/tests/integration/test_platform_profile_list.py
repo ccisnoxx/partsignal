@@ -7,12 +7,17 @@ from sqlalchemy import create_engine, event, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
+import app.services.content_planning as content_planning_service
 from app.errors import AppError
 from app.models.configuration import PlatformProfile, PlatformPrompt, PlatformType
 from app.models.identity import User
 from app.models.publication import PlatformAccount
 from app.schemas.common import RevisionRequest
-from app.schemas.configuration import PlatformProfileStatus, PlatformReadinessStatus
+from app.schemas.configuration import (
+    PlatformProfileCreate,
+    PlatformProfileStatus,
+    PlatformReadinessStatus,
+)
 from app.services.platform_configuration import (
     delete_platform_profile,
     list_platform_profiles,
@@ -185,7 +190,64 @@ def test_platform_list_projects_authoritative_readiness_filters_and_permissions(
             )
             assert full_reference.page == 1
             assert full_reference.page_size == full_reference.total == 3
-            assert _statement_count(engine, q=None) == _statement_count(engine, q="Alpha")
+        assert _statement_count(engine, q=None) == _statement_count(engine, q="Alpha")
+
+
+@pytest.mark.integration
+def test_platform_profile_slug_mapper_preserves_real_postgresql_diagnostics(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """绕过 slug 预检触发真实约束，并验证字段错误与 diagnostics。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine, expire_on_commit=False) as db:
+            graph = _seed_graph(db)
+            actor = graph["user"]
+            profile = graph["profile"]
+            assert isinstance(actor, User)
+            assert isinstance(profile, PlatformProfile)
+            original_scalar = db.scalar
+            skipped = False
+
+            def skip_slug_precheck(statement: object, *args: object, **kwargs: object) -> object:
+                nonlocal skipped
+                if not skipped:
+                    skipped = True
+                    return None
+                return original_scalar(statement, *args, **kwargs)
+
+            monkeypatch.setattr(db, "scalar", skip_slug_precheck)
+            with pytest.raises(AppError) as raised:
+                content_planning_service.create_platform_profile(
+                    db=db,
+                    payload=PlatformProfileCreate(
+                        name="重复平台",
+                        slug=profile.slug,
+                        allowed_domains=["duplicate.example.invalid"],
+                        platform_type_id=profile.platform_type_id,
+                        platform_prompt_id=None,
+                    ),
+                    actor=actor,
+                    request_id="profile-constraint",
+                )
+            assert raised.value.code == "PLATFORM_SLUG_EXISTS"
+            assert raised.value.details == {
+                "errors": [
+                    {
+                        "loc": ["body", "slug"],
+                        "msg": "平台 slug 已存在",
+                        "type": "platform_slug_exists",
+                    }
+                ]
+            }
+            cause = raised.value.__cause__
+            assert cause is not None
+            assert getattr(cause.orig, "sqlstate", None) == "23505"
+            assert (
+                getattr(getattr(cause.orig, "diag", None), "constraint_name", None)
+                == "uq_platform_profiles_slug"
+            )
+            db.rollback()
 
 
 @pytest.mark.integration

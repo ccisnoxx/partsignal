@@ -6,6 +6,8 @@ import {
   aiChannelWorkspaceSearchForTab,
   aiChannelWorkspaceSearchSchema,
   isCanonicalAIChannelWorkspaceSearch,
+  mapAIChannelHeaderFormError,
+  mapAIModelFormError,
   resolveAIChannelHeaderActions,
   resolveAIModelActions,
   resolveAIChannelWorkspaceActions,
@@ -15,6 +17,7 @@ import {
   type AIChannel,
   type AIModel,
 } from './ai-channel-workspace.model';
+import { AIChannelRequestError } from './ai-channel.api';
 
 const channel: AIChannel = {
   id: '00000000-0000-4000-8000-000000000001',
@@ -179,6 +182,46 @@ describe('AI Channel Workspace model', () => {
       primary_task: 'VIEW_RUNTIME',
       available_actions: ['UPDATE'],
     }).primary).toMatchObject({ command: 'show-usage', enabled: true });
+  });
+
+  it('identity duplicate 只按精确 code 与 structured loc 投影，并保留 request ID', () => {
+    const headerError = new AIChannelRequestError('重复 Header', 409, {
+      code: 'AI_CHANNEL_HEADER_NAME_EXISTS',
+      message: '该 AI 渠道已存在同名 Header',
+      details: { errors: [{ loc: ['body', 'name'], msg: '该 AI 渠道已存在同名 Header', type: 'ai_channel_header_name_exists' }] },
+      request_id: 'req-header-duplicate',
+    });
+    expect(mapAIChannelHeaderFormError(headerError)).toEqual({
+      code: 'AI_CHANNEL_HEADER_NAME_EXISTS',
+      fields: { name: '该 AI 渠道已存在同名 Header' },
+      formMessage: undefined,
+      requestId: 'req-header-duplicate',
+    });
+
+    const modelError = new AIChannelRequestError('重复 Model', 409, {
+      code: 'AI_MODEL_ID_EXISTS',
+      message: '该 AI 渠道已存在相同的 Model ID',
+      details: { errors: [{ loc: ['body', 'model_id'], msg: '该 AI 渠道已存在相同的 Model ID', type: 'ai_model_id_exists' }] },
+      request_id: 'req-model-duplicate',
+    });
+    expect(mapAIModelFormError(modelError)).toEqual({
+      code: 'AI_MODEL_ID_EXISTS',
+      fields: { modelId: '该 AI 渠道已存在相同的 Model ID' },
+      formMessage: undefined,
+      requestId: 'req-model-duplicate',
+    });
+    expect(mapAIModelFormError(new AIChannelRequestError('同名', 409, {
+      code: 'AI_MODEL_ID_EXISTS',
+      message: '该 AI 渠道已存在相同的 Model ID',
+      details: {},
+      request_id: 'req-model-summary',
+    }))).toMatchObject({ fields: {}, formMessage: '该 AI 渠道已存在相同的 Model ID', requestId: 'req-model-summary' });
+    expect(mapAIChannelHeaderFormError(new AIChannelRequestError('异常详情', 409, {
+      code: 'AI_CHANNEL_HEADER_NAME_EXISTS',
+      message: '该 AI 渠道已存在同名 Header',
+      details: null as never,
+      request_id: 'req-header-malformed',
+    }))).toMatchObject({ fields: {}, formMessage: '该 AI 渠道已存在同名 Header', requestId: 'req-header-malformed' });
   });
 
 });

@@ -13,6 +13,13 @@ type AIModelCreate = components['schemas']['AIModelCreate'];
 type AIModelUpdate = components['schemas']['AIModelUpdate'];
 type AIProviderBrand = components['schemas']['AIProviderBrand'];
 
+type AIChannelFormError<Field extends string> = {
+  code?: string;
+  fields: Partial<Record<Field, string>>;
+  formMessage?: string;
+  requestId?: string;
+};
+
 const aiChannelWorkspaceTabs = ['basic', 'request', 'models', 'usage', 'logs'] as const;
 const aiChannelUsagePeriods = ['7d', '30d', '90d', 'all'] as const;
 const aiChannelLogPageSizes = [10, 20, 50] as const;
@@ -433,6 +440,78 @@ function isAIChannelRevisionConflict(error: unknown) {
   return error instanceof AIChannelRequestError && error.detail?.code === 'REVISION_CONFLICT';
 }
 
+function mapAIChannelHeaderFormError(error: unknown): AIChannelFormError<'name'> {
+  if (!(error instanceof AIChannelRequestError) || !error.detail) {
+    return {
+      fields: {},
+      formMessage: error instanceof Error ? error.message : 'AI 渠道 Header 请求失败',
+    };
+  }
+  const fields: Partial<Record<'name', string>> = {};
+  let unknownIssue = false;
+  const details = error.detail.details;
+  const issues = details && typeof details === 'object' && 'errors' in details ? details.errors : undefined;
+  if (Array.isArray(issues)) {
+    for (const issue of issues) {
+      if (!issue || typeof issue !== 'object') {
+        unknownIssue = true;
+        continue;
+      }
+      const loc = 'loc' in issue ? issue.loc : undefined;
+      const message = 'msg' in issue ? issue.msg : undefined;
+      if (error.detail.code === 'AI_CHANNEL_HEADER_NAME_EXISTS'
+        && Array.isArray(loc) && loc.length === 2 && loc[0] === 'body'
+        && loc[1] === 'name' && typeof message === 'string') {
+        fields.name ??= message;
+      } else {
+        unknownIssue = true;
+      }
+    }
+  }
+  return {
+    code: error.detail.code,
+    fields,
+    formMessage: Object.keys(fields).length === 0 || unknownIssue ? error.detail.message : undefined,
+    requestId: error.detail.request_id,
+  };
+}
+
+function mapAIModelFormError(error: unknown): AIChannelFormError<'modelId'> {
+  if (!(error instanceof AIChannelRequestError) || !error.detail) {
+    return {
+      fields: {},
+      formMessage: error instanceof Error ? error.message : 'AI 模型请求失败',
+    };
+  }
+  const fields: Partial<Record<'modelId', string>> = {};
+  let unknownIssue = false;
+  const details = error.detail.details;
+  const issues = details && typeof details === 'object' && 'errors' in details ? details.errors : undefined;
+  if (Array.isArray(issues)) {
+    for (const issue of issues) {
+      if (!issue || typeof issue !== 'object') {
+        unknownIssue = true;
+        continue;
+      }
+      const loc = 'loc' in issue ? issue.loc : undefined;
+      const message = 'msg' in issue ? issue.msg : undefined;
+      if (error.detail.code === 'AI_MODEL_ID_EXISTS'
+        && Array.isArray(loc) && loc.length === 2 && loc[0] === 'body'
+        && loc[1] === 'model_id' && typeof message === 'string') {
+        fields.modelId ??= message;
+      } else {
+        unknownIssue = true;
+      }
+    }
+  }
+  return {
+    code: error.detail.code,
+    fields,
+    formMessage: Object.keys(fields).length === 0 || unknownIssue ? error.detail.message : undefined,
+    requestId: error.detail.request_id,
+  };
+}
+
 function aiChannelDetailErrorKind(error: unknown): 'not-found' | 'forbidden' | 'generic' {
   if (!(error instanceof AIChannelRequestError)) return 'generic';
   if (error.status === 404) return 'not-found';
@@ -454,6 +533,8 @@ export {
   aiChannelWorkspaceTabs,
   aiModelFormSchema,
   aiModelFormValues,
+  mapAIChannelHeaderFormError,
+  mapAIModelFormError,
   isAIChannelRevisionConflict,
   isCanonicalAIChannelWorkspaceSearch,
   providerValues,

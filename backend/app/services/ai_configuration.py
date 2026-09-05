@@ -8,6 +8,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Literal, cast
 
 from sqlalchemy import func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.elements import ColumnElement
 
@@ -63,6 +64,58 @@ AIChannelAction = Literal[
     "CREATE_MODEL",
 ]
 AIModelAction = Literal["UPDATE", "TEST", "ENABLE", "DISABLE", "DELETE"]
+
+
+def _ai_channel_header_name_conflict() -> AppError:
+    """返回可定位到 Header 名称字段的稳定重复错误。"""
+    message = "该 AI 渠道已存在同名 Header"
+    return AppError(
+        "AI_CHANNEL_HEADER_NAME_EXISTS",
+        message,
+        409,
+        {
+            "errors": [
+                {
+                    "loc": ["body", "name"],
+                    "msg": message,
+                    "type": "ai_channel_header_name_exists",
+                }
+            ]
+        },
+    )
+
+
+def _ai_model_id_conflict() -> AppError:
+    """返回可定位到 Model ID 字段的稳定重复错误。"""
+    message = "该 AI 渠道已存在相同的 Model ID"
+    return AppError(
+        "AI_MODEL_ID_EXISTS",
+        message,
+        409,
+        {
+            "errors": [
+                {
+                    "loc": ["body", "model_id"],
+                    "msg": message,
+                    "type": "ai_model_id_exists",
+                }
+            ]
+        },
+    )
+
+
+def _flush_ai_configuration(db: Session, *, constraint_name: str, conflict: AppError) -> None:
+    """在事务边界映射已确认的 AI 唯一约束，其他错误保持原语义。"""
+    try:
+        db.flush()
+    except IntegrityError as error:
+        orig = error.orig
+        sqlstate = getattr(orig, "sqlstate", None)
+        actual_constraint = getattr(getattr(orig, "diag", None), "constraint_name", None)
+        if sqlstate != "23505" or actual_constraint != constraint_name:
+            raise
+        db.rollback()
+        raise conflict from error
 
 
 def ai_channel_stage(
@@ -554,6 +607,13 @@ def create_ai_channel_header(
     if channel.revision != payload.expected_channel_revision:
         raise AppError("REVISION_CONFLICT", "AI 渠道已被其他请求修改", 409)
     normalized = validate_header(payload.name, payload.value)
+    if db.scalar(
+        select(AIChannelHeader.id).where(
+            AIChannelHeader.channel_id == channel.id,
+            AIChannelHeader.normalized_name == normalized,
+        )
+    ) is not None:
+        raise _ai_channel_header_name_conflict()
     header_id = new_uuid()
     header = AIChannelHeader(
         id=header_id,
@@ -569,6 +629,11 @@ def create_ai_channel_header(
         ),
     )
     channel.headers.append(header)
+    _flush_ai_configuration(
+        db,
+        constraint_name="uq_ai_channel_headers_channel_id",
+        conflict=_ai_channel_header_name_conflict(),
+    )
     invalidate_channel_models(db, channel)
     append_audit(
         db,
@@ -609,14 +674,28 @@ def update_ai_channel_header(
         raise not_found("AI 渠道")
     if channel.revision != payload.expected_channel_revision:
         raise AppError("REVISION_CONFLICT", "AI 渠道已被其他请求修改", 409)
+    normalized = validate_header(payload.name, payload.value)
+    if db.scalar(
+        select(AIChannelHeader.id).where(
+            AIChannelHeader.channel_id == channel.id,
+            AIChannelHeader.normalized_name == normalized,
+            AIChannelHeader.id != header.id,
+        )
+    ) is not None:
+        raise _ai_channel_header_name_conflict()
     header.name = payload.name
-    header.normalized_name = validate_header(payload.name, payload.value)
+    header.normalized_name = normalized
     header.is_sensitive = payload.is_sensitive
     header.plain_value = None if payload.is_sensitive else payload.value
     header.encrypted_value = (
         _cipher().encrypt(payload.value, associated_data=f"ai_channel_header:{header.id}:value")
         if payload.is_sensitive
         else None
+    )
+    _flush_ai_configuration(
+        db,
+        constraint_name="uq_ai_channel_headers_channel_id",
+        conflict=_ai_channel_header_name_conflict(),
     )
     invalidate_channel_models(db, channel)
     append_audit(
@@ -688,15 +767,27 @@ def create_ai_model(
     """在现存渠道下创建默认未测试模型。"""
     if db.get(AIChannel, channel_id) is None:
         raise not_found("AI 渠道")
+    normalized_model_id = payload.model_id.strip()
+    if db.scalar(
+        select(AIModel.id).where(
+            AIModel.channel_id == channel_id,
+            AIModel.model_id == normalized_model_id,
+        )
+    ) is not None:
+        raise _ai_model_id_conflict()
     model = AIModel(
         channel_id=channel_id,
         display_name=payload.display_name.strip(),
-        model_id=payload.model_id.strip(),
+        model_id=normalized_model_id,
         request_parameters=payload.request_parameters,
         created_by=actor.id,
     )
     db.add(model)
-    db.flush()
+    _flush_ai_configuration(
+        db,
+        constraint_name="uq_ai_models_channel_id",
+        conflict=_ai_model_id_conflict(),
+    )
     append_audit(
         db,
         AuditEntry(
@@ -890,12 +981,21 @@ def update_ai_model(
     model, channel = lock_model_configuration(db, model_id)
     if model.revision != payload.expected_revision:
         raise AppError("REVISION_CONFLICT", "AI 模型已被其他请求修改", 409)
+    normalized_model_id = payload.model_id.strip()
+    if db.scalar(
+        select(AIModel.id).where(
+            AIModel.channel_id == channel.id,
+            AIModel.model_id == normalized_model_id,
+            AIModel.id != model.id,
+        )
+    ) is not None:
+        raise _ai_model_id_conflict()
     changed = (
-        model.model_id != payload.model_id.strip()
+        model.model_id != normalized_model_id
         or model.request_parameters != payload.request_parameters
     )
     model.display_name = payload.display_name.strip()
-    model.model_id = payload.model_id.strip()
+    model.model_id = normalized_model_id
     model.request_parameters = payload.request_parameters
     if changed:
         model.is_enabled = False
@@ -903,6 +1003,11 @@ def update_ai_model(
         model.last_tested_at = None
         model.last_test_error_summary = None
     model.revision += 1
+    _flush_ai_configuration(
+        db,
+        constraint_name="uq_ai_models_channel_id",
+        conflict=_ai_model_id_conflict(),
+    )
     append_audit(
         db,
         AuditEntry(

@@ -642,7 +642,7 @@ def test_runtime_request_context_covers_all_operations_and_responses() -> None:
 
     assert len(operations) == 162
     assert len(set(operations)) == 162
-    assert sum(len(operation["responses"]) for operation in operations.values()) == 1023
+    assert sum(len(operation["responses"]) for operation in operations.values()) == 1024
     parameter_ref = {"$ref": "#/components/parameters/RequestIdHeader"}
     header_ref = {"$ref": "#/components/headers/RequestIdResponseHeader"}
     parameter_schema = {
@@ -687,10 +687,10 @@ def test_runtime_request_context_merge_does_not_change_route_metadata() -> None:
     augmented = app.openapi()
     stripped = _strip_request_context_metadata(augmented)
 
-    assert sum(len(operation["responses"]) for operation in _operation_map(raw).values()) == 861
+    assert sum(len(operation["responses"]) for operation in _operation_map(raw).values()) == 862
     assert sum(
         len(operation["responses"]) for operation in _operation_map(stripped).values()
-    ) == 861
+    ) == 862
     assert compare_response_contracts(raw, stripped) == []
     assert _operation_map(raw) == _operation_map(stripped)
 

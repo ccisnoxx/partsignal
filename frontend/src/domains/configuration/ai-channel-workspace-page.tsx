@@ -55,6 +55,7 @@ import {
   aiChannelHeaderFormValues,
   aiChannelWorkspaceSearchForTab,
   isAIChannelRevisionConflict,
+  mapAIChannelHeaderFormError,
   providerValues,
   resolveAIChannelHeaderActions,
   resolveAIChannelWorkspaceActions,
@@ -712,6 +713,7 @@ function AIChannelHeaderDialog({
 }) {
   const [header, setHeader] = useState(initialHeader);
   const [error, setError] = useState<string>();
+  const [requestId, setRequestId] = useState<string>();
   const [conflict, setConflict] = useState(false);
   const form = useForm<AIChannelHeaderFormValues>({ defaultValues: aiChannelHeaderFormValues(header), resolver: zodResolver(aiChannelHeaderFormSchema) });
   const save = useMutation({
@@ -720,19 +722,31 @@ function AIChannelHeaderDialog({
       ? updateAIChannelHeader(channel, header.id, toAIChannelHeaderInput(values), csrfToken)
       : createAIChannelHeader(channel, toAIChannelHeaderInput(values), csrfToken),
   });
-  function reset() { form.reset(aiChannelHeaderFormValues(header)); save.reset(); setError(undefined); setConflict(false); }
+  function reset() {
+    form.reset(aiChannelHeaderFormValues(header));
+    save.reset();
+    setError(undefined);
+    setRequestId(undefined);
+    setConflict(false);
+  }
   function close() { reset(); onClose(); }
   async function submit(values: AIChannelHeaderFormValues) {
     setError(undefined);
+    setRequestId(undefined);
+    form.clearErrors();
     try {
       const canonical = await save.mutateAsync(values);
       reset();
       onClose();
       await onCanonical(canonical);
     } catch (reason) {
-      setError(errorMessage(reason));
-      setConflict(isAIChannelRevisionConflict(reason));
+      // 失败时也清除本次提交的 Header 值，避免敏感草稿留在表单或 mutation 状态中。
       form.reset({ ...values, value: '' });
+      const mapped = mapAIChannelHeaderFormError(reason);
+      if (mapped.fields.name) form.setError('name', { type: 'server', message: mapped.fields.name });
+      setError(mapped.formMessage);
+      setRequestId(mapped.requestId);
+      setConflict(mapped.code === 'REVISION_CONFLICT');
       save.reset();
     }
   }
@@ -744,6 +758,7 @@ function AIChannelHeaderDialog({
     setHeader(freshHeader);
     form.reset(aiChannelHeaderFormValues(freshHeader));
     setError(undefined);
+    setRequestId(undefined);
     setConflict(false);
     save.reset();
     await onCanonical(fresh);
@@ -753,7 +768,10 @@ function AIChannelHeaderDialog({
       <DialogContent finalFocus={finalFocus} showCloseButton={!save.isPending}>
         <DialogHeader><DialogTitle>{header ? '编辑 Header' : '新增 Header'}</DialogTitle><DialogDescription>{header?.is_sensitive ? '敏感值不可恢复；请提供完整替换值。' : '现有值不会回显；普通与敏感 Header 都必须提供完整替换值。'}</DialogDescription></DialogHeader>
         <FormProvider {...form}><form className="space-y-4" id="ai-channel-header-form" noValidate onSubmit={form.handleSubmit(submit)}>
-          <ErrorSummary errors={error ? [{ id: 'server', message: error }] : []} />
+          <ErrorSummary errors={[
+            ...(error ? [{ id: 'server', message: error }] : []),
+            ...(requestId ? [{ id: 'request', message: `请求 ID：${requestId}` }] : []),
+          ]} />
           {conflict && <Button onClick={() => void reload()} type="button" variant="outline">重新加载服务端版本</Button>}
           <FormField<AIChannelHeaderFormValues, 'name'> id="ai-channel-header-name" label="Header 名" name="name" required render={(context) => <Input {...context.field} aria-describedby={context['aria-describedby']} aria-invalid={context['aria-invalid']} autoFocus disabled={save.isPending || conflict} id={context.inputId} />} />
           <FormField<AIChannelHeaderFormValues, 'value'> description="只存在于本次请求，不会回显。" id="ai-channel-header-value" label="替换值" name="value" required render={(context) => <Input {...context.field} aria-describedby={context['aria-describedby']} aria-invalid={context['aria-invalid']} autoComplete="new-password" disabled={save.isPending || conflict} id={context.inputId} type="password" />} />

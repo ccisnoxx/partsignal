@@ -61,6 +61,25 @@ HUMANIZATION_PROMPT_SINGLETON_ID = 1
 PLATFORM_PROMPT_BINDING_LOCK = "platform-prompt-bindings"
 
 
+def _platform_prompt_name_conflict() -> AppError:
+    """返回可定位到 Prompt 名称字段的稳定重复错误。"""
+    message = "Prompt 名称已存在"
+    return AppError(
+        "PLATFORM_PROMPT_NAME_EXISTS",
+        message,
+        409,
+        {
+            "errors": [
+                {
+                    "loc": ["body", "name"],
+                    "msg": message,
+                    "type": "platform_prompt_name_exists",
+                }
+            ]
+        },
+    )
+
+
 def lock_platform_prompt_bindings(db: Session) -> None:
     """串行化低频 Prompt 绑定变更与解绑删除。"""
     db.execute(
@@ -403,8 +422,9 @@ def _flush_platform_type(db: Session) -> None:
     try:
         db.flush()
     except IntegrityError as error:
+        sqlstate = getattr(error.orig, "sqlstate", None)
         constraint_name = getattr(getattr(error.orig, "diag", None), "constraint_name", None)
-        if constraint_name != "uq_platform_types_slug":
+        if sqlstate != "23505" or constraint_name != "uq_platform_types_slug":
             raise
         db.rollback()
         message = "平台类型 slug 已存在"
@@ -625,16 +645,19 @@ def create_platform_prompt(
     if not markdown:
         raise AppError("VALIDATION_ERROR", "平台 Prompt 不能为空", 422)
     if db.scalar(select(PlatformPrompt.id).where(PlatformPrompt.name == name)) is not None:
-        raise AppError("PLATFORM_PROMPT_NAME_EXISTS", "Prompt 名称已存在", 409)
+        raise _platform_prompt_name_conflict()
     prompt = PlatformPrompt(name=name, template_markdown=markdown, updated_by=actor.id)
     db.add(prompt)
     try:
         db.flush()
     except IntegrityError as error:
+        orig = error.orig
+        sqlstate = getattr(orig, "sqlstate", None)
+        constraint_name = getattr(getattr(orig, "diag", None), "constraint_name", None)
+        if sqlstate != "23505" or constraint_name != "uq_platform_prompt_templates_name":
+            raise
         db.rollback()
-        if db.scalar(select(PlatformPrompt.id).where(PlatformPrompt.name == name)) is not None:
-            raise AppError("PLATFORM_PROMPT_NAME_EXISTS", "Prompt 名称已存在", 409) from error
-        raise
+        raise _platform_prompt_name_conflict() from error
     append_audit(
         db,
         AuditEntry(
@@ -682,7 +705,7 @@ def update_platform_prompt(
         )
     )
     if duplicate_id is not None:
-        raise AppError("PLATFORM_PROMPT_NAME_EXISTS", "Prompt 名称已存在", 409)
+        raise _platform_prompt_name_conflict()
     previous_name = prompt.name
     previous_revision = prompt.revision
     bound_platform_ids = list(
@@ -699,18 +722,13 @@ def update_platform_prompt(
     try:
         db.flush()
     except IntegrityError as error:
+        orig = error.orig
+        sqlstate = getattr(orig, "sqlstate", None)
+        constraint_name = getattr(getattr(orig, "diag", None), "constraint_name", None)
+        if sqlstate != "23505" or constraint_name != "uq_platform_prompt_templates_name":
+            raise
         db.rollback()
-        if (
-            db.scalar(
-                select(PlatformPrompt.id).where(
-                    PlatformPrompt.name == name,
-                    PlatformPrompt.id != platform_prompt_id,
-                )
-            )
-            is not None
-        ):
-            raise AppError("PLATFORM_PROMPT_NAME_EXISTS", "Prompt 名称已存在", 409) from error
-        raise
+        raise _platform_prompt_name_conflict() from error
     append_audit(
         db,
         AuditEntry(
@@ -760,7 +778,7 @@ def put_content_humanization_prompt(
         raise AppError("VALIDATION_ERROR", "自然化 Prompt 不能为空", 422)
     if prompt is None:
         if payload.expected_revision is not None:
-            raise AppError("REVISION_CONFLICT", "自然化 Prompt 尚不存在", 409)
+            raise AppError("HUMANIZATION_PROMPT_MISSING", "自然化 Prompt 尚不存在", 409)
         prompt = ContentHumanizationPrompt(
             id=HUMANIZATION_PROMPT_SINGLETON_ID,
             template_markdown=markdown,

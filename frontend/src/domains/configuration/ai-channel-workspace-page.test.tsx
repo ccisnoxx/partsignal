@@ -1,6 +1,6 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -180,6 +180,13 @@ function failure(status: number, message: string) {
   return {
     error: { error: { code: 'RUNTIME_FAILED', message, details: {}, request_id: 'req-runtime-failed' } },
     response: Response.json({}, { status }),
+  } as never;
+}
+
+function duplicate(code: string, message: string, details: Record<string, unknown>) {
+  return {
+    error: { error: { code, message, details, request_id: `req-${code.toLocaleLowerCase()}` } },
+    response: Response.json({}, { status: 409 }),
   } as never;
 }
 
@@ -517,5 +524,68 @@ describe('AIChannelWorkspacePage', () => {
         header: { 'X-CSRF-Token': auth.csrfToken },
       },
     });
+  });
+
+  it('Header identity duplicate 定位名称、清除 secret、保留草稿且不 reload', async () => {
+    const get = vi.spyOn(api, 'GET').mockResolvedValue(success(channel()));
+    const post = vi.spyOn(api, 'POST').mockResolvedValue(duplicate(
+      'AI_CHANNEL_HEADER_NAME_EXISTS',
+      '该 AI 渠道已存在同名 Header',
+      { errors: [{ loc: ['body', 'name'], msg: '该 AI 渠道已存在同名 Header', type: 'ai_channel_header_name_exists' }] },
+    ));
+    renderWorkspace(`/settings/ai/${channelId}?tab=request`);
+
+    await userEvent.click(await screen.findByRole('button', { name: '新增 Header' }));
+    const dialog = await screen.findByRole('dialog', { name: '新增 Header' });
+    const name = within(dialog).getByRole('textbox', { name: 'Header 名' });
+    const value = dialog.querySelector<HTMLInputElement>('#ai-channel-header-value');
+    if (!value) throw new Error('测试未找到 Header 替换值输入框');
+    await userEvent.type(name, 'X-Region');
+    await userEvent.type(value, 'header-secret-sentinel');
+    await userEvent.click(within(dialog).getByRole('button', { name: '保存 Header' }));
+
+    expect(await within(dialog).findByText('该 AI 渠道已存在同名 Header')).toBeInTheDocument();
+    expect(within(dialog).getByText('请求 ID：req-ai_channel_header_name_exists')).toBeInTheDocument();
+    expect(name).toHaveValue('X-Region');
+    expect(value).toHaveValue('');
+    expect(document.body).not.toHaveTextContent('header-secret-sentinel');
+    expect(post).toHaveBeenCalledOnce();
+    expect(get).toHaveBeenCalledOnce();
+    expect(screen.getByRole('button', { name: '保存 Header' })).toBeEnabled();
+  });
+
+  it('Model identity duplicate 定位 Model ID、保留完整非敏感草稿且不 reload', async () => {
+    const get = vi.spyOn(api, 'GET').mockImplementation(async (path) => (
+      path === '/api/v1/ai-channels/{channel_id}/models'
+        ? success({ items: [] })
+        : success(channel())
+    ));
+    const post = vi.spyOn(api, 'POST').mockResolvedValue(duplicate(
+      'AI_MODEL_ID_EXISTS',
+      '该 AI 渠道已存在相同的 Model ID',
+      { errors: [{ loc: ['body', 'model_id'], msg: '该 AI 渠道已存在相同的 Model ID', type: 'ai_model_id_exists' }] },
+    ));
+    renderWorkspace(`/settings/ai/${channelId}?tab=models`);
+
+    await userEvent.click(await screen.findByRole('button', { name: '手工新增' }));
+    const dialog = await screen.findByRole('dialog', { name: '新增模型' });
+    const displayName = within(dialog).getByRole('textbox', { name: '显示名称' });
+    const modelId = within(dialog).getByRole('textbox', { name: 'Model ID' });
+    const parameters = within(dialog).getByRole('textbox', { name: '请求参数 JSON' });
+    await userEvent.clear(displayName);
+    await userEvent.type(displayName, '草稿模型');
+    await userEvent.type(modelId, 'gpt-duplicate');
+    await userEvent.clear(parameters);
+    fireEvent.change(parameters, { target: { value: '{"temperature":0.2}' } });
+    await userEvent.click(within(dialog).getByRole('button', { name: '保存模型' }));
+
+    expect(await within(dialog).findByText('请求 ID：req-ai_model_id_exists')).toBeInTheDocument();
+    expect(within(dialog).getByText('该 AI 渠道已存在相同的 Model ID')).toBeInTheDocument();
+    expect(displayName).toHaveValue('草稿模型');
+    expect(modelId).toHaveValue('gpt-duplicate');
+    expect(parameters).toHaveValue('{"temperature":0.2}');
+    expect(post).toHaveBeenCalledOnce();
+    expect(get).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole('button', { name: '保存模型' })).toBeEnabled();
   });
 });

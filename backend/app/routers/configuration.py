@@ -1060,7 +1060,7 @@ def list_ai_models(channel_id: uuid.UUID, db: DbSession, _admin: AdminUser) -> A
     "/ai-channels/{channel_id}/models",
     response_model=AIModelOut,
     status_code=status.HTTP_201_CREATED,
-    responses=error_responses(401, 403, 404, 422),
+    responses=error_responses(401, 403, 404, 409, 422),
     operation_id="createAIModel",
 )
 def create_ai_model(

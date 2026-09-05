@@ -120,7 +120,8 @@ function mapPromptFormError(error: unknown) {
     return { fields: {}, formMessage: error instanceof Error ? error.message : 'Prompt 请求失败' };
   }
   const fields: Partial<Record<keyof PromptFormValues, string>> = {};
-  const issues = error.detail.details.errors;
+  const details = error.detail.details;
+  const issues = details && typeof details === 'object' && 'errors' in details ? details.errors : undefined;
   let unknownIssue = false;
   if (Array.isArray(issues)) {
     for (const issue of issues) {
@@ -138,9 +139,6 @@ function mapPromptFormError(error: unknown) {
         unknownIssue = true;
       }
     }
-  }
-  if (error.detail.code === 'PLATFORM_PROMPT_NAME_EXISTS' && !fields.name) {
-    fields.name = error.detail.message;
   }
   return {
     code: error.detail.code,

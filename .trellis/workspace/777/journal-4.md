@@ -1011,3 +1011,46 @@
 ### Next Steps
 
 - 仅 T1 已归档；父规划任务 09-04-integrity-error-domain-mapping 保持 planning，后续按独立授权推进。
+
+
+## Session 212: 完成配置 IntegrityError 精确领域映射
+
+**Date**: 2026-09-05
+**Task**: 完成配置 IntegrityError 精确领域映射
+**Branch**: `main`
+
+### Summary
+
+完成配置身份约束的精确领域错误映射、自然化 Prompt 缺失语义与前端恢复投影，并原子同步公共合同、生成物、文档和稳定规范；配置范围的可归因门禁与唯一一次合同门通过，仓库级 typecheck 仍被未修改的 publication 测试既有类型错误阻断。
+
+### Main Changes
+
+- 六条 identity constraint 均仅按 PostgreSQL 23505 + 精确 constraint 映射 409：uq_ai_channel_headers_channel_id → AI_CHANNEL_HEADER_NAME_EXISTS（body.name）；uq_ai_models_channel_id → AI_MODEL_ID_EXISTS（body.model_id）；uq_platform_types_slug → PLATFORM_TYPE_SLUG_EXISTS（body.slug）；uq_platform_profiles_slug → PLATFORM_SLUG_EXISTS（body.slug）；uq_platform_prompt_templates_name → PLATFORM_PROMPT_NAME_EXISTS（body.name）；uq_platform_accounts_profile_identifier_normalized → PLATFORM_ACCOUNT_IDENTIFIER_EXISTS（body.account_identifier）。
+- 未列名、diagnostics 缺失、sqlstate 不同或 constraint 不匹配的 IntegrityError 继续原抛并保持框架默认 500 边界，不增加宽泛 409、消息解析或兼容别名。
+- 全局自然化 Prompt 不存在且携带 expected_revision 时返回 HUMANIZATION_PROMPT_MISSING；只有资源存在且 revision 不匹配时返回 REVISION_CONFLICT，missing 与 stale revision 已分离。
+- AI Header duplicate 将 body.name 投影到 name，保留 name/isSensitive 并清空 secret value；AI Model duplicate 将 body.model_id 投影到 modelId 并保留非敏感草稿；两者均不进入 revision conflict、不 reload、不自动 replay，也不执行成功 invalidation。
+- OpenAPI 的 createAIModel 409、runtime response metadata、generated client、contracts/database.md、Frontend V2 行为文档及 backend ai-configuration/database/error-handling specs 已同步。
+- 残余情况：仓库级 make typecheck 被未修改的 frontend/src/domains/publication/publication-work-page.test.tsx:351 既有类型错误阻断（Argument of type [never, never] is not assignable to parameter of type never）；本任务按边界未修改该文件。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `99b505a2` | (see git log) |
+
+### Testing
+
+- [OK] Backend contract/runtime/audit unit：426 passed。
+- [OK] 真实 PostgreSQL 六文件 integration 最终 26 passed；原子性证据两个目标节点 2 passed、两个受影响文件 11 passed；stale+duplicate 优先级修复后目标节点 2 passed，Prompt 单节点 1 passed。
+- [OK] Frontend targeted Vitest：7 个文件、60 passed；Frontend ESLint --max-warnings 0 通过。
+- [OK] Backend Ruff、Python 语法编译、git diff --check、三项 Trellis task validation 均通过。
+- [OK] 唯一一次 make contract-check 退出码 0：FastAPI 运行时操作与 OpenAPI 完整契约一致，frontend api:check 确认生成类型与根合同一致。
+- [OK] 独立 full review、原子性 check 与最终 targeted re-review 已完成，最终无未解决 MEDIUM 或更高问题。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 父任务 09-04-integrity-error-domain-mapping 保持 planning；后续任务需单独授权。

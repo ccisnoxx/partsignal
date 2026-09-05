@@ -1090,3 +1090,39 @@
 ### Next Steps
 
 - 父任务继续推进剩余 IntegrityError 领域映射子项
+
+
+## Session 214: 完成自然化任务完整性错误领域映射
+
+**Date**: 2026-09-05
+**Task**: 完成自然化任务完整性错误领域映射
+**Branch**: `main`
+
+### Summary
+
+为 createHumanizationJob 与 HUMANIZE retry 精确映射 generation_jobs 的幂等键和活跃自然化唯一约束；保持其余完整性故障为 unknown 500，并完成 current-head PostgreSQL、目标测试、完整门禁及独立复核。
+
+### Main Changes
+
+- 统一 create 与 HUMANIZE retry 的 canonical identity、幂等 replay 和精确 23505 diagnostics 映射。
+- 补充 PostgreSQL catalog、并发约束、事务原子性和 unknown 500 回归测试；测试净新增 645 行。
+- 更新 backend error-handling spec，并保持 OpenAPI、数据库合同、generated client 和 Frontend V2 零变更。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ded73ab5` | (see git log) |
+
+### Testing
+
+- [OK] 目标 unit、PostgreSQL integration、worker regressions、Ruff、mypy、contract-check 与 task validate 均通过。
+- [OK] 独立完整 review 后的唯一 targeted re-review PASS。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 父任务仍处于 planning；后续仅在单独批准后规划下一个独立切片。

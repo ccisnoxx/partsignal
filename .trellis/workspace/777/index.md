@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-4.md`
-- **Total Sessions**: 213
+- **Total Sessions**: 214
 - **Last Active**: 2026-09-05
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-4.md` | ~1092 | Active |
+| `journal-4.md` | ~1128 | Active |
 | `journal-3.md` | ~1983 | Archived |
 | `journal-2.md` | ~1986 | Archived |
 | `journal-1.md` | ~1990 | Archived |
@@ -32,6 +32,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 214 | 2026-09-05 | 完成自然化任务完整性错误领域映射 | `ded73ab5` | `main` |
 | 213 | 2026-09-05 | Identity IntegrityError 领域映射 | `05b52d5` | `main` |
 | 212 | 2026-09-05 | 完成配置 IntegrityError 精确领域映射 | `99b505a2` | `main` |
 | 211 | 2026-09-04 | 完成 Unknown IntegrityError 默认失败边界 | `43c252da` | `main` |

@@ -1,0 +1,11 @@
+{"file":".trellis/spec/backend/error-handling.md","reason":"复核没有扩大mapper、解析数据库文本、恢复全局REVISION_CONFLICT或稳定unknown 500。"}
+{"file":".trellis/tasks/09-05-content-integrity-error-contract-decision/research/stable-contract-context.md","reason":"复核database/frontend超大stable specs的任务相关owner锁、原子性、恢复与type-safety规则；发现冲突时回读原spec。"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"复核required test、真实PG、失败归因与repair循环成本边界。"}
+{"file":".trellis/spec/backend/ai-configuration-guidelines.md","reason":"复核Humanization既有两constraint合同和worker独立状态策略未漂移。"}
+{"file":".trellis/spec/backend/available-actions-contract.md","reason":"复核新增pending blocker未误标为revision，并由服务端保持状态权威。"}
+{"file":".trellis/spec/frontend/type-safety.md","reason":"复核OpenAPI/generated零diff结论与开放string code没有形成第二类型系统。"}
+{"file":".trellis/tasks/09-05-content-integrity-error-contract-decision/research/contract-decision-matrix.md","reason":"逐条复核九项决策、准确公共合同、worker结果、同步面、tests和实施拆分。"}
+{"file":".trellis/tasks/09-05-content-integrity-error-contract-decision/research/content-task-idempotency.md","reason":"复核普通ContentTask与T5-C GEO/publication交叉边界无越界。"}
+{"file":".trellis/tasks/09-05-content-integrity-error-contract-decision/research/content-version-integrity.md","reason":"复核source-job、allocator、pending/approved候选分歧已由最终矩阵明确裁决。"}
+{"file":".trellis/tasks/09-05-content-integrity-error-contract-decision/research/fact-version-integrity.md","reason":"复核FactVersion owner、FACT_REVIEW_PENDING复用和unknown allocator原子性。"}
+{"file":".trellis/tasks/09-05-content-integrity-error-contract-decision/research/database-constraint-audit.md","reason":"复核最终constraint/index名称、owner清单与父资料事实偏差均被处理。"}

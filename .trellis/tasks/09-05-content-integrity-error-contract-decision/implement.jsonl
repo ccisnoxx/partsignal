@@ -1,0 +1,12 @@
+{"file":".trellis/spec/backend/index.md","reason":"加载backend规范入口、包边界与适用质量门禁。"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"实施精确sqlstate/constraint_name mapper、root rollback、request ID与unknown 500边界。"}
+{"file":".trellis/tasks/09-05-content-integrity-error-contract-decision/research/stable-contract-context.md","reason":"注入database/frontend超大stable specs的任务相关owner锁、原子性、恢复与type-safety摘录，避免context截断；原spec仍为最终权威。"}
+{"file":".trellis/spec/backend/ai-configuration-guidelines.md","reason":"保持GenerationJob/Humanization identity、worker状态、provider与dispatch边界。"}
+{"file":".trellis/spec/backend/available-actions-contract.md","reason":"区分真实expected_revision冲突、状态blocker与unknown完整性故障。"}
+{"file":".trellis/spec/frontend/index.md","reason":"加载后续content/fact前端消费者的包边界和质量门禁。"}
+{"file":".trellis/spec/frontend/type-safety.md","reason":"保持generated client为权威类型且不建立第二套错误码类型系统。"}
+{"file":".trellis/tasks/09-05-content-integrity-error-contract-decision/research/contract-decision-matrix.md","reason":"后续五项implementation的最终九约束分类、准确合同、原子性、tests与依赖权威输入。"}
+{"file":".trellis/tasks/09-05-content-integrity-error-contract-decision/research/content-task-idempotency.md","reason":"提供ContentTask普通/GEO交叉writer、advisory lock与source-kind风险证据。"}
+{"file":".trellis/tasks/09-05-content-integrity-error-contract-decision/research/content-version-integrity.md","reason":"提供ContentVersion identity、pending/approved状态、review事务与候选方案证据。"}
+{"file":".trellis/tasks/09-05-content-integrity-error-contract-decision/research/fact-version-integrity.md","reason":"提供FactVersion真实submit owner、pending预检、事务和前端恢复证据。"}
+{"file":".trellis/tasks/09-05-content-integrity-error-contract-decision/research/database-constraint-audit.md","reason":"提供九项最终名称、真实owner、父research偏差和current-head数据库边界交叉核验。"}

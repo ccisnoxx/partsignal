@@ -1054,3 +1054,39 @@
 ### Next Steps
 
 - 父任务 09-04-integrity-error-domain-mapping 保持 planning；后续任务需单独授权。
+
+
+## Session 213: Identity IntegrityError 领域映射
+
+**Date**: 2026-09-05
+**Task**: Identity IntegrityError 领域映射
+**Branch**: `main`
+
+### Summary
+
+完成重复用户名预检与 PostgreSQL 23505 竞态的统一 USER_USERNAME_EXISTS 合同、前端安全恢复、delete 23503 不变证据、稳定规范同步和独立 review 收敛。
+
+### Main Changes
+
+- 精确映射 uq_users_username，并保持未知 IntegrityError 原抛
+- 前端按 exact code+loc 定位 username，保留安全草稿并清除临时密码
+- 补齐真实 PostgreSQL username/delete 并发和原子性证据
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `05b52d5` | (see git log) |
+
+### Testing
+
+- [OK] PostgreSQL identity integration 14 passed；backend contract/runtime 401 passed
+- [OK] frontend targeted 20 passed；Ruff、mypy、ESLint、make contract-check passed
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 父任务继续推进剩余 IntegrityError 领域映射子项

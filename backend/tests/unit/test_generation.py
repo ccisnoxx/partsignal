@@ -8,17 +8,21 @@ from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 
+import app.services.content_production as content_production
 from app.errors import AppError
 from app.models.ai_generation import AIChannel, AIModel, GenerationJob
 from app.models.configuration import PlatformProfile, PlatformPrompt
-from app.models.content import ContentTask
+from app.models.content import ContentTask, ContentVersion
 from app.models.product_facts import FactVersion, Product
 from app.routers.production import generation_jobs_out
 from app.schemas.content import GenerationFactSnapshot
 from app.schemas.product_facts import Confidentiality
 from app.services.content_production import (
+    _classify_humanization_integrity_error,
     build_generation_input,
+    create_humanization_job,
     generation_job_retryable,
     retry_generation_job,
 )
@@ -279,6 +283,166 @@ def test_legacy_humanization_snapshot_is_read_only_at_execution_boundary() -> No
 
     assert captured.value.code == "GENERATION_SNAPSHOT_INVALID"
 
+
+def test_humanization_integrity_classifier_requires_exact_23505_diagnostics() -> None:
+    active = "uq_generation_jobs_active_humanization_source"
+    cases = [
+        ("23505", "uq_generation_jobs_idempotency_key", "uq_generation_jobs_idempotency_key"),
+        ("23505", active, active),
+        ("23505", "pk_generation_jobs", None),
+        ("23514", "uq_generation_jobs_idempotency_key", None),
+        ("23502", None, None),
+        ("23503", active, None),
+        ("55000", active, None),
+    ]
+    for sqlstate, constraint_name, expected in cases:
+        error = IntegrityError(
+            "INSERT", {}, SimpleNamespace(
+                sqlstate=sqlstate, diag=SimpleNamespace(constraint_name=constraint_name)
+            )
+        )
+        assert _classify_humanization_integrity_error(error) == expected
+    assert _classify_humanization_integrity_error(IntegrityError("INSERT", {}, None)) is None
+
+
+def test_humanization_integrity_recovery_preserves_caller_transaction_ownership(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    task = cast(ContentTask, SimpleNamespace(
+        id=TASK_ID, status="OPEN", current_content_version_id=SOURCE_ID,
+        fact_version_id=FACT_ID, product_id=PRODUCT_ID
+    ))
+    source = cast(Any, SimpleNamespace(
+        id=SOURCE_ID, task_id=TASK_ID, fact_version_id=FACT_ID,
+        source_type="AI", status="DRAFT", content_hash="a" * 64
+    ))
+    model = cast(Any, SimpleNamespace(id=MODEL_ID))
+    actor = cast(Any, SimpleNamespace(id=uuid.uuid4()))
+    winner = cast(Any, SimpleNamespace(
+        content_task_id=TASK_ID, retry_of_id=None, ai_model_id=MODEL_ID,
+        job_type="HUMANIZE", source_content_version_id=SOURCE_ID, input_snapshot={}
+    ))
+    fact = cast(Any, SimpleNamespace(
+        id=FACT_ID, product_id=PRODUCT_ID, version=2, status="APPROVED",
+        classification="PUBLIC", body_markdown="事实"
+    ))
+    product = cast(Any, SimpleNamespace(id=PRODUCT_ID, status="ACTIVE"))
+    previous = cast(Any, SimpleNamespace(
+        id=JOB_ID, status="FAILED", content_task_id=TASK_ID, job_type="HUMANIZE",
+        input_snapshot=humanization_input(), source_content_version_id=SOURCE_ID,
+        ai_model_id=MODEL_ID, ai_channel_id=CHANNEL_ID,
+        adapter_name="openai-compatible-chat-completions"
+    ))
+    retry_winner = cast(Any, SimpleNamespace(
+        content_task_id=TASK_ID, retry_of_id=JOB_ID, ai_model_id=MODEL_ID,
+        job_type="HUMANIZE", source_content_version_id=SOURCE_ID, input_snapshot={}
+    ))
+    def integrity(name: str) -> IntegrityError:
+        return IntegrityError("INSERT", {}, SimpleNamespace(
+            sqlstate="23505", diag=SimpleNamespace(constraint_name=name)
+        ))
+    class TraceSession(SnapshotSession):
+        def __init__(self, values: list[object]) -> None:
+            super().__init__({ContentVersion: source, AIModel: model}, values)
+            self.scalar_calls, self.rollbacks = 0, 0
+
+        def scalar(self, _query: object) -> object | None:
+            self.scalar_calls += 1
+            return super().scalar(_query)
+
+        def rollback(self) -> None:
+            self.rollbacks += 1
+    monkeypatch.setattr(content_production, "_validate_humanization_source", lambda *_: None)
+    for values, error, code, rollback, scalar_calls in (
+        (
+            [task, source, None, None, winner],
+            integrity("uq_generation_jobs_idempotency_key"), None, 1, 5,
+        ),
+        ([task, source, None, None], IntegrityError("INSERT", {}, None), None, 0, 4),
+        (
+            [task, source, None, None],
+            integrity("uq_generation_jobs_active_humanization_source"),
+            "HUMANIZATION_ALREADY_ACTIVE", 1, 4,
+        ),
+    ):
+        db = TraceSession(values)
+        def fail_create(
+            error_to_raise: IntegrityError = error, **_kwargs: object
+        ) -> tuple[object, bool]:
+            raise error_to_raise
+        monkeypatch.setattr(content_production, "_create_job", fail_create)
+        def call(db_to_use: TraceSession = db) -> object:
+            return create_humanization_job(
+                db=cast(Any, db_to_use), content_version_id=SOURCE_ID,
+                payload=SimpleNamespace(ai_model_id=MODEL_ID), actor=actor,
+                request_id="integrity", idempotency_key="integrity-key")
+        if isinstance(error.orig, type(None)):
+            with pytest.raises(IntegrityError):
+                call()
+        elif code is not None:
+            with pytest.raises(AppError) as captured:
+                call()
+            assert captured.value.code == code
+        else:
+            assert call() is winner
+        assert (db.rollbacks, db.scalar_calls) == (rollback, scalar_calls)
+
+    retry_cases = (
+        (
+            [task, None, previous.id, source, None, retry_winner],
+            integrity("uq_generation_jobs_idempotency_key"), 1, 6, retry_winner, None,
+        ),
+        (
+            [task, None, previous.id, source, None],
+            integrity("uq_generation_jobs_active_humanization_source"),
+            1, 5, None, "HUMANIZATION_ALREADY_ACTIVE",
+        ),
+        (
+            [task, None, previous.id, source, None], IntegrityError("INSERT", {}, None),
+            0, 5, None, None,
+        ),
+    )
+    for values, error, rollback, scalar_calls, expected, code in retry_cases:
+        db = TraceSession(values)
+        db.rows.update({GenerationJob: previous, FactVersion: fact, Product: product})
+        def fail_retry(
+            error_to_raise: IntegrityError = error, **_kwargs: object
+        ) -> tuple[object, bool]:
+            raise error_to_raise
+        monkeypatch.setattr(content_production, "_create_job", fail_retry)
+        def run_retry(db_to_use: TraceSession = db) -> object:
+            return retry_generation_job(
+                db=cast(Any, db_to_use), generation_job_id=JOB_ID, actor=actor,
+                request_id="retry-integrity", idempotency_key="retry-integrity-key")
+        if expected is not None:
+            assert run_retry() is expected
+        elif code is not None:
+            with pytest.raises(AppError) as captured:
+                run_retry()
+            assert captured.value.code == code
+        else:
+            with pytest.raises(IntegrityError):
+                run_retry()
+        assert (db.rollbacks, db.scalar_calls) == (rollback, scalar_calls)
+
+    generate = cast(Any, SimpleNamespace(
+        id=JOB_ID, status="FAILED", content_task_id=TASK_ID, job_type="GENERATE",
+        input_snapshot=generation_input(), source_content_version_id=None,
+        ai_model_id=MODEL_ID, ai_channel_id=CHANNEL_ID,
+        adapter_name="openai-compatible-chat-completions"
+    ))
+    db = TraceSession([task, generate.id])
+    db.rows.update({GenerationJob: generate, FactVersion: fact, Product: product})
+    classifier_calls: list[IntegrityError] = []
+    monkeypatch.setattr(
+        content_production, "_classify_humanization_integrity_error",
+        lambda error: classifier_calls.append(error) or "uq_generation_jobs_idempotency_key",
+    )
+    with pytest.raises(IntegrityError):
+        retry_generation_job(
+            db=cast(Any, db), generation_job_id=JOB_ID, actor=actor,
+            request_id="generate-integrity", idempotency_key="generate-integrity-key")
+    assert classifier_calls == []
 
 @pytest.mark.parametrize(
     ("job_type", "contract_version"),

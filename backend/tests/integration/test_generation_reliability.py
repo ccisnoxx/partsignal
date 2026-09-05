@@ -14,21 +14,29 @@ from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
 import psycopg
 import pytest
 from celery import Celery
+from fastapi import Depends, FastAPI
+from fastapi.testclient import TestClient
 from psycopg import sql
 from psycopg.types.json import Jsonb
 from redis import Redis
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
+from app import db as app_db
 from app.config import settings
-from app.schemas.content import HumanizationSnapshot
-from app.services import generation, generation_dispatch
+from app.errors import AppError, app_error_handler
+from app.models.ai_generation import GenerationJob
+from app.models.identity import User
+from app.schemas.content import HumanizationJobCreate, HumanizationSnapshot
+from app.services import content_production, generation, generation_dispatch
 from app.services.credentials import CredentialCipher
 
 
@@ -454,6 +462,479 @@ def seed_humanization_job(
         )
         connection.commit()
     return job_id
+
+
+def _prepare_humanization_graph(
+    test_url: str, base_url: str
+) -> tuple[uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID]:
+    """准备一张已完成原始生成、可直接进入自然化 command 的真实 graph。"""
+    original_job_id = seed_generation_job(test_url, base_url=base_url)
+    generation.process_generation_job(original_job_id)
+    with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT ai_model_id, created_by, content_version_id, content_task_id "
+            "FROM generation_jobs WHERE id = %s", (original_job_id,)
+        )
+        model_id, actor_id, source_id, task_id = cursor.fetchone()
+        cursor.execute(
+            "INSERT INTO content_humanization_prompts "
+            "(id, template_markdown, revision, updated_by) VALUES (1, %s, 0, %s) "
+            "ON CONFLICT (id) DO NOTHING",
+            ("只改善表达，保留已批准事实。", actor_id),
+        )
+        connection.commit()
+    return original_job_id, task_id, source_id, model_id, actor_id
+
+
+def _assert_generation_failure_has_no_content_side_effects(
+    test_url: str,
+    task_ids: list[uuid.UUID],
+    expected_source_ids: list[uuid.UUID],
+    expected_job_counts: list[int],
+) -> None:
+    """共享断言失败 command 未改变内容主线或产生后续业务副作用。"""
+    with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT (SELECT count(*) FROM content_versions WHERE task_id = ANY(%s)), "
+            "(SELECT count(*) FROM content_review_records r JOIN content_versions v "
+            "ON v.id = r.content_version_id WHERE v.task_id = ANY(%s)), "
+            "(SELECT count(*) FROM audit_logs WHERE target_id = ANY(%s))",
+            (task_ids, task_ids, [str(task_id) for task_id in task_ids]),
+        )
+        assert cursor.fetchone() == (len(task_ids), 0, 0)
+        cursor.execute(
+            "SELECT t.id, t.current_content_version_id, t.revision, count(g.id) "
+            "FROM content_tasks t LEFT JOIN generation_jobs g ON g.content_task_id = t.id "
+            "WHERE t.id = ANY(%s) GROUP BY t.id ORDER BY t.id", (task_ids,)
+        )
+        rows = cursor.fetchall()
+        assert sorted((row[0], row[1], row[2]) for row in rows) == sorted(
+            (task_id, source_id, 1)
+            for task_id, source_id in zip(task_ids, expected_source_ids, strict=True)
+        )
+        assert sorted(row[3] for row in rows) == sorted(expected_job_counts)
+
+
+def _capture_humanization_diagnostics(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    observed: list[str] = []
+    classify = content_production._classify_humanization_integrity_error
+
+    def record(error: IntegrityError) -> str | None:
+        result = classify(error)
+        observed.extend([result] if result is not None else [])
+        return result
+
+    monkeypatch.setattr(content_production, "_classify_humanization_integrity_error", record)
+    return observed
+
+
+def _hide_active_humanization_precheck(monkeypatch: pytest.MonkeyPatch) -> None:
+    scalar = Session.scalar
+
+    def hide_active_precheck(
+        db: Session, statement: object, *args: object, **kwargs: object
+    ) -> object:
+        statement_text = str(statement)
+        if "source_content_version_id" in statement_text and "status IN" in statement_text:
+            return None
+        return scalar(db, statement, *args, **kwargs)
+
+    monkeypatch.setattr(Session, "scalar", hide_active_precheck)
+
+
+def _run_same_key_humanization_race(
+    test_url: str,
+    base_url: str,
+    sessions: sessionmaker[Session],
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    retry: bool,
+) -> tuple[list[object], list[str], list[uuid.UUID], list[uuid.UUID]]:
+    """让两个不同父任务绕过预检，在各自最终 flush 竞争同一幂等键。"""
+    graphs = [_prepare_humanization_graph(test_url, base_url) for _ in range(2)]
+    previous_ids = (
+        [seed_humanization_job(test_url, graph[0], graph[2]) for graph in graphs]
+        if retry
+        else []
+    )
+    if retry:
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "UPDATE generation_jobs SET status = 'FAILED' WHERE id = ANY(%s)",
+                (previous_ids,),
+            )
+            connection.commit()
+
+    diagnostics = _capture_humanization_diagnostics(monkeypatch)
+    race_key = f"humanization-race-key-{'retry' if retry else 'create'}"
+    precheck_barrier, flush_barrier = threading.Barrier(2), threading.Barrier(2)
+    local = threading.local()
+    find_existing = content_production._find_existing_generation_job
+
+    def hold_after_canonical_precheck(db: Session, key: str, identity: Any) -> object:
+        result = find_existing(db, key, identity)
+        if result is None:
+            barrier = precheck_barrier if getattr(local, "prechecks", 0) == 0 else flush_barrier
+            barrier.wait(timeout=15)
+            local.prechecks = getattr(local, "prechecks", 0) + 1
+        return result
+
+    monkeypatch.setattr(
+        content_production, "_find_existing_generation_job", hold_after_canonical_precheck
+    )
+
+    def wait_for_final_flush(session: Session, _flush_context: object, _instances: object) -> None:
+        if any(isinstance(item, GenerationJob) for item in session.new):
+            flush_barrier.wait(timeout=15)
+
+    event.listen(Session, "before_flush", wait_for_final_flush)
+
+    def call(index: int) -> object:
+        _original_id, _task_id, source_id, model_id, actor_id = graphs[index]
+        with sessions() as db:
+            actor = db.get(User, actor_id)
+            assert actor is not None
+            try:
+                if retry:
+                    return content_production.retry_generation_job(
+                        db=db,
+                        generation_job_id=previous_ids[index],
+                        actor=actor,
+                        request_id=f"race-retry-{index}",
+                        idempotency_key=race_key,
+                    )
+                return content_production.create_humanization_job(
+                    db=db,
+                    content_version_id=source_id,
+                    payload=HumanizationJobCreate(ai_model_id=model_id),
+                    actor=actor,
+                    request_id=f"race-create-{index}",
+                    idempotency_key=race_key,
+                )
+            except AppError as error:
+                return error
+
+    try:
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            futures = [executor.submit(call, index) for index in range(2)]
+            results = [future.result(timeout=30) for future in futures]
+    finally:
+        event.remove(Session, "before_flush", wait_for_final_flush)
+
+    task_ids = [graph[1] for graph in graphs]
+    source_ids = [graph[2] for graph in graphs]
+    return results, diagnostics, task_ids, source_ids
+
+
+def _insert_duplicate_generation_job(
+    cursor: Any, winner_id: uuid.UUID, key: str | None = None
+) -> None:
+    cursor.execute(
+        "INSERT INTO generation_jobs "
+        "(id, content_task_id, idempotency_key, job_type, source_content_version_id, status, "
+        "input_snapshot, ai_channel_id, ai_model_id, adapter_name, prompt_template_version, "
+        "prompt_hash, attempt_count, created_by) "
+        "SELECT %s, content_task_id, COALESCE(%s::text, idempotency_key), job_type, "
+        "source_content_version_id, status, "
+        "input_snapshot, ai_channel_id, ai_model_id, adapter_name, prompt_template_version, "
+        "prompt_hash, 0, created_by FROM generation_jobs WHERE id = %s",
+        (uuid.uuid4(), key, winner_id),
+    )
+
+
+@pytest.mark.integration
+def test_humanization_job_unique_catalog_and_diagnostics_are_exact(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with (
+        temporary_database("partsignal_humanization_catalog") as database,
+        fake_ai_server() as ai,
+    ):
+        test_url, sqlalchemy_url, _ = database
+        base_url, _state = ai
+        with patched_sessions(monkeypatch, sqlalchemy_url):
+            graph = _prepare_humanization_graph(test_url, base_url)
+            original_job_id, _task_id, source_id, _model_id, _actor_id = graph
+            with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT c.contype, c.condeferrable, c.condeferred, n.nspname, r.relname "
+                    "FROM pg_constraint c JOIN pg_class r ON r.oid = c.conrelid "
+                    "JOIN pg_namespace n ON n.oid = r.relnamespace WHERE c.conname = %s",
+                    ("uq_generation_jobs_idempotency_key",),
+                )
+                assert cursor.fetchone() == ("u", False, False, "public", "generation_jobs")
+                cursor.execute(
+                    "SELECT i.indisunique, i.indisvalid, a.amname, i.indnkeyatts, i.indnatts, "
+                    "pg_get_indexdef(i.indexrelid), "
+                    "pg_get_expr(i.indpred, i.indrelid) FROM pg_index i "
+                    "JOIN pg_class c ON c.oid = i.indexrelid JOIN pg_am a ON a.oid = c.relam "
+                    "WHERE c.relname = %s",
+                    ("uq_generation_jobs_active_humanization_source",),
+                )
+                active_index = cursor.fetchone()
+                assert active_index is not None
+                assert active_index[:5] == (True, True, "btree", 1, 1)
+                assert "source_content_version_id" in active_index[5]
+                assert all(
+                    value in active_index[6]
+                    for value in ("job_type", "HUMANIZE", "status", "PENDING", "RUNNING")
+                )
+                cursor.execute(
+                    "SELECT 1 FROM pg_constraint WHERE conname = %s",
+                    ("uq_generation_jobs_active_humanization_source",),
+                )
+                assert cursor.fetchone() is None
+                with pytest.raises(psycopg.errors.UniqueViolation) as idempotency_error:
+                    _insert_duplicate_generation_job(cursor, original_job_id)
+                assert idempotency_error.value.sqlstate == "23505"
+                assert (
+                    idempotency_error.value.diag.constraint_name
+                    == "uq_generation_jobs_idempotency_key"
+                )
+                assert idempotency_error.value.diag.schema_name == "public"
+                assert idempotency_error.value.diag.table_name == "generation_jobs"
+                connection.rollback()
+                active_id = seed_humanization_job(test_url, original_job_id, source_id)
+                with pytest.raises(psycopg.errors.UniqueViolation) as active_error:
+                    _insert_duplicate_generation_job(
+                        cursor, active_id, f"active-{uuid.uuid4().hex}"
+                    )
+                assert active_error.value.sqlstate == "23505"
+                assert (
+                    active_error.value.diag.constraint_name
+                    == "uq_generation_jobs_active_humanization_source"
+                )
+                assert active_error.value.diag.schema_name == "public"
+                assert active_error.value.diag.table_name == "generation_jobs"
+
+@pytest.mark.integration
+def test_humanization_job_idempotency_replay_and_conflict_are_atomic(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with (
+        temporary_database("partsignal_humanization_idempotency") as database,
+        fake_ai_server() as ai,
+    ):
+        test_url, sqlalchemy_url, _ = database
+        base_url, _state = ai
+        dispatches: list[uuid.UUID] = []
+        monkeypatch.setattr(
+            content_production,
+            "_dispatch_job",
+            lambda job: dispatches.append(job.id),
+        )
+        with patched_sessions(monkeypatch, sqlalchemy_url) as sessions:
+            graph = _prepare_humanization_graph(test_url, base_url)
+            _original_job_id, _task_id, source_id, model_id, actor_id = graph
+            with sessions() as db:
+                actor = db.get(User, actor_id)
+                assert actor is not None
+                payload = HumanizationJobCreate(ai_model_id=model_id)
+                def create(key: str, request: str) -> GenerationJob:
+                    return content_production.create_humanization_job(
+                        db=db, content_version_id=source_id, payload=payload, actor=actor,
+                        request_id=request, idempotency_key=key)
+
+                def retry(key: str, request: str) -> GenerationJob:
+                    return content_production.retry_generation_job(
+                        db=db, generation_job_id=first.id, actor=actor, request_id=request,
+                        idempotency_key=key)
+
+                first = create("humanization-create-key", "request-create")
+                replay = create("humanization-create-key", "request-create-replay")
+                assert replay.id == first.id
+                db.execute(
+                    text("UPDATE generation_jobs SET status = 'FAILED' WHERE id = :job_id"),
+                    {"job_id": first.id},
+                )
+                first.status = "FAILED"
+                db.commit()
+                retry_job = retry("humanization-retry-key", "request-retry")
+                retry_replay = retry("humanization-retry-key", "request-retry-replay")
+                assert retry_replay.id == retry_job.id
+                assert len(dispatches) == 2
+
+            conflict_graph = _prepare_humanization_graph(test_url, base_url)
+            with sessions() as conflict_db:
+                conflict_actor = conflict_db.get(User, conflict_graph[4])
+                assert conflict_actor is not None
+                with pytest.raises(AppError) as conflict_error:
+                    content_production.create_humanization_job(
+                        db=conflict_db, content_version_id=conflict_graph[2],
+                        payload=HumanizationJobCreate(ai_model_id=conflict_graph[3]),
+                        actor=conflict_actor, request_id="request-conflict",
+                        idempotency_key="humanization-create-key")
+            assert conflict_error.value.code == "IDEMPOTENCY_CONFLICT"
+            assert conflict_error.value.message == "幂等键已用于另一生成请求"
+            assert conflict_error.value.details == {}
+
+            missing_diagnostics = _capture_humanization_diagnostics(monkeypatch)
+            missing_error = IntegrityError(
+                "INSERT", {}, SimpleNamespace(
+                    sqlstate="23505",
+                    diag=SimpleNamespace(constraint_name="uq_generation_jobs_idempotency_key"),
+                ),
+            )
+            with monkeypatch.context() as isolated:
+                def missing_winner(**_kwargs: object) -> tuple[object, bool]:
+                    raise missing_error
+                isolated.setattr(content_production, "_create_job", missing_winner)
+                with sessions() as db:
+                    actor = db.get(User, conflict_graph[4])
+                    assert actor is not None
+                    with pytest.raises(IntegrityError) as missing:
+                        content_production.create_humanization_job(
+                            db=db, content_version_id=conflict_graph[2],
+                            payload=HumanizationJobCreate(ai_model_id=conflict_graph[3]),
+                            actor=actor, request_id="request-missing-winner",
+                            idempotency_key="humanization-missing-winner")
+            assert missing.value is missing_error
+            assert missing_diagnostics == ["uq_generation_jobs_idempotency_key"]
+
+            for retry, expected_counts in ((False, [2, 1]), (True, [3, 2])):
+                results, diagnostics, task_ids, source_ids = _run_same_key_humanization_race(
+                    test_url, base_url, sessions, monkeypatch, retry=retry
+                )
+                assert sum(isinstance(result, GenerationJob) for result in results) == 1
+                conflicts = [result for result in results if isinstance(result, AppError)]
+                assert len(conflicts) == 1 and conflicts[0].code == "IDEMPOTENCY_CONFLICT"
+                assert diagnostics == ["uq_generation_jobs_idempotency_key"]
+                _assert_generation_failure_has_no_content_side_effects(
+                    test_url, task_ids, source_ids, expected_counts
+                )
+            assert len(dispatches) == 4
+
+
+@pytest.mark.integration
+def test_humanization_active_constraint_maps_for_create_and_retry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with (
+        temporary_database("partsignal_humanization_active") as database,
+        fake_ai_server() as ai,
+    ):
+        test_url, sqlalchemy_url, _ = database
+        base_url, _state = ai
+        monkeypatch.setattr(content_production, "_dispatch_job", lambda _job: None)
+        with patched_sessions(monkeypatch, sqlalchemy_url) as sessions:
+            original_job_id, _task_id, source_id, model_id, actor_id = _prepare_humanization_graph(
+                test_url, base_url
+            )
+            active_id = seed_humanization_job(test_url, original_job_id, source_id)
+            with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT content_task_id FROM generation_jobs WHERE id = %s", (active_id,)
+                )
+                task_id = cursor.fetchone()[0]
+            observed = _capture_humanization_diagnostics(monkeypatch)
+            _hide_active_humanization_precheck(monkeypatch)
+            with sessions() as db:
+                actor = db.get(User, actor_id)
+                with pytest.raises(AppError) as create_error:
+                    content_production.create_humanization_job(
+                        db=db, content_version_id=source_id,
+                        payload=HumanizationJobCreate(ai_model_id=model_id), actor=actor,
+                        request_id="request-active-create-final",
+                        idempotency_key="active-create-final")
+                assert create_error.value.code == "HUMANIZATION_ALREADY_ACTIVE"
+            assert observed == ["uq_generation_jobs_active_humanization_source"]
+            _assert_generation_failure_has_no_content_side_effects(
+                test_url, [task_id], [source_id], [2]
+            )
+
+            retry_graph = _prepare_humanization_graph(test_url, base_url)
+            original_id, retry_task_id, retry_source_id, retry_model_id, retry_actor_id = (
+                retry_graph
+            )
+            failed_id = seed_humanization_job(test_url, original_id, retry_source_id)
+            with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+                cursor.execute(
+                    "UPDATE generation_jobs SET status = 'FAILED' WHERE id = %s", (failed_id,)
+                )
+                connection.commit()
+                active_retry_id = seed_humanization_job(test_url, original_id, retry_source_id)
+                cursor.execute(
+                    "UPDATE generation_jobs SET created_at = CASE id WHEN %s THEN now() "
+                    "ELSE now() - interval '1 second' END WHERE id IN (%s, %s)",
+                    (failed_id, active_retry_id, failed_id),
+                )
+                connection.commit()
+            with sessions() as db:
+                actor = db.get(User, retry_actor_id)
+                with pytest.raises(AppError) as retry_error:
+                    content_production.retry_generation_job(
+                        db=db, generation_job_id=failed_id, actor=actor,
+                        request_id="request-active-retry-final",
+                        idempotency_key="active-retry-final")
+                assert retry_error.value.code == "HUMANIZATION_ALREADY_ACTIVE"
+            assert observed.count("uq_generation_jobs_active_humanization_source") == 2
+            _assert_generation_failure_has_no_content_side_effects(
+                test_url, [retry_task_id], [retry_source_id], [3]
+            )
+
+@pytest.mark.integration
+def test_humanization_unknown_integrity_error_reaches_default_500(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with (
+        temporary_database("partsignal_humanization_unknown") as database,
+        fake_ai_server() as ai,
+    ):
+        test_url, sqlalchemy_url, _ = database
+        base_url, _state = ai
+        dispatches: list[uuid.UUID] = []
+        monkeypatch.setattr(
+            content_production, "_dispatch_job", lambda job: dispatches.append(job.id)
+        )
+        with patched_sessions(monkeypatch, sqlalchemy_url) as sessions:
+            graph = _prepare_humanization_graph(test_url, base_url)
+            original_job_id, task_id, source_id, model_id, actor_id = graph
+            sentinel_errors: list[IntegrityError] = []
+            def collide_with_existing_primary_key(
+                session: Session, _flush_context: object, _instances: object
+            ) -> None:
+                for pending in session.new:
+                    if isinstance(pending, GenerationJob):
+                        pending.id = original_job_id
+
+            event.listen(Session, "before_flush", collide_with_existing_primary_key)
+            try:
+                api = FastAPI(debug=False)
+                api.add_exception_handler(AppError, app_error_handler)
+
+                db_dependency = Depends(app_db.get_db)
+
+                @api.post("/unknown")
+                def unknown(db: Session = db_dependency) -> dict[str, str]:
+                    actor = db.get(User, actor_id)
+                    try:
+                        content_production.create_humanization_job(
+                            db=db, content_version_id=source_id,
+                            payload=HumanizationJobCreate(ai_model_id=model_id), actor=actor,
+                            request_id="request-unknown", idempotency_key="unknown-integrity-key")
+                    except IntegrityError as error:
+                        sentinel_errors.append(error)
+                        raise
+                    return {"status": "unexpected-success"}
+
+                monkeypatch.setattr(app_db, "SessionLocal", sessions)
+                response = TestClient(api, raise_server_exceptions=False).post("/unknown")
+                assert response.status_code == 500
+                assert not any(
+                    secret in response.text
+                    for secret in ("generation_jobs", "pk_generation_jobs", "duplicate key")
+                )
+            finally:
+                event.remove(Session, "before_flush", collide_with_existing_primary_key)
+            assert len(sentinel_errors) == 1
+            real_error = sentinel_errors[0]
+            assert real_error.orig.sqlstate == "23505"
+            assert real_error.orig.diag.constraint_name == "pk_generation_jobs"
+            assert content_production._classify_humanization_integrity_error(real_error) is None
+            assert dispatches == []
+            _assert_generation_failure_has_no_content_side_effects(
+                test_url, [task_id], [source_id], [1]
+            )
 
 
 @pytest.mark.integration

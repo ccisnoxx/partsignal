@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
@@ -276,6 +277,94 @@ def build_humanization_input(
     return snapshot.model_dump(mode="json")
 
 
+@dataclass(frozen=True)
+class _GenerationJobIdentity:
+    """冻结幂等请求的标量身份，供 flush 失败后的 winner 比较复用。"""
+
+    content_task_id: uuid.UUID
+    retry_of_id: uuid.UUID | None
+    ai_model_id: uuid.UUID | None
+    job_type: str
+    source_content_version_id: uuid.UUID | None
+    platform_prompt_id: str | None
+    platform_prompt_revision: int | None
+
+
+def _generation_job_identity(
+    *,
+    task: ContentTask,
+    model: AIModel | None,
+    source: ContentVersion | None,
+    retry_of: GenerationJob | None,
+    platform_prompt_id: uuid.UUID | None,
+    platform_prompt_revision: int | None,
+) -> _GenerationJobIdentity:
+    """按唯一的业务载荷规则冻结作业身份，避免 rollback 后读取过期 ORM 状态。"""
+    original_generation = retry_of is None and source is None
+    return _GenerationJobIdentity(
+        content_task_id=task.id,
+        retry_of_id=retry_of.id if retry_of else None,
+        ai_model_id=retry_of.ai_model_id if retry_of else (model.id if model else None),
+        job_type=retry_of.job_type if retry_of else ("HUMANIZE" if source else "GENERATE"),
+        source_content_version_id=(
+            retry_of.source_content_version_id if retry_of else (source.id if source else None)
+        ),
+        platform_prompt_id=(str(platform_prompt_id) if original_generation else None),
+        platform_prompt_revision=(platform_prompt_revision if original_generation else None),
+    )
+
+
+def _same_generation_job_identity(
+    existing: GenerationJob, identity: _GenerationJobIdentity
+) -> bool:
+    """比较幂等作业的完整 canonical identity，不读取错误文本或请求身份。"""
+    if (
+        existing.content_task_id != identity.content_task_id
+        or existing.retry_of_id != identity.retry_of_id
+        or existing.ai_model_id != identity.ai_model_id
+        or existing.job_type != identity.job_type
+        or existing.source_content_version_id != identity.source_content_version_id
+    ):
+        return False
+    if identity.platform_prompt_id is None:
+        return True
+    existing_prompt = existing.input_snapshot.get("platform_prompt")
+    return (
+        isinstance(existing_prompt, dict)
+        and existing_prompt.get("id") == identity.platform_prompt_id
+        and existing_prompt.get("revision") == identity.platform_prompt_revision
+    )
+
+
+def _find_existing_generation_job(
+    db: Session, idempotency_key: str, identity: _GenerationJobIdentity
+) -> GenerationJob | None:
+    """读取并校验幂等 winner；无记录时返回 None，载荷不同时抛既有冲突。"""
+    existing = db.scalar(
+        select(GenerationJob).where(GenerationJob.idempotency_key == idempotency_key)
+    )
+    if existing is None:
+        return None
+    if not _same_generation_job_identity(existing, identity):
+        raise AppError("IDEMPOTENCY_CONFLICT", "幂等键已用于另一生成请求", 409)
+    return existing
+
+
+def _classify_humanization_integrity_error(error: IntegrityError) -> str | None:
+    """只依据精确 PostgreSQL diagnostics 分类两个自然化唯一性 enforcement。"""
+    original = getattr(error, "orig", None)
+    diagnostic = getattr(original, "diag", None)
+    if getattr(original, "sqlstate", None) != "23505":
+        return None
+    constraint_name = getattr(diagnostic, "constraint_name", None)
+    if isinstance(constraint_name, str) and constraint_name in {
+        "uq_generation_jobs_idempotency_key",
+        "uq_generation_jobs_active_humanization_source",
+    }:
+        return constraint_name
+    return None
+
+
 def _create_job(
     *,
     db: Session,
@@ -287,38 +376,22 @@ def _create_job(
     retry_of: GenerationJob | None = None,
     platform_prompt_id: uuid.UUID | None = None,
     platform_prompt_revision: int | None = None,
+    request_identity: _GenerationJobIdentity | None = None,
 ) -> tuple[GenerationJob, bool]:
     """创建幂等作业；同一键不能被另一业务请求复用。"""
     original_generation = retry_of is None and source is None
     if original_generation and (platform_prompt_id is None or platform_prompt_revision is None):
         raise AppError("PLATFORM_PROMPT_REQUIRED", "必须确认平台当前 Prompt", 422)
-    existing = db.scalar(
-        select(GenerationJob).where(GenerationJob.idempotency_key == idempotency_key)
+    identity = request_identity or _generation_job_identity(
+        task=task,
+        model=model,
+        source=source,
+        retry_of=retry_of,
+        platform_prompt_id=platform_prompt_id,
+        platform_prompt_revision=platform_prompt_revision,
     )
+    existing = _find_existing_generation_job(db, idempotency_key, identity)
     if existing is not None:
-        expected_model_id = retry_of.ai_model_id if retry_of else (model.id if model else None)
-        expected_job_type = (
-            retry_of.job_type if retry_of else ("HUMANIZE" if source else "GENERATE")
-        )
-        expected_source_id = (
-            retry_of.source_content_version_id if retry_of else (source.id if source else None)
-        )
-        if (
-            existing.content_task_id != task.id
-            or existing.retry_of_id != (retry_of.id if retry_of else None)
-            or existing.ai_model_id != expected_model_id
-            or existing.job_type != expected_job_type
-            or existing.source_content_version_id != expected_source_id
-        ):
-            raise AppError("IDEMPOTENCY_CONFLICT", "幂等键已用于另一生成请求", 409)
-        if original_generation:
-            existing_prompt = existing.input_snapshot.get("platform_prompt")
-            if (
-                not isinstance(existing_prompt, dict)
-                or existing_prompt.get("id") != str(platform_prompt_id)
-                or existing_prompt.get("revision") != platform_prompt_revision
-            ):
-                raise AppError("IDEMPOTENCY_CONFLICT", "幂等键已用于另一生成请求", 409)
         return existing, False
     if retry_of is not None:
         contract_version = retry_of.input_snapshot.get("contract_version")
@@ -461,10 +534,15 @@ def create_humanization_job(
     model = db.get(AIModel, payload.ai_model_id)
     if model is None:
         raise not_found("AI 模型")
-    if (
-        db.scalar(select(GenerationJob.id).where(GenerationJob.idempotency_key == idempotency_key))
-        is not None
-    ):
+    request_identity = _generation_job_identity(
+        task=task,
+        model=model,
+        source=source,
+        retry_of=None,
+        platform_prompt_id=None,
+        platform_prompt_revision=None,
+    )
+    if _find_existing_generation_job(db, idempotency_key, request_identity) is not None:
         existing, _created = _create_job(
             db=db,
             task=task,
@@ -472,6 +550,7 @@ def create_humanization_job(
             actor=actor,
             model=model,
             source=source,
+            request_identity=request_identity,
         )
         return existing
     _validate_humanization_source(task, source)
@@ -492,22 +571,20 @@ def create_humanization_job(
             actor=actor,
             model=model,
             source=source,
+            request_identity=request_identity,
         )
     except IntegrityError as error:
+        conflict = _classify_humanization_integrity_error(error)
+        if conflict is None:
+            raise
         db.rollback()
-        raced_existing = db.scalar(
-            select(GenerationJob).where(GenerationJob.idempotency_key == idempotency_key)
-        )
-        if raced_existing is not None:
-            if (
-                raced_existing.content_task_id == task.id
-                and raced_existing.job_type == "HUMANIZE"
-                and raced_existing.source_content_version_id == source.id
-                and raced_existing.ai_model_id == model.id
-                and raced_existing.retry_of_id is None
-            ):
-                return raced_existing
-            raise AppError("IDEMPOTENCY_CONFLICT", "幂等键已用于另一生成请求", 409) from error
+        if conflict == "uq_generation_jobs_idempotency_key":
+            raced_existing = _find_existing_generation_job(
+                db, idempotency_key, request_identity
+            )
+            if raced_existing is None:
+                raise error
+            return raced_existing
         raise AppError("HUMANIZATION_ALREADY_ACTIVE", "该源版本已有活动自然化作业", 409) from error
     if created:
         db.commit()
@@ -541,6 +618,31 @@ def retry_generation_job(
     )
     if task is None or task.status != "OPEN":
         raise AppError("INVALID_STATE_TRANSITION", "内容任务不可再生成", 409)
+
+    retry_snapshot: Any
+    request_identity: _GenerationJobIdentity | None = None
+    if previous.job_type == "HUMANIZE":
+        # 自然化 replay 必须先通过旧快照合同，再跳过只服务于新 job 的资格检查。
+        retry_snapshot = ensure_humanization_egress_allowed(previous.input_snapshot)
+        request_identity = _generation_job_identity(
+            task=task,
+            model=None,
+            source=None,
+            retry_of=previous,
+            platform_prompt_id=None,
+            platform_prompt_revision=None,
+        )
+        if _find_existing_generation_job(db, idempotency_key, request_identity) is not None:
+            existing, _created = _create_job(
+                db=db,
+                task=task,
+                idempotency_key=idempotency_key,
+                actor=actor,
+                retry_of=previous,
+                request_identity=request_identity,
+            )
+            return existing
+
     latest_job_id = db.scalar(
         select(GenerationJob.id)
         .where(GenerationJob.content_task_id == previous.content_task_id)
@@ -549,17 +651,14 @@ def retry_generation_job(
     )
     if latest_job_id != previous.id:
         raise AppError("INVALID_STATE_TRANSITION", "只有最新失败作业可以重试", 409)
-    retry_snapshot = (
-        ensure_third_party_egress_allowed(previous.input_snapshot)
-        if previous.job_type == "GENERATE"
-        else ensure_humanization_egress_allowed(previous.input_snapshot)
-    )
+    if previous.job_type == "GENERATE":
+        retry_snapshot = ensure_third_party_egress_allowed(previous.input_snapshot)
     fact = db.get(FactVersion, task.fact_version_id)
     product = db.get(Product, task.product_id)
     ensure_generation_eligible(task, fact, product, retry_snapshot.fact_version)
     if fact is not None:
         ensure_generation_sources_public(fact)
-    if (
+    if previous.job_type == "GENERATE" and (
         db.scalar(select(GenerationJob.id).where(GenerationJob.idempotency_key == idempotency_key))
         is not None
     ):
@@ -572,7 +671,7 @@ def retry_generation_job(
         )
         return existing
     if previous.job_type == "HUMANIZE":
-        snapshot = ensure_humanization_egress_allowed(previous.input_snapshot)
+        snapshot = retry_snapshot
         if previous.source_content_version_id is None:
             raise AppError("GENERATION_SNAPSHOT_INVALID", "自然化作业缺少源版本", 409)
         source = db.scalar(
@@ -594,9 +693,40 @@ def retry_generation_job(
         )
         if active is not None:
             raise AppError("HUMANIZATION_ALREADY_ACTIVE", "该源版本已有活动自然化作业", 409)
-    job, created = _create_job(
-        db=db, task=task, idempotency_key=idempotency_key, actor=actor, retry_of=previous
-    )
+    if previous.job_type == "GENERATE":
+        job, created = _create_job(
+            db=db,
+            task=task,
+            idempotency_key=idempotency_key,
+            actor=actor,
+            retry_of=previous,
+        )
+    else:
+        assert request_identity is not None
+        try:
+            job, created = _create_job(
+                db=db,
+                task=task,
+                idempotency_key=idempotency_key,
+                actor=actor,
+                retry_of=previous,
+                request_identity=request_identity,
+            )
+        except IntegrityError as error:
+            conflict = _classify_humanization_integrity_error(error)
+            if conflict is None:
+                raise
+            db.rollback()
+            if conflict == "uq_generation_jobs_idempotency_key":
+                raced_existing = _find_existing_generation_job(
+                    db, idempotency_key, request_identity
+                )
+                if raced_existing is None:
+                    raise error
+                return raced_existing
+            raise AppError(
+                "HUMANIZATION_ALREADY_ACTIVE", "该源版本已有活动自然化作业", 409
+            ) from error
     if created:
         db.commit()
         _dispatch_job(job)

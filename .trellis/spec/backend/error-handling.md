@@ -115,6 +115,43 @@ except IntegrityError as error:
     raise AppError("PRODUCT_ALREADY_EXISTS", message, 409, details) from error
 ```
 
+## Scenario：生成自然化作业的唯一约束领域映射
+
+### 1. Scope / Trigger
+
+- `createHumanizationJob` 与 `retryGenerationJob` 的 `HUMANIZE` 分支都经由 `content_production._create_job` 写入 `generation_jobs` 时适用。
+- 预检查只提供快速路径；PostgreSQL `flush()` 的唯一性 enforcement 仍是最终权威。本规则是 service owner 的局部映射，不建立全局 constraint registry。
+
+### 2. Contracts
+
+- 只有 `error.orig.sqlstate == "23505"` 且 `error.orig.diag.constraint_name` 精确等于下列名称时才允许映射：
+  - `uq_generation_jobs_idempotency_key`：由 caller root `rollback()` 后按同一冻结 canonical identity 查询 winner；同身份 replay 既有作业，异身份抛 `IDEMPOTENCY_CONFLICT`（409，`幂等键已用于另一生成请求`，`details={}`）。winner 缺失或无法验证时原样上抛原 `IntegrityError`。
+  - `uq_generation_jobs_active_humanization_source`：由 caller root `rollback()` 后直接抛 `HUMANIZATION_ALREADY_ACTIVE`（409，`该源版本已有活动自然化作业`，`details={}`），不得回查幂等键或用查询结果反推约束。
+- canonical identity 必须在 flush 前冻结为标量，create 与 HUMANIZE retry 的正常 replay 和竞态恢复共用同一比较规则；actor 与 request ID 不属于 identity。
+- HUMANIZE retry 仅在旧作业存在、快照合同有效、作业为 `FAILED` 且父任务为 `OPEN` 后先做 key replay/conflict；只有新 key 才继续 latest、资格、source/model 与 active 检查。GENERATE retry 不适用本 mapper。
+- 成功仍由 caller `commit()` 后 dispatch；已知冲突和未知异常不得 commit、dispatch 或留下 generation/content/review/audit/task revision 副作用。
+
+### 3. Validation & Error Matrix
+
+| 条件 | 服务行为 | API |
+|---|---|---|
+| `23505` + `uq_generation_jobs_idempotency_key` | caller rollback；canonical winner 同身份 replay，异身份抛既有冲突；winner 缺失原抛 | `202` replay 或 `409 IDEMPOTENCY_CONFLICT` |
+| `23505` + `uq_generation_jobs_active_humanization_source` | caller rollback；不回查，抛既有 active 错误 | `409 HUMANIZATION_ALREADY_ACTIVE` |
+| 缺 diagnostics、名称未知、SQLSTATE 非 `23505` 或其他 `IntegrityError` | 原样上抛；不得按 key/source 查询分类 | 默认 unknown `500`，由请求 Session cleanup |
+| 新作业成功 | caller commit 后 dispatch | 既有 `202` |
+
+### 4. Good / Base / Bad Cases
+
+- Good：两个 caller 只依赖精确 SQLSTATE 与 `diag.constraint_name`；idempotency winner 使用冻结 canonical matcher，active 命中不查询。
+- Base：同 key 同 identity replay 不重复创建或 dispatch，同 key 异 identity 保持既有 409。
+- Bad：解析 `str(error)`、`message_primary` 或英文数据库文本；未知异常先回查再猜 active；将任意 `23505` 改写为两个业务错误之一；在 helper 内无条件 rollback。
+
+### 5. Tests Required
+
+- Unit：覆盖两个精确组合及 diagnostics 缺失、未知约束、非 `23505`、CHECK/NOT NULL/FK/trigger-like SQLSTATE；断言 mapper 不接管 unknown，且 rollback/query 由 caller 控制。
+- Backend integration：current-head PostgreSQL 真实捕获两个 diagnostics，覆盖 create 与 HUMANIZE retry 的 replay、conflict、active 竞态、winner 缺失和 unknown HTTP 500；断言失败无新增作业及后续内容/审核/审计/任务副作用。
+- Regression：GENERATE create/retry、worker 独立 Session、commit-before-dispatch 与既有错误信封保持不变。
+
 ## Scenario：未知 IntegrityError 的默认 server-error boundary
 
 ### 1. Scope / Trigger

@@ -318,13 +318,7 @@ def _same_generation_job_identity(
     existing: GenerationJob, identity: _GenerationJobIdentity
 ) -> bool:
     """比较幂等作业的完整 canonical identity，不读取错误文本或请求身份。"""
-    if (
-        existing.content_task_id != identity.content_task_id
-        or existing.retry_of_id != identity.retry_of_id
-        or existing.ai_model_id != identity.ai_model_id
-        or existing.job_type != identity.job_type
-        or existing.source_content_version_id != identity.source_content_version_id
-    ):
+    if not _same_generation_job_scalar_identity(existing, identity):
         return False
     if identity.platform_prompt_id is None:
         return True
@@ -333,6 +327,19 @@ def _same_generation_job_identity(
         isinstance(existing_prompt, dict)
         and existing_prompt.get("id") == identity.platform_prompt_id
         and existing_prompt.get("revision") == identity.platform_prompt_revision
+    )
+
+
+def _same_generation_job_scalar_identity(
+    existing: GenerationJob, identity: _GenerationJobIdentity
+) -> bool:
+    """比较不依赖 JSON 快照的作业 canonical identity。"""
+    return not (
+        existing.content_task_id != identity.content_task_id
+        or existing.retry_of_id != identity.retry_of_id
+        or existing.ai_model_id != identity.ai_model_id
+        or existing.job_type != identity.job_type
+        or existing.source_content_version_id != identity.source_content_version_id
     )
 
 
@@ -363,6 +370,65 @@ def _classify_humanization_integrity_error(error: IntegrityError) -> str | None:
     }:
         return constraint_name
     return None
+
+
+def _classify_generation_integrity_error(error: IntegrityError) -> bool:
+    """仅接受幂等键唯一约束，GENERATE 不接收自然化专用约束。"""
+    original = getattr(error, "orig", None)
+    diagnostic = getattr(original, "diag", None)
+    return (
+        getattr(original, "sqlstate", None) == "23505"
+        and getattr(diagnostic, "constraint_name", None)
+        == "uq_generation_jobs_idempotency_key"
+    )
+
+
+def _recover_generation_idempotency_race(
+    *,
+    db: Session,
+    error: IntegrityError,
+    idempotency_key: str,
+    identity: _GenerationJobIdentity,
+) -> GenerationJob:
+    """回滚候选事务后验证唯一约束 winner；无法验证时保留原始异常。"""
+    db.rollback()
+    winner = db.scalar(
+        select(GenerationJob).where(GenerationJob.idempotency_key == idempotency_key)
+    )
+    if winner is None:
+        raise error from None
+
+    try:
+        scalar_identity_matches = _same_generation_job_scalar_identity(winner, identity)
+    except (AttributeError, TypeError, ValueError):
+        # winner 缺失 canonical 字段时不能猜测其身份，也不能把未知错误变成 409。
+        raise error from None
+    if not scalar_identity_matches:
+        raise AppError("IDEMPOTENCY_CONFLICT", "幂等键已用于另一生成请求", 409) from error
+
+    # 只有标量身份一致时，原始 GENERATE 才需要完整 Prompt 快照来完成比较。
+    if identity.platform_prompt_id is not None:
+        snapshot = getattr(winner, "input_snapshot", None)
+        platform_prompt = snapshot.get("platform_prompt") if isinstance(snapshot, dict) else None
+        if not isinstance(platform_prompt, dict):
+            raise error
+        prompt_id = platform_prompt.get("id")
+        prompt_revision = platform_prompt.get("revision")
+        if (
+            not isinstance(prompt_id, str)
+            or not prompt_id
+            or type(prompt_revision) is not int
+        ):
+            raise error
+
+        if (
+            platform_prompt["id"] != identity.platform_prompt_id
+            or platform_prompt["revision"] != identity.platform_prompt_revision
+        ):
+            raise AppError("IDEMPOTENCY_CONFLICT", "幂等键已用于另一生成请求", 409) from error
+    if not _same_generation_job_identity(winner, identity):
+        raise AppError("IDEMPOTENCY_CONFLICT", "幂等键已用于另一生成请求", 409) from error
+    return winner
 
 
 def _create_job(
@@ -494,15 +560,35 @@ def create_generation_job(
     model = db.get(AIModel, payload.ai_model_id)
     if model is None:
         raise not_found("AI 模型")
-    job, created = _create_job(
-        db=db,
+    request_identity = _generation_job_identity(
         task=task,
-        idempotency_key=idempotency_key,
-        actor=actor,
         model=model,
+        source=None,
+        retry_of=None,
         platform_prompt_id=payload.platform_prompt_id,
         platform_prompt_revision=payload.platform_prompt_revision,
     )
+    try:
+        job, created = _create_job(
+            db=db,
+            task=task,
+            idempotency_key=idempotency_key,
+            actor=actor,
+            model=model,
+            platform_prompt_id=payload.platform_prompt_id,
+            platform_prompt_revision=payload.platform_prompt_revision,
+            request_identity=request_identity,
+        )
+    except IntegrityError as error:
+        if not _classify_generation_integrity_error(error):
+            raise
+        job = _recover_generation_idempotency_race(
+            db=db,
+            error=error,
+            idempotency_key=idempotency_key,
+            identity=request_identity,
+        )
+        created = False
     if created:
         db.commit()
         _dispatch_job(job)
@@ -621,7 +707,28 @@ def retry_generation_job(
 
     retry_snapshot: Any
     request_identity: _GenerationJobIdentity | None = None
-    if previous.job_type == "HUMANIZE":
+    if previous.job_type == "GENERATE":
+        # GENERATE replay 只依赖旧快照；latest/current 资格仅服务于新建 retry。
+        retry_snapshot = ensure_third_party_egress_allowed(previous.input_snapshot)
+        request_identity = _generation_job_identity(
+            task=task,
+            model=None,
+            source=None,
+            retry_of=previous,
+            platform_prompt_id=None,
+            platform_prompt_revision=None,
+        )
+        if _find_existing_generation_job(db, idempotency_key, request_identity) is not None:
+            existing, _created = _create_job(
+                db=db,
+                task=task,
+                idempotency_key=idempotency_key,
+                actor=actor,
+                retry_of=previous,
+                request_identity=request_identity,
+            )
+            return existing
+    elif previous.job_type == "HUMANIZE":
         # 自然化 replay 必须先通过旧快照合同，再跳过只服务于新 job 的资格检查。
         retry_snapshot = ensure_humanization_egress_allowed(previous.input_snapshot)
         request_identity = _generation_job_identity(
@@ -651,25 +758,11 @@ def retry_generation_job(
     )
     if latest_job_id != previous.id:
         raise AppError("INVALID_STATE_TRANSITION", "只有最新失败作业可以重试", 409)
-    if previous.job_type == "GENERATE":
-        retry_snapshot = ensure_third_party_egress_allowed(previous.input_snapshot)
     fact = db.get(FactVersion, task.fact_version_id)
     product = db.get(Product, task.product_id)
     ensure_generation_eligible(task, fact, product, retry_snapshot.fact_version)
     if fact is not None:
         ensure_generation_sources_public(fact)
-    if previous.job_type == "GENERATE" and (
-        db.scalar(select(GenerationJob.id).where(GenerationJob.idempotency_key == idempotency_key))
-        is not None
-    ):
-        existing, _created = _create_job(
-            db=db,
-            task=task,
-            idempotency_key=idempotency_key,
-            actor=actor,
-            retry_of=previous,
-        )
-        return existing
     if previous.job_type == "HUMANIZE":
         snapshot = retry_snapshot
         if previous.source_content_version_id is None:
@@ -694,13 +787,26 @@ def retry_generation_job(
         if active is not None:
             raise AppError("HUMANIZATION_ALREADY_ACTIVE", "该源版本已有活动自然化作业", 409)
     if previous.job_type == "GENERATE":
-        job, created = _create_job(
-            db=db,
-            task=task,
-            idempotency_key=idempotency_key,
-            actor=actor,
-            retry_of=previous,
-        )
+        assert request_identity is not None
+        try:
+            job, created = _create_job(
+                db=db,
+                task=task,
+                idempotency_key=idempotency_key,
+                actor=actor,
+                retry_of=previous,
+                request_identity=request_identity,
+            )
+        except IntegrityError as error:
+            if not _classify_generation_integrity_error(error):
+                raise
+            job = _recover_generation_idempotency_race(
+                db=db,
+                error=error,
+                idempotency_key=idempotency_key,
+                identity=request_identity,
+            )
+            created = False
     else:
         assert request_identity is not None
         try:

@@ -20,6 +20,7 @@ from app.routers.production import generation_jobs_out
 from app.schemas.content import GenerationFactSnapshot
 from app.schemas.product_facts import Confidentiality
 from app.services.content_production import (
+    _classify_generation_integrity_error,
     _classify_humanization_integrity_error,
     build_generation_input,
     create_humanization_job,
@@ -90,6 +91,18 @@ def generation_input(*, classification: str = "PUBLIC") -> dict[str, Any]:
         "system_message": "\n  平台 Prompt 原文  \n",
         "user_message": "\n# 事实 Markdown 原文\n\n- 参数：5 V  \n",
     }
+
+
+def generation_input_v3() -> dict[str, Any]:
+    """构造包含 canonical Prompt 身份的当前原始生成快照。"""
+    input_data = generation_input()
+    input_data["contract_version"] = "content-markdown-v3"
+    input_data["platform_prompt"] = {
+        "id": str(PROMPT_ID),
+        "name": "平台 Prompt",
+        "revision": 4,
+    }
+    return input_data
 
 
 def humanization_input(*, classification: str = "PUBLIC") -> dict[str, Any]:
@@ -305,6 +318,284 @@ def test_humanization_integrity_classifier_requires_exact_23505_diagnostics() ->
     assert _classify_humanization_integrity_error(IntegrityError("INSERT", {}, None)) is None
 
 
+@pytest.mark.parametrize(
+    ("sqlstate", "diagnostics", "expected"),
+    [
+        ("23505", SimpleNamespace(constraint_name="uq_generation_jobs_idempotency_key"), True),
+        (
+            "23505",
+            SimpleNamespace(constraint_name="uq_generation_jobs_active_humanization_source"),
+            False,
+        ),
+        ("23514", SimpleNamespace(constraint_name="uq_generation_jobs_idempotency_key"), False),
+        ("23505", SimpleNamespace(constraint_name="uq_generation_jobs_idempotency_key_old"), False),
+        ("23505", SimpleNamespace(constraint_name=None), False),
+        ("23505", None, False),
+        (None, SimpleNamespace(constraint_name="uq_generation_jobs_idempotency_key"), False),
+    ],
+)
+def test_generation_integrity_classifier_requires_exact_postgres_diagnostics(
+    sqlstate: str | None, diagnostics: object, expected: bool
+) -> None:
+    original = SimpleNamespace(
+        sqlstate=sqlstate,
+        diag=diagnostics,
+        pgcode="23505",
+        constraint_name="uq_generation_jobs_idempotency_key",
+    )
+    error = IntegrityError("INSERT", {}, original)
+
+    assert _classify_generation_integrity_error(error) is expected
+
+def _failed_generate_job() -> Any:
+    return SimpleNamespace(
+        id=JOB_ID,
+        status="FAILED",
+        content_task_id=TASK_ID,
+        job_type="GENERATE",
+        input_snapshot=generation_input_v3(),
+        source_content_version_id=None,
+        ai_model_id=MODEL_ID,
+        ai_channel_id=CHANNEL_ID,
+        adapter_name="openai-compatible-chat-completions",
+    )
+
+def test_generate_retry_replays_before_latest_and_current_eligibility(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    previous = _failed_generate_job()
+    task = SimpleNamespace(
+        id=TASK_ID, status="OPEN", fact_version_id=FACT_ID, product_id=PRODUCT_ID
+    )
+    winner = SimpleNamespace(
+        content_task_id=TASK_ID,
+        retry_of_id=JOB_ID,
+        ai_model_id=MODEL_ID,
+        job_type="GENERATE",
+        source_content_version_id=None,
+        input_snapshot=generation_input_v3(),
+    )
+    events: list[str] = []
+    snapshot = SimpleNamespace(fact_version=SimpleNamespace(id=FACT_ID))
+    monkeypatch.setattr(
+        content_production,
+        "ensure_third_party_egress_allowed",
+        lambda _input: events.append("snapshot") or snapshot,
+    )
+    monkeypatch.setattr(
+        content_production,
+        "_find_existing_generation_job",
+        lambda _db, _key, identity: events.append("lookup") or winner,
+    )
+    monkeypatch.setattr(
+        content_production,
+        "_create_job",
+        lambda **_kwargs: events.append("replay") or (winner, False),
+    )
+    db = cast(Any, SnapshotSession({GenerationJob: previous}, scalar_rows=[task]))
+
+    assert retry_generation_job(
+        db=db,
+        generation_job_id=JOB_ID,
+        actor=cast(Any, SimpleNamespace(id=uuid.uuid4())),
+        request_id="retry-order",
+        idempotency_key="retry-key",
+    ) is winner
+    assert events == ["snapshot", "lookup", "replay"]
+
+
+def test_generate_retry_different_key_reaches_latest_and_current_eligibility(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    previous = _failed_generate_job()
+    task = SimpleNamespace(
+        id=TASK_ID, status="OPEN", fact_version_id=FACT_ID, product_id=PRODUCT_ID
+    )
+    fact = SimpleNamespace(
+        id=FACT_ID,
+        product_id=PRODUCT_ID,
+        status="APPROVED",
+        classification="PUBLIC",
+        body_markdown="事实",
+    )
+    product = SimpleNamespace(id=PRODUCT_ID, status="ACTIVE")
+    events: list[str] = []
+    snapshot = SimpleNamespace(fact_version=SimpleNamespace(id=FACT_ID))
+    monkeypatch.setattr(
+        content_production,
+        "ensure_third_party_egress_allowed",
+        lambda _input: events.append("snapshot") or snapshot,
+    )
+    monkeypatch.setattr(
+        content_production,
+        "_find_existing_generation_job",
+        lambda _db, _key, _identity: events.append("lookup") or None,
+    )
+    monkeypatch.setattr(
+        content_production,
+        "ensure_generation_eligible",
+        lambda *_args: events.append("eligibility"),
+    )
+    monkeypatch.setattr(
+        content_production,
+        "ensure_generation_sources_public",
+        lambda _fact: events.append("sources"),
+    )
+    monkeypatch.setattr(
+        content_production,
+        "_create_job",
+        lambda **_kwargs: events.append("create") or (SimpleNamespace(id=uuid.uuid4()), False),
+    )
+
+    class OrderedSession(SnapshotSession):
+        def scalar(self, query: object) -> object | None:
+            events.append("scalar")
+            return super().scalar(query)
+
+    db = cast(
+        Any,
+        OrderedSession(
+            {GenerationJob: previous, FactVersion: fact, Product: product},
+            scalar_rows=[task, JOB_ID],
+        ),
+    )
+    result = retry_generation_job(
+        db=db,
+        generation_job_id=JOB_ID,
+        actor=cast(Any, SimpleNamespace(id=uuid.uuid4())),
+        request_id="retry-different-key",
+        idempotency_key="different-key",
+    )
+
+    assert result.id is not None
+    assert events == ["scalar", "snapshot", "lookup", "scalar", "eligibility", "sources", "create"]
+
+@pytest.mark.parametrize("entry", ["create", "retry"])
+def test_generation_callers_recover_only_exact_idempotency_race(
+    monkeypatch: pytest.MonkeyPatch, entry: str
+) -> None:
+    """两个 caller 都必须 rollback 后恢复 winner，未知约束保持原异常。"""
+    actor = SimpleNamespace(id=uuid.uuid4())
+    recover = content_production._recover_generation_idempotency_race
+    for sqlstate, constraint, winner_kind in (
+        ("23505", "uq_generation_jobs_idempotency_key", "same"),
+        ("23505", "uq_generation_jobs_idempotency_key", "missing"),
+        ("23505", "uq_generation_jobs_idempotency_key", "malformed"),
+        ("23514", "uq_generation_jobs_idempotency_key", "same"),
+        ("23505", "uq_generation_jobs_active_humanization_source", "same"),
+        (None, None, "same"),
+    ):
+        original = IntegrityError(
+            "INSERT", {}, SimpleNamespace(
+                sqlstate=sqlstate,
+                diag=None if constraint is None else SimpleNamespace(constraint_name=constraint),
+            )
+        )
+        task = SimpleNamespace(
+            id=TASK_ID, status="OPEN", fact_version_id=FACT_ID, product_id=PRODUCT_ID,
+            current_content_version_id=None,
+        )
+        previous = _failed_generate_job()
+        model = SimpleNamespace(id=MODEL_ID, channel_id=CHANNEL_ID)
+        fact = SimpleNamespace(
+            id=FACT_ID, product_id=PRODUCT_ID, status="APPROVED",
+            classification="PUBLIC", body_markdown="事实",
+        )
+        if entry == "create":
+            winner = SimpleNamespace(
+                content_task_id=TASK_ID, retry_of_id=None, ai_model_id=MODEL_ID,
+                job_type="GENERATE", source_content_version_id=None,
+                input_snapshot=(
+                    generation_input_v3()
+                    if winner_kind == "same"
+                    else {"platform_prompt": {"id": PROMPT_ID, "revision": "4"}}
+                ),
+            )
+            scalar_rows = [task, None if winner_kind == "missing" else winner]
+        else:
+            winner = SimpleNamespace(
+                content_task_id=TASK_ID, retry_of_id=JOB_ID, ai_model_id=MODEL_ID,
+                job_type="GENERATE", source_content_version_id=None,
+                input_snapshot=generation_input_v3(),
+            )
+            scalar_rows = [task, None, previous.id, None if winner_kind == "missing" else winner]
+        class TraceSession(SnapshotSession):
+            def __init__(
+                self,
+                previous_job: object,
+                model_row: object,
+                fact_row: object,
+                rows: list[object],
+            ) -> None:
+                super().__init__(
+                    {GenerationJob: previous_job, AIModel: model_row, FactVersion: fact_row},
+                    scalar_rows=rows,
+                )
+                self.events: list[str] = []
+
+            def scalar(self, query: object) -> object | None:
+                self.events.append("query")
+                return super().scalar(query)
+
+            def rollback(self) -> None:
+                self.events.append("rollback")
+        db = TraceSession(previous, model, fact, scalar_rows)
+        recovery_calls: list[IntegrityError] = []
+        def record_recovery(
+            recover_fn: Any = recover, calls: list[IntegrityError] = recovery_calls, **kwargs: Any
+        ) -> GenerationJob:
+            calls.append(kwargs["error"])
+            return recover_fn(**kwargs)
+
+        monkeypatch.setattr(
+            content_production, "_recover_generation_idempotency_race", record_recovery
+        )
+        monkeypatch.setattr(
+            content_production, "_dispatch_job", lambda _job: pytest.fail("不应投递")
+        )
+        monkeypatch.setattr(
+            content_production,
+            "_create_job",
+            lambda error_to_raise=original, **_kwargs: (_ for _ in ()).throw(error_to_raise),
+        )
+        monkeypatch.setattr(content_production, "ensure_generation_eligible", lambda *_args: None)
+        monkeypatch.setattr(
+            content_production, "ensure_generation_sources_public", lambda _fact: None
+        )
+        if entry == "create":
+            def call(db_to_use: Any = db) -> GenerationJob:
+                return content_production.create_generation_job(
+                    db=cast(Any, db_to_use), content_task_id=TASK_ID,
+                    payload=SimpleNamespace(
+                        ai_model_id=MODEL_ID, platform_prompt_id=PROMPT_ID,
+                        platform_prompt_revision=4,
+                    ),
+                    actor=cast(Any, actor), request_id="create", idempotency_key="race-key",
+                )
+        else:
+            def call(db_to_use: Any = db) -> GenerationJob:
+                return content_production.retry_generation_job(
+                    db=cast(Any, db_to_use), generation_job_id=JOB_ID, actor=cast(Any, actor),
+                    request_id="retry", idempotency_key="race-key",
+                )
+        exact = sqlstate == "23505" and constraint == "uq_generation_jobs_idempotency_key"
+        if exact:
+            if winner_kind == "same" or (entry == "retry" and winner_kind == "malformed"):
+                assert call() is winner
+            else:
+                with pytest.raises(IntegrityError) as captured:
+                    call()
+                assert captured.value is original
+            assert db.events[-2:] == ["rollback", "query"]
+            assert recovery_calls == [original]
+        else:
+            with pytest.raises(IntegrityError) as captured:
+                call()
+            assert captured.value is original
+            assert "rollback" not in db.events
+            assert recovery_calls == []
+
+
 def test_humanization_integrity_recovery_preserves_caller_transaction_ownership(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -431,7 +722,7 @@ def test_humanization_integrity_recovery_preserves_caller_transaction_ownership(
         ai_model_id=MODEL_ID, ai_channel_id=CHANNEL_ID,
         adapter_name="openai-compatible-chat-completions"
     ))
-    db = TraceSession([task, generate.id])
+    db = TraceSession([task, None, generate.id])
     db.rows.update({GenerationJob: generate, FactVersion: fact, Product: product})
     classifier_calls: list[IntegrityError] = []
     monkeypatch.setattr(
@@ -480,7 +771,9 @@ def test_retry_projection_requires_supported_failed_job_and_open_parent() -> Non
         SimpleNamespace(
             job_type="GENERATE",
             status="FAILED",
-            input_snapshot={"contract_version": "content-markdown-v3"},
+            input_snapshot=generation_input_v3(),
+            ai_model_id=MODEL_ID,
+            source_content_version_id=None,
         ),
     )
     task = cast(ContentTask, SimpleNamespace(status="OPEN"))
@@ -541,7 +834,9 @@ def test_retry_command_rejects_non_latest_failed_job() -> None:
             content_task_id=TASK_ID,
             job_type="GENERATE",
             status="FAILED",
-            input_snapshot={"contract_version": "content-markdown-v3"},
+            input_snapshot=generation_input_v3(),
+            ai_model_id=MODEL_ID,
+            source_content_version_id=None,
         ),
     )
     task = cast(ContentTask, SimpleNamespace(id=TASK_ID, status="OPEN"))
@@ -549,7 +844,7 @@ def test_retry_command_rejects_non_latest_failed_job() -> None:
         Any,
         SnapshotSession(
             {GenerationJob: previous},
-            scalar_rows=[task, uuid.uuid4()],
+            scalar_rows=[task, None, uuid.uuid4()],
         ),
     )
 

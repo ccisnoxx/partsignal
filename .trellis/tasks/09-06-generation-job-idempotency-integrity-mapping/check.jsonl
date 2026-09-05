@@ -1,0 +1,6 @@
+{"file":".trellis/spec/backend/index.md","reason":"复核 backend 边界、质量门禁和文档入口。"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"复核 mapper 未扩大、unknown 原抛、caller rollback、request ID 与 Humanization 合同不回归。"}
+{"file":".trellis/spec/backend/ai-configuration-guidelines.md","reason":"复核 retry snapshot、commit-before-dispatch、broker failure 与 worker 策略零变更。"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"复核 TestClient、targeted 验证和 backend 质量要求。"}
+{"file":".trellis/tasks/09-05-content-integrity-error-contract-decision/research/contract-decision-matrix.md","reason":"逐项复核 GENERATE create/retry 准确合同、同 Task/跨 Task 并发分类、原子性和零 diff owner。"}
+{"file":".trellis/tasks/09-06-generation-job-idempotency-integrity-mapping/research/current-head-generation-idempotency.md","reason":"复核候选 diff 是否覆盖 current-head 缺口且没有把 test-only sentinel 描述为正常 race。"}

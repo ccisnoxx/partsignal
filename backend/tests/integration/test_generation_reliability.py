@@ -21,7 +21,7 @@ from urllib.parse import urlsplit, urlunsplit
 import psycopg
 import pytest
 from celery import Celery
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Header
 from fastapi.testclient import TestClient
 from psycopg import sql
 from psycopg.types.json import Jsonb
@@ -33,9 +33,14 @@ from sqlalchemy.orm import Session, sessionmaker
 from app import db as app_db
 from app.config import settings
 from app.errors import AppError, app_error_handler
+from app.main import request_context
 from app.models.ai_generation import GenerationJob
 from app.models.identity import User
-from app.schemas.content import HumanizationJobCreate, HumanizationSnapshot
+from app.schemas.content import (
+    HumanizationJobCreate,
+    HumanizationSnapshot,
+    OriginalGenerationJobCreate,
+)
 from app.services import content_production, generation, generation_dispatch
 from app.services.credentials import CredentialCipher
 
@@ -640,6 +645,299 @@ def _insert_duplicate_generation_job(
         "prompt_hash, 0, created_by FROM generation_jobs WHERE id = %s",
         (uuid.uuid4(), key, winner_id),
     )
+def _generation_context(test_url: str, job_id: uuid.UUID):
+    with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+        cursor.execute("SELECT g.content_task_id, g.ai_model_id, p.platform_prompt_id, pp.revision, g.created_by FROM generation_jobs g JOIN content_tasks t ON t.id = g.content_task_id JOIN platform_profiles p ON p.id = t.platform_profile_id JOIN platform_prompts pp ON pp.id = p.platform_prompt_id WHERE g.id = %s", (job_id,))  # noqa: E501
+        return cursor.fetchone()
+def _generation_state(test_url: str, task_id: uuid.UUID):
+    with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+        cursor.execute("SELECT (SELECT count(*) FROM generation_jobs WHERE content_task_id=t.id), (SELECT count(*) FROM content_versions WHERE task_id=t.id), t.current_content_version_id, t.revision, (SELECT count(*) FROM content_review_records r JOIN content_versions v ON v.id=r.content_version_id WHERE v.task_id=t.id), (SELECT count(*) FROM audit_logs) FROM content_tasks t WHERE t.id=%s", (task_id,))  # noqa: E501
+        return cursor.fetchone()
+def _generation_http_app(
+    *,
+    task_id: uuid.UUID, actor_id: uuid.UUID,
+    model_id: uuid.UUID, prompt_id: uuid.UUID,
+    prompt_revision: int,
+    previous_id: uuid.UUID | None,
+    integrity_errors: list[IntegrityError] | None = None,
+) -> FastAPI:
+    api = FastAPI(debug=False)
+    api.add_exception_handler(AppError, app_error_handler)
+    api.middleware("http")(request_context)
+    db_dependency = Depends(app_db.get_db)
+
+    @api.post("/invoke")
+    def invoke(
+        db: Session = db_dependency,
+        idempotency_key: str = Header(alias="Idempotency-Key"),
+    ) -> dict[str, str]:
+        actor = db.get(User, actor_id)
+        try:
+            if previous_id is None:
+                content_production.create_generation_job(
+                    db=db, content_task_id=task_id,
+                    payload=OriginalGenerationJobCreate(
+                        ai_model_id=model_id, platform_prompt_id=prompt_id,
+                        platform_prompt_revision=prompt_revision),
+                    actor=actor, request_id="http", idempotency_key=idempotency_key)
+            else:
+                content_production.retry_generation_job(
+                    db=db, generation_job_id=previous_id, actor=actor, request_id="http",
+                    idempotency_key=idempotency_key)
+        except IntegrityError as error:
+            if integrity_errors is not None:
+                integrity_errors.append(error)
+            raise
+        return {"status": "ok"}
+
+    return api
+def _run_generation_race(
+    test_url: str,
+    sessions: sessionmaker[Session],
+    *,
+    retry: bool,
+) -> tuple[list[object], list[uuid.UUID]]:
+    source_jobs = [
+        seed_generation_job(test_url, base_url="http://127.0.0.1:9/v1") for _ in range(2)
+    ]
+    if retry:
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "UPDATE generation_jobs SET status = 'FAILED' WHERE id = ANY(%s)",
+                (source_jobs,),
+            )
+            connection.commit()
+    race_key = f"generation-race-key-{'retry' if retry else 'create'}"
+    flush_barrier = threading.Barrier(2)
+    def wait_for_generation_flush(session: Session, _context: object, _instances: object) -> None:
+        if any(isinstance(item, GenerationJob) for item in session.new):
+            flush_barrier.wait(timeout=15)
+    event.listen(Session, "before_flush", wait_for_generation_flush)
+    def call(index: int) -> object:
+        job_id = source_jobs[index]
+        task_id, model_id, prompt_id, prompt_revision, actor_id = _generation_context(
+            test_url, job_id
+        )
+        with sessions() as db:
+            actor = db.get(User, actor_id)
+            assert actor is not None
+            try:
+                if retry:
+                    return content_production.retry_generation_job(
+                        db=db, generation_job_id=job_id, actor=actor,
+                        request_id=f"generation-race-retry-{index}", idempotency_key=race_key)
+                return content_production.create_generation_job(
+                    db=db, content_task_id=task_id, actor=actor,
+                    payload=OriginalGenerationJobCreate(ai_model_id=model_id,
+                        platform_prompt_id=prompt_id, platform_prompt_revision=prompt_revision),
+                    request_id=f"generation-race-create-{index}", idempotency_key=race_key)
+            except AppError as error:
+                return error
+
+    try:
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            futures = [executor.submit(call, index) for index in range(2)]
+            results = [future.result(timeout=30) for future in futures]
+    finally:
+        event.remove(Session, "before_flush", wait_for_generation_flush)
+    return results, [_generation_context(test_url, job_id)[0] for job_id in source_jobs]
+
+@pytest.mark.integration
+@pytest.mark.parametrize("retry", [False, True], ids=["create", "retry"])
+def test_generation_same_task_lock_replays_without_integrity_race(
+    monkeypatch: pytest.MonkeyPatch, retry: bool
+) -> None:
+    with temporary_database("partsignal_generation_same_task") as database:
+        test_url, sqlalchemy_url, _ = database
+        dispatches: list[uuid.UUID] = []
+        monkeypatch.setattr(content_production, "_dispatch_job", dispatches.append)
+        with patched_sessions(monkeypatch, sqlalchemy_url) as sessions:
+            original_id = seed_generation_job(test_url, base_url="http://127.0.0.1:9/v1")
+            task_id, model_id, prompt_id, prompt_revision, actor_id = _generation_context(test_url, original_id)  # noqa: E501
+            if retry:
+                with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+                    cursor.execute("UPDATE generation_jobs SET status='FAILED' WHERE id=%s", (original_id,))  # noqa: E501
+                    connection.commit()
+            attempts, flushes, classifier_calls = [0], [0], [0]
+            started, first_locked = threading.Barrier(2), threading.Event()
+            scalar = Session.scalar
+            classify = content_production._classify_generation_integrity_error
+            def observe_lock(db: Session, statement: object, *args: object, **kwargs: object) -> object:  # noqa: E501
+                if getattr(statement, "_for_update_arg", None) is not None and "content_tasks" in str(statement):  # noqa: E501
+                    attempts[0] += 1
+                    started.wait(timeout=15)
+                    result = scalar(db, statement, *args, **kwargs)
+                    first_locked.set()
+                    return result
+                return scalar(db, statement, *args, **kwargs)
+            def observe_integrity(error: IntegrityError) -> bool:
+                classifier_calls[0] += 1
+                return classify(error)
+            monkeypatch.setattr(Session, "scalar", observe_lock)
+            monkeypatch.setattr(content_production, "_classify_generation_integrity_error", observe_integrity)  # noqa: E501
+            observe_flush = lambda session, *_args: flushes.__setitem__(0, flushes[0] + any(isinstance(item, GenerationJob) for item in session.new))  # noqa: E731,E501
+            event.listen(Session, "before_flush", observe_flush)
+            def call() -> GenerationJob:
+                with sessions() as db:
+                    actor = db.get(User, actor_id)
+                    if retry:
+                        return content_production.retry_generation_job(
+                            db=db, generation_job_id=original_id, actor=actor,
+                            request_id="generation-same-task-retry", idempotency_key="generation-same-task-key")  # noqa: E501
+                    return content_production.create_generation_job(
+                        db=db, content_task_id=task_id, actor=actor,
+                        payload=OriginalGenerationJobCreate(ai_model_id=model_id, platform_prompt_id=prompt_id,  # noqa: E501
+                            platform_prompt_revision=prompt_revision),
+                        request_id="generation-same-task-create", idempotency_key="generation-same-task-key")  # noqa: E501
+            try:
+                with ThreadPoolExecutor(max_workers=2) as executor:
+                    futures = [executor.submit(call) for _ in range(2)]
+                    results = [future.result(timeout=30) for future in futures]
+            finally:
+                event.remove(Session, "before_flush", observe_flush)
+            assert results[0].id == results[1].id
+            assert attempts[0] == 2 and first_locked.is_set() and flushes[0] == 1
+            assert classifier_calls[0] == 0 and len(dispatches) == 1 and _generation_state(test_url, task_id)[0] == 2  # noqa: E501
+@pytest.mark.integration
+@pytest.mark.parametrize("retry", [False, True], ids=["create", "retry"])
+def test_generation_cross_task_race_uses_real_postgresql_constraint(
+    monkeypatch: pytest.MonkeyPatch,
+    retry: bool,
+) -> None:
+    with temporary_database(
+        f"partsignal_generation_race_{'retry' if retry else 'create'}"
+    ) as database:
+        test_url, sqlalchemy_url, _ = database
+        dispatches: list[uuid.UUID] = []
+        monkeypatch.setattr(content_production, "_dispatch_job", dispatches.append)
+        with patched_sessions(monkeypatch, sqlalchemy_url) as sessions:
+            results, task_ids = _run_generation_race(
+                test_url, sessions, retry=retry
+            )
+            assert sum(isinstance(result, GenerationJob) for result in results) == 1
+            conflicts = [result for result in results if isinstance(result, AppError)]
+            assert len(conflicts) == 1
+            assert conflicts[0].code == "IDEMPOTENCY_CONFLICT"
+            assert conflicts[0].message == "幂等键已用于另一生成请求"
+            assert conflicts[0].details == {}
+            assert sorted(_generation_state(test_url, task_id) for task_id in task_ids) == [
+                (1, 0, None, 0, 0, 0), (2, 0, None, 0, 0, 0)
+            ]
+        assert len(dispatches) == 1
+@pytest.mark.integration
+def test_generation_create_same_identity_exact_constraint_sentinel_replays(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with temporary_database("partsignal_generation_sentinel") as database:
+        test_url, sqlalchemy_url, _ = database
+        dispatches: list[uuid.UUID] = []
+        monkeypatch.setattr(content_production, "_dispatch_job", dispatches.append)
+        with patched_sessions(monkeypatch, sqlalchemy_url) as sessions:
+            seed_id = seed_generation_job(test_url, base_url="http://127.0.0.1:9/v1")
+            task_id, model_id, prompt_id, prompt_revision, actor_id = _generation_context(
+                test_url, seed_id
+            )
+            with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+                cursor.execute("DELETE FROM generation_jobs WHERE id = %s", (seed_id,))
+                connection.commit()
+            payload = OriginalGenerationJobCreate(
+                ai_model_id=model_id,
+                platform_prompt_id=prompt_id,
+                platform_prompt_revision=prompt_revision,
+            )
+            with sessions() as db:
+                actor = db.get(User, actor_id)
+                winner = content_production.create_generation_job(
+                    db=db, content_task_id=task_id, payload=payload, actor=actor,
+                    request_id="generation-sentinel-winner",
+                    idempotency_key="generation-sentinel-key",
+                )
+            original_find = content_production._find_existing_generation_job
+            seen = threading.local()
+
+            def hide_only_insert_lookup(db: Session, key: str, identity: Any) -> object:
+                if not getattr(seen, "hidden", False):
+                    seen.hidden = True
+                    return None
+                return original_find(db, key, identity)
+            monkeypatch.setattr(
+                content_production, "_find_existing_generation_job", hide_only_insert_lookup
+            )
+            with sessions() as db:
+                actor = db.get(User, actor_id)
+                replay = content_production.create_generation_job(
+                    db=db, content_task_id=task_id, payload=payload, actor=actor,
+                    request_id="generation-sentinel-replay",
+                    idempotency_key="generation-sentinel-key",
+                )
+            assert replay.id == winner.id
+        assert [job.id for job in dispatches] == [winner.id]
+@pytest.mark.integration
+def test_generation_http_conflicts_have_exact_envelope_and_request_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with temporary_database("partsignal_generation_http") as database:
+        test_url, sqlalchemy_url, _ = database
+        dispatches: list[uuid.UUID] = []
+        monkeypatch.setattr(content_production, "_dispatch_job", dispatches.append)
+        with patched_sessions(monkeypatch, sqlalchemy_url) as sessions:
+            monkeypatch.setattr(app_db, "SessionLocal", sessions)
+            for retry in (False, True):
+                winner_id = seed_generation_job(test_url, base_url="http://127.0.0.1:9/v1")
+                loser_id = seed_generation_job(test_url, base_url="http://127.0.0.1:9/v1")
+                context = _generation_context(test_url, winner_id)
+                if retry:
+                    with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+                        cursor.execute(
+                            "UPDATE generation_jobs SET status = 'FAILED' WHERE id IN (%s, %s)",
+                            (winner_id, loser_id),
+                        )
+                        connection.commit()
+                with sessions() as db:
+                    actor = db.get(User, context[4])
+                    if retry:
+                        content_production.retry_generation_job(
+                            db=db, generation_job_id=winner_id, actor=actor,
+                            request_id="http-retry-winner", idempotency_key="http-retry-shared-key")
+                    else:
+                        content_production.create_generation_job(
+                            db=db, content_task_id=context[0], actor=actor,
+                            payload=OriginalGenerationJobCreate(ai_model_id=context[1],
+                                platform_prompt_id=context[2], platform_prompt_revision=context[3]),
+                            request_id="http-create-winner",
+                            idempotency_key="http-create-shared-key")
+                loser_context = _generation_context(test_url, loser_id)
+                api = _generation_http_app(
+                    task_id=loser_context[0], actor_id=loser_context[4],
+                    model_id=loser_context[1], prompt_id=loser_context[2],
+                    prompt_revision=loser_context[3], previous_id=loser_id if retry else None)
+                key = "http-retry-shared-key" if retry else "http-create-shared-key"
+                request_id = "http-retry-conflict" if retry else "http-create-conflict"
+                with TestClient(api, raise_server_exceptions=False) as client:
+                    response = client.post(
+                        "/invoke", headers={"Idempotency-Key": key, "X-Request-ID": request_id})
+                assert response.status_code == 409
+                assert response.headers["X-Request-ID"] == request_id
+                assert response.json()["error"] == {
+                    "code": "IDEMPOTENCY_CONFLICT", "message": "幂等键已用于另一生成请求",
+                    "details": {}, "request_id": request_id}
+                errors: list[IntegrityError] = []
+                before, dispatch_count = _generation_state(test_url, loser_context[0]), len(dispatches)  # noqa: E501
+                collide = lambda session, *_args, target=winner_id: [setattr(item, "id", target) for item in session.new if isinstance(item, GenerationJob)]  # noqa: E731,E501,B023
+                event.listen(Session, "before_flush", collide)
+                try:
+                    api = _generation_http_app(
+                        task_id=loser_context[0], actor_id=loser_context[4], model_id=loser_context[1],  # noqa: E501
+                        prompt_id=loser_context[2], prompt_revision=loser_context[3],
+                        previous_id=loser_id if retry else None, integrity_errors=errors)
+                    with TestClient(api, raise_server_exceptions=False) as client:
+                        unknown = client.post("/invoke", headers={"Idempotency-Key": f"unknown-{key}", "X-Request-ID": f"unknown-{request_id}"})  # noqa: E501
+                finally:
+                    event.remove(Session, "before_flush", collide)
+                assert unknown.status_code == 500 and "generation_jobs" not in unknown.text and "duplicate key" not in unknown.text  # noqa: E501
+                assert errors and errors[0].orig.sqlstate == "23505" and errors[0].orig.diag.constraint_name == "pk_generation_jobs"  # noqa: E501
+                assert not content_production._classify_generation_integrity_error(errors[0])
+                assert _generation_state(test_url, loser_context[0]) == before and len(dispatches) == dispatch_count  # noqa: E501
 
 
 @pytest.mark.integration

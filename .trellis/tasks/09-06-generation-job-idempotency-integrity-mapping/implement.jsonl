@@ -1,0 +1,6 @@
+{"file":".trellis/spec/backend/index.md","reason":"加载 backend 规范入口和适用质量门禁。"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"实施 GenerationJob 精确 sqlstate/constraint_name 分类、caller rollback、winner revalidation、request ID 与 unknown 边界。"}
+{"file":".trellis/spec/backend/ai-configuration-guidelines.md","reason":"保持 GenerationJob snapshot、显式 retry、commit-before-dispatch、PENDING 补投递和 Humanization 边界。"}
+{"file":".trellis/tasks/09-05-content-integrity-error-contract-decision/research/contract-decision-matrix.md","reason":"注入获批 T4-C 最终分类、GENERATE retry 顺序、准确 409 合同、原子性和零 diff 边界。"}
+{"file":".trellis/tasks/09-05-content-integrity-error-contract-decision/research/stable-contract-context.md","reason":"在注入上限内提供 Generation/Humanization、事务原子性、worker 交界和 required evidence 摘录；分歧以引用的 current-head 原文为准。"}
+{"file":".trellis/tasks/09-06-generation-job-idempotency-integrity-mapping/research/current-head-generation-idempotency.md","reason":"提供 current-head 真实 owner、现有测试缺口、并发 sentinel 设计与停止条件。"}

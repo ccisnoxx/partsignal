@@ -1126,3 +1126,46 @@
 ### Next Steps
 
 - 父任务仍处于 planning；后续仅在单独批准后规划下一个独立切片。
+
+
+## Session 215: 完成 Generation Job 幂等完整性映射
+
+**Date**: 2026-09-06
+**Task**: 完成 Generation Job 幂等完整性映射
+**Branch**: `main`
+
+### Summary
+
+完成 GENERATE create/retry 的精确 PostgreSQL 幂等约束映射与 retry lookup 顺序修正；required validation 和独立 review 均有通过证据，任务已归档。
+
+### Main Changes
+
+- 为 createGenerationJob 与 GENERATE retryGenerationJob 映射 uq_generation_jobs_idempotency_key；classifier 仅接受 error.orig.sqlstate == 23505 且 error.orig.diag.constraint_name 精确匹配。
+- 修正 GENERATE retry 顺序：previous/FAILED/Task OPEN/旧 snapshot 校验后先冻结 canonical identity 并 lookup，只有新 key 才进入 latest-job 与当前 facts/product 新建资格检查。
+- 同 previous、同 key 顺序重试返回同一 Job 与 202；跨 Task、同 key、异 identity 的真实 PostgreSQL race 只有一个 winner，loser 返回 409 IDEMPOTENCY_CONFLICT。
+- 精确约束恢复在 rollback 后重查并验证 winner；winner 缺失、identity 无法验证、diagnostics 缺失、非 23505、其他约束及 GENERATE 遇到 active-humanization 约束时保持原 IntegrityError 和 unknown 500。
+- Humanization 既有 IDEMPOTENCY_CONFLICT 与 HUMANIZATION_ALREADY_ACTIVE 映射保持不变；成功路径继续 commit-before-dispatch，broker 失败后的 PENDING 与补投递机制不变。
+- known/unknown 路径验证未泄漏第二个 GenerationJob、ContentVersion、task pointer/revision、ReviewRecord、AuditLog 或 broker dispatch。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1f503b70` | (see git log) |
+
+### Testing
+
+- [OK] backend/tests/unit/test_generation.py：34 passed，覆盖 retry 顺序、同 key replay、different key、精确 diagnostics 和 create/retry caller 恢复矩阵。
+- [OK] backend/tests/integration/test_generation_reliability.py：候选文件级运行 17 passed；最后仅强化两处测试断言后，同 Task create/retry 定向 2 passed、create/retry HTTP known/unknown 定向 1 passed，生产代码未再变化。覆盖 current-head PostgreSQL catalog、同 Task lock replay、跨 Task真实 race、same-identity sentinel、HTTP envelope/request ID、原子性、Humanization 和 dispatch/broker 回归。
+- [OK] backend/tests/unit/test_contract.py 与 backend/tests/unit/test_runtime_response_metadata.py 通过；零差异合同目标通过。
+- [OK] Ruff 最终通过；mypy 对 backend/app 检查通过（80 source files）；git diff --check 与 Trellis JSONL 校验通过。
+- [OK] 独立完整实现 review 后修复两项 P2 测试证据缺口，唯一一次定点复审通过，无剩余 material finding。
+- [OK] optional full backend suite 未运行：任务集中于 Generation service，替代证据为完整目标 unit/integration、合同/metadata、Ruff、全 backend/app mypy、diff/零差异门禁和独立 review；残余风险是目标文件之外且未被 required tests 覆盖的间接 backend 回归仍可能存在。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- content-integrity-error-contract-decision 继续作为 I1–I5 的 planning-only 合同 owner；integrity-error-domain-mapping 父任务继续保持 planning。

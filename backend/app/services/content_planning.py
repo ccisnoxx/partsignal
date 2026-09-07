@@ -423,6 +423,44 @@ def add_locked_content_task(
     return task
 
 
+def _is_content_task_idempotency_integrity_error(error: IntegrityError) -> bool:
+    """只识别普通任务幂等键的 PostgreSQL 最终唯一约束。"""
+    original = error.orig
+    return (
+        getattr(original, "sqlstate", None) == "23505"
+        and getattr(getattr(original, "diag", None), "constraint_name", None)
+        == "uq_content_tasks_idempotency_key"
+    )
+
+
+def _content_task_has_ordinary_identity(
+    db: Session,
+    task: ContentTask,
+    payload: ContentTaskCreate,
+    *,
+    require_complete: bool,
+) -> bool | None:
+    """判断任务是否可证明属于普通创建命令的同一 identity。"""
+    if require_complete and (
+        task.product_id is None
+        or task.fact_version_id is None
+        or task.platform_profile_id is None
+    ):
+        return None
+    if db.get(ContentTaskGeoSource, task.id) is not None:
+        return False
+    return (
+        task.product_id == payload.product_id
+        and task.fact_version_id == payload.fact_version_id
+        and task.platform_profile_id == payload.platform_profile_id
+    )
+
+
+def _idempotency_conflict() -> AppError:
+    """返回普通内容任务共用的幂等冲突错误。"""
+    return AppError("IDEMPOTENCY_CONFLICT", "幂等键已用于另一内容任务创建请求", 409)
+
+
 def create_content_task(
     *,
     db: Session,
@@ -441,25 +479,41 @@ def create_content_task(
         select(ContentTask).where(ContentTask.idempotency_key == idempotency_key)
     )
     if existing is not None:
-        if (
-            existing.product_id != payload.product_id
-            or existing.fact_version_id != payload.fact_version_id
-            or existing.platform_profile_id != payload.platform_profile_id
-        ):
-            raise AppError("IDEMPOTENCY_CONFLICT", "幂等键已用于另一内容任务创建请求", 409)
+        if _content_task_has_ordinary_identity(
+            db, existing, payload, require_complete=False
+        ) is not True:
+            raise _idempotency_conflict()
         return existing
 
     try:
         profile = lock_content_task_creation_resources(db, payload)
     except ContentTaskFactProductMismatch as error:
         raise AppError("VALIDATION_ERROR", "事实版本不属于所选产品", 422) from error
-    task = add_locked_content_task(
-        db=db,
-        payload=payload,
-        profile=profile,
-        actor=actor,
-        idempotency_key=idempotency_key,
-    )
+    try:
+        task = add_locked_content_task(
+            db=db,
+            payload=payload,
+            profile=profile,
+            actor=actor,
+            idempotency_key=idempotency_key,
+        )
+    except IntegrityError as error:
+        if not _is_content_task_idempotency_integrity_error(error):
+            raise
+        db.rollback()
+        winner = db.scalar(
+            select(ContentTask).where(ContentTask.idempotency_key == idempotency_key)
+        )
+        if winner is None:
+            raise error
+        same_identity = _content_task_has_ordinary_identity(
+            db, winner, payload, require_complete=True
+        )
+        if same_identity is None:
+            raise error
+        if not same_identity:
+            raise _idempotency_conflict() from error
+        return winner
     if commit:
         db.commit()
     return task

@@ -1,0 +1,6 @@
+{"file":".trellis/spec/backend/index.md","reason":"复核 backend 边界、质量门禁和规范入口。"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"复核 mapper 未扩大、unknown 原抛、caller rollback、request ID 与默认 500 不泄漏边界。"}
+{"file":".trellis/tasks/09-06-content-task-idempotency-integrity-mapping/research/database-guideline-context.md","reason":"在注入上限内复核普通/GEO source-kind 判定、advisory lock、数据库唯一性与原子性合同。"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"复核 TestClient、targeted validation 和 backend 质量要求。"}
+{"file":".trellis/tasks/09-05-content-integrity-error-contract-decision/research/contract-decision-matrix.md","reason":"逐项复核 I2 准确合同、exact diagnostics、GEO winner 负例、原子性和零 diff owner。"}
+{"file":".trellis/tasks/09-06-content-task-idempotency-integrity-mapping/research/current-head-content-task-idempotency.md","reason":"复核候选 diff 覆盖 current-head 缺口，且没有把 test-only sentinel 描述为正常并发。"}

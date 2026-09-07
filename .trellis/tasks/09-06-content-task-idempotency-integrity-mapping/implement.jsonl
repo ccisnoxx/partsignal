@@ -1,0 +1,5 @@
+{"file":".trellis/spec/backend/index.md","reason":"加载 backend 规范入口和适用质量门禁。"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"实施精确 sqlstate/constraint_name 分类、caller rollback、unknown 默认 500 与 request ID 边界。"}
+{"file":".trellis/tasks/09-06-content-task-idempotency-integrity-mapping/research/database-guideline-context.md","reason":"在注入上限内提供 database-guidelines 普通 Content Task 小节的精确行号、待补规则和修改限制。"}
+{"file":".trellis/tasks/09-05-content-integrity-error-contract-decision/research/contract-decision-matrix.md","reason":"注入已批准的 I2 单 writer 范围、准确 201/409 合同、GEO winner 负例和零 diff owner。"}
+{"file":".trellis/tasks/09-06-content-task-idempotency-integrity-mapping/research/current-head-content-task-idempotency.md","reason":"提供 current-head owner、约束、测试缺口、受控 sentinel/race 设计与停止条件。"}

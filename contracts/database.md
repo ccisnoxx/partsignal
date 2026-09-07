@@ -34,7 +34,7 @@ This historical revision created six fixed roles. Revision `0009` migrates them 
 
 `query_topics`, `platform_profiles`, `platform_profile_versions`, `content_tasks`.
 
-`platform_profile_versions` 仅描述历史 revision，已由 `0025` 物理删除。当前 `content_tasks` 直接绑定具体 `platform_profile_id` 和同产品的非空 `APPROVED fact_version_id`，不会随配置变化静默改绑。Revision `0032` 为普通任务创建增加可空且唯一的 `idempotency_key`：同键同三字段重放返回原任务，同键异载荷冲突，不同键仍允许相同业务输入；历史任务和发布修复任务保持空值。
+`platform_profile_versions` 仅描述历史 revision，已由 `0025` 物理删除。当前 `content_tasks` 直接绑定具体 `platform_profile_id` 和同产品的非空 `APPROVED fact_version_id`，不会随配置变化静默改绑。Revision `0032` 为普通任务创建增加可空且由 `uq_content_tasks_idempotency_key` 最终保证唯一的 `idempotency_key`：同键同四部分普通 identity（`product_id`、`fact_version_id`、`platform_profile_id` 和不存在 `content_task_geo_sources` 的 ordinary source kind）重放返回原任务，同键异载荷或 GEO 任务冲突，不同键仍允许相同业务输入；历史任务和发布修复任务保持空值。命名 advisory lock 负责正常请求串行化，数据库唯一约束仍是旁路 writer 的最终仲裁；普通创建 caller 只在 PostgreSQL `23505` 且 diagnostics 精确为该约束时 rollback 后按键重查并重验 winner，其他唯一性或完整性错误继续失败。
 
 ### 0004 Content Production
 

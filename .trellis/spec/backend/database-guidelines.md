@@ -498,7 +498,7 @@ result = cleanup_platform_logo_files(storage=storage)
 - 冻结版本：`fact_versions.body_markdown`、`fact_versions.classification`；不得恢复 `snapshot_json`。
 - 任务：`ContentTaskCreate(product_id, fact_version_id, platform_profile_id)`；`content_tasks` 直接外键到 `platform_profiles`。
 - 创建选项：`GET /api/v1/content-tasks/creation-options?requested_product_id=<uuid>` 返回 `products[].approved_fact_versions[]`、`platforms[]` 和可空 `requested_product`；读请求使用 `REPEATABLE READ`。
-- 普通任务创建要求 8–128 字符 `Idempotency-Key`；同键同三字段返回原任务，同键异载荷返回 `409 IDEMPOTENCY_CONFLICT`，不同键允许相同业务输入。
+- 普通任务创建要求 8–128 字符 `Idempotency-Key`；同键同三字段且不存在 `ContentTaskGeoSource` 的普通任务返回原任务，同键异载荷或 GEO 任务返回 `409 IDEMPOTENCY_CONFLICT`，不同键允许相同业务输入。
 - 系统首稿：`POST /api/v1/content-tasks/{id}/generation-jobs`，请求体为 `{ai_model_id, platform_prompt_id, platform_prompt_revision}`。
 - 人工首稿：`POST /api/v1/content-tasks/{id}/manual-versions`，请求体复用 `ContentRevisionCreate`。
 - 人工草稿保存：`PUT /api/v1/content-versions/{id}`，请求 `{expected_revision, title, summary, body_markdown, tags}`，返回原 ID 的新 revision 投影。
@@ -512,6 +512,9 @@ result = cleanup_platform_logo_files(storage=storage)
 - 创建任务只校验产品、该产品的 `APPROVED` 非空事实版本和启用平台。平台通过可空外键绑定零或一份可复用 Prompt；缺少绑定不阻止任务或人工首稿，只阻止系统 AI 作业。
 - 创建表单使用 `GET /content-tasks/creation-options` 的固定次数薄投影，不逐产品查询事实版本，也不在浏览器推导资格。该投影只负责显示；POST 仍按平台、产品、事实版本顺序锁行并重新校验全部资格。
 - 普通任务创建先按命名请求键获取 PostgreSQL 事务 advisory lock，再读取唯一的 `content_tasks.idempotency_key`。重放不产生额外副作用；历史任务和发布修复任务保持空值，Redis 不保存幂等状态。
+- 普通任务的 canonical identity 固定为 `product_id`、`fact_version_id`、`platform_profile_id` 与 ordinary source kind（不存在 `ContentTaskGeoSource`）。同键命中 GEO source、任一目标字段不同或 winner identity 无法证明时，不得作为普通 replay；可判定的异 identity 返回既有 `IDEMPOTENCY_CONFLICT`。
+- 普通创建 caller 只把 `orig.sqlstate == '23505'` 且 `orig.diag.constraint_name == 'uq_content_tasks_idempotency_key'` 视为可恢复的最终唯一约束；必须先 root `rollback()`，再按 key 查询和验证 winner。diagnostics 缺失、其他 constraint、非 `23505` 及 FK/CHECK/NOT NULL/trigger 错误都原样失败，不解析数据库 message，也不建立全局 mapper。
+- 精确约束恢复仅由普通 caller 负责，不改变 `add_locked_content_task` 或 GEO 创建 owner。winner 缺失或 identity 不完整时重新抛出最初 `IntegrityError`；已知 replay/conflict 与 unknown 失败均不得留下候选任务、版本、审核、审计或 dispatch，rollback 后 request Session 必须可继续使用。
 - `content_tasks.idempotency_key` 只属于服务端创建幂等控制；任务列表与详情必须复用同一响应基础投影排除该字段，并继续由禁止额外字段的响应模型检查合同漂移。
 - 原始 AI 请求必须恰好发送两条消息：`system.content == PlatformPrompt.template_markdown`，`user.content == FactVersion.body_markdown`；不得增加前缀、拼接任务要求、补默认安全规则或重写空白。
 - 人工首稿创建 `source_type=HUMAN`、`status=DRAFT`、`source_job_id=NULL`、`based_on_id=NULL`，随后与 AI 草稿共用修订、审核和人工发布链。

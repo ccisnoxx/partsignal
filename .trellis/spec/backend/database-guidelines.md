@@ -352,6 +352,14 @@ const current = task.current_content;
 - 首次 ContentVersion flush 在 pointer/revision 和 Job success/provider metadata 赋值前；只测此处失败不能证明已赋值状态会回滚。还须对人工首稿、修订及 worker 分别注入提交前晚期数据库失败：先真实 flush 候选状态，再触发精确约束，并在独立连接确认全部恢复到基线。worker 使用非空 provider metadata 作对照，保留先前提交的 attempt，失败完成时间与回滚的成功完成时间分别验证。
 - 失败不得留下候选版本、ContentReviewRecord、AuditLog 或 dispatch；预置 competitor 和既存版本须保持原样。测试钩子只作用于目标事务、一次性触发并在 finally 移除，不得影响 RUNNING/FAILED 提交或其他测试。
 
+## 场景：ContentVersion 审核状态约束与 command transaction
+
+- `review.transition_content_version` 同时拥有 submit-review 和 approve 的状态写入、ContentReviewRecord、approve SUCCESS AuditLog、flush 与最终 commit。Task/Version 锁、revision/current pointer、状态转换和质量门禁继续在写入前执行；权限由 router/dependency 在 command 前拒绝。
+- `uq_content_versions_one_pending_per_task` 是同一 task 只能有一个 `PENDING_REVIEW` 的 partial unique 最终防线。只有 submit-review 的结构化 `23505 + exact constraint_name` 可以在 root rollback 后映射为 `CONTENT_REVIEW_PENDING`；其他 diagnostics 原抛，不按数据库 message 或查询结果推断。
+- `uq_content_versions_one_approved_per_task` 只证明 approved 集合违反唯一性，不能决定 canonical winner；精确命中仍整体 rollback 并原抛 unknown。不得自动选择版本、继续 supersede、重放 approve 或修改 Task pointer。
+- pending rollback 必须恢复目标 version status/revision 和待新增 ReviewRecord；approved rollback 必须同时恢复旧 approved 的 status/revision、目标 version、ReviewRecord、SUCCESS AuditLog 与其他同事务写入。两类失败均保持 Task pointer/revision、其他 versions、AuditLog/dispatch 基线，并在 root rollback 后允许同一 request Session 查询。
+- current-head PostgreSQL 必须证明两个 index 的真实名称、unique 属性、列、predicate 和 `diag.constraint_name`。测试装置不得修改 schema/migration 或削弱生产锁；无法安全制造 approved 晚期 exact failure 时停止，不用 mock 或无界等待替代。
+
 ## 场景：生成作业补投递与租约恢复
 
 - 数据库 revision：`0011_generation_reliability`，`down_revision = "0010_user_cleanup"`。

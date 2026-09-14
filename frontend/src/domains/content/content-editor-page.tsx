@@ -48,6 +48,7 @@ import {
   toContentDraftUpdate,
   toContentRevisionCreate,
   type ContentEditorContext,
+  type ContentEditorBlockerKind,
   type ContentEditorField,
   type ContentEditorFormValues,
   type EditorFormMode,
@@ -60,6 +61,7 @@ type ContentEditorPageProps = {
 };
 
 type ContentEditorConflict = {
+  blockerKind: ContentEditorBlockerKind;
   code: string;
   message: string;
   requestId?: string;
@@ -244,11 +246,16 @@ function ContentEditorWorkspace({
   }
 
   function applyMappedMutationError(mapped: ReturnType<typeof mapContentEditorError>) {
-    if (mapped.code === 'REVISION_CONFLICT') {
+    if (mapped.blockerKind && mapped.code) {
       setRequestId(undefined);
       onConflict({
+        blockerKind: mapped.blockerKind,
         code: mapped.code,
-        message: mapped.formMessage ?? '服务端已有更新，请显式重新加载。',
+        message: mapped.formMessage ?? (
+          mapped.blockerKind === 'content-review-pending'
+            ? '该任务已有待审核内容版本'
+            : '服务端已有更新，请显式重新加载。'
+        ),
         requestId: mapped.requestId,
       });
       return;
@@ -302,7 +309,7 @@ function ContentEditorWorkspace({
       await refreshRelated();
     } catch (error) {
       const mapped = mapContentEditorError(error);
-      if (mapped.code !== 'REVISION_CONFLICT') throw error;
+      if (!mapped.blockerKind) throw error;
       applyMappedMutationError(mapped);
     }
   }
@@ -699,7 +706,7 @@ function resolveStickyActions(
 ): StickyAction[] {
   const blocked = options.pending || options.conflicted;
   const blockedReason = options.conflicted
-    ? '请先重新加载服务端最新版本'
+    ? '存在待处理的服务端状态，请先重新加载最新版本'
     : '内容请求正在处理';
   return keys.map((key): StickyAction => {
     switch (key) {
@@ -894,7 +901,11 @@ function ContentEditorConflictNotice({
       role="alert"
     >
       <div className="space-y-1">
-        <p className="font-medium text-danger">检测到 revision 冲突</p>
+        <p className="font-medium text-danger">
+          {conflict.blockerKind === 'content-review-pending'
+            ? '提交审核暂不可用'
+            : '检测到 revision 冲突'}
+        </p>
         <p className="font-mono text-xs text-text-secondary">错误代码：{conflict.code}</p>
         <p className="text-text-secondary">{conflict.message}</p>
         {conflict.requestId && (

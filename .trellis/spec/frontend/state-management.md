@@ -234,6 +234,7 @@ return <FactWorkspacePage key={productId} />;
 - TanStack Query 持有 task/product/platform/fact/current/diff/lineage/source snapshot；RHF 持有 title/summary/body/tags/change summary；tab、编辑模式和 Dialog 留在 React local state，不进入 URL 或全局 Store。
 - Manual/revision 成功后重读 context/detail/list；SAVE 成功采用 canonical ContentVersion 重设表单和 revision，再重读受影响 projection；SUBMIT/DELETE/ABANDON 后只由服务端 context 确定新主线和动作。
 - dirty 时禁止隐式保存后提交。`REVISION_CONFLICT` 保留本地输入和 request ID，只有显式 reload 才采用最新 context；Preview/Split/Diff 切换不得改变 form value、dirty baseline 或触发离开确认。
+- 提交审核只按结构化 `code === "CONTENT_REVIEW_PENDING"` 建立独立 pending blocker，不从 message 推断，也不复用 revision conflict。blocker 保留 Dialog 审核备注、原始 code 与 request ID并保持 Dialog 打开；在用户显式 reload 前禁用再次提交、暂停背景 canonical context 自动采用且不 replay。reload 失败继续保留现场，只有成功后才采用新的 canonical Editor Context。malformed details、其他 code 或缺 request ID 退回 generic failure。
 - 当前指针切换后旧 ContentVersion cache 仍是历史只读；不得用最大 version、created_at、列表末项或 mutation 响应写入错误的 context shape。
 
 ---
@@ -470,6 +471,7 @@ request changes body: RequestChangesCommand(expected_revision, comment)
 - 审核按钮只消费 Context 顶层 `available_actions` 中的 `APPROVE` / `REQUEST_CHANGES`；不得按 content/task status、账号类型或权限 Hook 补动作。命令端仍重新校验账号、current pointer、状态、事实资格、blocking issues、CSRF 和 `expected_revision`。
 - mutation 成功后先采用命令返回的 canonical ContentVersion 防止旧画面继续可操作，再重新读取 task Review Context，并失效 Content list/detail/editor projection。不得用 mutation response 伪造完整 Context。
 - `409` 保留退回 Dialog 输入和 `request_id`，禁用旧动作并重新读取 canonical Context；命令不得自动重放。request changes 的 comment trim 后必须非空，客户端校验不替代服务端 `422`。
+- approve 的未知 `5xx` 只显示 generic server failure，不进入 revision/409 refresh 分支，不自动再次 approve，也不选择或采用其他 approved version；默认 500 的 body/code/media type 不是前端稳定分支合同。
 
 ### 4. Validation & Error Matrix
 
@@ -481,6 +483,7 @@ request changes body: RequestChangesCommand(expected_revision, comment)
 | request changes 意见空白 | 字段与 ErrorSummary 同时提示，不发送 POST |
 | CSRF / permission / 字段错误 | 显示结构化错误；Dialog 输入保持不变 |
 | `expected_revision` 或 current pointer 冲突 | 保留意见与 request ID，刷新 Context，不 replay |
+| approve 未知 `5xx` | generic server failure；不刷新 revision context、不 replay、不采用其他 approved version |
 | mutation 成功但 Context refetch 失败 | 保留 canonical command response，标记上下文陈旧并提供重试，不恢复旧动作 |
 
 ### 5. Good / Base / Bad Cases
@@ -492,7 +495,7 @@ request changes body: RequestChangesCommand(expected_revision, comment)
 ### 6. Tests Required
 
 - Contract/backend：task route 与唯一 DTO 生成一致；current pointer、`REPEATABLE READ`、404/409、diff/fact/snapshot/history/actions，以及命令 CSRF/revision/意见校验/不可变输入。
-- Component：单 query、只读状态、token 动作、成功 canonical refetch、409 输入与 request ID 保留、loading/error/retry 和 Dialog focus return。
+- Component：单 query、只读状态、token 动作、成功 canonical refetch、409 输入与 request ID 保留、approve 未知 5xx generic/no replay、loading/error/retry 和 Dialog focus return。
 - Fixture Playwright：direct/refresh/Back/Forward、375/768/1024/1440、未声明 API/console/pageerror/requestfailed 审计，以及冲突命令只提交一次。
 - Real stack：approve 与 request-changes 使用相互独立的数据，通过真实 API、PostgreSQL、CSRF、revision 和最终 Context 验证 append-only history。
 

@@ -16,6 +16,7 @@ type EditorMutationAction =
   | 'SUBMIT_REVIEW'
   | 'DELETE'
   | 'ABANDON';
+type ContentEditorBlockerKind = 'revision' | 'content-review-pending';
 
 const nonBlank = (message: string) => z.string().refine(
   (value) => value.trim().length > 0,
@@ -138,6 +139,7 @@ type ContentEditorErrorMapping = {
   formMessage?: string;
   requestId?: string;
   code?: string;
+  blockerKind?: ContentEditorBlockerKind;
 };
 
 function mapContentEditorError(error: unknown): ContentEditorErrorMapping {
@@ -147,9 +149,35 @@ function mapContentEditorError(error: unknown): ContentEditorErrorMapping {
       formMessage: error instanceof Error ? error.message : '内容编辑请求失败',
     };
   }
+  const detail = error.detail as unknown as Record<string, unknown>;
+  const code = typeof detail.code === 'string' ? detail.code : undefined;
+  const message = typeof detail.message === 'string'
+    ? detail.message
+    : error.message || '内容编辑请求失败';
+  const requestId = typeof detail.request_id === 'string' ? detail.request_id : undefined;
   const fields: Partial<Record<ContentEditorField, string>> = {};
   let hasUnknownIssue = false;
-  const issues = error.detail.details.errors;
+  const details = detail.details;
+  const issues = details && typeof details === 'object' && !Array.isArray(details)
+    ? (details as Record<string, unknown>).errors
+    : undefined;
+  const detailsShapeValid = Boolean(
+    details
+    && typeof details === 'object'
+    && !Array.isArray(details)
+    && (issues === undefined || Array.isArray(issues)),
+  );
+  const issuesShapeValid = issues === undefined || (
+    Array.isArray(issues)
+    && issues.every((issue) => (
+      issue !== null
+      && typeof issue === 'object'
+      && !Array.isArray(issue)
+      && 'loc' in issue
+      && 'msg' in issue
+      && typeof issue.msg === 'string'
+    ))
+  );
   if (Array.isArray(issues)) {
     for (const issue of issues) {
       if (!issue || typeof issue !== 'object') {
@@ -176,10 +204,17 @@ function mapContentEditorError(error: unknown): ContentEditorErrorMapping {
   return {
     fields,
     formMessage: Object.keys(fields).length === 0 || hasUnknownIssue
-      ? error.detail.message
+      ? message
       : undefined,
-    requestId: error.detail.request_id,
-    code: error.detail.code,
+    requestId,
+    code,
+    blockerKind: detailsShapeValid && issuesShapeValid && requestId
+      ? code === 'CONTENT_REVIEW_PENDING'
+        ? 'content-review-pending'
+        : code === 'REVISION_CONFLICT'
+          ? 'revision'
+          : undefined
+      : undefined,
   };
 }
 
@@ -204,6 +239,7 @@ export type {
   ContentEditorErrorMapping,
   ContentEditorField,
   ContentEditorFormValues,
+  ContentEditorBlockerKind,
   EditorFormMode,
   EditorMutationAction,
 };

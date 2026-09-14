@@ -1,0 +1,10 @@
+{"file":".trellis/spec/backend/error-handling.md","reason":"复核 exact pending 映射、approved/unknown 原抛、request ID 与 no-leak 是否符合稳定错误合同。"}
+{"file":".trellis/spec/backend/database-guidelines.md","reason":"复核 submit/approve root rollback、Session 可复用与 precheck/lock 不变量。"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"复核 pending blocker、Dialog 输入、背景 canonical、reload 和 no replay 的状态归属。"}
+{"file":".trellis/tasks/09-05-content-integrity-error-contract-decision/research/contract-decision-matrix.md","reason":"复核实现没有越出已批准的 review-state 决策或误用其他 IntegrityError 映射。"}
+{"file":".trellis/tasks/09-14-content-version-review-state-integrity-mapping/research/backend-review-integrity-evidence.md","reason":"复核后端 owner、数据库 diagnostics、事务哨兵与 required validation 覆盖。"}
+{"file":".trellis/tasks/09-14-content-version-review-state-integrity-mapping/research/frontend-review-recovery-evidence.md","reason":"复核真正 frontend consumer、纯投影和两个页面的恢复行为。"}
+{"file":".trellis/tasks/09-14-content-version-review-state-integrity-mapping/research/contract-and-spec-evidence.md","reason":"复核公共合同零 diff、文档同步边界与 scope-stop 条件。"}
+{"file":".trellis/tasks/09-14-content-version-review-state-integrity-mapping/research/planning-review.md","reason":"复核规划阶段已发现问题的修复、唯一 targeted re-review 和尚待实施证明的 caveat。"}
+{"file":".trellis/tasks/09-14-content-version-review-state-integrity-mapping/research/implementation-review.md","reason":"记录独立实现 review、两项测试证据修复、唯一 targeted re-review 和残余验证风险。"}
+{"file":".trellis/tasks/09-14-content-version-review-state-integrity-mapping/research/execution-results.md","reason":"记录实际实现、required validation、失败归因、独立复核和 optional gate 残余风险。"}

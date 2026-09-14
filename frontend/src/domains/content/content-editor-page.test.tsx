@@ -381,6 +381,83 @@ describe('ContentEditorPage', () => {
     expect(post).toHaveBeenCalledOnce();
   });
 
+  it('CONTENT_REVIEW_PENDING 是独立 blocker，保留 Dialog 现场并只在显式 reload 成功后采用 canonical', async () => {
+    const current = version({ available_actions: ['SUBMIT_REVIEW', 'SAVE'] });
+    const staleContext = editorContext(current);
+    const canonicalVersion = version({
+      available_actions: ['CREATE_REVISION', 'ABANDON'],
+      body_markdown: '# 服务端 canonical 正文',
+      primary_task: 'CREATE_REVISION',
+      revision: 3,
+      status: 'CHANGES_REQUESTED',
+      title: '服务端 canonical 标题',
+      workflow_stage: 'CURRENT_CHANGES_REQUESTED',
+    });
+    const canonicalContext = editorContext(canonicalVersion, {
+      task: {
+        ...staleContext.task,
+        primary_task: 'REVISE_CONTENT',
+        workflow_stage: 'CHANGES_REQUESTED',
+      },
+    });
+    const get = vi.spyOn(api, 'GET')
+      .mockResolvedValueOnce(response(staleContext))
+      .mockResolvedValueOnce(apiError('EDITOR_CONTEXT_UNAVAILABLE', '内容编辑器暂不可用', 'req-reload-pending-503', 503))
+      .mockResolvedValue(response(canonicalContext));
+    const post = vi.spyOn(api, 'POST').mockResolvedValue(
+      apiError('CONTENT_REVIEW_PENDING', '该任务已有待审核内容版本', 'req-submit-pending-409', 409),
+    );
+    const user = userEvent.setup();
+    renderEditor();
+
+    const title = await screen.findByRole('textbox', { name: '标题' });
+    const markdown = screen.getByRole('textbox', { name: '内容 Markdown' });
+    await user.click(screen.getByRole('button', { name: '提交审核' }));
+    const dialog = await screen.findByRole('dialog', { name: '提交内容审核' });
+    const comment = within(dialog).getByRole('textbox', { name: '备注（可选）' });
+    await user.type(comment, 'pending 后必须保留的备注');
+    await user.click(within(dialog).getByRole('button', { name: '确认提交审核' }));
+
+    expect(await within(dialog).findByText('提交审核暂不可用')).toBeInTheDocument();
+    expect(within(dialog).getByText('错误代码：CONTENT_REVIEW_PENDING')).toBeInTheDocument();
+    expect(within(dialog).getByText('该任务已有待审核内容版本')).toBeInTheDocument();
+    expect(within(dialog).getByText('请求 ID：req-submit-pending-409')).toBeInTheDocument();
+    expect(comment).toHaveValue('pending 后必须保留的备注');
+    expect(within(dialog).getByRole('button', { name: '确认提交审核' })).toBeDisabled();
+    expect(screen.queryByText('检测到 revision 冲突')).not.toBeInTheDocument();
+    expect(post).toHaveBeenCalledOnce();
+    expect(get).toHaveBeenCalledOnce();
+
+    act(() => {
+      focusManager.setFocused(false);
+      focusManager.setFocused(true);
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(get).toHaveBeenCalledOnce();
+    expect(post).toHaveBeenCalledOnce();
+    expect(title).toHaveValue('当前人工草稿');
+    expect(EditorView.findFromDOM(markdown)?.state.doc.toString()).toBe('# 当前正文');
+
+    await user.click(within(dialog).getByRole('button', { name: '重新加载最新版本' }));
+    expect(await within(dialog).findByText('重新加载失败')).toBeInTheDocument();
+    expect(within(dialog).getByText('内容编辑器暂不可用')).toBeInTheDocument();
+    expect(within(dialog).getByText('请求 ID：req-reload-pending-503')).toBeInTheDocument();
+    expect(comment).toHaveValue('pending 后必须保留的备注');
+    expect(within(dialog).getByText('错误代码：CONTENT_REVIEW_PENDING')).toBeInTheDocument();
+    expect(get).toHaveBeenCalledTimes(2);
+    expect(post).toHaveBeenCalledOnce();
+
+    await user.click(within(dialog).getByRole('button', { name: '重新加载最新版本' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '提交内容审核' })).not.toBeInTheDocument());
+    expect(title).toHaveValue('服务端 canonical 标题');
+    expect(EditorView.findFromDOM(markdown)?.state.doc.toString()).toBe('# 服务端 canonical 正文');
+    expect(screen.getByText('REVISE_CONTENT')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '创建人工修订' })).toBeEnabled();
+    expect(screen.queryByText('该任务已有待审核内容版本')).not.toBeInTheDocument();
+    expect(get).toHaveBeenCalledTimes(3);
+    expect(post).toHaveBeenCalledOnce();
+  });
+
   it('submit-review 冲突禁止背景采用，reload 失败保留状态并只在成功后采用 canonical context', async () => {
     const current = version({ available_actions: ['SUBMIT_REVIEW', 'SAVE'] });
     const staleContext = editorContext(current);

@@ -1,0 +1,8 @@
+{"file":".trellis/spec/backend/error-handling.md","reason":"实施精确 PostgreSQL diagnostics 分类、unknown 500/no-leak 与 root rollback 时必须遵循的稳定后端错误边界。"}
+{"file":".trellis/spec/backend/database-guidelines.md","reason":"实施同一 review command transaction、partial unique owner 与失败原子性时必须遵循的数据库规则。"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"实施 Content Editor pending blocker、canonical context 冻结和显式 reload/no replay 时必须遵循的前端状态规则。"}
+{"file":".trellis/tasks/09-05-content-integrity-error-contract-decision/research/contract-decision-matrix.md","reason":"提供已批准的 Content/Generation IntegrityError 决策矩阵及 review pending/approved 分类上下文。"}
+{"file":".trellis/tasks/09-14-content-version-review-state-integrity-mapping/research/backend-review-integrity-evidence.md","reason":"定位 review command 的 precheck、flush/commit、真实数据库验证与事务回滚测试边界。"}
+{"file":".trellis/tasks/09-14-content-version-review-state-integrity-mapping/research/frontend-review-recovery-evidence.md","reason":"定位 Content Editor/Review Page 的现有恢复状态、缺口与最小测试 owner。"}
+{"file":".trellis/tasks/09-14-content-version-review-state-integrity-mapping/research/contract-and-spec-evidence.md","reason":"汇总公共合同零 diff、稳定 spec 同步、任务依赖和 scope-stop 条件。"}
+{"file":".trellis/tasks/09-14-content-version-review-state-integrity-mapping/research/planning-review.md","reason":"记录独立 planning review、已修复 finding、targeted re-review 结论和实施期 caveat。"}

@@ -170,6 +170,66 @@ except IntegrityError as error:
 
 事务分配及晚期失败证明见 [数据库开发规范](./database-guidelines.md#场景contentversion-版本分配与-final-transaction)。错误做法是在 source unique 失败后查询并采用某一版本；正确做法是保留 provider 前 lookup，final exception 交给 worker 自己的 rollback/FAILED owner。
 
+## 场景：ContentVersion 审核状态唯一约束的领域边界
+
+### 1. Scope / Trigger
+
+- `review.transition_content_version` 的 submit-review/approve flush 或 commit 命中 review-state partial unique 时适用；该 command 拥有全部写入与 root transaction。
+
+### 2. Signatures
+
+```text
+POST /api/v1/content-versions/{id}/submit-review
+POST /api/v1/content-versions/{id}/approve
+
+pending diagnostics: sqlstate=23505 + constraint_name=uq_content_versions_one_pending_per_task
+approved diagnostics: sqlstate=23505 + constraint_name=uq_content_versions_one_approved_per_task
+```
+
+### 3. Contracts
+
+- 仅 submit-review pending exact pair 在 root `rollback()` 后返回 409 `CONTENT_REVIEW_PENDING`、`该任务已有待审核内容版本`、`details={}`；body/header request ID 相同。
+- approved exact pair 原抛并进入 unknown 500：约束不能证明 canonical winner。禁止冲突码、winner 查询、自动 supersede/reload/replay，也不冻结 500 body/code/media type。
+- classifier 只读 `orig.sqlstate`/`orig.diag.constraint_name`，不 rollback、查询或解析错误文本。service precheck 仍在 flush 前；权限仍在 router/dependency。
+- pending 回滚目标与 ReviewRecord；approved 还恢复旧/目标版本、ReviewRecord、SUCCESS AuditLog。两者均保持 Task、其他版本、dispatch 基线，原 Session 可查询。
+
+### 4. Validation & Error Matrix
+
+| 条件 | command 行为 | API / consumer |
+|---|---|---|
+| submit-review + pending exact pair | root rollback 后抛稳定 AppError | 409 `CONTENT_REVIEW_PENDING`；Editor 独立 blocker |
+| approve + approved exact pair | root rollback 后原抛 | unknown 500；Review Page generic/no replay |
+| 其他 action/constraint/sqlstate 或 diagnostics 缺失 | root rollback 后原抛 | unknown 500 |
+| stale revision/current/state/quality 或权限失败 | 在数据库写入前走既有 owner | 保持原 status/code/details |
+
+### 5. Good / Base / Bad Cases
+
+- Good：exact diagnostics、先 rollback、前端只按 code 分支。
+- Base：approved generic 500 无数据库/driver/stack 泄漏且状态回到基线。
+- Bad：宽泛 23505、解析 message、pending 当 revision、approved 查询 winner或重放。
+
+### 6. Tests Required
+
+- 真实 PostgreSQL catalog/diagnostics、classifier matrix、两类 HTTP/rollback/Session reuse、成功与 precheck/权限对照。
+- Editor pending blocker/reload/no replay；Review Page generic 5xx/no replay。
+
+### 7. Wrong vs Correct
+
+```python
+# Wrong：把数据库故障伪装成 revision 冲突。
+except IntegrityError:
+    raise AppError("REVISION_CONFLICT", "数据冲突", 409)
+
+# Correct：rollback 后只转换 exact pending pair。
+except IntegrityError as error:
+    db.rollback()
+    if action == "submit-review" and is_exact_pending(error):
+        raise AppError("CONTENT_REVIEW_PENDING", "该任务已有待审核内容版本", 409) from error
+    raise
+```
+
+不得通过修改 schema、削弱锁或 mock 错误 constraint 替代真实数据库证据。
+
 ## Scenario：未知 IntegrityError 的默认 server-error boundary
 
 ### 1. Scope / Trigger

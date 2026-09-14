@@ -186,7 +186,9 @@ Item 必填 id/identifier/product/platform/workflow_stage/primary_task/available
 
 AI Production 只消费 `CREATE_GENERATION_JOB`、`CREATE_HUMANIZATION_JOB` 与 GenerationJob 的 `RETRY` token。`GET /generation-options` 只在确认 Dialog 打开后读取，Prompt revision 和 model 不设浏览器默认值；create/retry/humanization 的同一命令重试复用稳定 `Idempotency-Key`。浏览器不拼装 snapshot，只对已提交或 Editor Context 指向的 `PENDING/RUNNING` job 轮询窄 `GenerationJobList`；观察到 terminal 后停止轮询并失效 Editor Context，当前内容仍只采用服务端 `current_content_version_id`。完整 `GenerationJobDetail.input_snapshot` 只在用户查看时读取，retry 只发送原 job ID。服务端只允许实际 latest job retry，并原样复制其 `input_snapshot`；humanization 创建新 GenerationJob 和基于源版本的新 ContentVersion，源版本不可变。
 
-Editor 只消费 task/version 的 `primary_task` 与 `available_actions`。人工首稿和修订发送完整 `ContentRevisionCreate`（含 `change_summary`）；当前可编辑 HUMAN DRAFT 保存发送 `ContentDraftUpdate`（含 `expected_revision`，不含 `change_summary`）；提交审核发送 canonical revision 的 `CommandRequest`。409 保留本地表单，只允许用户显式重新加载，禁止自动覆盖、合并或重放。
+Editor 只消费 task/version 的 `primary_task` 与 `available_actions`。人工首稿和修订发送完整 `ContentRevisionCreate`（含 `change_summary`）；当前可编辑 HUMAN DRAFT 保存发送 `ContentDraftUpdate`（含 `expected_revision`，不含 `change_summary`）；提交审核发送 canonical revision 的 `CommandRequest`。真正 `REVISION_CONFLICT` 保留本地表单，只允许用户显式重新加载，禁止自动覆盖、合并或重放。提交审核的 exact `CONTENT_REVIEW_PENDING` 是独立 pending blocker：保留审核 Dialog 备注、原始 code 与 request ID并保持 Dialog 打开，显式 reload 成功前禁止再次 POST、暂停背景 canonical context 自动采用且不把它显示成 revision conflict；reload 失败继续保留现场，不根据 message 推断错误类型。
+
+Content Review Page 只负责 approve/request-changes。approve 的 approved partial unique 冲突仍是 unknown/default 500：页面显示 generic server failure，不进入 revision reload 分支，不自动再次 approve，也不选择或采用其他 approved version；默认 500 的具体 body/code/media type 不构成公共前端合同。
 
 ### ContentVersionDetail
 

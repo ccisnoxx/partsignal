@@ -6,6 +6,7 @@ import uuid
 from datetime import UTC, datetime
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.audit import append_audit
@@ -280,6 +281,17 @@ def get_content_task_review_context(
     )
 
 
+def _is_content_review_pending_integrity_error(error: IntegrityError) -> bool:
+    """只识别待审核版本 partial unique 的结构化 PostgreSQL diagnostics。"""
+    original = getattr(error, "orig", None)
+    diagnostic = getattr(original, "diag", None)
+    return (
+        getattr(original, "sqlstate", None) == "23505"
+        and getattr(diagnostic, "constraint_name", None)
+        == "uq_content_versions_one_pending_per_task"
+    )
+
+
 def transition_fact_version(
     *,
     db: Session,
@@ -368,45 +380,52 @@ def transition_content_version(
     blocking = any(issue.get("severity") == "BLOCKING" for issue in content.quality_issues)
     if action in {"submit-review", "approve"} and blocking:
         raise AppError("INVALID_STATE_TRANSITION", "内容存在阻断质量问题，不能审核通过", 409)
-    if action == "approve":
-        fact = db.get(FactVersion, content.fact_version_id)
-        if fact is None or fact.status != "APPROVED":
-            raise AppError("FACT_NOT_APPROVED", "内容绑定的事实版本不再处于批准状态", 409)
-        previous = db.scalar(
-            select(ContentVersion).where(
-                ContentVersion.task_id == content.task_id,
-                ContentVersion.status == "APPROVED",
-                ContentVersion.id != content.id,
+    try:
+        if action == "approve":
+            fact = db.get(FactVersion, content.fact_version_id)
+            if fact is None or fact.status != "APPROVED":
+                raise AppError("FACT_NOT_APPROVED", "内容绑定的事实版本不再处于批准状态", 409)
+            previous = db.scalar(
+                select(ContentVersion).where(
+                    ContentVersion.task_id == content.task_id,
+                    ContentVersion.status == "APPROVED",
+                    ContentVersion.id != content.id,
+                )
+            )
+            if previous is not None:
+                previous.status = "SUPERSEDED"
+                previous.revision += 1
+                db.flush()
+        content.status = target
+        content.revision += 1
+        db.add(
+            ContentReviewRecord(
+                content_version_id=content.id,
+                action=action,
+                comment=comment.strip() if action == "request-changes" else comment,
+                actor_id=actor.id,
             )
         )
-        if previous is not None:
-            previous.status = "SUPERSEDED"
-            previous.revision += 1
-            db.flush()
-    content.status = target
-    content.revision += 1
-    db.add(
-        ContentReviewRecord(
-            content_version_id=content.id,
-            action=action,
-            comment=comment.strip() if action == "request-changes" else comment,
-            actor_id=actor.id,
-        )
-    )
-    if action == "approve":
-        append_audit(
-            db,
-            AuditEntry(
-                actor_id=actor.id,
-                business_module=AuditModule.CONTENT_REVIEW,
-                action="content_version.approve",
-                target_type="ContentVersion",
-                target_id=content.id,
-                request_id=request_id,
-                outcome=AuditOutcome.SUCCESS,
-                result_message="内容版本已审核通过",
-                details={"facts": {"revision": content.revision}},
-            ),
-        )
-    db.commit()
+        if action == "approve":
+            append_audit(
+                db,
+                AuditEntry(
+                    actor_id=actor.id,
+                    business_module=AuditModule.CONTENT_REVIEW,
+                    action="content_version.approve",
+                    target_type="ContentVersion",
+                    target_id=content.id,
+                    request_id=request_id,
+                    outcome=AuditOutcome.SUCCESS,
+                    result_message="内容版本已审核通过",
+                    details={"facts": {"revision": content.revision}},
+                ),
+            )
+        db.commit()
+    except IntegrityError as error:
+        # IntegrityError 会使事务进入 failed 状态；先恢复整个 command 的 root transaction。
+        db.rollback()
+        if action == "submit-review" and _is_content_review_pending_integrity_error(error):
+            raise AppError("CONTENT_REVIEW_PENDING", "该任务已有待审核内容版本", 409) from error
+        raise
     return content_version_out(db, content)

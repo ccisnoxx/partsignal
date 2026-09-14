@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import type { components } from '@/shared/api/generated/schema';
+import { ContentRequestError } from './content.api';
 import {
   editorActionKeys,
   editorFormValues,
   editorMode,
+  mapContentEditorError,
   parseTags,
   toContentCommand,
   toContentDraftUpdate,
@@ -94,6 +96,90 @@ function context(
 }
 
 describe('Content Editor domain model', () => {
+  it('只按 exact code 投影 review pending blocker，并保留结构化元数据', () => {
+    const mapped = mapContentEditorError(new ContentRequestError(
+      '任务已有待审核内容版本',
+      409,
+      {
+        code: 'CONTENT_REVIEW_PENDING',
+        message: '该任务已有待审核内容版本',
+        details: {},
+        request_id: 'req-pending',
+      },
+    ));
+
+    expect(mapped).toMatchObject({
+      blockerKind: 'content-review-pending',
+      code: 'CONTENT_REVIEW_PENDING',
+      formMessage: '该任务已有待审核内容版本',
+      requestId: 'req-pending',
+    });
+    expect(mapContentEditorError(new ContentRequestError(
+      '任意文本',
+      409,
+      {
+        code: 'REVISION_CONFLICT',
+        message: '任意文本',
+        details: {},
+        request_id: 'req-revision',
+      },
+    )).blockerKind).toBe('revision');
+  });
+
+  it('malformed details、其他 code 和缺失 request ID 安全回退，不按 message 猜测', () => {
+    const malformedDetails = mapContentEditorError(new ContentRequestError(
+      '看起来像 pending 的文本',
+      409,
+      {
+        code: 'CONTENT_REVIEW_PENDING',
+        message: '看起来像 pending 的文本',
+        details: { errors: 'not-an-array' },
+        request_id: 'req-malformed',
+      },
+    ));
+    expect(malformedDetails).toMatchObject({
+      fields: {},
+      formMessage: '看起来像 pending 的文本',
+      code: 'CONTENT_REVIEW_PENDING',
+      requestId: 'req-malformed',
+    });
+    expect(malformedDetails.blockerKind).toBeUndefined();
+
+    const malformedIssue = mapContentEditorError(new ContentRequestError(
+      '内容审核暂不可用',
+      409,
+      {
+        code: 'CONTENT_REVIEW_PENDING',
+        message: '内容审核暂不可用',
+        details: { errors: [{ unexpected: true }] },
+        request_id: 'req-malformed-issue',
+      },
+    ));
+    expect(malformedIssue.blockerKind).toBeUndefined();
+
+    const malformed = mapContentEditorError(new ContentRequestError(
+      '服务端失败',
+      500,
+      { code: 'SERVER_ERROR', message: '服务端失败', details: null, request_id: undefined } as never,
+    ));
+    expect(malformed).toMatchObject({ fields: {}, formMessage: '服务端失败', code: 'SERVER_ERROR' });
+    expect(malformed.blockerKind).toBeUndefined();
+    expect(malformed.requestId).toBeUndefined();
+
+    const missingRequestId = mapContentEditorError(new ContentRequestError(
+      '该任务已有待审核内容版本',
+      409,
+      { code: 'CONTENT_REVIEW_PENDING', message: '该任务已有待审核内容版本', details: {} } as never,
+    ));
+    expect(missingRequestId).toMatchObject({
+      fields: {},
+      formMessage: '该任务已有待审核内容版本',
+      code: 'CONTENT_REVIEW_PENDING',
+    });
+    expect(missingRequestId.blockerKind).toBeUndefined();
+    expect(missingRequestId.requestId).toBeUndefined();
+  });
+
   it('只按服务端 pointer 对应内容和 action token 选择编辑模式', () => {
     expect(editorMode(context(null))).toBe('manual');
     expect(editorMode(context(version()))).toBe('edit');

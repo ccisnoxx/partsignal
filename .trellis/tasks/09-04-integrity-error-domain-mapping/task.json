@@ -28,7 +28,8 @@
     "09-05-content-integrity-error-contract-decision",
     "09-06-generation-job-idempotency-integrity-mapping",
     "09-06-content-task-idempotency-integrity-mapping",
-    "09-07-content-version-identity-integrity-boundary"
+    "09-07-content-version-identity-integrity-boundary",
+    "09-14-content-version-review-state-integrity-mapping"
   ],
   "parent": null,
   "relatedFiles": [],

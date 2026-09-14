@@ -300,6 +300,24 @@ describe('ContentReviewPage', () => {
     expect(screen.queryByRole('button', { name: '批准内容' })).not.toBeInTheDocument();
   });
 
+  it('批准 unknown 500 显示 generic server failure，不刷新上下文或重放 approve', async () => {
+    const user = userEvent.setup();
+    const get = vi.spyOn(api, 'GET').mockResolvedValue(response(initialContext));
+    const post = vi.spyOn(api, 'POST').mockResolvedValue(response({}, 500));
+    renderReview();
+
+    await user.click(await screen.findByRole('button', { name: '批准内容' }));
+    const dialog = screen.getByRole('dialog', { name: '批准内容版本 v2？' });
+    await user.click(within(dialog).getByRole('button', { name: '确认批准' }));
+
+    expect(await screen.findByText('批准内容失败（HTTP 500）')).toBeInTheDocument();
+    expect(post).toHaveBeenCalledOnce();
+    expect(get).toHaveBeenCalledOnce();
+    expect(screen.queryByText('正在刷新服务端审核上下文…')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '批准内容' })).toBeEnabled();
+    expect(screen.getByText('平台适配内容')).toBeInTheDocument();
+  });
+
   it('退回 Dialog 校验空白意见，合法请求修剪后发送并恢复触发器焦点', async () => {
     const user = userEvent.setup();
     const canonical = {

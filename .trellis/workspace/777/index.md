@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-4.md`
-- **Total Sessions**: 216
-- **Last Active**: 2026-09-07
+- **Total Sessions**: 217
+- **Last Active**: 2026-09-14
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-4.md` | ~1245 | Active |
+| `journal-4.md` | ~1279 | Active |
 | `journal-3.md` | ~1983 | Archived |
 | `journal-2.md` | ~1986 | Archived |
 | `journal-1.md` | ~1990 | Archived |
@@ -32,6 +32,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 217 | 2026-09-14 | 固化 ContentVersion identity 最终边界 | `82227d66` | `main` |
 | 216 | 2026-09-07 | Content Task 幂等完整性映射提交与收尾 | `23a028db87dd599deec272066693aa056deed3df` | `main` |
 | 215 | 2026-09-06 | 完成 Generation Job 幂等完整性映射 | `1f503b70` | `main` |
 | 214 | 2026-09-05 | 完成自然化任务完整性错误领域映射 | `ded73ab5` | `main` |

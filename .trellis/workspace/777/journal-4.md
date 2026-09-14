@@ -1243,3 +1243,37 @@ Optional 完整 backend/frontend suite、frontend typecheck/build 未运行。�
 ### Status
 
 [OK] **Completed**
+
+
+## Session 217: 固化 ContentVersion identity 最终边界
+
+**Date**: 2026-09-14
+**Task**: 固化 ContentVersion identity 最终边界
+**Branch**: `main`
+
+### Summary
+
+以真实 PostgreSQL 唯一约束、事务回滚、HTTP 错误边界和并发锁证据固化 ContentVersion identity 合同，生产代码保持不变。
+
+### Main Changes
+
+- 新增 manual、revision 与 worker 的真实 23505、原子性、Session 复用和锁等待测试
+- 更新 backend 数据库与错误处理规范，并归档 Trellis 任务
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `82227d66` | (see git log) |
+
+### Testing
+
+- [OK] 最终范围测试 69 passed；合同与响应元数据 401 passed；mypy 与 Ruff 通过
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 父任务继续处理其余独立 IntegrityError 合同工作

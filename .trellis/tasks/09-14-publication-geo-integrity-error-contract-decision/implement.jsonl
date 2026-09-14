@@ -1,0 +1,7 @@
+{"file":".trellis/spec/backend/database-guidelines.md","reason":"约束、FK final-head、PostgreSQL diagnostics、事务与迁移停止线"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"exact mapper、unknown 500、rollback 与 Session reuse 的稳定边界"}
+{"file":".trellis/spec/backend/publication-workbench-guidelines.md","reason":"publication event、Issue/Repair、不可变历史与删除事务合同"}
+{"file":".trellis/tasks/09-14-publication-geo-integrity-error-contract-decision/research/publication-integrity-audit.md","reason":"Publication 约束、transaction owner、FK 与测试证据"}
+{"file":".trellis/tasks/09-14-publication-geo-integrity-error-contract-decision/research/geo-conflict-audit.md","reason":"GEO 12 producer、幂等 source-kind、链与删除证据"}
+{"file":".trellis/tasks/09-14-publication-geo-integrity-error-contract-decision/research/contract-frontend-impact.md","reason":"OpenAPI、runtime metadata、generated client 与前端 consumer 影响"}
+{"file":".trellis/tasks/09-14-publication-geo-integrity-error-contract-decision/research/decision-synthesis.md","reason":"经当前 head 与完整迁移链校正后的最终决策矩阵"}

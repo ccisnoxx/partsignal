@@ -1,0 +1,6 @@
+{"file":".trellis/spec/backend/database-guidelines.md","reason":"复核数据库最终权威、并发、删除与迁移边界"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"复核 exact diagnostics、unknown rethrow 与响应边界"}
+{"file":".trellis/spec/backend/publication-workbench-guidelines.md","reason":"复核事件时间、revision/state、历史与 Repair 生命周期"}
+{"file":".trellis/tasks/09-14-publication-geo-integrity-error-contract-decision/research/decision-synthesis.md","reason":"逐项核对规划是否与最终证据和 code 矩阵一致"}
+{"file":".trellis/tasks/09-14-publication-geo-integrity-error-contract-decision/research/contract-frontend-impact.md","reason":"复核 T5 到 T6 依赖和 contract-first 影响"}
+{"file":".trellis/tasks/09-14-publication-geo-integrity-error-contract-decision/research/independent-review.md","reason":"保留高风险 full review 与 targeted re-review 的关闭证据"}

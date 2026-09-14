@@ -1312,3 +1312,38 @@ Optional 完整 backend/frontend suite、frontend typecheck/build 未运行。�
 ### Next Steps
 
 - 父任务与 Content/Generation 合同决策任务继续保持 planning。
+
+
+## Session 219: FactVersion 完整性边界实施与归档
+
+**Date**: 2026-09-14
+**Task**: FactVersion 完整性边界实施与归档
+**Branch**: `main`
+
+### Summary
+
+在 submit_fact_review owner 冻结 FactVersion version identity unknown 500 与 pending exact 409 边界，补齐真实 PostgreSQL diagnostics、事务原子性、Product lock 并发及 Fact Workspace no-replay 恢复，并完成独立 review、提交和归档。
+
+### Main Changes
+
+- 仅精确 23505 + uq_fact_versions_one_pending_per_product 映射既有 FACT_REVIEW_PENDING；version identity 与其他完整性失败 rollback 后原抛。
+- Fact Workspace 对 pending 使用 product-scoped blocker、canonical refetch 与 available_actions 收敛；5xx 保持 generic，慢刷新不覆盖 dirty 草稿或提升 revision 基线。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1bc1fc7f` | (see git log) |
+
+### Testing
+
+- [OK] PostgreSQL integration 44 passed，0 skipped；backend contract/runtime unit、Ruff、mypy 通过。
+- [OK] Fact Workspace Vitest 23 passed、ESLint 与 OpenAPI generated consistency 通过；frontend typecheck 仅有未修改 publication 测试既有 TS2345。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 父任务 integrity-error-domain-mapping 与合同决策任务继续保持 planning。

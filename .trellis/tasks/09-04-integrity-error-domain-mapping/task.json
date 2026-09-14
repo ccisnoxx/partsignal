@@ -27,7 +27,8 @@
     "09-05-humanization-job-integrity-error-domain-mapping",
     "09-05-content-integrity-error-contract-decision",
     "09-06-generation-job-idempotency-integrity-mapping",
-    "09-06-content-task-idempotency-integrity-mapping"
+    "09-06-content-task-idempotency-integrity-mapping",
+    "09-07-content-version-identity-integrity-boundary"
   ],
   "parent": null,
   "relatedFiles": [],

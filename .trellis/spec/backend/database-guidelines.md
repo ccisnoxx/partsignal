@@ -343,6 +343,15 @@ const stage = task.workflow_stage;
 const current = task.current_content;
 ```
 
+## 场景：ContentVersion 版本分配与 final transaction
+
+- `create_manual_content_version`、`create_content_revision` 和 `process_generation_job` 必须先持有 `ContentTask FOR UPDATE`，再按该任务 `max(version)+1` 分配；`uq_content_versions_task_id(task_id, version)` 是最终防线，不是自动改号或重放入口。当前主线资格由锁内业务守卫决定，正常并发不要求两个首稿都成功。
+- worker 的 `RUNNING/attempt_count/started_at/lease` 在 provider 前提交。final transaction 包含候选 ContentVersion、Task current pointer/revision、Job SUCCEEDED/content_version_id/finished_at 和全部 provider metadata；失败必须整体回滚。随后失败事务仅提交同一 Job 的失败状态、错误字段、完成时间与清 lease。HTTP 创建的版本和 Task pointer/revision 同样属于一个 root transaction。
+- `uq_content_versions_source_job_id(source_job_id)` 防止一个 Job 产生两个版本；provider 前重放与约束失败的处理规则由 [错误处理契约](./error-handling.md#场景contentversion-identity-的最终失败边界) 定义。两约束须由 current-head catalog 与真实异常确认，不能只依赖 ORM 命名约定。
+- 测试必须分别证明正常双 Session 的 Task 锁等待与异常 constraint sentinel，使用 event/barrier、数据库阻塞证据和有界 timeout，不改生产锁/schema。正常后到请求可被主线资格拒绝，不能伪造 unique race 代替锁串行证据。
+- 首次 ContentVersion flush 在 pointer/revision 和 Job success/provider metadata 赋值前；只测此处失败不能证明已赋值状态会回滚。还须对人工首稿、修订及 worker 分别注入提交前晚期数据库失败：先真实 flush 候选状态，再触发精确约束，并在独立连接确认全部恢复到基线。worker 使用非空 provider metadata 作对照，保留先前提交的 attempt，失败完成时间与回滚的成功完成时间分别验证。
+- 失败不得留下候选版本、ContentReviewRecord、AuditLog 或 dispatch；预置 competitor 和既存版本须保持原样。测试钩子只作用于目标事务、一次性触发并在 finally 移除，不得影响 RUNNING/FAILED 提交或其他测试。
+
 ## 场景：生成作业补投递与租约恢复
 
 - 数据库 revision：`0011_generation_reliability`，`down_revision = "0010_user_cleanup"`。

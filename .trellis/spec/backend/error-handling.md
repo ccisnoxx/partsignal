@@ -153,6 +153,23 @@ except IntegrityError as error:
 - Backend integration：从 current-head PostgreSQL catalog 与真实异常捕获两个 constraint diagnostics；create 与 GENERATE retry 分别覆盖跨 Task 异身份 race，create 另有受控同身份 exact-constraint sentinel；断言 HTTP envelope/request ID 及失败无新增作业、内容、审核、审计、任务 revision 或 dispatch 副作用。
 - Regression：同 Task并发由 Task lock 串行并在第二请求普通 lookup replay；Humanization create/retry、active-source、worker 独立 Session、commit-before-dispatch、Broker 失败保留 `PENDING` 与既有错误信封保持不变。
 
+## 场景：ContentVersion identity 的最终失败边界
+
+- `uq_content_versions_source_job_id` 只属于 `process_generation_job` 的内容 INSERT；`uq_content_versions_task_id` 属于人工首稿、人工修订及 worker 的版本号分配。约束可识别不代表它具有可恢复的 HTTP 业务含义，不新增 mapper。
+- worker 在 provider 前按 `source_job_id` 查到既有版本时，沿用同一 Job 的 `SUCCEEDED` 收敛且不调用 provider；正常重复消息由 Job 锁和状态门禁吸收。
+- final transaction 真实命中任一 identity 唯一约束时，worker 先 root rollback，再将同一 Job 提交为 `FAILED`，`error_code=GENERATION_FAILED`、`error_summary=生成作业执行失败`，设置失败完成时间并清 lease。不在错误后查询或猜测 winner，不 replay、不改号、不再次调用 provider 或 dispatch。
+- 人工首稿与修订的 `23505 + uq_content_versions_task_id` 保持原始 `IntegrityError`，由 request Session rollback 后进入默认 unknown 500；不得映射 `REVISION_CONFLICT`。只有真实 `expected_revision` 比较失败继续返回原有 409。
+
+| 入口与触发点 | 结果 | 事务边界 |
+|---|---|---|
+| worker provider 前已有 source version | 同 Job `SUCCEEDED`，零 provider 调用 | 沿用已有版本身份 |
+| worker final flush 的两个精确 identity 约束之一 | `FAILED/GENERATION_FAILED`，固定安全摘要 | 回滚整个 final transaction，随后只提交 Job 失败字段 |
+| manual/revision 的 task/version 精确唯一约束 | 默认 unknown 500 | request Session 回滚，正文不 replay、版本不改号 |
+
+必需证据：current-head PostgreSQL catalog 与真实 `23505/diag.constraint_name`；正常重复 worker；两个精确约束 sentinel；HTTP 500 正文与响应头不泄漏 SQL、表名、约束、数据库 message 或堆栈；独立 stale revision 409。HTTP 与 worker 均须观测原 Session 在真实 rollback 后可查询，独立连接查询只作为持久化原子性的补充。不得把默认 500 的 body/code/header 固化成新的公共错误信封。
+
+事务分配及晚期失败证明见 [数据库开发规范](./database-guidelines.md#场景contentversion-版本分配与-final-transaction)。错误做法是在 source unique 失败后查询并采用某一版本；正确做法是保留 provider 前 lookup，final exception 交给 worker 自己的 rollback/FAILED owner。
+
 ## Scenario：未知 IntegrityError 的默认 server-error boundary
 
 ### 1. Scope / Trigger

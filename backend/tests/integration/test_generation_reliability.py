@@ -7,6 +7,7 @@ import os
 import subprocess
 import sys
 import threading
+import time
 import uuid
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
@@ -35,6 +36,7 @@ from app.config import settings
 from app.errors import AppError, app_error_handler
 from app.main import request_context
 from app.models.ai_generation import GenerationJob
+from app.models.content import ContentVersion
 from app.models.identity import User
 from app.schemas.content import (
     HumanizationJobCreate,
@@ -653,6 +655,53 @@ def _generation_state(test_url: str, task_id: uuid.UUID):
     with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
         cursor.execute("SELECT (SELECT count(*) FROM generation_jobs WHERE content_task_id=t.id), (SELECT count(*) FROM content_versions WHERE task_id=t.id), t.current_content_version_id, t.revision, (SELECT count(*) FROM content_review_records r JOIN content_versions v ON v.id=r.content_version_id WHERE v.task_id=t.id), (SELECT count(*) FROM audit_logs) FROM content_tasks t WHERE t.id=%s", (task_id,))  # noqa: E501
         return cursor.fetchone()
+
+
+def _insert_content_version_source(
+    test_url: str,
+    job_id: uuid.UUID,
+    *,
+    version: int = 1,
+    source_job_id: uuid.UUID | None = None,
+    omit_source_job: bool = False,
+) -> uuid.UUID:
+    """直接写入测试竞争行，保留生产表的外键与唯一约束。"""
+    content_id = uuid.uuid4()
+    with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT content_task_id, input_snapshot->'fact_version'->>'id', created_by "
+            "FROM generation_jobs WHERE id = %s",
+            (job_id,),
+        )
+        task_id, fact_version_id, created_by = cursor.fetchone()
+        cursor.execute(
+            "INSERT INTO content_versions "
+            "(id, task_id, fact_version_id, source_job_id, based_on_id, version, source_type, "
+            "title, summary, body_markdown, tags, content_hash, status, revision, "
+            "quality_issues, change_summary, created_by) VALUES "
+            "(%s, %s, %s, %s, NULL, %s, 'AI', '竞争版本', '竞争摘要', '竞争正文', "
+            "ARRAY['reliability'], %s, 'DRAFT', 0, '[]'::jsonb, '测试竞争行', %s)",
+            (
+                content_id,
+                task_id,
+                uuid.UUID(fact_version_id),
+                None if omit_source_job else (source_job_id or job_id),
+                version,
+                "c" * 64,
+                created_by,
+            ),
+        )
+        connection.commit()
+    return content_id
+
+
+def _seed_pending_job_with_existing_source(
+    test_url: str, base_url: str
+) -> tuple[uuid.UUID, uuid.UUID]:
+    """创建 PENDING 作业及其已提交来源版本，验证 provider 前收敛分支。"""
+    job_id = seed_generation_job(test_url, base_url=base_url)
+    source_id = _insert_content_version_source(test_url, job_id)
+    return job_id, source_id
 def _generation_http_app(
     *,
     task_id: uuid.UUID, actor_id: uuid.UUID,
@@ -1275,6 +1324,369 @@ def test_duplicate_workers_use_one_real_provider_call_and_one_content_version(
             )
             assert cursor.fetchone() == (1,)
         assert state.calls == 1
+
+
+@pytest.mark.integration
+def test_pending_job_with_existing_source_skips_provider_before_lookup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """PENDING 重复投递已有 source 时直接收敛，不再次调用 provider。"""
+    with (
+        temporary_database("partsignal_generation_source_replay") as database,
+        fake_ai_server() as (base_url, state),
+    ):
+        test_url, sqlalchemy_url, _ = database
+        job_id, source_id = _seed_pending_job_with_existing_source(test_url, base_url)
+        with patched_sessions(monkeypatch, sqlalchemy_url):
+            generation.process_generation_job(job_id)
+
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT status, content_version_id, error_code, lease_expires_at "
+                "FROM generation_jobs WHERE id = %s",
+                (job_id,),
+            )
+            assert cursor.fetchone() == ("SUCCEEDED", source_id, None, None)
+            cursor.execute(
+                "SELECT count(*) FROM content_versions WHERE source_job_id = %s",
+                (job_id,),
+            )
+            assert cursor.fetchone() == (1,)
+        assert state.calls == 0
+
+
+@pytest.mark.integration
+def test_content_version_identity_constraints_are_named_and_real(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """current-head PostgreSQL catalog 与真实 23505 diagnostics 必须一致。"""
+    with temporary_database("partsignal_content_identity_catalog") as database:
+        test_url, sqlalchemy_url, _ = database
+        with patched_sessions(monkeypatch, sqlalchemy_url):
+            job_id = seed_generation_job(test_url, base_url="http://127.0.0.1:9/v1")
+            with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT c.conname, c.contype, array_agg(a.attname ORDER BY k.ord) "
+                    "FROM pg_constraint c "
+                    "JOIN pg_class r ON r.oid = c.conrelid "
+                    "JOIN LATERAL unnest(c.conkey) WITH ORDINALITY k(attnum, ord) ON true "
+                    "JOIN pg_attribute a ON a.attrelid = r.oid AND a.attnum = k.attnum "
+                    "WHERE r.relname = 'content_versions' AND c.conname IN "
+                    "('uq_content_versions_source_job_id', 'uq_content_versions_task_id') "
+                    "GROUP BY c.conname, c.contype ORDER BY c.conname"
+                )
+                assert cursor.fetchall() == [
+                    ("uq_content_versions_source_job_id", "u", ["source_job_id"]),
+                    ("uq_content_versions_task_id", "u", ["task_id", "version"]),
+                ]
+
+            _insert_content_version_source(test_url, job_id)
+            with pytest.raises(psycopg.errors.UniqueViolation) as source_error:
+                _insert_content_version_source(test_url, job_id, version=2)
+            assert source_error.value.sqlstate == "23505"
+            assert (
+                source_error.value.diag.constraint_name
+                == "uq_content_versions_source_job_id"
+            )
+
+            with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT content_task_id, input_snapshot->'fact_version'->>'id', "
+                    "created_by FROM generation_jobs WHERE id = %s",
+                    (job_id,),
+                )
+                task_id, fact_version_id, created_by = cursor.fetchone()
+                with pytest.raises(psycopg.errors.UniqueViolation) as task_error:
+                    cursor.execute(
+                        "INSERT INTO content_versions "
+                        "(id, task_id, fact_version_id, source_job_id, version, source_type, "
+                        "title, summary, body_markdown, tags, content_hash, status, revision, "
+                        "quality_issues, change_summary, created_by) VALUES "
+                        "(%s, %s, %s, NULL, 1, 'HUMAN', '重复', '重复', '重复', "
+                        "ARRAY['catalog'], %s, 'DRAFT', 0, '[]'::jsonb, '重复', %s)",
+                        (
+                            uuid.uuid4(),
+                            task_id,
+                            uuid.UUID(fact_version_id),
+                            "d" * 64,
+                            created_by,
+                        ),
+                    )
+                assert task_error.value.sqlstate == "23505"
+                assert task_error.value.diag.constraint_name == "uq_content_versions_task_id"
+                connection.rollback()
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("identity", ["source", "task"])
+def test_worker_source_identity_violation_fails_without_replay_or_second_provider(
+    monkeypatch: pytest.MonkeyPatch,
+    identity: str,
+) -> None:
+    """final INSERT 命中两类 identity 后只提交安全 FAILED 结果。"""
+    with (
+        temporary_database("partsignal_generation_source_violation") as database,
+        fake_ai_server() as (base_url, state),
+    ):
+        test_url, sqlalchemy_url, _ = database
+        job_id = seed_generation_job(test_url, base_url=base_url)
+        original_generate = generation.generate_for_job
+        flush_diagnostics: list[tuple[str, str | None]] = []
+        original_flush = Session.flush
+
+        def capture_flush(session: Session, *args: Any, **kwargs: Any) -> Any:
+            try:
+                return original_flush(session, *args, **kwargs)
+            except IntegrityError as error:
+                orig = error.orig
+                flush_diagnostics.append(
+                    (getattr(orig, "sqlstate", ""), getattr(orig.diag, "constraint_name", None))
+                )
+                raise
+
+        monkeypatch.setattr(Session, "flush", capture_flush)
+
+        def inject_competitor(*args: Any, **kwargs: Any) -> Any:
+            result = original_generate(*args, **kwargs)
+            _insert_content_version_source(
+                test_url,
+                job_id,
+                version=2,
+                omit_source_job=identity == "task",
+            )
+            return result
+
+        monkeypatch.setattr(generation, "generate_for_job", inject_competitor)
+        def force_task_version(
+            session: Session, _flush_context: object, _instances: object
+        ) -> None:
+            for pending in session.new:
+                if isinstance(pending, ContentVersion) and pending.source_job_id == job_id:
+                    pending.version = 2
+
+        if identity == "task":
+            event.listen(Session, "before_flush", force_task_version)
+        try:
+            with patched_sessions(monkeypatch, sqlalchemy_url):
+                generation.process_generation_job(job_id)
+        finally:
+            if identity == "task":
+                event.remove(Session, "before_flush", force_task_version)
+
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT status, error_code, error_summary, content_version_id, "
+                "lease_expires_at FROM generation_jobs WHERE id = %s",
+                (job_id,),
+            )
+            assert cursor.fetchone() == (
+                "FAILED",
+                "GENERATION_FAILED",
+                "生成作业执行失败",
+                None,
+                None,
+            )
+            cursor.execute(
+                    "SELECT t.current_content_version_id, t.revision, count(*) "
+                "FROM content_tasks t JOIN generation_jobs g ON g.content_task_id = t.id "
+                "JOIN content_versions v ON v.task_id = t.id "
+                "WHERE g.id = %s GROUP BY t.current_content_version_id, t.revision",
+                (job_id,),
+            )
+            assert cursor.fetchone() == (None, 0, 1)
+        assert state.calls == 1
+        assert flush_diagnostics == [
+            (
+                "23505",
+                f"uq_content_versions_{'source_job_id' if identity == 'source' else 'task_id'}",
+            )
+        ]
+
+
+@pytest.mark.integration
+def test_worker_late_final_failure_rolls_back_content_pointer_and_provider_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """final commit 前异常回滚候选版本、主线和非空 provider metadata。"""
+    with (
+        temporary_database("partsignal_generation_late_rollback") as database,
+        fake_ai_server() as (base_url, _state),
+    ):
+        test_url, sqlalchemy_url, _ = database
+        job_id = seed_generation_job(test_url, base_url=base_url)
+        raised = False
+        observed: list[IntegrityError] = []
+        flushed_metadata: list[tuple[Any, ...]] = []
+        rollback_states: list[str | None] = []
+
+        def fail_after_success_flush(session: Session) -> None:
+            nonlocal raised
+            if raised:
+                return
+            jobs = [
+                item
+                for item in session.identity_map.values()
+                if isinstance(item, GenerationJob)
+                and item.id == job_id
+                and item.status == "SUCCEEDED"
+            ]
+            versions = [
+                item
+                for item in session.identity_map.values()
+                if isinstance(item, ContentVersion) and item.source_job_id == job_id
+            ]
+            if not jobs or not versions:
+                return
+            session.flush()
+            job = jobs[0]
+            flushed_metadata.append(
+                (
+                    job.provider_request_id,
+                    job.response_duration_ms,
+                    job.prompt_tokens,
+                    job.completion_tokens,
+                    job.total_tokens,
+                )
+            )
+            try:
+                session.execute(
+                    text(
+                        "INSERT INTO content_versions "
+                        "(id, task_id, fact_version_id, source_job_id, based_on_id, version, "
+                        "source_type, title, summary, body_markdown, tags, content_hash, status, "
+                        "revision, quality_issues, change_summary, created_by) "
+                        "SELECT :new_id, task_id, fact_version_id, source_job_id, based_on_id, "
+                        "version + 1, source_type, title, summary, body_markdown, tags, "
+                        "content_hash, status, revision, quality_issues, change_summary, "
+                        "created_by "
+                        "FROM content_versions WHERE id = :candidate_id"
+                    ),
+                    {"new_id": uuid.uuid4(), "candidate_id": versions[0].id},
+                )
+            except IntegrityError as error:
+                raised = True
+                observed.append(error)
+                raise
+
+        original_rollback = Session.rollback
+
+        def observe_rollback(session: Session, *args: Any, **kwargs: Any) -> Any:
+            result = original_rollback(session, *args, **kwargs)
+            restored = session.get(GenerationJob, job_id)
+            rollback_states.append(restored.status if restored is not None else None)
+            return result
+
+        event.listen(Session, "before_commit", fail_after_success_flush)
+        monkeypatch.setattr(Session, "rollback", observe_rollback)
+        try:
+            with patched_sessions(monkeypatch, sqlalchemy_url):
+                generation.process_generation_job(job_id)
+        finally:
+            event.remove(Session, "before_commit", fail_after_success_flush)
+
+        assert len(observed) == 1
+        assert observed[0].orig.sqlstate == "23505"
+        assert observed[0].orig.diag.constraint_name == "uq_content_versions_source_job_id"
+        assert flushed_metadata == [("req-reliability", 0, 10, 20, 30)]
+        assert rollback_states == ["RUNNING"]
+
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT status, error_code, error_summary, content_version_id, "
+                "provider_request_id, response_duration_ms, prompt_tokens, "
+                "completion_tokens, total_tokens, attempt_count, started_at, "
+                "lease_expires_at FROM generation_jobs WHERE id = %s",
+                (job_id,),
+            )
+            row = cursor.fetchone()
+            assert row[:10] == (
+                "FAILED",
+                "GENERATION_FAILED",
+                "生成作业执行失败",
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                1,
+            )
+            assert row[10] is not None and row[11] is None
+            cursor.execute(
+                "SELECT t.current_content_version_id, t.revision, "
+                "count(v.id), count(r.id) FROM content_tasks t "
+                "JOIN generation_jobs g ON g.content_task_id = t.id "
+                "LEFT JOIN content_versions v ON v.task_id = t.id "
+                "LEFT JOIN content_review_records r ON r.content_version_id = v.id "
+                "WHERE g.id = %s GROUP BY t.current_content_version_id, t.revision",
+                (job_id,),
+            )
+            assert cursor.fetchone() == (None, 0, 0, 0)
+        assert raised
+
+
+@pytest.mark.integration
+def test_worker_waits_for_task_lock_before_allocating_next_version(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Worker 在 provider 返回后仍须等待 Task 锁，再按 max(version)+1 写入。"""
+    with (
+        temporary_database("partsignal_generation_task_lock") as database,
+        fake_ai_server(blocked=True) as (base_url, state),
+    ):
+        test_url, sqlalchemy_url, _ = database
+        job_id = seed_generation_job(test_url, base_url=base_url)
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute("SELECT content_task_id FROM generation_jobs WHERE id = %s", (job_id,))
+            task_id = cursor.fetchone()[0]
+
+        blocker = psycopg.connect(psycopg_url(test_url))
+        blocker_cursor = blocker.cursor()
+        with patched_sessions(monkeypatch, sqlalchemy_url):
+            executor = ThreadPoolExecutor(max_workers=1)
+            future = executor.submit(lambda: generation.process_generation_job(job_id))
+            waiting = False
+            try:
+                assert state.received.wait(timeout=10)
+                blocker_cursor.execute(
+                    "SELECT id FROM content_tasks WHERE id = %s FOR UPDATE", (task_id,)
+                )
+                state.release.set()
+                deadline = time.monotonic() + 10
+                while time.monotonic() < deadline:
+                    with (
+                        psycopg.connect(psycopg_url(test_url)) as observer,
+                        observer.cursor() as cursor,
+                    ):
+                        cursor.execute(
+                            "SELECT count(*) FROM pg_stat_activity "
+                            "WHERE wait_event_type = 'Lock' AND state = 'active' "
+                            "AND query ILIKE '%content_tasks%'"
+                        )
+                        waiting = cursor.fetchone()[0] > 0
+                    if waiting:
+                        break
+                    threading.Event().wait(0.05)
+            finally:
+                state.release.set()
+                blocker.commit()
+                blocker_cursor.close()
+                blocker.close()
+                future.result(timeout=20)
+                executor.shutdown(wait=True)
+
+        assert waiting
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT g.status, g.content_version_id, v.version "
+                "FROM generation_jobs g LEFT JOIN content_versions v "
+                "ON v.id = g.content_version_id WHERE g.id = %s",
+                (job_id,),
+            )
+            row = cursor.fetchone()
+            assert row[0] == "SUCCEEDED"
+            assert row[1] is not None
+            assert row[2] == 1
 
 
 @pytest.mark.integration

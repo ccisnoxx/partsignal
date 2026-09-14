@@ -299,6 +299,208 @@ describe('FactWorkspacePage', () => {
     expect(screen.getAllByText('事实版本 v3 已提交审核')).toHaveLength(2);
   });
 
+  it('FACT_REVIEW_PENDING 显示准确错误并只提交一次，canonical 动作收敛后保留摘要', async () => {
+    const user = userEvent.setup();
+    let getCount = 0;
+    const canonical: FactWorkspace = {
+      ...initialWorkspace,
+      product: { ...initialWorkspace.product, workflow_stage: 'FACT_REVIEW_PENDING' },
+      pending_fact: { version: 3, status: 'PENDING_REVIEW' },
+      available_actions: ['SAVE'],
+    };
+    const get = vi.spyOn(api, 'GET').mockImplementation(async () => {
+      getCount += 1;
+      return response(getCount === 1 ? initialWorkspace : canonical);
+    });
+    const post = vi.spyOn(api, 'POST').mockResolvedValue(response({
+      error: {
+        code: 'FACT_REVIEW_PENDING',
+        message: '该产品已有待审核事实版本',
+        details: {},
+        request_id: 'req-pending',
+      },
+    }, 409));
+    renderWorkspace();
+
+    await user.click(await screen.findByRole('button', { name: '提交事实审核' }));
+    const dialog = screen.getByRole('dialog', { name: '提交事实审核' });
+    await user.type(within(dialog).getByRole('textbox', { name: '变更摘要' }), '保留本地摘要');
+    await user.click(within(dialog).getByRole('button', { name: '确认提交审核' }));
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('该产品已有待审核事实版本');
+    expect(within(dialog).getByText('请求 ID：req-pending')).toBeInTheDocument();
+    expect(within(dialog).getByRole('textbox', { name: '变更摘要' })).toHaveValue('保留本地摘要');
+    expect(post).toHaveBeenCalledOnce();
+    expect(get).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole('button', { name: '提交事实审核' })).not.toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: '确认提交审核' })).toBeDisabled();
+  });
+
+  it('pending canonical refetch 失败时保留 blocker，关闭后页面入口仍不能再次 POST', async () => {
+    const user = userEvent.setup();
+    let getCount = 0;
+    const get = vi.spyOn(api, 'GET').mockImplementation(async () => {
+      getCount += 1;
+      return getCount === 1
+        ? response(initialWorkspace)
+        : response({
+          error: {
+            code: 'FACT_WORKSPACE_UNAVAILABLE',
+            message: '事实工作台暂不可用',
+            details: {},
+            request_id: 'req-refresh-failed',
+          },
+        }, 503);
+    });
+    const post = vi.spyOn(api, 'POST').mockResolvedValue(response({
+      error: {
+        code: 'FACT_REVIEW_PENDING',
+        message: '该产品已有待审核事实版本',
+        details: {},
+        request_id: 'req-pending-failed-refresh',
+      },
+    }, 409));
+    renderWorkspace();
+
+    await user.click(await screen.findByRole('button', { name: '提交事实审核' }));
+    const dialog = screen.getByRole('dialog', { name: '提交事实审核' });
+    await user.type(within(dialog).getByRole('textbox', { name: '变更摘要' }), '刷新失败时保留');
+    await user.click(within(dialog).getByRole('button', { name: '确认提交审核' }));
+
+    expect(await screen.findByText('刷新事实工作台失败，已保留当前编辑内容')).toBeInTheDocument();
+    expect(within(dialog).getByText('请求 ID：req-pending-failed-refresh')).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: '确认提交审核' })).toBeDisabled();
+    await user.click(within(dialog).getByRole('button', { name: '取消' }));
+    const submitAction = await screen.findByRole('button', { name: '提交事实审核' });
+    expect(submitAction).toHaveAttribute('aria-disabled', 'true');
+    expect(post).toHaveBeenCalledOnce();
+    expect(get).toHaveBeenCalledTimes(2);
+  });
+
+  it('切换到另一个 productId 后不会继承前一产品的 pending blocker', async () => {
+    const user = userEvent.setup();
+    const secondId = '00000000-0000-4000-8000-000000000002';
+    const secondWorkspace: FactWorkspace = {
+      ...initialWorkspace,
+      product_id: secondId,
+      product: { ...initialWorkspace.product, id: secondId, part_number: 'PS-002' },
+    };
+    let getCount = 0;
+    const get = vi.spyOn(api, 'GET').mockImplementation(async (_path, options) => {
+      const requestedId = (options as { params?: { path?: { product_id?: string } } }).params?.path?.product_id;
+      if (requestedId === secondId) return response(secondWorkspace);
+      getCount += 1;
+      return getCount === 1
+        ? response(initialWorkspace)
+        : response({
+          error: {
+            code: 'FACT_WORKSPACE_UNAVAILABLE',
+            message: '事实工作台暂不可用',
+            details: {},
+            request_id: 'req-switch-refresh',
+          },
+        }, 503);
+    });
+    const post = vi.spyOn(api, 'POST').mockResolvedValue(response({
+      error: {
+        code: 'FACT_REVIEW_PENDING',
+        message: '该产品已有待审核事实版本',
+        details: {},
+        request_id: 'req-switch-pending',
+      },
+    }, 409));
+    const { queryClient, router } = renderWorkspace();
+
+    await user.click(await screen.findByRole('button', { name: '提交事实审核' }));
+    const dialog = screen.getByRole('dialog', { name: '提交事实审核' });
+    await user.type(within(dialog).getByRole('textbox', { name: '变更摘要' }), 'A 产品摘要');
+    await user.click(within(dialog).getByRole('button', { name: '确认提交审核' }));
+    expect(await within(dialog).findByText('请求 ID：req-switch-pending')).toBeInTheDocument();
+
+    queryClient.setQueryData(['products', 'facts', secondId], secondWorkspace);
+    await router.navigate({ to: '/products/$productId/facts', params: { productId: secondId } });
+
+    expect(await screen.findByRole('heading', { name: 'PS-002' })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('button', { name: '提交事实审核' })).toBeEnabled());
+    expect(screen.queryByText('请求 ID：req-switch-pending')).not.toBeInTheDocument();
+    expect(post).toHaveBeenCalledOnce();
+    expect(get).toHaveBeenCalledTimes(2);
+  });
+
+  it('pending refetch 延迟期间产生的 dirty 输入不被 canonical reset 覆盖', async () => {
+    const user = userEvent.setup();
+    let getCount = 0;
+    let releaseReload: ((value: ReturnType<typeof response<FactWorkspace>>) => void) | undefined;
+    let notifyReloadStarted: (() => void) | undefined;
+    const reloadStarted = new Promise<void>((resolve) => { notifyReloadStarted = resolve; });
+    const canonical: FactWorkspace = {
+      ...initialWorkspace,
+      body_markdown: '## 服务端 canonical 事实',
+      available_actions: ['SAVE'],
+      pending_fact: { version: 3, status: 'PENDING_REVIEW' },
+      revision: 4,
+    };
+    const get = vi.spyOn(api, 'GET').mockImplementation(async () => {
+      getCount += 1;
+      if (getCount === 1) return response(initialWorkspace);
+      notifyReloadStarted?.();
+      return new Promise((resolve) => { releaseReload = resolve; });
+    });
+    const post = vi.spyOn(api, 'POST').mockResolvedValue(response({
+      error: {
+        code: 'FACT_REVIEW_PENDING',
+        message: '该产品已有待审核事实版本',
+        details: {},
+        request_id: 'req-deferred-pending',
+      },
+    }, 409));
+    renderWorkspace();
+
+    await user.click(await screen.findByRole('button', { name: '提交事实审核' }));
+    const dialog = screen.getByRole('dialog', { name: '提交事实审核' });
+    await user.type(within(dialog).getByRole('textbox', { name: '变更摘要' }), '延迟刷新摘要');
+    await user.click(within(dialog).getByRole('button', { name: '确认提交审核' }));
+    await reloadStarted;
+    await user.click(within(dialog).getByRole('button', { name: '取消' }));
+
+    const editor = screen.getByRole('textbox', { name: '事实 Markdown' });
+    await user.click(editor);
+    await user.paste('LOCAL-DEFERRED\n');
+
+    releaseReload?.(response(canonical));
+    await waitFor(() => expect(screen.queryByRole('button', { name: '提交事实审核' })).not.toBeInTheDocument());
+    expect(editor).toHaveTextContent('LOCAL-DEFERRED');
+    expect(editor).not.toHaveTextContent('服务端 canonical 事实');
+    expect(screen.getByText('有未保存修改 · 基于 Revision 3')).toBeInTheDocument();
+    expect(post).toHaveBeenCalledOnce();
+    expect(get).toHaveBeenCalledTimes(2);
+  });
+
+  it('unknown 500 与错误文案相同也不进入 pending recovery 或自动 reload', async () => {
+    const user = userEvent.setup();
+    const get = vi.spyOn(api, 'GET').mockResolvedValue(response(initialWorkspace));
+    const post = vi.spyOn(api, 'POST').mockResolvedValue(response({
+      error: {
+        code: 'FACT_REVIEW_PENDING',
+        message: '该产品已有待审核事实版本',
+        details: {},
+        request_id: 'req-server-failure',
+      },
+    }, 500));
+    renderWorkspace();
+
+    await user.click(await screen.findByRole('button', { name: '提交事实审核' }));
+    const dialog = screen.getByRole('dialog', { name: '提交事实审核' });
+    await user.type(within(dialog).getByRole('textbox', { name: '变更摘要' }), '服务端失败');
+    await user.click(within(dialog).getByRole('button', { name: '确认提交审核' }));
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('提交事实审核失败，请稍后重试。');
+    expect(within(dialog).getByText('请求 ID：req-server-failure')).toBeInTheDocument();
+    expect(get).toHaveBeenCalledOnce();
+    expect(post).toHaveBeenCalledOnce();
+    expect(within(dialog).getByRole('button', { name: '确认提交审核' })).toBeEnabled();
+  });
+
   it('dirty 表单拦截导航', async () => {
     const user = userEvent.setup();
     vi.spyOn(api, 'GET').mockResolvedValue(response(initialWorkspace));

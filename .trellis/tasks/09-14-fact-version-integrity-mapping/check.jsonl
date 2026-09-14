@@ -1,0 +1,12 @@
+{"file":".trellis/spec/backend/error-handling.md","reason":"复核 exact pending 映射、version/other unknown 原抛、root rollback、request ID 与 no-leak。"}
+{"file":".trellis/spec/backend/database-guidelines.md","reason":"复核 Product lock、FactVersion/FactReviewRecord 原子性、Session reuse 与副作用边界。"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"复核真实 PostgreSQL fixture、有界并发、测试真实性和 required validation 归因。"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"复核 Fact Workspace local state、pending blocker、canonical refetch、available_actions 与 no replay。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"复核相关 Vitest、ESLint、typecheck 证据及无关 TS2345 的准确归因。"}
+{"file":".trellis/tasks/09-05-content-integrity-error-contract-decision/research/contract-decision-matrix.md","reason":"复核实现没有越出已批准的 FactVersion mapping 或误用其他 IntegrityError 合同。"}
+{"file":".trellis/tasks/09-14-fact-version-integrity-mapping/research/current-head-backend.md","reason":"复核 authoritative owner、真实 catalog/diagnostics、normal lock 与 exact sentinel 的分离。"}
+{"file":".trellis/tasks/09-14-fact-version-integrity-mapping/research/current-head-frontend-contract.md","reason":"复核 pending/no-replay、malformed fallback、unknown 500 与公共合同零 diff。"}
+{"file":".trellis/tasks/09-14-fact-version-integrity-mapping/research/predecessor-patterns.md","reason":"复核前置模式被正确复用且未引入 winner replay、全局 registry 或错误 owner。"}
+{"file":".trellis/tasks/09-14-fact-version-integrity-mapping/research/planning-review.md","reason":"复核规划阶段 material finding、修复和实施期 caveat。"}
+{"file":".trellis/tasks/09-14-fact-version-integrity-mapping/research/execution-results.md","reason":"复核 required validation、真实 PostgreSQL 证据、零 diff owner、已知无关 typecheck 阻断与残余风险。"}
+{"file":".trellis/tasks/09-14-fact-version-integrity-mapping/research/implementation-review.md","reason":"复核独立 implementation review、唯一 repair pass 与 targeted re-review 收敛结论。"}

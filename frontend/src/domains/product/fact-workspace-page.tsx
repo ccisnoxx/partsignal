@@ -60,6 +60,11 @@ import {
 
 type FactVersion = components['schemas']['FactVersion'];
 
+type PendingBlocker = {
+  message: string;
+  requestId: string;
+};
+
 type FactWorkspacePageProps = {
   csrfToken: string | null;
   productId: string;
@@ -90,7 +95,10 @@ function FactWorkspacePage({ csrfToken, productId }: FactWorkspacePageProps) {
       )}
       <FactWorkspaceEditor
         csrfToken={csrfToken}
-        onReload={async () => (await facts.refetch()).data}
+        onReload={async () => {
+          const result = await facts.refetch();
+          return result.isSuccess ? result.data : undefined;
+        }}
         productId={productId}
         workspace={facts.data}
       />
@@ -114,6 +122,7 @@ function FactWorkspaceEditor({
   const [announcement, setAnnouncement] = useState('');
   const [saved, setSaved] = useState(false);
   const [submitOpen, setSubmitOpen] = useState(false);
+  const [pendingBlocker, setPendingBlocker] = useState<PendingBlocker>();
   const form = useForm<FactWorkspaceFormValues>({
     defaultValues: factWorkspaceValues(workspace),
     resolver: zodResolver(factWorkspaceFormSchema),
@@ -141,6 +150,12 @@ function FactWorkspaceEditor({
   const isDirty = form.formState.isDirty;
   const bodyValue = useWatch({ control: form.control, name: 'body_markdown' });
   const readOnly = !workspace.available_actions.includes('SAVE');
+
+  useEffect(() => {
+    // 路由复用时按产品身份清理临时 blocker，避免一个产品的错误污染另一个产品。
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPendingBlocker(undefined);
+  }, [productId]);
 
   useEffect(() => {
     if (isDirty || workspace.revision <= baseRevision) return;
@@ -180,12 +195,15 @@ function FactWorkspaceEditor({
       }
       if (mapped.formMessage) form.setError('root.server', { type: 'server', message: mapped.formMessage });
       setRequestId(mapped.requestId);
-      if (mapped.code === 'REVISION_CONFLICT') setConflict(mapped.formMessage ?? '服务端已有更新。');
-      if (mapped.code === 'INVALID_STATE_TRANSITION') await onReload();
+      if (mapped.recovery === 'REVISION_CONFLICT') setConflict(mapped.formMessage ?? '服务端已有更新。');
+      if (mapped.recovery === 'INVALID_STATE_TRANSITION') await onReload();
     }
   }
 
   async function submitReview(values: FactReviewSubmissionValues): Promise<FactVersion> {
+    if (pendingBlocker) {
+      throw new Error('该产品已有待审核事实版本');
+    }
     try {
       const version = await submit.mutateAsync(values);
       setAnnouncement(`事实版本 v${version.version} 已提交审核`);
@@ -198,11 +216,30 @@ function FactWorkspaceEditor({
       return version;
     } catch (error) {
       const mapped = mapFactReviewError(error);
-      if (mapped.code === 'REVISION_CONFLICT') {
+      if (mapped.recovery === 'REVISION_CONFLICT') {
         setConflict(mapped.formMessage ?? '服务端已有更新。');
         setRequestId(mapped.requestId);
       }
-      if (mapped.code === 'FACT_REVIEW_PENDING' || mapped.code === 'INVALID_STATE_TRANSITION') {
+      if (mapped.recovery === 'FACT_REVIEW_PENDING' && mapped.requestId) {
+        setPendingBlocker({
+          message: mapped.formMessage ?? '该产品已有待审核事实版本',
+          requestId: mapped.requestId,
+        });
+        setRequestId(mapped.requestId);
+        const canonical = await onReload();
+        if (canonical) {
+          // GET 期间用户仍可编辑；成功的 canonical 只更新基线和服务端动作，不能覆盖新草稿。
+          const hasLocalChanges = form.formState.isDirty;
+          if (!hasLocalChanges) {
+            form.reset(factWorkspaceValues(canonical));
+            setBaseRevision(canonical.revision);
+          }
+          setConflict(undefined);
+          setPendingBlocker(undefined);
+          setSaved(false);
+        }
+      }
+      if (mapped.recovery === 'INVALID_STATE_TRANSITION') {
         await onReload();
       }
       throw error;
@@ -227,6 +264,7 @@ function FactWorkspaceEditor({
     });
   const formMessage = form.formState.errors.root?.server?.message;
   if (formMessage) summaryErrors.push({ id: 'form', message: formMessage });
+  if (pendingBlocker) summaryErrors.push({ id: 'pending-blocker', message: pendingBlocker.message });
   if (requestId) summaryErrors.push({ id: 'request-id', message: `请求 ID：${requestId}` });
 
   const actions = resolveFactWorkspaceActions(workspace, {
@@ -235,7 +273,10 @@ function FactWorkspaceEditor({
     saving: save.isPending,
     submitting: submit.isPending,
     onSave: () => void form.handleSubmit(saveWorkspace)(),
-    onSubmit: () => setSubmitOpen(true),
+    blocked: Boolean(pendingBlocker),
+    onSubmit: () => {
+      if (!pendingBlocker) setSubmitOpen(true);
+    },
   });
   const saveAction = actions.find((action) => action.key === 'SAVE');
   const status = conflict
@@ -364,6 +405,8 @@ function FactWorkspaceEditor({
       <DirtyGuard when={isDirty} />
       {submitOpen && (
         <SubmitReviewDialog
+          key={productId}
+          pendingBlocker={pendingBlocker}
           onClose={() => setSubmitOpen(false)}
           onSubmit={submitReview}
           submitting={submit.isPending}
@@ -420,13 +463,16 @@ function StatusBadge({ presentation }: { presentation: { label: string; tone: 'o
 function SubmitReviewDialog({
   onClose,
   onSubmit,
+  pendingBlocker,
   submitting,
 }: {
   onClose: () => void;
   onSubmit: (values: FactReviewSubmissionValues) => Promise<FactVersion>;
+  pendingBlocker?: PendingBlocker;
   submitting: boolean;
 }) {
   const [requestId, setRequestId] = useState<string>();
+  const [pendingBlocked, setPendingBlocked] = useState(false);
   const form = useForm<FactReviewSubmissionValues>({
     defaultValues: { change_summary: '' },
     resolver: zodResolver(factReviewSubmissionSchema),
@@ -444,14 +490,18 @@ function SubmitReviewDialog({
       }
       if (mapped.formMessage) form.setError('root.server', { type: 'server', message: mapped.formMessage });
       setRequestId(mapped.requestId);
+      if (mapped.recovery === 'FACT_REVIEW_PENDING') setPendingBlocked(true);
     }
   }
+  const blocked = pendingBlocked || Boolean(pendingBlocker);
   const errors: ErrorSummaryItem[] = [];
   const fieldMessage = form.formState.errors.change_summary?.message;
   if (fieldMessage) errors.push({ id: 'change_summary', fieldId: 'fact-review-change-summary', message: fieldMessage });
   const formMessage = form.formState.errors.root?.server?.message;
-  if (formMessage) errors.push({ id: 'form', message: formMessage });
-  if (requestId) errors.push({ id: 'request-id', message: `请求 ID：${requestId}` });
+  const displayedMessage = formMessage ?? pendingBlocker?.message;
+  const displayedRequestId = requestId ?? pendingBlocker?.requestId;
+  if (displayedMessage) errors.push({ id: 'form', message: displayedMessage });
+  if (displayedRequestId) errors.push({ id: 'request-id', message: `请求 ID：${displayedRequestId}` });
 
   return (
     <Dialog onOpenChange={(open) => { if (!open) onClose(); }} open>
@@ -476,7 +526,7 @@ function SubmitReviewDialog({
                   aria-describedby={context['aria-describedby']}
                   aria-invalid={context['aria-invalid']}
                   className="min-h-28 w-full resize-y rounded-lg border border-input bg-transparent px-3 py-2 text-sm text-text-primary outline-none focus-visible:border-ring focus-visible:ring-[length:var(--focus-ring-width)] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:bg-muted"
-                  disabled={submitting}
+                  disabled={submitting || blocked}
                   id={context.inputId}
                 />
               )}
@@ -485,7 +535,7 @@ function SubmitReviewDialog({
         </FormProvider>
         <DialogFooter>
           <DialogClose render={<Button disabled={submitting} variant="outline" />}>取消</DialogClose>
-          <Button disabled={submitting} form="fact-review-submit-form" type="submit">
+          <Button disabled={submitting || blocked} form="fact-review-submit-form" type="submit">
             {submitting ? '提交中…' : '确认提交审核'}
           </Button>
         </DialogFooter>

@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import threading
+import time
 import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -17,8 +19,8 @@ import psycopg
 import pytest
 from fastapi.testclient import TestClient
 from psycopg import sql
-from sqlalchemy import create_engine, delete, event, func, select, update
-from sqlalchemy.exc import DBAPIError
+from sqlalchemy import create_engine, delete, event, func, select, text, update
+from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.orm import Session
 
 from app.db import get_db
@@ -257,6 +259,255 @@ def _seed_graph(db: Session, *, content_hash: str = "a" * 64) -> dict[str, objec
         "content": content,
         "account": account,
     }
+
+
+@pytest.mark.integration
+def test_fact_version_current_head_catalog_and_unique_diagnostics() -> None:
+    """current-head PostgreSQL catalog 与两条事实版本唯一冲突保持精确。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine, expire_on_commit=False) as db:
+            graph = _seed_graph(db)
+            actor = graph["user"]
+            product = graph["product"]
+            assert isinstance(actor, User)
+            assert isinstance(product, Product)
+
+            catalog = {
+                row["index_name"]: row
+                for row in db.execute(
+                    text(
+                        """
+                        SELECT
+                            index_class.relname AS index_name,
+                            index_info.indisunique,
+                            pg_get_indexdef(index_class.oid) AS index_definition,
+                            pg_get_expr(index_info.indpred, index_info.indrelid) AS predicate,
+                            constraint_info.conname AS constraint_name
+                        FROM pg_class AS index_class
+                        JOIN pg_index AS index_info ON index_info.indexrelid = index_class.oid
+                        LEFT JOIN pg_constraint AS constraint_info
+                            ON constraint_info.conindid = index_class.oid
+                        WHERE index_class.relname IN (
+                            'uq_fact_versions_product_id',
+                            'uq_fact_versions_one_pending_per_product'
+                        )
+                        """
+                    )
+                ).mappings()
+            }
+            version_index = catalog["uq_fact_versions_product_id"]
+            pending_index = catalog["uq_fact_versions_one_pending_per_product"]
+            assert version_index["indisunique"] is True
+            assert "product_id, version" in version_index["index_definition"]
+            assert version_index["predicate"] is None
+            assert version_index["constraint_name"] == "uq_fact_versions_product_id"
+            assert pending_index["indisunique"] is True
+            assert "product_id)" in pending_index["index_definition"]
+            predicate = str(pending_index["predicate"]).lower()
+            assert "status" in predicate
+            assert "pending_review" in predicate
+            assert pending_index["constraint_name"] is None
+
+            version_conflict = FactVersion(
+                id=uuid.uuid4(),
+                product_id=product.id,
+                version=1,
+                status="CHANGES_REQUESTED",
+                body_markdown="版本身份冲突",
+                classification="PUBLIC",
+                change_summary="测试版本身份",
+                created_by=actor.id,
+            )
+            db.add(version_conflict)
+            with pytest.raises(IntegrityError) as version_error:
+                db.flush()
+            assert version_error.value.orig.sqlstate == "23505"
+            assert (
+                version_error.value.orig.diag.constraint_name
+                == "uq_fact_versions_product_id"
+            )
+            db.rollback()
+
+            pending = FactVersion(
+                id=uuid.uuid4(),
+                product_id=product.id,
+                version=2,
+                status="PENDING_REVIEW",
+                body_markdown="既有待审核事实",
+                classification="PUBLIC",
+                change_summary="建立待审核基线",
+                created_by=actor.id,
+            )
+            db.add(pending)
+            db.commit()
+            pending_conflict = FactVersion(
+                id=uuid.uuid4(),
+                product_id=product.id,
+                version=3,
+                status="PENDING_REVIEW",
+                body_markdown="待审核冲突",
+                classification="PUBLIC",
+                change_summary="测试待审核唯一约束",
+                created_by=actor.id,
+            )
+            db.add(pending_conflict)
+            with pytest.raises(IntegrityError) as pending_error:
+                db.flush()
+            assert pending_error.value.orig.sqlstate == "23505"
+            assert (
+                pending_error.value.orig.diag.constraint_name
+                == "uq_fact_versions_one_pending_per_product"
+            )
+            db.rollback()
+            assert db.get(FactVersion, pending.id) is not None
+            assert db.get(FactVersion, pending_conflict.id) is None
+
+
+@pytest.mark.integration
+def test_fact_review_same_product_concurrency_uses_product_lock_and_single_pending() -> None:
+    """同产品并发由 Product 行锁串行，后到请求命中 pending 预检。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url, pool_size=5, max_overflow=2)
+        with Session(engine, expire_on_commit=False) as db:
+            graph = _seed_graph(db)
+            actor = graph["user"]
+            product = graph["product"]
+            assert isinstance(actor, User)
+            assert isinstance(product, Product)
+            actor_id = actor.id
+            product_id = product.id
+            product.facts_body_markdown = "## 并发事实"
+            product.facts_classification = "PUBLIC"
+            db.commit()
+
+        first_session: list[Session] = []
+        first_lock_acquired = threading.Event()
+        release_first = threading.Event()
+        second_pid_ready = threading.Event()
+        second_started = threading.Event()
+        second_pid: list[int] = []
+        results: dict[str, object] = {}
+        thread_errors: list[BaseException] = []
+
+        def hold_first_product_lock(
+            session: Session, _flush_context: object, _instances: object
+        ) -> None:
+            """只暂停首个请求的候选 flush，保留生产 Product 行锁。"""
+            if first_session and session is first_session[0] and any(
+                isinstance(item, FactVersion) and item.product_id == product_id
+                for item in session.new
+            ):
+                first_lock_acquired.set()
+                if not release_first.wait(10):
+                    raise TimeoutError("等待并发测试释放首个 Product 锁超时")
+
+        def first_request() -> None:
+            try:
+                with Session(engine, expire_on_commit=False) as db:
+                    first_session.append(db)
+                    actor = db.get(User, actor_id)
+                    assert actor is not None
+                    results["first"] = submit_fact_review(
+                        db=db,
+                        product_id=product_id,
+                        payload=FactReviewSubmissionRequest(
+                            expected_revision=0,
+                            change_summary="并发首个提交",
+                        ),
+                        actor=actor,
+                        request_id="fact-review-concurrency-first",
+                    )
+            except BaseException as error:
+                thread_errors.append(error)
+
+        def second_request() -> None:
+            try:
+                with Session(engine, expire_on_commit=False) as db:
+                    second_pid.append(int(db.scalar(text("SELECT pg_backend_pid()"))))
+                    actor = db.get(User, actor_id)
+                    assert actor is not None
+                    second_pid_ready.set()
+                    second_started.set()
+                    with pytest.raises(AppError) as raised:
+                        submit_fact_review(
+                            db=db,
+                            product_id=product_id,
+                            payload=FactReviewSubmissionRequest(
+                                expected_revision=0,
+                                change_summary="并发后续提交",
+                            ),
+                            actor=actor,
+                            request_id="fact-review-concurrency-second",
+                        )
+                    results["second"] = raised.value
+            except BaseException as error:
+                thread_errors.append(error)
+
+        event.listen(Session, "before_flush", hold_first_product_lock)
+        first_thread = threading.Thread(target=first_request)
+        second_thread = threading.Thread(target=second_request)
+        second_started_thread = False
+        try:
+            first_thread.start()
+            assert first_lock_acquired.wait(10)
+            second_thread.start()
+            second_started_thread = True
+            assert second_pid_ready.wait(10)
+
+            blocked = False
+            deadline = time.monotonic() + 10
+            while time.monotonic() < deadline and not blocked:
+                with engine.connect() as monitor:
+                    state = monitor.execute(
+                        text(
+                            """
+                            SELECT wait_event_type, wait_event, pg_blocking_pids(pid) AS blockers
+                            FROM pg_stat_activity
+                            WHERE pid = :pid
+                            """
+                        ),
+                        {"pid": second_pid[0]},
+                    ).mappings().first()
+                if state is not None and (
+                    state["wait_event_type"] == "Lock" or state["blockers"]
+                ):
+                    blocked = True
+                if not blocked:
+                    second_started.wait(0.05)
+            assert blocked, "第二请求未观察到等待首个 Product 行锁"
+        finally:
+            release_first.set()
+            first_thread.join(10)
+            if second_started_thread:
+                second_thread.join(10)
+            event.remove(Session, "before_flush", hold_first_product_lock)
+            engine.dispose()
+
+        assert not first_thread.is_alive()
+        assert not second_thread.is_alive()
+        assert not thread_errors
+        assert isinstance(results["first"], FactVersion)
+        second_error = results["second"]
+        assert isinstance(second_error, AppError)
+        assert second_error.code == "FACT_REVIEW_PENDING"
+
+        with Session(create_engine(database_url), expire_on_commit=False) as db:
+            pending_versions = list(
+                db.scalars(
+                    select(FactVersion).where(
+                        FactVersion.product_id == product_id,
+                        FactVersion.status == "PENDING_REVIEW",
+                    )
+                )
+            )
+            assert len(pending_versions) == 1
+            assert db.scalar(
+                select(func.count(FactReviewRecord.id)).where(
+                    FactReviewRecord.fact_version_id == pending_versions[0].id,
+                    FactReviewRecord.action == "submit-review",
+                )
+            ) == 1
 
 
 def _complete_publication(

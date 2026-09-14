@@ -160,6 +160,8 @@ Products URL 与 API 查询参数显式映射：`q → search`、`pageSize → p
 
 两个写入口都由服务端在锁内重新校验产品状态、pending snapshot 和 revision。`REVISION_CONFLICT` 不得静默覆盖：客户端保留本地表单与冲突请求 ID，只有用户显式 reload 才采用最新 canonical workspace。
 
+事实提交的 exact `FACT_REVIEW_PENDING` 是独立 pending blocker：只按结构化 code 与合法 request ID 识别，保留 workspace 输入、Dialog 变更摘要、服务端 message/request ID，不进入 revision conflict。blocker 由按 `productId` 隔离的 workspace editor 持有，页面入口与 Dialog confirm 共同禁止第二次 POST；关闭/重开 Dialog 不解除。客户端明确 refetch canonical workspace，失败时保留现场且不把 stale cache 当成功，成功后才采用服务器 read model、清理临时 blocker并按 `available_actions` 收敛。malformed details、其他 unknown code 或缺失/空 request ID 安全退回 summary；结构完整的既有 `INVALID_STATE_TRANSITION` 保留独立 refetch。FactVersion version identity 与其他 unknown 500 均为 generic server failure，不自动 reload/replay、不猜 version，也不冻结默认 500 wire shape。
+
 ### ProductFactHistoryList
 
 `GET /api/v1/products/{product_id}/fact-history` 是 `/products/$productId/facts/versions` 的 Product 专用列表 read model。响应在同一个 PostgreSQL `REPEATABLE READ` 请求内返回 `ProductFactsProductContext`、窄 `ProductFactHistoryItem[]`、`page`、`page_size` 与 `total`；item 只包含六列与 detail link 所需的版本身份、状态、数据级别、变更摘要、提交人和提交时间，不包含 Markdown、动作、删除投影或 revision。

@@ -175,10 +175,13 @@ POST body: FactReviewSubmissionRequest
 
 - GET 一次返回 `product`、`body_markdown`、`classification`、`approved_fact`、`pending_fact`、`available_actions` 和 `revision`；浏览器不得再请求 Product Detail 或事实版本列表自行拼接。
 - `body_markdown` 与 `classification` 是页面本地表单；Product Context、版本摘要和动作仍属于 TanStack Query server state。
-- `SAVE`、`SUBMIT_REVIEW` 的存在只由 `available_actions` 决定；dirty、非空校验和 mutation pending 只控制已返回动作的 enabled 状态。
+- `SAVE`、`SUBMIT_REVIEW` 的存在只由 `available_actions` 决定；dirty、非空校验、mutation pending 与服务端已确认但 canonical refetch 尚未成功的 pending blocker 只控制已返回动作的 enabled 状态，不推导新的业务动作。
 - PUT/POST 都携带当前基线 `expected_revision`。PUT 成功必须以 canonical `ProductFactsDraft` 更新 query cache、表单和 revision；POST 成功后重新读取 workspace actions，且不跳转未实现的审核页面。
 - mutation 前取消同 key 的在途 GET，防止旧响应覆盖 canonical cache。后台 refetch 失败但已有 data 时保留编辑器和 DirtyGuard，并单独展示可重试错误；只有初始请求无 data 时才替换为整页错误态。
 - dirty 表单不接受后台 query reset；`REVISION_CONFLICT` 保留本地值，只有用户显式 reload 才采用服务端值。
+- 事实提交只按结构完整的 `code === "FACT_REVIEW_PENDING"` 与非空 request ID 建立 pending blocker，不从 message 推断，也不复用 revision conflict。blocker 由按 `productId` 隔离的 Workspace editor 持有，页面提交入口、Dialog confirm 与实际 submit handler 共同消费；关闭/重开 Dialog 不解除，POST 不 replay。
+- pending 后发起一次明确 canonical refetch。失败时不能把 stale cached data 当成成功，须保留 workspace 输入、Dialog 摘要、服务端 message/request ID 与 blocker；成功后采用服务器 read model，清理临时 blocker并只按 `available_actions` 重评。malformed details、unknown code、缺失/空 request ID 走安全 summary fallback；结构完整的既有 `INVALID_STATE_TRANSITION` 保留独立 refetch，不获得 pending/revision 语义。
+- FactVersion version identity 的 unknown 500 只显示 generic server failure，不自动 refetch/replay、不猜 version，也不伪装为 pending 或 revision conflict。
 
 ### 4. 校验与错误矩阵
 
@@ -187,7 +190,8 @@ POST body: FactReviewSubmissionRequest
 | `body_markdown` 仅空白 | `422 VALIDATION_ERROR` | 字段 / ErrorSummary 显示，不伪造保存成功 |
 | `change_summary` 仅空白 | 请求边界 `422` | Dialog 字段错误并保持打开 |
 | `expected_revision` 过期 | `409 REVISION_CONFLICT` | 保留草稿、显示 request ID 和显式 reload |
-| 已有 `PENDING_REVIEW` | `409 FACT_REVIEW_PENDING` | 刷新服务端动作，不本地推导状态 |
+| 已有 `PENDING_REVIEW` | `409 FACT_REVIEW_PENDING` | editor-owned blocker 阻止第二次 POST；明确刷新服务端动作，失败保留现场，成功后按 `available_actions` 收敛 |
+| FactVersion identity/其他 unknown 数据库失败 | default 500 | generic failure；不 reload/replay/猜 version |
 | 产品为 `RETIRED` | `409 INVALID_STATE_TRANSITION` | read model 无写动作；绕过 UI 仍失败 |
 | 背景 GET 失败且 cache 有 data | query error + stale data | 保留表单/DirtyGuard，显示“刷新失败”与重试 |
 | 初始 GET 为 403/404 | ErrorEnvelope | 专用整页状态并保留 request ID |
@@ -202,7 +206,7 @@ POST body: FactReviewSubmissionRequest
 
 - Contract：GET/PUT/POST 响应码和 `ProductFactsDraft` required 字段；运行 `make contract-check` 并比较 generated clients。
 - Backend unit/integration：固定查询数、action/guard 对称、stale SAVE/SUBMIT、RETIRED、pending 唯一性，以及保存后既有 snapshot 正文不变。
-- Frontend component：canonical save、dirty background-refetch failure、同 revision 跨产品切换、409 本地保留/显式 reload、403/404 request ID。
+- Frontend component：canonical save、dirty background-refetch failure、同 revision 跨产品切换、409 本地保留/显式 reload、403/404 request ID；Fact pending 的准确 message/request ID、POST once、关闭/重开 no replay、refetch failure/success、productId blocker 隔离与 `available_actions` 收敛；unknown 500/malformed payload generic fallback。
 - Playwright：单 GET、Ctrl/Cmd+S、DirtyGuard、提交后停留、SAVE/POST conflict、loading/empty/error，以及 375/768/1024/1440 无页面级横向溢出。
 
 ### 7. Wrong vs Correct

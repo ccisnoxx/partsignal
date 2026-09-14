@@ -11,6 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event, func, select, text
 from sqlalchemy.engine import Engine
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 import app.routers.product_facts as product_routes
@@ -32,6 +33,7 @@ from app.schemas.product_facts import (
 from app.security import hash_token
 from app.services.product_detail import product_detail_out
 from app.services.product_facts import (
+    _is_fact_review_pending_integrity_error,
     create_product,
     product_facts_draft_out,
     replace_product_facts,
@@ -704,6 +706,527 @@ def test_fact_review_context_locates_target_and_commands_refresh_canonical_state
             "submit-review",
             "approve",
         ]
+
+
+@pytest.mark.parametrize(
+    ("sqlstate", "constraint_name", "expected"),
+    [
+        ("23505", "uq_fact_versions_one_pending_per_product", True),
+        ("23505", "uq_fact_versions_product_id", False),
+        ("23505", "uq_fact_versions_one_pending_per_produc", False),
+        ("23505", "other_constraint", False),
+        ("23503", "uq_fact_versions_one_pending_per_product", False),
+        (None, "uq_fact_versions_one_pending_per_product", False),
+    ],
+)
+def test_fact_review_pending_classifier_uses_only_exact_postgres_diagnostics(
+    sqlstate: str | None, constraint_name: str, expected: bool
+) -> None:
+    """classifier 只接受精确 SQLSTATE 与 constraint，不读取错误文本或近似名称。"""
+    original = SimpleNamespace(
+        sqlstate=sqlstate,
+        diag=SimpleNamespace(constraint_name=constraint_name),
+        message_primary="duplicate key uq_fact_versions_one_pending_per_product",
+    )
+    error = IntegrityError("INSERT ...", {}, original)
+    assert _is_fact_review_pending_integrity_error(error) is expected
+
+
+@pytest.mark.parametrize(
+    "original",
+    [
+        None,
+        SimpleNamespace(sqlstate="23505", diag=None),
+        SimpleNamespace(sqlstate="23505", diag=SimpleNamespace(constraint_name=None)),
+        SimpleNamespace(
+            sqlstate="23514",
+            diag=SimpleNamespace(constraint_name="uq_fact_versions_one_pending_per_product"),
+        ),
+        SimpleNamespace(
+            sqlstate="23503",
+            diag=SimpleNamespace(constraint_name="uq_fact_versions_one_pending_per_product"),
+        ),
+        SimpleNamespace(
+            sqlstate="23502",
+            diag=SimpleNamespace(constraint_name="uq_fact_versions_one_pending_per_product"),
+        ),
+        SimpleNamespace(
+            sqlstate="P0001",
+            diag=SimpleNamespace(constraint_name="uq_fact_versions_one_pending_per_product"),
+        ),
+    ],
+)
+def test_fact_review_pending_classifier_rejects_missing_or_non_unique_diagnostics(
+    original: object,
+) -> None:
+    """缺少 diagnostics、CHECK/FK/NOT NULL 与 trigger-like 错误都保持 unknown。"""
+    error = IntegrityError("duplicate key uq_fact_versions_one_pending_per_product", {}, original)
+    assert _is_fact_review_pending_integrity_error(error) is False
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    ("conflict_kind", "competitor_status", "competitor_version", "known_pending"),
+    [
+        ("version_identity", "CHANGES_REQUESTED", 2, False),
+        ("pending_partial", "PENDING_REVIEW", 3, True),
+    ],
+)
+def test_fact_review_integrity_failures_rollback_and_preserve_product_graph(
+    conflict_kind: str,
+    competitor_status: str,
+    competitor_version: int,
+    known_pending: bool,
+) -> None:
+    """FactVersion 最终约束失败统一回滚，且只映射精确 pending diagnostics。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine, expire_on_commit=False) as db:
+            graph = _seed_graph(db)
+            actor = graph["user"]
+            product = graph["product"]
+            task = graph["task"]
+            content = graph["content"]
+            fact = graph["fact"]
+            assert isinstance(actor, User)
+            assert isinstance(product, Product)
+            assert isinstance(task, ContentTask)
+            assert isinstance(content, ContentVersion)
+            assert isinstance(fact, FactVersion)
+            actor_id = actor.id
+            product_id = product.id
+            fact_id = fact.id
+            task_id = task.id
+            content_id = content.id
+            product.facts_body_markdown = "## 当前事实"
+            product.facts_classification = "PUBLIC"
+            db.commit()
+            product_baseline = (
+                product.facts_body_markdown,
+                product.facts_classification,
+                product.facts_revision,
+            )
+            task_baseline = (task.current_content_version_id, task.revision)
+            content_baseline = (content.status, content.revision, content.body_markdown)
+
+        request_db = Session(engine, expire_on_commit=False)
+        competitor_id = uuid.uuid4()
+        injected = False
+        observed: list[IntegrityError] = []
+
+        def inject_competitor(
+            session: Session, _flush_context: object, _instances: object
+        ) -> None:
+            """仅在目标 command 的首个 FactVersion flush 注入真实数据库竞争行。"""
+            nonlocal injected
+            if injected or session is not request_db:
+                return
+            candidate = next(
+                (
+                    item
+                    for item in session.new
+                    if isinstance(item, FactVersion)
+                    and item.product_id == product_id
+                    and item.change_summary == "FactVersion integrity sentinel"
+                ),
+                None,
+            )
+            if candidate is None:
+                return
+            injected = True
+            session.add(
+                FactVersion(
+                    id=competitor_id,
+                    product_id=product_id,
+                    version=competitor_version,
+                    status=competitor_status,
+                    body_markdown="受控数据库竞争行",
+                    classification="PUBLIC",
+                    change_summary="测试竞争行",
+                    created_by=actor_id,
+                )
+            )
+
+        def capture_integrity_error(exception_context: object) -> None:
+            error = getattr(exception_context, "sqlalchemy_exception", None)
+            if isinstance(error, IntegrityError):
+                constraint_name = getattr(
+                    getattr(error.orig, "diag", None), "constraint_name", None
+                )
+                if constraint_name in {
+                    "uq_fact_versions_product_id",
+                    "uq_fact_versions_one_pending_per_product",
+                }:
+                    observed.append(error)
+
+        event.listen(Session, "before_flush", inject_competitor)
+        event.listen(engine, "handle_error", capture_integrity_error)
+        try:
+            actor = request_db.get(User, actor_id)
+            assert actor is not None
+            if known_pending:
+                with pytest.raises(AppError) as raised:
+                    submit_fact_review(
+                        db=request_db,
+                        product_id=product_id,
+                        payload=FactReviewSubmissionRequest(
+                            expected_revision=0,
+                            change_summary="FactVersion integrity sentinel",
+                        ),
+                        actor=actor,
+                        request_id=f"{conflict_kind}-request",
+                    )
+                assert raised.value.code == "FACT_REVIEW_PENDING"
+                assert raised.value.message == "该产品已有待审核事实版本"
+                assert raised.value.details == {}
+            else:
+                with pytest.raises(IntegrityError) as raised:
+                    submit_fact_review(
+                        db=request_db,
+                        product_id=product_id,
+                        payload=FactReviewSubmissionRequest(
+                            expected_revision=0,
+                            change_summary="FactVersion integrity sentinel",
+                        ),
+                        actor=actor,
+                        request_id=f"{conflict_kind}-request",
+                    )
+                assert observed
+                assert raised.value is observed[-1]
+            assert injected
+            assert observed
+            latest_error = observed[-1]
+            assert latest_error.orig.sqlstate == "23505"
+            assert latest_error.orig.diag.constraint_name == (
+                "uq_fact_versions_one_pending_per_product"
+                if known_pending
+                else "uq_fact_versions_product_id"
+            )
+
+            persisted_product = request_db.get(Product, product_id)
+            persisted_task = request_db.get(ContentTask, task_id)
+            persisted_content = request_db.get(ContentVersion, content_id)
+            assert persisted_product is not None
+            assert persisted_task is not None
+            assert persisted_content is not None
+            assert (
+                persisted_product.facts_body_markdown,
+                persisted_product.facts_classification,
+                persisted_product.facts_revision,
+            ) == product_baseline
+            assert (
+                persisted_task.current_content_version_id,
+                persisted_task.revision,
+            ) == task_baseline
+            assert (
+                persisted_content.status,
+                persisted_content.revision,
+                persisted_content.body_markdown,
+            ) == content_baseline
+            assert request_db.get(FactVersion, competitor_id) is None
+            assert request_db.scalar(
+                select(func.count(FactVersion.id)).where(
+                    FactVersion.product_id == product_id,
+                    FactVersion.id != fact_id,
+                )
+            ) == 0
+            assert request_db.scalar(
+                select(FactReviewRecord.id).where(
+                    FactReviewRecord.fact_version_id == competitor_id
+                )
+            ) is None
+            assert request_db.scalar(
+                select(func.count(AuditLog.id)).where(
+                    AuditLog.target_type == "FactVersion",
+                    AuditLog.outcome == "SUCCESS",
+                )
+            ) == 0
+            with Session(engine, expire_on_commit=False) as verify_db:
+                verify_product = verify_db.get(Product, product_id)
+                verify_task = verify_db.get(ContentTask, task_id)
+                verify_content = verify_db.get(ContentVersion, content_id)
+                assert verify_product is not None
+                assert verify_task is not None
+                assert verify_content is not None
+                assert (
+                    verify_product.facts_body_markdown,
+                    verify_product.facts_classification,
+                    verify_product.facts_revision,
+                ) == product_baseline
+                assert (
+                    verify_task.current_content_version_id,
+                    verify_task.revision,
+                ) == task_baseline
+                assert (
+                    verify_content.status,
+                    verify_content.revision,
+                    verify_content.body_markdown,
+                ) == content_baseline
+                assert verify_db.scalar(
+                    select(func.count(FactVersion.id)).where(
+                        FactVersion.product_id == product_id
+                    )
+                ) == 1
+                assert verify_db.scalar(
+                    select(func.count(FactReviewRecord.id))
+                    .join(FactVersion, FactVersion.id == FactReviewRecord.fact_version_id)
+                    .where(FactVersion.product_id == product_id)
+                ) == 0
+        finally:
+            event.remove(Session, "before_flush", inject_competitor)
+            event.remove(engine, "handle_error", capture_integrity_error)
+            request_db.close()
+            engine.dispose()
+
+
+@pytest.mark.integration
+def test_fact_review_http_pending_equivalence_and_unknown_no_leak() -> None:
+    """预检与最终 pending 约束合同一致，版本身份异常保持安全 500。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        csrf_token = "fact-review-http-csrf-token-more-than-32-characters"
+        with Session(engine, expire_on_commit=False) as db:
+            actor = User(
+                username=f"fact-review-http-{uuid.uuid4().hex[:10]}",
+                display_name="事实审核 HTTP 测试用户",
+                password_hash="not-used",
+                account_type="ENGINEER",
+            )
+            precheck_product = Product(
+                part_number="PS-HTTP-PENDING",
+                normalized_part_number=uuid.uuid4().hex,
+                brand="PartSignal",
+                normalized_brand=f"partsignal-http-pending-{uuid.uuid4().hex[:8]}",
+                category="MCU",
+                facts_body_markdown="## HTTP 待审核事实",
+                facts_classification="PUBLIC",
+            )
+            exact_product = Product(
+                part_number="PS-HTTP-EXACT",
+                normalized_part_number=uuid.uuid4().hex,
+                brand="PartSignal",
+                normalized_brand=f"partsignal-http-exact-{uuid.uuid4().hex[:8]}",
+                category="MCU",
+                facts_body_markdown="## HTTP 最终约束事实",
+                facts_classification="PUBLIC",
+            )
+            unknown_product = Product(
+                part_number="PS-HTTP-UNKNOWN",
+                normalized_part_number=uuid.uuid4().hex,
+                brand="PartSignal",
+                normalized_brand=f"partsignal-http-unknown-{uuid.uuid4().hex[:8]}",
+                category="MCU",
+                facts_body_markdown="## HTTP 身份异常事实",
+                facts_classification="PUBLIC",
+            )
+            db.add_all([actor, precheck_product, exact_product, unknown_product])
+            db.flush()
+            precheck_fact = FactVersion(
+                product_id=precheck_product.id,
+                version=1,
+                status="PENDING_REVIEW",
+                body_markdown="既有待审核事实",
+                classification="PUBLIC",
+                change_summary="HTTP pending precheck",
+                created_by=actor.id,
+            )
+            db.add(precheck_fact)
+            db.add(
+                FactVersion(
+                    product_id=unknown_product.id,
+                    version=1,
+                    status="APPROVED",
+                    body_markdown="既有批准事实",
+                    classification="PUBLIC",
+                    change_summary="HTTP unknown baseline",
+                    created_by=actor.id,
+                )
+            )
+            db.flush()
+            db.add(
+                FactReviewRecord(
+                    fact_version_id=precheck_fact.id,
+                    action="submit-review",
+                    comment="HTTP pending precheck",
+                    actor_id=actor.id,
+                )
+            )
+            db.commit()
+            actor_id = actor.id
+            precheck_product_id = precheck_product.id
+            precheck_fact_id = precheck_fact.id
+            exact_product_id = exact_product.id
+            unknown_product_id = unknown_product.id
+
+        request_db = Session(engine, expire_on_commit=False)
+        exact_competitor_id = uuid.uuid4()
+        unknown_competitor_id = uuid.uuid4()
+        exact_injected = False
+        unknown_injected = False
+        exact_listener_registered = False
+        unknown_listener_registered = False
+        diagnostics: list[IntegrityError] = []
+
+        def inject_exact_pending(
+            session: Session, _flush_context: object, _instances: object
+        ) -> None:
+            nonlocal exact_injected
+            if exact_injected or session is not request_db:
+                return
+            candidate = next(
+                (
+                    item
+                    for item in session.new
+                    if isinstance(item, FactVersion)
+                    and item.product_id == exact_product_id
+                    and item.change_summary == "HTTP exact pending sentinel"
+                ),
+                None,
+            )
+            if candidate is None:
+                return
+            exact_injected = True
+            session.add(
+                FactVersion(
+                    id=exact_competitor_id,
+                    product_id=exact_product_id,
+                    version=2,
+                    status="PENDING_REVIEW",
+                    body_markdown="HTTP 受控 pending 竞争行",
+                    classification="PUBLIC",
+                    change_summary="HTTP exact pending competitor",
+                    created_by=actor_id,
+                )
+            )
+
+        def inject_unknown_version(
+            session: Session, _flush_context: object, _instances: object
+        ) -> None:
+            nonlocal unknown_injected
+            if unknown_injected or session is not request_db:
+                return
+            candidate = next(
+                (
+                    item
+                    for item in session.new
+                    if isinstance(item, FactVersion)
+                    and item.product_id == unknown_product_id
+                    and item.change_summary == "HTTP unknown version sentinel"
+                ),
+                None,
+            )
+            if candidate is None:
+                return
+            unknown_injected = True
+            session.add(
+                FactVersion(
+                    id=unknown_competitor_id,
+                    product_id=unknown_product_id,
+                    version=2,
+                    status="CHANGES_REQUESTED",
+                    body_markdown="HTTP 受控 version 竞争行",
+                    classification="PUBLIC",
+                    change_summary="HTTP unknown version competitor",
+                    created_by=actor_id,
+                )
+            )
+
+        def capture_integrity_error(exception_context: object) -> None:
+            error = getattr(exception_context, "sqlalchemy_exception", None)
+            if isinstance(error, IntegrityError):
+                diagnostics.append(error)
+
+        def database_session() -> Iterator[Session]:
+            yield request_db
+
+        with Session(engine, expire_on_commit=False) as actor_db:
+            actor = actor_db.get(User, actor_id)
+            assert actor is not None
+        current_session = SimpleNamespace(user=actor, csrf_hash=hash_token(csrf_token))
+        app.dependency_overrides[get_db] = database_session
+        app.dependency_overrides[get_current_session] = lambda: current_session
+        client = TestClient(app, raise_server_exceptions=False)
+        event.listen(engine, "handle_error", capture_integrity_error)
+        try:
+            precheck = client.post(
+                f"/api/v1/products/{precheck_product_id}/fact-review-submissions",
+                headers={"X-CSRF-Token": csrf_token, "X-Request-ID": "fact-http-precheck"},
+                json={"expected_revision": 0, "change_summary": "HTTP precheck"},
+            )
+            request_db.rollback()
+            event.listen(Session, "before_flush", inject_exact_pending)
+            exact_listener_registered = True
+            exact = client.post(
+                f"/api/v1/products/{exact_product_id}/fact-review-submissions",
+                headers={"X-CSRF-Token": csrf_token, "X-Request-ID": "fact-http-exact"},
+                json={
+                    "expected_revision": 0,
+                    "change_summary": "HTTP exact pending sentinel",
+                },
+            )
+            event.remove(Session, "before_flush", inject_exact_pending)
+            exact_listener_registered = False
+            request_db.rollback()
+            event.listen(Session, "before_flush", inject_unknown_version)
+            unknown_listener_registered = True
+            unknown = client.post(
+                f"/api/v1/products/{unknown_product_id}/fact-review-submissions",
+                headers={"X-CSRF-Token": csrf_token, "X-Request-ID": "fact-http-unknown"},
+                json={
+                    "expected_revision": 0,
+                    "change_summary": "HTTP unknown version sentinel",
+                },
+            )
+        finally:
+            app.dependency_overrides.clear()
+            if exact_listener_registered:
+                event.remove(Session, "before_flush", inject_exact_pending)
+            if unknown_listener_registered:
+                event.remove(Session, "before_flush", inject_unknown_version)
+            event.remove(engine, "handle_error", capture_integrity_error)
+            request_db.close()
+            engine.dispose()
+
+        assert precheck.status_code == 409
+        assert exact.status_code == 409
+        precheck_error = precheck.json()["error"]
+        exact_error = exact.json()["error"]
+        assert {
+            key: precheck_error[key] for key in ("code", "message", "details")
+        } == {key: exact_error[key] for key in ("code", "message", "details")}
+        assert precheck_error["request_id"] == "fact-http-precheck"
+        assert exact_error["request_id"] == "fact-http-exact"
+        assert precheck.headers["X-Request-ID"] == precheck_error["request_id"]
+        assert exact.headers["X-Request-ID"] == exact_error["request_id"]
+        assert exact_injected
+        assert unknown_injected
+        assert unknown.status_code == 500
+        assert diagnostics[-1].orig.sqlstate == "23505"
+        assert diagnostics[-1].orig.diag.constraint_name == "uq_fact_versions_product_id"
+        for secret in (
+            "fact_versions",
+            "uq_fact_versions_product_id",
+            "uq_fact_versions_one_pending_per_product",
+            "duplicate key",
+            "Traceback",
+            "psycopg",
+        ):
+            assert secret not in unknown.text
+        with Session(engine, expire_on_commit=False) as verify_db:
+            verify_pending = verify_db.get(FactVersion, precheck_fact_id)
+            assert verify_pending is not None
+            assert (
+                verify_pending.body_markdown,
+                verify_pending.status,
+                verify_pending.revision,
+            ) == ("既有待审核事实", "PENDING_REVIEW", 0)
+            assert verify_db.scalar(
+                select(func.count(FactReviewRecord.id)).where(
+                    FactReviewRecord.fact_version_id == precheck_fact_id,
+                )
+            ) == 1
+            assert verify_db.get(FactVersion, exact_competitor_id) is None
+            assert verify_db.get(FactVersion, unknown_competitor_id) is None
 
 
 @pytest.mark.integration

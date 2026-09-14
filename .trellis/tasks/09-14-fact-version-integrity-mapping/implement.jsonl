@@ -1,0 +1,10 @@
+{"file":".trellis/spec/backend/index.md","reason":"进入 backend implementation 前确认分层入口、文档索引与适用质量门禁。"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"实施结构化 diagnostics exact mapping、unknown 500/no-leak 与 command root rollback 时必须遵循的稳定错误边界。"}
+{"file":".trellis/spec/backend/database-guidelines.md","reason":"实施 Product lock、FactVersion unique authority、同一 Session 原子性与副作用边界时必须遵循的数据库规则。"}
+{"file":".trellis/spec/frontend/index.md","reason":"进入 Fact Workspace frontend implementation 前确认前端分层、状态 owner 与验证入口。"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"实施 pending blocker、canonical refetch、available_actions 与 no-replay 时必须遵循的前端状态规则。"}
+{"file":".trellis/tasks/09-05-content-integrity-error-contract-decision/research/contract-decision-matrix.md","reason":"提供已批准的 FactVersion 两条约束分类、公共合同零 diff 与 I5 owner 决策。"}
+{"file":".trellis/tasks/09-14-fact-version-integrity-mapping/research/current-head-backend.md","reason":"提供 current-head INSERT owner、真实 PostgreSQL catalog/diagnostics、Product-lock 和事务测试边界。"}
+{"file":".trellis/tasks/09-14-fact-version-integrity-mapping/research/current-head-frontend-contract.md","reason":"提供 Fact Workspace 恢复缺口、公共合同基线、generated schema 与前端最小 owner。"}
+{"file":".trellis/tasks/09-14-fact-version-integrity-mapping/research/predecessor-patterns.md","reason":"提供 I1-I4 可复用的 action-local classifier、rollback、真实数据库 sentinel 与验证先例。"}
+{"file":".trellis/tasks/09-14-fact-version-integrity-mapping/research/planning-review.md","reason":"记录独立 planning review、修复结论与仍须实施期证明的风险。"}

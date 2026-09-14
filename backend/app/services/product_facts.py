@@ -44,6 +44,17 @@ def normalize_identity(value: str) -> str:
     return "".join(character for character in value.casefold().strip() if character.isalnum())
 
 
+def _is_fact_review_pending_integrity_error(error: IntegrityError) -> bool:
+    """只识别待审核事实版本 partial unique 的结构化 PostgreSQL diagnostics。"""
+    original = getattr(error, "orig", None)
+    diagnostic = getattr(original, "diag", None)
+    return (
+        getattr(original, "sqlstate", None) == "23505"
+        and getattr(diagnostic, "constraint_name", None)
+        == "uq_fact_versions_one_pending_per_product"
+    )
+
+
 def _product_identity_conflict(db: Session, error: IntegrityError) -> None:
     """只把已确认的产品身份唯一约束映射为稳定字段错误。"""
     constraint_name = getattr(getattr(error.orig, "diag", None), "constraint_name", None)
@@ -702,15 +713,22 @@ def submit_fact_review(
         status="PENDING_REVIEW",
         created_by=actor.id,
     )
-    db.add(version)
-    db.flush()
-    db.add(
-        FactReviewRecord(
-            fact_version_id=version.id,
-            action="submit-review",
-            comment=payload.change_summary,
-            actor_id=actor.id,
+    try:
+        db.add(version)
+        db.flush()
+        db.add(
+            FactReviewRecord(
+                fact_version_id=version.id,
+                action="submit-review",
+                comment=payload.change_summary,
+                actor_id=actor.id,
+            )
         )
-    )
-    db.commit()
+        db.commit()
+    except IntegrityError as error:
+        # IntegrityError 会使事务进入 failed 状态；先恢复整个 command 的 root transaction。
+        db.rollback()
+        if _is_fact_review_pending_integrity_error(error):
+            raise AppError("FACT_REVIEW_PENDING", "该产品已有待审核事实版本", 409) from error
+        raise
     return version

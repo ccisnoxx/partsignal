@@ -47,20 +47,79 @@ function toFactReviewSubmission(
 }
 
 function mapFactWorkspaceError(error: unknown) {
-  const mapped = mapProductFormError(error, factWorkspaceFields);
+  const detail = error instanceof ProductRequestError ? error.detail : undefined;
+  const code = typeof detail?.code === 'string' ? detail.code : undefined;
+  const requestId = typeof detail?.request_id === 'string' && detail.request_id.trim().length > 0
+    ? detail.request_id
+    : undefined;
+  const message = typeof detail?.message === 'string'
+    ? detail.message
+    : error instanceof Error
+      ? error.message
+      : '保存事实工作区失败';
+  const details = detail?.details;
+  const hasSafeDetails = Boolean(
+    details
+    && typeof details === 'object'
+    && !Array.isArray(details),
+  );
+  const isServerFailure = error instanceof ProductRequestError
+    && typeof error.status === 'number'
+    && error.status >= 500;
+  const mapped = hasSafeDetails
+    ? mapProductFormError(error, factWorkspaceFields)
+    : { fields: {}, formMessage: message };
   return {
     ...mapped,
     fields: mapped.fields as Partial<Record<FactWorkspaceField, string>>,
-    code: error instanceof ProductRequestError ? error.detail?.code : undefined,
+    formMessage: mapped.formMessage,
+    requestId,
+    code,
+    recovery: !isServerFailure && hasSafeDetails && requestId
+      ? code === 'REVISION_CONFLICT' || code === 'INVALID_STATE_TRANSITION'
+        ? code
+        : undefined
+      : undefined,
   };
 }
 
 function mapFactReviewError(error: unknown) {
-  const mapped = mapProductFormError(error, factReviewFields);
+  const detail = error instanceof ProductRequestError ? error.detail : undefined;
+  const code = typeof detail?.code === 'string' ? detail.code : undefined;
+  const requestId = typeof detail?.request_id === 'string' && detail.request_id.trim().length > 0
+    ? detail.request_id
+    : undefined;
+  const message = typeof detail?.message === 'string'
+    ? detail.message
+    : error instanceof Error
+      ? error.message
+      : '提交事实审核失败';
+  const genericServerMessage = '提交事实审核失败，请稍后重试。';
+  const isServerFailure = error instanceof ProductRequestError
+    && typeof error.status === 'number'
+    && error.status >= 500;
+  const details = detail?.details;
+  const hasSafeDetails = Boolean(
+    details
+    && typeof details === 'object'
+    && !Array.isArray(details),
+  );
+  const mapped = hasSafeDetails
+    ? mapProductFormError(error, factReviewFields)
+    : { fields: {}, formMessage: message };
   return {
     ...mapped,
     fields: mapped.fields as Partial<Record<keyof FactReviewSubmissionValues, string>>,
-    code: error instanceof ProductRequestError ? error.detail?.code : undefined,
+    formMessage: isServerFailure
+      ? genericServerMessage
+      : mapped.formMessage,
+    requestId,
+    code,
+    recovery: !isServerFailure && hasSafeDetails && requestId
+      ? code === 'FACT_REVIEW_PENDING' || code === 'REVISION_CONFLICT' || code === 'INVALID_STATE_TRANSITION'
+        ? code
+        : undefined
+      : undefined,
   };
 }
 
@@ -78,6 +137,7 @@ function resolveFactWorkspaceActions(
     dirty: boolean;
     saving: boolean;
     submitting: boolean;
+    blocked?: boolean;
     onSave: () => void;
     onSubmit: () => void;
   },
@@ -92,6 +152,7 @@ function resolveFactWorkspaceAction(
     dirty: boolean;
     saving: boolean;
     submitting: boolean;
+    blocked?: boolean;
     onSave: () => void;
     onSubmit: () => void;
   },
@@ -114,13 +175,17 @@ function resolveFactWorkspaceAction(
       };
     }
     case 'SUBMIT_REVIEW': {
-      const enabled = !options.dirty && !pending;
+      const enabled = !options.dirty && !pending && !options.blocked;
       return {
         key: action,
         label: options.submitting ? '提交中…' : '提交事实审核',
         intent: 'primary',
         enabled,
-        disabledReason: pending ? '事实请求正在处理' : '请先保存修改',
+        disabledReason: options.blocked
+          ? '该产品已有待审核事实版本'
+          : pending
+            ? '事实请求正在处理'
+            : '请先保存修改',
         onSelect: options.onSubmit,
       };
     }

@@ -230,6 +230,46 @@ except IntegrityError as error:
 
 不得通过修改 schema、削弱锁或 mock 错误 constraint 替代真实数据库证据。
 
+## 场景：FactVersion 提交唯一约束的领域边界
+
+### 1. Scope / Trigger
+
+- `product_facts.submit_fact_review` 的 FactVersion flush 或 commit 命中版本身份/待审核唯一约束时适用；该 command 是唯一生产 INSERT owner，并拥有 root transaction。
+- `replace_product_facts` 只更新 Product workspace，不承担 FactVersion INSERT 或约束映射。
+
+### 2. Signatures
+
+```text
+POST /api/v1/products/{product_id}/fact-review-submissions
+
+version diagnostics: sqlstate=23505 + constraint_name=uq_fact_versions_product_id
+pending diagnostics: sqlstate=23505 + constraint_name=uq_fact_versions_one_pending_per_product
+```
+
+### 3. Contracts
+
+- 所有 `IntegrityError` 先由 command root `rollback()`；只有 pending exact pair 转为既有 409 `FACT_REVIEW_PENDING`、`该产品已有待审核事实版本`、`details={}`，且 body/header request ID 相同。
+- version exact pair 与其他 sqlstate/constraint、diagnostics 缺失均原抛，进入 unknown/default 500。禁止返回 `REVISION_CONFLICT`、查询 winner、自动改号、reload/replay，也不冻结 500 body/code/details/media type。
+- classifier 只读 `orig.sqlstate` 与 `orig.diag.constraint_name`，不 rollback、查询或解析数据库 message/`str(error)`；不得把任意 `23505` 映射为 pending。
+- 正常同 Product 并发继续由 Product `FOR UPDATE` 串行；后到请求应由既有 pending precheck 返回同一 409，不依赖 unique violation。stale revision、inactive、空正文和权限继续由原 precheck owner 按既有优先级处理。
+- 两类失败均不得留下候选 FactVersion/FactReviewRecord，且保持 Product workspace/revision、既有 pending、ContentTask pointer、ContentVersion、SUCCESS AuditLog 与 dispatch 基线；root rollback 后原 request Session 可查询。
+
+### 4. Validation & Error Matrix
+
+| 条件 | command 行为 | API / consumer |
+|---|---|---|
+| pending precheck | 写入前抛既有 AppError | 409 `FACT_REVIEW_PENDING` |
+| pending exact pair | root rollback 后抛同一 AppError | 与 precheck 除 request ID 外完全一致 |
+| version exact pair | root rollback 后原抛 | unknown 500/no-leak；Fact Workspace generic/no replay |
+| 其他 constraint/sqlstate 或 diagnostics 缺失 | root rollback 后原抛 | unknown 500 |
+| stale revision/其他 precheck/权限失败 | 写入前走既有 owner | 保持原 status/code/details |
+
+### 5. Tests Required
+
+- fresh current-head PostgreSQL catalog 与两个真实 `23505/diag.constraint_name`，以及 exact/negative classifier matrix。
+- Product-lock 双 Session 正常并发、precheck/constraint 409 等价、version HTTP 500 no-leak、完整 rollback、Session reuse、成功与 stale/precheck 对照；不得削弱生产锁或以 mock 代替数据库证据。
+- Fact Workspace pending message/request ID、本地输入、editor-owned blocker、refetch failure/success、服务器 `available_actions` 与 POST once；unknown 500 和 malformed payload 安全 generic fallback，不按 message 分类。
+
 ## Scenario：未知 IntegrityError 的默认 server-error boundary
 
 ### 1. Scope / Trigger

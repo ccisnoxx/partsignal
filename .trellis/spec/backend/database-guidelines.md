@@ -525,6 +525,10 @@ result = cleanup_platform_logo_files(storage=storage)
 ### 3. 契约
 
 - 保存事实时去除空白后的 Markdown 必须非空，原文和分级原样保存；创建事实版本只冻结当前工作区两个字段。已批准或已被内容引用的版本不得原地修改。
+- `submit_fact_review` 是唯一生产 FactVersion INSERT owner：先锁 Product，再校验 active、workspace revision、非空 Markdown 与既有 pending，最后分配 `max(version)+1` 并在同一 root transaction 写入 FactVersion/FactReviewRecord。`replace_product_facts` 只更新 workspace，不承担版本约束错误。
+- `(product_id, version)` 的 `uq_fact_versions_product_id` 即使精确命中 `23505` 也表示 lock/version allocator 不变量被绕过或数据异常；command root rollback 后原抛 unknown，禁止查询 winner、自动改号、replay 或映射 `REVISION_CONFLICT`。
+- 只有 `23505 + uq_fact_versions_one_pending_per_product` 可在 root rollback 后复用既有 `FACT_REVIEW_PENDING`；pending precheck 与最终约束除 request ID 外必须同合同。正常同 Product 并发仍由 Product row lock 串行，后到请求走 precheck，不以 unique violation 作为正常控制流。
+- 两类失败都不得留下候选 FactVersion/FactReviewRecord，并保持 Product workspace/`facts_revision`、既有 pending、ContentTask pointer、ContentVersion、SUCCESS AuditLog 与 dispatch 基线；rollback 后同一 request Session 可继续查询。分类只能读取结构化 diagnostics，禁止 message/`str(error)`、宽泛 `23505` 或全局 registry。
 - `PlatformProfileVersion` 表、API、前端路由及任务中的受众、内容角度、转化目标、格式、长度、用户 Prompt、平台类型快照和 canonical URL 已物理删除；不得建立兼容字段或第二来源。
 - 创建任务只校验产品、该产品的 `APPROVED` 非空事实版本和启用平台。平台通过可空外键绑定零或一份可复用 Prompt；缺少绑定不阻止任务或人工首稿，只阻止系统 AI 作业。
 - 创建表单使用 `GET /content-tasks/creation-options` 的固定次数薄投影，不逐产品查询事实版本，也不在浏览器推导资格。该投影只负责显示；POST 仍按平台、产品、事实版本顺序锁行并重新校验全部资格。
@@ -547,6 +551,8 @@ result = cleanup_platform_logo_files(storage=storage)
 | 条件 | 结果 |
 |---|---|
 | 事实 Markdown 为空白 | 请求校验失败，不递增 `facts_revision` |
+| 已有 pending 或 pending partial unique exact conflict | `409 FACT_REVIEW_PENDING`；完整 rollback，不重复提交 |
+| FactVersion `(product_id, version)` exact unique conflict | 原始 `IntegrityError`，unknown/default 500；不改号、不 replay |
 | 事实版本不属于产品 | `422 VALIDATION_ERROR`，不创建任务 |
 | 产品停用、事实非 `APPROVED` 或正文为空 | `409 FACT_NOT_APPROVED`，不创建任务/首稿 |
 | 平台不存在或已停用 | `404` 或 `409 PLATFORM_DISABLED` |

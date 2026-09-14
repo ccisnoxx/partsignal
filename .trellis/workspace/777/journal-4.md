@@ -1381,3 +1381,37 @@ Optional 完整 backend/frontend suite、frontend typecheck/build 未运行。�
 ### Next Steps
 
 - 父任务 09-04-integrity-error-domain-mapping 保持 planning，后续是否收尾由独立授权决定。
+
+
+## Session 221: Publication Repair source 完整性错误精确映射
+
+**Date**: 2026-09-14
+**Task**: Publication Repair source 完整性错误精确映射
+**Branch**: `main`
+
+### Summary
+
+完成 Repair source 唯一约束的精确领域映射、真实 PostgreSQL 并发与事务回归，并已保持子任务 completed/archived；本条补记遗漏的 session journal。Optional full backend suite 曾因既有同名测试模块 import mismatch 在 collection 中止，不影响已通过的 required gate。
+
+### Main Changes
+
+- 仅匹配 23505 + uq_content_tasks_source_published_content_issue_id，映射为 REPAIR_TASK_EXISTS；known 路径先 rollback，unknown 保持默认 500。
+- 验证 final-head SET NULL、单赢家、HTTP ErrorEnvelope、无副作用和 Session reuse；同步数据库合同与三份 backend 稳定规范。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `62bb236022ebe3883d274bff8cc20140e5bcd8d1` | (see git log) |
+
+### Testing
+
+- [OK] 两个受影响 integration 文件、目标 8 cases、contract/runtime、Ruff、完整 backend/app mypy 与 allowlist diff check 均通过。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- T5-C 与顶层父任务继续保持 planning；下一项为 T5-I2 publication-work-integrity-mapping。

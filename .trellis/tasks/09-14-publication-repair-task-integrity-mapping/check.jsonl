@@ -1,0 +1,5 @@
+{"file":".trellis/spec/backend/database-guidelines.md","reason":"复核database final authority、FK与并发测试"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"复核exact diagnostics、unknown rethrow和cleanup"}
+{"file":".trellis/spec/backend/publication-workbench-guidelines.md","reason":"复核Repair、Article来源Task、event与deletion invariant"}
+{"file":".trellis/tasks/09-14-publication-geo-integrity-error-contract-decision/research/decision-synthesis.md","reason":"检查实现与已批准code/constraint矩阵一致"}
+{"file":".trellis/tasks/09-14-publication-geo-integrity-error-contract-decision/research/independent-review.md","reason":"防止重新引入已关闭的state owner和source-kind误判"}

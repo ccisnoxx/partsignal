@@ -67,6 +67,7 @@ PublishedContentIssue: OPEN -> RESOLVED
 
 - 每个资源由服务端返回 typed `available_actions` 和可空 `primary_action`；前端只展示该投影，不按状态、URL、角色或关联对象推断资格。
 - 工作命令锁定目标行并校验 `expected_revision`。创建工作按请求键获取事务 advisory lock；同平台内容身份按 `platform_profile_id + content_hash` 串行校验。
+- 创建修复任务锁定 Issue 后检查既有来源；数据库唯一约束负责最终竞争。只有真实 `23505 + uq_content_tasks_source_published_content_issue_id` 可在 rollback 后收敛为既有 `409 REPAIR_TASK_EXISTS`，其余完整性异常保持 unknown 500；不得解析错误文本或借用 `REVISION_CONFLICT`。
 - 一个已批准内容版本最多有一个发布工作；同一具体平台的同一内容哈希最多有一个未关闭工作。关闭只表达该次工作终止，不绕过内容身份形成重复公开。
 - 发布账号必须启用且属于任务锁定平台。账号停用只影响新选择，既有历史身份保持可读；账号凭据、Cookie 和令牌不得保存。
 - 发布工作不保存栏目地址或替代地址；不具备栏目概念的平台无需填写占位 URL。
@@ -80,10 +81,11 @@ PublishedContentIssue: OPEN -> RESOLVED
 - GEO 文章身份唯一来自 `PublishedArticle`；`geo_observation_publications.published_article_id` 和 `geo_observation_citations.published_article_id` 不复制标题或 URL。
 - 新 GEO 候选排除存在 `OPEN` 问题或曾以 `RETIRED` 解决问题的文章。打开问题和创建观测必须锁定同一文章，候选集合变化返回 `409 GEO_PUBLICATIONS_CHANGED`。
 - 修复任务继承原文章的产品与具体平台，用户必须选择同产品当前有效的 `APPROVED FactVersion`；`content_tasks.source_published_content_issue_id` 只写一次且唯一。
+- `source_published_content_issue_id` 的 current-head 外键是 nullable `ON DELETE SET NULL`。成果聚合删除只解绑并保留 Repair Task，不修改其 status、revision 或归档状态；恢复 `OPEN` 或转为 `CANCELLED` 且 revision 递增的始终是原 Article 来源 ContentTask。
 
 ### 6. 必需验证
 
-- PostgreSQL 集成测试覆盖连续失败、失败后复核成功、显式关闭、成功核验原子完成、附件、revision、账号/平台门禁、直接非法写入、终态快照和已归档任务聚合删除。
+- PostgreSQL 集成测试覆盖连续失败、失败后复核成功、显式关闭、成功核验原子完成、附件、revision、账号/平台门禁、直接非法写入、终态快照和已归档任务聚合删除；修复来源另覆盖 current-head catalog、真实 `23505` diagnostics、无 sleep 的双 Session 锁等待、单赢家、已知 rollback 后 Session reuse 及 unknown 500 不泄漏。
 - GEO 集成测试覆盖合格文章全集、问题打开后的候选变化、并发集合校验、问题修复来源和显式解决。
 - 契约检查保证 FastAPI、`contracts/openapi.yaml` 和生成 TypeScript 类型一致，旧资源与通用命令不存在。
 - 前端组件测试覆盖 URL 恢复、服务端动作投影、失败后继续待处理、关闭确认、只读成果和问题独立处理。

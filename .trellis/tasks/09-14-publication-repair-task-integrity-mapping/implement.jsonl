@@ -1,0 +1,6 @@
+{"file":".trellis/spec/backend/database-guidelines.md","reason":"完整性约束、真实PostgreSQL diagnostics、FK与迁移边界"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"exact mapper、unknown 500、rollback与Session reuse合同"}
+{"file":".trellis/spec/backend/publication-workbench-guidelines.md","reason":"Repair source、事件时间、删除事务与不可变历史"}
+{"file":".trellis/tasks/09-14-publication-geo-integrity-error-contract-decision/research/decision-synthesis.md","reason":"已批准的Publication/GEO最终决策矩阵"}
+{"file":".trellis/tasks/09-14-publication-geo-integrity-error-contract-decision/research/publication-integrity-audit.md","reason":"Publication约束、事务owner和测试缺口证据"}
+{"file":".trellis/tasks/09-14-publication-geo-integrity-error-contract-decision/research/independent-review.md","reason":"规划review已纠正的state owner和验证边界"}

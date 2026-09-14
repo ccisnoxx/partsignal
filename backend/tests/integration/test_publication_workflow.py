@@ -9,6 +9,7 @@ import threading
 import time
 import uuid
 from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -563,6 +564,70 @@ def _complete_publication(
     completed = db.get(PublicationWork, work.id)
     assert completed is not None
     return completed
+
+
+def _open_repair_issue(
+    db: Session,
+    graph: dict[str, object],
+    *,
+    suffix: str,
+) -> PublishedContentIssue:
+    """创建带真实已发布成果的开放内容问题，供修复任务边界测试复用。"""
+    actor = graph["user"]
+    assert isinstance(actor, User)
+    work = _complete_publication(db, graph, suffix=suffix)
+    issue = open_published_content_issue(
+        db=db,
+        article_id=work.id,
+        payload=PublishedContentIssueCreate(
+            kind="CONTENT_CHANGED",
+            description=f"修复任务完整性测试问题 {suffix}",
+        ),
+        actor=actor,
+        request_id=f"{suffix}-issue",
+    )
+    return issue
+
+
+def _wait_for_pg_lock(engine: object, pid: int) -> None:
+    """在有界时间内确认指定 PostgreSQL 会话正在等待锁。"""
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        with engine.connect() as monitor:  # type: ignore[attr-defined]
+            state = monitor.execute(
+                text(
+                    "SELECT wait_event_type, pg_blocking_pids(pid) AS blockers "
+                    "FROM pg_stat_activity WHERE pid = :pid"
+                ),
+                {"pid": pid},
+            ).mappings().first()
+        if state is not None and (state["wait_event_type"] == "Lock" or state["blockers"]):
+            return
+        threading.Event().wait(0.05)
+    raise AssertionError("未观察到目标 PostgreSQL 会话等待锁")
+
+
+def _bypass_next_repair_precheck(
+    monkeypatch: pytest.MonkeyPatch,
+    db: Session,
+) -> None:
+    """仅隐藏下一次修复来源查询，让真实数据库约束接管测试判定。"""
+    real_scalar = db.scalar
+    pending = True
+
+    def bypass(statement: object, *args: object, **kwargs: object) -> object:
+        nonlocal pending
+        rendered = str(statement)
+        if (
+            pending
+            and "SELECT content_tasks.id" in rendered
+            and "source_published_content_issue_id" in rendered
+        ):
+            pending = False
+            return None
+        return real_scalar(statement, *args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(db, "scalar", bypass)
 
 
 def _publication_verification_snapshot(
@@ -2477,6 +2542,11 @@ def test_published_article_permanent_delete_restores_source_task_and_owned_histo
                 actor=actor,
                 request_id="article-delete-repair",
             )
+            repair_state = (
+                repair_task.status,
+                repair_task.revision,
+                repair_task.archived_at,
+            )
             task = db.get(ContentTask, task.id)
             assert task is not None
             archived = archive_content_task(
@@ -2484,6 +2554,7 @@ def test_published_article_permanent_delete_restores_source_task_and_owned_histo
                 task_id=task.id,
                 expected_revision=task.revision,
             )
+            archived_revision = archived.revision
 
             non_admin = list_published_articles(
                 db,
@@ -2580,9 +2651,15 @@ def test_published_article_permanent_delete_restores_source_task_and_owned_histo
             retained_repair = db.get(ContentTask, repair_task.id)
             assert retained_repair is not None
             assert retained_repair.source_published_content_issue_id is None
+            assert (
+                retained_repair.status,
+                retained_repair.revision,
+                retained_repair.archived_at,
+            ) == repair_state
             retained_task = db.get(ContentTask, archived.id)
             assert retained_task is not None
             assert retained_task.status == "OPEN"
+            assert retained_task.revision == archived_revision + 1
             assert retained_task.archived_at == archived.archived_at
             assert retained_task.current_content_version_id == content.id
             assert db.get(ContentVersion, content.id) is not None
@@ -3445,3 +3522,378 @@ def test_product_delete_checks_revision_then_revalidates_references() -> None:
                 request_id="product-delete-clean",
             )
             assert db.get(Product, clean_id) is None
+
+
+@pytest.mark.integration
+def test_repair_task_competing_issue_commands_wait_for_issue_lock_and_precheck_winner() -> None:
+    """同一问题的合规并发命令由 Issue 行锁串行，后者只能看到已提交 winner。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine, expire_on_commit=False) as db:
+            graph = _seed_graph(db, content_hash="8" * 64)
+            actor = graph["user"]
+            fact = graph["fact"]
+            assert isinstance(actor, User)
+            assert isinstance(fact, FactVersion)
+            issue = _open_repair_issue(db, graph, suffix="repair-lock")
+            issue_id = issue.id
+            issue_revision = issue.revision
+            actor_id = actor.id
+            fact_id = fact.id
+
+        first_lock_acquired, release_first = threading.Event(), threading.Event()
+        second_pid_ready = threading.Event()
+        first_connection: list[object] = []
+        second_pid: list[int] = []
+
+        def hold_first_issue_lock(
+            connection: object,
+            _cursor: object,
+            statement: object,
+            _parameters: object,
+            _context: object,
+            _executemany: bool,
+        ) -> None:
+            """在首个 SELECT FOR UPDATE 返回后暂停，确保第二连接真实等待。"""
+            if (
+                first_connection
+                and connection is first_connection[0]
+                and "for update" in str(statement).lower()
+                and "published_content_issues" in str(statement).lower()
+            ):
+                first_lock_acquired.set()
+                if not release_first.wait(10):
+                    raise TimeoutError("等待并发测试释放首个 Issue 锁超时")
+
+        def request(*, first: bool) -> object:
+            with Session(engine, expire_on_commit=False) as db:
+                if first:
+                    db.scalar(text("SELECT pg_backend_pid()"))
+                    first_connection.append(db.connection())
+                else:
+                    second_pid.append(int(db.scalar(text("SELECT pg_backend_pid()"))))
+                    second_pid_ready.set()
+                actor = db.get(User, actor_id)
+                assert actor is not None
+                try:
+                    return create_repair_task(
+                        db=db,
+                        issue_id=issue_id,
+                        payload=PublishedContentRepairTaskCreate(
+                            fact_version_id=fact_id,
+                            expected_issue_revision=issue_revision,
+                        ),
+                        actor=actor,
+                        request_id=f"repair-lock-{'first' if first else 'second'}",
+                    )
+                except AppError as error:
+                    return error
+
+        event.listen(engine, "after_cursor_execute", hold_first_issue_lock)
+        try:
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                first_future = executor.submit(request, first=True)
+                second_future = None
+                try:
+                    assert first_lock_acquired.wait(10)
+                    second_future = executor.submit(request, first=False)
+                    assert second_pid_ready.wait(10)
+                    _wait_for_pg_lock(engine, second_pid[0])
+                finally:
+                    release_first.set()
+                first_result = first_future.result(timeout=10)
+                assert second_future is not None
+                second_result = second_future.result(timeout=10)
+        finally:
+            event.remove(engine, "after_cursor_execute", hold_first_issue_lock)
+            engine.dispose()
+
+        assert isinstance(first_result, ContentTask)
+        assert isinstance(second_result, AppError)
+        assert second_result.code == "REPAIR_TASK_EXISTS"
+        with Session(create_engine(database_url), expire_on_commit=False) as db:
+            assert (
+                db.scalar(
+                    select(func.count(ContentTask.id)).where(
+                        ContentTask.source_published_content_issue_id == issue_id
+                    )
+                )
+                == 1
+            )
+
+
+@pytest.mark.integration
+def test_repair_task_unique_diagnostics_map_and_rollback_preserves_session_reuse(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """测试专用旁路让 service flush 命中真实 unique，并验证精确映射与复用。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine, expire_on_commit=False) as db:
+            graph = _seed_graph(db, content_hash="9" * 64)
+            actor = graph["user"]
+            fact = graph["fact"]
+            assert isinstance(actor, User)
+            assert isinstance(fact, FactVersion)
+            issue = _open_repair_issue(db, graph, suffix="repair-bypass")
+            issue_id = issue.id
+            issue_revision = issue.revision
+            actor_id, fact_id = actor.id, fact.id
+            winner_id = create_repair_task(
+                db=db,
+                issue_id=issue_id,
+                payload=PublishedContentRepairTaskCreate(
+                    fact_version_id=fact.id,
+                    expected_issue_revision=issue_revision,
+                ),
+                actor=actor,
+                request_id="repair-bypass-winner",
+            ).id
+
+        with Session(engine, expire_on_commit=False) as db:
+            actor = db.get(User, actor_id)
+            assert actor is not None
+            diagnostics: dict[str, object] = {}
+            real_classifier = publication_service._is_repair_task_source_integrity_error
+
+            def capture_diagnostics(error: IntegrityError) -> bool:
+                diagnostics.update(
+                    sqlstate=error.orig.sqlstate,
+                    constraint_name=error.orig.diag.constraint_name,
+                )
+                return real_classifier(error)
+
+            _bypass_next_repair_precheck(monkeypatch, db)
+            monkeypatch.setattr(
+                publication_service,
+                "_is_repair_task_source_integrity_error",
+                capture_diagnostics,
+            )
+            with pytest.raises(AppError) as raised:
+                create_repair_task(
+                    db=db,
+                    issue_id=issue_id,
+                    payload=PublishedContentRepairTaskCreate(
+                        fact_version_id=fact_id,
+                        expected_issue_revision=issue_revision,
+                    ),
+                    actor=actor,
+                    request_id="repair-bypass-replay",
+                )
+
+            assert diagnostics == {
+                "sqlstate": "23505",
+                "constraint_name": "uq_content_tasks_source_published_content_issue_id",
+            }
+            assert raised.value.code == "REPAIR_TASK_EXISTS"
+            assert raised.value.message == "该问题已经创建修复任务"
+            assert raised.value.details == {}
+            issue_after = db.get(PublishedContentIssue, issue_id)
+            assert issue_after is not None and (issue_after.status, issue_after.revision) == (
+                "OPEN",
+                issue_revision,
+            )
+            assert db.scalar(
+                select(ContentTask.id).where(ContentTask.id == winner_id)
+            ) == winner_id
+        engine.dispose()
+
+
+@pytest.mark.parametrize(
+    ("sqlstate", "constraint_name"),
+    [
+        ("23505", "uq_content_tasks_idempotency_key"),
+        ("23503", "uq_content_tasks_source_published_content_issue_id"),
+        ("55000", "uq_content_tasks_source_published_content_issue_id"),
+        ("23505", None),
+    ],
+)
+def test_repair_task_integrity_classifier_fails_closed(
+    sqlstate: str,
+    constraint_name: str | None,
+) -> None:
+    """合成负例只验证 fail-closed 分类，不替代真实 PostgreSQL 正例。"""
+    original = SimpleNamespace(
+        sqlstate=sqlstate,
+        diag=SimpleNamespace(constraint_name=constraint_name) if constraint_name else None,
+        constraint_name="uq_content_tasks_source_published_content_issue_id",
+    )
+    error = IntegrityError("INSERT", {}, original)
+    assert not publication_service._is_repair_task_source_integrity_error(error)
+
+
+@pytest.mark.integration
+def test_repair_task_http_envelope_and_unknown_foreign_key_do_not_leak_database_details(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """HTTP known 409 对账 request ID；未知 FK 仍为不泄漏的 default 500。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine, expire_on_commit=False) as db:
+            graph = _seed_graph(db, content_hash="a" * 64)
+            actor = graph["user"]
+            fact = graph["fact"]
+            assert isinstance(actor, User)
+            assert isinstance(fact, FactVersion)
+            issue = _open_repair_issue(db, graph, suffix="repair-http")
+            create_repair_task(
+                db=db,
+                issue_id=issue.id,
+                payload=PublishedContentRepairTaskCreate(
+                    fact_version_id=fact.id,
+                    expected_issue_revision=issue.revision,
+                ),
+                actor=actor,
+                request_id="repair-http-winner",
+            )
+            csrf_token = "repair-http-csrf-token-with-more-than-32-characters"
+            current_session = SimpleNamespace(
+                user=actor,
+                csrf_hash=hash_token(csrf_token),
+            )
+
+            second_graph = _seed_graph(db, content_hash="b" * 64)
+            second_actor = second_graph["user"]
+            second_fact = second_graph["fact"]
+            assert isinstance(second_actor, User)
+            assert isinstance(second_fact, FactVersion)
+            second_issue = _open_repair_issue(db, second_graph, suffix="repair-http-unknown")
+            second_issue_id, second_revision, second_fact_id = (
+                second_issue.id,
+                second_issue.revision,
+                second_fact.id,
+            )
+            invalid_session = SimpleNamespace(
+                user=SimpleNamespace(id=uuid.uuid4(), account_type="ENGINEER"),
+                csrf_hash=hash_token(csrf_token),
+            )
+
+        bypass_http_precheck = True
+        known_diagnostics: dict[str, object] = {}
+        unknown_diagnostics: dict[str, object] = {}
+        real_classifier = publication_service._is_repair_task_source_integrity_error
+
+        def capture_known_diagnostics(error: IntegrityError) -> bool:
+            classified = real_classifier(error)
+            if classified:
+                known_diagnostics.update(
+                    sqlstate=error.orig.sqlstate,
+                    constraint_name=error.orig.diag.constraint_name,
+                )
+            return classified
+
+        monkeypatch.setattr(
+            publication_service,
+            "_is_repair_task_source_integrity_error",
+            capture_known_diagnostics,
+        )
+
+        def database_session() -> Iterator[Session]:
+            with Session(engine, expire_on_commit=False) as request_db:
+                if bypass_http_precheck:
+                    _bypass_next_repair_precheck(monkeypatch, request_db)
+                try:
+                    yield request_db
+                except Exception as error:
+                    request_db.rollback()
+                    if isinstance(error, IntegrityError):
+                        issue_after = request_db.get(PublishedContentIssue, second_issue_id)
+                        unknown_diagnostics.update(
+                            type=type(error).__name__,
+                            sqlstate=error.orig.sqlstate,
+                            constraint_name=error.orig.diag.constraint_name,
+                            reused_revision=(
+                                issue_after.revision if issue_after is not None else None
+                            ),
+                        )
+                    raise
+
+        app.dependency_overrides[get_db] = database_session
+        app.dependency_overrides[get_current_session] = lambda: current_session
+        try:
+            response = TestClient(app).post(
+                f"/api/v1/published-content-issues/{issue.id}/repair-task",
+                headers={
+                    "X-CSRF-Token": csrf_token,
+                    "X-Request-ID": "repair-http-known",
+                },
+                json={
+                    "fact_version_id": str(fact.id),
+                    "expected_issue_revision": issue.revision,
+                },
+            )
+            bypass_http_precheck = False
+            precheck_response = TestClient(app).post(
+                f"/api/v1/published-content-issues/{issue.id}/repair-task",
+                headers={
+                    "X-CSRF-Token": csrf_token,
+                    "X-Request-ID": "repair-http-precheck",
+                },
+                json={
+                    "fact_version_id": str(fact.id),
+                    "expected_issue_revision": issue.revision,
+                },
+            )
+        finally:
+            app.dependency_overrides.clear()
+
+        assert response.status_code == 409, response.text
+        assert known_diagnostics == {
+            "sqlstate": "23505",
+            "constraint_name": "uq_content_tasks_source_published_content_issue_id",
+        }
+        assert response.headers["X-Request-ID"] == "repair-http-known"
+        exact_error = response.json()["error"]
+        assert exact_error == {
+            "code": "REPAIR_TASK_EXISTS",
+            "message": "该问题已经创建修复任务",
+            "details": {},
+            "request_id": "repair-http-known",
+        }
+        assert precheck_response.status_code == 409
+        precheck_error = precheck_response.json()["error"]
+        assert {key: exact_error[key] for key in ("code", "message", "details")} == {
+            key: precheck_error[key] for key in ("code", "message", "details")
+        }
+        assert precheck_error["request_id"] == "repair-http-precheck"
+
+        app.dependency_overrides[get_db] = database_session
+        app.dependency_overrides[get_current_session] = lambda: invalid_session
+        try:
+            leaked = TestClient(app, raise_server_exceptions=False).post(
+                f"/api/v1/published-content-issues/{second_issue_id}/repair-task",
+                headers={
+                    "X-CSRF-Token": csrf_token,
+                    "X-Request-ID": "repair-http-unknown",
+                },
+                json={
+                    "fact_version_id": str(second_fact_id),
+                    "expected_issue_revision": second_revision,
+                },
+            )
+        finally:
+            app.dependency_overrides.clear()
+
+        assert leaked.status_code == 500
+        assert leaked.text == "Internal Server Error"
+        assert unknown_diagnostics == {
+            "type": "IntegrityError",
+            "sqlstate": "23503",
+            "constraint_name": "fk_content_tasks_created_by_users",
+            "reused_revision": second_revision,
+        }
+        for secret in (
+            "INSERT INTO",
+            "content_tasks",
+            "fk_content_tasks_created_by",
+            "ForeignKeyViolation",
+            "Traceback",
+        ):
+            assert secret not in leaked.text
+        with Session(engine, expire_on_commit=False) as db:
+            assert db.scalar(
+                select(ContentTask.id).where(
+                    ContentTask.source_published_content_issue_id == second_issue_id
+                )
+            ) is None
+        engine.dispose()

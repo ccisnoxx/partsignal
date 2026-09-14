@@ -440,8 +440,12 @@ result = cleanup_platform_logo_files(storage=storage)
 - 平台、账号、内容版本和内容哈希绑定由应用服务给出结构化错误，并由 PostgreSQL 约束或触发器最终保护。测试必须同时覆盖 API 与直接数据库写入。
 - `PublishedContentIssue` 只能从 revision 0 的 `OPEN` 开始，文章绑定与打开事实不可变；唯一状态变化是带处理结果、非空说明和单次 revision 递增的 `OPEN -> RESOLVED`。
 - 修复任务来源 `source_published_content_issue_id` 一旦写入不可改绑且唯一。创建修复任务与解决问题是独立命令，任何一方不得从另一方状态推断完成。
+- 创建修复任务必须先锁定 Issue 并执行快速预检查；`uq_content_tasks_source_published_content_issue_id` 仍是并发最终权威。仅 `sqlstate=23505` 且 `diag.constraint_name` 精确匹配该约束时，rollback 后映射既有 `409 REPAIR_TASK_EXISTS`。任何其他约束、SQLSTATE、缺失 diagnostics 或 trigger/跨表 guard 错误都原样上抛，不解析错误文本、不映射 `REVISION_CONFLICT`。
+- current-head 的 `source_published_content_issue_id` 外键为 nullable `ON DELETE SET NULL`，以 `0037_simplify_deletion_lifecycle` 为权威；早期 revision 的 `RESTRICT` 不是运行目标。成果删除只解绑被保留的 Repair Task，Repair Task 的 status、revision 与 `archived_at` 不变；恢复或取消并递增 revision 的是原 Article 来源 ContentTask。
 - `0034` 只允许在旧发布与 GEO 依赖表全部为空时替换结构；发现数据必须汇总阻断表并以 PostgreSQL `55000` 失败。迁移和 downgrade 不猜测新旧业务语义。
 - `0036` 删除没有稳定业务含义的 `publication_works.section_url`。开始发布只绑定内容版本和账号，准备更新只变更账号；真实公开位置仍由结果登记的 `final_url` 持有并校验允许域名。被删值不迁移到替代列，downgrade 以 `55000` 拒绝并要求恢复升级前备份。
+
+必需 PostgreSQL 证据包括 current-head catalog 中上述唯一约束和 FK delete action、两个独立 Session 的真实锁等待/单赢家竞争、测试专用旁路触发的真实 `23505/diag.constraint_name`，以及已知冲突 rollback 后 Session 可复用。HTTP 测试必须冻结 `REPAIR_TASK_EXISTS` 的 `ErrorEnvelope` 与 body/header request ID；unknown 500 只断言不泄漏 SQL、表名、约束、数据库 message 或堆栈，不把默认 500 固化成公共合同。成功与失败路径都要回归事件时间、追加式历史、删除事务、revision/state、AuditLog 和 GEO link 原子性。
 
 ## 场景：具体平台列表、Workspace Detail 与 revision 命令
 

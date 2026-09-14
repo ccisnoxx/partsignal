@@ -115,6 +115,51 @@ except IntegrityError as error:
     raise AppError("PRODUCT_ALREADY_EXISTS", message, 409, details) from error
 ```
 
+## Scenario：Publication Repair source 唯一约束映射
+
+### 1. Scope / Trigger
+
+- `publication.create_repair_task` 写入 `ContentTask.source_published_content_issue_id` 时适用；这是 service owner 的局部映射，不建立全局 constraint registry，也不改变 OpenAPI、runtime response metadata、generated client 或前端错误码集合。
+- Issue 行锁与预检查提供普通重复请求的快速失败；PostgreSQL 唯一约束仍是最终并发权威。
+
+### 2. Contracts
+
+- 只有 `error.orig.sqlstate == "23505"` 且 `error.orig.diag.constraint_name == "uq_content_tasks_source_published_content_issue_id"` 才映射既有 `409 REPAIR_TASK_EXISTS`、消息 `该问题已经创建修复任务`、`details={}`。
+- 命中精确组合后 service 必须先 root `rollback()`，再抛 `AppError`；precheck 与最终约束必须产生同义错误。真实并发中只能提交一个 Repair Task，等待方取得 Issue 锁后通过 precheck 失败；测试专用旁路必须证明最终唯一约束同样收敛。
+- 其他唯一约束、FK、CHECK、NOT NULL、trigger/跨表 guard、非 `23505`、缺失或替代位置 diagnostics 均原样上抛，由请求 Session owner rollback/close 后进入默认 unknown 500。禁止解析 `str(error)`、`message_primary` 或数据库英文文本，也不得映射为 `REVISION_CONFLICT`。
+- 已知和未知失败都不得新增任务、修改 Issue/Article、追加事件或 AuditLog、改变 revision/state、event time、GEO link 或追加式历史；已知 rollback 后原 Session 必须可查询，unknown 测试由直接 caller 显式 rollback 后证明 Session reuse。
+
+### 3. Validation & Error Matrix
+
+| 条件 | 事务行为 | HTTP |
+|---|---|---|
+| precheck 已存在来源 | 不 flush 新任务 | `409 REPAIR_TASK_EXISTS` |
+| `23505` + 精确 Repair source constraint | service root rollback 后同义 `AppError` | `409` ErrorEnvelope，body/header request ID 一致 |
+| 其他 IntegrityError 或 diagnostics 不稳定 | service 原样上抛；request owner rollback/close | 默认 unknown 500，不泄漏数据库细节 |
+| 创建成功 | caller commit 完整聚合 | 既有成功 response，不改变 wire |
+
+### 4. Tests Required
+
+- 迁移/集成测试必须从 current-head PostgreSQL catalog 证明唯一约束，以及同列 FK 为 nullable `ON DELETE SET NULL`；不得把早期 revision 的 `RESTRICT` 当成运行目标。
+- 并发测试使用两个独立 Session、确定性同步点和可观测锁等待，不使用 `sleep()` 猜竞态；断言单赢家、等待方既有 409、失败无部分副作用且 Session 可复用。
+- 测试专用旁路捕获真实 `23505/diag.constraint_name`；HTTP 已知冲突冻结 code/message/details/request ID，unknown 只冻结 status 与无泄漏属性，不给 OpenAPI 添加 500/default response。
+
+### 5. Wrong vs Correct
+
+```python
+# Wrong：把所有完整性失败伪装成业务并发冲突
+except IntegrityError:
+    db.rollback()
+    raise AppError("REVISION_CONFLICT", "数据已变化", 409)
+
+# Correct：仅在 driver diagnostics 精确证明 Repair source 唯一竞争时收敛
+except IntegrityError as error:
+    if not _is_repair_task_source_integrity_error(error):
+        raise
+    db.rollback()
+    raise _repair_task_exists() from error
+```
+
 ## Scenario：生成作业的唯一约束领域映射
 
 ### 1. Scope / Trigger

@@ -304,6 +304,8 @@ Prompt 更新锁定模板行并比较 `expected_revision`；保存前由管理�
 
 发布工作使用 `PREPARING | PLATFORM_REVIEW | AWAITING_VERIFICATION | ACTION_REQUIRED | COMPLETED | CLOSED`。失败核验只追加当时标题、URL、发布时间和说明快照，并把工作置为 `ACTION_REQUIRED`；后续结果修正仍发生在同一工作上。首次成功核验原子创建与工作同 ID 的 `PublishedArticle`，并完成工作和来源任务。显式关闭必须保存原因、说明、操作者和时间，并原子取消来源任务。成功成果不再回退；后续问题由 `PublishedContentIssue OPEN -> RESOLVED` 独立表达，创建修复任务不会自动解决问题。
 
+修复任务创建先锁定内容问题并检查既有来源关系；PostgreSQL 的 `uq_content_tasks_source_published_content_issue_id` 是并发竞争的最终权威。只有真实 `23505` 且 diagnostics 的 `constraint_name` 精确等于该名称时，服务才在回滚失败事务后返回既有 `409 REPAIR_TASK_EXISTS`；其他唯一、外键、触发器、缺失 diagnostics 或非 `23505` 的完整性异常保持 unknown 500，不解析数据库错误文本，也不得伪装成 revision 冲突。成功创建、问题/文章/事件历史和 AuditLog 必须保持原子，已知或未知失败都不得留下部分写入。
+
 工作终态字段、成果、事件、核验和问题历史由触发器冻结或限制为契约允许的状态变化。`0038` 起只有两类精确事务上下文可以删除发布历史：管理员永久删除已归档来源任务，或管理员永久删除一条没有 GEO 下游引用的成果聚合；未声明或错配目标的直接 DELETE 以 PostgreSQL `55000` 拒绝。GEO 新观测只能引用没有 `OPEN` 问题且从未以 `RETIRED` 解决问题的 `PublishedArticle`；打开问题、创建观测和删除成果锁定同一文章，避免资格竞态。
 
 ### 0035 Business Workflow Primary Tasks
@@ -333,6 +335,8 @@ Prompt 更新锁定模板行并比较 `expected_revision`；保存前由管理�
 管理员永久删除只接受已归档任务、匹配 revision 和固定确认文本 `永久删除`。服务锁定并重新计算范围，删除任务拥有的内容、发布成果与问题、发布事件和核验；只删除失去全部文章关系的人工 GEO 更正链，共享 GEO 记录与共享文件保留。删除旧目标审计后只写一条 `content_task.permanently_deleted` 空详情墓碑。归档、恢复及永久删除都不验证或删除外部页面。
 
 发布成果永久删除只接受管理员、匹配同 ID `PublicationWork.revision` 和固定确认文本 `永久删除`。`GeoObservationPublication` 与 `GeoObservationCitation` 按去重观测数投影为 `GEO_OBSERVATION`，`ContentTaskGeoSource` 投影为 `GEO_OPTIMIZATION_SOURCE`；任一引用存在都返回结构化 `409 PUBLISHED_ARTICLE_IN_USE`，不得依赖现有 `CASCADE` / `SET NULL` 静默解绑。无阻断时，事务删除成果拥有的工作、事件、核验、附件关系和内容问题，保留修复任务并解除其来源问题，保留批准内容；来源任务仍绑定实时平台时恢复为 `OPEN`，平台已经删除且外键为空时转为 `CANCELLED`，两者都递增 revision。任务若已归档则保留 `archived_at`；恢复归档后，`OPEN` 可重新进入待发布，`CANCELLED` 保持已取消。删除旧目标审计后写入 `published_article.permanently_deleted` 最小墓碑，且不验证或删除外部页面。
+
+`source_published_content_issue_id` 的 current-head 权威删除语义为 nullable `ON DELETE SET NULL`；早期 revision 中的 `RESTRICT` 已由 `0037_simplify_deletion_lifecycle` 替换。删除成果聚合时，SET NULL 只解绑被保留的 Repair Task，不能改变该任务的 status、revision 或 `archived_at`；恢复为 `OPEN` 或转为 `CANCELLED` 并递增 revision 的对象始终是原 Article 的来源 ContentTask。
 
 平台删除仍要求先停用，并在存在 `OPEN` 内容任务或非终态发布工作时拒绝；它绝不级联删除任务。平台账号随平台删除，终态任务与工作把实时平台/账号外键置空后使用标量快照显示。单独账号删除只由非终态发布工作阻断。Prompt 删除通过共享事务 advisory lock 串行化绑定变更，在同一事务自动解绑全部平台、递增平台 revision 后删除模板；历史生成作业继续读取不可变输入快照。
 

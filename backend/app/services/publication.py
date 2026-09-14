@@ -883,6 +883,21 @@ def open_published_content_issue(
     return result
 
 
+def _repair_task_exists() -> AppError:
+    """返回一个内容问题只能关联一个修复任务的稳定冲突。"""
+    return AppError("REPAIR_TASK_EXISTS", "该问题已经创建修复任务", 409)
+
+
+def _is_repair_task_source_integrity_error(error: IntegrityError) -> bool:
+    """只识别修复任务来源问题的 PostgreSQL 最终唯一约束。"""
+    original = error.orig
+    return (
+        getattr(original, "sqlstate", None) == "23505"
+        and getattr(getattr(original, "diag", None), "constraint_name", None)
+        == "uq_content_tasks_source_published_content_issue_id"
+    )
+
+
 def create_repair_task(
     *,
     db: Session,
@@ -907,7 +922,7 @@ def create_repair_task(
         )
         is not None
     ):
-        raise AppError("REPAIR_TASK_EXISTS", "该问题已经创建修复任务", 409)
+        raise _repair_task_exists()
     article = db.get(PublishedArticle, issue.published_article_id)
     work = db.get(PublicationWork, article.id) if article else None
     if work is None:
@@ -945,7 +960,13 @@ def create_repair_task(
         created_by=actor.id,
     )
     db.add(task)
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError as error:
+        if not _is_repair_task_source_integrity_error(error):
+            raise
+        db.rollback()
+        raise _repair_task_exists() from error
     db.commit()
     return task
 

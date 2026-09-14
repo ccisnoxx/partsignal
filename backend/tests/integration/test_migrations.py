@@ -128,6 +128,50 @@ def content_task_columns(test_url: str) -> set[str]:
         return {row[0] for row in cursor.fetchall()}
 
 
+@pytest.mark.integration
+def test_repair_task_source_constraint_and_fk_are_current_head_contract() -> None:
+    """current-head 数据库必须保留修复任务唯一约束和可解绑的来源外键。"""
+    with temporary_database("partsignal_repair_source_contract") as (
+        test_url,
+        env,
+        backend_dir,
+    ):
+        run_alembic(env, backend_dir, "head")
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT conname, contype, pg_get_constraintdef(oid), confdeltype
+                FROM pg_constraint
+                WHERE conname IN (
+                    'uq_content_tasks_source_published_content_issue_id',
+                    'fk_content_tasks_published_issue'
+                )
+                ORDER BY conname
+                """
+            )
+            constraints = {row[0]: row for row in cursor.fetchall()}
+            unique_constraint = constraints[
+                "uq_content_tasks_source_published_content_issue_id"
+            ]
+            source_fk = constraints["fk_content_tasks_published_issue"]
+            assert unique_constraint[1] == "u"
+            assert unique_constraint[2] == "UNIQUE (source_published_content_issue_id)"
+            assert source_fk[1] == "f"
+            assert source_fk[3] == "n"
+            assert "ON DELETE SET NULL" in source_fk[2]
+
+            cursor.execute(
+                """
+                SELECT is_nullable
+                FROM information_schema.columns
+                WHERE table_schema = 'public'
+                  AND table_name = 'content_tasks'
+                  AND column_name = 'source_published_content_issue_id'
+                """
+            )
+            assert cursor.fetchone() == ("YES",)
+
+
 def seed_legacy_content_task(test_url: str) -> uuid.UUID:
     """在 0012 之前写入最小合法任务，验证升级不会猜测数据分级。"""
     ids = {

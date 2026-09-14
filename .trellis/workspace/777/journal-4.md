@@ -1347,3 +1347,37 @@ Optional 完整 backend/frontend suite、frontend typecheck/build 未运行。�
 ### Next Steps
 
 - 父任务 integrity-error-domain-mapping 与合同决策任务继续保持 planning。
+
+
+## Session 220: 收尾 Content/Generation IntegrityError 合同决策
+
+**Date**: 2026-09-14
+**Task**: 收尾 Content/Generation IntegrityError 合同决策
+**Branch**: `main`
+
+### Summary
+
+归档已完成职责拆分与合同冻结的 Content/Generation IntegrityError 合同决策任务；其 I1–I5 implementation Tasks 均已完成并归档，父级 IntegrityError 领域错误映射任务继续保持 planning。
+
+### Main Changes
+
+- 确认五个 implementation Task 全部 archived/completed，合同决策任务目录对 HEAD 无未提交改动。
+- 仅归档 09-05-content-integrity-error-contract-decision，不创建或启动 publication/GEO 后续任务。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `8d47363b` | (see git log) |
+
+### Testing
+
+- [OK] 归档前核对规划工作提交 8d47363b、任务关系与无关 dirty/index 边界。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 父任务 09-04-integrity-error-domain-mapping 保持 planning，后续是否收尾由独立授权决定。

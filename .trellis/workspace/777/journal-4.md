@@ -1277,3 +1277,38 @@ Optional 完整 backend/frontend suite、frontend typecheck/build 未运行。�
 ### Next Steps
 
 - 父任务继续处理其余独立 IntegrityError 合同工作
+
+
+## Session 218: Content Version 审核状态完整性映射
+
+**Date**: 2026-09-14
+**Task**: Content Version 审核状态完整性映射
+**Branch**: `main`
+
+### Summary
+
+完成 review-state partial unique 的精确领域映射、事务原子性与前端恢复，并通过真实 PostgreSQL 和独立复核。
+
+### Main Changes
+
+- 仅将 submit-review 的 exact pending 约束映射为 CONTENT_REVIEW_PENDING，approved 继续 unknown 500。
+- Content Editor 增加独立 pending blocker；同步稳定 backend/frontend spec 与业务动作文档。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `fc834372` | (see git log) |
+
+### Testing
+
+- [OK] 真实 PostgreSQL content review integration 19 passed；backend contract/runtime unit、Ruff、mypy 通过。
+- [OK] Frontend 相关 Vitest 31 passed、受影响 ESLint 通过；全量 typecheck 仅受未修改 publication 测试既有 TS2345 阻断。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 父任务与 Content/Generation 合同决策任务继续保持 planning。

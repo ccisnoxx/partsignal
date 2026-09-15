@@ -1415,3 +1415,41 @@ Optional 完整 backend/frontend suite、frontend typecheck/build 未运行。�
 ### Next Steps
 
 - T5-C 与顶层父任务继续保持 planning；下一项为 T5-I2 publication-work-integrity-mapping。
+
+
+## Session 222: 完成 Publication Work 完整性错误精确映射
+
+**Date**: 2026-09-15
+**Task**: 完成 Publication Work 完整性错误精确映射
+**Branch**: `main`
+
+### Summary
+
+完成 T5-I2 的精确完整性错误映射、验证、独立高风险复核、工作提交与归档；未 push，未改写历史。
+
+### Main Changes
+
+- createPublicationWork 仅映射三个获准的 PostgreSQL 23505 exact constraint diagnostics，并保持幂等 winner 优先级与 unknown 500 边界。
+- Publication Work 预检对齐 content_task_id；合同、数据库规范、错误处理规范和工作台规范同步完成。
+- 工作提交 a96f6df2582724ec5f5ee53870ba18c1318f8b57；publication-work-integrity-mapping 已 completed 并归档。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `a96f6df2582724ec5f5ee53870ba18c1318f8b57` | (see git log) |
+
+### Testing
+
+- [OK] backend/tests/integration/test_publication_workflow.py：57 passed。
+- [OK] backend contract/runtime unit、Ruff、完整 backend/app mypy、frontend api:check、allowlist diff-check 与 protected owner 零差异检查均通过。
+- [OK] 独立高风险 full review 无 material finding；未进行 repair/re-review。
+- [OK] 可选 full backend suite 仅运行一次，在 collection 阶段因 integration/unit 同名 test_geo_insights.py import mismatch 退出；未清缓存、未越界修复、未重跑。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- T5-I3 publication-open-issue-integrity-mapping；T5-C 与顶层父任务继续保持 planning。

@@ -438,6 +438,10 @@ result = cleanup_platform_logo_files(storage=storage)
 - `COMPLETED` 表示工作曾通过首次核验。成功核验、同 ID `PublishedArticle` 创建和来源 `ContentTask.COMPLETED` 必须同事务提交；失败核验只追加快照并进入 `ACTION_REQUIRED`，不得完成或取消任务。
 - 非终态工作只能通过带原因和说明的关闭命令进入 `CLOSED`，并原子取消来源任务；发布对象不得裸删，只允许两种显式聚合删除：管理员永久删除已归档来源任务，或管理员在成果没有 GEO 观测/引用及 GEO 优化来源时永久删除单个发布聚合。后者必须删除成果拥有的工作、事件、核验、附件关系与问题并保留批准内容和修复任务；来源任务仍绑定平台时恢复为 `OPEN`，原平台已删除时转为 `CANCELLED`，归档标记保持正交。数据库守卫必须在事务内复核删除语境与 GEO 依赖。
 - 平台、账号、内容版本和内容哈希绑定由应用服务给出结构化错误，并由 PostgreSQL 约束或触发器最终保护。测试必须同时覆盖 API 与直接数据库写入。
+- `PublicationWork` 的稳定唯一身份是`content_task_id`，不是当前`content_version_id`；创建预检必须在既有Platform/Account/ContentTask锁序内检查同ContentTask及同平台active content hash。最终权威仅为`uq_publication_works_idempotency_key`、`uq_publication_works_content_task_id`和partial unique index `uq_publication_works_active_platform_hash`。
+- Work INSERT owner只允许把`sqlstate=23505`且`diag.constraint_name`精确等于上述三个名称之一的失败视为known。命中后先root rollback，再优先按request key查询winner：`content_version_id/platform_account_id`全等canonical replay，可证明异载荷返回`IDEMPOTENCY_CONFLICT`；没有同key winner时，content-task或active hash冲突返回`PUBLICATION_IDENTITY_CONFLICT`，idempotency约束找不到winner则原抛。不得解析message、使用模糊名称或映射`REVISION_CONFLICT`。
+- current-head catalog必须区分前两个非deferrable unique constraint与第三个没有`pg_constraint` row的partial unique index，并以三个真实冲突证明`23505 + exact diag.constraint_name`。合规双Session测试证明既有advisory/row lock串行；test-only race可以在不修改production helper的前提下用session-scoped无`FOR UPDATE`等价读取和precheck旁路，但必须证明loser等待在真实`INSERT INTO publication_works`。
+- Work竞争失败只允许winner贡献一条Work和一条`CREATED`事件；loser root rollback后Session可复用，不得改变ContentTask status/revision/current pointer，或新增Verification、Article、GEO关系/source、Attachment与SUCCESS AuditLog。其他unique、PASSED verification、Article、Attachment、FK/CHECK/trigger、缺失或不稳定diagnostics保持unknown 500且不泄漏数据库细节。
 - `PublishedContentIssue` 只能从 revision 0 的 `OPEN` 开始，文章绑定与打开事实不可变；唯一状态变化是带处理结果、非空说明和单次 revision 递增的 `OPEN -> RESOLVED`。
 - 修复任务来源 `source_published_content_issue_id` 一旦写入不可改绑且唯一。创建修复任务与解决问题是独立命令，任何一方不得从另一方状态推断完成。
 - 创建修复任务必须先锁定 Issue 并执行快速预检查；`uq_content_tasks_source_published_content_issue_id` 仍是并发最终权威。仅 `sqlstate=23505` 且 `diag.constraint_name` 精确匹配该约束时，rollback 后映射既有 `409 REPAIR_TASK_EXISTS`。任何其他约束、SQLSTATE、缺失 diagnostics 或 trigger/跨表 guard 错误都原样上抛，不解析错误文本、不映射 `REVISION_CONFLICT`。
@@ -445,7 +449,7 @@ result = cleanup_platform_logo_files(storage=storage)
 - `0034` 只允许在旧发布与 GEO 依赖表全部为空时替换结构；发现数据必须汇总阻断表并以 PostgreSQL `55000` 失败。迁移和 downgrade 不猜测新旧业务语义。
 - `0036` 删除没有稳定业务含义的 `publication_works.section_url`。开始发布只绑定内容版本和账号，准备更新只变更账号；真实公开位置仍由结果登记的 `final_url` 持有并校验允许域名。被删值不迁移到替代列，downgrade 以 `55000` 拒绝并要求恢复升级前备份。
 
-必需 PostgreSQL 证据包括 current-head catalog 中上述唯一约束和 FK delete action、两个独立 Session 的真实锁等待/单赢家竞争、测试专用旁路触发的真实 `23505/diag.constraint_name`，以及已知冲突 rollback 后 Session 可复用。HTTP 测试必须冻结 `REPAIR_TASK_EXISTS` 的 `ErrorEnvelope` 与 body/header request ID；unknown 500 只断言不泄漏 SQL、表名、约束、数据库 message 或堆栈，不把默认 500 固化成公共合同。成功与失败路径都要回归事件时间、追加式历史、删除事务、revision/state、AuditLog 和 GEO link 原子性。
+必需 PostgreSQL 证据包括 current-head catalog 中上述唯一约束和 FK delete action、两个独立 Session 的真实锁等待/单赢家竞争、测试专用旁路触发的真实 `23505/diag.constraint_name`，以及已知冲突 rollback 后 Session 可复用。HTTP 测试必须冻结 `REPAIR_TASK_EXISTS`、`IDEMPOTENCY_CONFLICT`与`PUBLICATION_IDENTITY_CONFLICT`的 `ErrorEnvelope` 与 body/header request ID；unknown 500 只断言不泄漏 SQL、表名、约束、数据库 message 或堆栈，不把默认 500 固化成公共合同。成功与失败路径都要回归事件时间、追加式历史、删除事务、revision/state、AuditLog 和 GEO link 原子性。
 
 ## 场景：具体平台列表、Workspace Detail 与 revision 命令
 

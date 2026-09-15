@@ -19,7 +19,8 @@
   "pr_url": null,
   "subtasks": [],
   "children": [
-    "09-14-publication-repair-task-integrity-mapping"
+    "09-14-publication-repair-task-integrity-mapping",
+    "09-14-publication-work-integrity-mapping"
   ],
   "parent": "09-04-integrity-error-domain-mapping",
   "relatedFiles": [],

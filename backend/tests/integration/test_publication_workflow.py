@@ -70,6 +70,7 @@ from app.schemas.publication import (
     PublicationVerificationCreate,
     PublicationWorkCloseRequest,
     PublicationWorkCreate,
+    PublicationWorkOut,
     PublishedArticlePermanentDeleteRequest,
     PublishedArticleSort,
     PublishedContentIssueCreate,
@@ -363,6 +364,877 @@ def test_fact_version_current_head_catalog_and_unique_diagnostics() -> None:
             db.rollback()
             assert db.get(FactVersion, pending.id) is not None
             assert db.get(FactVersion, pending_conflict.id) is None
+
+
+def _work_payload(graph: dict[str, object]) -> PublicationWorkCreate:
+    content, account = graph["content"], graph["account"]
+    assert isinstance(content, ContentVersion)
+    assert isinstance(account, PlatformAccount)
+    return PublicationWorkCreate(content_version_id=content.id, platform_account_id=account.id)
+
+
+def _additional_publication_content(
+    db: Session,
+    graph: dict[str, object],
+    *,
+    same_task: bool,
+    content_hash: str,
+    make_current: bool = True,
+) -> ContentVersion:
+    """建立共享平台的合法批准版本；同任务换版保留旧批准版本。"""
+    original, task, actor = graph["content"], graph["task"], graph["user"]
+    assert isinstance(original, ContentVersion)
+    assert isinstance(task, ContentTask)
+    assert isinstance(actor, User)
+    if same_task and make_current:
+        original.status = "SUPERSEDED"
+        original.revision += 1
+        db.flush()
+    if not same_task:
+        task = ContentTask(
+            query_topic_id=task.query_topic_id,
+            product_id=task.product_id,
+            fact_version_id=task.fact_version_id,
+            platform_profile_id=task.platform_profile_id,
+            platform_profile_name_snapshot=task.platform_profile_name_snapshot,
+            platform_website_url_snapshot=task.platform_website_url_snapshot,
+            created_by=actor.id,
+        )
+        db.add(task)
+        db.flush()
+    content = ContentVersion(
+        task_id=task.id,
+        fact_version_id=original.fact_version_id,
+        version=2 if same_task else 1,
+        source_type="HUMAN",
+        title=original.title,
+        summary=original.summary,
+        body_markdown=original.body_markdown,
+        change_summary="唯一约束测试批准版本",
+        tags=original.tags,
+        content_hash=content_hash,
+        status="APPROVED" if make_current else "PENDING_REVIEW",
+        quality_issues=[],
+        created_by=actor.id,
+    )
+    db.add(content)
+    db.flush()
+    if make_current:
+        task.current_content_version_id = content.id
+    db.commit()
+    return content
+
+
+def _publication_creation_snapshot(db: Session) -> dict[str, object]:
+    """记录创建失败不得残留的持久对象及任务状态，不把 winner 增量算作 loser。"""
+    db.expire_all()
+    tables = (
+        PublicationWork,
+        PublicationWorkEvent,
+        PublicationVerification,
+        PublishedArticle,
+        PublicationAttachment,
+        GeoObservationPublication,
+        GeoObservationCitation,
+        ContentTaskGeoSource,
+    )
+    return {
+        **{
+            model.__tablename__: db.scalar(select(func.count()).select_from(model))
+            for model in tables
+        },
+        "success_audit": db.scalar(
+            select(func.count()).select_from(AuditLog).where(AuditLog.outcome == "SUCCESS")
+        ),
+        "tasks": list(
+            db.execute(
+                select(
+                    ContentTask.id,
+                    ContentTask.status,
+                    ContentTask.revision,
+                    ContentTask.current_content_version_id,
+                ).order_by(ContentTask.id)
+            )
+        ),
+        "work_state": list(
+            db.execute(
+                select(
+                    PublicationWork.id, PublicationWork.status, PublicationWork.revision
+                ).order_by(PublicationWork.id)
+            )
+        ),
+    }
+
+
+@pytest.mark.parametrize(
+    ("sqlstate", "constraint_name"),
+    [
+        ("23505", "uq_publication_verifications_one_passed"),
+        ("23505", "pk_published_articles"),
+        ("23505", "uq_published_articles_verification_id"),
+        ("23505", "pk_publication_attachments"),
+        ("23505", "uq_unrelated_constraint"),
+        ("23505", "uq_publication_works_content_version_id"),
+        ("23505", "uq_publication_works_content_task_id_suffix"),
+        ("23505", "UQ_PUBLICATION_WORKS_CONTENT_TASK_ID"),
+        ("23505", b"uq_publication_works_content_task_id"),
+        ("23505", ["uq_publication_works_content_task_id"]),
+        ("23505", None),
+        (None, "uq_publication_works_content_task_id"),
+        ("23503", "uq_publication_works_content_task_id"),
+        ("23514", "uq_publication_works_content_task_id"),
+        ("23502", "uq_publication_works_content_task_id"),
+        ("55000", "uq_publication_works_content_task_id"),
+    ],
+)
+def test_publication_work_integrity_classifier_fails_closed(
+    sqlstate: str | None,
+    constraint_name: object,
+) -> None:
+    original = SimpleNamespace(
+        sqlstate=sqlstate,
+        diag=SimpleNamespace(constraint_name=constraint_name) if constraint_name else None,
+        constraint_name="uq_publication_works_content_task_id",
+    )
+    error = IntegrityError("uq_publication_works_content_task_id", {}, original)
+    assert publication_service._publication_work_integrity_constraint(error) is None
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("bypass", [False, True], ids=["precheck", "exact"])
+def test_publication_work_replay_and_conflicts_preserve_session_and_aggregate(
+    monkeypatch: pytest.MonkeyPatch,
+    bypass: bool,
+) -> None:
+    """相同与不同 payload、task 换版和同平台 hash 的两条路径保持相同语义。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine, expire_on_commit=False) as db:
+            graph = _seed_graph(db)
+            actor = graph["user"]
+            assert isinstance(actor, User)
+            actor_id = actor.id
+            original_payload = _work_payload(graph)
+            winner = create_publication_work(
+                db=db,
+                payload=original_payload,
+                actor=actor,
+                request_id="work-baseline",
+                idempotency_key="work-baseline-key",
+            )
+            other = _seed_graph(db, content_hash="b" * 64)
+            hash_content = _additional_publication_content(
+                db,
+                graph,
+                same_task=False,
+                content_hash="a" * 64,
+            )
+            scenarios = [
+                (original_payload, "work-baseline-key", None),
+                (_work_payload(other), "work-baseline-key", "IDEMPOTENCY_CONFLICT"),
+                (
+                    PublicationWorkCreate(
+                        content_version_id=hash_content.id,
+                        platform_account_id=original_payload.platform_account_id,
+                    ),
+                    "work-hash-key",
+                    "PUBLICATION_IDENTITY_CONFLICT",
+                ),
+            ]
+            for payload, key, code in scenarios:
+                before = _publication_creation_snapshot(db)
+                diagnostics: list[tuple[str, str]] = []
+                with monkeypatch.context() as patch:
+                    if bypass:
+                        _bypass_publication_creation(patch, db, diagnostics)
+                    if code is None:
+                        result = create_publication_work(
+                            db=db,
+                            payload=payload,
+                            actor=actor,
+                            request_id="work-replay",
+                            idempotency_key=key,
+                        )
+                        assert result.model_dump() == winner.model_dump()
+                    else:
+                        with pytest.raises(AppError) as raised:
+                            create_publication_work(
+                                db=db,
+                                payload=payload,
+                                actor=actor,
+                                request_id="work-conflict",
+                                idempotency_key=key,
+                            )
+                        assert raised.value.code == code
+                        assert raised.value.status_code == 409 and raised.value.details == {}
+                    if bypass:
+                        assert len(diagnostics) == 1 and diagnostics[0][0] == "23505"
+                    else:
+                        assert diagnostics == []
+                assert _publication_creation_snapshot(db) == before
+                assert db.get(User, actor_id) is not None
+                db.rollback()
+
+            # current version/hash 已变化，旧 content-version 预检会漏掉这个永久 task identity。
+            replacement = _additional_publication_content(
+                db,
+                graph,
+                same_task=True,
+                content_hash="c" * 64,
+            )
+            before = _publication_creation_snapshot(db)
+            diagnostics = []
+            with monkeypatch.context() as patch:
+                if bypass:
+                    _bypass_publication_creation(patch, db, diagnostics)
+                with pytest.raises(AppError) as raised:
+                    create_publication_work(
+                        db=db,
+                        payload=PublicationWorkCreate(
+                            content_version_id=replacement.id,
+                            platform_account_id=original_payload.platform_account_id,
+                        ),
+                        actor=db.get(User, actor_id),
+                        request_id="work-task-conflict",
+                        idempotency_key="work-task-key",
+                    )
+                assert raised.value.code == "PUBLICATION_IDENTITY_CONFLICT"
+                assert raised.value.message == "该内容版本或同平台内容已存在发布工作"
+                assert raised.value.status_code == 409 and raised.value.details == {}
+                assert diagnostics == (
+                    [("23505", "uq_publication_works_content_task_id")] if bypass else []
+                )
+            assert _publication_creation_snapshot(db) == before
+        engine.dispose()
+
+
+@pytest.mark.integration
+def test_publication_work_recovery_prioritizes_key_for_every_exact_constraint() -> None:
+    """数据库可报告任一同时冲突索引；三个 exact 名称必须使用相同 key 优先级。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine, expire_on_commit=False) as db:
+            graph = _seed_graph(db)
+            actor = graph["user"]
+            assert isinstance(actor, User)
+            payload = _work_payload(graph)
+            winner = create_publication_work(
+                db=db,
+                payload=payload,
+                actor=actor,
+                request_id="priority-winner",
+                idempotency_key="priority-winner-key",
+            )
+            for name in publication_service._PUBLICATION_WORK_INTEGRITY_CONSTRAINTS:
+                error = IntegrityError(
+                    "not parsed",
+                    {},
+                    SimpleNamespace(
+                        sqlstate="23505",
+                        diag=SimpleNamespace(constraint_name=name),
+                    ),
+                )
+                replay = publication_service._recover_publication_work_integrity_error(
+                    db,
+                    error=error,
+                    payload=payload,
+                    idempotency_key="priority-winner-key",
+                )
+                assert replay.model_dump() == winner.model_dump()
+                for differing_payload in (
+                    payload.model_copy(update={"content_version_id": uuid.uuid4()}),
+                    payload.model_copy(update={"platform_account_id": uuid.uuid4()}),
+                ):
+                    with pytest.raises(AppError) as raised:
+                        publication_service._recover_publication_work_integrity_error(
+                            db,
+                            error=error,
+                            payload=differing_payload,
+                            idempotency_key="priority-winner-key",
+                        )
+                    assert raised.value.code == "IDEMPOTENCY_CONFLICT"
+                if name.endswith("idempotency_key"):
+                    with pytest.raises(IntegrityError) as unknown:
+                        publication_service._recover_publication_work_integrity_error(
+                            db,
+                            error=error,
+                            payload=payload,
+                            idempotency_key="missing-winner",
+                        )
+                    assert unknown.value is error
+            db.refresh(actor)
+            closed = close_publication_work(
+                db=db,
+                work_id=winner.id,
+                payload=PublicationWorkCloseRequest(
+                    expected_revision=0, reason="BUSINESS_CANCELLED", comment="测试终态账号清理"
+                ),
+                actor=actor,
+                request_id="priority-close",
+            )
+            assert closed.status == "CLOSED"
+            account = db.get(PlatformAccount, payload.platform_account_id)
+            assert account is not None
+            delete_platform_account(
+                db=db,
+                platform_account_id=account.id,
+                expected_revision=account.revision,
+                actor=actor,
+                request_id="priority-delete-account",
+            )
+            error = IntegrityError(
+                "not parsed",
+                {},
+                SimpleNamespace(
+                    sqlstate="23505",
+                    diag=SimpleNamespace(constraint_name="uq_publication_works_idempotency_key"),
+                ),
+            )
+            # 真实 unique 失败仍持有 root transaction；直接调用恢复器也建立该前置状态。
+            db.scalar(text("SELECT 1"))
+            with pytest.raises(IntegrityError) as unknown:
+                publication_service._recover_publication_work_integrity_error(
+                    db,
+                    error=error,
+                    payload=payload,
+                    idempotency_key="priority-winner-key",
+                )
+            assert unknown.value is error
+        engine.dispose()
+
+
+@pytest.mark.integration
+def test_publication_work_mapper_does_not_cover_event_flush(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """即使 event flush 给出获准名字，也不扩大 Work INSERT mapper 的作用域。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine, expire_on_commit=False) as db:
+            graph = _seed_graph(db)
+            actor = graph["user"]
+            assert isinstance(actor, User)
+            before = _publication_creation_snapshot(db)
+            error = IntegrityError(
+                "event insert",
+                {},
+                SimpleNamespace(
+                    sqlstate="23505",
+                    diag=SimpleNamespace(constraint_name="uq_publication_works_idempotency_key"),
+                ),
+            )
+            real_flush = db.flush
+
+            def fail_event(*args: object, **kwargs: object) -> None:
+                if any(isinstance(value, PublicationWorkEvent) for value in db.new):
+                    raise error
+                real_flush(*args, **kwargs)  # type: ignore[arg-type]
+
+            with monkeypatch.context() as patch:
+                patch.setattr(db, "flush", fail_event)
+                with pytest.raises(IntegrityError) as raised:
+                    create_publication_work(
+                        db=db,
+                        payload=_work_payload(graph),
+                        actor=actor,
+                        request_id="late-failure",
+                        idempotency_key="late-failure-key",
+                    )
+                assert raised.value is error
+                db.rollback()
+            assert _publication_creation_snapshot(db) == before
+        engine.dispose()
+
+
+@pytest.mark.integration
+def test_publication_work_http_conflicts_and_unknown_do_not_leak(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """真实 route 对账两个 409；无关真实 FK 由 request owner 回滚且默认 500 不泄漏。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine, expire_on_commit=False) as db:
+            graph = _seed_graph(db)
+            actor = graph["user"]
+            assert isinstance(actor, User)
+            payload = _work_payload(graph)
+            create_publication_work(
+                db=db,
+                payload=payload,
+                actor=actor,
+                request_id="http-winner",
+                idempotency_key="http-winner-key",
+            )
+            other_payload = _work_payload(_seed_graph(db, content_hash="b" * 64))
+            csrf_token = "work-http-csrf-token-with-more-than-32-characters"
+            current_session = SimpleNamespace(user=actor, csrf_hash=hash_token(csrf_token))
+            before = _publication_creation_snapshot(db)
+            db.refresh(actor)
+        bypass = False
+        diagnostics: list[tuple[str, str]] = []
+        unknown_diagnostics: list[tuple[str, str]] = []
+
+        def database_session() -> Iterator[Session]:
+            with (
+                Session(engine, expire_on_commit=False) as request_db,
+                monkeypatch.context() as patch,
+            ):
+                if bypass:
+                    _bypass_publication_creation(patch, request_db, diagnostics)
+                try:
+                    yield request_db
+                except Exception as error:
+                    request_db.rollback()
+                    if isinstance(error, IntegrityError):
+                        unknown_diagnostics.append(
+                            (error.orig.sqlstate, error.orig.diag.constraint_name)
+                        )
+                        assert _publication_creation_snapshot(request_db) == before
+                    raise
+
+        app.dependency_overrides[get_db] = database_session
+        app.dependency_overrides[get_current_session] = lambda: current_session
+        try:
+            for bypass in (False, True):
+                for code, request_payload, key, message in (
+                    (
+                        "IDEMPOTENCY_CONFLICT",
+                        other_payload,
+                        "http-winner-key",
+                        "幂等键已用于另一发布工作",
+                    ),
+                    (
+                        "PUBLICATION_IDENTITY_CONFLICT",
+                        payload,
+                        "http-other-key",
+                        "该内容版本或同平台内容已存在发布工作",
+                    ),
+                ):
+                    request_id = f"work-http-{code.lower()}-{bypass}"
+                    response = TestClient(app).post(
+                        "/api/v1/publication-works",
+                        headers={
+                            "X-CSRF-Token": csrf_token,
+                            "X-Request-ID": request_id,
+                            "Idempotency-Key": key,
+                        },
+                        json=request_payload.model_dump(mode="json"),
+                    )
+                    assert response.status_code == 409, response.text
+                    assert response.headers["X-Request-ID"] == request_id
+                    assert response.json() == {
+                        "error": {
+                            "code": code,
+                            "message": message,
+                            "details": {},
+                            "request_id": request_id,
+                        }
+                    }
+                    with Session(engine) as verify:
+                        assert _publication_creation_snapshot(verify) == before
+            assert len(diagnostics) == 2 and all(state == "23505" for state, _ in diagnostics)
+            bypass = False
+            current_session.user = SimpleNamespace(id=uuid.uuid4(), account_type="ENGINEER")
+            response = TestClient(app, raise_server_exceptions=False).post(
+                "/api/v1/publication-works",
+                headers={
+                    "X-CSRF-Token": csrf_token,
+                    "X-Request-ID": "work-http-unknown",
+                    "Idempotency-Key": "work-unknown-key",
+                },
+                json=other_payload.model_dump(mode="json"),
+            )
+            assert response.status_code == 500
+            assert unknown_diagnostics == [("23503", "fk_publication_works_created_by_users")]
+            for secret in (
+                "INSERT INTO",
+                "publication_works",
+                "fk_publication_works_created_by_users",
+                "ForeignKeyViolation",
+                "psycopg",
+                "Traceback",
+                "REVISION_CONFLICT",
+            ):
+                assert secret not in response.text
+            with Session(engine) as verify:
+                assert _publication_creation_snapshot(verify) == before
+        finally:
+            app.dependency_overrides.clear()
+            engine.dispose()
+
+
+def _wait_for_publication_insert(engine: object, pid: int, winner_pid: int) -> None:
+    """有界证明等待点确为 publication_works INSERT 的数据库唯一性裁决。"""
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        with engine.connect() as monitor:  # type: ignore[attr-defined]
+            state = (
+                monitor.execute(
+                    text(
+                        "SELECT query, wait_event_type, pg_blocking_pids(pid) AS blockers "
+                        "FROM pg_stat_activity WHERE pid = :pid"
+                    ),
+                    {"pid": pid},
+                )
+                .mappings()
+                .first()
+            )
+        if state is not None and state["wait_event_type"] == "Lock":
+            assert "INSERT INTO publication_works" in state["query"], state["query"]
+            if winner_pid in state["blockers"]:
+                return
+        threading.Event().wait(0.05)
+    raise AssertionError("未观察到 loser 的真实 Work INSERT 等待 winner")
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    ("scenario", "bypass"),
+    [
+        ("replay", False),
+        ("identity", False),
+        ("replay", True),
+        ("payload", True),
+        ("task", True),
+        ("hash", True),
+    ],
+)
+def test_publication_work_concurrency_has_one_winner(
+    monkeypatch: pytest.MonkeyPatch,
+    scenario: str,
+    bypass: bool,
+) -> None:
+    """合规锁和真实 unique race 都仅提交一个 Work；loser 不留聚合副作用。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine, expire_on_commit=False) as seed:
+            graph = _seed_graph(seed)
+            actor = graph["user"]
+            assert isinstance(actor, User)
+            actor_id = actor.id
+            winner_payload = _work_payload(graph)
+            loser_payload = winner_payload
+            if scenario == "payload":
+                loser_payload = _work_payload(_seed_graph(seed, content_hash="b" * 64))
+            elif scenario in {"task", "hash"}:
+                candidate = _additional_publication_content(
+                    seed,
+                    graph,
+                    same_task=scenario == "task",
+                    content_hash="c" * 64 if scenario == "task" else "a" * 64,
+                    make_current=scenario != "task",
+                )
+                loser_payload = PublicationWorkCreate(
+                    content_version_id=candidate.id,
+                    platform_account_id=winner_payload.platform_account_id,
+                )
+            task = graph["task"]
+            assert isinstance(task, ContentTask)
+            task_id = task.id
+            before = _publication_creation_snapshot(seed)
+
+        inserted, release_winner = threading.Event(), threading.Event()
+        loser_ready, loser_insert_sent = threading.Event(), threading.Event()
+        pids: dict[str, int] = {}
+        diagnostics: list[tuple[str, str]] = []
+
+        def request(first: bool) -> PublicationWorkOut | AppError:
+            with Session(engine, expire_on_commit=False) as db, monkeypatch.context() as patch:
+                connection = db.connection()
+                pids["winner" if first else "loser"] = int(
+                    db.scalar(text("SELECT pg_backend_pid()"))
+                )
+                if bypass:
+                    _bypass_publication_creation(patch, db, diagnostics, bypass_locks=True)
+
+                def hold_insert(
+                    _connection: object,
+                    _cursor: object,
+                    statement: str,
+                    _parameters: object,
+                    _context: object,
+                    _executemany: bool,
+                ) -> None:
+                    if first and statement.startswith("INSERT INTO publication_works "):
+                        inserted.set()
+                        if not release_winner.wait(10):
+                            raise TimeoutError("等待释放 winner Work INSERT 超时")
+
+                def observe_loser(
+                    _connection: object,
+                    _cursor: object,
+                    statement: str,
+                    _parameters: object,
+                    _context: object,
+                    _executemany: bool,
+                ) -> None:
+                    if not first and statement.startswith("INSERT INTO publication_works "):
+                        loser_insert_sent.set()
+
+                event.listen(connection, "after_cursor_execute", hold_insert)
+                event.listen(connection, "before_cursor_execute", observe_loser)
+                if not first:
+                    loser_ready.set()
+                user = db.get(User, actor_id)
+                assert user is not None
+                try:
+                    return create_publication_work(
+                        db=db,
+                        payload=winner_payload if first else loser_payload,
+                        actor=user,
+                        request_id="race-first" if first else "race-second",
+                        idempotency_key=(
+                            "work-race-key"
+                            if first or scenario in {"replay", "payload"}
+                            else "work-race-other-key"
+                        ),
+                    )
+                except AppError as error:
+                    # known mapper 自己 rollback；这里的查询直接证明 Session 已可复用。
+                    assert db.get(User, actor_id) is not None
+                    assert db.scalar(select(func.count()).select_from(PublicationWork)) == 1
+                    return error
+
+        try:
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                first_future = executor.submit(request, True)
+                second_future = None
+                try:
+                    assert inserted.wait(10)
+                    if scenario == "task":
+                        # winner 已按旧 current 通过真实 INSERT guard；模拟随后批准的新版本。
+                        # 该更新不是 loser 副作用，明确纳入 winner 释放前的 fixture 基线。
+                        with Session(engine) as advance:
+                            advance.execute(
+                                update(ContentVersion)
+                                .where(ContentVersion.id == winner_payload.content_version_id)
+                                .values(status="SUPERSEDED", revision=ContentVersion.revision + 1)
+                            )
+                            advance.execute(
+                                update(ContentVersion)
+                                .where(ContentVersion.id == loser_payload.content_version_id)
+                                .values(status="APPROVED", revision=ContentVersion.revision + 1)
+                            )
+                            advance.execute(
+                                update(ContentTask)
+                                .where(ContentTask.id == task_id)
+                                .values(current_content_version_id=loser_payload.content_version_id)
+                            )
+                            advance.commit()
+                            before = _publication_creation_snapshot(advance)
+                    second_future = executor.submit(request, False)
+                    assert loser_ready.wait(10)
+                    if bypass:
+                        assert loser_insert_sent.wait(10)
+                        _wait_for_publication_insert(engine, pids["loser"], pids["winner"])
+                    else:
+                        _wait_for_pg_lock(engine, pids["loser"])
+                        assert not loser_insert_sent.is_set()
+                finally:
+                    release_winner.set()
+                first_result = first_future.result(timeout=10)
+                assert second_future is not None
+                second_result = second_future.result(timeout=10)
+            assert isinstance(first_result, PublicationWorkOut)
+            if scenario == "replay":
+                assert isinstance(second_result, PublicationWorkOut)
+                assert second_result.model_dump() == first_result.model_dump()
+            else:
+                assert isinstance(second_result, AppError)
+                assert second_result.code == (
+                    "IDEMPOTENCY_CONFLICT"
+                    if scenario == "payload"
+                    else "PUBLICATION_IDENTITY_CONFLICT"
+                )
+                assert second_result.status_code == 409 and second_result.details == {}
+            if bypass:
+                assert len(diagnostics) == 1 and diagnostics[0][0] == "23505"
+                expected = {
+                    "payload": "idempotency_key",
+                    "task": "content_task_id",
+                    "hash": "active_platform_hash",
+                }.get(scenario)
+                if expected:
+                    assert diagnostics[0][1] == f"uq_publication_works_{expected}"
+                else:
+                    assert (
+                        diagnostics[0][1]
+                        in publication_service._PUBLICATION_WORK_INTEGRITY_CONSTRAINTS
+                    )
+            else:
+                assert diagnostics == []
+            with Session(engine) as verify:
+                after = _publication_creation_snapshot(verify)
+                expected_snapshot = dict(before)
+                expected_snapshot["publication_works"] = 1
+                expected_snapshot["publication_work_events"] = 1
+                expected_snapshot["work_state"] = [(first_result.id, "PREPARING", 0)]
+                assert after == expected_snapshot
+                assert verify.scalar(select(PublicationWorkEvent.action)) == "CREATED"
+        finally:
+            engine.dispose()
+
+
+def _bypass_publication_creation(
+    monkeypatch: pytest.MonkeyPatch,
+    db: Session,
+    diagnostics: list[tuple[str, str]],
+    *,
+    bypass_locks: bool = False,
+) -> None:
+    """仅该 Session 的首个 Work INSERT 前隐藏预检；恢复查询与生产校验照常执行。"""
+    real_scalar, real_execute, real_flush = db.scalar, db.execute, db.flush
+    pending = True
+
+    def scalar(statement: object, *args: object, **kwargs: object) -> object:
+        rendered = str(statement)
+        if (
+            pending
+            and "FROM publication_works" in rendered
+            and (
+                "WHERE publication_works.idempotency_key" in rendered
+                or rendered.startswith("SELECT publication_works.id \n")
+            )
+        ):
+            return None
+        return real_scalar(statement, *args, **kwargs)  # type: ignore[arg-type]
+
+    def execute(statement: object, *args: object, **kwargs: object) -> object:
+        if bypass_locks and pending and "pg_advisory_xact_lock" in str(statement):
+            return None
+        return real_execute(statement, *args, **kwargs)  # type: ignore[arg-type]
+
+    def flush(*args: object, **kwargs: object) -> None:
+        nonlocal pending
+        inserting = any(isinstance(value, PublicationWork) for value in db.new)
+        if inserting:
+            pending = False
+        try:
+            real_flush(*args, **kwargs)  # type: ignore[arg-type]
+        except IntegrityError as error:
+            if inserting:
+                diagnostics.append((error.orig.sqlstate, error.orig.diag.constraint_name))
+            raise
+
+    monkeypatch.setattr(db, "scalar", scalar)
+    monkeypatch.setattr(db, "execute", execute)
+    monkeypatch.setattr(db, "flush", flush)
+    if bypass_locks:
+        # 原 helper 仍执行全部存在性/active/current/approved 校验，只移除这个连接的行锁。
+        def without_row_lock(
+            _connection: object,
+            _cursor: object,
+            statement: str,
+            parameters: object,
+            _context: object,
+            _executemany: bool,
+        ) -> tuple[str, object]:
+            if statement.lstrip().upper().startswith("SELECT "):
+                statement = statement.replace(" FOR UPDATE", "")
+            return statement, parameters
+
+        event.listen(db.connection(), "before_cursor_execute", without_row_lock, retval=True)
+
+
+@pytest.mark.integration
+def test_publication_work_current_head_catalog_and_unique_diagnostics() -> None:
+    """三条 current-head 唯一对象及真实 driver diagnostics 是 mapper 的前置哨兵。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine, expire_on_commit=False) as db:
+            catalog = {
+                row["name"]: row
+                for row in db.execute(
+                    text("""
+                    SELECT c.relname AS name, i.indisunique,
+                           pg_get_indexdef(c.oid) AS definition,
+                           pg_get_expr(i.indpred, i.indrelid) AS predicate,
+                           k.conname, k.condeferrable
+                    FROM pg_class c JOIN pg_index i ON i.indexrelid = c.oid
+                    LEFT JOIN pg_constraint k ON k.conindid = c.oid
+                    WHERE i.indrelid = 'publication_works'::regclass AND c.relname IN (
+                        'uq_publication_works_idempotency_key',
+                        'uq_publication_works_content_task_id',
+                        'uq_publication_works_active_platform_hash')
+                """)
+                ).mappings()
+            }
+            assert len(catalog) == 3
+            for suffix in ("idempotency_key", "content_task_id"):
+                name = f"uq_publication_works_{suffix}"
+                row = catalog[name]
+                assert row["indisunique"] is True
+                assert row["conname"] == name and row["condeferrable"] is False
+                assert row["predicate"] is None and f"({suffix})" in row["definition"]
+            active = catalog["uq_publication_works_active_platform_hash"]
+            assert active["indisunique"] is True and active["conname"] is None
+            assert "(platform_profile_id, content_hash)" in active["definition"]
+            assert "status" in active["predicate"] and "<>" in active["predicate"]
+            assert "'CLOSED'" in active["predicate"]
+
+            graph = _seed_graph(db)
+            actor = graph["user"]
+            assert isinstance(actor, User)
+            winner = create_publication_work(
+                db=db,
+                payload=_work_payload(graph),
+                actor=actor,
+                request_id="work-catalog",
+                idempotency_key="work-catalog-winner",
+            )
+            unrelated = _seed_graph(db, content_hash="b" * 64)
+            same_hash = _additional_publication_content(
+                db,
+                graph,
+                same_task=False,
+                content_hash="a" * 64,
+            )
+            same_task = _additional_publication_content(
+                db,
+                graph,
+                same_task=True,
+                content_hash="c" * 64,
+            )
+            scenarios = (
+                (
+                    unrelated,
+                    _work_payload(unrelated).content_version_id,
+                    "work-catalog-winner",
+                    "idempotency_key",
+                ),
+                (graph, same_task.id, "work-catalog-task", "content_task_id"),
+                (graph, same_hash.id, "work-catalog-hash", "active_platform_hash"),
+            )
+            before = _publication_creation_snapshot(db)
+            for candidate_graph, content_id, key, suffix in scenarios:
+                account, profile = candidate_graph["account"], candidate_graph["profile"]
+                assert isinstance(account, PlatformAccount)
+                assert isinstance(profile, PlatformProfile)
+                content = db.get(ContentVersion, content_id)
+                assert content is not None
+                candidate = PublicationWork(
+                    idempotency_key=key,
+                    content_task_id=content.task_id,
+                    content_version_id=content.id,
+                    platform_profile_id=profile.id,
+                    platform_profile_id_snapshot=profile.id,
+                    platform_profile_name_snapshot=profile.name,
+                    platform_account_id=account.id,
+                    platform_account_label_snapshot=account.label,
+                    account_identifier_snapshot=account.account_identifier,
+                    content_hash=content.content_hash,
+                    status="PREPARING",
+                    created_by=actor.id,
+                )
+                db.add(candidate)
+                with pytest.raises(IntegrityError) as raised:
+                    db.flush()
+                assert raised.value.orig.sqlstate == "23505"
+                assert raised.value.orig.diag.constraint_name == f"uq_publication_works_{suffix}"
+                db.rollback()
+                assert _publication_creation_snapshot(db) == before
+                assert db.get(PublicationWork, winner.id) is not None
+        engine.dispose()
 
 
 @pytest.mark.integration

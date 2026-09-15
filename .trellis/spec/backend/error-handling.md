@@ -160,6 +160,43 @@ except IntegrityError as error:
     raise _repair_task_exists() from error
 ```
 
+## Scenario：Publication Work 三个唯一约束映射
+
+### 1. Scope / Trigger
+
+- 只适用于`publication.create_publication_work`新增`PublicationWork`后的首个Work `flush()`；不得包围`CREATED` event、projection/commit、Verification、Article、Attachment、GEO或删除命令。
+- normal precheck仍先处理同request key，再在既有锁序内处理ContentTask identity与active platform/hash；数据库唯一约束是被旁路writer和真实竞争的最终权威。
+
+### 2. Contracts
+
+- known allowlist仅包含`error.orig.sqlstate == "23505"`且`error.orig.diag.constraint_name`精确等于`uq_publication_works_idempotency_key`、`uq_publication_works_content_task_id`或`uq_publication_works_active_platform_hash`。禁止读取message、statement、params、`str(error)`、非`diag` alias或模糊名称。
+- 任一获准约束命中后先root `rollback()`，再按本请求idempotency key查询winner；不能假定PostgreSQL在多约束冲突时总先报告idempotency约束。
+- winner的`content_version_id/platform_account_id`与请求全等时返回canonical `PublicationWork` replay；可证明异载荷返回既有`409 IDEMPOTENCY_CONFLICT`、消息`幂等键已用于另一发布工作`、`details={}`。
+- 没有同key winner时，content-task或active platform/hash诊断返回既有`409 PUBLICATION_IDENTITY_CONFLICT`、消息`该内容版本或同平台内容已存在发布工作`、`details={}`；idempotency诊断却没有winner时原抛最初`IntegrityError`。winner identity无法证明时同样unknown，不猜测历史账号UUID或其他Work。
+- 其他unique、PASSED verification、Article、Attachment、FK、CHECK、NOT NULL、trigger/guard、非`23505`、缺失或替代位置diagnostics全部原样上抛；不得映射为`REVISION_CONFLICT`。unknown HTTP只冻结500与no-leak，不新增OpenAPI 500/default或默认body合同。
+
+### 3. Atomicity and tests
+
+- `PublicationWork`首次flush必须在追加`CREATED` event前完成。known loser rollback后同一Session可查询winner；unknown direct caller先rollback再证明复用，请求依赖负责异常时rollback/close。
+- 合规双Session竞争用确定性barrier和`pg_stat_activity/pg_blocking_pids`证明既有advisory/row lock等待。test-only bypass只能对测试Session使用保留相同校验的无`FOR UPDATE`读取，并必须证明loser等待在真实`INSERT INTO publication_works`，不能把任意Lock当成unique race。
+- 并发最终只允许winner新增一条Work和一条`CREATED` event。loser不得改变ContentTask status/revision/current pointer，或新增Verification、Article、Attachment、GEO link/source和SUCCESS AuditLog。
+- known 409逐字段冻结ErrorEnvelope，并对账body request ID、响应`X-Request-ID`与输入；synthetic fail-closed矩阵不能替代三个目标约束的真实PostgreSQL diagnostics。
+
+### 4. Wrong vs Correct
+
+```python
+# Wrong：按数据库最终报告的某一个名称直接丢失幂等优先级
+if constraint_name == "uq_publication_works_active_platform_hash":
+    raise AppError("PUBLICATION_IDENTITY_CONFLICT", message, 409)
+
+# Correct：exact allowlist命中后先rollback并解析同key winner
+constraint_name = _publication_work_integrity_constraint(error)
+if constraint_name is None:
+    raise
+db.rollback()
+winner = load_by_idempotency_key(idempotency_key)
+```
+
 ## Scenario：生成作业的唯一约束领域映射
 
 ### 1. Scope / Trigger

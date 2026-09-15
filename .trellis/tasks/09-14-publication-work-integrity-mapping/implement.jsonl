@@ -1,0 +1,7 @@
+{"file":".trellis/spec/backend/database-guidelines.md","reason":"实现时约束current-head PostgreSQL catalog、exact diagnostics、并发和事务最终权威"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"实现时约束精确mapper、unknown 500、rollback与Session reuse"}
+{"file":".trellis/spec/backend/publication-workbench-guidelines.md","reason":"实现时约束Publication Work identity、锁顺序、事件时间和不可变历史"}
+{"file":".trellis/tasks/09-14-publication-geo-integrity-error-contract-decision/research/publication-integrity-audit.md","reason":"实现时复用Publication约束、事务owner、flush边界与测试缺口证据"}
+{"file":".trellis/tasks/09-14-publication-geo-integrity-error-contract-decision/research/contract-frontend-impact.md","reason":"实现时保持OpenAPI、runtime、generated client与frontend零差异"}
+{"file":".trellis/tasks/09-14-publication-geo-integrity-error-contract-decision/research/decision-synthesis.md","reason":"实现时遵守已冻结的code/constraint、unknown和幂等恢复矩阵"}
+{"file":".trellis/tasks/09-14-publication-geo-integrity-error-contract-decision/research/independent-review.md","reason":"实现时避免重新引入已关闭的状态owner、测试和范围问题"}

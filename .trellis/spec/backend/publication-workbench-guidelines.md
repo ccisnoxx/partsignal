@@ -66,9 +66,10 @@ PublishedContentIssue: OPEN -> RESOLVED
 ### 4. 动作、并发与身份
 
 - 每个资源由服务端返回 typed `available_actions` 和可空 `primary_action`；前端只展示该投影，不按状态、URL、角色或关联对象推断资格。
-- 工作命令锁定目标行并校验 `expected_revision`。创建工作按请求键获取事务 advisory lock；同平台内容身份按 `platform_profile_id + content_hash` 串行校验。
+- 工作命令锁定目标行并校验 `expected_revision`。创建工作保持request-key advisory → platform/hash advisory → PlatformProfile → PlatformAccount → ContentTask的固定锁序；同平台内容身份按 `platform_profile_id + content_hash` 串行校验。
 - 创建修复任务锁定 Issue 后检查既有来源；数据库唯一约束负责最终竞争。只有真实 `23505 + uq_content_tasks_source_published_content_issue_id` 可在 rollback 后收敛为既有 `409 REPAIR_TASK_EXISTS`，其余完整性异常保持 unknown 500；不得解析错误文本或借用 `REVISION_CONFLICT`。
-- 一个已批准内容版本最多有一个发布工作；同一具体平台的同一内容哈希最多有一个未关闭工作。关闭只表达该次工作终止，不绕过内容身份形成重复公开。
+- 一个ContentTask最多有一个发布工作；同一具体平台的同一内容哈希最多有一个未关闭工作。创建预检必须按`content_task_id`而不是内容版本判断稳定身份；关闭只表达该次工作终止，不绕过任务身份形成重复公开。
+- Work创建的数据库最终权威仅为`23505 + uq_publication_works_idempotency_key|uq_publication_works_content_task_id|uq_publication_works_active_platform_hash`三个exact diagnostics。任一获准约束都先root rollback并按request key解析winner：同`content_version_id/platform_account_id`返回canonical replay，异载荷返回`IDEMPOTENCY_CONFLICT`；没有同key winner时，后两个约束返回`PUBLICATION_IDENTITY_CONFLICT`，idempotency winner缺失则unknown。其他unique、Verification/Article/Attachment、FK/CHECK/trigger及缺失/不稳定diagnostics保持unknown，不得解析文本或映射`REVISION_CONFLICT`。
 - 发布账号必须启用且属于任务锁定平台。账号停用只影响新选择，既有历史身份保持可读；账号凭据、Cookie 和令牌不得保存。
 - 发布工作不保存栏目地址或替代地址；不具备栏目概念的平台无需填写占位 URL。
 - 最终 URL 必须是 HTTP(S) 且匹配平台允许域名；未知标题、URL、时间、账号或内容一致性必须明确失败，不能补默认值。
@@ -85,7 +86,7 @@ PublishedContentIssue: OPEN -> RESOLVED
 
 ### 6. 必需验证
 
-- PostgreSQL 集成测试覆盖连续失败、失败后复核成功、显式关闭、成功核验原子完成、附件、revision、账号/平台门禁、直接非法写入、终态快照和已归档任务聚合删除；修复来源另覆盖 current-head catalog、真实 `23505` diagnostics、无 sleep 的双 Session 锁等待、单赢家、已知 rollback 后 Session reuse 及 unknown 500 不泄漏。
+- PostgreSQL 集成测试覆盖连续失败、失败后复核成功、显式关闭、成功核验原子完成、附件、revision、账号/平台门禁、直接非法写入、终态快照和已归档任务聚合删除；Work创建与修复来源另覆盖 current-head catalog、真实 `23505` diagnostics、无 sleep 的双 Session 锁等待、single winner、已知 rollback 后 Session reuse及unknown 500不泄漏。Work的test-only race必须证明loser等待在真实Work INSERT，且失败不留下第二条`CREATED`事件或Task/Verification/Article/GEO/Audit副作用。
 - GEO 集成测试覆盖合格文章全集、问题打开后的候选变化、并发集合校验、问题修复来源和显式解决。
 - 契约检查保证 FastAPI、`contracts/openapi.yaml` 和生成 TypeScript 类型一致，旧资源与通用命令不存在。
 - 前端组件测试覆盖 URL 恢复、服务端动作投影、失败后继续待处理、关闭确认、只读成果和问题独立处理。

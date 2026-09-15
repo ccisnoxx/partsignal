@@ -1,0 +1,6 @@
+{"file":".trellis/spec/backend/database-guidelines.md","reason":"复核三个唯一对象、真实diagnostics、single-winner并发与失败原子性"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"复核exact allowlist、idempotency优先级、unknown rethrow、no-leak和Session cleanup"}
+{"file":".trellis/spec/backend/publication-workbench-guidelines.md","reason":"复核content-task identity、锁顺序、event-time、history与删除不变量"}
+{"file":".trellis/tasks/09-14-publication-geo-integrity-error-contract-decision/research/decision-synthesis.md","reason":"检查实现没有漂移已批准的Publication错误合同与T5/T6边界"}
+{"file":".trellis/tasks/09-14-publication-geo-integrity-error-contract-decision/research/contract-frontend-impact.md","reason":"检查OpenAPI、runtime metadata、generated client与frontend确实零差异"}
+{"file":".trellis/tasks/09-14-publication-geo-integrity-error-contract-decision/research/independent-review.md","reason":"检查没有重开已关闭finding或越界到后续任务"}

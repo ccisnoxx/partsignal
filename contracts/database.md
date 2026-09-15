@@ -316,6 +316,8 @@ Prompt 更新锁定模板行并比较 `expected_revision`；保存前由管理�
 
 `publication_works.content_task_id` 固定发布工作的稳定任务身份并取代按内容版本唯一；首次核验成功前，工作可切换到同任务、同平台的当前批准版本。每次切换在事件中冻结前后内容版本，核验记录冻结当次内容版本，成果读取成功核验快照而不是可变工作指针。旧工作、事件和核验只有在归属可唯一确定时才回填，否则以 `55000` 阻断。
 
+开始发布的最终唯一性由 `uq_publication_works_idempotency_key`、`uq_publication_works_content_task_id` 与 partial unique index `uq_publication_works_active_platform_hash` 共同裁决。服务先按 request key、ContentTask 和同平台 active content hash 执行持锁预检；只有真实 `23505` 且 `diag.constraint_name` 精确等于这三个名称之一时，Work INSERT owner才允许在root rollback后恢复。恢复始终先按request key查询winner：`content_version_id/platform_account_id`全等返回canonical replay，任一不同返回既有`409 IDEMPOTENCY_CONFLICT`；没有同key winner时，content-task或active platform/hash冲突返回既有`409 PUBLICATION_IDENTITY_CONFLICT`，idempotency约束却找不到winner则保持unknown。其他unique、PASSED verification、Article、Attachment、FK、CHECK、trigger、缺失或替代位置diagnostics全部原样失败，不解析数据库错误文本，也不得映射为`REVISION_CONFLICT`。合规锁并发与数据库竞争都只能提交一个Work和一条`CREATED`事件；loser不得改变ContentTask status/revision/current pointer，或留下Verification、Article、GEO关系、source与SUCCESS AuditLog。
+
 `content_task_geo_sources` 按内容任务一对一冻结 GEO 异常规则、分析周期、来源文章或问题、GEO 平台和结构化依据。来源行只允许插入，不允许更新或删除；创建服务必须重新计算当前洞察并与内容任务同事务写入。该迁移包含新的不可逆业务历史，downgrade 固定以 `55000` 拒绝，恢复使用迁移前备份或前向修复。
 
 ### 0036 Remove Publication Section URL
@@ -451,6 +453,7 @@ State changes not shown above are invalid. A rejected immutable fact or content 
 - A publication work freezes the selected platform in `platform_profile_id_snapshot` without a foreign key. Published Article and GEO history read this UUID plus `platform_profile_name_snapshot`; deleting the live platform may null only the live foreign key and must not alter either snapshot.
 - A concrete platform may own multiple publication accounts, but their internal identifiers are unique by `lower(btrim(account_identifier))`; disabled accounts retain identity and historical references but are excluded from new publication candidates.
 - A publication work selects exactly one account. One content task has at most one work, and one `platform_profile_id + content_hash` has at most one non-closed work.
+- Work idempotency、ContentTask identity与active platform/hash的数据库最终权威分别是`uq_publication_works_idempotency_key`、`uq_publication_works_content_task_id`与`uq_publication_works_active_platform_hash`；仅`23505 + exact diag.constraint_name`可进入局部恢复，且任一获准约束都必须先按request key保持canonical replay/`IDEMPOTENCY_CONFLICT`优先级，再处理`PUBLICATION_IDENTITY_CONFLICT`。
 - 非终态发布工作仅可切换到同任务、同平台的当前批准版本；切换事件记录前后版本，每次核验记录当时版本，成功成果永久读取成功核验快照。
 - Result registration requires a valid HTTP(S) URL matching the configured platform domain and may append only verified `OPERATION_SCREENSHOT` evidence. Result fields, evidence, work event and audit commit or fail together.
 - A failed verification appends an immutable snapshot and leaves the work pending in `ACTION_REQUIRED`; it never creates an article or completes/cancels the task.

@@ -393,18 +393,50 @@ def _lock_publication_identity(
     _advisory_lock(db, f"publication:{platform_profile_id}:{content_hash}")
 
 
+_PUBLICATION_WORK_INTEGRITY_CONSTRAINTS = frozenset(
+    {
+        "uq_publication_works_idempotency_key",
+        "uq_publication_works_content_task_id",
+        "uq_publication_works_active_platform_hash",
+    }
+)
+
+
+def _publication_work_integrity_constraint(error: IntegrityError) -> str | None:
+    """只识别开始发布命令批准映射的三个 PostgreSQL 唯一约束。"""
+    original = error.orig
+    constraint_name = getattr(getattr(original, "diag", None), "constraint_name", None)
+    if (
+        getattr(original, "sqlstate", None) == "23505"
+        and isinstance(constraint_name, str)
+        and constraint_name in _PUBLICATION_WORK_INTEGRITY_CONSTRAINTS
+    ):
+        return constraint_name
+    return None
+
+
+def _publication_idempotency_conflict() -> AppError:
+    return AppError("IDEMPOTENCY_CONFLICT", "幂等键已用于另一发布工作", 409)
+
+
+def _publication_identity_conflict() -> AppError:
+    return AppError(
+        "PUBLICATION_IDENTITY_CONFLICT",
+        "该内容版本或同平台内容已存在发布工作",
+        409,
+    )
+
+
 def _ensure_unique_identity(
     db: Session,
     *,
-    content_version_id: uuid.UUID,
+    content_task_id: uuid.UUID,
     platform_profile_id: uuid.UUID,
     content_hash: str,
 ) -> None:
     if (
         db.scalar(
-            select(PublicationWork.id).where(
-                PublicationWork.content_version_id == content_version_id
-            )
+            select(PublicationWork.id).where(PublicationWork.content_task_id == content_task_id)
         )
         is not None
         or db.scalar(
@@ -416,11 +448,36 @@ def _ensure_unique_identity(
         )
         is not None
     ):
-        raise AppError(
-            "PUBLICATION_IDENTITY_CONFLICT",
-            "该内容版本或同平台内容已存在发布工作",
-            409,
-        )
+        raise _publication_identity_conflict()
+
+
+def _recover_publication_work_integrity_error(
+    db: Session,
+    *,
+    error: IntegrityError,
+    payload: PublicationWorkCreate,
+    idempotency_key: str,
+) -> PublicationWorkOut:
+    """回滚失败 INSERT，并按既有幂等优先级解析已提交 winner。"""
+    constraint_name = _publication_work_integrity_constraint(error)
+    if constraint_name is None:
+        raise error
+    db.rollback()
+    winner = db.scalar(
+        select(PublicationWork).where(PublicationWork.idempotency_key == idempotency_key)
+    )
+    if winner is not None:
+        if winner.platform_account_id is None:
+            raise error
+        if (
+            winner.content_version_id == payload.content_version_id
+            and winner.platform_account_id == payload.platform_account_id
+        ):
+            return publication_work_out(db, winner)
+        raise _publication_idempotency_conflict() from error
+    if constraint_name == "uq_publication_works_idempotency_key":
+        raise error
+    raise _publication_identity_conflict() from error
 
 
 def _work_event(
@@ -496,7 +553,7 @@ def create_publication_work(
             existing.content_version_id != payload.content_version_id
             or existing.platform_account_id != payload.platform_account_id
         ):
-            raise AppError("IDEMPOTENCY_CONFLICT", "幂等键已用于另一发布工作", 409)
+            raise _publication_idempotency_conflict()
         return publication_work_out(db, existing)
     platform_profile_id = db.scalar(
         select(PlatformAccount.platform_profile_id).where(
@@ -529,7 +586,7 @@ def create_publication_work(
         raise AppError("PUBLICATION_PLATFORM_MISMATCH", "发布账号平台与内容任务锁定平台不一致", 422)
     _ensure_unique_identity(
         db,
-        content_version_id=content.id,
+        content_task_id=task.id,
         platform_profile_id=profile.id,
         content_hash=content.content_hash,
     )
@@ -548,7 +605,15 @@ def create_publication_work(
         created_by=actor.id,
     )
     db.add(work)
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError as error:
+        return _recover_publication_work_integrity_error(
+            db,
+            error=error,
+            payload=payload,
+            idempotency_key=idempotency_key,
+        )
     _work_event(
         db,
         work=work,

@@ -1474,3 +1474,41 @@ Optional 完整 backend/frontend suite、frontend typecheck/build 未运行。�
 ### Status
 
 [OK] **Completed**
+
+
+## Session 224: 完成 GEO Content Task 幂等 IntegrityError 映射
+
+**Date**: 2026-09-16
+**Task**: 完成 GEO Content Task 幂等 IntegrityError 映射
+**Branch**: `main`
+
+### Summary
+
+完成 T5-I4 GEO Content Task 幂等 IntegrityError 映射：createGeoOptimizationContentTask 只精确处理 PostgreSQL 23505 + uq_content_tasks_idempotency_key；同 GEO 完整 identity canonical replay，异 GEO identity 及 ordinary/GEO 跨 source-kind 返回 IDEMPOTENCY_CONFLICT；winner/source identity 不可证明时重新抛出原始 IntegrityError。task/source 保持同事务，known 路径先 rollback 再重查，unknown 保持默认 500；ordinary command 生产 owner 保持零差异。
+
+### Main Changes
+
+- 同 GEO 完整 identity 执行 canonical replay；异 GEO identity 和 ordinary/GEO 跨 source-kind 返回 IDEMPOTENCY_CONFLICT。
+- winner/source identity 不可证明时重新抛出原始 IntegrityError；task/source 保持同事务，known 路径先 rollback 再重查，unknown 保持默认 500。
+- ordinary command 生产 owner 保持零差异；T5-I4 保持 completed/archived，T5-C 与顶层 integrity-error-domain-mapping 保持 planning。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `d54874303bb3685ffa1af0797104dfe2b472dd60` | (see git log) |
+
+### Testing
+
+- [OK] 三个目标 integration 文件组合运行全部通过，0 skip；修补后 test_geo_insights.py 为 32 passed。
+- [OK] contract/runtime unit、Ruff、80 个 backend source 的 mypy、allowlist diff-check 和 protected-owner 零差异检查均通过。
+- [OK] 独立高风险 full review 发现一项 P2 覆盖缺口；唯一一次 targeted repair/re-check/re-review 已关闭该项，没有新增 material finding。
+- [OK] optional full backend suite 只运行一次，在 collection 阶段因 integration/unit 同名 test_geo_insights.py import mismatch 以 exit 2 退出；未执行测试、未清缓存、未修改 pytest 配置、未重跑。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 下一项为 T5-I5 geo-observation-successor-integrity-mapping；本次未创建或启动。

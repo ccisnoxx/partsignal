@@ -1512,3 +1512,43 @@ Optional 完整 backend/frontend suite、frontend typecheck/build 未运行。�
 ### Next Steps
 
 - 下一项为 T5-I5 geo-observation-successor-integrity-mapping；本次未创建或启动。
+
+
+## Session 225: 完成 GEO Observation Successor Integrity Mapping
+
+**Date**: 2026-09-16
+**Task**: 完成 GEO Observation Successor Integrity Mapping
+**Branch**: `main`
+
+### Summary
+
+完成并归档 T5-I5：createGeoObservation 的 successor precheck 与真实 PostgreSQL 23505 + uq_geo_observations_supersedes_once 统一为 409 GEO_OBSERVATION_HAS_SUCCESSOR，message 保持“该 GEO 观测已被纠正”，details={}。
+
+### Main Changes
+
+- mapper 只包围 root observation 首次 flush；known exact 命中先对 root Session rollback 再抛稳定 AppError，unknown IntegrityError 原样上抛。
+- production row-lock 路径与 test-only 真实 unique race 均已验证；observation、publication、attachment、file 及关联业务状态的失败原子性均已验证。
+- T5-I5 保持 completed/archived；未再次归档任务，未修改 T5-C，未创建或启动 T5-I6。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `7fd3ddd242aa05b3d8c9244f4ebaf04534c427db` | (see git log) |
+
+### Testing
+
+- [OK] GEO correction integration：20 passed、0 skip。
+- [OK] contract/runtime unit、Ruff、80 个 backend source 的 mypy、allowlist diff-check 与 protected-owner 零差异检查通过。
+- [OK] frontend 兼容探针 2 个文件、14 项测试通过；frontend production/tests 没有修改。
+- [OK] 独立高风险 full review 发现一项 P2 失败快照覆盖缺口；唯一一次 targeted repair/re-check/re-review 已关闭，没有残留 material finding。
+- [OK] optional full backend suite 只运行一次，在 collection 阶段因 integration/unit 同名 test_geo_insights.py import mismatch 以 exit 2 退出；未执行测试、未清缓存、未改 pytest 配置、未重跑。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 下一项为 T5-I6 geo-observation-context-code-reconciliation；本次未创建或启动。
+- T5-C publication-geo-integrity-error-contract-decision 与 integrity-error-domain-mapping 继续保持 planning。

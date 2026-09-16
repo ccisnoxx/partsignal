@@ -119,4 +119,4 @@ T5-G/T6。预算用尽或re-review仍有material finding时停止并报告。
 - Required validation：publication integration 77 项通过；contract/runtime metadata unit 401 项通过；Ruff 通过；mypy 对 80 个 backend source files 通过；`npm --prefix frontend run api:check` 通过；allowlist `git diff --check` 与 protected-owner zero-diff 通过。
 - Optional full suite：当前 candidate 只运行一次；在 collection 阶段因 integration/unit 两个 `test_geo_insights.py` 的既有顶层模块 import mismatch 退出 2，未执行测试。依计划未清缓存、未越界修复、未重跑。
 - 独立高风险只读 review：已完成 full review，无未关闭 material finding；复核者独立确认 exact mapper/catch、两条并发、RETIRED/RESTORED、unknown、Session reuse、HTTP/no-leak、原子性、文档边界和 protected-owner zero-diff。残余限制仅为 optional full suite 的既有 collection mismatch 与并发证据未覆盖数据库连接/网络故障。
-- Completion boundary：全部 PRD 验收已有证据，任务继续保持 `in_progress` 等待用户决定是否提交与归档；未运行 `task.py finish/archive`，未 commit、未 push，也未启动后续 child。
+- Completion boundary：全部 PRD 验收已有证据；工作提交为 `a5469871f73465abf39873c56048ff92e2e1d5c1`，任务已于 2026-09-16 归档。未 push，也未启动后续 child；T5-C 与顶层父任务继续保持 `planning`。

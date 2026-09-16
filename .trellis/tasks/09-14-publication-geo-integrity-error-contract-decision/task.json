@@ -25,6 +25,6 @@
   ],
   "parent": "09-04-integrity-error-domain-mapping",
   "relatedFiles": [],
-  "notes": "T5-I1 publication-repair-task-integrity-mapping 与 T5-I2 publication-work-integrity-mapping 已完成并归档；T5-I3 publication-open-issue-integrity-mapping 已完成实现、required validation 与独立高风险只读 full review，等待用户决定提交与归档。T5-C 继续保持 planning。",
+  "notes": "T5-I1、T5-I2 与 T5-I3 均已完成并归档；T5-I3 工作提交为 a5469871f73465abf39873c56048ff92e2e1d5c1。下一项为 T5-I4 geo-content-task-idempotency-integrity-mapping，尚未创建或启动；T5-C 继续保持 planning。",
   "meta": {}
 }

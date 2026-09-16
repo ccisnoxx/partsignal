@@ -1453,3 +1453,24 @@ Optional 完整 backend/frontend suite、frontend typecheck/build 未运行。�
 ### Next Steps
 
 - T5-I3 publication-open-issue-integrity-mapping；T5-C 与顶层父任务继续保持 planning。
+
+
+## Session 223: 完成 Publication OPEN Issue 完整性错误精确映射
+
+**Date**: 2026-09-16
+**Task**: 完成 Publication OPEN Issue 完整性错误精确映射
+**Branch**: `main`
+
+### Summary
+
+完成 T5-I3：只精确映射 PostgreSQL 23505 + uq_published_content_issues_one_open，并与 precheck 一致返回 PUBLISHED_CONTENT_ISSUE_CONFLICT。Article FOR UPDATE、partial unique race、unknown 500、rollback、Session reuse 和失败原子性均已验证；publication integration 77 passed，contract/runtime metadata 401 passed；Ruff、完整 backend/app mypy、frontend api:check 和独立高风险 review 均通过。optional full backend suite 因既有 integration/unit 同名 test_geo_insights.py import mismatch 在 collection 阶段退出，未重跑。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `a5469871f73465abf39873c56048ff92e2e1d5c1` | (see git log) |
+
+### Status
+
+[OK] **Completed**

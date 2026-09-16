@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-4.md`
-- **Total Sessions**: 222
-- **Last Active**: 2026-09-15
+- **Total Sessions**: 223
+- **Last Active**: 2026-09-16
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-4.md` | ~1455 | Active |
+| `journal-4.md` | ~1476 | Active |
 | `journal-3.md` | ~1983 | Archived |
 | `journal-2.md` | ~1986 | Archived |
 | `journal-1.md` | ~1990 | Archived |
@@ -32,6 +32,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 223 | 2026-09-16 | 完成 Publication OPEN Issue 完整性错误精确映射 | `a5469871f73465abf39873c56048ff92e2e1d5c1` | `main` |
 | 222 | 2026-09-15 | 完成 Publication Work 完整性错误精确映射 | `a96f6df2582724ec5f5ee53870ba18c1318f8b57` | `main` |
 | 221 | 2026-09-14 | Publication Repair source 完整性错误精确映射 | `62bb236022ebe3883d274bff8cc20140e5bcd8d1` | `main` |
 | 220 | 2026-09-14 | 收尾 Content/Generation IntegrityError 合同决策 | `8d47363b` | `main` |

@@ -306,6 +306,8 @@ Prompt 更新锁定模板行并比较 `expected_revision`；保存前由管理�
 
 修复任务创建先锁定内容问题并检查既有来源关系；PostgreSQL 的 `uq_content_tasks_source_published_content_issue_id` 是并发竞争的最终权威。只有真实 `23505` 且 diagnostics 的 `constraint_name` 精确等于该名称时，服务才在回滚失败事务后返回既有 `409 REPAIR_TASK_EXISTS`；其他唯一、外键、触发器、缺失 diagnostics 或非 `23505` 的完整性异常保持 unknown 500，不解析数据库错误文本，也不得伪装成 revision 冲突。成功创建、问题/文章/事件历史和 AuditLog 必须保持原子，已知或未知失败都不得留下部分写入。
 
+打开发布后内容问题必须先以 `FOR UPDATE` 锁定同一 `PublishedArticle`，再由既有预检查拒绝已有 `OPEN` 问题或曾以 `RETIRED` 解决的问题。Partial unique index `uq_published_content_issues_one_open` 是“每篇文章至多一个 OPEN Issue”的最终并发权威；只有真实 `sqlstate=23505` 且 diagnostics 的 `constraint_name` 精确等于该名称时，Issue INSERT owner 才在 root rollback 后返回与预检查相同的 `409 PUBLISHED_CONTENT_ISSUE_CONFLICT`、消息 `文章已有开放问题或已退役` 和空 details。识别不得解析数据库错误文本；命中后不查询或重放 winner。`RETIRED` 语义仍只属于既有预检查，数据库直接写入触发的 `23514` 不得归因于该 partial unique mapper。其他 Issue unique、FK、CHECK、NOT NULL、trigger、constraint trigger、非 `23505`、其他约束及缺失 diagnostics 均保持 unknown 500。已知失败 rollback 后 Session 必须可复用；失败不得留下第二个 Issue、Repair Task、状态/revision 变化、GEO 关系或 SUCCESS AuditLog。
+
 工作终态字段、成果、事件、核验和问题历史由触发器冻结或限制为契约允许的状态变化。`0038` 起只有两类精确事务上下文可以删除发布历史：管理员永久删除已归档来源任务，或管理员永久删除一条没有 GEO 下游引用的成果聚合；未声明或错配目标的直接 DELETE 以 PostgreSQL `55000` 拒绝。GEO 新观测只能引用没有 `OPEN` 问题且从未以 `RETIRED` 解决问题的 `PublishedArticle`；打开问题、创建观测和删除成果锁定同一文章，避免资格竞态。
 
 ### 0035 Business Workflow Primary Tasks

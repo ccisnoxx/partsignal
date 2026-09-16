@@ -466,6 +466,581 @@ def _publication_creation_snapshot(db: Session) -> dict[str, object]:
     }
 
 
+def _open_issue_snapshot(db: Session) -> dict[str, object]:
+    """Issue 失败原子性包含全部历史行、来源绑定和既有发布聚合。"""
+    return {
+        **_publication_creation_snapshot(db),
+        "issues": list(
+            db.execute(select(PublishedContentIssue.__table__).order_by(PublishedContentIssue.id))
+        ),
+        "article_bindings": list(
+            db.execute(
+                select(PublishedArticle.id, PublishedArticle.verification_id).order_by(
+                    PublishedArticle.id
+                )
+            )
+        ),
+        "repair_sources": list(
+            db.execute(
+                select(ContentTask.id, ContentTask.source_published_content_issue_id).order_by(
+                    ContentTask.id
+                )
+            )
+        ),
+    }
+
+
+def _bypass_open_issue_precheck(patch: pytest.MonkeyPatch, db: Session) -> None:
+    """只隐藏该 Session 首次 Issue 读取；存在性检查和全部数据库 guard 保留。"""
+    real_scalars = db.scalars
+    pending = True
+
+    def scalars(statement: object, *args: object, **kwargs: object) -> object:
+        nonlocal pending
+        if pending and "FROM published_content_issues" in str(statement):
+            pending = False
+            return iter(())
+        return real_scalars(statement, *args, **kwargs)
+
+    patch.setattr(db, "scalars", scalars)
+
+
+def _assert_open_issue_conflict(error: AppError) -> None:
+    assert (error.status_code, error.code, error.message, error.details) == (
+        409,
+        "PUBLISHED_CONTENT_ISSUE_CONFLICT",
+        "文章已有开放问题或已退役",
+        {},
+    )
+
+
+@pytest.mark.parametrize(
+    "state,name",
+    [
+        ("23505", "pk_published_content_issues"),
+        ("23505", "uq_content_tasks_source_published_content_issue_id"),
+        ("23505", "uq_publication_works_content_task_id"),
+        ("23505", "uq_published_content_issues_one_open_suffix"),
+        ("23505", " UQ_PUBLISHED_CONTENT_ISSUES_ONE_OPEN"),
+        ("23505", b"uq_published_content_issues_one_open"),
+        ("23505", ["uq_published_content_issues_one_open"]),
+        ("23505", None),
+        (None, "uq_published_content_issues_one_open"),
+        ("23503", "uq_published_content_issues_one_open"),
+        ("23514", "uq_published_content_issues_one_open"),
+        ("23502", "uq_published_content_issues_one_open"),
+        ("55000", "uq_published_content_issues_one_open"),
+    ],
+)
+def test_open_issue_integrity_classifier_fails_closed(state: object, name: object) -> None:
+    class DiagnosticsOnly:
+        sqlstate = state
+        diag = SimpleNamespace(constraint_name=name) if name is not None else None
+        constraint_name = "uq_published_content_issues_one_open"
+
+        def __str__(self) -> str:
+            raise AssertionError("classifier 不得读取 driver message")
+
+    assert not publication_service._is_open_issue_integrity_error(
+        IntegrityError("uq_published_content_issues_one_open", {}, DiagnosticsOnly())
+    )
+
+
+@pytest.mark.integration
+def test_open_issue_catalog_real_diagnostics_and_unknown_guards() -> None:
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine, expire_on_commit=False) as db:
+            row = (
+                db.execute(
+                    text("""
+                SELECT c.relname, t.relname AS table_name, i.indisunique,
+                       pg_get_indexdef(c.oid, 1, true) AS key,
+                       i.indnkeyatts, pg_get_expr(i.indpred, i.indrelid) AS predicate,
+                       k.conname
+                FROM pg_class c JOIN pg_index i ON i.indexrelid = c.oid
+                JOIN pg_class t ON t.oid = i.indrelid
+                LEFT JOIN pg_constraint k ON k.conindid = c.oid
+                WHERE c.relname = 'uq_published_content_issues_one_open'
+            """)
+                )
+                .mappings()
+                .one()
+            )
+            assert row["table_name"] == "published_content_issues"
+            assert row["indisunique"] and row["conname"] is None
+            assert row["indnkeyatts"] == 1 and row["key"] == "published_article_id"
+            assert row["predicate"] == "((status)::text = 'OPEN'::text)"
+            graph = _seed_graph(db)
+            actor = graph["user"]
+            assert isinstance(actor, User)
+            issue = _open_repair_issue(db, graph, suffix="issue-catalog")
+            article_id, actor_id = issue.published_article_id, actor.id
+            baseline = _open_issue_snapshot(db)
+            check_names = dict(
+                db.execute(
+                    text("""
+                SELECT pg_get_constraintdef(oid), conname FROM pg_constraint
+                WHERE conrelid = 'published_content_issues'::regclass AND contype = 'c'
+            """)
+                ).all()
+            )
+            kind_check = next(
+                name for definition, name in check_names.items() if "kind" in definition
+            )
+            description_check = next(
+                name for definition, name in check_names.items() if "description" in definition
+            )
+            cases = [
+                ({}, "23505", "uq_published_content_issues_one_open"),
+                ({"id": issue.id}, "23505", "pk_published_content_issues"),
+                ({"kind": "INVALID"}, "23514", kind_check),
+                ({"description": " "}, "23514", description_check),
+                ({"description": None}, "23502", None),
+                (
+                    {"published_article_id": uuid.uuid4()},
+                    "23503",
+                    "fk_published_content_issues_article",
+                ),
+                ({"revision": 1}, "23514", None),
+            ]
+            for overrides, state, constraint in cases:
+                values = dict(
+                    published_article_id=article_id,
+                    opened_by=actor_id,
+                    kind="OTHER",
+                    description="诊断哨兵",
+                    status="OPEN",
+                )
+                values.update(overrides)
+                db.add(PublishedContentIssue(**values))
+                with pytest.raises(IntegrityError) as raised:
+                    db.flush()
+                assert (raised.value.orig.sqlstate, raised.value.orig.diag.constraint_name) == (
+                    state,
+                    constraint,
+                )
+                assert publication_service._is_open_issue_integrity_error(raised.value) == (
+                    constraint == "uq_published_content_issues_one_open"
+                )
+                db.rollback()
+                assert _open_issue_snapshot(db) == baseline
+            for statement in (
+                update(PublishedContentIssue)
+                .where(PublishedContentIssue.id == issue.id)
+                .values(description="非法改写"),
+                delete(PublishedContentIssue).where(PublishedContentIssue.id == issue.id),
+            ):
+                with pytest.raises(DBAPIError) as guard:
+                    db.execute(statement)
+                assert guard.value.orig.sqlstate == "55000"
+                db.rollback()
+                assert _open_issue_snapshot(db) == baseline
+        engine.dispose()
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("bypass", [False, True], ids=["article-lock", "unique-race"])
+def test_open_issue_concurrency_waits_at_exact_owner_and_has_one_winner(
+    monkeypatch: pytest.MonkeyPatch,
+    bypass: bool,
+) -> None:
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine, expire_on_commit=False) as seed:
+            graph = _seed_graph(seed)
+            actor = graph["user"]
+            assert isinstance(actor, User)
+            article_id = _complete_publication(seed, graph, suffix="issue-race").id
+            actor_id = actor.id
+            baseline = _open_issue_snapshot(seed)
+        held, release, ready, sent = (threading.Event() for _ in range(4))
+        pids: dict[str, int] = {}
+        diagnostics: list[tuple[str, str]] = []
+        real_classifier = publication_service._is_open_issue_integrity_error
+
+        def classify(error: IntegrityError) -> bool:
+            diagnostics.append((error.orig.sqlstate, error.orig.diag.constraint_name))
+            return real_classifier(error)
+
+        monkeypatch.setattr(publication_service, "_is_open_issue_integrity_error", classify)
+
+        def request(first: bool) -> object:
+            with Session(engine, expire_on_commit=False) as db, monkeypatch.context() as patch:
+                connection = db.connection()
+                pids["winner" if first else "loser"] = int(
+                    db.scalar(text("SELECT pg_backend_pid()"))
+                )
+                db.execute(text("SET LOCAL statement_timeout = '12s'"))
+                if bypass:
+                    _bypass_open_issue_precheck(patch, db)
+
+                def before(
+                    conn: object,
+                    cursor: object,
+                    statement: str,
+                    parameters: object,
+                    context: object,
+                    executemany: bool,
+                ) -> tuple[str, object]:
+                    if bypass and "FROM published_articles" in statement:
+                        statement = statement.replace(" FOR UPDATE", "")
+                    if not first and statement.startswith("INSERT INTO published_content_issues "):
+                        sent.set()
+                    return statement, parameters
+
+                def after(
+                    conn: object,
+                    cursor: object,
+                    statement: str,
+                    parameters: object,
+                    context: object,
+                    executemany: bool,
+                ) -> None:
+                    target = (
+                        statement.startswith("INSERT INTO published_content_issues ")
+                        if bypass
+                        else "FROM published_articles" in statement and "FOR UPDATE" in statement
+                    )
+                    if first and target:
+                        held.set()
+                        if not release.wait(10):
+                            raise TimeoutError("等待释放 Issue winner 超时")
+
+                event.listen(connection, "before_cursor_execute", before, retval=True)
+                event.listen(connection, "after_cursor_execute", after)
+                try:
+                    user = db.get(User, actor_id)
+                    assert user is not None
+                    if not first:
+                        ready.set()
+                    return open_published_content_issue(
+                        db=db,
+                        article_id=article_id,
+                        actor=user,
+                        request_id="issue-race",
+                        payload=PublishedContentIssueCreate(kind="OTHER", description="并发问题"),
+                    )
+                except AppError as error:
+                    _assert_open_issue_conflict(error)
+                    # exact mapper 必须已 rollback；precheck 不会使事务进入 failed 状态。
+                    assert db.scalar(select(func.count()).select_from(PublishedContentIssue)) == 1
+                    return error
+                finally:
+                    event.remove(connection, "before_cursor_execute", before)
+                    event.remove(connection, "after_cursor_execute", after)
+
+        try:
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                winner = executor.submit(request, True)
+                loser = None
+                try:
+                    assert held.wait(10)
+                    loser = executor.submit(request, False)
+                    assert ready.wait(10)
+                    deadline = time.monotonic() + 8
+                    while time.monotonic() < deadline:
+                        with engine.connect() as monitor:
+                            state = (
+                                monitor.execute(
+                                    text("""
+                                SELECT query, wait_event_type, pg_blocking_pids(pid) AS blockers
+                                FROM pg_stat_activity WHERE pid = :pid
+                            """),
+                                    {"pid": pids["loser"]},
+                                )
+                                .mappings()
+                                .one()
+                            )
+                        if (
+                            state["wait_event_type"] == "Lock"
+                            and pids["winner"] in state["blockers"]
+                        ):
+                            if bypass:
+                                assert state["query"].startswith(
+                                    "INSERT INTO published_content_issues "
+                                )
+                                assert sent.is_set()
+                            else:
+                                assert "FROM published_articles" in state["query"]
+                                assert "FOR UPDATE" in state["query"]
+                                assert not sent.is_set()
+                            break
+                        release.wait(0.02)
+                    else:
+                        pytest.fail(
+                            "未观察到目标 Issue INSERT / Article FOR UPDATE 的真实 winner 等待"
+                        )
+                    assert diagnostics == []
+                finally:
+                    release.set()
+                winner_result = winner.result(timeout=15)
+                assert loser is not None and isinstance(loser.result(timeout=15), AppError)
+            assert diagnostics == (
+                [("23505", "uq_published_content_issues_one_open")] if bypass else []
+            )
+            with Session(engine) as verify:
+                after = _open_issue_snapshot(verify)
+                rows = after.pop("issues")
+                assert (
+                    len(rows) == 1 and rows[0].id == winner_result.id and rows[0].status == "OPEN"
+                )
+                baseline.pop("issues")
+                assert after == baseline
+                assert (
+                    published_article_out(
+                        verify, verify.get(PublishedArticle, article_id)
+                    ).workflow_stage
+                    == "OPEN_ISSUE"
+                )
+        finally:
+            release.set()
+            engine.dispose()
+
+
+@pytest.mark.integration
+def test_open_issue_http_prechecks_exact_reuse_and_unknown_no_leak(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine, expire_on_commit=False) as seed:
+            graph = _seed_graph(seed)
+            actor = graph["user"]
+            assert isinstance(actor, User)
+            winner = _open_repair_issue(seed, graph, suffix="issue-http")
+            article_id, actor_id = winner.published_article_id, actor.id
+            healthy_graph = _seed_graph(seed, content_hash="b" * 64)
+            healthy_id = _complete_publication(seed, healthy_graph, suffix="issue-healthy").id
+            before = _open_issue_snapshot(seed)
+            csrf = "issue-csrf-token-with-more-than-32-characters"
+            auth = SimpleNamespace(
+                user=SimpleNamespace(id=actor_id, account_type="ENGINEER"),
+                csrf_hash=hash_token(csrf),
+            )
+        mode = "precheck"
+        observed: list[tuple[str, str | None]] = []
+        real_classifier = publication_service._is_open_issue_integrity_error
+
+        def classify(error: IntegrityError) -> bool:
+            observed.append((error.orig.sqlstate, error.orig.diag.constraint_name))
+            return real_classifier(error)
+
+        monkeypatch.setattr(publication_service, "_is_open_issue_integrity_error", classify)
+
+        def database_session() -> Iterator[Session]:
+            with Session(engine, expire_on_commit=False) as db, monkeypatch.context() as patch:
+                if mode in {"exact", "retired-trigger"}:
+                    _bypass_open_issue_precheck(patch, db)
+                try:
+                    yield db
+                except Exception as error:
+                    if isinstance(error, AppError) and mode == "exact":
+                        # 在 dependency rollback 前证明 mapper 已恢复同一个 Session。
+                        assert _open_issue_snapshot(db) == before
+                        user = db.get(User, actor_id)
+                        assert user is not None
+                        open_published_content_issue(
+                            db=db,
+                            article_id=healthy_id,
+                            actor=user,
+                            request_id="issue-reuse",
+                            payload=PublishedContentIssueCreate(
+                                kind="OTHER", description="健康命令"
+                            ),
+                        )
+                    db.rollback()
+                    if isinstance(error, IntegrityError):
+                        assert _open_issue_snapshot(db) == before
+                        assert db.get(User, actor_id) is not None
+                    raise
+
+        def post(target: uuid.UUID, request_id: str) -> object:
+            return TestClient(
+                app, raise_server_exceptions=mode not in {"retired-trigger", "foreign-key"}
+            ).post(
+                f"/api/v1/published-articles/{target}/issues",
+                headers={"X-CSRF-Token": csrf, "X-Request-ID": request_id},
+                json={"kind": "OTHER", "description": "HTTP 问题"},
+            )
+
+        app.dependency_overrides[get_db] = database_session
+        app.dependency_overrides[get_current_session] = lambda: auth
+        try:
+            for path in ("precheck", "exact", "retired"):
+                mode = path
+                if path == "retired":
+                    with Session(engine, expire_on_commit=False) as db:
+                        user = db.get(User, actor_id)
+                        resolve_published_content_issue(
+                            db=db,
+                            issue_id=winner.id,
+                            actor=user,
+                            request_id="retire",
+                            payload=PublishedContentIssueResolveRequest(
+                                outcome="RETIRED",
+                                comment="文章已退役",
+                                expected_revision=0,
+                            ),
+                        )
+                        before = _open_issue_snapshot(db)
+                response = post(article_id, f"issue-{path}")
+                assert response.status_code == 409, response.text
+                assert response.json() == {
+                    "error": {
+                        "code": "PUBLISHED_CONTENT_ISSUE_CONFLICT",
+                        "message": "文章已有开放问题或已退役",
+                        "details": {},
+                        "request_id": f"issue-{path}",
+                    }
+                }
+                assert response.headers["X-Request-ID"] == f"issue-{path}"
+            assert observed == [("23505", "uq_published_content_issues_one_open")]
+            for unknown in ("retired-trigger", "foreign-key"):
+                mode = unknown
+                target = article_id
+                if unknown == "foreign-key":
+                    with Session(engine, expire_on_commit=False) as db:
+                        healthy_issue = db.scalars(
+                            select(PublishedContentIssue).where(
+                                PublishedContentIssue.published_article_id == healthy_id
+                            )
+                        ).one()
+                        resolve_published_content_issue(
+                            db=db,
+                            issue_id=healthy_issue.id,
+                            actor=db.get(User, actor_id),
+                            request_id="restore",
+                            payload=PublishedContentIssueResolveRequest(
+                                outcome="RESTORED",
+                                comment="恢复后允许重开",
+                                expected_revision=0,
+                            ),
+                        )
+                        before = _open_issue_snapshot(db)
+                    target = healthy_id
+                    auth = SimpleNamespace(
+                        user=SimpleNamespace(id=uuid.uuid4(), account_type="ENGINEER"),
+                        csrf_hash=hash_token(csrf),
+                    )
+                response = post(target, f"issue-{unknown}")
+                assert response.status_code == 500
+                for secret in (
+                    "INSERT INTO",
+                    "published_content_issues",
+                    "fk_",
+                    "uq_",
+                    "23514",
+                    "23503",
+                    "Traceback",
+                    "ForeignKeyViolation",
+                    "retired article",
+                    "PUBLISHED_CONTENT_ISSUE_CONFLICT",
+                    "REVISION_CONFLICT",
+                    "violates foreign key",
+                ):
+                    assert secret.lower() not in response.text.lower()
+            assert observed[-2:] == [
+                ("23514", None),
+                ("23503", "fk_published_content_issues_opened_by_users"),
+            ]
+            with Session(engine, expire_on_commit=False) as db:
+                assert _open_issue_snapshot(db) == before
+                restored = open_published_content_issue(
+                    db=db,
+                    article_id=healthy_id,
+                    actor=db.get(User, actor_id),
+                    request_id="restored-open",
+                    payload=PublishedContentIssueCreate(
+                        kind="OTHER",
+                        description="RESTORED 后新问题",
+                    ),
+                )
+                assert restored.status == "OPEN"
+        finally:
+            app.dependency_overrides.clear()
+            engine.dispose()
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("boundary", ["projection", "commit", "deferred-trigger"])
+def test_open_issue_late_exact_diagnostics_remain_unknown(
+    monkeypatch: pytest.MonkeyPatch,
+    boundary: str,
+) -> None:
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine, expire_on_commit=False) as db:
+            graph = _seed_graph(db)
+            article_id = _complete_publication(db, graph, suffix="issue-late").id
+            pending_work = None
+            if boundary == "deferred-trigger":
+                pending_graph = _seed_graph(db, content_hash="c" * 64)
+                pending_work = create_publication_work(
+                    db=db,
+                    payload=_work_payload(pending_graph),
+                    actor=pending_graph["user"],
+                    request_id="deferred-work",
+                    idempotency_key="deferred-work",
+                )
+            before = _open_issue_snapshot(db)
+            error = IntegrityError(
+                "INSERT",
+                {},
+                SimpleNamespace(
+                    sqlstate="23505",
+                    diag=SimpleNamespace(constraint_name="uq_published_content_issues_one_open"),
+                ),
+            )
+
+            def fail(*args: object, **kwargs: object) -> None:
+                raise error
+
+            real_commit = db.commit
+
+            def incomplete_close() -> None:
+                # 真实 deferred guard：Work 关闭却未取消 Task；Issue flush 已完成。
+                assert pending_work is not None
+                db.execute(
+                    update(PublicationWork)
+                    .where(PublicationWork.id == pending_work.id)
+                    .values(
+                        status="CLOSED",
+                        revision=1,
+                        close_reason="OTHER",
+                        close_comment="延迟约束负例",
+                        closed_by=graph["user"].id,
+                        closed_at=datetime.now(UTC),
+                    )
+                )
+                real_commit()
+
+            with monkeypatch.context() as patch:
+                if boundary == "projection":
+                    patch.setattr(publication_service, "published_content_issue_out", fail)
+                elif boundary == "deferred-trigger":
+                    patch.setattr(db, "commit", incomplete_close)
+                else:
+                    patch.setattr(db, "commit", fail)
+                with pytest.raises(IntegrityError) as raised:
+                    open_published_content_issue(
+                        db=db,
+                        article_id=article_id,
+                        actor=graph["user"],
+                        request_id="late",
+                        payload=PublishedContentIssueCreate(kind="OTHER", description="边界"),
+                    )
+                if boundary == "deferred-trigger":
+                    assert raised.value.orig.sqlstate == "23514"
+                    assert raised.value.orig.diag.constraint_name is None
+                    assert not publication_service._is_open_issue_integrity_error(raised.value)
+                else:
+                    assert raised.value is error
+            db.rollback()
+            assert _open_issue_snapshot(db) == before
+        engine.dispose()
+
+
 @pytest.mark.parametrize(
     ("sqlstate", "constraint_name"),
     [

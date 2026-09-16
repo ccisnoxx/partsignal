@@ -1,0 +1,7 @@
+{"file":".trellis/spec/backend/database-guidelines.md","reason":"实现时约束current-head partial unique catalog、exact diagnostics、Article锁等待、test-only INSERT race与失败原子性"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"实现时约束局部exact mapper、known rollback、unknown 500、no-leak与Session reuse"}
+{"file":".trellis/spec/backend/publication-workbench-guidelines.md","reason":"实现时约束OPEN Issue、RETIRED语义、Article锁、不可变历史与删除边界"}
+{"file":".trellis/tasks/09-14-publication-geo-integrity-error-contract-decision/research/publication-integrity-audit.md","reason":"实现时复用Issue约束、transaction owner、flush边界和测试缺口证据"}
+{"file":".trellis/tasks/09-14-publication-geo-integrity-error-contract-decision/research/contract-frontend-impact.md","reason":"实现时保持OpenAPI、runtime metadata、generated client、Frontend V2与frontend零差异"}
+{"file":".trellis/tasks/09-14-publication-geo-integrity-error-contract-decision/research/decision-synthesis.md","reason":"实现时遵守已冻结的OPEN Issue code/constraint、RETIRED和unknown矩阵"}
+{"file":".trellis/tasks/09-14-publication-geo-integrity-error-contract-decision/research/independent-review.md","reason":"实现时避免重开父规划已关闭finding或越界改变wire、锁与后续T5/T6边界"}

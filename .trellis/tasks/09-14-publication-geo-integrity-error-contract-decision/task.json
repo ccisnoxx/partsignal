@@ -20,10 +20,11 @@
   "subtasks": [],
   "children": [
     "09-14-publication-repair-task-integrity-mapping",
-    "09-14-publication-work-integrity-mapping"
+    "09-14-publication-work-integrity-mapping",
+    "09-15-publication-open-issue-integrity-mapping"
   ],
   "parent": "09-04-integrity-error-domain-mapping",
   "relatedFiles": [],
-  "notes": "T5-I1 publication-repair-task-integrity-mapping 已完成并归档；下一项为 T5-I2 publication-work-integrity-mapping。",
+  "notes": "T5-I1 publication-repair-task-integrity-mapping 与 T5-I2 publication-work-integrity-mapping 已完成并归档；T5-I3 publication-open-issue-integrity-mapping 已完成实现、required validation 与独立高风险只读 full review，等待用户决定提交与归档。T5-C 继续保持 planning。",
   "meta": {}
 }

@@ -905,6 +905,25 @@ def close_publication_work(
     return _finish_work_command(db, work)
 
 
+def _published_content_issue_conflict() -> AppError:
+    """返回文章不能同时存在开放问题或在退役后重开的稳定冲突。"""
+    return AppError(
+        "PUBLISHED_CONTENT_ISSUE_CONFLICT",
+        "文章已有开放问题或已退役",
+        409,
+    )
+
+
+def _is_open_issue_integrity_error(error: IntegrityError) -> bool:
+    """只识别每篇文章至多一个 OPEN Issue 的 PostgreSQL 最终约束。"""
+    original = error.orig
+    return (
+        getattr(original, "sqlstate", None) == "23505"
+        and getattr(getattr(original, "diag", None), "constraint_name", None)
+        == "uq_published_content_issues_one_open"
+    )
+
+
 def open_published_content_issue(
     *,
     db: Session,
@@ -929,11 +948,7 @@ def open_published_content_issue(
     if any(issue.status == "OPEN" for issue in issues) or any(
         issue.resolution_outcome == "RETIRED" for issue in issues
     ):
-        raise AppError(
-            "PUBLISHED_CONTENT_ISSUE_CONFLICT",
-            "文章已有开放问题或已退役",
-            409,
-        )
+        raise _published_content_issue_conflict()
     issue = PublishedContentIssue(
         published_article_id=article.id,
         kind=payload.kind.value,
@@ -942,7 +957,13 @@ def open_published_content_issue(
         opened_by=actor.id,
     )
     db.add(issue)
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError as error:
+        if not _is_open_issue_integrity_error(error):
+            raise
+        db.rollback()
+        raise _published_content_issue_conflict() from error
     result = published_content_issue_out(db, issue)
     db.commit()
     return result

@@ -197,6 +197,43 @@ db.rollback()
 winner = load_by_idempotency_key(idempotency_key)
 ```
 
+## Scenario：Publication OPEN Issue partial unique 映射
+
+### 1. Scope / Trigger
+
+- 只适用于 `publication.open_published_content_issue` 新增 `PublishedContentIssue` 后的首个 Issue `flush()`；catch scope 不得包围后续 projection/commit，也不得扩展到 Repair Task、Publication Work、GEO、删除或其他命令。
+- 合规路径必须保留 `PublishedArticle FOR UPDATE`，再执行既有 OPEN/RETIRED 预检查。数据库 partial unique index 是绕过预检查 writer 的最终权威，不替代正常锁与业务语义。
+
+### 2. Contracts
+
+- known 条件只有 `error.orig.sqlstate == "23505"` 且 `error.orig.diag.constraint_name == "uq_published_content_issues_one_open"`。禁止解析 `str(error)`、statement、params、`message_primary`、模糊名称或非 `diag` alias。
+- 预检查与 known mapper 必须共享同一个稳定错误：`409 PUBLISHED_CONTENT_ISSUE_CONFLICT`、消息 `文章已有开放问题或已退役`、`details={}`。known 命中后先 root `rollback()` 再抛 `AppError`，不查询、解析或 replay winner。
+- 已存在 `RETIRED` Issue 继续由预检查拒绝；test-only bypass 直接写入触发的 `23514` RETIRED guard 仍为 unknown，不能归因于 OPEN partial unique mapper。
+- 其他 Issue unique、FK、CHECK、NOT NULL、trigger、constraint trigger、非 `23505`、其他 constraint、缺失或替代位置 diagnostics 全部原样上抛，由请求 Session owner rollback/close 后进入默认 unknown 500；不得映射为 `PUBLISHED_CONTENT_ISSUE_CONFLICT` 或 `REVISION_CONFLICT`。
+
+### 3. Atomicity and tests
+
+- current-head catalog 必须证明 index 名称、目标表/列、`status = 'OPEN'` predicate 及没有 `pg_constraint` row；真实重复 OPEN INSERT 必须捕获 `23505 + exact diag.constraint_name`。
+- 合规双 Session 用有界同步点与 `pg_stat_activity/pg_blocking_pids` 证明 loser 等待同一 Article 的 `SELECT ... FOR UPDATE`，winner 提交后 loser 由 precheck 返回同义错误。test-only bypass 只在两个测试 Session 中移除 Article `FOR UPDATE` 并同步旁路 Issue precheck，保留 Article 读取和全部数据库约束，且必须证明 loser 等待在真实 `INSERT INTO published_content_issues`；禁止用 `sleep()` 猜竞态。
+- known rollback 后原 Session 必须可查询。最终只允许一个 OPEN Issue；失败不得新增第二个 Issue、Repair Task、改变 Article 身份/核验绑定或 PublicationWork status/revision、GEO link、追加式历史或 SUCCESS AuditLog。
+- HTTP known 409 逐字段冻结 `ErrorEnvelope`、message、`details={}`、body request ID 与 `X-Request-ID`。unknown HTTP 只冻结 500 与正文不含 SQL、表名、constraint、driver message 或 traceback；不得把默认 500 body 添加为 OpenAPI 合同。
+
+### 4. Wrong vs Correct
+
+```python
+# Wrong：把所有 Issue 完整性异常都伪装成同一业务冲突
+except IntegrityError:
+    db.rollback()
+    raise _published_content_issue_conflict()
+
+# Correct：只收敛 PostgreSQL 精确报告的 OPEN partial unique 竞争
+except IntegrityError as error:
+    if not _is_open_issue_integrity_error(error):
+        raise
+    db.rollback()
+    raise _published_content_issue_conflict() from error
+```
+
 ## Scenario：生成作业的唯一约束领域映射
 
 ### 1. Scope / Trigger

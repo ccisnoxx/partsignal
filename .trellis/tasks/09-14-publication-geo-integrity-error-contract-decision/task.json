@@ -27,6 +27,6 @@
   ],
   "parent": "09-04-integrity-error-domain-mapping",
   "relatedFiles": [],
-  "notes": "T5-I1、T5-I2、T5-I3 与 T5-I4 均已完成并归档；T5-I3 工作提交为 a5469871f73465abf39873c56048ff92e2e1d5c1，T5-I4 工作提交为 d54874303bb3685ffa1af0797104dfe2b472dd60。T5-I5 geo-observation-successor-integrity-mapping 已完成实现、验收与独立复核，当前等待用户确认提交和归档。T5-C 继续保持 planning。",
+  "notes": "T5-I1 至 T5-I5 均已完成并归档；T5-I3 工作提交为 a5469871f73465abf39873c56048ff92e2e1d5c1，T5-I4 工作提交为 d54874303bb3685ffa1af0797104dfe2b472dd60，T5-I5 工作提交为 7fd3ddd242aa05b3d8c9244f4ebaf04534c427db。T5-C 继续保持 planning，下一项为 T5-I6。",
   "meta": {}
 }

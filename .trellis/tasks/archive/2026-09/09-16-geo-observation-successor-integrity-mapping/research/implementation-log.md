@@ -64,6 +64,10 @@
 - 收尾复核确认 AC1–AC13 均有对应实现、测试或明确的 optional gate 记录；没有未关闭的 material finding。
 - 实际变更保持在 implementation/task bookkeeping allowlist；OpenAPI、router/schema/runtime metadata、ORM、migration、
   generated client 与 frontend production/tests 没有新增差异。工作区其余大量既有 dirty/staged 修改未被吸收。
-- 当前 candidate 已具备提交与归档条件，但尚未获得本轮最终提交/归档确认，因此 Task 保持 `in_progress` 且继续作为
-  current task；未运行 `task.py finish`、`task.py archive`、`git add`、`git commit` 或 push。
-- 下一步只等待用户确认提交与归档。归档后才能进入 T5-I6；T5-I5 server code 仍不得在 T6 页面投影完成前单独发布。
+- 用户明确确认按精确 allowlist 提交并以不吸收其他工作区修改的方式归档。工作提交
+  `7fd3ddd242aa05b3d8c9244f4ebaf04534c427db` 只包含本 Task 路径；`state-management.md` 只提交本 Task 新增场景，
+  其既有用户差异继续保留为 unstaged。提交前后无关 staged diff SHA256 均为
+  `b9c0e20aaabc3e8bc392aa00e11a427ab42228b4e5d2c96dc6cd18b1408c23b4`，文件数均为 543。
+- `task.py archive --no-commit` 已把 Task 标记为 `completed`、写入完成日期、清除 current task 指针并移动到
+  `.trellis/tasks/archive/2026-09/09-16-geo-observation-successor-integrity-mapping`；归档 bookkeeping 另行精确提交，
+  未运行 push。下一步可以规划 T5-I6；T5-I5 server code 仍不得在 T6 页面投影完成前单独发布。

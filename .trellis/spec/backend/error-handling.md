@@ -160,6 +160,63 @@ except IntegrityError as error:
     raise _repair_task_exists() from error
 ```
 
+## Scenario：GEO ContentTask 幂等唯一约束映射
+
+### 1. Scope / Trigger
+
+- 只适用于 `geo_observation.create_geo_optimization_content_task` 调用 `add_locked_content_task(...)` 时触发的首个 ContentTask INSERT/flush；source add、source flush、projection 与 commit 不在 catch scope 内。
+- GEO owner 与 ordinary owner 各自维护 command-local classifier 和 identity 判定；不得修改共享 helper、导入对方私有函数、建立全局 constraint registry，或改变 OpenAPI/runtime/generated/frontend wire。
+
+### 2. Contracts
+
+- known pair 只有 `error.orig.sqlstate == "23505"` 且 `error.orig.diag.constraint_name == "uq_content_tasks_idempotency_key"`。禁止读取 `str(error)`、message、statement、params、替代 constraint 属性、alias 或模糊名称。
+- exact pair 命中后必须保存原始异常并先 root `rollback()`，再按 key 查询已提交 winner。winner 不存在或 task identity 不完整时重新抛出同一个原始 `IntegrityError`。
+- 完整 task 没有 `ContentTaskGeoSource` 时可证明为 ordinary kind，返回既有 `409 IDEMPOTENCY_CONFLICT`、消息 `幂等键已用于另一内容任务创建请求`、`details={}`；ordinary 与 GEO 不得互相 replay。
+- GEO source 必须具有 rule-specific 完整身份：`CONTENT_DECLINE | LONG_UNMENTIONED` 要求 article 非空且 topic/platform 为空；`QUESTION_COVERAGE_GAP` 要求 article 为空且 topic/platform 非空。未知 rule 或必要字段缺失均为 unverifiable，重新抛出原异常；尤其不得把 `0037` 生命周期合法置空的历史 article 猜为冲突。
+- task 的 product/fact/platform 与 source 的 rule/date/article/topic/platform 全部完整且相等时返回 canonical winner；身份完整但任一字段不同才返回既有 conflict。basis snapshot、actor、request ID 和创建时间不属于 idempotency identity，也不得被恢复路径修改。
+- 非目标 unique、FK、CHECK、NOT NULL、trigger、非 `23505`、diagnostics 缺失或畸形，以及 catch scope 外的任何 `IntegrityError` 均原样上抛。known rollback 后同一 Session 可继续查询和执行健康命令；unknown direct caller 显式 rollback 后验证复用。
+
+### 3. Validation & Error Matrix
+
+| 条件 | service 决策 | HTTP |
+|---|---|---|
+| 已提交完整同 GEO identity | canonical replay | 既有成功响应 |
+| exact pair + 完整同 GEO winner | rollback、重查并返回 winner | 既有成功响应 |
+| exact pair + 完整 ordinary/异 GEO winner | rollback、重查后稳定冲突 | `409 IDEMPOTENCY_CONFLICT` ErrorEnvelope |
+| exact pair + winner 缺失或 identity 不可证明 | rollback 后重新抛出原异常 | 默认 unknown 500，不泄漏数据库细节 |
+| 其他 IntegrityError 或 catch scope 外失败 | 原样上抛；request owner cleanup | 默认 unknown 500，不新增公共 500 schema |
+
+### 4. Tests Required
+
+- current-head PostgreSQL catalog 与真实 duplicate INSERT 必须证明目标约束为非 deferrable 单列 unique，并产生精确 driver diagnostics；mock 只能补充畸形 diagnostics 分支。
+- 正常并发证明 transaction advisory lock 的指定 blocker、等待 SQL、winner commit 后 precheck replay 与单次 task INSERT。test-only bypass 按资源锁兼容性拆分共享资源 latch 和不共享资源 unique INSERT wait，不得把任意 Lock 或 future 未完成冒充目标等待。
+- 覆盖同 GEO、逐字段异 GEO、ordinary/GEO 双向、winner missing、task/source identity 不完整、其他约束和 source/commit scope；所有 event、barrier、future、statement/lock timeout 与清理必须有界。
+- known 409 冻结既有 code/message/details 与 body/header request ID；unknown 500 只验证不泄漏 SQL、表名、constraint、driver message 或 traceback，不冻结默认 body。
+- winner 与 loser 的 task/source/basis、ContentVersion/Review、GEO relation、AuditLog、status/revision/current pointer必须做失败原子性快照；known 无需测试补 rollback即可复用 Session，unknown由 caller rollback后复用。
+
+### 5. Wrong vs Correct
+
+```python
+# Wrong：只看 23505，或在 source/commit 周围扩大 catch
+except IntegrityError as error:
+    if error.orig.sqlstate == "23505":
+        db.rollback()
+        raise _content_task_idempotency_conflict() from error
+
+# Correct：task INSERT owner 只恢复精确 pair；不可证明 winner 保留 unknown
+except IntegrityError as error:
+    if not _is_geo_content_task_idempotency_error(error):
+        raise
+    db.rollback()
+    winner = _load_content_task_by_idempotency_key(db, idempotency_key)
+    decision = _geo_winner_identity(winner, request)
+    if decision == "same":
+        return winner
+    if decision == "different":
+        raise _content_task_idempotency_conflict() from error
+    raise error
+```
+
 ## Scenario：Publication Work 三个唯一约束映射
 
 ### 1. Scope / Trigger

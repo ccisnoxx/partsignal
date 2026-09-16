@@ -1,0 +1,7 @@
+{"file":".trellis/spec/backend/database-guidelines.md","reason":"复核exact catalog/diagnostics、normal与bypass并发、双向identity和失败原子性"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"复核单一allowlist、task INSERT catch scope、known rollback、unknown/no-leak与Session cleanup"}
+{"file":".trellis/tasks/09-14-publication-geo-integrity-error-contract-decision/research/decision-synthesis.md","reason":"检查实现没有漂移T5-C批准的GEO/ordinary identity、error tuple与后续T5/T6边界"}
+{"file":".trellis/tasks/09-14-publication-geo-integrity-error-contract-decision/research/contract-frontend-impact.md","reason":"检查OpenAPI、runtime metadata、generated client、Frontend V2与frontend确实零差异"}
+{"file":".trellis/tasks/09-14-publication-geo-integrity-error-contract-decision/research/independent-review.md","reason":"检查没有重开父规划已关闭finding或越界改变wire、source lifecycle与ordinary owner"}
+{"file":".trellis/tasks/archive/2026-09/09-06-content-task-idempotency-integrity-mapping/research/planning-review.md","reason":"复核ordinary既有exact mapper保持只读且GEO任务没有引入跨owner共享抽象"}
+{"file":".trellis/tasks/09-16-geo-content-task-idempotency-integrity-mapping/research/planning-review.md","reason":"复核共享资源latch与无共享资源unique wait证据没有漂移，且ordinary双向场景不再依赖被高估的旧测试"}

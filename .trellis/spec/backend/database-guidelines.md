@@ -527,6 +527,7 @@ result = cleanup_platform_logo_files(storage=storage)
 - 任务：`ContentTaskCreate(product_id, fact_version_id, platform_profile_id)`；`content_tasks` 直接外键到 `platform_profiles`。
 - 创建选项：`GET /api/v1/content-tasks/creation-options?requested_product_id=<uuid>` 返回 `products[].approved_fact_versions[]`、`platforms[]` 和可空 `requested_product`；读请求使用 `REPEATABLE READ`。
 - 普通任务创建要求 8–128 字符 `Idempotency-Key`；同键同三字段且不存在 `ContentTaskGeoSource` 的普通任务返回原任务，同键异载荷或 GEO 任务返回 `409 IDEMPOTENCY_CONFLICT`，不同键允许相同业务输入。
+- GEO 优化任务与普通任务共享相同的 idempotency key 唯一空间；只有 task 三字段与 rule/date/article/topic/GEO platform 来源字段形成完整同一 identity 时才 replay，普通与 GEO source kind 永远不得相互 replay。
 - 系统首稿：`POST /api/v1/content-tasks/{id}/generation-jobs`，请求体为 `{ai_model_id, platform_prompt_id, platform_prompt_revision}`。
 - 人工首稿：`POST /api/v1/content-tasks/{id}/manual-versions`，请求体复用 `ContentRevisionCreate`。
 - 人工草稿保存：`PUT /api/v1/content-versions/{id}`，请求 `{expected_revision, title, summary, body_markdown, tags}`，返回原 ID 的新 revision 投影。
@@ -546,7 +547,10 @@ result = cleanup_platform_logo_files(storage=storage)
 - 普通任务创建先按命名请求键获取 PostgreSQL 事务 advisory lock，再读取唯一的 `content_tasks.idempotency_key`。重放不产生额外副作用；历史任务和发布修复任务保持空值，Redis 不保存幂等状态。
 - 普通任务的 canonical identity 固定为 `product_id`、`fact_version_id`、`platform_profile_id` 与 ordinary source kind（不存在 `ContentTaskGeoSource`）。同键命中 GEO source、任一目标字段不同或 winner identity 无法证明时，不得作为普通 replay；可判定的异 identity 返回既有 `IDEMPOTENCY_CONFLICT`。
 - 普通创建 caller 只把 `orig.sqlstate == '23505'` 且 `orig.diag.constraint_name == 'uq_content_tasks_idempotency_key'` 视为可恢复的最终唯一约束；必须先 root `rollback()`，再按 key 查询和验证 winner。diagnostics 缺失、其他 constraint、非 `23505` 及 FK/CHECK/NOT NULL/trigger 错误都原样失败，不解析数据库 message，也不建立全局 mapper。
-- 精确约束恢复仅由普通 caller 负责，不改变 `add_locked_content_task` 或 GEO 创建 owner。winner 缺失或 identity 不完整时重新抛出最初 `IntegrityError`；已知 replay/conflict 与 unknown 失败均不得留下候选任务、版本、审核、审计或 dispatch，rollback 后 request Session 必须可继续使用。
+- 普通与 GEO 创建 caller 各自在自己的 command owner 内恢复同一个精确约束，不改变共享的 `add_locked_content_task`，也不建立跨领域 mapper。GEO caller 的 catch 只包围 task 首次 INSERT/flush：命中后先 root `rollback()`，再按 key 重查 winner；source add、source flush 与 commit 均在 catch scope 外。
+- GEO race recovery 必须区分 `same / different / unverifiable`。完整 ordinary winner或完整异 GEO identity为 `IDEMPOTENCY_CONFLICT`；完整同 GEO identity replay。winner 缺失、task 三字段任一缺失、未知 rule，或 rule-specific source 形状不完整时重新抛出最初 `IntegrityError`。内容规则要求 article 非空且 topic/platform 为空；覆盖缺口规则要求 article 为空且 topic/platform 非空；`0037` 合法置空历史 article 不能被猜测分类。
+- 正常同 key 并发继续由 transaction advisory lock 串行并走已提交 winner precheck；真实最终约束测试不得削弱 production row/FK lock。共享目标资源的旁路场景使用仅测试连接可见且有界的 PostgreSQL latch，让 winner 完整提交后 loser 再执行原锁与 INSERT；只有不共享 target 资源时才把等待归因为真实 unique INSERT 仲裁。两类测试都必须核对指定 blocker、目标 SQL、真实 diagnostics、单一 winner 聚合与异常路径清理。
+- 已知 replay/conflict 与 unknown 失败均不得留下候选任务、GEO source、版本、审核、GEO relation、SUCCESS AuditLog、revision/current pointer/status 或其他部分状态；winner 保持不可变。known rollback 后 request Session 必须可继续使用，unknown 由 caller rollback 后验证复用。
 - `content_tasks.idempotency_key` 只属于服务端创建幂等控制；任务列表与详情必须复用同一响应基础投影排除该字段，并继续由禁止额外字段的响应模型检查合同漂移。
 - 原始 AI 请求必须恰好发送两条消息：`system.content == PlatformPrompt.template_markdown`，`user.content == FactVersion.body_markdown`；不得增加前缀、拼接任务要求、补默认安全规则或重写空白。
 - 人工首稿创建 `source_type=HUMAN`、`status=DRAFT`、`source_job_id=NULL`、`based_on_id=NULL`，随后与 AI 草稿共用修订、审核和人工发布链。

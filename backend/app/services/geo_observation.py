@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy import Select, delete, exists, func, literal, or_, select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased
 from sqlalchemy.sql.elements import ColumnElement
 
@@ -2198,6 +2199,60 @@ def get_geo_insights(
     )
 
 
+def _is_geo_task_idempotency_integrity_error(error: IntegrityError) -> bool:
+    """只识别 GEO 创建命令拥有的精确 PostgreSQL 幂等约束。"""
+    return (
+        getattr(error.orig, "sqlstate", None) == "23505"
+        and getattr(getattr(error.orig, "diag", None), "constraint_name", None)
+        == "uq_content_tasks_idempotency_key"
+    )
+
+
+def _geo_task_has_same_identity(
+    task: ContentTask,
+    source: ContentTaskGeoSource | None,
+    payload: GeoOptimizationContentTaskCreate,
+) -> bool | None:
+    """精确竞态后先证明完整身份；历史解绑来源不能猜测为不同请求。"""
+    if (
+        task.product_id is None
+        or task.fact_version_id is None
+        or task.platform_profile_id is None
+    ):
+        return None
+    if source is None:
+        return False
+    if source.date_from is None or source.date_to is None:
+        return None
+    if source.rule_code in {"CONTENT_DECLINE", "LONG_UNMENTIONED"}:
+        if (
+            source.published_article_id is None
+            or source.query_topic_id is not None
+            or source.geo_platform is not None
+        ):
+            return None
+    elif source.rule_code == "QUESTION_COVERAGE_GAP":
+        if (
+            source.published_article_id is not None
+            or source.query_topic_id is None
+            or source.geo_platform is None
+        ):
+            return None
+    else:
+        return None
+    return (
+        task.product_id == payload.product_id
+        and task.fact_version_id == payload.fact_version_id
+        and task.platform_profile_id == payload.platform_profile_id
+        and source.rule_code == payload.rule_code
+        and source.date_from == payload.date_from
+        and source.date_to == payload.date_to
+        and source.published_article_id == payload.published_article_id
+        and source.query_topic_id == payload.query_topic_id
+        and source.geo_platform == payload.geo_platform
+    )
+
+
 def create_geo_optimization_content_task(
     *,
     db: Session,
@@ -2310,13 +2365,33 @@ def create_geo_optimization_content_task(
         ):
             raise AppError("VALIDATION_ERROR", "优化任务的产品或内容平台与来源成果不一致", 422)
 
-    task = add_locked_content_task(
-        db=db,
-        payload=target,
-        profile=profile,
-        actor=actor,
-        idempotency_key=idempotency_key,
-    )
+    try:
+        task = add_locked_content_task(
+            db=db,
+            payload=target,
+            profile=profile,
+            actor=actor,
+            idempotency_key=idempotency_key,
+        )
+    except IntegrityError as error:
+        if not _is_geo_task_idempotency_integrity_error(error):
+            raise
+        db.rollback()
+        winner = db.scalar(
+            select(ContentTask).where(ContentTask.idempotency_key == idempotency_key)
+        )
+        if winner is None:
+            raise
+        same_identity = _geo_task_has_same_identity(
+            winner, db.get(ContentTaskGeoSource, winner.id), payload
+        )
+        if same_identity is None:
+            raise
+        if not same_identity:
+            raise AppError(
+                "IDEMPOTENCY_CONFLICT", "幂等键已用于另一内容任务创建请求", 409
+            ) from error
+        return winner
     db.add(
         ContentTaskGeoSource(
             content_task_id=task.id,

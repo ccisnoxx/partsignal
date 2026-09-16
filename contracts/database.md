@@ -322,6 +322,8 @@ Prompt 更新锁定模板行并比较 `expected_revision`；保存前由管理�
 
 `content_task_geo_sources` 按内容任务一对一冻结 GEO 异常规则、分析周期、来源文章或问题、GEO 平台和结构化依据。来源行只允许插入，不允许更新或删除；创建服务必须重新计算当前洞察并与内容任务同事务写入。该迁移包含新的不可逆业务历史，downgrade 固定以 `55000` 拒绝，恢复使用迁移前备份或前向修复。
 
+GEO 优化任务与普通任务共享 `content_tasks.idempotency_key` 的全局唯一空间，但 source kind 属于 canonical identity：普通任务必须不存在 `content_task_geo_sources`，GEO 任务必须存在一条形状完整的来源快照。GEO 创建 owner 只恢复 PostgreSQL `23505` 且 `diag.constraint_name` 精确为 `uq_content_tasks_idempotency_key` 的 task INSERT 竞争；命中后先 root rollback，再按 key 重查已提交 winner。完整同 GEO identity（task 的 product/fact/platform 与 source 的 rule/date/article/topic/GEO platform）返回 canonical replay；完整 ordinary winner或任一可证明的异 GEO identity返回既有 `IDEMPOTENCY_CONFLICT`。winner 不存在、task identity 不完整，或来源文章已按 `0037` 的 `ON DELETE SET NULL` 生命周期消失等导致 GEO source identity 不可证明时，必须重新抛出原始 `IntegrityError`，不得猜测 replay 或冲突。task 与 GEO source 继续同一事务提交；source flush、commit 及其他完整性错误不进入该 mapper。
+
 ### 0036 Remove Publication Section URL
 
 版本文件 `0036_remove_publication_section_url.py` 紧跟 `0035_business_workflow`，Alembic revision 为 `0036_remove_section_url`。该 revision 删除没有稳定跨平台含义的 `publication_works.section_url`；开始发布只绑定 `content_version_id` 与 `platform_account_id`，准备更新只允许变更账号并提交 revision 和说明。

@@ -660,6 +660,15 @@ await createGeoObservation(toGeoObservationCreate(values), csrfToken);
 
 ---
 
+## GEO Observation Correction 的 canonical context 与 stale 状态
+
+- Correction Context 是 TanStack Query server state；React Hook Form 草稿、完成上传的 Evidence、mutation error 与 request ID 是按 `chain_root_id` 隔离的页面本地状态。`supersedes_id` 只能来自最近一次明确采用的 `detail.chain_tail_id`。
+- `GEO_PUBLICATIONS_CHANGED`、`REVISION_CONFLICT` 与 `GEO_OBSERVATION_HAS_SUCCESSOR` 都冻结当前 context、禁用再次提交并保留草稿、Evidence 与 request ID。后台 refetch、focus refetch、invalidation 或 cache update 不得静默采用新 context、清除错误、replay 请求或猜测 successor winner。
+- 只有用户显式 `refetch()` 成功后，页面才能按 Published Article ID 合并仍有效事实、新候选保持 `null`、移除退出候选并采用新 tail；canonical replace 使用 TanStack Router 且绕过 DirtyGuard。reload 失败继续保留 frozen state。
+- mutation 成功才清 dirty、精确失效消费者并按响应 ID handoff。successor 分支归 T6；T5-I5 保持 frontend production/tests 零差异，server mapper 与 T6 必须原子发布。
+
+---
+
 ## GEO Observation Detail 的单一 Read Model 与只读更正链合同
 
 ### 1. Scope / Trigger

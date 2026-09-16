@@ -61,6 +61,7 @@ query key: ["geo", "observations", "correction-context", observationId]
 - 候选仍在尾结果中时继承事实；新候选及历史 `null` 保持 `null` 并要求显式选择；退出候选只在历史显示。历史 Evidence 只读，POST 只携带本次完成上传的 ID。
 - `supersedes_id` 只取最近一次成功加载的 `detail.chain_tail_id`。当前 POST 没有 `Idempotency-Key`；同步提交锁与 mutation pending 只防止同页面并发。
 - 成功先清 dirty，失效 GEO lists/details/correction contexts、新 Detail、Insights、Query Topic list-items 与 Product Detail，再按 POST response ID 进入 canonical Detail。
+- `GEO_OBSERVATION_HAS_SUCCESSOR` 与现有 stale code 使用相同的保留草稿、Evidence、request ID、显式 reload 和 no-replay 行为；该页面分支归 T6，T5-I5 不修改 frontend production/tests，server mapper 与 T6 必须原子发布。
 
 #### 4. Validation & Error Matrix
 
@@ -70,7 +71,7 @@ query key: ["geo", "observations", "correction-context", observationId]
 | 历史 Topic 为空且未选择/无选项 | 阻止提交，保留真实空值 |
 | 任一候选 discovered/mentioned 为 `null` | 字段与 ErrorSummary 报错，不发 POST |
 | `422` 可编辑字段错误 | 映射对应字段；冻结/未知位置留在 form summary |
-| `GEO_PUBLICATIONS_CHANGED` / `REVISION_CONFLICT` | 禁用旧上下文，不 replay；保留草稿、Evidence 与 request ID |
+| `GEO_PUBLICATIONS_CHANGED` / `REVISION_CONFLICT` / `GEO_OBSERVATION_HAS_SUCCESSOR` | 禁用旧上下文，不 replay；保留草稿、Evidence 与 request ID，不猜 successor winner |
 | 显式刷新 | 按文章 ID 保留仍有效事实，新增保持 `null`，移除退出候选，并采用服务端新尾 |
 | upload complete 失败 | 保留 intent，只重试 complete |
 
@@ -83,7 +84,7 @@ query key: ["geo", "observations", "correction-context", observationId]
 #### 6. Tests Required
 
 - Contract/backend：generated context、历史 ID→尾、权限/Legacy、候选新增退出、空 Topic、固定查询数、append-only、冻结字段、证据不可复用、原链不变和失败无半成品。
-- API/model/component：严格 context assertion、初值/payload、只提交新 Evidence、pending 单 POST、DirtyGuard、两类冲突不 replay、显式刷新合并、内部 canonical replace 与缓存失效。
+- API/model/component：严格 context assertion、初值/payload、只提交新 Evidence、pending 单 POST、DirtyGuard、三类 canonical-context stale 冲突不 replay、显式刷新合并、内部 canonical replace 与缓存失效。
 - Production fixture：未声明 API 失败；覆盖 Detail 入口/direct/refresh、404/403/Legacy、上传重试、权限变化、响应 ID handoff、键盘和 375/768/1024/1440。
 
 #### 7. Wrong vs Correct

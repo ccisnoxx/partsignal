@@ -1,0 +1,9 @@
+{"file":".trellis/spec/backend/database-guidelines.md","reason":"复核partial index实际结构、双路径并发、不变量与protected database owners"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"复核单一exact pair、root rollback、unknown边界、HTTP no-leak和Session cleanup"}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"复核文档只冻结T6恢复合同且frontend production/tests保持零差异"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"复核successor stale与显式reload/no-replay的状态所有权和release gate"}
+{"file":".trellis/tasks/09-14-publication-geo-integrity-error-contract-decision/research/decision-synthesis.md","reason":"检查候选没有漂移T5-C批准的code/status/message/details与T5-I6/T6分界"}
+{"file":".trellis/tasks/09-14-publication-geo-integrity-error-contract-decision/research/contract-frontend-impact.md","reason":"检查OpenAPI、runtime metadata、generated client与frontend protected owners零差异"}
+{"file":".trellis/tasks/09-16-geo-observation-successor-integrity-mapping/research/current-head-audit.md","reason":"对照规划审计证据检查runtime gate是否真实执行且没有把源码意图冒充数据库事实"}
+{"file":".trellis/tasks/09-16-geo-observation-successor-integrity-mapping/research/planning-review.md","reason":"复核候选没有重开已关闭的规划边界或把planning review冒充implementation full review"}
+{"file":".trellis/tasks/archive/2026-09/09-16-geo-content-task-idempotency-integrity-mapping/research/implementation-log.md","reason":"复核bounded PostgreSQL等待、optional suite预算与独立review流程没有倒退"}

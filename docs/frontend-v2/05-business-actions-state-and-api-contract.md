@@ -254,7 +254,9 @@ Detail 在单个 `REPEATABLE READ` 请求中批量读取链、recorder、文章�
 
 Correction 继续复用 `POST /api/v1/geo-observations`，不增加专用写入协议。Product、Search Platform、Search Query 和非空 Query Topic 从上下文冻结；表单只持有本次 `tested_at`、当前候选的完整显式事实、新 Evidence ID 与新 Notes。历史节点、历史结果和历史 Evidence 始终只读且不得重新提交；服务端在锁内重新校验 actor、当前尾、冻结字段、候选全集和证据未复用。
 
-`GEO_PUBLICATIONS_CHANGED` 与 `REVISION_CONFLICT` 到达后禁止自动重放。页面保留草稿与已完成上传，只有用户显式刷新上下文后才按 Published Article ID 合并仍有效事实、为新增候选保留 `null`、移除退出候选，并用新 `chain_tail_id` 无历史记录地 replace canonical URL。成功时先解除 DirtyGuard，再按 POST 响应 ID 进入新 Detail，并失效 GEO List/Detail/Correction Context、Insights、Query Topic list-items 与对应 Product Detail cache。
+`GEO_PUBLICATIONS_CHANGED`、`REVISION_CONFLICT` 与 `GEO_OBSERVATION_HAS_SUCCESSOR` 都表示 canonical context 已过期，到达后禁止自动重放。页面冻结旧上下文并禁用再次提交，同时保留草稿、已完成 Evidence 与 request ID；只有用户显式刷新上下文成功后才按 Published Article ID 合并仍有效事实、为新增候选保留 `null`、移除退出候选，并采用新 `chain_tail_id` 无历史记录地 replace canonical URL。刷新失败继续保留冻结状态，页面不得从 successor 错误猜测 winner。成功时先解除 DirtyGuard，再按 POST 响应 ID 进入新 Detail，并失效 GEO List/Detail/Correction Context、Insights、Query Topic list-items 与对应 Product Detail cache。
+
+`GEO_OBSERVATION_HAS_SUCCESSOR` 的页面投影由 T6 实施；在该分支完成前，T5-I5 server mapper 不得单独发布，二者受同一 release-atomic gate 约束。
 
 ## 14. Workspace Read Model
 

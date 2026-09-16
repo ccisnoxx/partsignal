@@ -2450,6 +2450,25 @@ def geo_publication_candidates(
     ]
 
 
+def _geo_observation_has_successor_error() -> AppError:
+    """返回一个 GEO 观测只能有一个直接后继的稳定冲突。"""
+    return AppError(
+        "GEO_OBSERVATION_HAS_SUCCESSOR",
+        "该 GEO 观测已被纠正",
+        409,
+    )
+
+
+def _is_geo_observation_successor_integrity_error(error: IntegrityError) -> bool:
+    """只识别 GEO 观测直接后继唯一索引的 PostgreSQL 最终约束。"""
+    original = error.orig
+    return (
+        getattr(original, "sqlstate", None) == "23505"
+        and getattr(getattr(original, "diag", None), "constraint_name", None)
+        == "uq_geo_observations_supersedes_once"
+    )
+
+
 def create_geo_observation(
     *, db: Session, payload: GeoObservationCreate, actor: User, request_id: str
 ) -> GeoObservation:
@@ -2500,7 +2519,7 @@ def create_geo_observation(
             db.scalar(select(GeoObservation.id).where(GeoObservation.supersedes_id == previous.id))
             is not None
         ):
-            raise AppError("REVISION_CONFLICT", "该 GEO 观测已被纠正", 409)
+            raise _geo_observation_has_successor_error()
         if files:
             ancestor_ids = [previous.id]
             ancestor = previous
@@ -2532,7 +2551,13 @@ def create_geo_observation(
         tested_by=actor.id,
     )
     db.add(observation)
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError as error:
+        if not _is_geo_observation_successor_integrity_error(error):
+            raise
+        db.rollback()
+        raise _geo_observation_has_successor_error() from error
     db.add_all(
         GeoObservationPublication(
             observation_id=observation.id,

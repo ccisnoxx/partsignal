@@ -291,6 +291,45 @@ except IntegrityError as error:
     raise _published_content_issue_conflict() from error
 ```
 
+## Scenario：GEO Observation successor partial unique 映射
+
+### 1. Scope / Trigger
+
+- 只适用于 `geo_observation.create_geo_observation` 新 root observation 的首次 `flush()`。publication/attachment relation、commit、其他 GEO 命令和删除不在 catch scope。
+- production 必须保留 Product → eligible Published Article → previous Observation 的锁序与 successor precheck；partial unique index 是旁路 writer 的最终权威，不替代正常锁和业务验证。
+
+### 2. Contracts
+
+- known 条件只有 `error.orig.sqlstate == "23505"` 且 `error.orig.diag.constraint_name == "uq_geo_observations_supersedes_once"`。禁止解析 message、statement、params、模糊名称或替代 diagnostics。
+- precheck 与 exact mapper 共享 `409 GEO_OBSERVATION_HAS_SUCCESSOR`、消息 `该 GEO 观测已被纠正`、`details={}`。exact 命中后先 command-root `rollback()` 再抛 `AppError`，不得查询、猜测或 replay winner。
+- 其他 unique、FK、CHECK、NOT NULL、trigger、非 `23505`、缺失或畸形 diagnostics 全部原样上抛。relation 或 commit 即使报告相同名称也在 mapper 范围外。
+
+### 3. Atomicity and tests
+
+- current-head catalog 必须证明目标是 `supersedes_id IS NOT NULL` 的独立 immediate partial unique index且没有 `pg_constraint` row；真实 duplicate INSERT 必须捕获 exact pair。
+- 合规双 Session 证明 loser 等待 production `FOR UPDATE`，winner commit 后走 precheck；test-only 精确旁路只作用于参与连接，并证明 loser 的真实 observation INSERT 等待 winner transaction ID 后收到 exact diagnostics。
+- known mapper rollback 后原 Session 必须可查询并完成健康命令；unknown 由 caller rollback 后复用。最终只允许一个 successor，失败不得留下 observation relation、file association、content/publication mutation 或 SUCCESS AuditLog。
+- HTTP known 路径逐字段冻结 ErrorEnvelope、message、空 details、body request ID 与 `X-Request-ID`；unknown 只冻结 500 与正文不泄漏 SQL、表名、constraint、driver message 或 traceback。
+
+### 4. Wrong vs Correct
+
+```python
+# Wrong：宽泛吞掉 root 之后的全部完整性异常，并从错误文本猜 winner。
+try:
+    flush_root_relations_and_commit()
+except IntegrityError:
+    raise AppError("GEO_OBSERVATION_HAS_SUCCESSOR", message, 409)
+
+# Correct：只收敛首次 root flush 的 exact structured diagnostics。
+try:
+    db.flush()
+except IntegrityError as error:
+    if not _is_geo_observation_successor_integrity_error(error):
+        raise
+    db.rollback()
+    raise _geo_observation_has_successor_error() from error
+```
+
 ## Scenario：生成作业的唯一约束领域映射
 
 ### 1. Scope / Trigger

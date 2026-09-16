@@ -1,0 +1,10 @@
+{"file":".trellis/spec/backend/database-guidelines.md","reason":"实现时约束partial unique index catalog/diagnostics、production锁、test-only真实race、原子性与Session reuse"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"实现时约束successor专用code、exact classifier、root rollback、catch scope、unknown原抛与HTTP no-leak"}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"同步T6前端组件的successor stale、草稿/evidence保留、显式reload与no-replay边界"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"同步canonical context stale状态所有权与T5-I5到T6的release gate"}
+{"file":".trellis/tasks/09-14-publication-geo-integrity-error-contract-decision/research/geo-conflict-audit.md","reason":"复用GeoObservation无revision、12 producer分类、successor winner与unknown guard证据"}
+{"file":".trellis/tasks/09-14-publication-geo-integrity-error-contract-decision/research/decision-synthesis.md","reason":"遵守T5-C冻结的GEO_OBSERVATION_HAS_SUCCESSOR四元组和T5-I6/T6边界"}
+{"file":".trellis/tasks/09-14-publication-geo-integrity-error-contract-decision/research/contract-frontend-impact.md","reason":"保持OpenAPI、runtime metadata、generated client零差异并同步Frontend V2恢复语义"}
+{"file":".trellis/tasks/09-16-geo-observation-successor-integrity-mapping/research/current-head-audit.md","reason":"实现前恢复current-head owner、运行时证据缺口、迁移演化与两类并发证据分界"}
+{"file":".trellis/tasks/09-16-geo-observation-successor-integrity-mapping/research/planning-review.md","reason":"实施时遵守已独立复核的partial index、并发证据、catch边界、release gate与剩余runtime证据门禁"}
+{"file":".trellis/tasks/archive/2026-09/09-16-geo-content-task-idempotency-integrity-mapping/research/implementation-log.md","reason":"复用已验证的真实PostgreSQL、bounded wait、known/unknown Session reuse与独立review方法"}

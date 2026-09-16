@@ -714,6 +714,8 @@ messages = [
 - 截图可为空；非空附件必须去重且为已验证的 `OPERATION_SCREENSHOT`。每个更正版本只关联本次新增文件，读取时沿祖先链聚合截至当前版本的证据。
 - `LEGACY_MODEL_RESULT` 继续保存旧目标问题、模型结果、推荐和引用；其逐篇独立事实保持 `NULL`，不得从旧观测级结论推断。
 - `MANUAL_ARTICLE_SEARCH` 的旧模型字段必须全空；更正只能追加同产品、同类型且尚无后继的完整新记录。
+- 单后继最终权威是独立 partial unique index `uq_geo_observations_supersedes_once`：键为 `supersedes_id`，predicate 为 `supersedes_id IS NOT NULL`，没有对应 `pg_constraint` UNIQUE row。successor precheck 与 exact `23505 + diag.constraint_name` 统一返回 `409 GEO_OBSERVATION_HAS_SUCCESSOR`、`该 GEO 观测已被纠正`、`details={}`。
+- exact catch 只包围 root observation 的首次 `flush()`：命中后先 command-root rollback，不查询或 replay winner；publication/attachment relation 与 commit 保持在 catch 外，其他完整性错误原样上抛。
 - 人工文章指标只统计没有后继更正的人工观测，并由明细实时派生；发现率和提及率以全部逐篇结果为分母，准确率只以非空且非 `UNJUDGEABLE` 为分母，零分母返回 `NULL`。
 - 删除任一链内 ID 都必须解析并锁定完整人工更正链，从链尾到链根显式删除关系和节点；数据库事务变量逐节点放行 DELETE，UPDATE 和旧模型 DELETE 始终拒绝。
 - 删除后只有失去全部实际外键引用的附件设置 `cleanup_after=now`，由通用文件清理器进入可重试的 `DELETING -> DELETED`；审计只记录稳定 ID 与数量。
@@ -727,7 +729,8 @@ messages = [
 | 文章跨产品、状态不可观测或缺少 `final_url` | 服务端拒绝；数据库触发器最终拒绝直接写入 |
 | 结果重复、缺少 `discovered/mentioned` 或准确性枚举非法 | 请求校验失败 |
 | 截图重复、未验证或类别不是 `OPERATION_SCREENSHOT` | 请求校验或服务端校验失败；空数组合法 |
-| 更正来源不是同产品人工观测，或已有后继 | `409`，来源历史保持不变 |
+| 已有直接后继，或 root INSERT 命中 exact successor index | `409 GEO_OBSERVATION_HAS_SUCCESSOR`、`该 GEO 观测已被纠正`、`details={}`，来源历史保持不变 |
+| 更正来源不是同产品人工观测 | 现有 validation/state 错误保持不变，不由 successor mapper 重分类 |
 | 删除旧模型观测、单节点或不完整/分支链 | `409` 或数据库 `55000`，不得让旧版本重新成为当前记录 |
 | 证据仍被平台 Logo、发布附件或其他 GEO 观测引用 | 只删除当前观测关系，不调度文件清理 |
 
@@ -741,6 +744,8 @@ messages = [
 
 - PostgreSQL 迁移测试验证空库升级到 head、独立事实约束、文章归属触发器、四张追加式表的删除门禁和可恢复 downgrade 结构。
 - 集成测试至少覆盖两篇当前文章的完整集合、事实任意组合、无截图创建、更正聚合旧证据、整链删除、安全审计及独占/共享附件清理。
+- successor 测试必须从 Alembic head 的 `pg_index`、key/predicate、valid/ready/immediate 与缺失 `pg_constraint` row 证明真实 index，并用 psycopg duplicate INSERT 取得 exact diagnostics。合规 production row-lock 路径和 test-only transaction-ID unique wait 必须分别证明；known rollback 后同一 Session 可立即复用，unknown 由 caller rollback 后复用，最终恰有一个 successor 且 loser 无关系、文件、内容、发布或审计副作用。
+- HTTP 测试逐字段对账 precheck/exact 的 ErrorEnvelope 与输入/body/header request ID；非目标 PostgreSQL 错误只验证 500 no-leak，不冻结默认 500 body。
 - 契约测试验证 OpenAPI、Pydantic 与前端生成类型一致；前端测试验证独立复选项、可空准确性、可选截图、已有证据展示和服务端动作授权。
 - E2E 验证人工观测主流程、无截图更正、整链删除与历史模型只读展示；不得把固定成功的搜索或模型替身作为人工结果证据。
 

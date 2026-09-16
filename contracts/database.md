@@ -62,6 +62,10 @@ Current-state counts come from `publication_records.status`. Period publication 
 
 Observations are immutable. Corrections create another observation with `supersedes_id`. Metrics are calculated from source observations rather than persisted as a second source of truth. Revision `0029` later adds one guarded exception that permits administrators to delete an entire manual-observation correction chain.
 
+`uq_geo_observations_supersedes_once` is the independent partial unique index on `geo_observations(supersedes_id) WHERE supersedes_id IS NOT NULL`; it has no `pg_constraint` UNIQUE row. `create_geo_observation` retains the Product → eligible Published Article → previous Observation lock order and successor precheck. Both that precheck and only the exact root INSERT diagnostics `sqlstate=23505` plus `diag.constraint_name=uq_geo_observations_supersedes_once` map to `409 GEO_OBSERVATION_HAS_SUCCESSOR`, message `该 GEO 观测已被纠正`, and `details={}`. The exact path performs the command-root rollback before raising and never queries, guesses, or replays a winner. Other integrity failures, relation work, and commit failures remain unknown and must not be classified from database error text.
+
+Concurrency evidence distinguishes the production row-lock path, whose loser reaches the successor precheck after the winner commits, from a test-only lock/precheck bypass that proves real transaction-ID waiting at the partial unique index. Both paths leave exactly one successor; a losing command leaves no observation relation, file association, content/publication mutation, or success audit side effect.
+
 ### 0008 Files
 
 `file_records`, `publication_attachments`, `geo_observation_attachments`, plus historical `evidences.file_record_id`.

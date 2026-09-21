@@ -95,15 +95,16 @@ request precheck/lock
 | detail output 类型不一致 | 同上 | `GEO_OBSERVATION_CONTEXT_INCOMPLETE` / 409 | read-model contract 不完整，不是用户 revision。 |
 | create 的 target 已有 successor | `createGeoObservation` | `GEO_OBSERVATION_HAS_SUCCESSOR` / 409 | 已有更正 winner；保留草稿/evidence，显式 reload tail。 |
 | create 的 evidence ancestor 缺失 | `createGeoObservation` | `GEO_OBSERVATION_CONTEXT_INCOMPLETE` / 409 | 无法证明 lineage，保持 blocked。 |
-| delete ancestor 缺失/cycle/identity 越界、branch、successor invalid | `deleteGeoObservation` | `GEO_OBSERVATION_CONTEXT_INCOMPLETE` / 409 | 不选择/修补链，不执行任何删除。 |
-| delete 锁后节点集合变化 | `deleteGeoObservation` | `GEO_OBSERVATION_CHAIN_CHANGED` / 409 | 可识别并发 stale；显式重新打开确认，不自动 DELETE。 |
+| delete ancestor 缺失/cycle/identity 越界、branch、successor invalid | `deleteGeoObservation`；经共享 scope 也影响 `getContentTaskPermanentDeletionPreview`、`deleteContentTask`、`permanentlyDeleteContentTask` | `GEO_OBSERVATION_CONTEXT_INCOMPLETE` / 409 | 不选择/修补链；preview 显式 reload，mutation 保持 blocked；不执行任何部分删除。 |
+| delete 锁后节点集合变化 | 同上 | `GEO_OBSERVATION_CHAIN_CHANGED` / 409 | 同一调用内 canonical chain 已变化；preview 显式 reload，mutation 必须刷新/重开并重新确认，不自动重发。 |
 
-`GeoObservation` 没有 revision 字段，上述 12 项全部退出 `REVISION_CONFLICT`。`uq_geo_observations_supersedes_once` 的 exact `23505` 与 successor precheck 统一为 `GEO_OBSERVATION_HAS_SUCCESSOR`；任何其他 unique/FK/check/trigger/55000/23514 仍 unknown。
+`GeoObservation` 没有 revision 字段，上述 12 项全部退出 `REVISION_CONFLICT`。共享 content-task caller 不得把第 9–12 项 remap 回 revision code；production code owner仍是 GEO service，publication service只作为调用面与事务原子性测试 owner。`uq_geo_observations_supersedes_once` 的 exact `23505` 与 successor precheck 统一为 `GEO_OBSERVATION_HAS_SUCCESSOR`；任何其他 unique/FK/check/trigger/55000/23514 仍 unknown。
 
 ### 4.3 前端恢复合同（只决策，T6 实施）
 
 - `GEO_OBSERVATION_HAS_SUCCESSOR`、`GEO_OBSERVATION_CHAIN_CHANGED`、既有 `GEO_PUBLICATIONS_CHANGED`：可标记 canonical context stale；保留 draft/evidence/request ID；只允许显式 reload，按新 tail/Article ID 重新对账；禁止自动 replay。
 - `GEO_OBSERVATION_CONTEXT_INCOMPLETE`：显示不可绘制/不可执行，保留本地现场但不把 retry 当 mutation；GET retry 只重新读取，仍失败则保持 blocked并提供 request ID。
+- 共享content-task consumer由独立T6-C处理：preview GET失败只允许显式reload且不得使用旧preview；普通DELETE与permanent-delete POST收到chain changed后必须刷新/重开并重新确认，清除旧确认文本，禁止自动重发。T6-G不拥有content domain文件。
 - unknown 500：generic failure，不解析 message/code，不自动 replay。
 - publication `REPAIR_TASK_EXISTS`：T6 显式 reload issue workspace/repair context，从 canonical projection发现已有 task；不从 `{}` 猜 task ID，不把 duplicate POST 当成功。
 

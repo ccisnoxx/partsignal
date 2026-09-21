@@ -1,72 +1,11 @@
-# Hooks And Settings
+# Hooks 与注册
 
-Hooks/settings are the entry layer that connects a platform to Trellis. They decide which scripts, plugins, or extensions a platform runs for which events.
+本项目 Codex 在 `.codex/hooks.json` 注册 `UserPromptSubmit`、`SubagentStart` 和 `SessionStart`（startup/resume/compact）。三个入口调用 `.codex/hooks/runtime_context.py`，只提供 `<trellis-state>` JSON 状态索引，不注入工作流、PRD 或规范正文。
 
-## Settings Responsibilities
+- `UserPromptSubmit`：恢复当前 session 的任务状态与资料路径；`no-trellis` 可跳过本次注入，配置 `prompt_injection.skip_keyword` 可调整。
+- `SessionStart`：同样的只读状态恢复，没有首条回复确认或无任务建档要求。
+- `SubagentStart`：仅匹配 `trellis-implement`、`trellis-check`、`trellis-research`，提供角色相关资料索引；代理自行读取与委派问题相关的资料。
 
-settings/config files usually register:
+注册存在不等于宿主已执行。项目与 Hook 内容需经宿主信任；修改后通过 Codex `/hooks` 检查或重新信任，不手写信任哈希。Hook 失败输出 stderr 并返回非零，不冒充 no_task。改变脚本或注册后，用合成 session 输入验证输出以及实际宿主加载状态。
 
-- session-start hook: injects a Trellis overview when a new session starts or context resets.
-- workflow-state hook: parses `[workflow-state:STATUS]` blocks from `.trellis/workflow.md` and emits the body matching the current task `status` on each user input. Parser-only; the script does not embed fallback content.
-- sub-agent context hook: injects task context when implementation/check/research agents start.
-- shell/session bridge: lets shell commands see the same Trellis session identity.
-- platform plugin or extension entry points.
-
-Common files:
-
-| Platform | settings/config |
-| --- | --- |
-| Claude Code | `.claude/settings.json` |
-| Cursor | `.cursor/hooks.json` |
-| Codex | `.codex/hooks.json`, `.codex/config.toml` |
-| OpenCode | `.opencode/package.json`, `.opencode/plugins/*` |
-| Kiro | `.kiro/hooks/` + platform config |
-| Gemini CLI | `.gemini/settings.json` |
-| Qoder | `.qoder/settings.json` |
-| CodeBuddy | `.codebuddy/settings.json` |
-| GitHub Copilot | `.github/copilot/hooks.json` |
-| Factory Droid | `.factory/settings.json` |
-| Pi Agent | `.pi/settings.json`, `.pi/extensions/trellis/` |
-| Trae IDE | `.trae/hooks.json` |
-
-Reasonix is a pull-based platform whose agent files contain prelude instructions to read context after startup. ZCode uses `.zcode/config.json` with shared hooks, including PreToolUse for sub-agent prompt injection. Kimi Code is likewise pull-based and has no project-level settings/hooks file Trellis writes (hooks live only in the user-level `~/.kimi-code/config.toml`), so its agent prompts ship as skills and `.kimi-code/agents/` sub-agent definitions with the same prelude.
-
-Whether these files exist in a project depends on which `trellis init --<platform>` flags the user ran.
-
-## Hook Script Types
-
-| Script | Purpose |
-| --- | --- |
-| `session-start.py` | Generates session-start context. |
-| `inject-workflow-state.py` | Parses `[workflow-state:STATUS]` blocks in `.trellis/workflow.md` and emits the body matching the current task status. Falls back to `Refer to workflow.md for current step.` when no matching block exists. |
-| `inject-subagent-context.py` | Injects PRD, JSONL context, and related spec/research into sub-agents. |
-| `inject-shell-session-context.py` | Lets shell commands inherit Trellis session identity. |
-
-Not every platform has every hook. Do not copy files from another platform just because a platform lacks a hook; first confirm whether that platform supports the corresponding event.
-
-## Local Change Scenarios
-
-| User need | Edit location |
-| --- | --- |
-| AI should see more/less context in a new session | Platform `session-start` hook. |
-| Per-turn hint policy should change | `[workflow-state:STATUS]` block in `.trellis/workflow.md`. The hook parses workflow.md verbatim — no script edit required. |
-| Sub-agent cannot read PRD/spec | `inject-subagent-context` hook or agent prelude. |
-| `task.py current` in shell has no active task | Shell/session bridge hook or platform environment variable configuration. |
-| Disable an automatic injection | The corresponding hook registration in settings/config. |
-
-## Modification Principles
-
-1. **Settings wire things up; hooks define behavior**. If only the hook changes, the platform may never call it. If only settings change, behavior may not change.
-2. **Confirm platform event names first**. Different platforms use different names for SessionStart, UserPromptSubmit, AgentSpawn, shell execution, and similar events.
-3. **Hooks read local `.trellis/`, not upstream source**. `.trellis/scripts/` and `.trellis/workflow.md` in the user project are the default targets.
-4. **Errors must be visible**. Hook failures should tell the user what was not injected instead of silently leaving the AI without context.
-
-## Troubleshooting Path
-
-If the user says "AI did not read Trellis state":
-
-1. Check whether the platform settings register the hook.
-2. Check whether the hook file exists.
-3. Manually run the `.trellis/scripts/get_context.py` or `task.py current --source` command that the hook depends on.
-4. Check whether active task state exists in `.trellis/.runtime/sessions/`.
-5. Check whether the platform shell passes session identity.
+其他平台仍以其真实设置和脚本为准，不因 Codex 的实现而复制事件名或宣称行为相同。工作流内容由 `.trellis/workflow.md` 维护，但 Codex Hook 不解析其中的 workflow-state 块。

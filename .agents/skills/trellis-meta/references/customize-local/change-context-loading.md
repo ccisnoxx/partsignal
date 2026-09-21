@@ -1,84 +1,17 @@
-# Change Local Context Loading
+# 修改上下文加载
 
-Context loading determines when AI reads workflow, task, spec, research, workspace, and git status. Read this page when the user says "AI does not know the current task," "the agent did not read specs," or "there is too much/too little context."
+本项目 Codex 的注入源是 `.codex/hooks/runtime_context.py`，它提供当前任务状态和资料路径。代理定义 `.codex/agents/trellis-*.toml` 说明如何按委派读取资料；JSONL 记录有关规范和研究的路径与 reason。工作流负责流程说明，不由每轮 Hook 原样注入。
 
-## Read These Files First
+按实际问题定位：
 
-1. `.trellis/workflow.md`
-2. `.trellis/scripts/get_context.py`
-3. `.trellis/scripts/common/session_context.py`
-4. `.trellis/scripts/common/task_context.py`
-5. `.trellis/scripts/common/active_task.py`
-6. Current platform hooks or agent files
-7. The current task's `implement.jsonl` / `check.jsonl`
-
-## Context Sources
-
-| Source | Purpose |
+| 问题 | 权威位置 |
 | --- | --- |
-| `.trellis/workflow.md` | Workflow and next-action hints. |
-| `.trellis/tasks/<task>/prd.md` | Current task requirements. |
-| `.trellis/tasks/<task>/design.md` | Complex task technical design. |
-| `.trellis/tasks/<task>/implement.md` | Complex task execution plan. |
-| `.trellis/tasks/<task>/implement.jsonl` | Spec/research to read before implementation. |
-| `.trellis/tasks/<task>/check.jsonl` | Spec/research to read during checking. |
-| `.trellis/spec/` | Project specs. |
-| `.trellis/workspace/` | Session records. |
-| git status | Current working tree changes. |
+| 状态或任务路径错误 | common/active_task.py、事件 session 身份与指针 |
+| 注入太多/缺字段 | runtime_context.py |
+| 代理没读相关资料 | 委派范围、角色定义和任务 JSONL |
+| 加载时机不正确 | .codex/hooks.json 与宿主信任 |
+| JSONL 验证错误 | common/task_context.py |
 
-## Common Needs And Edit Points
+任务资料按实际问题渐进读取；已有且未变的上下文可以复用。保留 PRD 验收与相关合同的权威性，但不要求每次读全部规范、研究、历史和工作流。Hook 不可用时使用主代理明确提供的任务路径，不能把另一个 session 的任务当作恢复信息。
 
-| Need | Edit point |
-| --- | --- |
-| Inject more/less information in new sessions | `session_context.py` or the platform `session-start` hook. |
-| Change hints on each user input | `[workflow-state:STATUS]` block in `.trellis/workflow.md`. The `inject-workflow-state` hook is parser-only and reads the block verbatim. |
-| Agent did not read specs | Task JSONL, agent prelude, `inject-subagent-context` hook. |
-| Active task is lost | `active_task.py` and platform session identity propagation. |
-| Change JSONL validation rules | `task_context.py`. |
-
-## JSONL Rules
-
-`implement.jsonl` / `check.jsonl` are the key context loading interface:
-
-```jsonl
-{"file": ".trellis/spec/backend/index.md", "reason": "Backend conventions"}
-{"file": ".trellis/tasks/04-28-x/research/api.md", "reason": "API research"}
-```
-
-Include only spec/research files. Do not put code files that will be modified into these manifests; agents read code files themselves during implementation.
-
-## Change Session Context
-
-If the user wants every new session to see more project state, edit:
-
-- `.trellis/scripts/common/session_context.py`
-- the corresponding platform `session-start` hook
-
-Context cannot grow without bound. Prefer injecting indexes and paths so the AI can read detailed files on demand.
-
-## Change Sub-Agent Context
-
-First determine which mode the platform uses:
-
-- hook push: edit the `inject-subagent-context` hook.
-- agent pull: edit the read steps in the corresponding `trellis-implement` / `trellis-check` agent file.
-
-In both modes, make sure the agent ultimately reads:
-
-1. active task
-2. the corresponding JSONL
-3. spec/research referenced by the JSONL
-4. `prd.md`
-5. `design.md` if present
-6. `implement.md` if present
-
-## Troubleshooting Order
-
-```bash
-python3 ./.trellis/scripts/task.py current --source
-python3 ./.trellis/scripts/task.py list-context <task>
-python3 ./.trellis/scripts/task.py validate <task>
-python3 ./.trellis/scripts/get_context.py --mode packages
-```
-
-Confirm the task and JSONL are correct before editing hooks/agents.
+验证新的加载行为同时检查隔离与失败路径。CLI 的 current/list-context/validate 可用于已明确任务的诊断，但默认不要以枚举所有任务或读取历史代替身份核对。

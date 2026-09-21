@@ -30,8 +30,10 @@ frontend/vite.config.d.ts
 .idea/
 .vscode/
 .DS_Store
+/.playwright-cli/
 
 # 本地运行数据
 data/
 backups/
 logs/
+/artifacts/

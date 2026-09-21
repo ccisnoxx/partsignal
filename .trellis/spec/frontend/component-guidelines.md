@@ -61,7 +61,9 @@ query key: ["geo", "observations", "correction-context", observationId]
 - 候选仍在尾结果中时继承事实；新候选及历史 `null` 保持 `null` 并要求显式选择；退出候选只在历史显示。历史 Evidence 只读，POST 只携带本次完成上传的 ID。
 - `supersedes_id` 只取最近一次成功加载的 `detail.chain_tail_id`。当前 POST 没有 `Idempotency-Key`；同步提交锁与 mutation pending 只防止同页面并发。
 - 成功先清 dirty，失效 GEO lists/details/correction contexts、新 Detail、Insights、Query Topic list-items 与 Product Detail，再按 POST response ID 进入 canonical Detail。
-- `GEO_OBSERVATION_HAS_SUCCESSOR` 与现有 stale code 使用相同的保留草稿、Evidence、request ID、显式 reload 和 no-replay 行为；该页面分支归 T6，T5-I5 不修改 frontend production/tests，server mapper 与 T6 必须原子发布。
+- `GEO_PUBLICATIONS_CHANGED` 与 `GEO_OBSERVATION_HAS_SUCCESSOR` 是候选/后继 stale；保留草稿、Evidence、request ID，冻结旧上下文并只允许显式 reload，禁止 replay。GEO 不拥有 revision，不能再把 `REVISION_CONFLICT` 当作 GEO stale code。
+- `GEO_OBSERVATION_CONTEXT_INCOMPLETE` 表示读链不可安全绘制或命令上下文不可证明：整个 Detail/Correction Context 失败，不显示部分历史或可执行旧动作；GET 仅允许显式重读，mutation 不自动重发。`GEO_OBSERVATION_CHAIN_CHANGED` 表示删除命令内发现的链集合在锁定阶段变化：旧确认失效，必须显式刷新/重开并重新确认。
+- GEO 页面恢复归 T6-G，content-task lifecycle 恢复归 T6-C；T5-I5 至少等待 T6-G，T5-I6 同时等待 T6-G/T6-C 后才能发布 backend code。本轮不修改 frontend production/tests。
 
 #### 4. Validation & Error Matrix
 
@@ -71,7 +73,9 @@ query key: ["geo", "observations", "correction-context", observationId]
 | 历史 Topic 为空且未选择/无选项 | 阻止提交，保留真实空值 |
 | 任一候选 discovered/mentioned 为 `null` | 字段与 ErrorSummary 报错，不发 POST |
 | `422` 可编辑字段错误 | 映射对应字段；冻结/未知位置留在 form summary |
-| `GEO_PUBLICATIONS_CHANGED` / `REVISION_CONFLICT` / `GEO_OBSERVATION_HAS_SUCCESSOR` | 禁用旧上下文，不 replay；保留草稿、Evidence 与 request ID，不猜 successor winner |
+| `GEO_PUBLICATIONS_CHANGED` / `GEO_OBSERVATION_HAS_SUCCESSOR` | 禁用旧上下文，不 replay；保留草稿、Evidence 与 request ID，不猜 successor winner |
+| `GEO_OBSERVATION_CONTEXT_INCOMPLETE` | Detail/Correction 整体 blocked；保留现场，仅显式 GET reread，不返回部分链或自动 POST |
+| `GEO_OBSERVATION_CHAIN_CHANGED` | 删除确认作废；刷新、重开并重新确认，禁止自动重发 |
 | 显式刷新 | 按文章 ID 保留仍有效事实，新增保持 `null`，移除退出候选，并采用服务端新尾 |
 | upload complete 失败 | 保留 intent，只重试 complete |
 
@@ -142,6 +146,7 @@ type DeletionLinkResolver = (blocker: DeletionBlocker) =>
 - 受约束物理删除对象存在非空 `deletion.blockers` 时，更多菜单显示“查看删除条件”，不得悄悄隐藏全部删除相关入口。共享组件只显示当前阻断类型、数量和新标签页链接；精确筛选 URL 与文案由当前 feature 提供。
 - 平台账号数量和 Prompt 绑定数量属于确认影响，不是阻断。平台确认必须明确账号随平台清理、任务不级联；Prompt 确认必须列出自动解绑平台。前端不得自行级联、轮询猜测或本地补回动作。
 - 内容任务默认只请求 `archive_status=ACTIVE`。`ARCHIVE`、`RESTORE` 和 `PERMANENT_DELETE` 只消费服务端动作；永久删除先读取预览，展示分项数量、外部 URL 与不可恢复提示，并要求输入固定文本 `永久删除` 后才提交。
+- 共享 GEO 锁链 helper 的 `GEO_OBSERVATION_CONTEXT_INCOMPLETE` / `GEO_OBSERVATION_CHAIN_CHANGED` 也可能从内容任务永久删除预览 GET、普通 DELETE 和永久删除 POST 返回。预览失败后旧预览不得用于确认，仅允许用户显式 reload；普通 DELETE 失败保持 blocked、不 replay；永久删除 POST 失败使旧预览与确认文本失效，必须显式刷新、重开并重新确认。T6-C 只按结构化 code 分支，不解析 message 或建立第二套 registry。
 - 发布成果同样只消费服务端 `deletion` 与 `PERMANENT_DELETE`：无 GEO 阻断时读取实时预览并确认，存在阻断时复用“查看删除条件”；前端不得按问题状态或页面列表推断资格。
 
 #### 4. 校验与错误矩阵

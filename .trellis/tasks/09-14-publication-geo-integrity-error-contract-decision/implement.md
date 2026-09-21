@@ -2,7 +2,7 @@
 
 ## 0. 启动边界
 
-本文件是规划，不是新增实施授权。当前 Task 保持 `planning`；T5-I1 已完成并归档，除该已完成项外，未经后续明确授权不运行 `task.py start`，不创建或启动下列其余 Task。
+本文件是父任务规划，不自动授予子任务实施之外的提交、归档或发布授权。当前 T5-C 保持 `planning`；T5-I1 至 T5-I5 已完成并归档，T5-I6 于 2026-09-21 获明确实施批准并已启动。T5-G/T6 不提前创建、启动或实施。
 
 每项遵守：一 Task 一可 review 目标、只编辑列出的 allowlist、先查真实 PostgreSQL catalog/diagnostics、最多两轮 repair/re-check、一次 full high-risk review + 最多一次 targeted re-review。所有 Task 禁止恢复全局 IntegrityError handler、解析 DB message、修改 production lock 来造竞态、手改 generated client或吸收当前无关 dirty changes。
 
@@ -13,11 +13,11 @@
 ```text
 T1 unknown boundary（已完成，43c252da）
 ├─ T5-I1 publication repair source exact mapping（已完成并归档，62bb2360 / 004097bc）
-│  └─ T5-I2 publication work unique mapping（下一项）
-│     └─ T5-I3 publication open-issue unique mapping
-└─ T5-I4 GEO/ordinary shared-key race mapping
-   └─ T5-I5 GEO successor unique/code mapping
-      └─ T5-I6 GEO context/chain code reconciliation
+│  └─ T5-I2 publication work unique mapping（已完成并归档，a96f6df2）
+│     └─ T5-I3 publication open-issue unique mapping（已完成并归档，a5469871）
+└─ T5-I4 GEO/ordinary shared-key race mapping（已完成并归档，d5487430）
+   └─ T5-I5 GEO successor unique/code mapping（已完成并归档，7fd3ddd2）
+      └─ T5-I6 GEO context/chain code reconciliation（in_progress）
 
 T5-I1..I6 全部 required checks + 独立 review
                    │
@@ -30,7 +30,7 @@ T6 frontend 409 recovery projection reconciliation
 
 T5-I1 执行时的 catalog preflight 已确认 `fk_content_tasks_published_issue` 是 final-head `SET NULL`，未触发条件性 `publication-repair-source-fk-catalog-alignment` migration Task。
 
-计划 Task slug 固定为：T5-I1 `publication-repair-task-integrity-mapping`；T5-I2 `publication-work-integrity-mapping`；T5-I3 `publication-open-issue-integrity-mapping`；T5-I4 `geo-content-task-idempotency-integrity-mapping`；T5-I5 `geo-observation-successor-integrity-mapping`；T5-I6 `geo-observation-context-code-reconciliation`；T5-G `publication-geo-integrity-t5-review-gate`；T6-P `frontend-publication-409-recovery-reconciliation`；T6-G `frontend-geo-409-recovery-reconciliation`。其中 T5-I1 已完成并归档；其余 Task 尚未创建或启动，下一项为 T5-I2。
+计划Task slug固定为：T5-I1`publication-repair-task-integrity-mapping`；T5-I2`publication-work-integrity-mapping`；T5-I3`publication-open-issue-integrity-mapping`；T5-I4`geo-content-task-idempotency-integrity-mapping`；T5-I5`geo-observation-successor-integrity-mapping`；T5-I6`geo-observation-context-code-reconciliation`；T5-G`publication-geo-integrity-t5-review-gate`；T6-P`frontend-publication-409-recovery-reconciliation`；T6-G`frontend-geo-409-recovery-reconciliation`；T6-C`frontend-content-task-geo-chain-recovery-reconciliation`。T5-I1至T5-I5均已完成并归档；当前实施项是已启动的T5-I6。
 
 ## 2. T5-I1（已完成并归档）：Publication Repair source 精确映射
 
@@ -81,7 +81,7 @@ git diff --check -- backend/app/services/publication.py backend/tests/integratio
 - catalog 不是 final-head 定义、diagnostics 不精确、需要改 schema/status/details、或必须削弱 Issue lock 才能测试时停止。
 - 回滚只删除本 Task 在上述 allowlist 的变更；不回退父任务 T1、既有 0037/0038、用户 dirty files或已提交业务历史。
 
-## 3. T5-I2（下一项）：Publication Work unique mapping
+## 3. T5-I2（已完成并归档）：Publication Work unique mapping
 
 ### 目标与边界
 
@@ -109,7 +109,7 @@ git diff --check -- backend/app/services/publication.py backend/tests/integratio
 
 Optional：`UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests -q -ra`，同一 candidate 只运行一次。
 
-## 4. T5-I3：Publication OPEN Issue unique mapping
+## 4. T5-I3（已完成并归档）：Publication OPEN Issue unique mapping
 
 ### 目标与边界
 
@@ -136,7 +136,7 @@ git diff --check -- backend/app/services/publication.py backend/tests/integratio
 
 Optional：`UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests -q -ra`，同一 candidate 只运行一次。
 
-## 5. T5-I4：GEO/ordinary shared idempotency key race
+## 5. T5-I4（已完成并归档）：GEO/ordinary shared idempotency key race
 
 ### 目标与边界
 
@@ -164,7 +164,7 @@ git diff --check -- backend/app/services/geo_observation.py backend/tests/integr
 
 Optional：`UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests -q -ra`，同一 candidate 只运行一次。
 
-## 6. T5-I5：GEO successor unique 与 blocker code
+## 6. T5-I5（已完成并归档）：GEO successor unique 与 blocker code
 
 ### 目标与边界
 
@@ -191,17 +191,17 @@ git diff --check -- backend/app/services/geo_observation.py backend/tests/integr
 
 Optional：`npm --prefix frontend run test -- src/domains/geo/geo.api.test.ts src/domains/geo/geo-observation-correction-page.test.tsx` 作为 T6 前只读兼容性探针；backend full suite同一 candidate最多运行一次。
 
-## 7. T5-I6：GEO context/chain code reconciliation
+## 7. T5-I6（in_progress）：GEO context/chain code reconciliation
 
 ### 目标与边界
 
 把剩余 11 个非 revision producer按一个可 review 目标改为：10 个 `GEO_OBSERVATION_CONTEXT_INCOMPLETE`，锁后 chain-set变化为 `GEO_OBSERVATION_CHAIN_CHANGED`；保持 409和 `{}`。
 
-文件：`backend/app/services/geo_observation.py`、`backend/tests/integration/test_geo_observation_correction.py`、`backend/tests/integration/test_geo_observation_detail.py`、拟新增 `backend/tests/integration/test_geo_observation_deletion.py`、`docs/frontend-v2/05-business-actions-state-and-api-contract.md`、`docs/frontend-v2/08-testing-quality-and-acceptance.md`、`.trellis/spec/backend/error-handling.md`、`.trellis/spec/frontend/component-guidelines.md`、`.trellis/spec/frontend/state-management.md`。OpenAPI/router/runtime/generated/frontend production不改。
+文件：`backend/app/services/geo_observation.py`、`backend/tests/integration/test_geo_observation_correction.py`、`backend/tests/integration/test_geo_observation_detail.py`、拟新增 `backend/tests/integration/test_geo_observation_deletion.py`、`backend/tests/integration/test_publication_workflow.py`（只覆盖共享 content-task preview/delete/permanent-delete 调用面）、`docs/frontend-v2/05-business-actions-state-and-api-contract.md`、`docs/frontend-v2/08-testing-quality-and-acceptance.md`、`.trellis/spec/backend/error-handling.md`、`.trellis/spec/frontend/component-guidelines.md`、`.trellis/spec/frontend/state-management.md`。`publication.py`、OpenAPI/router/runtime/generated/frontend production不改。
 
 ### Required validation / 验收
 
-- 逐 producer精确 code断言；detail/context不返回部分历史，delete失败不删任何链节点/relation/file或写 SUCCESS AuditLog。
+- 逐 producer及真实 operation owner精确 code断言；detail/context不返回部分历史，GEO与content-task delete失败不删任何链节点/relation/file或写 SUCCESS AuditLog，preview零写入。
 - REPEATABLE READ detail/correction snapshot、root/tail/selected/history、event `tested_at` 与 frozen publication identity不回归。
 - chain changed只允许显式刷新；context incomplete保持 blocked；unknown trigger/guard不映射为任何 409。
 - 停止：为构造 branch/cycle需要永久弱化 schema；只能用事务内 test fixture/直接 SQL并完整清理。
@@ -210,10 +210,11 @@ Required：
 
 ```bash
 UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/integration/test_geo_observation_correction.py backend/tests/integration/test_geo_observation_detail.py backend/tests/integration/test_geo_observation_deletion.py -q -ra
+UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/integration/test_publication_workflow.py -q -ra
 UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/unit/test_contract.py backend/tests/unit/test_runtime_response_metadata.py -q
-UV_CACHE_DIR=.cache/uv uv run --project backend ruff check backend/app/services/geo_observation.py backend/tests/integration/test_geo_observation_correction.py backend/tests/integration/test_geo_observation_detail.py backend/tests/integration/test_geo_observation_deletion.py
+UV_CACHE_DIR=.cache/uv uv run --project backend ruff check backend/app/services/geo_observation.py backend/tests/integration/test_geo_observation_correction.py backend/tests/integration/test_geo_observation_detail.py backend/tests/integration/test_geo_observation_deletion.py backend/tests/integration/test_publication_workflow.py
 UV_CACHE_DIR=.cache/uv uv run --project backend mypy --config-file backend/pyproject.toml backend/app
-git diff --check -- backend/app/services/geo_observation.py backend/tests/integration/test_geo_observation_correction.py backend/tests/integration/test_geo_observation_detail.py backend/tests/integration/test_geo_observation_deletion.py docs/frontend-v2/05-business-actions-state-and-api-contract.md docs/frontend-v2/08-testing-quality-and-acceptance.md .trellis/spec/backend/error-handling.md .trellis/spec/frontend/component-guidelines.md .trellis/spec/frontend/state-management.md
+git diff --check -- backend/app/services/geo_observation.py backend/tests/integration/test_geo_observation_correction.py backend/tests/integration/test_geo_observation_detail.py backend/tests/integration/test_geo_observation_deletion.py backend/tests/integration/test_publication_workflow.py docs/frontend-v2/05-business-actions-state-and-api-contract.md docs/frontend-v2/08-testing-quality-and-acceptance.md .trellis/spec/backend/error-handling.md .trellis/spec/frontend/component-guidelines.md .trellis/spec/frontend/state-management.md
 ```
 
 Optional：`npm --prefix frontend run test -- src/domains/geo/geo.api.test.ts src/domains/geo/geo-observation-correction-page.test.tsx src/domains/geo/geo-observation-detail-page.test.tsx` 作为 T6 前只读兼容性探针；backend full suite同一 candidate最多运行一次。
@@ -231,11 +232,11 @@ Optional：`npm --prefix frontend run test -- src/domains/geo/geo.api.test.ts sr
 
 T5-G 完成前不得创建、启动或实施 T6。
 
-T5-I5/I6 会改变 wire code，但按用户要求先完成 T5、再进入 T6；因此 T5-I5 到 T6 构成同一 release-atomic train，T6 完成前禁止部署或发布这些 backend code。T5 中先冻结并实现 server authority，T6 随后按 code更新 projection consumer；若发布流程无法保证这一 gate，停止并将对应 backend+frontend变更合并为一个原子实施 Task。
+T5-I5/I6会改变wire code，但按用户要求先完成T5、再进入T6；因此T5-I5到T6构成同一release-atomic train。I5至少等待T6-G；I6必须同时等待T6-G与T6-C，二者完成前禁止部署或发布相关backend code。T5先冻结并实现server authority，T6随后按code更新各自projection consumer；若发布流程无法保证这一gate，停止并将对应backend+frontend变更合并为一个原子实施Task。
 
 ## 9. T6：Frontend 409 recovery projection reconciliation
 
-T6 只在 T5-G 后进入，并按“一 Task 一目标”拆成 publication 与 GEO 两个前端 Task；它们是父任务 T6 的 publication/GEO slice，其他 domain consumer仍由父规划负责。generated client仅在上游真实 OpenAPI diff时由生成命令更新；本规划的 code-only决定预期没有 generated diff。
+T6只在T5-G后进入，并按“一Task一目标”拆成publication、GEO与共享content-task lifecycle三个前端Task；它们分别拥有T6-P、T6-G、T6-C的consumer。generated client仅在上游真实OpenAPI diff时由生成命令更新；本规划的code-only决定预期没有generated diff。
 
 ### T6-P：Publication 409 projection reconciliation
 
@@ -309,6 +310,37 @@ git diff --check -- frontend/src/domains/geo/geo.api.ts frontend/src/domains/geo
 ```
 
 Optional：`npm --prefix frontend run test` 与 `npm --prefix frontend run build`，同一 candidate各最多一次。停止条件：需要猜测 chain/winner、跨 endpoint拼装 canonical context、改变 backend details/status/schema或自动重放 mutation/delete时停止。回滚仅限上述文件。
+
+### T6-C：Content task GEO chain recovery reconciliation
+
+目标：让共享content-task consumer按GEO chain code恢复，而不是继续把所有409混为自动invalidation。`getContentTaskPermanentDeletionPreview`遇到`GEO_OBSERVATION_CONTEXT_INCOMPLETE`或`GEO_OBSERVATION_CHAIN_CHANGED`时不得使用旧preview，只允许用户显式reload；普通DELETE保持blocked/no replay；permanent-delete POST收到chain changed后使旧preview和确认文本失效，必须显式刷新/重开并重新确认。
+
+精确文件allowlist：
+
+- `frontend/src/domains/content/content-task-lifecycle.tsx`
+- `frontend/src/domains/content/content-task-list-page.test.tsx`
+- `frontend/src/domains/content/content-task-detail-page.test.tsx`
+- `frontend/tests/e2e/fixtures/content.fixture.ts`
+- `frontend/tests/e2e/content-task-list.spec.ts`
+- `frontend/tests/e2e/content-task-detail.spec.ts`
+- `docs/frontend-v2/05-business-actions-state-and-api-contract.md`
+- `docs/frontend-v2/08-testing-quality-and-acceptance.md`
+- `.trellis/spec/frontend/component-guidelines.md`
+- `.trellis/spec/frontend/state-management.md`
+
+`frontend/src/domains/content/content.api.ts`现有`ContentRequestError`已保留status/code/request ID；T6-C先以只读证据复核，除非实际contract缺口要求，否则不加入production allowlist。禁止解析message或创建第二套code registry。
+
+Required：
+
+```bash
+npm --prefix frontend run test -- src/domains/content/content-task-list-page.test.tsx src/domains/content/content-task-detail-page.test.tsx
+npm --prefix frontend run typecheck
+npm --prefix frontend exec -- eslint --max-warnings 0 frontend/src/domains/content/content-task-lifecycle.tsx frontend/src/domains/content/content-task-list-page.test.tsx frontend/src/domains/content/content-task-detail-page.test.tsx frontend/tests/e2e/fixtures/content.fixture.ts frontend/tests/e2e/content-task-list.spec.ts frontend/tests/e2e/content-task-detail.spec.ts
+npm --prefix frontend run e2e -- tests/e2e/content-task-list.spec.ts tests/e2e/content-task-detail.spec.ts
+git diff --check -- frontend/src/domains/content/content-task-lifecycle.tsx frontend/src/domains/content/content-task-list-page.test.tsx frontend/src/domains/content/content-task-detail-page.test.tsx frontend/tests/e2e/fixtures/content.fixture.ts frontend/tests/e2e/content-task-list.spec.ts frontend/tests/e2e/content-task-detail.spec.ts docs/frontend-v2/05-business-actions-state-and-api-contract.md docs/frontend-v2/08-testing-quality-and-acceptance.md .trellis/spec/frontend/component-guidelines.md .trellis/spec/frontend/state-management.md
+```
+
+Optional：`npm --prefix frontend run test`与`npm --prefix frontend run build`，同一candidate各最多一次。停止条件：需要新backend details/status/schema、跨endpoint拼接GEO chain、自动重放普通DELETE/permanent-delete POST、或T6-C必须修改GEO页面时停止。回滚仅限上述文件。
 
 ## 10. 统一回滚边界
 

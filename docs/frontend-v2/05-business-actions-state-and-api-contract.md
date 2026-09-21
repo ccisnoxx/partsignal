@@ -240,6 +240,8 @@ manual 的 discovered/mentioned 由数据库约束保证完整，accuracy 的 nu
 
 Detail 在单个 `REPEATABLE READ` 请求中批量读取链、recorder、文章事实/终态 snapshot、citation 和 FileRecord，并统一签发 evidence 短期 URL。浏览器不得逐文件、逐成果或跨旧 GET join，也不得根据 `created_at/is_current/supersedes_id` 重排历史或推导资格。route-valid UUID 与服务端规范化 UUID 按大小写不敏感的身份比较，响应内部链身份仍精确校验。Legacy 才显示 answer summary、recommendation 和 citation；Manual 才显示逐篇 discovered、mentioned 和 accuracy，历史 null 保持“未记录/未判断”。所有节点均 readonly；CORRECT 指向服务端给出的链尾 canonical URL，DELETE 只在链尾 `available_actions` 包含 token 时复用既有确认命令。DELETE 成功后失效已知链节点 Detail、Correction Context、GEO List/Insights、Query Topic list-items 与对应 Product Detail。
 
+人工更正链无法完整证明时，Detail 与 Correction Context 均整体返回 `409 GEO_OBSERVATION_CONTEXT_INCOMPLETE`，不返回部分 root/tail/selected/history。已缓存 Detail 刷新失败时可以保留只读诊断快照，但旧动作必须冻结；只允许用户显式重新 GET。删除命令在本次调用发现的链集合与锁定结果不一致时返回 `409 GEO_OBSERVATION_CHAIN_CHANGED`；旧确认失效，必须显式刷新、重开并重新确认，不自动重发 DELETE。这不是客户端确认 token 或 GEO revision 冲突。
+
 ### New GeoObservation
 
 `/geo/observations/new` 直接组合既有权威接口：Product 使用服务端分页搜索，Query Topic 使用 `GET /api/v1/query-topics`，选择 Product 后使用 `GET /api/v1/geo-observation-publications?product_id=...` 读取完整合格 Published Article 候选。当前首屏没有真实 waterfall 或一致性缺口，因此不增加 creation-options read model，浏览器也不得跨分页 join 或自行推导文章资格。
@@ -254,9 +256,11 @@ Detail 在单个 `REPEATABLE READ` 请求中批量读取链、recorder、文章�
 
 Correction 继续复用 `POST /api/v1/geo-observations`，不增加专用写入协议。Product、Search Platform、Search Query 和非空 Query Topic 从上下文冻结；表单只持有本次 `tested_at`、当前候选的完整显式事实、新 Evidence ID 与新 Notes。历史节点、历史结果和历史 Evidence 始终只读且不得重新提交；服务端在锁内重新校验 actor、当前尾、冻结字段、候选全集和证据未复用。
 
-`GEO_PUBLICATIONS_CHANGED`、`REVISION_CONFLICT` 与 `GEO_OBSERVATION_HAS_SUCCESSOR` 都表示 canonical context 已过期，到达后禁止自动重放。页面冻结旧上下文并禁用再次提交，同时保留草稿、已完成 Evidence 与 request ID；只有用户显式刷新上下文成功后才按 Published Article ID 合并仍有效事实、为新增候选保留 `null`、移除退出候选，并采用新 `chain_tail_id` 无历史记录地 replace canonical URL。刷新失败继续保留冻结状态，页面不得从 successor 错误猜测 winner。成功时先解除 DirtyGuard，再按 POST 响应 ID 进入新 Detail，并失效 GEO List/Detail/Correction Context、Insights、Query Topic list-items 与对应 Product Detail cache。
+`GEO_PUBLICATIONS_CHANGED` 与 `GEO_OBSERVATION_HAS_SUCCESSOR` 表示候选或后继 canonical context 已过期，到达后禁止自动重放。页面冻结旧上下文并禁用再次提交，同时保留草稿、已完成 Evidence 与 request ID；只有用户显式刷新上下文成功后才按 Published Article ID 合并仍有效事实、为新增候选保留 `null`、移除退出候选，并采用新 `chain_tail_id` 无历史记录地 replace canonical URL。刷新失败继续保留冻结状态，页面不得从 successor 错误猜测 winner。`GEO_OBSERVATION_CONTEXT_INCOMPLETE` 是链上下文不可证明，不能按 stale revision 恢复；旧上下文保持 blocked，GET 仅允许显式重读，POST 不 replay。成功时先解除 DirtyGuard，再按 POST 响应 ID 进入新 Detail，并失效 GEO List/Detail/Correction Context、Insights、Query Topic list-items 与对应 Product Detail cache。
 
-`GEO_OBSERVATION_HAS_SUCCESSOR` 的页面投影由 T6 实施；在该分支完成前，T5-I5 server mapper 不得单独发布，二者受同一 release-atomic gate 约束。
+`GEO_OBSERVATION_HAS_SUCCESSOR`、context incomplete 与 chain changed 的 GEO 页面投影由 T6-G 实施；共享 content-task lifecycle 投影由 T6-C 实施。T5-I5 至少等待 T6-G；T5-I6 必须同时等待 T6-G 与 T6-C，相关 backend code 不得提前单独部署或发布。
+
+共享 GEO 锁链错误还会从 `getContentTaskPermanentDeletionPreview`、`deleteContentTask` 与 `permanentlyDeleteContentTask` 返回。预览 GET 失败后旧预览不可继续确认，仅显式 reload；普通 DELETE 失败保持 blocked、no replay；永久删除 POST 失败后旧预览与确认文本均失效，必须刷新/重开/重新确认。前端只根据结构化 code 与 request ID 决定恢复，不解析中文 message。
 
 ## 14. Workspace Read Model
 

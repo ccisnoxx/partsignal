@@ -1,65 +1,17 @@
-# Change Local Workflow
+# 修改本地工作流
 
-When the user wants to change Trellis phases, next-action hints, whether to create tasks, whether to use sub-agents, or when to check/wrap up, edit `.trellis/workflow.md` first.
+先读 `.trellis/workflow.md` 的相关步骤及当前宿主入口；只在任务状态或资料确实影响变更时读取对应任务。
 
-## Read These Files First
+| 变更 | 权威位置 |
+|---|---|
+| 是否建任务、规划与实施授权 | Phase Index、Phase 1、start/brainstorm/continue |
+| 委派与资料加载 | Phase 2、角色和 before-dev；Hook 协议由实际源码定义 |
+| 验证与停止条件 | 全局规则及项目明确门禁；check 引用它们 |
+| 暂停、提交、归档 | Phase 3、finish-work 和实际生命周期脚本 |
+| 每轮程序状态 | `.codex/hooks/` 及 `common.active_task`，不修改流程文案冒充修复 |
 
-1. `.trellis/workflow.md`
-2. Entry files for the current platform, such as skills/commands/prompts/workflows
-3. The current task's `task.json` and `prd.md`
+保留 `## Phase Index`、`## Phase 1: Plan` 和 `#### X.Y` 的提取合同；仍消费文本提示的平台需要配对的 workflow-state 标签。Codex 状态 Hook 不读取这些流程正文。
 
-## Common Needs And Edit Points
+恢复路由以真实状态、剩余验收和授权为准：planning 缺少必要信息时补齐，已准备且获准实施时 start；in_progress 继续未完成工作；completed 核实实际完成/归档。详情由 `trellis-continue` 入口维护，这里不再复制第二张完整路由表。
 
-| Need | Edit point |
-| --- | --- |
-| Change phase names or phase order | `Phase Index` and the corresponding Phase sections. |
-| Change whether to create a task when there is no task | `[workflow-state:no_task]` state block. |
-| Change the next step during planning | Phase 1 and `[workflow-state:planning]`. |
-| Change whether an agent is required during in_progress | Phase 2 and `[workflow-state:in_progress]`. |
-| Change wrap-up after completion | Phase 3 and `[workflow-state:completed]`. |
-| Change which skill a user intent triggers | `Skill Routing` table. |
-
-## Modification Steps
-
-1. Find the relevant section in `.trellis/workflow.md`.
-2. When changing rules, keep explicit trigger conditions and next actions.
-3. If adding or renaming a skill/agent, synchronize the corresponding files in platform directories.
-4. Workflow-state changes only need an edit to the `[workflow-state:STATUS]` block in `.trellis/workflow.md`. The hook is parser-only — it reads whatever you put in the block. Keep the opening and closing tags' STATUS strings identical (`[workflow-state:foo]…[/workflow-state:foo]`); mismatched STATUS pairs are silently dropped.
-5. Make the AI reread `.trellis/workflow.md`; do not keep using rules from the old conversation.
-
-## Example: Relax Task Creation Requirements
-
-To change when task creation can be skipped, usually edit `[workflow-state:no_task]`:
-
-```md
-[workflow-state:no_task]
-Task is not required when the answer is a one-reply explanation, no files are changed, and no research is needed.
-[/workflow-state:no_task]
-```
-
-If the formal Phase 1 flow also needs to change, synchronize the Phase 1 section.
-
-## Example: One Platform Does Not Use Sub-Agents
-
-If the user wants only one platform to avoid sub-agents, first confirm whether that platform has a separate group in the workflow. Then change Phase 2 routing for that platform group instead of deleting all `trellis-implement` / `trellis-check` instructions across platforms.
-
-## `/trellis:continue` Route Table
-
-`/trellis:continue` resumes a task by deciding which phase step to load next. The decision combines `task.json.status` with the presence of artifacts inside the task directory. The mapping is fixed in the command itself; forks that add custom statuses must extend both the workflow.md tag block and this table.
-
-| `status` | Artifact state | Resume at |
-| --- | --- | --- |
-| `planning` | `prd.md` missing | Phase 1.1 (load `trellis-brainstorm`) |
-| `planning` | lightweight task with `prd.md` complete | ask for start review, then run `task.py start` |
-| `planning` | complex task missing `design.md` or `implement.md` | complete missing planning artifacts |
-| `planning` | complex task has `prd.md`, `design.md`, and `implement.md` | ask for start review, then run `task.py start` |
-| `in_progress` | no implementation in conversation history | Phase 2.1 (`trellis-implement`) |
-| `in_progress` | implementation done, no `trellis-check` run | Phase 2.2 (`trellis-check`) |
-| `in_progress` | check passed | Phase 3.3 (spec update) → 3.4 (commit) |
-| `completed` | task is still in active tree | Phase 3.5 (run `/trellis:finish-work` to archive) |
-
-When you add a custom status (e.g. `in-review`), add a `[workflow-state:in-review]` block in `.trellis/workflow.md` for the per-turn breadcrumb AND extend this route table — usually by editing the `/trellis:continue` command file (`.{platform}/commands/trellis/continue.md` or equivalent) to add a row that decides where to resume from. Without the route entry, `/trellis:continue` will fall through to a default branch and the user will not land on the step you intended.
-
-## Notes
-
-`.trellis/workflow.md` is the local project workflow, not an immutable template. The user can adapt it to team habits. After editing it, platform entry files may still contain old descriptions, so inspect them too.
+验证阶段提取、相关状态输出和必要引用；不为流程修改创建或归档真实业务任务。Trellis 更新时比较本地定制，不能直接覆盖。

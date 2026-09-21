@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 -X utf8 .codex/hooks/inject-workflow-state.py",
+            "command": "python3 -X utf8 /Users/sc/PycharmProjects/partsignal/.codex/hooks/inject-workflow-state.py",
             "timeout": 15
           }
         ]
@@ -17,7 +17,19 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 -X utf8 .codex/hooks/inject-subagent-context.py",
+            "command": "python3 -X utf8 /Users/sc/PycharmProjects/partsignal/.codex/hooks/inject-subagent-context.py",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -X utf8 /Users/sc/PycharmProjects/partsignal/.codex/hooks/session-start.py",
             "timeout": 15
           }
         ]

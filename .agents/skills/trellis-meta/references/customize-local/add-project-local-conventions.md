@@ -56,15 +56,15 @@ If the content is a coding convention, write it to spec. Examples:
 
 ```text
 .trellis/spec/backend/error-handling.md
-.trellis/spec/frontend/components.md
-.trellis/spec/guides/cross-platform-thinking-guide.md
+.trellis/spec/frontend/component-guidelines.md
+.trellis/spec/guides/cross-layer-thinking-guide.md
 ```
 
 After writing it, update the corresponding `index.md` so AI can find the new rule from the entry point.
 
 ## Make The Current Task Use New Conventions
 
-After writing a spec, add it to the current task context:
+仅当当前任务的委派需要该规范时，将实际路径加入资料索引：
 
 ```bash
 python3 ./.trellis/scripts/task.py add-context <task> implement ".trellis/spec/backend/error-handling.md" "Error handling conventions"

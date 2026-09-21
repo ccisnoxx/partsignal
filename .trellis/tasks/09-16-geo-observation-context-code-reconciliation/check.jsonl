@@ -1,0 +1,9 @@
+{"file":".trellis/tasks/09-16-geo-observation-context-code-reconciliation/prd.md","reason":"检查单一目标、共享 owner 决策、验收、allowlist 与停止线"}
+{"file":".trellis/tasks/09-16-geo-observation-context-code-reconciliation/design.md","reason":"检查 producer taxonomy、事务/快照、fixture、current-head trigger 与 frontend/release 边界"}
+{"file":".trellis/tasks/09-16-geo-observation-context-code-reconciliation/implement.md","reason":"检查 conditional scope、required/optional validation、protected-owner gate 与 review 额度"}
+{"file":".trellis/tasks/09-16-geo-observation-context-code-reconciliation/research/producer-owner-audit.md","reason":"逐项复核 11 producer 和三个额外 content-task operation 的源码证据"}
+{"file":".trellis/tasks/09-16-geo-observation-context-code-reconciliation/research/planning-review.md","reason":"复核full review finding、T6-C repair与targeted re-review结果"}
+{"file":".trellis/tasks/09-14-publication-geo-integrity-error-contract-decision/design.md","reason":"复核T5-C code taxonomy、真实operation owner与合同零差异结论是否需要修订"}
+{"file":".trellis/tasks/09-14-publication-geo-integrity-error-contract-decision/research/contract-frontend-impact.md","reason":"复核OpenAPI/runtime/generated零差异和T6前端恢复边界"}
+{"file":".trellis/tasks/archive/2026-09/09-16-geo-observation-successor-integrity-mapping/design.md","reason":"复核T5-I5/T5-I6分界、共享事务与release-atomic gate"}
+{"file":".trellis/tasks/archive/2026-09/09-16-geo-observation-successor-integrity-mapping/research/implementation-log.md","reason":"复核T5-I5实际实现、验证证据和不得回归的successor owner"}

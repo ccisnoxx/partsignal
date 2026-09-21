@@ -1,41 +1,15 @@
-# Quality Guidelines
+# 前端质量规范
 
-> Code quality standards for frontend development.
+本文件记录 canonical `frontend/` 已由实现和测试确认的质量约束。只读取与当前变更相关的场景章节。
 
----
-
-## Overview
-
-<!--
-Document your project's quality standards here.
-
-Questions to answer:
-- What patterns are forbidden?
-- What linting rules do you enforce?
-- What are your testing requirements?
-- What code review standards apply?
--->
-
-(To be filled by the team)
-
----
-
-## Forbidden Patterns
-
-<!-- Patterns that should never be used and why -->
-
-(To be filled by the team)
-
----
-
-## Required Patterns
+## 稳定模式
 
 <!-- Patterns that must always be used -->
 
 - 交互密度变更必须保留字段、入口、权限判断、服务端 available actions、确认文案、query key 与 API 载荷。
-- 长表单校验复用 Ant Form `errorFields`、`scrollToFirstError` 和显式修订号；保存状态至少区分未修改、未保存、保存中、已保存和失败。
-- 留在当前页面的长期保存、删除、启停和显式状态操作使用 `App.useApp().message` 给出短中文成功反馈；简单创建后结果立即可见或立即导航时不重复通知。
-- Markdown HTML 只能由 `renderSanitizedMarkdown` 写入 React sink；该边界用 DOMPurify 返回 `TrustedHTML`，页面不得创建 Trusted Types policy 或直接组合 `marked`、DOMPurify 与 `dangerouslySetInnerHTML`。
+- 长表单校验复用 React Hook Form 的结构化 errors、`ErrorSummary` 与 `setFocus`；revision 始终来自 canonical 服务端对象。保存状态至少区分未修改、未保存、保存中、已保存和失败。
+- 留在当前页面的长期保存、删除、启停和显式状态操作使用当前 Design System 的页面内反馈；结果已立即可见或操作后立即导航时不重复通知。
+- Markdown 预览由 `design-system/editor/markdown-editor.tsx` 的 `MarkdownPreview` 唯一持有：使用 `ReactMarkdown`、`rehype-sanitize` 和 `skipHtml`，并通过 `disallowedElements` 阻断图片。Domain 页面复用该入口，不另建 parser、HTML sink、`dangerouslySetInnerHTML` 或平行 sanitizer；链接、raw HTML、事件属性、`javascript:` URL 与图片的阻断行为必须由组件测试保持。
 
 ## 场景：Vite 开发配置选择
 

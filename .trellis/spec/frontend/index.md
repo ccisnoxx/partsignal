@@ -6,7 +6,7 @@
 
 ## 总览
 
-本目录收录前端开发规范。开发前必须读取与变更范围对应的指南；待完善指南只记录项目已经确认的实际约定。
+本目录收录前端稳定规范。只读取与当前变更直接相关的指南；待完善模板不进入默认上下文。
 
 ---
 
@@ -17,10 +17,10 @@
 | [视觉系统](./visual-system.md) | 视觉角色、页面构图、组件交互、主题、响应式与可访问性约束 | 有效 |
 | [目录结构](./directory-structure.md) | 模块组织与文件布局 | 有效 |
 | [组件规范](./component-guidelines.md) | 组件模式、属性与组合方式 | 有效 |
-| [Hook 规范](./hook-guidelines.md) | 自定义 Hook 与数据获取模式 | 待完善 |
+| [Hook 规范](./hook-guidelines.md) | 自定义 Hook 与数据获取模式 | 模板，默认不读 |
 | [状态管理](./state-management.md) | 本地状态、全局状态、服务端状态与可编辑 Workspace 合同 | 有效 |
 | [质量规范](./quality-guidelines.md) | 代码标准与禁止模式 | 有效 |
-| [类型安全](./type-safety.md) | 类型模式与校验 | 待完善 |
+| [类型安全](./type-safety.md) | 类型模式与校验 | 模板，默认不读 |
 | [资源动作投影合同](../backend/available-actions-contract.md) | typed `available_actions` 的跨层响应与消费边界 | 有效 |
 | [Content Version Detail 不可变详情合同](../backend/content-version-detail-contract.md) | 单一 detail read model、不可变页面与错误/测试边界 | 有效 |
 
@@ -28,9 +28,9 @@
 
 ## 开发前检查
 
-- 视觉实现、页面新建、页面改造和 UI/UX 审计前，必须完整读取 [视觉系统](./visual-system.md)。
-- 涉及组件结构、表格或可访问性交互时，还必须读取 [组件规范](./component-guidelines.md)。
-- 涉及质量门禁、响应式或浏览器验收时，还必须读取 [质量规范](./quality-guidelines.md)。
+- 视觉角色、页面结构、主题或可访问性变化时，读取 [视觉系统](./visual-system.md) 的相关章节。
+- 组件结构、表格或交互模式变化时，读取 [组件规范](./component-guidelines.md)。
+- 质量门禁、响应式或浏览器验收变化时，读取 [质量规范](./quality-guidelines.md)。
 
 ---
 

@@ -3,14 +3,21 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
+from sqlalchemy.exc import SAWarning
 from sqlalchemy.orm import Session
 
+from app.db import get_db
+from app.deps import get_current_session
 from app.errors import AppError
+from app.main import app
 from app.models.geo_files import (
     FileRecord,
     GeoObservation,
@@ -19,9 +26,14 @@ from app.models.geo_files import (
     GeoObservationPublication,
 )
 from app.models.identity import User
+from app.schemas.geo_files import LegacyGeoObservationOut
+from app.services import geo_observation as geo_service
 from app.services.geo_observation import get_geo_observation_detail
 from tests.integration.test_publication_workflow import (
     _complete_publication,
+    _geo_context_catalog,
+    _geo_context_snapshot,
+    _seed_geo_context_chain,
     _seed_graph,
     temporary_database,
 )
@@ -300,3 +312,146 @@ def test_geo_observation_detail_reports_not_found() -> None:
             with pytest.raises(AppError, match="更正链不完整") as chain_error:
                 get_geo_observation_detail(db, conflicting.id, actor=actor)
             assert chain_error.value.status_code == 409
+            assert chain_error.value.code == "GEO_OBSERVATION_CONTEXT_INCOMPLETE"
+            assert chain_error.value.details == {}
+
+
+@pytest.mark.integration
+def test_geo_context_http_rejects_incomplete_chain_without_partial_history() -> None:
+    """真实 PostgreSQL 损坏链在 detail/context 两入口返回同一完整错误信封。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        overrides = dict(app.dependency_overrides)
+        try:
+            with Session(engine) as verify:
+                catalog = _geo_context_catalog(verify)
+                baseline = _geo_context_snapshot(verify)
+            for scenario in (
+                "branch",
+                "cycle",
+                "missing-parent",
+                "product",
+                "search_platform",
+                "search_query",
+                "kind",
+            ):
+                with engine.connect().execution_options(isolation_level="REPEATABLE READ") as conn:
+                    transaction = conn.begin()
+                    try:
+                        with Session(conn, expire_on_commit=False) as seed:
+                            graph = _seed_graph(seed)
+                            actor = graph["user"]
+                            actor.account_type = "ADMIN"
+                            seed.flush()
+                            target_id = _seed_geo_context_chain(seed, graph, scenario)
+                            before = _geo_context_snapshot(seed)
+                            actor_id = actor.id
+
+                        def database_session() -> Iterator[Session]:
+                            with Session(conn, join_transaction_mode="create_savepoint") as db:
+                                # fixture 已在外层建立真实 RR 事务；先绑定以免路由重设隔离级别。
+                                assert db.connection().get_isolation_level() == "REPEATABLE READ"
+                                yield db
+
+                        app.dependency_overrides[get_db] = database_session
+                        auth = SimpleNamespace(
+                            user=SimpleNamespace(id=actor_id, account_type="ADMIN")
+                        )
+                        app.dependency_overrides[get_current_session] = lambda auth=auth: auth
+                        for endpoint in ("detail", "correction-context"):
+                            request_id = f"geo-context-{scenario}-{endpoint}"
+                            with pytest.warns(SAWarning, match="execution_options ignored"):
+                                response = TestClient(app).get(
+                                    f"/api/v1/geo-observations/{target_id}/{endpoint}",
+                                    headers={"X-Request-ID": request_id},
+                                )
+                            assert response.status_code == 409, response.text
+                            assert response.headers["X-Request-ID"] == request_id
+                            assert response.json() == {
+                                "error": {
+                                    "code": "GEO_OBSERVATION_CONTEXT_INCOMPLETE",
+                                    "message": "GEO 观测更正链存在分支"
+                                    if scenario == "branch"
+                                    else "GEO 观测更正链不完整",
+                                    "details": {},
+                                    "request_id": request_id,
+                                }
+                            }
+                            with Session(conn) as verify:
+                                assert _geo_context_snapshot(verify) == before
+                    finally:
+                        transaction.rollback()
+                with Session(engine) as verify:
+                    assert _geo_context_catalog(verify) == catalog
+                    assert _geo_context_snapshot(verify) == baseline
+        finally:
+            app.dependency_overrides.clear()
+            app.dependency_overrides.update(overrides)
+            engine.dispose()
+
+
+@pytest.mark.parametrize("scenario", ["duplicate-descendant", "disconnected-walk", "output-type"])
+def test_geo_context_synthetic_defensive_boundaries(
+    scenario: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """仅注入无法由当前 snapshot/UNION/projection 合同产生的防御性返回，不模拟并发。"""
+    target = GeoObservation(
+        id=uuid.uuid4(),
+        product_id=uuid.uuid4(),
+        observation_kind="MANUAL_ARTICLE_SEARCH",
+        search_platform="Perplexity",
+        search_query="synthetic defensive boundary",
+        supersedes_id=None,
+        query_topic_id=None,
+    )
+    nodes = [target, target]
+    if scenario == "disconnected-walk":
+        nodes = [
+            target,
+            GeoObservation(
+                id=uuid.uuid4(),
+                product_id=target.product_id,
+                observation_kind=target.observation_kind,
+                search_platform=target.search_platform,
+                search_query=target.search_query,
+                supersedes_id=uuid.uuid4(),
+            ),
+        ]
+    synthetic_db = SimpleNamespace(
+        execute=lambda _statement: SimpleNamespace(all=lambda: [(target.id, None)]),
+        scalars=lambda _statement: nodes,
+        get=lambda *_args: target,
+    )
+    message = "GEO 观测更正链不完整"
+    if scenario == "output-type":
+        message = "GEO 观测更正链类型不一致"
+        monkeypatch.setattr(geo_service, "_manual_observation_chain", lambda *_args: [target])
+        monkeypatch.setattr(
+            geo_service,
+            "geo_observations_out",
+            lambda *_args, **_kwargs: [
+                LegacyGeoObservationOut.model_construct(
+                    id=target.id,
+                    product_id=target.product_id,
+                    product_label="synthetic",
+                )
+            ],
+        )
+        monkeypatch.setattr(geo_service, "_geo_observation_detail_evidence", lambda *_args: {})
+        synthetic_db.scalars = lambda _statement: []
+    with pytest.raises(AppError) as error:
+        if scenario == "output-type":
+            get_geo_observation_detail(synthetic_db, target.id, actor=SimpleNamespace())
+        else:
+            geo_service._manual_observation_chain(synthetic_db, target)
+    assert (
+        error.value.status_code,
+        error.value.code,
+        error.value.message,
+        error.value.details,
+    ) == (
+        409,
+        "GEO_OBSERVATION_CONTEXT_INCOMPLETE",
+        message,
+        {},
+    )

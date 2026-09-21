@@ -47,9 +47,10 @@ PartSignal 应从“后台管理系统”升级为“电子元器件内容生产
 | [04-design-system-and-interaction-spec.md](./04-design-system-and-interaction-spec.md) | Design System、Table Kit、Workspace Kit、交互规范 |
 | [05-business-actions-state-and-api-contract.md](./05-business-actions-state-and-api-contract.md) | `workflow_stage`、`primary_task`、`available_actions` 与 Action Registry |
 | [06-code-architecture-and-project-structure.md](./06-code-architecture-and-project-structure.md) | V2 目录、Domain Vertical Slice、依赖规则 |
-| [07-migration-plan.md](./07-migration-plan.md) | 总体实施路线、Task/分支规则、新会话接续、质量门禁与 Cutover |
+| [07-migration-plan.md](./07-migration-plan.md) | 已完成迁移的历史、分支决策、阶段门禁与 Cutover 记录；仅相关任务读取 |
 | [08-testing-quality-and-acceptance.md](./08-testing-quality-and-acceptance.md) | 单测、组件测试、E2E、视觉与响应式验收 |
 | [09-architecture-decisions.md](./09-architecture-decisions.md) | 关键 ADR / 不选方案 / 长期约束 |
+| [10-frontend-redevelopment-plan.md](./10-frontend-redevelopment-plan.md) | 新一轮前端重新开发的启动、交付顺序、验证节奏与跨会话恢复 |
 
 ## 4. V2 八条不可破坏原则
 
@@ -72,19 +73,19 @@ PartSignal 应从“后台管理系统”升级为“电子元器件内容生产
 
 ## 6. 开发使用方式
 
-后续 frontend 新会话先读取 `07-migration-plan.md`，再按其中的最小上下文矩阵加载当前 Task 直接相关的蓝图。不要在单个会话中连续实现多个 Task，也不要仅为熟悉项目重复加载全部文档。
+按问题选择资料，不为熟悉项目加载整套文档：
 
-每一个 frontend PR 都应回答：
+| 变更 | 读取 |
+|---|---|
+| 技术栈、依赖或代码边界 | `01`、`06`，涉及既有决策时再读 `09` |
+| 路由、导航或 URL state | `02` |
+| 页面、Workspace 或业务流程 | `03`，涉及动作资格时加 `05` |
+| Design System、交互或响应式 | `04` |
+| 测试策略或验收边界 | `08` |
+| 迁移、legacy route、阶段门禁、分支或 Cutover | `07` |
+| 新一轮前端重新开发或跨会话接续 | `10`，再按实际页面读取 `01`–`06`、`08`、`09` |
 
-- 它属于哪个 domain？
-- 它对应哪一种页面 Pattern？
-- URL 中保存哪些可恢复状态？
-- 服务端的 `primary_task` / `available_actions` 如何映射？
-- 是否复用了 Design System，而不是在 feature 内新造通用 UI？
-- 是否增加了必要的 Storybook / unit / E2E 覆盖？
-- 是否满足对应 Phase 的退出条件？
-
-任何新 Pattern 在被第二个业务页面使用前，应优先进入 `design-system/` 或形成明确 ADR。
+实现时确认所属 domain、状态 owner、服务端动作投影、可复用 Pattern 和受影响的验收边界。只有形成跨消费者的稳定模式时才提升到 `design-system/` 或记录 ADR。
 
 ## 7. 参考资料
 

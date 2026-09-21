@@ -1,61 +1,22 @@
 ---
 name: trellis-continue
-description: "Resume work on the current task. Loads the workflow Phase Index, figures out which phase/step to pick up at, then pulls the step-level detail via get_context.py --mode phase. Use when coming back to an in-progress task and you need to know what to do next."
+description: 继续已有 Trellis 任务，定位上次进度与剩余验收。用于明确继续任务，或跨会话恢复后需要确定下一步时。
 ---
 
-# Continue Current Task
+# 继续任务
 
-Resume work on the current task — pick up at the right phase/step in `.trellis/workflow.md`.
+通过已提供的准确任务路径或 `python3 ./.trellis/scripts/task.py current --source` 确认本会话任务；缺少路径时不要借用别的会话。
 
----
+读取缺失或变化的 `prd.md`、相关设计/执行记录和验证证据，复用仍完整的当前上下文。
 
-## Step 1: Load Current Context
+| 状态与证据 | 下一步 |
+|---|---|
+| planning，目标或必要设计未清楚 | 补足具体缺口，必要时 brainstorm |
+| planning，已准备且有实现授权 | `task.py start <task-dir>` 后实施 |
+| in_progress，验收仍有未完成项 | 继续实现与相关检查 |
+| in_progress，验收完成 | 按需同步文档；提交/归档分别依授权 |
+| completed | 核对归档与交付，避免再次实现 |
 
-```bash
-python3 ./.trellis/scripts/get_context.py
-```
+`prd.md` 存在不等于规划或实现完成；只规划的原请求也不因恢复命令自动变成实施授权。已有明确实施授权不需要重复批准。
 
-Confirms: current task, git state, recent commits.
-
-## Step 2: Load the Phase Index
-
-```bash
-python3 ./.trellis/scripts/get_context.py --mode phase
-```
-
-Shows the Phase Index (Plan / Execute / Finish) with routing + skill mapping.
-
-## Step 3: Decide Where You Are
-
-`get_context.py` shows the active task's `status` field. Route by `status` + artifact presence. This command replaces the user needing to remember the Trellis flow; it does not itself approve implementation.
-
-- `status=planning` + no `prd.md` → **1.1** (load `trellis-brainstorm`)
-- `status=planning` + `prd.md` only → decide whether the task is lightweight or complex. Lightweight can move to **1.4** review; complex returns to **1.1** to add `design.md` + `implement.md`.
-- `status=planning` + complex artifacts complete + sub-agent jsonl not curated (only the seed `_example` row) → **1.3**
-- `status=planning` + required artifacts complete + required jsonl curated or inline mode → **1.4** (ask for start review; only run `task.py start` after user confirms)
-- `status=in_progress` + implementation not started → **2.1**
-- `status=in_progress` + implementation done, not yet checked → **2.2**
-- `status=in_progress` + check passed → **3.3** (spec update) → **3.4** (commit)
-- `status=completed` (rare; usually archived immediately) → archive flow
-
-Phase rules (full detail in `.trellis/workflow.md`):
-
-1. Run steps **in order** within a phase — `[required]` steps must not be skipped
-2. `[once]` steps are already done if the required output exists. `prd.md` alone can be enough only for lightweight tasks; complex tasks also need `design.md` and `implement.md`.
-3. You may go back to an earlier phase if discoveries require it
-
-## Step 4: Load the Specific Step
-
-Once you know which step to resume at:
-
-```bash
-python3 ./.trellis/scripts/get_context.py --mode phase --step <X.X> --platform codex
-```
-
-Follow the loaded instructions. After each `[required]` step completes, move to the next.
-
----
-
-## Reference
-
-Full workflow and detailed phase steps live in `.trellis/workflow.md`. This command is only an entry point — the canonical guidance is there.
+工作流细节由 `.trellis/workflow.md` 管理；必要时运行 `get_context.py --mode phase --step <X.Y> --platform codex`。

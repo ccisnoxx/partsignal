@@ -1,12 +1,10 @@
-# Backend Development Guidelines
-
-> Best practices for backend development in this project.
+# 后端开发规范
 
 ---
 
 ## Overview
 
-This directory contains guidelines for backend development. Fill in each file with your project's specific conventions.
+只读取与当前变更直接相关的有效规范。未定制模板保留为将来的填写入口，不进入默认上下文。
 
 ---
 
@@ -14,29 +12,18 @@ This directory contains guidelines for backend development. Fill in each file wi
 
 | Guide | Description | Status |
 |-------|-------------|--------|
-| [Directory Structure](./directory-structure.md) | Module organization and file layout | To fill |
 | [数据库开发规范](./database-guidelines.md) | PostgreSQL 迁移、一次性数据清理与初始化契约 | Active |
 | [发布管理工作台契约](./publication-workbench-guidelines.md) | 发布聚合、列表投影、两阶段证据与前端数据边界 | Active |
 | [Backend 错误处理契约](./error-handling.md) | 唯一约束竞态、AppError、ErrorEnvelope 与 runtime response metadata | Active |
-| [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | To fill |
-| [Logging Guidelines](./logging-guidelines.md) | Structured logging, log levels | To fill |
+| [质量规范](./quality-guidelines.md) | Starlette TestClient、`httpx2` 测试依赖与客户端回退约束 | Active |
 | [AI 配置与生成边界](./ai-configuration-guidelines.md) | 渠道凭据、网络边界、作业快照与真实模型调用 | Active |
 | [资源动作投影合同](./available-actions-contract.md) | typed `available_actions`、服务端最终守卫、前端消费与批量投影边界 | Active |
 | [Content Version Detail 不可变详情合同](./content-version-detail-contract.md) | compact consistent read、nullable 更新时间、只读前端与跨层测试边界 | Active |
 
 ---
 
-## How to Fill These Guidelines
+## 待定制模板
 
-For each guideline file:
+`directory-structure.md`、`logging-guidelines.md` 当前仍是通用模板。除非任务就是补充这些规范，否则不要读取；填写时只记录已由代码和合同证实的项目约定。
 
-1. Document your project's **actual conventions** (not ideals)
-2. Include **code examples** from your codebase
-3. List **forbidden patterns** and why
-4. Add **common mistakes** your team has made
-
-The goal is to help AI assistants and new team members understand how YOUR project works.
-
----
-
-**Language**: All documentation should be written in **English**.
+**语言**：项目规范默认使用中文。

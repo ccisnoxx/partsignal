@@ -24,7 +24,7 @@ from sqlalchemy import create_engine, delete, event, func, select, text, update
 from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.orm import Session
 
-from app.db import get_db
+from app.db import Base, get_db
 from app.deps import get_current_session
 from app.errors import AppError
 from app.main import app
@@ -34,6 +34,7 @@ from app.models.content import ContentTask, ContentTaskGeoSource, ContentVersion
 from app.models.geo_files import (
     FileRecord,
     GeoObservation,
+    GeoObservationAttachment,
     GeoObservationCitation,
     GeoObservationPublication,
 )
@@ -154,13 +155,13 @@ def temporary_database() -> Iterator[str]:
     test_url = _replace_database(source_url, database_name)
     sqlalchemy_url = test_url.replace("postgresql://", "postgresql+psycopg://", 1)
     backend_dir = Path(__file__).resolve().parents[2]
-    subprocess.run(
-        [sys.executable, "-m", "alembic", "upgrade", "head"],
-        check=True,
-        cwd=backend_dir,
-        env={**os.environ, "DATABASE_URL": sqlalchemy_url},
-    )
     try:
+        subprocess.run(
+            [sys.executable, "-m", "alembic", "upgrade", "head"],
+            check=True,
+            cwd=backend_dir,
+            env={**os.environ, "DATABASE_URL": sqlalchemy_url},
+        )
         yield sqlalchemy_url
     finally:
         with psycopg.connect(_psycopg_url(source_url), autocommit=True) as admin:
@@ -261,6 +262,140 @@ def _seed_graph(db: Session, *, content_hash: str = "a" * 64) -> dict[str, objec
         "content": content,
         "account": account,
     }
+
+
+def _geo_context_catalog(db: Session) -> list[tuple[object, ...]]:
+    """记录临时损坏 fixture 需要在 rollback 后恢复的 schema 防线。"""
+    return [
+        tuple(row)
+        for row in db.execute(
+            text("""
+            SELECT 'constraint', conname, pg_get_constraintdef(oid)
+            FROM pg_constraint WHERE conrelid = 'geo_observations'::regclass
+            UNION ALL
+            SELECT 'index', indexname, indexdef FROM pg_indexes
+            WHERE tablename = 'geo_observations' AND schemaname = 'public'
+            UNION ALL
+            SELECT 'trigger', tgname, pg_get_triggerdef(oid) || ':' || tgenabled::text
+            FROM pg_trigger WHERE tgrelid = 'geo_observations'::regclass AND NOT tgisinternal
+            ORDER BY 1, 2
+        """)
+        )
+    ]
+
+
+def _geo_context_snapshot(db: Session) -> dict[str, list[dict[str, object]]]:
+    """按稳定主键冻结全部业务行，包括 relation、cleanup 时间与 SUCCESS audit。"""
+    return {
+        table.name: [
+            dict(row) for row in db.execute(select(table).order_by(*table.primary_key)).mappings()
+        ]
+        for table in Base.metadata.tables.values()
+    }
+
+
+def _seed_geo_context_chain(db: Session, graph: dict[str, object], scenario: str) -> uuid.UUID:
+    """事务局部的真实坏链；调用者必须 rollback 并通过新连接复核 schema。"""
+    actor, product, topic = graph["user"], graph["product"], graph["topic"]
+    root_id, tail_id = uuid.uuid4(), uuid.uuid4()
+    common = {
+        "observation_kind": "MANUAL_ARTICLE_SEARCH",
+        "product_id": product.id,
+        "query_topic_id": topic.id,
+        "search_platform": "Perplexity",
+        "search_query": "GEO context integrity",
+        "tested_at": datetime(2026, 9, 16, 8, tzinfo=UTC),
+        "notes": "context fixture",
+        "tested_by": actor.id,
+        "actual_prompt": None,
+        "model_name": None,
+        "web_search_enabled": None,
+        "answer_summary": None,
+        "mentioned": None,
+        "recommendation": None,
+        "accuracy": None,
+    }
+    root = {**common, "id": root_id, "supersedes_id": None}
+    tail = {**common, "id": tail_id, "supersedes_id": root_id}
+    if scenario == "cycle":
+        root["supersedes_id"] = tail_id
+    elif scenario == "missing-parent":
+        db.execute(
+            text(
+                "ALTER TABLE geo_observations ALTER CONSTRAINT "
+                "fk_geo_observations_supersedes_id_geo_observations DEFERRABLE INITIALLY DEFERRED"
+            )
+        )
+        root["supersedes_id"] = uuid.uuid4()
+    elif scenario in {"product", "ancestor-product"}:
+        other = Product(
+            part_number=f"OTHER-{uuid.uuid4()}",
+            normalized_part_number=uuid.uuid4().hex,
+            brand="Other",
+            normalized_brand=uuid.uuid4().hex,
+            category="MCU",
+        )
+        db.add(other)
+        db.flush()
+        (root if scenario == "ancestor-product" else tail)["product_id"] = other.id
+    elif scenario in {"search_platform", "search_query"}:
+        tail[scenario] = "不同的链身份"
+    elif scenario in {"kind", "ancestor-kind"}:
+        (root if scenario == "ancestor-kind" else tail).update(
+            {
+                "observation_kind": "LEGACY_MODEL_RESULT",
+                "search_platform": None,
+                "search_query": None,
+                "actual_prompt": "旧模型问题",
+                "model_name": "Legacy",
+                "web_search_enabled": False,
+                "answer_summary": "旧模型回答",
+                "mentioned": False,
+                "recommendation": "NOT_RECOMMENDED",
+                "accuracy": "UNJUDGEABLE",
+            }
+        )
+    # 同一 INSERT 中的互指 FK 在语句结束时检查，无须禁用 append-only trigger。
+    db.execute(GeoObservation.__table__.insert().values([root, tail]))
+    if scenario == "branch":
+        db.execute(text("DROP INDEX uq_geo_observations_supersedes_once"))
+        db.execute(GeoObservation.__table__.insert().values({**tail, "id": uuid.uuid4()}))
+    return (
+        tail_id if scenario in {"ancestor-product", "ancestor-kind", "missing-parent"} else root_id
+    )
+
+
+def _seed_geo_context_owned_facts(
+    db: Session, actor: User, observation_id: uuid.UUID, publication_id: uuid.UUID
+) -> None:
+    """给共享删除 fixture 放入真实附件和问题，避免对空关系证明原子性。"""
+    evidence = FileRecord(
+        category="OPERATION_SCREENSHOT",
+        original_filename="geo-context.png",
+        object_key=f"geo-context/{uuid.uuid4()}.png",
+        content_type="image/png",
+        size=128,
+        sha256="a" * 64,
+        access_level="INTERNAL",
+        status="VERIFIED",
+        uploader_id=actor.id,
+        upload_expires_at=datetime.now(UTC) + timedelta(hours=1),
+        verified_at=datetime.now(UTC),
+    )
+    db.add(evidence)
+    db.flush()
+    db.add_all(
+        [
+            GeoObservationAttachment(observation_id=observation_id, file_id=evidence.id),
+            PublishedContentIssue(
+                published_article_id=publication_id,
+                kind="CONTENT_CHANGED",
+                description="原子性测试问题",
+                status="OPEN",
+                opened_by=actor.id,
+            ),
+        ]
+    )
 
 
 @pytest.mark.integration
@@ -3929,6 +4064,243 @@ def test_content_task_delete_and_archive_permanent_delete_lifecycle() -> None:
             )
             assert tombstone is not None
             assert tombstone.details == {}
+
+
+@pytest.mark.integration
+def test_content_task_geo_context_http_preserves_entire_aggregate() -> None:
+    """三个共享 operation 原样传播坏链诊断，失败不写入任务、成果、文件或审计。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        overrides = dict(app.dependency_overrides)
+        csrf = "content-geo-context-csrf-with-more-than-32-characters"
+        try:
+            with Session(engine) as verify:
+                catalog = _geo_context_catalog(verify)
+                baseline = _geo_context_snapshot(verify)
+            for scenario in (
+                "branch",
+                "cycle",
+                "product",
+                "ancestor-product",
+                "kind",
+                "ancestor-kind",
+            ):
+                for operation in ("preview", "delete", "permanent-delete"):
+                    with engine.connect() as conn:
+                        transaction = conn.begin()
+                        try:
+                            with Session(conn, expire_on_commit=False) as seed:
+                                graph = _seed_graph(seed)
+                                actor = graph["user"]
+                                actor.account_type = "ADMIN"
+                                publication = _complete_publication(seed, graph, suffix="bad-geo")
+                                target_id = _seed_geo_context_chain(seed, graph, scenario)
+                                seed.add(
+                                    GeoObservationPublication(
+                                        observation_id=target_id,
+                                        published_article_id=publication.id,
+                                        discovered=False,
+                                        mentioned=False,
+                                        accuracy="UNJUDGEABLE",
+                                    )
+                                )
+                                seed.flush()
+                                _seed_geo_context_owned_facts(
+                                    seed, actor, target_id, publication.id
+                                )
+                                task = graph["task"]
+                                # 普通 DELETE 的合法入口态；scope 必须先于已发布 blocker 裁决。
+                                task.status = "OPEN"
+                                task.archived_at = (
+                                    None if operation == "delete" else datetime.now(UTC)
+                                )
+                                seed.flush()
+                                task_id, revision, actor_id = task.id, task.revision, actor.id
+                                before = _geo_context_snapshot(seed)
+
+                            def database_session() -> Iterator[Session]:
+                                with Session(conn, join_transaction_mode="create_savepoint") as db:
+                                    yield db
+
+                            app.dependency_overrides[get_db] = database_session
+                            auth = SimpleNamespace(
+                                user=SimpleNamespace(id=actor_id, account_type="ADMIN"),
+                                csrf_hash=hash_token(csrf),
+                            )
+                            app.dependency_overrides[get_current_session] = lambda auth=auth: auth
+                            request_id = f"content-geo-{scenario}-{operation}"
+                            headers = {"X-CSRF-Token": csrf, "X-Request-ID": request_id}
+                            client = TestClient(app)
+                            base = f"/api/v1/content-tasks/{task_id}"
+                            if operation == "preview":
+                                response = client.get(
+                                    f"{base}/permanent-deletion-preview", headers=headers
+                                )
+                            elif operation == "delete":
+                                response = client.delete(
+                                    base,
+                                    params={"expected_revision": revision},
+                                    headers=headers,
+                                )
+                            else:
+                                response = client.post(
+                                    f"{base}/permanent-delete",
+                                    headers=headers,
+                                    json={
+                                        "expected_revision": revision,
+                                        "confirmation_text": "永久删除",
+                                    },
+                                )
+                            assert response.status_code == 409, response.text
+                            assert response.headers["X-Request-ID"] == request_id
+                            assert response.json() == {
+                                "error": {
+                                    "code": "GEO_OBSERVATION_CONTEXT_INCOMPLETE",
+                                    "message": "GEO 观测更正链存在分支"
+                                    if scenario == "branch"
+                                    else "GEO 观测更正链不完整",
+                                    "details": {},
+                                    "request_id": request_id,
+                                }
+                            }
+                            with Session(conn) as verify:
+                                assert _geo_context_snapshot(verify) == before
+                        finally:
+                            transaction.rollback()
+                    with Session(engine) as verify:
+                        assert _geo_context_catalog(verify) == catalog
+                        assert _geo_context_snapshot(verify) == baseline
+        finally:
+            app.dependency_overrides.clear()
+            app.dependency_overrides.update(overrides)
+            engine.dispose()
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("operation", ["preview", "delete", "permanent-delete"])
+def test_content_task_geo_chain_changed_http_preserves_aggregate(operation: str) -> None:
+    """真实第二连接改变发现集合后，三个 owner 均失败且只保留外部 writer 的变更。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        overrides = dict(app.dependency_overrides)
+        reached_lock = threading.Event()
+        observed: dict[str, object] = {}
+        csrf = "content-chain-changed-csrf-with-more-than-32-characters"
+        try:
+            with Session(engine, expire_on_commit=False) as seed:
+                graph = _seed_graph(seed)
+                actor = graph["user"]
+                actor.account_type = "ADMIN"
+                publication = _complete_publication(seed, graph, suffix="chain-changed")
+                root_id = _seed_geo_context_chain(seed, graph, "healthy")
+                tail_id = seed.scalar(
+                    select(GeoObservation.id).where(
+                        GeoObservation.supersedes_id == root_id,
+                    )
+                )
+                seed.add(
+                    GeoObservationPublication(
+                        observation_id=root_id,
+                        published_article_id=publication.id,
+                        discovered=False,
+                        mentioned=False,
+                        accuracy="UNJUDGEABLE",
+                    )
+                )
+                seed.flush()
+                _seed_geo_context_owned_facts(seed, actor, root_id, publication.id)
+                task = graph["task"]
+                task.status = "OPEN"
+                task.archived_at = None if operation == "delete" else datetime.now(UTC)
+                seed.commit()
+                task_id, revision, actor_id = task.id, task.revision, actor.id
+                before = _geo_context_snapshot(seed)
+
+            def database_session() -> Iterator[Session]:
+                with Session(engine) as db:
+                    yield db
+
+            def remove_tail(
+                _connection: object,
+                _cursor: object,
+                statement: str,
+                _parameters: object,
+                _context: object,
+                _executemany: bool,
+            ) -> None:
+                if reached_lock.is_set() or "geo_observations.id IN" not in statement:
+                    return
+                if "FOR UPDATE" not in statement:
+                    return
+                reached_lock.set()
+                observed["request_pid"] = _connection.scalar(text("SELECT pg_backend_pid()"))
+                with engine.connect() as writer:
+                    observed["writer_pid"] = writer.scalar(text("SELECT pg_backend_pid()"))
+                    with pytest.raises(DBAPIError) as blocked:
+                        writer.execute(
+                            text(
+                                "SELECT id FROM geo_observations WHERE id = :id FOR UPDATE NOWAIT"
+                            ),
+                            {"id": root_id},
+                        )
+                    assert blocked.value.orig.sqlstate == "55P03"
+                    writer.rollback()
+                    writer.execute(text("SET LOCAL lock_timeout = '2s'"))
+                    writer.execute(delete(GeoObservation).where(GeoObservation.id == tail_id))
+                    writer.commit()
+                    with Session(writer) as verify:
+                        observed["after_writer"] = _geo_context_snapshot(verify)
+
+            app.dependency_overrides[get_db] = database_session
+            app.dependency_overrides[get_current_session] = lambda: SimpleNamespace(
+                user=SimpleNamespace(id=actor_id, account_type="ADMIN"),
+                csrf_hash=hash_token(csrf),
+            )
+            event.listen(engine, "before_cursor_execute", remove_tail)
+            try:
+                request_id = f"content-chain-changed-{operation}"
+                headers = {"X-CSRF-Token": csrf, "X-Request-ID": request_id}
+                client = TestClient(app)
+                base = f"/api/v1/content-tasks/{task_id}"
+                if operation == "preview":
+                    response = client.get(f"{base}/permanent-deletion-preview", headers=headers)
+                elif operation == "delete":
+                    response = client.delete(
+                        base, params={"expected_revision": revision}, headers=headers
+                    )
+                else:
+                    response = client.post(
+                        f"{base}/permanent-delete",
+                        headers=headers,
+                        json={"expected_revision": revision, "confirmation_text": "永久删除"},
+                    )
+                assert response.status_code == 409, response.text
+                assert response.headers["X-Request-ID"] == request_id
+                assert response.json() == {
+                    "error": {
+                        "code": "GEO_OBSERVATION_CHAIN_CHANGED",
+                        "message": "GEO 观测更正链已变化",
+                        "details": {},
+                        "request_id": request_id,
+                    }
+                }
+                assert reached_lock.is_set()
+                assert observed["request_pid"] != observed["writer_pid"]
+                expected = {
+                    **before,
+                    "geo_observations": [
+                        row for row in before["geo_observations"] if row["id"] != tail_id
+                    ],
+                }
+                assert observed["after_writer"] == expected
+                with Session(engine) as verify:
+                    assert _geo_context_snapshot(verify) == expected
+            finally:
+                event.remove(engine, "before_cursor_execute", remove_tail)
+        finally:
+            app.dependency_overrides.clear()
+            app.dependency_overrides.update(overrides)
+            engine.dispose()
 
 
 @pytest.mark.integration

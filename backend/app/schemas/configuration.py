@@ -9,7 +9,13 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Annotated, Any, Literal
 
-from pydantic import AfterValidator, Field, HttpUrl, StringConstraints, model_validator
+from pydantic import (
+    AfterValidator,
+    Field,
+    HttpUrl,
+    StringConstraints,
+    model_validator,
+)
 
 from app.schemas.base import ContractModel, require_unique_items
 from app.schemas.common import DeletionProjection, SignedUrl
@@ -244,7 +250,6 @@ class PlatformProfileOut(ContractModel):
     available_actions: list[Literal["UPDATE", "ENABLE", "DISABLE", "DELETE"]]
     deletion: DeletionProjection | None
     updated_at: datetime | None
-
 
 class PlatformProfileSummary(ContractModel):
     platform_total: int = Field(ge=0)

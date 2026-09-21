@@ -1,68 +1,11 @@
-# Local Context Injection System
+# 本地上下文加载
 
-Trellis context injection aims to make AI read the right files at the right time instead of relying on model memory. In a user project, injection is implemented by `.trellis/` scripts together with platform hooks, agents, and skills.
+Codex Hook 负责恢复状态和资料索引，工作流与技能负责说明流程，代理按当前任务读取必要资料。`<trellis-state>` 的出现不表示资料正文已经加载。
 
-## Injected Context Types
+状态唯一来源是 `.trellis/scripts/common/active_task.py` 解析的 `.trellis/.runtime/sessions/`。Codex Hook 只采用事件 payload 的会话身份，禁用环境覆盖和单会话猜测；没有身份报告 `unknown_session`，无指针报告 `no_task`，失效指针报告 `stale_task`。任务路径及所列资料必须解析在仓库内；损坏 JSON、未知任务状态、越界或缺失依赖是可见错误。
 
-| Type | Source | Purpose |
-| --- | --- | --- |
-| session context | `.trellis/scripts/get_context.py` | Current developer, git status, active task, active tasks, journal, packages. |
-| workflow context | `.trellis/workflow.md` | Current Trellis flow and next action. |
-| spec context | `.trellis/spec/` + task JSONL | Specs that must be followed during implementation/checking. |
-| task context | `.trellis/tasks/<task>/prd.md`, `design.md`, `implement.md`, `research/` | Current task requirements, design, execution plan, and research. |
-| platform context | Platform hooks/settings/agents | Lets different AI tools read the files above through their own mechanisms. |
+任务正常状态为 `planning`、`in_progress`、`completed`。Hook 不修改任务、不推进生命周期、不读取历史或生成任务。SessionStart 与 UserPromptSubmit 均输出状态索引；SubagentStart 为 implement/check 加对应 JSONL 路径，为 research 加已有 research 目录。
 
-## session-start
+JSONL 每行是对象，例如 `{"file":".trellis/spec/backend/index.md","reason":"相关后端约束"}`。忽略没有 file 的种子行，结合 reason 与委派范围按需读取；代码由代理直接查找。PRD、design、implement 按任务相关性读取，无固定全量附件装载。
 
-Platforms with session-start support inject a Trellis overview when a session starts, clears, compacts, or receives a similar event. Injected content usually includes:
-
-- workflow summary.
-- current task status.
-- active tasks.
-- spec index paths.
-- developer identity and git status.
-
-If the user feels the AI does not know the current task in a new session, first check whether the platform's session-start hook or equivalent mechanism is installed and running.
-
-## workflow-state
-
-workflow-state is a lightweight hint injected around each user turn. Based on current task status, it selects a block from `.trellis/workflow.md`, such as `no_task`, `planning`, `in_progress`, or `completed`.
-
-If the user wants to change "what the AI should do next in a given state," edit the corresponding state block in `.trellis/workflow.md` first.
-
-## sub-agent context
-
-Implement and check agents need task context. Trellis has two loading modes:
-
-1. **hook push**: a platform hook injects jsonl-referenced files plus `prd.md`, `design.md` if present, and `implement.md` if present before the agent starts.
-2. **agent pull**: the agent definition instructs the agent to read the active task, jsonl context, and task artifacts after startup.
-
-In both modes, JSONL files in the task directory are the manifest for spec/research context. Task artifacts are read separately in this order: `prd.md` -> `design.md if present` -> `implement.md if present`.
-
-## JSONL Reading Rules
-
-`implement.jsonl` and `check.jsonl` contain one JSON object per line:
-
-```jsonl
-{"file": ".trellis/spec/backend/index.md", "reason": "Backend rules"}
-```
-
-Readers should skip seed rows without a `file` field. When configuring JSONL, the AI should include only spec/research files, not pre-register code files that will be modified.
-
-## Active Task And Context Key
-
-Active task state lives in `.trellis/.runtime/sessions/` and is isolated per session. Hooks try to resolve the context key from platform events, environment variables, transcript paths, or `TRELLIS_CONTEXT_ID`.
-
-If shell commands cannot see the same context key, `task.py current --source` may report no active task. In that case, check whether the platform passes session identity into the shell instead of hand-writing a global current-task file.
-
-## Local Customization Points
-
-| Need | Edit location |
-| --- | --- |
-| Change session-start injected content | The platform's `session-start` hook or plugin file. |
-| Change per-turn workflow-state rules | `[workflow-state:STATUS]` block in `.trellis/workflow.md`. The platform workflow-state hook parses these blocks verbatim and embeds no fallback text. |
-| Change how sub-agents read context | Platform agent definitions, the `inject-subagent-context` hook, or agent preludes. |
-| Change JSONL validation/display | `.trellis/scripts/common/task_context.py`. |
-| Change active task resolution | `.trellis/scripts/common/active_task.py`. |
-
-When modifying context injection, verify two things: new sessions can see the correct task, and sub-agents can see the correct task artifacts/spec/research.
+若任务丢失，先核对 Hook 注册、宿主信任、事件身份与对应 session 指针；CLI 环境身份与 Hook payload 是两条不同入口，不能用另一个窗口的任务补位。

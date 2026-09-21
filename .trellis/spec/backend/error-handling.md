@@ -330,6 +330,16 @@ except IntegrityError as error:
     raise _geo_observation_has_successor_error() from error
 ```
 
+## Scenario：GEO Observation 更正链上下文错误码
+
+- `getGeoObservationDetail` 与 `getGeoObservationCorrectionContext` 在同一个 `REPEATABLE READ` 请求快照中读取人工更正链；ancestor、descendant、identity、branch、walk 与输出类型无法完整证明时，整个响应返回 `409 GEO_OBSERVATION_CONTEXT_INCOMPLETE`，保留场景化中文 message、`details={}`，不返回部分历史。
+- `createGeoObservation` 带新增证据遍历 ancestor 时发现缺失，同样返回 context incomplete，且在新 observation、relation 和附件关联写入前失败。`GEO_OBSERVATION_HAS_SUCCESSOR` 仍由上节独立 owner 处理，不改成 context 错误。
+- `_lock_manual_observation_chain` 的 ancestor 缺失/循环/越界、多个 successor、successor 循环/越界均返回 context incomplete；同一次调用先发现的 chain ID 集与随后锁定结果不一致，或 target 不在锁定集合时，返回 `409 GEO_OBSERVATION_CHAIN_CHANGED`。后者不是客户端确认 token 或通用 revision 检查。
+- 锁链 helper 同时服务 `deleteGeoObservation`、`getContentTaskPermanentDeletionPreview`、`deleteContentTask`、`permanentlyDeleteContentTask`。preview 是只读 GET；两个 delete mutation 及 GEO delete 在失败时不得留下链节点、聚合、关系、文件 cleanup intent 或 SUCCESS AuditLog 的部分变更。所有入口保留既有 message、`details={}` 和 request ID，不在 caller remap 回 `REVISION_CONFLICT`。
+- read 链只比较现有 kind/product/search platform/search query，delete 链只比较 kind/product；本错误码修正不扩大 identity 校验。Current-head `0037` 的 GEO append-only trigger 只监听 UPDATE；`0029` 的 DELETE target guard 是历史中间态，不作为当前验收依据。
+- 未知 FK/CHECK/trigger/append-only 或其他 `IntegrityError` 原样进入默认 500 边界；HTTP 不泄漏 SQL、表名、constraint、driver message 或 traceback，不新增公共 500 body/schema。
+- 这些 backend wire code 只能随 T6-G GEO 页面与 T6-C content-task lifecycle 恢复一起发布；此前不得单独部署或发布 T5-I6。
+
 ## Scenario：生成作业的唯一约束领域映射
 
 ### 1. Scope / Trigger

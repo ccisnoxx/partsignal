@@ -2,16 +2,11 @@
 
 本文件只定义 canonical `frontend/` 特有规则。项目通用规则继续继承根 `AGENTS.md`，不要在这里复制。
 
-## 必读上下文
+## 上下文路由
 
-每个 Frontend Task 开始前依次读取：
+根 `AGENTS.md` 与本文件自动适用。首次进入现有 Trellis task、任务范围变化或上下文缺失时，读取 task 中存在且与当前范围相关的 `prd.md`、`design.md`、`implement.md`。
 
-1. 根 `AGENTS.md` 与本文件；
-2. `docs/frontend-v2/07-migration-plan.md`；
-3. 当前 Trellis task 的 `prd.md`、`design.md`、`implement.md`（存在时）；
-4. `07` 最小上下文矩阵指定的专项蓝图，以及当前变更直接涉及的 OpenAPI、数据库合同或稳定 spec。
-
-不要为“熟悉项目”加载全部蓝图。已归档的 V1 只能作为历史业务行为、API、字段与回归场景参考，不复制其 UI、路由、组件或页面状态结构。
+以 `docs/frontend-v2/README.md` 作为专项文档索引，只加载当前变更直接涉及的蓝图、OpenAPI、数据库合同或稳定 spec。`07-migration-plan.md` 是迁移、Cutover、历史门禁和分支决策记录；普通页面、组件、修复和测试任务不读。已归档 V1 仅在追溯业务行为、字段或回归场景时按需读取，不复制其 UI、路由、组件或页面状态结构。
 
 ## 技术栈与依赖
 
@@ -50,20 +45,12 @@
 - 只有已证实的 API waterfall 或 snapshot 一致性问题才新增专用 Workspace context endpoint；禁止客户端 join 多个接口拼业务快照，也不为未来页面预建 endpoint。
 - Fact submitted snapshot、Content history、PublishedArticle、verification snapshot、audit record、GEO history 等不可变对象统一使用 readonly Detail，明确显示 snapshot/readonly 语义，不提供原地编辑入口。
 
-## 固定开发节奏
+## 实施与验证
 
-所有 Frontend Task 固定遵循：
-
-```text
-先阅读 -> 说明计划 -> 修改 -> 自测 -> 自审 -> 报告
-```
-
-- **阅读**：核实现有实现、contract、服务端投影和可复用 Pattern。
-- **计划**：只保留一个可 review 目标，明确不做什么、预计文件、依赖层级和验证命令。
-- **修改**：按 `contract/model -> query/action -> components -> route` 的顺序；发现 contract 缺口先修权威来源，不写前端临时兼容。
-- **自测**：运行能直接证明变更的最小 unit/component、lint/typecheck、受影响 build；自 `/products` 起的业务 slice 留下相关 Playwright Test。页面按适用范围验证 375/768/1024/1440、keyboard、focus、Back/Forward、direct URL 和 refresh。
-- **自审**：检查 contract、依赖方向、动作资格、URL state、可访问性、响应式和最终 diff；确认没有夹带下一 Task。
-- **报告**：包含 Outcome、Changed Files、Contract / Architecture Decisions、Validation Run and Results、Documentation Updated or Unchanged、Residual Risks / Deferred Items、Recommended Next Task、Branch / Commit / Merge Status。下一 Task 只建议，不自动创建或实施。
+- 修改前核实现有实现、相关 contract、服务端投影和可复用 Pattern；contract 缺口在权威 owner 解决，不写前端临时兼容。
+- 按依赖关系组织改动；`contract/model -> query/action -> components -> route` 仅在这些层都受影响时作为参考，不为遵守顺序制造无关修改。
+- 选择能直接证明行为的测试和静态检查。仅在响应式、键盘、焦点、URL 恢复或真实浏览器行为受影响时验证相应场景与宽度。
+- 完成前检查最终 diff、依赖方向、动作资格、URL state、可访问性和合同一致性；报告实际变更、已运行验证与残余风险。
 
 ## 禁止模式
 

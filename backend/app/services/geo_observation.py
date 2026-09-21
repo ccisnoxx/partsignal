@@ -902,7 +902,7 @@ def _manual_observation_chain(
     ancestor_rows = db.execute(select(ancestor_chain)).all()
     root_ids = [node_id for node_id, supersedes_id in ancestor_rows if supersedes_id is None]
     if len(root_ids) != 1 or target.id not in {node_id for node_id, _ in ancestor_rows}:
-        raise AppError("REVISION_CONFLICT", "GEO 观测更正链不完整", 409)
+        raise AppError("GEO_OBSERVATION_CONTEXT_INCOMPLETE", "GEO 观测更正链不完整", 409)
 
     descendant_chain = (
         select(GeoObservation.id)
@@ -926,7 +926,7 @@ def _manual_observation_chain(
     )
     nodes_by_id = {node.id: node for node in nodes}
     if target.id not in nodes_by_id or len(nodes_by_id) != len(nodes):
-        raise AppError("REVISION_CONFLICT", "GEO 观测更正链不完整", 409)
+        raise AppError("GEO_OBSERVATION_CONTEXT_INCOMPLETE", "GEO 观测更正链不完整", 409)
 
     successors: dict[uuid.UUID, list[GeoObservation]] = defaultdict(list)
     for node in nodes:
@@ -936,7 +936,7 @@ def _manual_observation_chain(
             or node.search_platform != target.search_platform
             or node.search_query != target.search_query
         ):
-            raise AppError("REVISION_CONFLICT", "GEO 观测更正链不完整", 409)
+            raise AppError("GEO_OBSERVATION_CONTEXT_INCOMPLETE", "GEO 观测更正链不完整", 409)
         if node.supersedes_id is not None:
             successors[node.supersedes_id].append(node)
 
@@ -944,11 +944,11 @@ def _manual_observation_chain(
     ordered_ids = {ordered[0].id}
     while next_nodes := successors.get(ordered[-1].id, []):
         if len(next_nodes) != 1 or next_nodes[0].id in ordered_ids:
-            raise AppError("REVISION_CONFLICT", "GEO 观测更正链存在分支", 409)
+            raise AppError("GEO_OBSERVATION_CONTEXT_INCOMPLETE", "GEO 观测更正链存在分支", 409)
         ordered.append(next_nodes[0])
         ordered_ids.add(next_nodes[0].id)
     if len(ordered) != len(nodes):
-        raise AppError("REVISION_CONFLICT", "GEO 观测更正链不完整", 409)
+        raise AppError("GEO_OBSERVATION_CONTEXT_INCOMPLETE", "GEO 观测更正链不完整", 409)
     return ordered
 
 
@@ -1027,7 +1027,9 @@ def get_geo_observation_detail(
         for index, node in enumerate(observations):
             output = outputs_by_id[node.id]
             if not isinstance(output, ManualGeoObservationOut):
-                raise AppError("REVISION_CONFLICT", "GEO 观测更正链类型不一致", 409)
+                raise AppError(
+                    "GEO_OBSERVATION_CONTEXT_INCOMPLETE", "GEO 观测更正链类型不一致", 409
+                )
             if not output.article_results:
                 raise AppError(
                     "GEO_OBSERVATION_CONTEXT_INCOMPLETE",
@@ -2526,7 +2528,9 @@ def create_geo_observation(
             while ancestor.supersedes_id is not None:
                 parent = db.get(GeoObservation, ancestor.supersedes_id)
                 if parent is None:
-                    raise AppError("REVISION_CONFLICT", "GEO 观测更正链不完整", 409)
+                    raise AppError(
+                        "GEO_OBSERVATION_CONTEXT_INCOMPLETE", "GEO 观测更正链不完整", 409
+                    )
                 ancestor = parent
                 ancestor_ids.append(ancestor.id)
             reused_file_id = db.scalar(
@@ -2606,7 +2610,7 @@ def _lock_manual_observation_chain(
             or parent.product_id != product.id
             or parent.observation_kind != "MANUAL_ARTICLE_SEARCH"
         ):
-            raise AppError("REVISION_CONFLICT", "GEO 观测更正链不完整", 409)
+            raise AppError("GEO_OBSERVATION_CONTEXT_INCOMPLETE", "GEO 观测更正链不完整", 409)
         ancestor_ids.add(parent.id)
         root = parent
 
@@ -2629,14 +2633,14 @@ def _lock_manual_observation_chain(
         if not successors:
             break
         if len(successors) != 1:
-            raise AppError("REVISION_CONFLICT", "GEO 观测更正链存在分支", 409)
+            raise AppError("GEO_OBSERVATION_CONTEXT_INCOMPLETE", "GEO 观测更正链存在分支", 409)
         successor = successors[0]
         if (
             successor.id in chain_ids
             or successor.product_id != product.id
             or successor.observation_kind != "MANUAL_ARTICLE_SEARCH"
         ):
-            raise AppError("REVISION_CONFLICT", "GEO 观测更正链不完整", 409)
+            raise AppError("GEO_OBSERVATION_CONTEXT_INCOMPLETE", "GEO 观测更正链不完整", 409)
         chain_ids.append(successor.id)
         current_id = successor.id
 
@@ -2650,7 +2654,7 @@ def _lock_manual_observation_chain(
     )
     nodes_by_id = {locked_root.id: locked_root, **{node.id: node for node in remaining}}
     if len(nodes_by_id) != len(chain_ids) or observation_id not in nodes_by_id:
-        raise AppError("REVISION_CONFLICT", "GEO 观测更正链已变化", 409)
+        raise AppError("GEO_OBSERVATION_CHAIN_CHANGED", "GEO 观测更正链已变化", 409)
     return product, [nodes_by_id[node_id] for node_id in chain_ids]
 
 

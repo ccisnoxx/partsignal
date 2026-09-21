@@ -20,86 +20,22 @@ Managed by Trellis. Edits outside this block are preserved; edits inside may be 
 
 <!-- TRELLIS:END -->
 
-# PartSignal Project Rules
+# PartSignal 项目规则
 
-- The system uses a contract-first modular monolith. The main agent maintains `contracts/openapi.yaml` and `contracts/database.md`.
-- `backend/` and `frontend/` are parallel development boundaries. Subagents must not cross those boundaries to modify root-level files, contracts, deployment files, or run Git operations.
-- PostgreSQL is the sole source of business state. Redis is used only as the Celery broker.
-- Markdown is the sole editable source for content bodies. Do not store independently editable HTML or editor JSON.
-- AI output may create drafts only. Unknown product facts must fail explicitly; do not guess, substitute zeros, or add fuzzy compatibility logic.
-- Approved facts and content must not be modified in place. Publishing and GEO records remain immutable while retained; administrator permanent deletion of an explicitly archived content-task aggregate is the sole cross-history deletion exception.
-- New or materially changed business code should include necessary Chinese comments, docstrings, logs, and error messages.
-- Read the relevant documentation and contracts before implementation. If a contract is unclear, report it to the main agent; do not invent compatibility fields or a second type system.
-- Tests must clearly distinguish development adapters from real external services. Do not hide unimplemented business behavior behind fixed-success paths.
-- The server is the final authority for all state transitions, permissions, and input validation. Hiding a frontend button is not a security control.
+## 业务与架构不变量
 
+- 系统采用 contract-first modular monolith。`contracts/openapi.yaml` 是 API 权威，`contracts/database.md` 是数据库权威；根级合同由主代理维护。
+- `backend/` 与 `frontend/` 是并行修改边界。被限定在单侧目录的子代理不得修改根级合同、部署文件或执行 Git 操作。
+- PostgreSQL 是业务状态唯一来源；Redis 只作 Celery broker。服务端最终裁决状态转换、权限和输入校验，前端隐藏入口不构成安全控制。
+- Markdown 是内容正文唯一可编辑来源，不保存可独立编辑的 HTML 或 editor JSON。
+- AI 只能创建草稿；未知产品事实显式失败，不猜测、补零或增加模糊兼容。
+- 已批准事实与内容不可原地修改。Publishing 与 GEO 记录在保留期间不可变；唯一跨历史删除例外是管理员永久删除已明确归档的 content-task aggregate。
+- 开发适配器和真实外部服务在代码与测试中明确区分，未实现业务行为不得以固定成功路径伪装。
 
-## Project Overrides
+## 项目工作流
 
-### Language
-
-- User-facing replies should default to Chinese.
-- AI-created or substantially changed code comments, docstrings, JSDoc/TSDoc, logs, exception messages, and print outputs should default to Chinese.
-- Keep machine-readable fields, protocol fields, config keys, API fields, error codes, structured log keys, code identifiers, and CLI/file path literals in their required original form.
-- Project documentation, Trellis specs, and task artifacts should default to Chinese. This project-specific rule overrides any generic Trellis template language notes that say documentation should or must be English, unless the target path already has a clear English convention, external publication requires English, or the user explicitly requests English.
-- Do not add comments for obvious code. Comments should explain non-obvious responsibilities, boundary conditions, side effects, business rules, exception branches, and important trade-offs.
-- When editing Python files, tests, scripts, or Trellis docs in this project, apply a touched-scope documentation pass: review newly added or materially changed modules, classes, functions, complex branches, exception paths, developer-visible output, and nearby touched comments/docstrings.
-- If touched code contains English comments, docstrings, JSDoc/TSDoc, logs, exception messages, or print output, translate or rewrite them into Chinese unless they are external protocol text, third-party/API field names, machine-readable values, test-contract literals, or explicitly requested English text.
-- Do not add comments to untouched legacy code only because the file currently has few or no comments; prefer updating the touched code and removing stale, misleading, or mechanical comments such as `START/END MODIFICATION`.
-- After non-trivial Python changes, the final reply should state whether comments/docstrings/developer-visible text were added, updated, or intentionally left unchanged.
-
-### Trellis Usage
-
-- For simple conversation, read-only investigation, small local fixes, or low-risk single-file changes, do not ask whether to create a Trellis task and do not create one unless the user explicitly asks for one. This project-specific rule overrides generic Trellis no-task triage prompts.
-- Use a Trellis task for cross-module changes, public API changes, data contract changes, configuration changes, database changes, permission changes, cache/state-sync changes, long-lived requirements, or work that needs explicit acceptance criteria.
-- Once a Trellis task exists, read `prd.md`, `design.md`, `implement.md`, and the relevant `.trellis/spec/` files before writing code.
-- For complex tasks, do not implement until `prd.md`, `design.md`, and `implement.md` are reviewable.
-
-### Engineering Constraints
-
-- Confirm the real implementation before editing. Do not add guessed compatibility fallbacks or silent defaults.
-- Default to the smallest sufficient solution. Do not introduce extra layers, factories, strategies, plugins, DDD, microservices, or generic frameworks for architectural appearance.
-- Introduce abstraction only when real duplication, a clear testing boundary, multiple concrete implementations, a stable ownership boundary, or proven change pressure exists.
-- Do not add thin wrappers that only forward fields, wrap one call, or rename another function.
-- Do not hardcode secrets, tokens, private config, or real credentials. Use the existing project configuration mechanism or environment variables.
-- Validate and sanitize external input at system boundaries. Use parameterized queries or existing safe project APIs for database access.
-
-### Validation
-
-- After code changes, select the highest-value validation for the affected behavior and risk; do not treat every available check as a required sequence.
-- For Trellis tasks, `implement.md` must separate required validation from optional full-suite validation and list the exact commands for each. Relevant spec quality gates remain authoritative.
-- Required validation should directly cover the changed behavior or boundary. Full backend or frontend suites, complete builds, E2E runs, and other repository-wide checks are optional unless the change affects shared contracts, database behavior, permissions, state transitions, core common modules, release readiness, or the user explicitly requests them.
-- Apply the global failure-attribution and repair-loop rules to every failed check. An optional full-suite failure does not become part of the current task unless evidence ties it to the current change and requested scope.
-- If heavier checks are skipped, state the reason, the substitute checks, and the remaining risk.
-
-### Browser Automation
-
-- Use the project-installed `playwright-cli` skill for temporary interactive browser diagnostics.
-- When an existing Playwright test covers the requested behavior, use the Playwright Test Runner instead of creating an ad hoc `playwright-cli` flow.
-- Use `playwright-cli` only for temporary browser workflows that require interactive inspection or human/agent judgment.
-- Every task must use its own explicitly named `playwright-cli` session; never use the `default` session.
-- Before the final reply, close every `playwright-cli` session created by the current task and verify that none remains open.
-- Do not run `playwright-cli close-all` or `playwright-cli kill-all` during ordinary tasks.
-- Use `playwright-cli kill-all` only for manual recovery after the user confirms that no other Playwright or browser-automation task is running.
-- Convert a verified CLI workflow into a Playwright test when it becomes repeatable or is needed as a regression check.
-- Use Chrome DevTools CLI only when Playwright does not cover the required diagnostic, such as Lighthouse, deep performance profiling, or heap snapshots.
-- Use `@Chrome` only when the user explicitly requests it or the interaction depends on browser state that Playwright cannot represent reliably.
-
-### Git
-
-- The current development phase uses a single-branch workflow on `main`. Do not create `codex/*`, `agent/*`, `feature/*`, or other development branches unless the user explicitly requests one. Commit routine changes directly to `main` in the primary working directory.
-- Detached worktrees created automatically by the platform are for execution isolation only and are not delivery branches. After completion, commit the validated changes to `main` in the primary working directory; do not leave deliverables on a temporary branch or stale worktree.
-- Before starting new work, confirm that the primary working directory is on `main` and clean. If the remote must be synchronized, run `git pull --ff-only origin main` only from a clean working tree.
-- If the user explicitly approves a temporary branch, delete its local and remote copies after the work is complete and merged into `main` so that it does not become a second development line.
-- Do not run `git reset --hard`, `git checkout -- <file>`, history rewrites, or broad deletion unless the user explicitly requests and confirms it.
-- Before committing work code, present a commit plan and get user confirmation.
-- Do not include unrecognized dirty files in commits.
-- Do not push automatically.
-- Before running `task.py archive` or `add_session.py`, explain if it may create Trellis bookkeeping commits.
-
-### Documentation Maintenance
-
-- When functionality, business rules, permissions, data models, APIs, configuration, or deployment behavior changes, update the corresponding authoritative documentation in the same task.
-- Design documents must describe only the currently implemented or explicitly approved design. Remove or rewrite obsolete designs that conflict with the implementation, and preserve the decision history in archived Trellis tasks.
-- Avoid maintaining the same fact in multiple places: `contracts/openapi.yaml` is authoritative for APIs, `contracts/database.md` for the database, `.trellis/spec/` for stable development constraints, and design documents under `docs/` for relationships between the business and the system.
-- Before completing or archiving a task, verify that the code, contracts, tests, and design documents are consistent. If no documentation update is needed, state why in the closeout summary.
+- 小型局部修改、只读调查和简单对话不需要 Trellis task。跨模块、公共合同、数据库、权限、状态同步、配置、长期需求或需要独立验收的工作使用 task。
+- 首次进入现有 task、范围变化或上下文缺失时读取相关 `prd.md`、`design.md`、`implement.md` 与 spec；同一 task 中复用未变化的已读上下文。
+- `frontend/AGENTS.md` 只拥有前端目录规则；`docs/frontend-v2/README.md` 路由专项设计文档。迁移计划仅用于迁移、legacy routing、阶段门禁、分支或 Cutover 历史。
+- 当前分支规则有两个记录来源：本文件采用 `main` 单分支，迁移历史记录 V2 临时分支例外。创建分支或提交前依据用户当前指示解析，不自动沿用历史例外。
+- 功能、权限、数据模型、API、配置或部署行为变化时更新对应权威文档；一次性实现过程留在 task 历史，不复制到多个稳定规范。

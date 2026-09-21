@@ -1,22 +1,12 @@
-# State Management
+# 前端状态管理规范
 
-> How state is managed in this project.
+服务端状态由 TanStack Query 持有；可分享、可恢复的集合视图状态由 TanStack Router 查询参数持有；表单编辑、弹窗开关和短暂输入草稿保留在页面内。不得新增全局 Store 来保存这些状态。
 
 ---
 
-## Overview
+## 阅读路由
 
-<!--
-Document your project's state management conventions here.
-
-Questions to answer:
-- What state management solution do you use?
-- How is local vs global state decided?
-- How do you handle server state?
-- What are the patterns for derived state?
--->
-
-服务端状态由 TanStack Query 持有；可分享、可恢复的集合视图状态由 React Router 查询参数持有；表单编辑、弹窗开关和短暂输入草稿保留在页面内。不得新增全局 Store 来保存这些状态。
+先读“State Categories”“When to Use Global State”“Server State”，再只定位当前业务场景的二级标题。Product/Fact 对应 Fact Workspace、Fact History；Content 对应 New Content Task、Task Detail、Editor、Review；Publishing 对应 Publication Workspace、Published Content Issue；GEO 对应 Observation、Insights；Configuration 对应 Prompt、Platform、AI Channel；System 对应 Users、Audit。不要为单一场景完整加载本文件。
 
 ---
 
@@ -26,7 +16,7 @@ Questions to answer:
 
 - **服务端状态**：使用既有 query key、stale time 和显式失效规则。
 - **URL 视图状态**：搜索、Tab、分页和“显示停用账号”等可恢复视图写入查询参数。当前参数包括产品 `q/page`、任务与观测 `page`、平台管理 `q/platform_type_id/status/configuration_status/page/page_size/platform`、AI 渠道 `q/status/provider/sort/page/pageSize`、Prompt 管理 `q/promptId/new=1`、平台关联页 `platform_profile_id`、发布工作台 `tab/page/status/selected`、用户 `q/account_type/status/page/page_size`。用户页默认只查启用账号并从 URL 省略该默认值；`status=DISABLED` 只查停用账号，`status=ALL` 查询全部，状态选择器和“显示停用账号”开关只能投影这一份状态。平台与 AI 渠道筛选、排序和分页读取各自服务端集合契约；Prompt 模板列表读取独立模板端点，`q` 只过滤已加载模板且不改变 `promptId/new` 编辑身份；发布工作台的 `tab=works|articles|issues` 决定资源类型，`status` 只筛选当前 Tab 的服务端状态，`selected` 只保存当前详情身份，切换 Tab 或分页时必须清理不再适用的筛选与详情身份。
-- **页面本地状态**：Modal、Dropdown 目标、Ant Form 实例、dirty/error section 和尚未提交的输入。Prompt 名称与 Markdown 草稿以 `promptId` 或 `new=1` 身份隔离，保存或显式重新加载才更新基线；任务、源版本、模型选择、AI 生成弹窗模型和当前预览 Job 留在页面本地，不进入 URL 或全局 Store。
+- **页面本地状态**：Modal、Dropdown 目标、React Hook Form 状态、dirty/error section 和尚未提交的输入。Prompt 名称与 Markdown 草稿以 `promptId` 或 `new=1` 身份隔离，保存或显式重新加载才更新基线；任务、源版本、模型选择、AI 生成弹窗模型和当前预览 Job 留在页面本地，不进入 URL 或全局 Store。
 - **主题状态**：只由 `ThemeProvider` 维护，禁止页面复制主题状态。从显式主题切回 `system` 时立即重新读取当前 `matchMedia` 结果，不沿用离开系统模式前的解析值。
 
 ---
@@ -45,7 +35,7 @@ Questions to answer:
 
 - 复合详情先确定身份查询。身份查询失败可以阻断整页；次级查询必须在所属区块处理 loading/error/retry，不得用空数组或默认对象伪造成功。
 - 产品事实以 `product + draft` 为身份，`versions` 只影响版本 Tab；内容任务以 `task` 为身份，`options/jobs/versions` 分别属于生成输入、生成作业和内容版本区块。
-- 长期保存成功后使用 mutation 返回值更新 Ant Form 的 `expected_revision`，再失效原 query key；不得继续提交旧修订号，也不得新增兼容 fallback。
+- 长期保存成功后采用 mutation 返回的 canonical 对象，重置 React Hook Form 基线并校准原 query；后续 `expected_revision` 必须来自该 canonical 对象，不得继续提交旧修订号或新增兼容 fallback。
 - Prompt 保存成功后用 mutation 返回值替换名称、正文基线和 revision；`REVISION_CONFLICT` 必须保留本地草稿并提供显式重载。脏草稿在切换 Prompt 标签、模板、站内路由或刷新/关闭前提示，不能通过查询失效静默覆盖。
 - Prompt 输出预览按创建响应中的 Job ID 从任务级作业列表轮询，成功后读取不可变内容版本；已有结果属于原快照，Prompt 后续保存不得把该结果改标为当前配置预览。
 
@@ -392,6 +382,8 @@ await createContentTask(body, csrfToken, key);
 
 ## Content Task Detail 的单一 Read Model 与 cache 合同
 
+共享内容任务生命周期的 GEO chain 恢复由 T6-C 持有。`getContentTaskPermanentDeletionPreview` 是 GET：收到 `GEO_OBSERVATION_CONTEXT_INCOMPLETE` 或 `GEO_OBSERVATION_CHAIN_CHANGED` 后旧 preview 失效，仅显式 reload 可重新取得可信预览。`deleteContentTask` 是普通 DELETE：错误保持 blocked，不自动重发。`permanentlyDeleteContentTask` 是 POST mutation：同类错误使旧 preview 和确认文本一起失效，必须显式刷新/重开/重新确认后才允许新请求。所有分支按结构化 code、request ID 呈现，不解析 message；T5-I6 backend code 要与 T6-G/T6-C 原子发布。
+
 ### 1. Scope / Trigger
 
 - 修改 `/content/tasks/$taskId`、Content domain detail query key、生命周期命令缓存或 New Task 成功导航时适用。
@@ -663,9 +655,10 @@ await createGeoObservation(toGeoObservationCreate(values), csrfToken);
 ## GEO Observation Correction 的 canonical context 与 stale 状态
 
 - Correction Context 是 TanStack Query server state；React Hook Form 草稿、完成上传的 Evidence、mutation error 与 request ID 是按 `chain_root_id` 隔离的页面本地状态。`supersedes_id` 只能来自最近一次明确采用的 `detail.chain_tail_id`。
-- `GEO_PUBLICATIONS_CHANGED`、`REVISION_CONFLICT` 与 `GEO_OBSERVATION_HAS_SUCCESSOR` 都冻结当前 context、禁用再次提交并保留草稿、Evidence 与 request ID。后台 refetch、focus refetch、invalidation 或 cache update 不得静默采用新 context、清除错误、replay 请求或猜测 successor winner。
+- `GEO_PUBLICATIONS_CHANGED` 与 `GEO_OBSERVATION_HAS_SUCCESSOR` 冻结当前 context、禁用再次提交并保留草稿、Evidence 与 request ID。GEO 没有 revision owner；`REVISION_CONFLICT` 不再是 GEO 恢复分支。后台 refetch、focus refetch、invalidation 或 cache update 不得静默采用新 context、清除错误、replay 请求或猜测 successor winner。
+- `GEO_OBSERVATION_CONTEXT_INCOMPLETE` 使 Detail/Correction 的旧快照只可诊断、不可执行动作；GET 可由用户显式重读，POST/DELETE 不自动重发。`GEO_OBSERVATION_CHAIN_CHANGED` 只表示当前删除调用中的链集合变化，旧确认失效，必须显式刷新/重开并重新确认，不代表客户端乐观锁。
 - 只有用户显式 `refetch()` 成功后，页面才能按 Published Article ID 合并仍有效事实、新候选保持 `null`、移除退出候选并采用新 tail；canonical replace 使用 TanStack Router 且绕过 DirtyGuard。reload 失败继续保留 frozen state。
-- mutation 成功才清 dirty、精确失效消费者并按响应 ID handoff。successor 分支归 T6；T5-I5 保持 frontend production/tests 零差异，server mapper 与 T6 必须原子发布。
+- mutation 成功才清 dirty、精确失效消费者并按响应 ID handoff。GEO 页面恢复归 T6-G；T5-I5 至少等待 T6-G，T5-I6 同时等待 T6-G 和共享 content-task lifecycle 的 T6-C 才能发布 backend code。
 
 ---
 
@@ -704,7 +697,7 @@ response: GeoObservationDetail = LegacyGeoObservationDetail | ManualGeoObservati
 | URL 非 UUID | route boundary 显式失败，不发送 Detail GET |
 | 目标不存在 | `404 ErrorEnvelope`，不请求 List fallback |
 | 会话无权读取 | `403 ErrorEnvelope`，不显示资源事实 |
-| chain 分支/断裂/身份不一致 | `409 REVISION_CONFLICT`，不返回部分历史 |
+| chain 分支/断裂/身份不一致 | `409 GEO_OBSERVATION_CONTEXT_INCOMPLETE`，不返回部分历史 |
 | Product、Topic、recorder、成果 URL 或 evidence 不可绘制 | `409 GEO_OBSERVATION_CONTEXT_INCOMPLETE` |
 | initial 普通失败 | 显示 request ID 与 retry，只重取 Detail key |
 | cached refresh 失败 | 保留只读快照并显示显式重试 |
@@ -1225,7 +1218,7 @@ const actor = log.actor ?? null;
 
 <!-- State management mistakes your team has made -->
 
-- 不要让 Ant Table 内部页码和 URL 页码并存。Table 必须受控于查询参数，前进/后退直接驱动 UI。
+- 不要让 TanStack Table 内部页码和 URL 页码并存。可恢复分页由查询参数唯一持有，前进/后退直接驱动 UI。
 - 查询参数只保存视图，不保存权限、业务状态或表单正文；无效正整数和未知 Tab 使用 `replace` 回到既有默认值。
 - 不要因一个次级查询失败而隐藏已成功加载的身份、返回入口或兄弟区块。
 - 不要在 Prompt 编辑器中用 effect 把后台查询结果无条件写入 draft；身份变化时派生新基线，dirty 状态由名称或正文与各自基线的差异唯一计算。

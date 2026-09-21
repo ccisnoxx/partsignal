@@ -1,16 +1,18 @@
 # PartSignal Frontend V2 总体实施路线与交付规则
 
-> 状态：已确认的执行基线
+> 状态：迁移历史与专项执行记录；普通 frontend 任务不作为默认上下文
 >
 > 基线日期：2026-08-07
 >
 > 适用范围：Frontend V2 从独立初始化到提升为 canonical `frontend/` 的完整历史，以及后续 frontend 开发规则
 >
-> 本文职责：统一保存阶段路线、任务边界、交付规则、Git 例外、质量门禁与新会话接续方式
+> 本文职责：保存阶段路线、历史任务边界、Git 例外、质量门禁与 Cutover 证据
 
 ## 1. 文档定位
 
-本文是 Frontend V2 的执行总入口。后续新会话不需要重新讨论总体路线，也不应一次加载全部 V2 文档；每次只读取本文、项目规则和当前子任务直接相关的蓝图。
+本文记录 V2 从独立目录提升为 canonical `frontend/` 的迁移过程。只有迁移、legacy routing、阶段门禁、分支例外、部署或 Cutover 任务，以及需要追溯当时决策时才读取；普通页面、组件、修复和测试任务从 `README.md` 路由到相关专项蓝图。
+
+当前分支规则仍存在两个已记录来源：根 `AGENTS.md` 的 `main` 单分支规则，以及本文第 3.8 节的 V2 临时分支例外。创建分支或提交前必须根据用户当前指示解析，不能从本文的历史记录自动选择；只读调查和本地未提交修改不因此阻塞。
 
 本文不替代其他蓝图：
 
@@ -123,7 +125,7 @@ Workspace、Form、Editor、Analytics 等 Pattern 在第一个真实消费者之
 
 根规则继续负责安全、合同所有权、Trellis、Git 提交确认和项目通用质量要求。
 
-### 3.6 每个页面使用固定开发模板
+### 3.6 历史页面交付模板
 
 每个页面 Task 都按以下流程执行：
 
@@ -195,7 +197,7 @@ codex/frontend-v2-products-list
 
 Phase 0–8 不删除旧 `frontend/`，不把生产入口直接切向 V2，也不让 V1/V2 共用同一套可变 UI 源码；这条规则已完成其隔离职责。2026-08-29 的开发阶段决策允许在独立 Task 中退役 V1 并提升 canonical `frontend/`，同时明确禁止 Hostdzire、生产流量、远端数据/镜像/release/quarantine/环境文件变更。未执行的 Production Gate 只能记为 `CANCELLED_BY_SCOPE_DECISION / NOT_APPLICABLE`，不能写成 `MET`。
 
-### 3.10 Codex 固定协作节奏
+### 3.10 历史协作节奏
 
 所有实现会话遵循：
 
@@ -225,14 +227,9 @@ Phase 0–8 不删除旧 `frontend/`，不把生产入口直接切向 V2，也�
 
 新会话不得自动继续下一个 Task；每个 Task 都由用户单独发起。
 
-### 4.1 最小上下文读取矩阵
+### 4.1 迁移任务上下文读取矩阵
 
-所有 Task 必读：
-
-- 根 `AGENTS.md`；
-- `frontend/AGENTS.md`；
-- 本文；
-- 当前 Task 的 `prd.md`、`design.md`、`implement.md`（创建后）。
+本节只适用于迁移、阶段门禁、legacy routing、分支例外、部署或 Cutover 任务。根 `AGENTS.md` 与 `frontend/AGENTS.md` 自动适用；现有 Trellis task 的 `prd.md`、`design.md`、`implement.md` 仅在首次进入、范围变化或缺少所需上下文时读取。
 
 按任务增加：
 

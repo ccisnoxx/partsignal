@@ -1,7 +1,0 @@
-- main [ref=f25e12]:
-  - generic [active] [ref=f25e13]:
-    - paragraph [ref=f25e14]: "404"
-    - heading "页面不存在" [level=1] [ref=f25e15]
-    - paragraph [ref=f25e16]: 请检查地址，或返回工作台继续操作。
-    - link "返回工作台" [ref=f25e17] [cursor=pointer]:
-      - /url: /

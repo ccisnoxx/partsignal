@@ -21,10 +21,10 @@
 3. `uq_content_tasks_source_published_content_issue_id` 精确映射为既有 `409 REPAIR_TASK_EXISTS`、`details={}`。合规的两个 HTTP command 会先由 Issue `FOR UPDATE` 串行化；unique race 是绕过/未来不共享该锁的 writer 的数据库最终防线。loser rollback，不查询或返回 winner，不自动 replay。
 4. ordinary identity 为 `(product_id, fact_version_id, platform_profile_id) + 不存在 ContentTaskGeoSource`；GEO identity 为相同三元组加“存在 GEO source”及 `rule_code/date_from/date_to/published_article_id/query_topic_id/geo_platform` 全量相等。任一跨 source-kind winner 都返回 `409 IDEMPOTENCY_CONFLICT`，不得 replay 对方。
 5. `source_published_content_issue_id` 权威目标是 final-head `ON DELETE SET NULL`：受控永久删除 Article/Issue 时保留 Repair Task并只将其 source 解绑，Repair Task 的 state/revision 不因解绑改变；被删除 Article 所属 Work 的来源 ContentTask 才按实时平台是否存在恢复为 OPEN/CANCELLED、`revision + 1` 并保留 `archived_at`。若真实 catalog 不符，停止业务 mapper 实施并另建 migration 修复 Task；本 Task 不改 schema。
-6. GEO 12 个 producer 都不是真正 revision conflict。第 7 项（更正目标已有 successor）使用 `409 GEO_OBSERVATION_HAS_SUCCESSOR`；第 12 项（删除锁定后链成员变化）使用 `409 GEO_OBSERVATION_CHAIN_CHANGED`；其余第 1–6、8–11 项使用既有 `409 GEO_OBSERVATION_CONTEXT_INCOMPLETE`。三者均 `details={}`。
+6. GEO 12 个 producer 都不是真正 revision conflict。第 7 项（更正目标已有 successor）使用 `409 GEO_OBSERVATION_HAS_SUCCESSOR`；第 12 项（删除锁定后链成员变化）使用 `409 GEO_OBSERVATION_CHAIN_CHANGED`；其余第 1–6、8–11 项使用既有 `409 GEO_OBSERVATION_CONTEXT_INCOMPLETE`。三者均 `details={}`。第 9–12 项由共享锁链 helper 产生，除 `deleteGeoObservation` 外还会传播到 `getContentTaskPermanentDeletionPreview`、`deleteContentTask` 与 `permanentlyDeleteContentTask`；这些 operation 使用同一 GEO chain code，不局部 remap 回 revision 语义。
 7. `uq_geo_observations_supersedes_once` 的精确 `23505` 与创建前的 successor precheck 使用同一个 `GEO_OBSERVATION_HAS_SUCCESSOR`；其他 GEO IntegrityError 仍 unknown。
 8. 上述 code-only/status-preserving 决策不修改 OpenAPI schema、runtime response metadata 或 generated client；相关 operation 已声明 409，`ErrorDetail.code` 仍为开放 string。实现必须同步数据库合同、稳定 specs、Frontend V2 行为/验收文档和 exact-code tests。
-9. T5 全部后端任务及独立高风险只读 review 完成前，不得进入 T6 frontend 409 recovery projection reconciliation。
+9. T5全部后端任务及独立高风险只读review完成前，不得进入T6 frontend 409 recovery projection reconciliation。T5-I6共享content-task operation由独立T6-C slice恢复；不能只完成T6-G GEO页面就放行I6 backend code。
 
 ## In Scope
 
@@ -48,7 +48,7 @@
 - [x] `uq_content_tasks_source_published_content_issue_id` 的合规锁串行、数据库最终 race、`REPAIR_TASK_EXISTS`、rollback、唯一 winner、无副作用和 Session reuse 语义已冻结。
 - [x] ordinary/GEO 的双向 source-kind identity 已冻结，两类请求都不能 replay 对方 winner。
 - [x] 已纠正 `0034 RESTRICT` 的历史中间态误判；final-head `SET NULL`、catalog sentinel 和条件性迁移停止线明确。
-- [x] 12 个 GEO producer 已逐 operation 决定 expected-revision 属性、status/code、前端恢复和 unknown 边界。
+- [x] 12 个 GEO producer 已逐 operation 决定 expected-revision 属性、status/code、前端恢复和 unknown 边界；第 9–12 项的三个共享 content-task operation owner 已纳入矩阵。
 - [x] trigger、跨表 guard、不稳定 diagnostics 保持 unknown，不解析 message、不映射 revision。
 - [x] event time、immutable/append-only、删除事务、revision/state、AuditLog、GEO link、失败原子性与 Session reuse 已写入后续验收。
 - [x] OpenAPI、runtime metadata、generated client、Frontend V2 文档和稳定 specs 的变化矩阵及原子顺序明确。
@@ -63,10 +63,11 @@
 - 目标、范围、非目标和九项强制决策均已由仓库证据闭合；没有剩余会改变授权、错误 wire 或数据生命周期的产品语义问题。
 - 对研究中的两处时态冲突采用当前 head + 完整迁移链为权威：全局 handler 已移除；0037 覆盖 0034 的 FK 中间态。
 - 新 GEO code 不增加 schema enum/details 字段，不触发 generated client 变化；若实施时发现 operation status 或 wire shape 必须改变，立即停止并走 contract-first 原子同步，不把该扩展塞入 code-only Task。
-- 本规划提交用于冻结后续实施基线；T5-I1 已完成并归档，未改变上述已批准合同。
+- T5-I6 current-head 审计纠正了第 9–12 项的 operation owner：同一锁链 helper 也被 content-task deletion preview、普通删除 scope 与永久删除复用。三个 operation 已声明 409；生产 owner 仍在 GEO service，只扩展 exact-wire、原子性测试与恢复矩阵，不改变 publication 业务语义。
+- 本规划提交用于冻结后续实施基线；T5-I1至T5-I5已完成并归档，均未改变上述已批准合同；T5-I6于 2026-09-21 获准进入实施，父 T5-C 仍保持 planning。
 
-## Lifecycle Status（2026-09-14）
+## Lifecycle Status（2026-09-16）
 
-- T5-I1 `publication-repair-task-integrity-mapping` 已由工作提交 `62bb2360` 完成，并由归档提交 `004097bc` 归档；不得再次归档。
+- T5-I1 至 T5-I5 均已完成并归档；工作提交依次为 `62bb2360`、`a96f6df2`、`a5469871`、`d5487430`、`7fd3ddd2`。
 - 本 Task 与顶层父任务 `integrity-error-domain-mapping` 均继续保持 `planning`，不因单个实施子任务完成而归档。
-- 下一项明确为 T5-I2 `publication-work-integrity-mapping`；本次状态收敛不创建、不启动或实施该 Task。
+- T5-I6 `geo-observation-context-code-reconciliation` 已创建、完成范围收敛并在用户批准后进入 `in_progress`；不因启动而获准提交、归档或单独发布 backend code。

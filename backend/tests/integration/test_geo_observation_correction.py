@@ -57,6 +57,9 @@ from app.services.geo_observation import (
 from tests.integration.test_geo_observation_detail import _evidence, _statement_count
 from tests.integration.test_publication_workflow import (
     _complete_publication,
+    _geo_context_catalog,
+    _geo_context_snapshot,
+    _seed_geo_context_chain,
     _seed_graph,
     temporary_database,
 )
@@ -475,6 +478,88 @@ def test_geo_correction_context_query_count_is_independent_of_chain_length() -> 
                 ),
             )
             assert one_node_count == five_node_count
+
+
+@pytest.mark.integration
+def test_geo_correction_missing_evidence_ancestor_http_is_atomic() -> None:
+    """事务局部延后 self-FK，证明新增证据祖先缺失在任何 append 副作用前失败。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        overrides = dict(app.dependency_overrides)
+        csrf = "geo-ancestor-csrf-with-more-than-32-characters"
+        try:
+            with Session(engine) as verify:
+                catalog = _geo_context_catalog(verify)
+                baseline = _geo_context_snapshot(verify)
+            with engine.connect() as conn:
+                transaction = conn.begin()
+                try:
+                    with Session(conn, expire_on_commit=False) as seed:
+                        graph = _seed_graph(seed)
+                        actor = graph["user"]
+                        actor.account_type = "ADMIN"
+                        publication = _complete_publication(seed, graph, suffix="ancestor")
+                        target_id = _seed_geo_context_chain(seed, graph, "missing-parent")
+                        evidence = _evidence(
+                            seed, actor, name="ancestor", category="OPERATION_SCREENSHOT"
+                        )
+                        payload = GeoObservationCreate(
+                            product_id=graph["product"].id,
+                            query_topic_id=graph["topic"].id,
+                            search_platform="Perplexity",
+                            search_query="GEO context integrity",
+                            tested_at=datetime(2026, 9, 17, tzinfo=UTC),
+                            notes="新增证据",
+                            supersedes_id=target_id,
+                            attachment_file_ids=[evidence.id],
+                            article_results=[
+                                GeoArticleResultCreate(
+                                    published_article_id=publication.id,
+                                    discovered=True,
+                                    mentioned=True,
+                                    accuracy="ACCURATE",
+                                )
+                            ],
+                        )
+                        actor_id = actor.id
+                        before = _geo_context_snapshot(seed)
+
+                    def database_session() -> Iterator[Session]:
+                        with Session(conn, join_transaction_mode="create_savepoint") as db:
+                            yield db
+
+                    app.dependency_overrides[get_db] = database_session
+                    app.dependency_overrides[get_current_session] = lambda: SimpleNamespace(
+                        user=SimpleNamespace(id=actor_id, account_type="ADMIN"),
+                        csrf_hash=hash_token(csrf),
+                    )
+                    request_id = "geo-correction-missing-ancestor"
+                    response = TestClient(app).post(
+                        "/api/v1/geo-observations",
+                        json=payload.model_dump(mode="json"),
+                        headers={"X-CSRF-Token": csrf, "X-Request-ID": request_id},
+                    )
+                    assert response.status_code == 409, response.text
+                    assert response.headers["X-Request-ID"] == request_id
+                    assert response.json() == {
+                        "error": {
+                            "code": "GEO_OBSERVATION_CONTEXT_INCOMPLETE",
+                            "message": "GEO 观测更正链不完整",
+                            "details": {},
+                            "request_id": request_id,
+                        }
+                    }
+                    with Session(conn) as verify:
+                        assert _geo_context_snapshot(verify) == before
+                finally:
+                    transaction.rollback()
+            with Session(engine) as verify:
+                assert _geo_context_catalog(verify) == catalog
+                assert _geo_context_snapshot(verify) == baseline
+        finally:
+            app.dependency_overrides.clear()
+            app.dependency_overrides.update(overrides)
+            engine.dispose()
 
 
 def _seed_successor_case(

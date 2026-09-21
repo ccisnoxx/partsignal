@@ -1,113 +1,18 @@
 ---
 name: trellis-check
-description: "Comprehensive quality verification: spec compliance, lint, type-check, tests, cross-layer data flow, code reuse, and consistency checks. Use when code is written and needs quality verification, before committing changes, or to catch context drift during long sessions."
+description: 根据候选变更和项目合同选择质量检查。用于明确请求验证、行为变更完成后的必要检查，或长任务中出现具体合同漂移迹象时。
 ---
 
-# Code Quality Check
+# 变更检查
 
-Comprehensive quality verification for recently written code. Combines spec compliance, cross-layer safety, and pre-commit checks.
+先检查实际 diff 与已有 staged/未提交改动，确定本任务候选；不要把所有脏文件默认归到本任务。复用需求、适用 spec 和未失效的验证，只补读受影响合同。
 
----
+从受影响层索引和项目脚本中选择能证明行为的检查；共享合同、数据、权限、并发、迁移和发布扩大到必要集成/完整门禁。新增函数本身不要求镜像单测，低影响可逆文案不需要测试框架。
 
-## Step 1: Identify What Changed
+重点追踪实际可触发的问题：验收缺口、状态所有者、读写链路、边界错误、失败传播、重复实现及破坏他人改动。共享值只有确实同属一个概念时才提取；不用“出现两次”作为抽象标准。
 
-```bash
-git diff --name-only HEAD
-git status
-```
+只读审查任务仅报告问题；已授权修复任务由文件所有者修复范围内根因并重验受影响证据。高风险独立审查必须由独立只读角色完成。
 
-## Step 2: Read Task Artifacts and Applicable Specs
+成功检查在相关内容未变时复用；失败后有相关修复或新诊断证据才重跑。按全局规则识别无进展与环境阻塞，不设置另一套固定轮数，也不无限循环。需要的完整门禁未通过时不能以定向检查代替通过结论。
 
-Read the current task artifacts in order:
-
-- `prd.md`
-- `design.md` if present
-- `implement.md` if present
-
-```bash
-python3 ./.trellis/scripts/get_context.py --mode packages
-```
-
-For each changed package/layer, read the spec index and follow its **Quality Check** section:
-
-```bash
-cat .trellis/spec/<package>/<layer>/index.md
-```
-
-Read the specific guideline files referenced — the index is a pointer, not the goal.
-
-## Step 3: Run Project Checks
-
-Run the smallest changed-scope lint, type-check, and test commands that can prove the requested behavior. Use a full-scope command only for the final gate or when the verified risk requires it. A failure enters the bounded repair budget in Step 6; it does not authorize repeated reruns.
-
-## Step 4: Review Against Checklist
-
-### Code Quality
-
-- [ ] Linter passes?
-- [ ] Type checker passes (if applicable)?
-- [ ] Tests pass?
-- [ ] No debug logging left in?
-- [ ] No suppressed warnings or type-safety bypasses?
-
-### Test Coverage
-
-- [ ] New function → unit test added?
-- [ ] Bug fix → regression test added?
-- [ ] Changed behavior → existing tests updated?
-
-### Spec Sync
-
-- [ ] Does `.trellis/spec/` need updates? (new patterns, conventions, lessons learned)
-
-> "If I fixed a bug or discovered something non-obvious, should I document it so future me won't hit the same issue?" → If YES, update the relevant spec doc.
-
-### Scope Discipline
-
-- [ ] Any tidying of code the task did not require?
-- [ ] Any abstraction, config or extension point added for a case that does not exist yet?
-- [ ] Any speculative fallback for a state that cannot occur?
-- [ ] Any file changed that the acceptance criteria do not mention?
-- [ ] Any workaround added at the caller instead of a fix where the behavior actually lives?
-
-## Step 5: Cross-Layer Dimensions (if applicable)
-
-Skip this step if your change is confined to a single layer.
-
-### A. Data Flow (changes touch 3+ layers)
-
-- [ ] Read flow traces correctly: Storage → Service → API → UI
-- [ ] Write flow traces correctly: UI → API → Service → Storage
-- [ ] Types/schemas correctly passed between layers?
-- [ ] Errors properly propagated to caller?
-
-### B. Code Reuse (modifying constants, creating utilities)
-
-- [ ] Searched for existing similar code before creating new?
-  ```bash
-  grep -r "pattern" src/
-  ```
-- [ ] If the same value repeats, does it represent one stable concept whose callers must change together? Extract only then — two literals that merely happen to match today should stay separate.
-- [ ] After batch modification, all occurrences updated?
-
-### C. Import/Dependency (creating new files)
-
-- [ ] Correct import paths (relative vs absolute)?
-- [ ] No circular dependencies?
-
-### D. Same-Layer Consistency
-
-- [ ] Other places using the same concept are consistent?
-
----
-
-## Step 6: Report and Fix
-
-Report every violation you find. Then:
-
-- Mechanical and local (lint nit, missing type, wrong import, dead branch, failing assertion) → make at most one repair pass, then run one targeted re-check of affected paths.
-- Design or judgment (naming a shared concept, moving a module boundary, changing a public interface, reassigning where behavior lives) → record the evidence and your recommendation, and stop. Do not rewrite it silently.
-
-If a fix would touch files outside the current task's scope, say so and stop instead of widening the change.
-
-If the targeted re-check still fails, the same root cause recurs, or a new material issue class appears, report the evidence, attempted fix, and current state, then stop. Do not start a second repair pass or loop until green. Run a final full-scope gate once only after targeted checks pass; after a full-scope failure, do not rerun that gate in the same turn without user direction.
+按严重度报告可行动发现、准确位置、触发和影响；说明实际验证与缺口。只有稳定合同改变或现有规范过期时才更新 spec。

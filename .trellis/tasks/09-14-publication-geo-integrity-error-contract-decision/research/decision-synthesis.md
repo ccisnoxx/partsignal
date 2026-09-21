@@ -38,12 +38,12 @@
 | 6 | 同上 | detail output 类型与 manual chain 不一致 | 同上 | read-model context failure，不冒充用户并发。 |
 | 7 | `createGeoObservation` | `supersedes_id` 已有 successor | `GEO_OBSERVATION_HAS_SUCCESSOR` / 409 | 保留草稿/evidence；显式 reload canonical tail，再由用户决定是否重提。 |
 | 8 | `createGeoObservation` | evidence ancestor 缺失 | `GEO_OBSERVATION_CONTEXT_INCOMPLETE` / 409 | 保留现场但保持 blocked；不自动提交。 |
-| 9 | `deleteGeoObservation` | ancestor 缺失/cycle/identity 越界 | `GEO_OBSERVATION_CONTEXT_INCOMPLETE` / 409 | 不删除、不自动重试。 |
-| 10 | `deleteGeoObservation` | successor 分支 | 同上 | 不选择分支、不删除。 |
-| 11 | `deleteGeoObservation` | successor cycle/identity 越界 | 同上 | 不删除。 |
-| 12 | `deleteGeoObservation` | 锁定后成员集合/target membership 变化 | `GEO_OBSERVATION_CHAIN_CHANGED` / 409 | 显式重开/刷新确认，禁止自动重发 DELETE。 |
+| 9 | `deleteGeoObservation`；共享 helper 也传播到 `getContentTaskPermanentDeletionPreview`、`deleteContentTask`、`permanentlyDeleteContentTask` | ancestor 缺失/cycle/identity 越界 | `GEO_OBSERVATION_CONTEXT_INCOMPLETE` / 409 | 不删除、不自动重试；preview只允许显式reload。 |
+| 10 | 同上 | successor 分支 | 同上 | 不选择分支、不删除。 |
+| 11 | 同上 | successor cycle/identity 越界 | 同上 | 不删除。 |
+| 12 | 同上 | 锁定后成员集合/target membership 变化 | `GEO_OBSERVATION_CHAIN_CHANGED` / 409 | preview显式reload；mutation显式刷新/重开并重新确认，禁止自动重发。 |
 
-12 项都没有 `expected_revision`，因此都退出 `REVISION_CONFLICT`。使用一个既有 context code 覆盖不可安全恢复的链/投影异常，避免为没有不同恢复动作的 invalid/branch 再建多套 code；只有 successor winner 和锁后 chain changed 有独立、可操作的 stale/blocker 语义。
+12 项都没有 GEO `expected_revision`，因此都退出 `REVISION_CONFLICT`。第 9–12 项即使经拥有自身 task revision 的 content-task operation传播，也仍描述 GEO chain context，不能改写为 task revision conflict。使用一个既有 context code覆盖不可安全恢复的链/投影异常，避免为没有不同恢复动作的 invalid/branch再建多套code；只有successor winner和锁后chain changed有独立、可操作的stale/blocker语义。
 
 ## Shared idempotency identity
 

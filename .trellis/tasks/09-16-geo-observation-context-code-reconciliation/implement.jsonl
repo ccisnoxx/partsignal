@@ -1,0 +1,9 @@
+{"file":".trellis/tasks/09-16-geo-observation-context-code-reconciliation/research/producer-owner-audit.md","reason":"11 个 producer、真实 operation/transaction owner、current-head trigger 与 fixture 停止线的权威审计"}
+{"file":".trellis/tasks/09-16-geo-observation-context-code-reconciliation/research/planning-review.md","reason":"独立规划review finding、T6-C repair与release gate收敛记录"}
+{"file":".trellis/tasks/09-14-publication-geo-integrity-error-contract-decision/research/decision-synthesis.md","reason":"T5-C 已批准的 12 producer code taxonomy 与恢复基线"}
+{"file":".trellis/tasks/archive/2026-09/09-16-geo-observation-successor-integrity-mapping/research/implementation-log.md","reason":"T5-I5 successor mapper、验证与 release-atomic 前置基线"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"unknown IntegrityError、AppError wire、GEO command owner 与 no-leak 稳定规范"}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"GEO detail/correction/delete code-specific UI 行为与 T6-G 边界"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"canonical snapshot、stale/context blocker、显式 reload 与 no-replay 状态所有权"}
+{"file":"docs/frontend-v2/05-business-actions-state-and-api-contract.md","reason":"Frontend V2 GEO operation、ErrorEnvelope 与业务恢复合同"}
+{"file":"docs/frontend-v2/08-testing-quality-and-acceptance.md","reason":"Frontend V2 exact-code、request ID、blocked/reconfirm 与 release gate 验收"}

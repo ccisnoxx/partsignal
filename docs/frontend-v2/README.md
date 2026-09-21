@@ -51,6 +51,7 @@ PartSignal 应从“后台管理系统”升级为“电子元器件内容生产
 | [08-testing-quality-and-acceptance.md](./08-testing-quality-and-acceptance.md) | 单测、组件测试、E2E、视觉与响应式验收 |
 | [09-architecture-decisions.md](./09-architecture-decisions.md) | 关键 ADR / 不选方案 / 长期约束 |
 | [10-frontend-redevelopment-plan.md](./10-frontend-redevelopment-plan.md) | 新一轮前端重新开发的启动、交付顺序、验证节奏与跨会话恢复 |
+| [11-frontend-redevelopment-task-list.md](./11-frontend-redevelopment-task-list.md) | 新一轮开发的完整编号任务、前置条件、验收结果与 Trellis 执行方式 |
 
 ## 4. V2 八条不可破坏原则
 
@@ -83,7 +84,7 @@ PartSignal 应从“后台管理系统”升级为“电子元器件内容生产
 | Design System、交互或响应式 | `04` |
 | 测试策略或验收边界 | `08` |
 | 迁移、legacy route、阶段门禁、分支或 Cutover | `07` |
-| 新一轮前端重新开发或跨会话接续 | `10`，再按实际页面读取 `01`–`06`、`08`、`09` |
+| 新一轮前端重新开发或跨会话接续 | `10`、`11`，再按实际页面读取 `01`–`06`、`08`、`09` |
 
 实现时确认所属 domain、状态 owner、服务端动作投影、可复用 Pattern 和受影响的验收边界。只有形成跨消费者的稳定模式时才提升到 `design-system/` 或记录 ADR。
 

@@ -109,4 +109,16 @@ ignored 路径实时共有 39,260 个，主要由 `frontend/node_modules`、`bac
 - staged 后 unstaged 为 0、非 ignored untracked 为 0；所有已审计候选路径都已进入 index，没有 staged/unstaged 分裂。
 - 首次 `git diff --cached --check` 发现 10 处 Trellis Markdown 行尾双空格，其中 6 处来自此前 untracked 的 I03-1 审计记录、4 处来自本清单。只做了 Trellis 记录的格式等价空白规范化；没有修改生产、测试、CI、合同或稳定 spec 内容。
 - 重新 staging 后，`git diff --cached --check` 与 `git diff --check` 均通过。
-- fresh `critical_reviewer` 复核与原子提交尚未执行；只有复核结论为 `NO BLOCKER` 才允许提交。
+- fresh `critical_reviewer` 复核与原子提交结果见下一节。
+
+## 8. 独立复核与 Git 恢复点
+
+- 独立复核结论：`NO BLOCKER`。复核者只读确认 index tree 为 `bc728b072b77e2fd0b9e74399e21cfb9114f0a02`，472 个路径、21 个维护文件、64 个 Trellis 任务目录、排除项、引用闭合、模式位、唯一 canonical `frontend/` 和 staged/unstaged 边界均完整。
+- 复核审计包：`20260925T210621Z-i03-3-candidate-staged-tree-independent-review-f882c372`，状态 `closed/passed`，无异常、无写入观测。
+- 原子候选 commit：`fa285837425c66041da8e53f6e150912283d50ed`。
+- parent：`9100774b0e124d1d834f8c726cf85f2c0e171e5e`。
+- tree：`bc728b072b77e2fd0b9e74399e21cfb9114f0a02`，与提交前复核的 index tree 完全一致。
+- branch：`codex/frontend-redevelopment-candidate`。
+- commit 内容：472 个路径，147 个基线 tracked 修改与 325 个新增文件；`git show --stat --summary` 为 18135 insertions、1595 deletions，无删除、重命名或复制。
+- 收尾记录使用第二个本地提交，范围只允许本 I03-3 的 PRD/实施/清单/task 记录和 I03 父任务 `task.json`。该提交的 parent 是上述原子候选 commit，因此最终分支 HEAD 与原子候选是直接父子关系，原子候选同时可由固定 SHA 和 `HEAD^` 恢复。
+- 下一任务为“I03 最终 clean-checkout 本地集成复验”；本任务没有开始该复验，也没有完成 I03 或进入 I04。

@@ -17,13 +17,13 @@
 
 ## Acceptance Criteria
 
-- [ ] 当前候选由目标本地分支和明确 commit/tree 完整表达，全部候选维护文件进入 Git 对象。
-- [ ] staged 清单覆盖全部已审计 tracked/untracked 候选，不含敏感信息、缓存、产物、运行时文件或其他会话内容。
-- [ ] `git diff --cached --check`、提交前 staged 状态核对和 fresh `critical_reviewer` 高风险复核均无阻断。
-- [ ] 原子候选提交的 SHA、parent、tree、branch 和文件计数已核对并记录。
-- [ ] 如存在第二个提交，其范围只包含 I03-3/I03 收尾记录；最终分支 HEAD 与原子候选 commit 的关系明确。
-- [ ] 候选工作区最终 clean；原检出区状态和 HEAD 与任务开始时一致。
-- [ ] I03-3 标记 `completed`；I03 与总体交付保持 `in_progress`，下一任务记录为“I03 最终 clean-checkout 本地集成复验”。
+- [x] 当前候选由目标本地分支和明确 commit/tree 完整表达，全部候选维护文件进入 Git 对象。
+- [x] staged 清单覆盖全部已审计 tracked/untracked 候选，不含敏感信息、缓存、产物、运行时文件或其他会话内容。
+- [x] `git diff --cached --check`、提交前 staged 状态核对和 fresh `critical_reviewer` 高风险复核均无阻断。
+- [x] 原子候选提交的 SHA、parent、tree、branch 和文件计数已核对并记录。
+- [x] 如存在第二个提交，其范围只包含 I03-3/I03 收尾记录；最终分支 HEAD 与原子候选 commit 的关系明确。
+- [x] 候选工作区最终 clean；原检出区状态和 HEAD 与任务开始时一致。
+- [x] I03-3 标记 `completed`；I03 与总体交付保持 `in_progress`，下一任务记录为“I03 最终 clean-checkout 本地集成复验”。
 
 ## Notes
 

@@ -154,7 +154,12 @@ describe('ProductDetailPage', () => {
     expect(within(detailArticle).getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent)).toEqual([
       '摘要', '基本信息', '事实', '内容任务', '发布成果', 'GEO 摘要', '最近 Activity',
     ]);
-    expect(screen.getByText('CREATE_CONTENT_TASK')).toBeInTheDocument();
+    expect(screen.getByText('下一步')).toBeInTheDocument();
+    expect(screen.getByText('其他操作')).toBeInTheDocument();
+    expect(screen.getByText('编辑产品')).toBeInTheDocument();
+    expect(screen.getByText('删除产品')).toBeInTheDocument();
+    expect(screen.queryByText('CREATE_CONTENT_TASK')).not.toBeInTheDocument();
+    expect(screen.queryByText('UPDATE')).not.toBeInTheDocument();
     expect(screen.getByText('v3')).toHaveAttribute('href', `/products/${productId}/facts/versions/${detail.approved_fact.id}`);
     expect(screen.getByText(/最近任务：内容待审核/)).toBeInTheDocument();
     expect(screen.getByText(/PS-001 选型指南 · 已完成/)).toBeInTheDocument();

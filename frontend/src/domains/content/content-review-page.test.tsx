@@ -233,13 +233,13 @@ describe('ContentReviewPage', () => {
     renderReview();
 
     expect(await screen.findByRole('heading', { name: '平台适配内容', level: 1 })).toBeInTheDocument();
-    expect(screen.getByLabelText('内容版本 v2 canonical Markdown')).toHaveTextContent('新参数');
+    expect(screen.getByLabelText('内容版本 v2 Markdown 正文')).toHaveTextContent('新参数');
     expect(document.querySelector('.cm-editor')).not.toBeInTheDocument();
     expect(screen.getByText('缺少来源说明')).toBeInTheDocument();
     expect(screen.getByText('标题可能过长')).toBeInTheDocument();
     expect(screen.getByLabelText('事实版本 v4 Markdown 核对依据')).toHaveTextContent('参数来源明确');
     expect(screen.getByText('content-markdown-v3')).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: '内容版本 canonical Markdown 差异' })).toHaveTextContent('旧参数');
+    expect(screen.getByRole('region', { name: '内容版本 Markdown 差异' })).toHaveTextContent('旧参数');
     expect(screen.getByText('提交审核')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '批准内容' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '退回修改' })).toBeEnabled();

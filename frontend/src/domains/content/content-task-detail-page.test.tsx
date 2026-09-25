@@ -178,7 +178,8 @@ describe('ContentTaskDetailPage', () => {
     renderDetail();
 
     expect(await screen.findByRole('heading', { name: 'CT-00000000', level: 1 })).toBeInTheDocument();
-    expect(screen.getByText('CONTINUE_PUBLICATION')).toBeInTheDocument();
+    expect(screen.getByText('继续发布', { selector: 'span' })).toBeInTheDocument();
+    expect(screen.queryByText('CONTINUE_PUBLICATION')).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: '继续发布' })).toHaveAttribute(
       'href',
       `/publishing/work/${ids.work}`,
@@ -198,9 +199,9 @@ describe('ContentTaskDetailPage', () => {
     expect(screen.getByText('模型响应超时')).toBeInTheDocument();
     expect(screen.getByText('要求修订')).toBeInTheDocument();
     expect(screen.getByText('问题覆盖缺口')).toBeInTheDocument();
-    expect(screen.getByText('内容发生变化 · OPEN')).toBeInTheDocument();
+    expect(screen.getByText('内容发生变化 · 待处理')).toBeInTheDocument();
 
-    const activityHeading = screen.getByRole('heading', { name: 'Activity Timeline' });
+    const activityHeading = screen.getByRole('heading', { name: '活动记录' });
     const activitySection = activityHeading.closest('section');
     expect(activitySection).not.toBeNull();
     const activityItems = within(activitySection!).getAllByRole('listitem');
@@ -347,6 +348,6 @@ describe('ContentTaskDetailPage', () => {
 
     expect(await screen.findByText('只读')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '查看完整链路' })).toHaveAttribute('href', '#activity');
-    expect(screen.getByText('VIEW_FULL_LINEAGE')).toBeInTheDocument();
+    expect(screen.queryByText('VIEW_FULL_LINEAGE')).not.toBeInTheDocument();
   });
 });

@@ -60,9 +60,14 @@ type PlatformTypesPageProps = {
 function PlatformTypesPage({ csrfToken }: PlatformTypesPageProps) {
   const queryClient = useQueryClient();
   const createButtonRef = useRef<HTMLButtonElement>(null);
+  const refreshAttempt = useRef(0);
   const types = useQuery(platformTypeListQueryOptions());
   const [editor, setEditor] = useState<EditorTarget>();
   const [deletionIntent, setDeletionIntent] = useState<DeletionIntent>();
+  const [deletionHolds, setDeletionHolds] = useState(
+    () => new Map<string, PlatformRequestError>(),
+  );
+  const [consumerRefreshError, setConsumerRefreshError] = useState<string>();
   const rows = types.data?.items ?? [];
 
   function handleCommand(
@@ -94,17 +99,73 @@ function PlatformTypesPage({ csrfToken }: PlatformTypesPageProps) {
     return current;
   }
 
-  async function saved() {
-    await invalidatePlatformTypeConsumers(queryClient);
+  function refreshConsumers() {
+    const attempt = ++refreshAttempt.current;
+    setConsumerRefreshError(undefined);
+    void invalidatePlatformTypeConsumers(queryClient).catch((error: unknown) => {
+      if (attempt === refreshAttempt.current) setConsumerRefreshError(errorMessage(error));
+    });
+  }
+
+  function acceptSaved(saved: PlatformType) {
+    queryClient.setQueryData<PlatformTypeList>(platformKeys.types(), (current) => {
+      if (!current) return { items: [saved] };
+      const index = current.items.findIndex((item) => item.id === saved.id);
+      if (index < 0) return { ...current, items: [...current.items, saved] };
+      return {
+        ...current,
+        items: current.items.map((item, itemIndex) => itemIndex === index ? saved : item),
+      };
+    });
+    setEditor(undefined);
+    refreshConsumers();
+  }
+
+  function acceptDeleted(platformTypeId: string) {
+    queryClient.setQueryData<PlatformTypeList>(platformKeys.types(), (current) => current
+      ? { ...current, items: current.items.filter((item) => item.id !== platformTypeId) }
+      : current);
+    clearDeletionHold(platformTypeId);
+    setDeletionIntent(undefined);
+    refreshConsumers();
+  }
+
+  function holdDeletion(platformTypeId: string, error: PlatformRequestError) {
+    setDeletionHolds((current) => {
+      const next = new Map(current);
+      next.set(platformTypeId, error);
+      return next;
+    });
+  }
+
+  function clearDeletionHold(platformTypeId: string) {
+    setDeletionHolds((current) => {
+      if (!current.has(platformTypeId)) return current;
+      const next = new Map(current);
+      next.delete(platformTypeId);
+      return next;
+    });
   }
 
   useEffect(() => {
-    if (deletionIntent && types.data && !types.data.items.some((item) => item.id === deletionIntent.id)) {
+    if (!types.isSuccess || types.isFetching) return;
+    const currentIds = new Set(types.data.items.map((item) => item.id));
+    // 成功的 exact Types projection 确认目标消失后，该 ID 的 409 hold 才能销毁。
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDeletionHolds((current) => {
+      let next: Map<string, PlatformRequestError> | undefined;
+      for (const platformTypeId of current.keys()) {
+        if (currentIds.has(platformTypeId)) continue;
+        next ??= new Map(current);
+        next.delete(platformTypeId);
+      }
+      return next ?? current;
+    });
+    if (deletionIntent && !currentIds.has(deletionIntent.id)) {
       // 当前活动列表已确认目标消失，删除意图不能跨缓存复活。
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDeletionIntent(undefined);
     }
-  }, [deletionIntent, types.data]);
+  }, [deletionIntent, types.data, types.isFetching, types.isSuccess]);
 
   return (
     <section aria-labelledby="platform-types-title" className="min-w-0 space-y-4">
@@ -135,6 +196,13 @@ function PlatformTypesPage({ csrfToken }: PlatformTypesPageProps) {
           actionLabel="重试刷新"
           message={`刷新失败，已保留当前列表：${errorMessage(types.error)}`}
           onAction={() => void types.refetch()}
+        />
+      )}
+      {consumerRefreshError && (
+        <Notice
+          actionLabel="重试刷新"
+          message={`操作已成功，但刷新相关数据失败：${consumerRefreshError}`}
+          onAction={refreshConsumers}
         />
       )}
 
@@ -228,10 +296,7 @@ function PlatformTypesPage({ csrfToken }: PlatformTypesPageProps) {
           csrfToken={csrfToken}
           onClose={() => setEditor(undefined)}
           onReload={reloadCanonical}
-          onSaved={async () => {
-            await saved();
-            setEditor(undefined);
-          }}
+          onSaved={acceptSaved}
           target={editor}
         />
       )}
@@ -239,14 +304,15 @@ function PlatformTypesPage({ csrfToken }: PlatformTypesPageProps) {
         csrfToken={csrfToken}
         key={deletionIntent?.id ?? 'none'}
         intent={deletionIntent}
+        hold={deletionIntent ? deletionHolds.get(deletionIntent.id) : undefined}
         onClose={() => setDeletionIntent(undefined)}
-        onDeleted={async () => {
-          await saved();
-          setDeletionIntent(undefined);
-        }}
+        onDeleted={acceptDeleted}
+        onHold={holdDeletion}
         onReload={async () => {
           if (!deletionIntent) throw new Error('未找到待删除的平台类型');
-          return reloadCanonical(deletionIntent.id);
+          const current = await reloadCanonical(deletionIntent.id);
+          clearDeletionHold(deletionIntent.id);
+          return current;
         }}
         queryClient={queryClient}
         queryError={types.error}
@@ -287,7 +353,7 @@ function PlatformTypeEditorDialog({
   csrfToken: string | null;
   onClose: () => void;
   onReload: (platformTypeId: string) => Promise<PlatformType>;
-  onSaved: () => Promise<void>;
+  onSaved: (saved: PlatformType) => void;
   target: EditorTarget;
 }) {
   const [revision, setRevision] = useState(target.platformType?.revision ?? 0);
@@ -312,8 +378,8 @@ function PlatformTypeEditorDialog({
     save.reset();
     setRequestId(undefined);
     try {
-      await save.mutateAsync(values);
-      await onSaved();
+      const saved = await save.mutateAsync(values);
+      onSaved(saved);
     } catch (error) {
       const mapped = mapPlatformTypeFormError(error);
       for (const [field, message] of Object.entries(mapped.fields)) {
@@ -416,9 +482,11 @@ function PlatformTypeEditorDialog({
 
 function PlatformTypeDeletionDialog({
   csrfToken,
+  hold,
   intent,
   onClose,
   onDeleted,
+  onHold,
   onReload,
   queryClient,
   queryError,
@@ -426,9 +494,11 @@ function PlatformTypeDeletionDialog({
   types,
 }: {
   csrfToken: string | null;
+  hold?: PlatformRequestError;
   intent?: DeletionIntent;
   onClose: () => void;
-  onDeleted: () => Promise<void>;
+  onDeleted: (platformTypeId: string) => void;
+  onHold: (platformTypeId: string, error: PlatformRequestError) => void;
   onReload: () => Promise<PlatformType>;
   queryClient: ReturnType<typeof useQueryClient>;
   queryError: unknown;
@@ -445,8 +515,9 @@ function PlatformTypeDeletionDialog({
   if (!current) return null;
   const blockers = current.deletion?.blockers ?? [];
   const hasDeleteProjection = current.deletion !== null && current.available_actions.includes('DELETE');
-  const errorBlockerCount = platformTypeDeleteBlockerCount(remove.error);
-  const conflict = remove.error instanceof PlatformRequestError && remove.error.status === 409;
+  const deletionError = hold ?? remove.error;
+  const errorBlockerCount = platformTypeDeleteBlockerCount(deletionError);
+  const conflict = deletionError instanceof PlatformRequestError && deletionError.status === 409;
   const stale = Boolean(queryError);
   const canDelete = !queryFetching
     && !stale
@@ -466,9 +537,12 @@ function PlatformTypeDeletionDialog({
     if (latest.deletion === null || !latest.available_actions.includes('DELETE') || latest.deletion.blockers.length > 0) return;
     try {
       await remove.mutateAsync({ id: latest.id, expectedRevision: latest.revision });
-      await onDeleted();
-    } catch {
-      // mutation.error 负责展示结构化错误，Dialog 保持打开。
+      onDeleted(latest.id);
+    } catch (error) {
+      if (error instanceof PlatformRequestError && error.status === 409) {
+        onHold(activeIntent.id, error);
+      }
+      // mutation.error 或页面级 409 hold 负责展示结构化错误，Dialog 保持打开。
     }
   }
 
@@ -512,7 +586,7 @@ function PlatformTypeDeletionDialog({
         )}
         {queryFetching && <p className="text-sm text-text-secondary" role="status">正在同步平台类型投影…</p>}
         {stale && <p className="text-sm text-destructive" role="alert">当前列表刷新失败，无法确认最新删除资格。</p>}
-        {remove.error && <p className="text-sm text-destructive" role="alert">{errorMessage(remove.error)}</p>}
+        {deletionError && <p className="text-sm text-destructive" role="alert">{errorMessage(deletionError)}</p>}
         {conflict && (
           <Button onClick={() => void reloadCanonical()} type="button" variant="outline">
             重新读取服务端版本

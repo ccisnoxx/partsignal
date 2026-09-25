@@ -4,14 +4,60 @@ import {
   auditActionLabel,
   auditSearchSchema,
   auditSearchToApiParams,
+  auditResetSearch,
   canonicalAuditSearchRecord,
+  formatAuditValue,
   fromBeijingDateTimeInput,
   isCanonicalAuditSearch,
+  parseAuditLogDetailResponse,
+  parseAuditLogListResponse,
   projectAuditActionLabel,
   projectAuditChanges,
   projectAuditFacts,
+  resolveAuditRelatedLink,
   toBeijingDateTimeInput,
 } from './audit.model';
+
+const runtimeLog = {
+  id: '20000000-0000-4000-8000-000000000001',
+  actor_id: '10000000-0000-4000-8000-000000000001',
+  actor: {
+    id: '10000000-0000-4000-8000-000000000001',
+    display_name: '系统管理员',
+    account_type: 'ADMIN',
+  },
+  business_module: 'CONFIGURATION',
+  action: 'ai_channel.updated',
+  target_type: 'AIChannel',
+  target_id: '30000000-0000-4000-8000-000000000001',
+  outcome: 'SUCCESS',
+  primary_task: 'VIEW_LOG_DETAIL',
+  request_id: 'req-audit-runtime',
+  created_at: '2026-08-15T08:00:00Z',
+} as const;
+
+function runtimeDetail(overrides: Record<string, unknown> = {}) {
+  return {
+    ...runtimeLog,
+    changes: [{ field: 'revision', before: 4, after: 5 }],
+    facts: { revision: 5 },
+    result_message: '渠道配置已更新',
+    error_code: null,
+    related_entry: { status: 'AVAILABLE', kind: 'AIChannel', parent_id: null },
+    ...overrides,
+  };
+}
+
+function expectRuntimeProjectionFailure(value: unknown, requestedLogId: string = runtimeLog.id) {
+  try {
+    parseAuditLogDetailResponse(value, requestedLogId);
+    throw new Error('未抛出预期错误');
+  } catch (error) {
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toBe('审计响应安全投影失败');
+    expect(String(error)).not.toContain('audit-runtime-secret-sentinel');
+  }
+}
 
 describe('系统审计 model', () => {
   it('初始化一次近三天 UTC 范围并规范化 URL/API 字段', async () => {
@@ -34,6 +80,31 @@ describe('系统审计 model', () => {
       created_from: search.createdFrom,
       created_to: search.createdTo,
     });
+    vi.useRealTimers();
+  });
+
+  it('每次解析与 reset 都捕获同一 now，跨 UTC 午夜不复用模块加载时间', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-16T23:59:30.000Z'));
+    const beforeMidnight = auditSearchSchema.parse({});
+    vi.setSystemTime(new Date('2026-08-17T00:01:30.000Z'));
+    const afterMidnight = auditSearchSchema.parse({});
+    const reset = auditResetSearch();
+
+    expect(beforeMidnight.createdTo).toBe('2026-08-16T23:59:30.000Z');
+    expect(beforeMidnight.createdFrom).toBe('2026-08-13T23:59:30.000Z');
+    expect(afterMidnight.createdTo).toBe('2026-08-17T00:01:30.000Z');
+    expect(afterMidnight.createdFrom).toBe('2026-08-14T00:01:30.000Z');
+    expect(reset).toMatchObject(afterMidnight);
+    vi.useRealTimers();
+  });
+
+  it('无效或反向窗口使用解析时的同一默认快照', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-17T00:01:30.000Z'));
+    const search = auditSearchSchema.parse({ createdFrom: '2026-08-18T00:00:00Z', createdTo: '2026-08-16T00:00:00Z' });
+    expect(search.createdFrom).toBe('2026-08-14T00:01:30.000Z');
+    expect(search.createdTo).toBe('2026-08-17T00:01:30.000Z');
     vi.useRealTimers();
   });
 
@@ -74,7 +145,250 @@ describe('系统审计 model', () => {
     expect(projection).toEqual({ status: 'failed' });
     expect(JSON.stringify(projection)).not.toContain(unknownAction);
     expect(() => auditActionLabel(unknownAction)).toThrow('未知动作');
-    expect(() => projectAuditFacts({ secret: 'hidden' })).toThrow('未登记事实字段');
+    expect(() => projectAuditFacts({ secret: 'hidden' })).toThrow('未登记字段');
+  });
+
+  it('拒绝对象、嵌套数组与原型字段，失败信息不回显输入 token', () => {
+    const sentinel = 'audit-value-secret-sentinel';
+    const unsafeValues: unknown[] = [
+      { secret: sentinel },
+      [[sentinel]],
+      [sentinel, { secret: sentinel }],
+      Number.POSITIVE_INFINITY,
+    ];
+    for (const value of unsafeValues) {
+      expect(() => formatAuditValue(value as never)).toThrow('无法安全展示的值');
+      try {
+        formatAuditValue(value as never);
+      } catch (error) {
+        expect(String(error)).not.toContain(sentinel);
+      }
+    }
+
+    for (const field of ['__proto__', 'constructor', 'toString', sentinel]) {
+      expect(() => projectAuditFacts({ [field]: sentinel })).toThrow('未登记字段');
+      expect(() => projectAuditChanges([{ field, after: sentinel }])).toThrow('未登记字段');
+      try {
+        projectAuditFacts({ [field]: sentinel });
+      } catch (error) {
+        expect(String(error)).not.toContain(field);
+        expect(String(error)).not.toContain(sentinel);
+      }
+    }
+  });
+
+  it('列表校验完整 metadata 与 actor，重建 exact cache shape 并保留未知 action', () => {
+    const unknownAction = 'audit.action.unknown.sentinel';
+    const parsed = parseAuditLogListResponse({
+      items: [{
+        ...runtimeLog,
+        action: unknownAction,
+        actor: { ...runtimeLog.actor, raw_actor: 'audit-runtime-secret-sentinel' },
+        raw_json: 'audit-runtime-secret-sentinel',
+      }],
+      page: 1,
+      page_size: 20,
+      total: 1,
+      raw_page: 'audit-runtime-secret-sentinel',
+    }, { page: 1, page_size: 20 });
+
+    expect(parsed).toEqual({
+      items: [{ ...runtimeLog, action: unknownAction }],
+      page: 1,
+      page_size: 20,
+      total: 1,
+    });
+    expect(JSON.stringify(parsed)).not.toContain('audit-runtime-secret-sentinel');
+    expect(parsed.items[0]?.action).toBe(unknownAction);
+    expect(() => parseAuditLogListResponse({
+      items: [{ ...runtimeLog, actor: { ...runtimeLog.actor, account_type: 'OWNER' } }],
+      page: 1,
+      page_size: 20,
+      total: 1,
+    }, { page: 1, page_size: 20 })).toThrow('审计响应安全投影失败');
+  });
+
+  it('列表与详情把规范化响应身份严格绑定请求 key', () => {
+    const upperLogId = runtimeLog.id.toUpperCase();
+    expect(parseAuditLogDetailResponse(runtimeDetail({ id: upperLogId }), runtimeLog.id).id).toBe(runtimeLog.id);
+    expectRuntimeProjectionFailure(runtimeDetail(), '20000000-0000-4000-8000-000000000099');
+
+    const response = { items: [runtimeLog], page: 2, page_size: 10, total: 21 };
+    expect(parseAuditLogListResponse(response, { page: 2, page_size: 10 })).toMatchObject({ page: 2, page_size: 10 });
+    expect(() => parseAuditLogListResponse(response, { page: 1, page_size: 10 })).toThrow('审计响应安全投影失败');
+    expect(() => parseAuditLogListResponse(response, { page: 2, page_size: 20 })).toThrow('审计响应安全投影失败');
+    for (const [field, value] of [['page', 1.5], ['page_size', Number.MAX_SAFE_INTEGER + 1], ['total', Number.NaN]] as const) {
+      expect(() => parseAuditLogListResponse({ ...response, [field]: value }, { page: 2, page_size: 10 }))
+        .toThrow('审计响应安全投影失败');
+    }
+  });
+
+  it('list/detail 都拒绝 actor 身份不一致与单边缺失，并规范化 UUID 大小写', () => {
+    const actorCases = [
+      {
+        ...runtimeLog,
+        actor: { ...runtimeLog.actor, id: '10000000-0000-4000-8000-000000000099' },
+      },
+      { ...runtimeLog, actor_id: null },
+      { ...runtimeLog, actor: null },
+    ];
+    for (const item of actorCases) {
+      expect(() => parseAuditLogListResponse(
+        { items: [item], page: 1, page_size: 20, total: 1 },
+        { page: 1, page_size: 20 },
+      )).toThrow('审计响应安全投影失败');
+      expectRuntimeProjectionFailure(runtimeDetail({ actor_id: item.actor_id, actor: item.actor }));
+    }
+
+    const normalized = parseAuditLogDetailResponse(runtimeDetail({
+      actor_id: runtimeLog.actor_id.toUpperCase(),
+      actor: { ...runtimeLog.actor, id: runtimeLog.actor.id.toUpperCase() },
+    }), runtimeLog.id.toUpperCase());
+    expect(normalized.actor_id).toBe(runtimeLog.actor_id);
+    expect(normalized.actor?.id).toBe(runtimeLog.actor.id);
+  });
+
+  it('详情 top-level、actor、related_entry 与 change 均严格拒绝 extras', () => {
+    expectRuntimeProjectionFailure({ ...runtimeDetail(), raw_json: 'audit-runtime-secret-sentinel' });
+    expectRuntimeProjectionFailure(runtimeDetail({
+      actor: { ...runtimeLog.actor, raw_actor: 'audit-runtime-secret-sentinel' },
+    }));
+    expectRuntimeProjectionFailure(runtimeDetail({
+      related_entry: {
+        status: 'AVAILABLE', kind: 'AIChannel', parent_id: null, raw_related: 'audit-runtime-secret-sentinel',
+      },
+    }));
+    expectRuntimeProjectionFailure(runtimeDetail({
+      changes: [{
+        field: 'revision', before: 4, after: 5, raw_change: 'audit-runtime-secret-sentinel',
+      }],
+    }));
+    expectRuntimeProjectionFailure(runtimeDetail({ changes: [{ field: 'revision' }] }));
+  });
+
+  it('详情 facts/change 按 business_module 专属白名单拒绝跨模块已知字段', () => {
+    expectRuntimeProjectionFailure(runtimeDetail({ facts: { account_type: 'ADMIN' } }));
+    expectRuntimeProjectionFailure(runtimeDetail({ changes: [{ field: 'display_name', after: '新名称' }] }));
+
+    expect(parseAuditLogDetailResponse(runtimeDetail({
+      business_module: 'IDENTITY',
+      changes: [{ field: 'display_name', after: '新名称' }],
+      facts: { account_type: 'ADMIN' },
+    }), runtimeLog.id)).toMatchObject({
+      business_module: 'IDENTITY',
+      changes: [{ field: 'display_name', after: '新名称' }],
+      facts: { account_type: 'ADMIN' },
+    });
+  });
+
+  it('详情 safe value 拒绝对象、嵌套数组、非有限数与原型字段', () => {
+    for (const unsafeValue of [
+      { secret: 'audit-runtime-secret-sentinel' },
+      [['audit-runtime-secret-sentinel']],
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+    ]) {
+      expectRuntimeProjectionFailure(runtimeDetail({ facts: { reason: unsafeValue } }));
+    }
+
+    const prototypeFact = JSON.parse('{"__proto__":"audit-runtime-secret-sentinel"}') as Record<string, unknown>;
+    expectRuntimeProjectionFailure(runtimeDetail({ facts: prototypeFact }));
+    expectRuntimeProjectionFailure(runtimeDetail({
+      changes: [{ field: '__proto__', after: 'audit-runtime-secret-sentinel' }],
+    }));
+    expectRuntimeProjectionFailure(runtimeDetail({ result_message: { secret: 'audit-runtime-secret-sentinel' } }));
+    expectRuntimeProjectionFailure(runtimeDetail({ request_id: { secret: 'audit-runtime-secret-sentinel' } }));
+
+    const customPrototypeArray = ['audit-runtime-secret-sentinel'];
+    Object.setPrototypeOf(customPrototypeArray, { custom: true });
+    expectRuntimeProjectionFailure(runtimeDetail({ facts: { reason: customPrototypeArray } }));
+  });
+
+  it('related_entry 严格遵循后端 target registry、status 与 parent 矩阵', () => {
+    const parentId = '50000000-0000-4000-8000-000000000001';
+    const parentlessKinds = [
+      'Product', 'ContentTask', 'PublicationWork', 'PublishedContentIssue', 'GeoObservation',
+      'PlatformProfile', 'AIChannel',
+    ] as const;
+    const parentKinds = ['FactVersion', 'ContentVersion', 'PlatformAccount', 'AIModel'] as const;
+    const validCases = [
+      ...parentlessKinds.flatMap((kind) => [
+        { target_type: kind, target_id: runtimeLog.target_id, related_entry: { status: 'AVAILABLE' as const, kind, parent_id: null } },
+        { target_type: kind, target_id: runtimeLog.target_id, related_entry: { status: 'MISSING' as const, kind, parent_id: null } },
+      ]),
+      ...parentKinds.flatMap((kind) => [
+        { target_type: kind, target_id: runtimeLog.target_id, related_entry: { status: 'AVAILABLE' as const, kind, parent_id: parentId.toUpperCase() } },
+        { target_type: kind, target_id: runtimeLog.target_id, related_entry: { status: 'MISSING' as const, kind, parent_id: null } },
+      ]),
+      { target_type: 'PlatformProfileVersion', target_id: runtimeLog.target_id, related_entry: { status: 'MISSING' as const, kind: 'PlatformProfileVersion', parent_id: 'historical-parent-id' } },
+      { target_type: 'User', target_id: runtimeLog.target_id, related_entry: { status: 'UNSUPPORTED' as const, kind: null, parent_id: null } },
+    ];
+    for (const value of validCases) {
+      expect(parseAuditLogDetailResponse(runtimeDetail(value), runtimeLog.id).related_entry)
+        .toMatchObject(value.related_entry.status === 'AVAILABLE' && value.related_entry.parent_id
+          ? { ...value.related_entry, parent_id: parentId }
+          : value.related_entry);
+    }
+
+    const factVersion = parseAuditLogDetailResponse(runtimeDetail({
+      target_type: 'FactVersion',
+      related_entry: { status: 'AVAILABLE', kind: 'FactVersion', parent_id: parentId },
+    }), runtimeLog.id);
+    expect(resolveAuditRelatedLink(factVersion)).toEqual({
+      href: `/products/${parentId}/facts/versions/${runtimeLog.target_id}`,
+      label: '查看事实版本',
+    });
+
+    const upperTargetId = runtimeLog.target_id.toUpperCase();
+    const canonicalAvailable = parseAuditLogDetailResponse(runtimeDetail({
+      target_id: upperTargetId,
+      related_entry: { status: 'AVAILABLE', kind: 'AIChannel', parent_id: null },
+    }), runtimeLog.id);
+    expect(canonicalAvailable.target_id).toBe(runtimeLog.target_id);
+    expect(resolveAuditRelatedLink(canonicalAvailable)).toEqual({
+      href: `/settings/ai/${runtimeLog.target_id}?tab=basic`,
+      label: '查看 AI 渠道',
+    });
+
+    const historicalTargetId = 'historical-non-uuid-target';
+    expect(parseAuditLogDetailResponse(runtimeDetail({
+      target_id: historicalTargetId,
+      related_entry: { status: 'MISSING', kind: 'AIChannel', parent_id: null },
+    }), runtimeLog.id).target_id).toBe(historicalTargetId);
+
+    for (const prototypeName of ['__proto__', 'constructor', 'toString']) {
+      expect(parseAuditLogDetailResponse(runtimeDetail({
+        target_type: prototypeName,
+        target_id: historicalTargetId,
+        related_entry: { status: 'UNSUPPORTED', kind: null, parent_id: null },
+      }), runtimeLog.id)).toMatchObject({
+        target_type: prototypeName,
+        target_id: historicalTargetId,
+        related_entry: { status: 'UNSUPPORTED', kind: null, parent_id: null },
+      });
+      expectRuntimeProjectionFailure(runtimeDetail({
+        target_type: prototypeName,
+        related_entry: { status: 'AVAILABLE', kind: prototypeName, parent_id: null },
+      }));
+    }
+
+    const sentinel = 'audit-runtime-secret-sentinel';
+    const invalidCases = [
+      { target_type: 'User', related_entry: { status: 'AVAILABLE', kind: 'User', parent_id: null } },
+      { target_type: 'AIChannel', related_entry: { status: 'AVAILABLE', kind: 'Product', parent_id: null } },
+      { target_type: 'AIChannel', target_id: null, related_entry: { status: 'AVAILABLE', kind: 'AIChannel', parent_id: null } },
+      { target_type: 'AIChannel', target_id: sentinel, related_entry: { status: 'AVAILABLE', kind: 'AIChannel', parent_id: null } },
+      { target_type: 'AIChannel', related_entry: { status: 'AVAILABLE', kind: 'AIChannel', parent_id: sentinel } },
+      { target_type: 'FactVersion', related_entry: { status: 'AVAILABLE', kind: 'FactVersion', parent_id: null } },
+      { target_type: 'FactVersion', related_entry: { status: 'MISSING', kind: 'FactVersion', parent_id: sentinel } },
+      { target_type: 'PlatformProfileVersion', related_entry: { status: 'AVAILABLE', kind: 'PlatformProfileVersion', parent_id: sentinel } },
+      { target_type: 'PublicationWork', related_entry: { status: 'UNSUPPORTED', kind: null, parent_id: null } },
+      { target_type: 'UnknownTarget', related_entry: { status: 'UNSUPPORTED', kind: sentinel, parent_id: sentinel } },
+    ];
+    for (const value of invalidCases) expectRuntimeProjectionFailure(runtimeDetail(value));
+
+    expect(() => resolveAuditRelatedLink(runtimeDetail(invalidCases[1]) as never))
+      .toThrow('审计响应安全投影失败');
   });
 
   it('详情身份 logId 不进入列表 API 参数', () => {

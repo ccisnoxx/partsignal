@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { FormProvider, useForm, useWatch } from 'react-hook-form';
 
 import { MarkdownEditor, MarkdownPreview } from '@/design-system/editor/markdown-editor';
@@ -61,8 +61,8 @@ type ContentEditorPageProps = {
 };
 
 type ContentEditorConflict = {
-  blockerKind: ContentEditorBlockerKind;
-  code: string;
+  blockerKind: ContentEditorBlockerKind | 'context-changed';
+  code?: string;
   message: string;
   requestId?: string;
 };
@@ -120,7 +120,7 @@ function ContentEditorPage({ csrfToken, taskId }: ContentEditorPageProps) {
         conflict={conflict}
         context={context.data}
         csrfToken={csrfToken}
-        key={context.data.current_content?.id ?? 'no-current-content'}
+        key={taskId}
         onClearConflict={() => setConflict(undefined)}
         onConflict={enterConflict}
         onReload={reloadContext}
@@ -133,8 +133,8 @@ function ContentEditorPage({ csrfToken, taskId }: ContentEditorPageProps) {
 }
 
 function ContentEditorWorkspace({
-  conflict,
-  context,
+  conflict: serverConflict,
+  context: incomingContext,
   csrfToken,
   onClearConflict,
   onConflict,
@@ -152,12 +152,19 @@ function ContentEditorWorkspace({
   reloading: boolean;
 }) {
   const queryClient = useQueryClient();
+  // 编辑快照与 Query 最新值分离，后台 pointer 变化不能卸载本地表单。
+  // refetch Promise 可能先于 Query 通知完成；observed 防止旧 props 回退刚采用的结果。
+  const [snapshot, setSnapshot] = useState({ context: incomingContext, observed: incomingContext });
+  const sameContext = editorContextIdentity(snapshot.context) === editorContextIdentity(incomingContext);
+  const contextChanged = incomingContext !== snapshot.observed && !sameContext;
+  const context = sameContext ? incomingContext : snapshot.context;
   const initialMode = editorMode(context);
   const [mode, setMode] = useState<EditorFormMode>(initialMode);
   const [baseRevision, setBaseRevision] = useState(context.current_content?.revision ?? 0);
   const [requestId, setRequestId] = useState<string>();
   const [announcement, setAnnouncement] = useState('');
   const [saved, setSaved] = useState(false);
+  const [refreshingCommand, setRefreshingCommand] = useState(false);
   const [submitOpen, setSubmitOpen] = useState(false);
   const [submitTrigger, setSubmitTrigger] = useState<HTMLElement | null>(null);
   const [documentView, setDocumentView] = useState<'document' | 'diff'>('document');
@@ -211,31 +218,61 @@ function ContentEditorWorkspace({
       return abandonContentVersion(current.id, toContentCommand(baseRevision), csrfToken);
     },
   });
-  const pending = createManual.isPending
+  const pending = refreshingCommand || createManual.isPending
     || createRevision.isPending
     || save.isPending
     || submit.isPending
     || remove.isPending
     || abandon.isPending;
 
-  useEffect(() => {
-    const revision = context.current_content?.revision ?? 0;
-    if (conflict || isDirty || revision <= baseRevision) return;
-    form.reset(editorFormValues(context.current_content));
-    // 只在没有本地修改时接收更高 canonical revision。
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setBaseRevision(revision);
-    setMode(editorMode(context));
+  const preserveWorkspace = isDirty || mode === 'revision' || submitOpen || pending;
+  const conflict = serverConflict ?? (contextChanged && preserveWorkspace ? {
+    blockerKind: 'context-changed' as const,
+    message: '服务端内容或可用操作已变化，本地输入已保留。请重新加载最新版本后继续。',
+  } : undefined);
+
+  const adoptContext = useCallback((canonical: ContentEditorContext) => {
+    setSnapshot({ context: canonical, observed: incomingContext });
+    form.reset(editorFormValues(canonical.current_content));
+    setBaseRevision(canonical.current_content?.revision ?? 0);
+    setMode(editorMode(canonical));
     setRequestId(undefined);
+  }, [form, incomingContext]);
+
+  useEffect(() => {
+    if (serverConflict || !contextChanged) return;
+    if (preserveWorkspace) {
+      onConflict({
+        blockerKind: 'context-changed',
+        message: '服务端内容或可用操作已变化，本地输入已保留。请重新加载最新版本后继续。',
+      });
+      return;
+    }
+    // 仅在没有编辑现场时自动接收背景更新。
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    adoptContext(incomingContext);
     setSaved(false);
-  }, [baseRevision, conflict, context, form, isDirty]);
+  }, [serverConflict, contextChanged, preserveWorkspace, adoptContext, incomingContext, onConflict]);
 
   async function refreshRelated() {
-    await Promise.all([
-      queryClient.invalidateQueries({ exact: true, queryKey: contentKeys.editorContext(taskId) }),
-      queryClient.invalidateQueries({ queryKey: contentKeys.details(), refetchType: 'none' }),
-      queryClient.invalidateQueries({ queryKey: contentKeys.lists(), refetchType: 'none' }),
-    ]);
+    setRefreshingCommand(true);
+    try {
+      const canonical = await onReload();
+      adoptContext(canonical);
+      onClearConflict();
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: contentKeys.details(), refetchType: 'none' }),
+        queryClient.invalidateQueries({ queryKey: contentKeys.lists(), refetchType: 'none' }),
+      ]);
+    } catch (error) {
+      onConflict({
+        blockerKind: 'context-changed',
+        message: '操作已完成，但未能读取最新内容。请重新加载最新版本后继续。',
+      });
+      throw error;
+    } finally {
+      setRefreshingCommand(false);
+    }
   }
 
   function resetErrors() {
@@ -274,6 +311,7 @@ function ContentEditorWorkspace({
   }
 
   async function createVersion(values: ContentEditorFormValues) {
+    if (conflict || pending) return;
     resetErrors();
     try {
       const version = mode === 'manual'
@@ -288,20 +326,22 @@ function ContentEditorWorkspace({
   }
 
   async function saveDraft(values: ContentEditorFormValues) {
+    if (conflict || pending) return;
     resetErrors();
     try {
       const canonical = await save.mutateAsync(values);
       form.reset(editorFormValues(canonical));
       setBaseRevision(canonical.revision);
-      setSaved(true);
       setAnnouncement(`内容草稿已保存，Revision ${canonical.revision}`);
       await refreshRelated();
+      setSaved(true);
     } catch (error) {
       applyMutationError(error);
     }
   }
 
   async function submitReview(comment: string) {
+    if (conflict || pending) return;
     try {
       const canonical = await submit.mutateAsync(comment);
       setSubmitOpen(false);
@@ -315,6 +355,7 @@ function ContentEditorWorkspace({
   }
 
   async function runDestructive(action: 'DELETE' | 'ABANDON') {
+    if (conflict || pending) return;
     resetErrors();
     try {
       if (action === 'DELETE') await remove.mutateAsync();
@@ -334,9 +375,7 @@ function ContentEditorWorkspace({
       setAnnouncement('重新加载失败，当前冲突与本地输入保持不变');
       return;
     }
-    form.reset(editorFormValues(canonical.current_content));
-    setBaseRevision(canonical.current_content?.revision ?? 0);
-    setMode(editorMode(canonical));
+    adoptContext(canonical);
     setSubmitOpen(false);
     setRequestId(undefined);
     setSaved(false);
@@ -429,7 +468,7 @@ function ContentEditorWorkspace({
         </Link>
       </header>
 
-      <ContentAiProduction context={context} csrfToken={csrfToken} taskId={taskId} />
+      <ContentAiProduction blocked={Boolean(conflict) || pending} context={context} csrfToken={csrfToken} taskId={taskId} />
 
       <FormProvider {...form}>
         <form noValidate onSubmit={(event) => event.preventDefault()}>
@@ -448,7 +487,7 @@ function ContentEditorWorkspace({
                   onDocumentViewChange={setDocumentView}
                   onReload={() => void reloadCanonical()}
                   refreshError={refreshError}
-                  reloading={reloading}
+                  reloading={reloading || pending}
                   revision={baseRevision}
                   serverDiff={<ContentDiffView context={context} />}
                 />
@@ -479,7 +518,7 @@ function ContentEditorWorkspace({
           onReload={() => void reloadCanonical()}
           onSubmit={submitReview}
           refreshError={refreshError}
-          reloading={reloading}
+          reloading={reloading || pending}
           submitting={submit.isPending}
         />
       )}
@@ -869,7 +908,7 @@ function editorSummaryErrors(
   const formMessage = errors.root?.server?.message;
   if (formMessage) items.push({ id: 'form', message: String(formMessage) });
   if (conflict) {
-    items.push({ id: 'conflict-code', message: `错误代码：${conflict.code}` });
+    if (conflict.code) items.push({ id: 'conflict-code', message: `错误代码：${conflict.code}` });
     items.push({ id: 'conflict-message', message: conflict.message });
     if (conflict.requestId) {
       items.push({ id: 'conflict-request-id', message: `请求 ID：${conflict.requestId}` });
@@ -904,9 +943,11 @@ function ContentEditorConflictNotice({
         <p className="font-medium text-danger">
           {conflict.blockerKind === 'content-review-pending'
             ? '提交审核暂不可用'
-            : '检测到 revision 冲突'}
+            : conflict.blockerKind === 'context-changed'
+              ? '服务端内容已更新'
+              : '检测到 revision 冲突'}
         </p>
-        <p className="font-mono text-xs text-text-secondary">错误代码：{conflict.code}</p>
+        {conflict.code && <p className="font-mono text-xs text-text-secondary">错误代码：{conflict.code}</p>}
         <p className="text-text-secondary">{conflict.message}</p>
         {conflict.requestId && (
           <p className="font-mono text-xs text-text-muted">请求 ID：{conflict.requestId}</p>
@@ -997,6 +1038,17 @@ function ContentEditorFailure({ error, onRetry }: { error: unknown; onRetry: () 
       </div>
     </section>
   );
+}
+
+// 只比较编辑目标及服务端资格；作业轮询等参考信息不使表单过期。
+function editorContextIdentity(context: ContentEditorContext) {
+  const content = context.current_content;
+  return JSON.stringify([
+    context.task.id, context.task.revision, context.task.status,
+    context.task.workflow_stage, context.task.primary_task, [...context.task.available_actions].sort(),
+    content && [content.id, content.revision, content.status, content.workflow_stage,
+      content.primary_task, [...content.available_actions].sort()],
+  ]);
 }
 
 function assertNever(value: never): never {

@@ -6,6 +6,7 @@ import {
   type UseQueryResult,
 } from '@tanstack/react-query';
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -38,7 +39,7 @@ import {
   geoKeys,
   geoObservationCorrectionContextQueryOptions,
 } from './geo.api';
-import { GeoEvidenceUpload } from './geo-evidence-upload';
+import { GeoEvidenceUploadView, useGeoEvidenceUpload, type GeoEvidenceUploadController } from './geo-evidence-upload';
 import {
   correctionValues,
   geoObservationCorrectionFormSchema,
@@ -65,7 +66,7 @@ type GeoObservationCorrectionPageProps = {
   observationId: string;
   onCancel: (observationId: string) => void;
   onCanonicalChange: (observationId: string) => Promise<void>;
-  onCreated: (observationId: string) => void;
+  onCreated: (observationId: string) => void | Promise<void>;
 };
 
 const fieldIds: Record<Exclude<
@@ -76,10 +77,34 @@ GeoObservationCorrectionField,
   tested_at: 'geo-correction-tested-at',
   notes: 'geo-correction-notes',
 };
-const conflictCodes = new Set(['GEO_PUBLICATIONS_CHANGED', 'REVISION_CONFLICT']);
+const conflictCodes = new Set(['GEO_PUBLICATIONS_CHANGED', 'GEO_OBSERVATION_HAS_SUCCESSOR', 'GEO_OBSERVATION_CONTEXT_INCOMPLETE']);
 
 function GeoObservationCorrectionPage(props: GeoObservationCorrectionPageProps) {
-  const context = useQuery(geoObservationCorrectionContextQueryOptions(props.observationId));
+  const id = props.observationId.toLowerCase();
+  const [session, setSession] = useState<{ routeId: string; key: string; canonicalTarget?: string }>({ routeId: id, key: id });
+  // 只有本会话发起的 canonical replace 才沿用草稿；其他 URL 身份切换创建新会话。
+  if (id !== session.routeId) {
+    setSession({ routeId: id, key: session.canonicalTarget === id ? session.key : id });
+  }
+  return <CorrectionSession {...props} key={session.key} onCanonicalChange={async (target) => {
+    setSession((current) => ({ ...current, canonicalTarget: target.toLowerCase() }));
+    try {
+      await props.onCanonicalChange(target);
+    } catch (error) {
+      setSession((current) => ({ ...current, canonicalTarget: undefined }));
+      throw error;
+    }
+  }} />;
+}
+
+function CorrectionSession(props: GeoObservationCorrectionPageProps) {
+  const [contextStale, setContextStale] = useState(false);
+  const context = useQuery({
+    ...geoObservationCorrectionContextQueryOptions(props.observationId),
+    enabled: !contextStale,
+    refetchOnWindowFocus: (query) => !contextStale && query.state.status !== 'error' ? 'always' : false,
+    refetchOnReconnect: false,
+  });
   if (context.isPending) {
     return <GeoObservationCorrectionSkeleton observationId={props.observationId} />;
   }
@@ -95,6 +120,8 @@ function GeoObservationCorrectionPage(props: GeoObservationCorrectionPageProps) 
   return (
     <CorrectionFormPage
       contextQuery={context}
+      contextStale={contextStale}
+      setContextStale={setContextStale}
       initialContext={context.data}
       key={context.data.detail.chain_root_id}
       {...props}
@@ -104,6 +131,8 @@ function GeoObservationCorrectionPage(props: GeoObservationCorrectionPageProps) 
 
 function CorrectionFormPage({
   contextQuery,
+  contextStale,
+  setContextStale,
   csrfToken,
   initialContext,
   observationId,
@@ -112,14 +141,26 @@ function CorrectionFormPage({
   onCreated,
 }: GeoObservationCorrectionPageProps & {
   contextQuery: UseQueryResult<GeoObservationCorrectionContext>;
+  contextStale: boolean;
+  setContextStale: (stale: boolean) => void;
   initialContext: GeoObservationCorrectionContext;
 }) {
   const queryClient = useQueryClient();
   const [context, setContext] = useState(initialContext);
-  const [contextStale, setContextStale] = useState(false);
   const [requestId, setRequestId] = useState<string>();
   const [uploadedFiles, setUploadedFiles] = useState<FileRecord[]>([]);
   const [createdId, setCreatedId] = useState<string>();
+  const acceptedId = useRef<string | undefined>(undefined);
+  const mounted = useRef(true);
+  const [navigationError, setNavigationError] = useState<string>();
+  const [reloading, setReloading] = useState(false);
+  const [uploadBlocking, setUploadBlocking] = useState(false);
+  const uploadBlockingRef = useRef(false);
+  const uploadedFilesRef = useRef<FileRecord[]>([]);
+  const updateUploadBlocking = useCallback((blocking: boolean) => {
+    uploadBlockingRef.current = blocking;
+    setUploadBlocking(blocking);
+  }, []);
   const submitting = useRef(false);
   const formElement = useRef<HTMLFormElement>(null);
   const summaryContainer = useRef<HTMLDivElement>(null);
@@ -139,23 +180,71 @@ function CorrectionFormPage({
       csrfToken,
     ),
   });
+  const upload = useGeoEvidenceUpload({
+    csrfToken,
+    disabled: create.isPending || Boolean(createdId) || contextStale,
+    onBlockingChange: updateUploadBlocking,
+    onUploaded: (file) => {
+      if (!mounted.current || acceptedId.current || uploadedFilesRef.current.some((item) => item.id === file.id)) return;
+      const next = [...uploadedFilesRef.current, file];
+      uploadedFilesRef.current = next;
+      setUploadedFiles(next);
+      form.setValue('attachment_file_ids', next.map((item) => item.id), { shouldDirty: true, shouldValidate: true });
+    },
+  });
   const isDirty = form.formState.isDirty;
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
+
+  const contextChanged = Boolean(contextQuery.data && contextSignature(contextQuery.data) !== contextSignature(context));
+  useEffect(() => {
+    if (!acceptedId.current && (contextQuery.isError || contextChanged)) setContextStale(true);
+  }, [contextQuery.isError, contextChanged, setContextStale]);
+
+  const openCreated = useCallback(async (id: string) => {
+    setNavigationError(undefined);
+    try {
+      await onCreated(id);
+    } catch (error) {
+      if (mounted.current) setNavigationError(errorMessage(error));
+    }
+  }, [onCreated]);
+  const handoffStarted = useRef(false);
 
   useEffect(() => {
-    if (createdId && !isDirty) onCreated(createdId);
-  }, [createdId, isDirty, onCreated]);
+    if (createdId && !isDirty && !handoffStarted.current) {
+      handoffStarted.current = true;
+      void openCreated(createdId);
+    }
+  }, [createdId, isDirty, openCreated]);
+
+  function submissionBlocked() {
+    const current = queryClient.getQueryState<GeoObservationCorrectionContext>(geoKeys.correctionContext(observationId));
+    return blocked || acceptedId.current || uploadBlockingRef.current || current?.status !== 'success'
+      || current.fetchStatus !== 'idle' || !current.data
+      || contextSignature(current.data) !== contextSignature(context);
+  }
 
   async function submit(values: GeoObservationCorrectionFormValues) {
+    if (submissionBlocked()) return;
+    const submissionContext = context;
     form.clearErrors();
     setRequestId(undefined);
     create.reset();
     try {
       const observation = await create.mutateAsync({
-        submissionContext: context,
+        submissionContext,
         values,
       });
-      form.reset(values);
-      await Promise.all([
+      acceptedId.current = observation.id;
+      if (mounted.current) {
+        form.reset(values);
+        setCreatedId(observation.id);
+        setContextStale(true);
+      }
+      void Promise.allSettled([
         queryClient.invalidateQueries({ queryKey: geoKeys.lists() }),
         queryClient.invalidateQueries({ queryKey: geoKeys.details() }),
         queryClient.invalidateQueries({ queryKey: geoKeys.correctionContexts() }),
@@ -163,11 +252,11 @@ function CorrectionFormPage({
         queryClient.invalidateQueries({ queryKey: geoKeys.insights() }),
         queryClient.invalidateQueries({ queryKey: geoKeys.topicLists() }),
         queryClient.invalidateQueries({
-          queryKey: productsKeys.detail(context.detail.product.id),
+          queryKey: productsKeys.detail(submissionContext.detail.product.id),
         }),
       ]);
-      setCreatedId(observation.id);
     } catch (error) {
+      if (!mounted.current) return;
       const mapped = mapGeoObservationCorrectionError(error);
       for (const [field, message] of Object.entries(mapped.fields)) {
         form.setError(field as FieldPath<GeoObservationCorrectionFormValues>, {
@@ -178,7 +267,7 @@ function CorrectionFormPage({
       if (mapped.formMessage) {
         form.setError('root.server', { type: 'server', message: mapped.formMessage });
       }
-      setContextStale(Boolean(mapped.code && conflictCodes.has(mapped.code)));
+      if (mapped.code && conflictCodes.has(mapped.code)) setContextStale(true);
       setRequestId(mapped.requestId);
       queueMicrotask(() => {
         summaryContainer.current?.querySelector<HTMLElement>('[role="alert"]')?.focus();
@@ -187,7 +276,7 @@ function CorrectionFormPage({
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    if (submitting.current) {
+    if (submitting.current || submissionBlocked()) {
       event.preventDefault();
       return;
     }
@@ -201,22 +290,30 @@ function CorrectionFormPage({
   }
 
   async function reloadContext() {
-    const result = await contextQuery.refetch();
-    if (!result.data) {
-      form.setError('root.server', {
-        type: 'server',
-        message: errorMessage(result.error),
-      });
-      return;
-    }
-    const merged = mergeCorrectionValues(result.data, form.getValues());
-    setContext(result.data);
-    form.reset(merged, { keepDirty: true });
-    form.clearErrors('root.server');
-    setContextStale(false);
-    setRequestId(undefined);
-    if (result.data.detail.chain_tail_id !== observationId) {
-      await onCanonicalChange(result.data.detail.chain_tail_id);
+    if (reloading || acceptedId.current) return;
+    setReloading(true);
+    setContextStale(true);
+    try {
+      const result = await contextQuery.refetch();
+      if (!mounted.current) return;
+      if (!result.isSuccess || result.isFetching || !result.data) {
+        form.setError('root.server', { type: 'server', message: errorMessage(result.error) });
+        return;
+      }
+      const merged = mergeCorrectionValues(result.data, form.getValues());
+      setContext(result.data);
+      form.reset(merged, { keepDirty: true });
+      if (result.data.detail.chain_tail_id.toLowerCase() !== observationId.toLowerCase()) {
+        await onCanonicalChange(result.data.detail.chain_tail_id);
+      }
+      if (!mounted.current) return;
+      form.clearErrors('root.server');
+      setContextStale(false);
+      setRequestId(undefined);
+    } catch (error) {
+      if (mounted.current) form.setError('root.server', { type: 'server', message: errorMessage(error) });
+    } finally {
+      if (mounted.current) setReloading(false);
     }
   }
 
@@ -230,7 +327,15 @@ function CorrectionFormPage({
   if (formMessage) summaryErrors.push({ id: 'form', message: formMessage });
   if (requestId) summaryErrors.push({ id: 'request-id', message: `请求 ID：${requestId}` });
   const topicUnavailable = tail.query_topic === null && context.query_topic_options.length === 0;
-  const blocked = create.isPending
+  const locked = create.isPending || Boolean(createdId);
+  const blocked = locked
+    || reloading
+    || uploadBlocking
+    || upload.busy
+    || Boolean(upload.pendingIntent)
+    || contextQuery.isFetching
+    || contextQuery.isError
+    || contextChanged
     || contextStale
     || context.correction_article_results.length === 0
     || topicUnavailable;
@@ -239,7 +344,7 @@ function CorrectionFormPage({
       key: 'cancel',
       label: '返回当前 Detail',
       intent: 'secondary',
-      enabled: !create.isPending,
+      enabled: !locked,
       disabledReason: '正在追加更正',
       onSelect: () => onCancel(context.detail.chain_tail_id),
     },
@@ -248,7 +353,7 @@ function CorrectionFormPage({
       label: create.isPending ? '提交中…' : '追加 Correction',
       intent: 'primary',
       enabled: !blocked,
-      disabledReason: correctionDisabledReason({
+      disabledReason: createdId ? '更正已创建' : uploadBlocking ? '请先完成或放弃证据上传' : contextQuery.isFetching ? '正在读取最新上下文' : correctionDisabledReason({
         contextStale,
         createPending: create.isPending,
         hasArticles: context.correction_article_results.length > 0,
@@ -276,16 +381,23 @@ function CorrectionFormPage({
           <div ref={summaryContainer}>
             <ErrorSummary errors={summaryErrors} title="GEO Correction 尚未提交" />
           </div>
-          {contextQuery.error && (
+          {createdId && (
+            <div role="status" className="space-y-2 rounded-lg border border-border-subtle p-3">
+              <p>更正已创建：{createdId}</p>
+              {navigationError && <p role="alert">打开新观测失败：{navigationError}</p>}
+              <Button onClick={() => void openCreated(createdId)} type="button" variant="outline">打开新观测</Button>
+            </div>
+          )}
+          {!createdId && contextQuery.error && (
             <InlineProblem
               message={`后台刷新失败，已保留当前上下文与草稿：${errorMessage(contextQuery.error)}`}
               onRetry={() => void reloadContext()}
             />
           )}
-          {contextStale && (
+          {!createdId && (contextStale || contextChanged) && (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warning/30 bg-warning/10 p-3" role="alert">
               <span>更正链尾或 Published Article 候选已经变化。草稿与本次上传仍保留，系统不会自动重放提交。</span>
-              <Button onClick={() => void reloadContext()} type="button" variant="outline">
+              <Button disabled={reloading} onClick={() => void reloadContext()} type="button" variant="outline">
                 重新加载最新上下文
               </Button>
             </div>
@@ -302,7 +414,7 @@ function CorrectionFormPage({
                 <CorrectionMainPanel
                   articleResults={articleResults}
                   context={context}
-                  disabled={create.isPending || contextStale}
+                  disabled={locked || contextStale || contextChanged || contextQuery.isError}
                 />
               ),
             }}
@@ -310,19 +422,12 @@ function CorrectionFormPage({
               label: '新证据与原因',
               content: (
                 <CorrectionReferencePanel
-                  csrfToken={csrfToken}
-                  disabled={create.isPending || contextStale}
+                  upload={upload}
+                  disabled={locked || contextStale || contextChanged || contextQuery.isError}
                   onRemove={(fileId) => {
-                    const next = uploadedFiles.filter((item) => item.id !== fileId);
-                    setUploadedFiles(next);
-                    form.setValue('attachment_file_ids', next.map((item) => item.id), {
-                      shouldDirty: true,
-                      shouldValidate: true,
-                    });
-                  }}
-                  onUploaded={(file) => {
-                    if (uploadedFiles.some((item) => item.id === file.id)) return;
-                    const next = [...uploadedFiles, file];
+                    if (acceptedId.current) return;
+                    const next = uploadedFilesRef.current.filter((item) => item.id !== fileId);
+                    uploadedFilesRef.current = next;
                     setUploadedFiles(next);
                     form.setValue('attachment_file_ids', next.map((item) => item.id), {
                       shouldDirty: true,
@@ -338,8 +443,10 @@ function CorrectionFormPage({
             actions={actions}
             status={(
               <span aria-live="polite">
-                {create.isPending
-                  ? '正在由服务端复核当前链尾、文章集合与证据…'
+                {createdId
+                  ? '更正已创建，可打开新观测'
+                  : create.isPending
+                    ? '正在由服务端复核当前链尾、文章集合与证据…'
                   : contextStale
                     ? '上下文已过期，必须显式重新加载'
                     : `下一节点将追加到 ${context.detail.chain_tail_id}`}
@@ -350,7 +457,7 @@ function CorrectionFormPage({
       </FormProvider>
       <DirtyGuard
         description="离开后，本次更正事实、原因和已上传证据选择将会丢失。"
-        when={isDirty}
+        when={!createdId && (isDirty || uploadBlocking || create.isPending)}
       />
     </section>
   );
@@ -538,16 +645,14 @@ function CorrectionMainPanel({
 }
 
 function CorrectionReferencePanel({
-  csrfToken,
+  upload,
   disabled,
   onRemove,
-  onUploaded,
   uploadedFiles,
 }: {
-  csrfToken: string | null;
+  upload: GeoEvidenceUploadController;
   disabled: boolean;
   onRemove: (fileId: string) => void;
-  onUploaded: (file: FileRecord) => void;
   uploadedFiles: FileRecord[];
 }) {
   return (
@@ -559,7 +664,7 @@ function CorrectionReferencePanel({
             历史证据只在左侧读取；POST 只关联这里新上传的截图。
           </p>
         </div>
-        <GeoEvidenceUpload csrfToken={csrfToken} disabled={disabled} onUploaded={onUploaded} />
+        <GeoEvidenceUploadView controller={upload} />
         {uploadedFiles.length > 0 && (
           <ul className="space-y-2">
             {uploadedFiles.map((file) => (
@@ -798,6 +903,19 @@ function correctionDisabledReason(state: {
   if (!state.hasArticles) return '当前 Product 没有合格 Published Article';
   if (state.topicUnavailable) return '历史 Topic 为空且当前没有可选 Query Topic';
   return undefined;
+}
+
+// 只比较可写上下文；历史选中节点与短期下载 URL 不改变更正身份。
+function contextSignature(context: GeoObservationCorrectionContext) {
+  const tail = tailManualHistory(context.detail);
+  return JSON.stringify({
+    root: context.detail.chain_root_id,
+    product: context.detail.product.id,
+    tail: tail.observation,
+    topic: tail.query_topic,
+    articles: context.correction_article_results,
+    options: context.query_topic_options,
+  });
 }
 
 function errorMessage(error: unknown) {

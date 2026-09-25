@@ -23,7 +23,7 @@ test('从 Content Task 以键盘进入只读详情，refresh 与 Back/Forward �
   await expect(page.getByText('只读 · 不可变快照')).toBeVisible();
   await expect(page.getByLabel('内容版本 v1 Markdown 快照')).toContainText('长正文与 Markdown 列表');
   await expect(page.getByLabel('内容版本 v1 Markdown 快照')).not.toContainText('不得执行');
-  await expect(page.getByRole('link', { name: '返回所属 Content Task' })).toHaveAttribute(
+  await expect(page.getByRole('link', { name: '返回所属内容任务' })).toHaveAttribute(
     'href',
     taskPath,
   );
@@ -57,7 +57,7 @@ test('从 Content Task 以键盘进入只读详情，refresh 与 Back/Forward �
     ).toBe(true);
   }
 
-  const modelSummary = page.getByText('Model snapshot', { exact: true });
+  const modelSummary = page.getByText('模型快照', { exact: true });
   await modelSummary.focus();
   await expect(modelSummary).toBeFocused();
   await modelSummary.press('Enter');

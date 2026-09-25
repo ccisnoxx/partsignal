@@ -8,6 +8,7 @@ import {
 } from '@playwright/test';
 
 import type { components } from '../../src/shared/api/generated/schema';
+import { registerCurrentRealStackCookies, registerRealStackLoginSecrets } from './real-stack-session';
 
 type AuthSession = components['schemas']['AuthSession'];
 type ContentTask = components['schemas']['ContentTask'];
@@ -24,6 +25,7 @@ const password = process.env.PARTSIGNAL_SEED_ADMIN_PASSWORD ?? 'partsignal-admin
 
 test.skip(!realStackEnabled, '只由隔离真实栈入口运行');
 test.setTimeout(90_000);
+test.afterEach(async ({ context }) => registerCurrentRealStackCookies(context, apiBaseUrl));
 
 async function responseBody<T>(response: APIResponse): Promise<T> {
   if (!response.ok()) {
@@ -33,9 +35,11 @@ async function responseBody<T>(response: APIResponse): Promise<T> {
 }
 
 async function login(page: Page): Promise<AuthSession> {
-  return responseBody<AuthSession>(await page.request.post(`${apiBaseUrl}/api/v1/auth/login`, {
+  const session = await responseBody<AuthSession>(await page.request.post(`${apiBaseUrl}/api/v1/auth/login`, {
     data: { username: 'admin', password },
   }));
+  await registerRealStackLoginSecrets(page.context(), apiBaseUrl, session.csrf_token);
+  return session;
 }
 
 async function post<T>(
@@ -148,7 +152,7 @@ test('独立真实栈：单一 detail GET 读取 HUMAN 当前版本且页面无�
   await expect(page.getByLabel(`内容版本 v${version.version} Markdown 快照`))
     .toContainText('真实 PostgreSQL 内容版本');
   await expect(page.getByText('该版本没有生成、Prompt 或模型快照。')).toBeVisible();
-  await expect(page.getByRole('link', { name: '返回所属 Content Task' })).toHaveAttribute(
+  await expect(page.getByRole('link', { name: '返回所属内容任务' })).toHaveAttribute(
     'href',
     `/content/tasks/${task.id}`,
   );

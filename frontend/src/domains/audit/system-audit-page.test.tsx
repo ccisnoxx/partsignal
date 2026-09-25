@@ -2,7 +2,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AuthContextValue } from '@/app/auth/auth-provider';
 import { TooltipProvider } from '@/design-system/primitives/tooltip';
@@ -10,6 +10,7 @@ import { routeTree } from '@/routeTree.gen';
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
 import { createAuthenticatedTestQueryClient } from '@/test/auth-session';
+import { auditKeys } from './audit.api';
 
 type AuditLog = components['schemas']['AuditLog'];
 type AuditLogDetail = components['schemas']['AuditLogDetail'];
@@ -78,6 +79,8 @@ beforeEach(() => {
   });
 });
 
+afterEach(() => vi.restoreAllMocks());
+
 function success<T>(data: T) {
   return { data, response: Response.json(data) } as never;
 }
@@ -94,7 +97,14 @@ function renderAudit(initialEntry = '/system/audit?createdFrom=2026-08-13T00%3A0
       <TooltipProvider><RouterProvider context={{ queryClient, auth }} router={router} /></TooltipProvider>
     </QueryClientProvider>,
   );
-  return router;
+  return { queryClient, router };
+}
+
+function failure(status: number, message: string, requestId: string) {
+  return {
+    error: { error: { code: 'AUDIT_DETAIL_FAILED', message, details: {}, request_id: requestId } },
+    response: Response.json({}, { status }),
+  } as never;
 }
 
 describe('SystemAuditPage', () => {
@@ -105,7 +115,7 @@ describe('SystemAuditPage', () => {
       if (path === '/api/v1/audit-logs') return success({ items: [log], page: 1, page_size: 20, total: 1 });
       throw new Error(`意外请求：${path}`);
     });
-    const router = renderAudit();
+    const { router } = renderAudit();
 
     expect(await screen.findByRole('heading', { name: '系统审计' })).toBeInTheDocument();
     expect(screen.getAllByRole('columnheader').map((header) => header.textContent)).toEqual([
@@ -129,11 +139,23 @@ describe('SystemAuditPage', () => {
   });
 
   it('混合动作逐行隔离投影失败，坏行保留元数据但不打开详情', async () => {
-    const get = vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+    const get = vi.spyOn(api, 'GET').mockImplementation(async (path, options) => {
       if (path === '/api/v1/audit-logs/filter-options') {
         return success({ actions: ['ai_channel.updated', unknownAction, 'user.updated'], target_types: ['AIChannel', 'User'] });
       }
-      if (path === '/api/v1/audit-logs/{audit_log_id}') return success(detail);
+      if (path === '/api/v1/audit-logs/{audit_log_id}') {
+        const requestedId = (options as { params: { path: { audit_log_id: string } } }).params.path.audit_log_id;
+        return requestedId === secondLog.id
+          ? success({
+              ...secondLog,
+              changes: [{ field: 'display_name', before: '旧名称', after: '系统管理员' }],
+              facts: { account_type: 'ADMIN' },
+              result_message: '渠道配置已更新',
+              error_code: null,
+              related_entry: { status: 'UNSUPPORTED', kind: null, parent_id: null },
+            } as const)
+          : success(detail);
+      }
       if (path === '/api/v1/audit-logs') {
         return success({
           items: [log, { ...unknownLog, change_summary: secretSentinel, raw_json: secretSentinel }, secondLog],
@@ -185,7 +207,7 @@ describe('SystemAuditPage', () => {
       }
       throw new Error(`意外请求：${path}`);
     });
-    const router = renderAudit(`/system/audit?createdFrom=2026-08-13T00%3A00%3A00.000Z&createdTo=2026-08-16T00%3A00%3A00.000Z&page=1&pageSize=20&action=${unknownAction}`);
+    const { router } = renderAudit(`/system/audit?createdFrom=2026-08-13T00%3A00%3A00.000Z&createdTo=2026-08-16T00%3A00%3A00.000Z&page=1&pageSize=20&action=${unknownAction}`);
 
     expect(await screen.findByRole('heading', { name: '系统审计' })).toBeInTheDocument();
     const alerts = screen.getAllByRole('alert');
@@ -233,7 +255,7 @@ describe('SystemAuditPage', () => {
       }
       throw new Error(`意外请求：${path}`);
     });
-    const router = renderAudit();
+    const { router } = renderAudit();
 
     expect(await screen.findByRole('heading', { name: '系统审计' })).toBeInTheDocument();
     expect(listRequests).toBeGreaterThan(0);
@@ -246,5 +268,94 @@ describe('SystemAuditPage', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('开始时间和结束时间不能为空。');
     expect(router.state.location.search).toEqual(search);
     expect(listRequests).toBe(listRequestCount);
+  });
+
+  it.each([403, 404, 409, 503])('详情已有缓存时 refetch %s 仍显示局部错误、旧数据与 exact retry', async (status) => {
+    let detailRequestCount = 0;
+    const get = vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+      if (path === '/api/v1/audit-logs/filter-options') return success({ actions: ['ai_channel.updated'], target_types: ['AIChannel'] });
+      if (path === '/api/v1/audit-logs') return success({ items: [log], page: 1, page_size: 20, total: 1 });
+      if (path === '/api/v1/audit-logs/{audit_log_id}') {
+        detailRequestCount += 1;
+        if (detailRequestCount === 2) {
+          return failure(status, `审计详情刷新失败 ${status}`, `req-audit-detail-${status}`);
+        }
+        return success(detail);
+      }
+      throw new Error(`意外请求：${path}`);
+    });
+    const { queryClient } = renderAudit();
+    await userEvent.click(await screen.findByRole('row', { name: /查看审计详情：更新 AI 渠道/ }));
+    expect(await screen.findByText('渠道配置已更新')).toBeInTheDocument();
+
+    await queryClient.invalidateQueries({ exact: true, queryKey: auditKeys.detail(log.id) });
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(`审计详情刷新失败 ${status}`);
+    expect(alert).toHaveTextContent(`req-audit-detail-${status}`);
+    expect(screen.getByText('渠道配置已更新')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '重试' }));
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+    expect(detailRequestCount).toBe(3);
+    const detailCalls = (get.mock.calls as unknown as Array<[string, { params: { path: { audit_log_id: string } } }]>)
+      .filter(([path]) => path === '/api/v1/audit-logs/{audit_log_id}');
+    expect(detailCalls).toHaveLength(3);
+    expect(detailCalls.every(([, options]) => options.params.path.audit_log_id === log.id)).toBe(true);
+  });
+
+  it('详情运行时出现对象与原型字段时局部安全失败且 sentinel 不进入 DOM', async () => {
+    vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+      if (path === '/api/v1/audit-logs/filter-options') return success({ actions: ['ai_channel.updated'], target_types: ['AIChannel'] });
+      if (path === '/api/v1/audit-logs') return success({ items: [log], page: 1, page_size: 20, total: 1 });
+      if (path === '/api/v1/audit-logs/{audit_log_id}') {
+        return success({
+          ...detail,
+          facts: {
+            constructor: secretSentinel,
+            reason: { secret: secretSentinel },
+          },
+        } as unknown as AuditLogDetail);
+      }
+      throw new Error(`意外请求：${path}`);
+    });
+    renderAudit();
+    await userEvent.click(await screen.findByRole('row', { name: /查看审计详情：更新 AI 渠道/ }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('安全投影失败');
+    expect(document.body.innerHTML).not.toContain(secretSentinel);
+    expect(document.body.innerHTML).not.toContain('constructor');
+  });
+
+  it('AVAILABLE target UUID 规范化后才进入 cache 与关联链接', async () => {
+    const canonicalTargetId = log.target_id!;
+    vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+      if (path === '/api/v1/audit-logs/filter-options') return success({ actions: ['ai_channel.updated'], target_types: ['AIChannel'] });
+      if (path === '/api/v1/audit-logs') return success({ items: [log], page: 1, page_size: 20, total: 1 });
+      if (path === '/api/v1/audit-logs/{audit_log_id}') {
+        return success({ ...detail, target_id: canonicalTargetId.toUpperCase() });
+      }
+      throw new Error(`意外请求：${path}`);
+    });
+    const { queryClient } = renderAudit();
+    await userEvent.click(await screen.findByRole('row', { name: /查看审计详情：更新 AI 渠道/ }));
+
+    expect(await screen.findByRole('link', { name: '查看 AI 渠道' }))
+      .toHaveAttribute('href', `/settings/ai/${canonicalTargetId}?tab=basic`);
+    expect(queryClient.getQueryData<AuditLogDetail>(auditKeys.detail(log.id))?.target_id).toBe(canonicalTargetId);
+  });
+
+  it('AVAILABLE 非法 target UUID 固定安全失败且 sentinel 不进入 cache、DOM 或 URL', async () => {
+    vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+      if (path === '/api/v1/audit-logs/filter-options') return success({ actions: ['ai_channel.updated'], target_types: ['AIChannel'] });
+      if (path === '/api/v1/audit-logs') return success({ items: [log], page: 1, page_size: 20, total: 1 });
+      if (path === '/api/v1/audit-logs/{audit_log_id}') return success({ ...detail, target_id: secretSentinel });
+      throw new Error(`意外请求：${path}`);
+    });
+    const { queryClient } = renderAudit();
+    await userEvent.click(await screen.findByRole('row', { name: /查看审计详情：更新 AI 渠道/ }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('审计响应安全投影失败');
+    expect(queryClient.getQueryData(auditKeys.detail(log.id))).toBeUndefined();
+    expect(screen.queryByRole('link', { name: '查看 AI 渠道' })).not.toBeInTheDocument();
+    expect(`${document.body.innerHTML}\n${window.location.href}`).not.toContain(secretSentinel);
   });
 });

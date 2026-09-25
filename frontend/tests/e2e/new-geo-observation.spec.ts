@@ -70,7 +70,7 @@ test('列表 Primary、直接访问和刷新都进入 canonical 创建 Workspace
 
   await page.reload();
   await expect(page).toHaveURL(newRoute);
-  await expect(page.getByRole('navigation', { name: '面包屑' })).toContainText('新建 Observation');
+  await expect(page.getByRole('navigation', { name: '面包屑' })).toContainText('新建观测');
 });
 
 test('queryTopicId 与 geoPlatform handoff 支持 direct URL 与刷新，不存在 Topic 时明确阻止提交', async ({ page }) => {
@@ -181,6 +181,56 @@ test('客户端校验显式事实；上传后 POST 防重复并 canonical handof
     (request) => request.searchParams.get('search') === createdObservationId,
   )).toBe(false);
   await expect(page.getByRole('dialog', { name: '要离开当前页面吗？' })).toHaveCount(0);
+});
+
+test('证据 complete 未结束且跨布局时不能创建，完成后才提交附件', async ({ page, newGeoApi }) => {
+  await page.goto(newRoute);
+  await fillObservation(page);
+  newGeoApi.setUploadCompleteMode('pending');
+  await page.getByLabel('上传 GEO 证据截图').setInputFiles({
+    name: 'geo-proof.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from('evidence'),
+  });
+  await expect.poll(() => newGeoApi.uploadRequests).toContain(`/api/v1/files/${fileRecord.id}/complete`);
+  await page.setViewportSize({ width: (page.viewportSize()?.width ?? 1440) < 1280 ? 1440 : 375, height: 1000 });
+  await showPanel(page, '证据与备注');
+  try {
+    await expect(page.getByRole('button', { name: '创建 Observation' })).toBeDisabled();
+    expect(newGeoApi.createRequests).toHaveLength(0);
+  } finally {
+    newGeoApi.releaseUploadComplete();
+  }
+  await expect(page.getByText('geo-proof.png')).toBeVisible();
+  await expect(page.getByRole('button', { name: '创建 Observation' })).toBeEnabled();
+  await page.getByRole('button', { name: '创建 Observation' }).click();
+  await expect(page).toHaveURL(canonicalDetail);
+  expect(newGeoApi.createRequests).toHaveLength(1);
+  expect(newGeoApi.createRequests[0]?.body.attachment_file_ids).toEqual([fileRecord.id]);
+});
+
+test('空白表单上传期间离开需确认，保留上传后可继续校验', async ({ page, newGeoApi }) => {
+  await page.goto(newRoute);
+  await showPanel(page, '证据与备注');
+  newGeoApi.setUploadCompleteMode('pending');
+  await page.getByLabel('上传 GEO 证据截图').setInputFiles({
+    name: 'geo-proof.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from('evidence'),
+  });
+  await expect.poll(() => newGeoApi.uploadRequests).toContain(`/api/v1/files/${fileRecord.id}/complete`);
+  try {
+    await page.getByRole('button', { name: '取消' }).click();
+    const guard = page.getByRole('dialog', { name: '要离开当前页面吗？' });
+    await expect(guard).toBeVisible();
+    await guard.getByRole('button', { name: '继续编辑' }).click();
+    await expect(page).toHaveURL(newRoute);
+  } finally {
+    newGeoApi.releaseUploadComplete();
+  }
+  await showPanel(page, '证据与备注');
+  await expect(page.getByText('geo-proof.png')).toBeVisible();
+  expect(newGeoApi.createRequests).toHaveLength(0);
 });
 
 test('候选冲突不重放创建，显式刷新后保留输入并允许人工重试', async ({ page, newGeoApi }) => {

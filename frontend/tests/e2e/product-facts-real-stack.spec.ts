@@ -8,6 +8,7 @@ import {
 } from '@playwright/test';
 
 import type { components } from '../../src/shared/api/generated/schema';
+import { registerCurrentRealStackCookies, registerRealStackLoginSecrets } from './real-stack-session';
 
 type AuthSession = components['schemas']['AuthSession'];
 type CommandRequest = components['schemas']['CommandRequest'];
@@ -26,6 +27,7 @@ const password = process.env.PARTSIGNAL_SEED_ADMIN_PASSWORD ?? 'partsignal-admin
 
 test.skip(!realStackEnabled, '只由隔离真实栈入口运行');
 test.setTimeout(90_000);
+test.afterEach(async ({ context }) => registerCurrentRealStackCookies(context, apiBaseUrl));
 
 async function responseBody<T>(response: APIResponse): Promise<T> {
   if (!response.ok()) {
@@ -35,9 +37,11 @@ async function responseBody<T>(response: APIResponse): Promise<T> {
 }
 
 async function login(page: Page): Promise<AuthSession> {
-  return responseBody<AuthSession>(await page.request.post(`${apiBaseUrl}/api/v1/auth/login`, {
+  const session = await responseBody<AuthSession>(await page.request.post(`${apiBaseUrl}/api/v1/auth/login`, {
     data: { username: 'admin', password },
   }));
+  await registerRealStackLoginSecrets(page.context(), apiBaseUrl, session.csrf_token);
+  return session;
 }
 
 async function createActivePlatform(page: Page, csrfToken: string): Promise<string> {
@@ -198,7 +202,7 @@ test('Flow A：批准事实后展示不可变版本并交接 CREATE_CONTENT_TASK
       `/products/${product.productId}/facts/versions/${detail.approved_fact!.id}`,
     );
   await expect(page.getByText(platformName, { exact: true })).toBeVisible();
-  await expect(page.getByText('CREATE_FIRST_DRAFT', { exact: true })).toBeVisible();
+  await expect(page.getByText('CREATE_FIRST_DRAFT', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('link', { name: '创建初稿' }))
     .toHaveAttribute('href', /\/content\/tasks\/[0-9a-f-]+\/editor$/);
   await expect(page).not.toHaveURL(/\/editor$/);

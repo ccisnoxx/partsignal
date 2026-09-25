@@ -1,9 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { api } from '@/shared/api/client';
+import type { components } from '@/shared/api/generated/schema';
+import { publicationKeys } from './publication.api';
 import { PublishedArticleDetailPage } from './published-article-detail-page';
 import { articleIds, publishedArticle } from './published-article.test-fixtures';
 
@@ -20,6 +22,7 @@ function renderDetail(articleId = articleIds.article, onIssueOpened = vi.fn()) {
       />
     </QueryClientProvider>,
   );
+  return queryClient;
 }
 
 function response(value: unknown, status = 200) {
@@ -48,6 +51,7 @@ describe('PublishedArticleDetailPage', () => {
 
     expect(await screen.findByRole('heading', { name: publishedArticle.actual_title })).toBeInTheDocument();
     expect(screen.getByText('只读 · 不可变快照')).toBeInTheDocument();
+    expect(screen.getByText('核验通过')).toBeInTheDocument();
     expect(screen.getByLabelText('发布成果来源内容 v3 Markdown 快照')).toHaveTextContent('典型工作电压为 3.3 V');
     expect(screen.getByLabelText('发布成果来源内容 v3 Markdown 快照')).not.toHaveTextContent('危险内容');
     expect(screen.getByRole('heading', { name: '首次成功核验快照' })).toBeInTheDocument();
@@ -117,6 +121,10 @@ describe('PublishedArticleDetailPage', () => {
     expect(screen.getByRole('button', { name: '确认登记' })).toBeDisabled();
     expect(post).toHaveBeenCalledTimes(1);
 
+    await user.click(screen.getByRole('button', { name: '取消' }));
+    await user.click(screen.getByRole('button', { name: '登记内容问题' }));
+    expect(screen.getByRole('textbox', { name: '问题描述' })).toHaveValue('保留这段问题描述');
+    expect(screen.getByRole('button', { name: '确认登记' })).toBeDisabled();
     await user.click(screen.getByRole('button', { name: '显式重载发布成果' }));
 
     expect(get).toHaveBeenCalledTimes(2);
@@ -124,6 +132,42 @@ describe('PublishedArticleDetailPage', () => {
     expect(await screen.findByRole('link', { name: '处理内容问题' }))
       .toHaveAttribute('href', `/publishing/issues/${issueId}#issue`);
     expect(screen.queryByRole('dialog', { name: /登记/ })).not.toBeInTheDocument();
+  });
+
+  it('后台投影撤销 OPEN_ISSUE 时保留已打开草稿并阻止旧命令', async () => {
+    let current: components['schemas']['PublishedArticle'] = publishedArticle;
+    const issueId = 'b0000000-0000-4000-8000-00000000000b';
+    const get = vi.spyOn(api, 'GET').mockImplementation(async () => response(current));
+    const post = vi.spyOn(api, 'POST');
+    const queryClient = renderDetail();
+
+    await userEvent.click(await screen.findByRole('button', { name: '登记内容问题' }));
+    const dialog = await screen.findByRole('dialog', { name: /登记/ });
+    const description = screen.getByRole('textbox', { name: '问题描述' });
+    await userEvent.type(description, '待核对的公开页面变化');
+    current = {
+      ...publishedArticle,
+      has_open_issue: true,
+      open_issue_id: issueId,
+      workflow_stage: 'OPEN_ISSUE',
+      primary_task: 'HANDLE_CONTENT_ISSUE',
+      available_actions: [],
+    };
+    await act(async () => {
+      await queryClient.invalidateQueries({ queryKey: publicationKeys.article(articleIds.article) });
+    });
+
+    await waitFor(() => expect(document.querySelector(`a[href="/publishing/issues/${issueId}#issue"]`)).toBeInTheDocument());
+    expect(dialog).toBeInTheDocument();
+    expect(description).toHaveValue('待核对的公开页面变化');
+    expect(description).toBeDisabled();
+    expect(screen.getByRole('button', { name: '确认登记' })).toBeDisabled();
+    expect(post).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole('button', { name: '显式重载发布成果' }));
+    expect(get).toHaveBeenCalledTimes(3);
+    expect(screen.queryByRole('dialog', { name: /登记/ })).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('link', { name: '处理内容问题' })).toHaveFocus());
   });
 
   it.each([

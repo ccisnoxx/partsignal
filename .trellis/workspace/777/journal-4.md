@@ -1552,3 +1552,37 @@ Optional 完整 backend/frontend suite、frontend typecheck/build 未运行。�
 
 - 下一项为 T5-I6 geo-observation-context-code-reconciliation；本次未创建或启动。
 - T5-C publication-geo-integrity-error-contract-decision 与 integrity-error-domain-mapping 继续保持 planning。
+
+
+## Session 226: 前端重新开发暂停于 I02 独立复核阻断
+
+**Date**: 2026-09-25
+**Task**: 前端重新开发暂停于 I02 独立复核阻断
+**Branch**: `detached-worktree-9100774b`
+
+### Summary
+
+R00 至 I01 已完成；I02 完整 make verify 曾单次通过，但完整候选独立复核确认两个 P1 生命周期阻断，因此 I02 保持 in_progress，I03 未创建。
+
+### Main Changes
+
+- 记录 E2E 数据库日期+PID 命名在跨 PID namespace 下可能碰撞，失败运行可删除其他运行数据库。
+- 记录新增进程组与数据库生命周期故障测试未接入 make verify，顶层门禁可误报通过。
+
+### Git Commits
+
+(No commits - planning session)
+
+### Testing
+
+- [OK] 当前候选此前完整 make verify exit 0：backend unit 667、frontend Vitest 755、PostgreSQL integration 337、real-stack 16、fixture 494 passed/34 skipped；独立复核指出该成功证据未覆盖两个并发/门禁问题。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 为数据库名加入强随机 run ID 与可验证所有权，新增 duplicate 不删除和部分创建仍清理反例。
+- 将两个 lifecycle harness 接入 test-deploy-scripts，定向验证后重跑完整 make verify 并做独立复核。
+- I02 完成后才能创建 I03；I04 仍不在当前授权范围。

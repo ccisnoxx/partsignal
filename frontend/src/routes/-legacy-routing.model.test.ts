@@ -68,6 +68,13 @@ describe('legacy routing query 转换', () => {
       .toBe('/settings/ai?page=1&pageSize=10&status=ENABLED&provider=OPENAI');
   });
 
+  it('Configuration 的两个 legacy 平台入口都忽略非法 Workspace ID', () => {
+    expect(platformsLegacyHref({ platform_profile_id: 'bad' }, 'platform_profile_id'))
+      .toBe('/settings/platforms?page=1&pageSize=20');
+    expect(platformsLegacyHref({ platform: 'bad' }, 'platform'))
+      .toBe('/settings/platforms?page=1&pageSize=20');
+  });
+
   it('Configuration list 白名单覆盖筛选、分页、新建与 AI 枚举', () => {
     expect(platformsLegacyHref({
       q: ' profile ', platform_type_id: id, status: 'DISABLED', page: '2',
@@ -97,6 +104,14 @@ describe('legacy routing query 转换', () => {
     expect(audit).not.toContain('all_time');
   });
 
+  it('Audit 将等价 target_id 直接转换为 canonical targetId', () => {
+    const audit = new URL(auditLegacyHref({ target_id: id }), 'https://partsignal.invalid');
+
+    expect(audit.pathname).toBe('/system/audit');
+    expect(audit.searchParams.get('targetId')).toBe(id);
+    expect(audit.searchParams.has('target_id')).toBe(false);
+  });
+
   it('System 白名单覆盖状态、主体、动作、目标、结果与分页', () => {
     expect(usersLegacyHref({
       q: ' user ', account_type: 'ENGINEER', status: 'ALL', page: '3', page_size: '10',
@@ -114,7 +129,6 @@ describe('legacy routing query 转换', () => {
       keyword: 'sensor',
       page: '2',
       page_size: '50',
-      target_id: 'drop',
     }), 'https://partsignal.invalid');
     expect(Object.fromEntries(audit.searchParams)).toEqual({
       page: '2', pageSize: '50', createdFrom: '2026-08-01T00:00:00.000Z',

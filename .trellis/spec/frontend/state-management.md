@@ -960,7 +960,7 @@ query keys: ["configuration", "ai-channels", "list", apiParams]
 
 - 路由位于既有 ADMIN boundary；URL 只持有可恢复的 `q/status/provider/sort/page/pageSize`，并显式映射到 API `provider_brand/page_size`。列表只消费安全 `AIChannelSummary`，不得读取 Detail、模型或 Header endpoint 补行数据。
 - `workflow_stage/primary_task/available_actions` 只做穷尽动作映射。Workspace href 固定为 `/settings/ai/$channelId?tab=basic`；本列表只直接执行 ENABLE、DISABLE、DELETE，且分别提交当前行 revision。
-- 命令成功失效 AI Channel lists、Prompt Preview Options root 和全部 Content generation-options。列表创建提交完整合同并用响应 ID 进入 canonical Workspace；API Key mutation `gcTime=0`，关闭、成功与失败都清空密钥。
+- 命令成功失效 AI Channel lists、Prompt Preview Options root 和全部 Content generation-options。列表创建提交完整合同并用响应 ID 进入 canonical Workspace；含 API Key 的创建请求由 Dialog 私有生命周期直接执行，不把 secret 放入共享 MutationCache。关闭、成功、失败与卸载都清空密钥；已创建但 Workspace 交接失败时只重试打开，不再次 POST。
 - 1024px 及以上显示固定七列；768/375px 在主单元格重复 Provider/Protocol、模型、连接与配置摘要，隐藏对应独立列，但保留 Enabled/Disabled 和 RowActions。
 
 ### 4. Validation & Error Matrix
@@ -1031,7 +1031,7 @@ keys:   aiChannelKeys.detail/models/usageRoot/logsRoot(channelId), auditKeys.det
 - `ai-channel.api.ts` 是 List/Detail/Models mutation/query key 的唯一 owner。Basic 与 Request 共用一个 RHF 草稿和渠道 revision baseline；配置 form owner 只在这两个 Tab 挂载。切换两者保留草稿；离开到 Models 先由 DirtyGuard 阻断，确认后卸载表单。
 - Models 只在 `tab=models` 时读取集合。发现使用渠道 revision 且结果只保留在 Dialog；create 无 revision，edit/test/enable/disable/delete 使用当前模型 revision。JSON 表单只接受 object 并拒绝 `model/messages/stream`；409 保留编辑草稿或当前投影，只允许显式 reload，不 replay。
 - 配置 PATCH 始终发送完整 `AIChannelUpdate`。成功采用 canonical response；失败不得 optimistic update、自动 replay 或失效消费者。
-- API Key 与所有 Header 值只写不回显；secret mutation 使用 `gcTime=0`，关闭、成功、失败都清空输入。Header 读取只含名称、敏感标记、配置状态和动作，创建/更新提交完整替换值，删除提交当前 `expected_channel_revision`。
+- API Key 与所有 Header 值只写不回显；含 secret 的请求不得把 secret 作为共享 MutationCache variables/context，`gcTime=0` 不能清除 pending 请求的变量。关闭、成功、失败与卸载都清空输入。Header 读取只含名称、敏感标记、配置状态和动作，创建/更新提交完整替换值，删除提交当前 `expected_channel_revision`。
 - Usage/Logs 只在 active Tab 读取 exact URL key。Usage 直接显示服务端统计和窗口，严格区分计数 `0` 与 nullable“暂无数据”；Logs 保持服务端顺序/分页并只用响应 actor，不请求 Users、不客户端聚合或分页。
 - Audit Detail 由全局 Audit domain 持有 query key、字段投影与 renderer；仅在行操作后读取。Configuration 继续持有渠道 Logs URL、Sheet 与触发点焦点，不 dump raw JSON。
 - channel/Header/model action token 必须穷尽消费；未知、重复或矛盾投影显式失败。`TEST_MODEL` 进入 Models，`VIEW_RUNTIME/VIEW_MODEL_RUNTIME` 都进入渠道 Usage。
@@ -1102,12 +1102,12 @@ query key: userKeys.list(exactApiParams)
 
 - canonical URL 固定由 `q/accountType/status/page/pageSize` 持有，默认显式 `status=ENABLED&page=1&pageSize=20`；`ALL` 调用 API 时省略 status。首屏只读取 UserList，不做逐行请求或客户端 summary/action 推导。
 - selection 是页面本地状态，绑定 canonical scope 和 `{id,username,revision}`。换筛选/页码/页大小立即整体清空；refetch 后已选项消失或 revision 变化也整体清空并提示，revision 未变才保留。
-- create/edit/reset 与非删除确认 Dialog 拥有各自草稿。create/reset 的 password owner 随 Dialog 卸载，mutation `gcTime=0`，关闭、成功和所有失败恢复都不得把 secret 留在 cache、错误文本、反馈或 DOM。
+- create/edit/reset 与非删除确认 Dialog 拥有各自草稿。create/reset 的临时密码由 Dialog 私有 form 与当前请求持有，不作为共享 MutationCache variables/context；`gcTime=0` 不能清除 pending 请求的变量。关闭、成功、失败和卸载都不得把 secret 留在 cache、错误文本、反馈或 DOM；迟到响应不得回写已卸载 Dialog。
 - create user 的纯 mapper 只在 `code === "USER_USERNAME_EXISTS"` 且某个 `details.errors[].loc` 精确等于 `['body','username']` 时返回 username field error。message 只展示，不参与分支；details 缺失、malformed、unknown loc 或其他 code 返回 form summary，不猜字段。
 - 创建失败保持 Dialog，保留 username/display name/account type，清空 temporary password。canonical duplicate 把焦点移到 username；inline 与 summary 都显示 request ID。用户修改 username、重新输入密码后显式重试。
 - duplicate 不进入 revision freeze/reload，不自动 GET/replay，不调用成功回调或成功 query invalidation。创建成功仍关闭 Dialog、清空表单并刷新 Users list。
-- 删除 intent 只保存 User ID/命令/focus，名称、资格与 DELETE revision 从当前 exact UserList query 派生。任意删除 409 即使被动 query 更新也保持冻结，只有显式 reload 成功才解除；delete `USER_IN_USE` 继续使用既有删除恢复，不与 create duplicate 混用。
-- bulk disable 使用业务页 custom confirmation；200 partial 清空 selection 并保留脱敏 username/code/message 反馈，顶层失败保留 selection/confirm。成功只失效 Users lists，成功项包含当前 actor 时等待 auth refresh。
+- 删除 intent 只保存 User ID/命令/focus，名称、资格与 DELETE revision 从当前 exact UserList query 派生。每个目标的删除 409 分别冻结，关闭重开、其他用户的冲突或被动 query 更新都不能解除；只有该目标当前 exact UserList 显式 reload 成功才解除。delete `USER_IN_USE` 继续使用既有删除恢复，不与 create duplicate 混用。
+- bulk disable 使用业务页 custom confirmation，确认绑定当前 canonical scope、selection 与 revision；提交前重核 exact UserList query，范围或目标漂移则撤销旧确认。200 partial 仅清理仍属于该请求 scope 与选择代次的 selection，并把脱敏 username/code/message 反馈归于原 scope；迟到响应不得清除新范围或新选择。顶层失败保留 selection/confirm。成功只失效 Users lists；成功项包含当前 actor 时启动并等待 auth refresh，不被 Users list 读取挂起阻塞。
 - blocker 只展示服务端 count 并允许刷新列表；`USER_BUSINESS_HISTORY` 精确链接到 `/system/audit?actorId=<user-id>`，Users 页面不读取 Audit。
 
 ### 4. Validation & Error Matrix

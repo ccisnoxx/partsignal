@@ -16,12 +16,14 @@ type UploadIntent = components['schemas']['UploadIntent'];
 type PublicationEvidenceUploadProps = {
   csrfToken: string | null;
   disabled?: boolean;
+  onBusyChange: (busy: boolean) => void;
   onUploaded: (file: FileRecord) => void;
 };
 
 function PublicationEvidenceUpload({
   csrfToken,
   disabled = false,
+  onBusyChange,
   onUploaded,
 }: PublicationEvidenceUploadProps) {
   const [phase, setPhase] = useState<'idle' | 'uploading' | 'completing' | 'failed'>('idle');
@@ -30,6 +32,7 @@ function PublicationEvidenceUpload({
 
   async function complete(intent: UploadIntent) {
     setPhase('completing');
+    onBusyChange(true);
     setError(undefined);
     try {
       const verified = await completeFileUpload(intent.file.id, csrfToken);
@@ -40,11 +43,14 @@ function PublicationEvidenceUpload({
       setPendingIntent(intent);
       setPhase('failed');
       setError(reason instanceof Error ? reason.message : '确认文件上传失败');
+    } finally {
+      onBusyChange(false);
     }
   }
 
   async function upload(file: File) {
     setPhase('uploading');
+    onBusyChange(true);
     setError(undefined);
     setPendingIntent(undefined);
     const intent = await createFileUploadIntent({
@@ -84,6 +90,7 @@ function PublicationEvidenceUpload({
           void upload(file).catch((reason: unknown) => {
             setPhase('failed');
             setError(reason instanceof Error ? reason.message : '上传证据失败');
+            onBusyChange(false);
           });
         }}
         type="file"

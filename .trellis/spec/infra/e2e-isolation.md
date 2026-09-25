@@ -10,8 +10,8 @@
 make e2e
 deploy/scripts/e2e-local.sh [playwright arguments...]
 PARTSIGNAL_E2E_SPEC=tests/e2e/<name>-real-stack.spec.ts deploy/scripts/e2e-local.sh
-deploy/scripts/e2e-database.py create partsignal_e2e_YYYYMMDD_PID
-deploy/scripts/e2e-database.py drop   partsignal_e2e_YYYYMMDD_PID
+deploy/scripts/e2e-database.py create partsignal_e2e_YYYYMMDD_<32hex> <owner-token>
+deploy/scripts/e2e-database.py drop   partsignal_e2e_YYYYMMDD_<32hex> <owner-token>
 npm --prefix frontend run e2e -- [playwright arguments...]
 backend/.venv/bin/uvicorn app.dev_storage:app --host 127.0.0.1 --port "$PARTSIGNAL_E2E_STORAGE_PORT" --no-access-log
 ```
@@ -21,7 +21,8 @@ backend/.venv/bin/uvicorn app.dev_storage:app --host 127.0.0.1 --port "$PARTSIGN
 - `DATABASE_URL`、`REDIS_URL` 必填；`PARTSIGNAL_E2E_STORAGE_PORT` 可选，默认 `19009`。
 - `PARTSIGNAL_E2E_SPEC` 未设置时运行完整 canonical real-stack；设置时复用同一隔离数据库、Redis、存储、进程与 cleanup，只运行指定真实栈 spec。定向模式只用于独立诊断，不能替代完整 `make e2e` 或最终门禁。
 - `REDIS_URL` 必须指向启动前为空且本次运行独占的非 0 logical DB；DB 0、同库外部客户端或未知残留键直接失败。CI E2E 固定使用 DB 14，backend integration 继续使用 DB 15。
-- 数据库名必须匹配 `^partsignal_e2e_\d{8}_\d+$`；创建和删除都拒绝其他名称。业务服务、Alembic 和种子命令只使用本次创建的数据库。
+- 数据库名必须匹配 `^partsignal_e2e_[0-9]{8}_[0-9a-f]{32}$`；日期和 run ID 只接受 ASCII，合法名称固定为 56 字节，不触发 PostgreSQL 标识符截断。32 位十六进制 run ID 由密码学安全随机源生成，不依赖跨容器或 PID namespace 唯一的进程号。创建和删除都拒绝其他名称。业务服务、Alembic 和种子命令只使用本次创建的数据库。
+- 每次运行另生成独立的 32 位十六进制 owner token。创建成功后以 PostgreSQL database comment 写入精确 owner marker；删除前必须从 PostgreSQL 读取并匹配该 marker。尝试创建本身不授予删除权；同名数据库预先存在或 marker 不匹配时显式拒绝删除。成功创建并标记后，即使 create 客户端随后失败，退出清理仍须验证 marker 并强制断开、删除本运行数据库。
 - 对象存储和 Celery beat 文件只写入本次 `mktemp -d` 创建的目录。
 - E2E runner 启动 Celery worker/beat 时使用顶层 `--quiet` 关闭会回显 broker 连接值的 lifecycle banner/关闭诊断；业务 `WARNING` 日志、进程退出码、PID stop/wait 与 cleanup 输出仍须保留。不得用 logfile、输出重定向、事后过滤或全局 scanner 替代 owner 修复。
 - 退出时无论测试成功、失败或收到信号，都停止并 `wait` 本次进程；只删除枚举后符合 allowlist 的精确 Celery/Kombu 键，并证明 Redis 为空和固定端口释放，再 drop 本次数据库和删除临时目录。
@@ -42,6 +43,8 @@ backend/.venv/bin/uvicorn app.dev_storage:app --host 127.0.0.1 --port "$PARTSIGN
 | Redis cleanup 枚举到 allowlist 外键 | 拒绝删除未知键，清理非零退出 |
 | 8000、9001、4174 或对象存储端口已占用/重复 | preflight 或 cleanup 失败并报告确切端口 |
 | 数据库名不满足 allowlist | 拒绝创建或删除 |
+| owner token 格式非法或数据库 marker 不匹配 | 显式拒绝删除，不修改预先存在的同名数据库 |
+| create 已成功写入 owner marker、客户端随后失败 | 保留原失败码，并验证 owner marker 后强制删除本运行数据库 |
 | 迁移、构建、种子、服务就绪或 Playwright 失败 | 保留原失败码并执行清理 |
 | `PARTSIGNAL_E2E_SPEC` 指向不存在的测试文件 | Playwright 非零退出并执行同一精确清理 |
 | 删除数据库或临时目录失败 | 输出失败目标并以非零状态退出 |

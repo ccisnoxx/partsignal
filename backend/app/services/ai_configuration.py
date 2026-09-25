@@ -464,12 +464,9 @@ def list_ai_channel_audit_logs(
     base_query = (
         select(AuditLog, User)
         .outerjoin(User, User.id == AuditLog.actor_id)
-        .where(condition, AuditLog.actor_id.is_not(None))
+        .where(condition)
     )
-    total = int(
-        db.scalar(select(func.count(AuditLog.id)).where(condition, AuditLog.actor_id.is_not(None)))
-        or 0
-    )
+    total = int(db.scalar(select(func.count(AuditLog.id)).where(condition)) or 0)
     records = list(
         db.execute(
             base_query.order_by(AuditLog.created_at.desc(), AuditLog.id.desc())

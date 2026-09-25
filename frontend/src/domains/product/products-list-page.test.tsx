@@ -97,7 +97,7 @@ describe('ProductsListPage', () => {
     expect(screen.getByRole('link', { name: product.part_number })).toHaveAttribute('href', `/products/${product.id}`);
     expect(screen.getByText(product.brand)).toBeInTheDocument();
     expect(screen.getByText(product.category)).toBeInTheDocument();
-    expect(screen.getByText('已批准')).toBeInTheDocument();
+    expect(screen.getAllByText('已批准')).toHaveLength(2);
     expect(screen.getByText('Approved v3')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '创建内容' })).toHaveAttribute('href', `/content/tasks/new?productId=${product.id}`);
     expect(get).toHaveBeenCalledOnce();

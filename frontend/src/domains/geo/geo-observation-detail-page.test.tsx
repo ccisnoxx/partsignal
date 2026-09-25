@@ -12,6 +12,7 @@ import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
 import { createAuthenticatedTestQueryClient } from '@/test/auth-session';
 import { geoKeys } from './geo.api';
+import { GeoObservationDetailPage } from './geo-observation-detail-page';
 
 type GeoObservationDetail = components['schemas']['GeoObservationDetail'];
 
@@ -345,6 +346,101 @@ describe('GeoObservationDetailPage', () => {
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: productsKeys.detail(productId),
     });
+  });
+
+  it.each(['revoked', 'failed'])('确认开启后 %s 不使用旧 DELETE token', async (mode) => {
+    const data = manualDetail();
+    const get = vi.spyOn(api, 'GET').mockResolvedValue({ data, response: Response.json(data) } as never);
+    const remove = vi.spyOn(api, 'DELETE');
+    const { queryClient } = renderDetail(data);
+    await userEvent.click(await screen.findByRole('button', { name: /更多操作/ }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: '删除' }));
+    const dialog = await screen.findByRole('dialog', { name: '删除 GEO 观测' });
+    if (mode === 'failed') get.mockRejectedValue(new Error('读取失败'));
+    else {
+      const next = manualDetail();
+      if (next.observation_kind === 'MANUAL_ARTICLE_SEARCH') next.correction_history[1]!.observation.available_actions = [];
+      get.mockResolvedValue({ data: next, response: Response.json(next) } as never);
+    }
+    await act(async () => { await queryClient.invalidateQueries({ queryKey: geoKeys.detail(rootId) }); });
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: '确认删除' })).toBeDisabled());
+    expect(remove).not.toHaveBeenCalled();
+    await userEvent.click(within(dialog).getByRole('button', { name: '取消' }));
+    if (mode === 'revoked') await waitFor(() => expect(screen.getByRole('heading', { name: '怎样选择射频前端器件？' })).toHaveFocus());
+  });
+
+  it('DELETE 409 旧确认失效，背景成功不解冻，显式重载才允许重新确认', async () => {
+    const data = manualDetail();
+    vi.spyOn(api, 'GET').mockResolvedValue({ data, response: Response.json(data) } as never);
+    const remove = vi.spyOn(api, 'DELETE').mockResolvedValue({ response: new Response(null, { status: 409 }) } as never);
+    const { queryClient } = renderDetail(data);
+    await userEvent.click(await screen.findByRole('button', { name: /更多操作/ }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: '删除' }));
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '确认删除' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await act(async () => { await queryClient.invalidateQueries({ queryKey: geoKeys.detail(rootId) }); });
+    await userEvent.click(screen.getByRole('button', { name: /更多操作/ }));
+    expect(await screen.findByRole('menuitem', { name: /^删除/ })).toHaveAttribute('aria-disabled', 'true');
+    await userEvent.keyboard('{Escape}');
+    await userEvent.click(screen.getByRole('button', { name: '重载详情' }));
+    await userEvent.click(screen.getByRole('button', { name: /更多操作/ }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: '删除' }));
+    expect(within(await screen.findByRole('dialog')).getByRole('button', { name: '确认删除' })).toBeEnabled();
+    expect(remove).toHaveBeenCalledOnce();
+  });
+
+  it('204 后导航失败仍显示删除成功并完成缓存失效，不可重试 DELETE', async () => {
+    const data = manualDetail();
+    const queryClient = createAuthenticatedTestQueryClient(auth);
+    queryClient.setQueryData(geoKeys.detail(rootId), data);
+    const get = vi.spyOn(api, 'GET');
+    const remove = vi.spyOn(api, 'DELETE').mockResolvedValue({ response: new Response(null, { status: 204 }) } as never);
+    const onDeleted = vi.fn().mockRejectedValue(new Error('导航失败'));
+    const original = queryClient.invalidateQueries.bind(queryClient);
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    invalidate.mockImplementation((filters, options) => JSON.stringify(filters?.queryKey) === JSON.stringify(geoKeys.lists())
+      ? new Promise(() => {}) : original(filters, options));
+    render(<QueryClientProvider client={queryClient}><TooltipProvider>
+      <GeoObservationDetailPage csrfToken="csrf" observationId={rootId} onDeleted={onDeleted} />
+    </TooltipProvider></QueryClientProvider>);
+    await userEvent.click(screen.getByRole('button', { name: /更多操作/ }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: '删除' }));
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '确认删除' }));
+    expect(await screen.findByText('返回列表失败：导航失败')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '返回观测列表' })).toBeInTheDocument();
+    expect(queryClient.getQueryState(geoKeys.detail(rootId))?.isInvalidated).toBe(true);
+    expect(remove).toHaveBeenCalledOnce();
+    expect(get).not.toHaveBeenCalled();
+  });
+
+  it('A 的 DELETE pending 期间切换 B，完成后只清理 A 身份且不导航 B', async () => {
+    const data = manualDetail();
+    const other = legacyDetail();
+    const otherId = 'abcdef00-0000-4000-8000-000000000099';
+    if (other.observation_kind !== 'LEGACY_MODEL_RESULT') throw new Error('fixture');
+    other.observation.id = otherId;
+    other.product.id = 'abcdef00-0000-4000-8000-000000000098';
+    const queryClient = createAuthenticatedTestQueryClient(auth);
+    queryClient.setQueryData(geoKeys.detail(rootId), data);
+    queryClient.setQueryData(geoKeys.detail(otherId), other);
+    let finish!: (value: never) => void;
+    vi.spyOn(api, 'DELETE').mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+    const onDeleted = vi.fn();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    const tree = (id: string) => <QueryClientProvider client={queryClient}><TooltipProvider>
+      <GeoObservationDetailPage csrfToken="csrf" observationId={id} onDeleted={onDeleted} />
+    </TooltipProvider></QueryClientProvider>;
+    const rendered = render(tree(rootId));
+    await userEvent.click(screen.getByRole('button', { name: /更多操作/ }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: '删除' }));
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '确认删除' }));
+    rendered.rerender(tree(otherId));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    await act(async () => { finish({ response: new Response(null, { status: 204 }) } as never); });
+    await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: productsKeys.detail(productId) }));
+    expect(invalidate).not.toHaveBeenCalledWith({ queryKey: productsKeys.detail(other.product.id) });
+    expect(onDeleted).not.toHaveBeenCalled();
+    expect(screen.getByRole('heading', { name: '旧模型完整问题是什么？' })).toBeInTheDocument();
   });
 
   it('非法 UUID 在路由边界失败且不发送 Detail 请求', async () => {

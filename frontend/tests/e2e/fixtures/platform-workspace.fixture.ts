@@ -29,6 +29,7 @@ type PlatformWorkspaceApiController = {
   setAccountProjection: (accountId: string, changes: Partial<components['schemas']['PlatformAccount']>) => void;
   removeAccount: (accountId: string) => void;
   conflictNextDelete: () => void;
+  failNextAccountReload: () => void;
 };
 
 type WorkspaceFixtures = { platformWorkspaceApi: PlatformWorkspaceApiController };
@@ -84,6 +85,7 @@ const test = base.extend<WorkspaceFixtures>({
     const accountRequests: PlatformWorkspaceApiController['accountRequests'] = [];
     const accountListRequests: string[] = [];
     let nextDeleteConflict = false;
+    let nextAccountReloadFailure = false;
     const platformAccounts: components['schemas']['PlatformAccount'][] = [
       {
         platform_profile_id: profiles[0]!.id,
@@ -165,6 +167,11 @@ const test = base.extend<WorkspaceFixtures>({
       if (request.method() === 'GET' && url.pathname === '/api/v1/platform-accounts') {
         const platformId = url.searchParams.get('platform_profile_id')!;
         accountListRequests.push(platformId);
+        if (nextAccountReloadFailure) {
+          nextAccountReloadFailure = false;
+          await route.fulfill({ status: 500, json: { error: { code: 'ACCOUNTS_REFRESH_FAILED', message: '账号列表刷新失败', details: {}, request_id: 'req-accounts-reload-failed' } } });
+          return;
+        }
         await route.fulfill({
           status: 200,
           json: {
@@ -394,6 +401,10 @@ const test = base.extend<WorkspaceFixtures>({
       conflictNextDelete: () => {
         nextDeleteConflict = true;
         platformsApi.allowHttpError(409);
+      },
+      failNextAccountReload: () => {
+        nextAccountReloadFailure = true;
+        platformsApi.allowHttpError(500);
       },
     });
   }, { auto: true }],

@@ -1,4 +1,5 @@
 import { expect, test } from './fixtures/users.fixture';
+import { fixtureArtifactSecrets } from './fixture-secrets';
 
 test.use({ trace: 'off' });
 
@@ -49,11 +50,13 @@ test('Users 创建、编辑、reset 冲突与 blocker 均遵守 revision 和敏�
   const create = page.getByRole('dialog', { name: '新增用户' });
   await create.getByRole('textbox', { name: '用户名' }).fill('new-e2e-user');
   await create.getByRole('textbox', { name: '显示名称' }).fill('新增 E2E 用户');
-  await create.getByLabel(/临时密码/).fill('create-users-secret');
+  await create.getByLabel(/临时密码/).fill(fixtureArtifactSecrets.usersCreatePassword);
   await create.getByRole('button', { name: '创建用户' }).click();
   await expect(create).not.toBeVisible();
   expect(usersApi.requestRecords.at(-1)).toEqual({
-    operation: 'create', csrfToken: 'users-e2e-csrf', passwordLength: 19,
+    operation: 'create',
+    csrfToken: 'users-e2e-csrf',
+    passwordLength: fixtureArtifactSecrets.usersCreatePassword.length,
   });
 
   const firstRow = page.getByRole('row', { name: /operator-long-account-name/ });
@@ -70,17 +73,20 @@ test('Users 创建、编辑、reset 冲突与 blocker 均遵守 revision 和敏�
   await resetRow.getByRole('button', { name: '重置临时密码' }).click();
   const reset = page.getByRole('dialog', { name: /重置 operator-02 的临时密码/ });
   const password = reset.getByLabel(/临时密码/);
-  await password.fill('reset-users-secret');
+  await password.fill(fixtureArtifactSecrets.usersResetPassword);
   await reset.getByRole('button', { name: '重置临时密码' }).click();
   await expect(reset.getByRole('alert')).toContainText('请求 ID：req-users-conflict');
-  await expect(password).toHaveValue('reset-users-secret');
+  await expect(password).toHaveValue(fixtureArtifactSecrets.usersResetPassword);
   const resetCount = usersApi.requestRecords.filter((record) => record.operation === 'reset').length;
   await page.waitForTimeout(150);
   expect(usersApi.requestRecords.filter((record) => record.operation === 'reset')).toHaveLength(resetCount);
   await reset.getByRole('button', { name: '重新加载列表' }).click();
   await expect(reset).not.toBeVisible();
   expect(usersApi.requestRecords.at(-1)).toMatchObject({
-    operation: 'reset', csrfToken: 'users-e2e-csrf', expectedRevision: 2, passwordLength: 18,
+    operation: 'reset',
+    csrfToken: 'users-e2e-csrf',
+    expectedRevision: 2,
+    passwordLength: fixtureArtifactSecrets.usersResetPassword.length,
   });
 
   await firstRow.getByRole('button', { name: /更多操作/ }).click();
@@ -94,8 +100,8 @@ test('Users 创建、编辑、reset 冲突与 blocker 均遵守 revision 和敏�
   await blocker.getByRole('button', { name: '关闭' }).first().click();
   await expect(firstRow.getByRole('button', { name: /更多操作/ })).toBeFocused();
 
-  expect(usersApi.responsePayloads.join('\n')).not.toContain('create-users-secret');
-  expect(usersApi.responsePayloads.join('\n')).not.toContain('reset-users-secret');
+  expect(usersApi.responsePayloads.join('\n')).not.toContain(fixtureArtifactSecrets.usersCreatePassword);
+  expect(usersApi.responsePayloads.join('\n')).not.toContain(fixtureArtifactSecrets.usersResetPassword);
   expect(JSON.stringify(usersApi.requestRecords)).not.toContain('users-secret');
 });
 
@@ -177,6 +183,39 @@ test('User 删除 Dialog 重新聚焦后采用当前列表 projection 的最新 
   await dialog.getByRole('button', { name: '删除用户' }).click();
   await expect.poll(() => usersApi.requestRecords.filter((record) => record.operation === 'delete').at(-1)?.expectedRevision)
     .toBe(28);
+});
+
+test('Users 两个删除 409 各自保持冻结，失败重读不解冻', async ({ page, usersApi }) => {
+  await page.goto('/system/users?status=DISABLED&page=1&pageSize=20');
+  for (const username of ['operator-09', 'operator-18']) {
+    usersApi.conflictNextDelete();
+    const row = page.getByRole('row', { name: new RegExp(username) });
+    await row.getByRole('button', { name: /更多操作/ }).click();
+    await page.getByRole('menuitem', { name: '删除用户' }).click();
+    const dialog = page.getByRole('dialog', { name: `删除用户“${username}”？` });
+    await dialog.getByRole('button', { name: '删除用户' }).click();
+    await expect(dialog).toContainText('req-users-delete-conflict');
+    await dialog.getByRole('button', { name: '关闭' }).first().click();
+  }
+  const first = page.getByRole('row', { name: /operator-09/ });
+  await first.getByRole('button', { name: /更多操作/ }).click();
+  await page.getByRole('menuitem', { name: '删除用户' }).click();
+  const reopened = page.getByRole('dialog', { name: '删除用户“operator-09”？' });
+  await expect(reopened.getByRole('button', { name: '删除用户' })).toBeDisabled();
+  usersApi.failNextList(503);
+  usersApi.allowHttpError(503);
+  await reopened.getByRole('button', { name: '重新加载当前用户列表' }).click();
+  await expect(reopened).toContainText('req-users-list-failed');
+  await expect(reopened.getByRole('button', { name: '删除用户' })).toBeDisabled();
+  await reopened.getByRole('button', { name: '重新加载当前用户列表' }).click();
+  await expect(reopened.getByRole('button', { name: '删除用户' })).toBeEnabled();
+  await reopened.getByRole('button', { name: '关闭' }).first().click();
+  const second = page.getByRole('row', { name: /operator-18/ });
+  await second.getByRole('button', { name: /更多操作/ }).click();
+  await page.getByRole('menuitem', { name: '删除用户' }).click();
+  await expect(page.getByRole('dialog', { name: '删除用户“operator-18”？' })
+    .getByRole('button', { name: '删除用户' })).toBeDisabled();
+  expect(usersApi.requestRecords.filter((record) => record.operation === 'delete')).toHaveLength(2);
 });
 
 test('Users bulk 使用选择时 revision、custom 停用确认和 200 partial 反馈', async ({ page, usersApi }) => {

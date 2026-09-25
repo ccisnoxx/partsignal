@@ -121,6 +121,72 @@ test('Platform Profile 删除 Dialog 在 focus projection 更新后禁止陈旧�
   await expect.poll(() => platformsApi.commandRequests.at(-1)?.expectedRevision).toBe(33);
 });
 
+test('Platform List 删除已接受但列表同步失败时冻结旧行，显式刷新后不重复删除', async ({ page, platformsApi }) => {
+  await page.goto('/settings/platforms?page=1&pageSize=20');
+  const row = page.getByRole('row', { name: /工程师社区 003/ });
+  await row.getByRole('button', { name: /更多操作/ }).click();
+  await page.getByRole('menuitem', { name: '删除平台' }).click();
+  platformsApi.failNextList();
+  await page.getByRole('dialog', { name: /确认删除平台/ }).getByRole('button', { name: '确认删除' }).click();
+  await expect(page.getByText(/平台命令已成功，正在确认最新列表/)).toBeVisible();
+  await expect(row).toBeVisible();
+  await row.getByRole('button', { name: /更多操作/ }).click();
+  await expect(page.getByRole('menuitem', { name: '删除平台' })).toHaveAttribute('aria-disabled', 'true');
+  await page.keyboard.press('Escape');
+  expect(platformsApi.commandRequests.filter((request) => request.command === 'delete')).toHaveLength(1);
+  await page.getByRole('button', { name: '重新加载列表' }).click();
+  await expect(row).toHaveCount(0);
+  expect(platformsApi.commandRequests.filter((request) => request.command === 'delete')).toHaveLength(1);
+});
+
+test('Platform List 删除 409 关闭重开后仍需显式成功重读', async ({ page, platformsApi }) => {
+  await page.goto('/settings/platforms?page=1&pageSize=20');
+  const row = page.getByRole('row', { name: /工程师社区 003/ });
+  await row.getByRole('button', { name: /更多操作/ }).click();
+  await page.getByRole('menuitem', { name: '删除平台' }).click();
+  platformsApi.conflictNextDelete();
+  await page.getByRole('dialog', { name: /确认删除平台/ }).getByRole('button', { name: '确认删除' }).click();
+  const dialog = page.getByRole('dialog', { name: /确认删除平台/ });
+  await expect(dialog).toContainText('req-platform-delete-conflict');
+  await dialog.getByRole('button', { name: '关闭' }).first().click();
+  await row.getByRole('button', { name: /更多操作/ }).click();
+  await page.getByRole('menuitem', { name: '删除平台' }).click();
+  const reopened = page.getByRole('dialog', { name: /确认删除平台/ });
+  await expect(reopened.getByRole('button', { name: '确认删除' })).toBeDisabled();
+  platformsApi.failNextList();
+  await reopened.getByRole('button', { name: '重新加载当前列表' }).click();
+  await expect(reopened).toContainText('列表暂不可用');
+  await expect(reopened.getByRole('button', { name: '确认删除' })).toBeDisabled();
+  await reopened.getByRole('button', { name: '重新加载当前列表' }).click();
+  await expect(reopened.getByRole('button', { name: '确认删除' })).toBeEnabled();
+  expect(platformsApi.commandRequests.filter((request) => request.command === 'delete')).toHaveLength(1);
+});
+
+test('Platform List 删除末页唯一行后返回上一页并恢复命令', async ({ page, platformsApi }) => {
+  const targetId = '00000000-0000-4000-8000-000000000041';
+  for (const index of [42, 43, 44, 45]) {
+    platformsApi.removePlatform(`00000000-0000-4000-8000-${String(index).padStart(12, '0')}`);
+  }
+  platformsApi.setProjection(targetId, {
+    is_active: false,
+    workflow_stage: 'DISABLED',
+    primary_task: 'ENABLE_PLATFORM',
+    available_actions: ['UPDATE', 'ENABLE', 'DELETE'],
+    deletion: { blockers: [] },
+  });
+  await page.goto('/settings/platforms?page=5&pageSize=10');
+  const target = page.getByRole('row', { name: /工程师社区 041/ });
+  await target.getByRole('button', { name: /更多操作/ }).click();
+  await page.getByRole('menuitem', { name: '删除平台' }).click();
+  await page.getByRole('dialog', { name: /确认删除平台/ }).getByRole('button', { name: '确认删除' }).click();
+  await expect(page).toHaveURL(/page=4&pageSize=10/);
+  const previousRow = page.getByRole('row', { name: /工程师社区 031/ });
+  await previousRow.getByRole('button', { name: /更多操作/ }).click();
+  await expect(page.getByRole('menuitem', { name: '停用平台' })).not.toHaveAttribute('aria-disabled', 'true');
+  await expect(page.getByText(/平台命令已成功，正在确认最新列表/)).toHaveCount(0);
+  expect(platformsApi.commandRequests.filter((request) => request.command === 'delete')).toHaveLength(1);
+});
+
 test('Platform List 在 375/768/1024/1440 无页面级横向溢出且移动端动作可达', async ({ page }, testInfo) => {
   const widths = testInfo.project.name === 'foundation-mobile' ? [375, 768] : [1024, 1440];
   await page.goto('/settings/platforms?page=1&pageSize=20');

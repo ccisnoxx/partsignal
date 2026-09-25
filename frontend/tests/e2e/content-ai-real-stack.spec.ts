@@ -8,6 +8,8 @@ import {
 } from '@playwright/test';
 
 import type { components } from '../../src/shared/api/generated/schema';
+import { registerCurrentRealStackCookies, registerRealStackLoginSecrets } from './real-stack-session';
+import { registerArtifactSecrets } from './secret-artifact';
 
 type AIChannel = components['schemas']['AIChannel'];
 type AIModel = components['schemas']['AIModel'];
@@ -24,9 +26,18 @@ const realStackEnabled = process.env.PARTSIGNAL_E2E_REAL_STACK === '1';
 const apiBaseUrl = process.env.PARTSIGNAL_E2E_API_BASE_URL ?? 'http://127.0.0.1:8000';
 const fakeAiBaseUrl = process.env.PARTSIGNAL_E2E_FAKE_AI_BASE_URL ?? 'http://127.0.0.1:9001';
 const password = process.env.PARTSIGNAL_SEED_ADMIN_PASSWORD ?? 'partsignal-admin-dev';
+const contentAiArtifactSecrets = Object.freeze({
+  replacementApiKey: 'e2e-second-key-updated',
+  replacementSensitiveHeader: 'timeout-secret-updated',
+  successApiKey: 'e2e-only-key',
+  successSensitiveHeader: 'v2-ai-secret',
+  timeoutApiKey: 'e2e-second-key',
+  timeoutSensitiveHeader: 'timeout-secret',
+});
 
 test.skip(!realStackEnabled, '只由隔离真实栈入口运行');
 test.setTimeout(150_000);
+test.afterEach(async ({ context }) => registerCurrentRealStackCookies(context, apiBaseUrl));
 
 async function responseBody<T>(response: APIResponse): Promise<T> {
   if (!response.ok()) {
@@ -36,9 +47,11 @@ async function responseBody<T>(response: APIResponse): Promise<T> {
 }
 
 async function login(page: Page): Promise<AuthSession> {
-  return responseBody<AuthSession>(await page.request.post(`${apiBaseUrl}/api/v1/auth/login`, {
+  const session = await responseBody<AuthSession>(await page.request.post(`${apiBaseUrl}/api/v1/auth/login`, {
     data: { username: 'admin', password },
   }));
+  await registerRealStackLoginSecrets(page.context(), apiBaseUrl, session.csrf_token);
+  return session;
 }
 
 async function apiGet<T>(page: Page, path: string): Promise<T> {
@@ -105,8 +118,11 @@ async function configureModel(
     timeoutSeconds: number;
   },
 ) {
+  const timeoutModel = modelId.startsWith('e2e-timeout-model-');
   const channel = await command<AIChannel>(page, csrfToken, '/api/v1/ai-channels', {
-    api_key: modelId.startsWith('e2e-timeout-model-') ? 'e2e-second-key' : 'e2e-only-key',
+    api_key: timeoutModel
+      ? contentAiArtifactSecrets.timeoutApiKey
+      : contentAiArtifactSecrets.successApiKey,
     base_url: `${fakeAiBaseUrl}/v1`,
     description: 'Frontend V2 AI real-stack 隔离渠道',
     name: channelName,
@@ -122,7 +138,7 @@ async function configureModel(
       expected_channel_revision: channel.revision,
       is_sensitive: false,
       name: 'X-E2E-Region',
-      value: modelId.startsWith('e2e-timeout-model-') ? 'timeout-test' : 'v2-ai-test',
+      value: timeoutModel ? 'timeout-test' : 'v2-ai-test',
     },
   );
   const withSecret = await command<AIChannel>(
@@ -133,7 +149,9 @@ async function configureModel(
       expected_channel_revision: withRegion.revision,
       is_sensitive: true,
       name: 'X-E2E-Secret',
-      value: modelId.startsWith('e2e-timeout-model-') ? 'timeout-secret' : 'v2-ai-secret',
+      value: timeoutModel
+        ? contentAiArtifactSecrets.timeoutSensitiveHeader
+        : contentAiArtifactSecrets.successSensitiveHeader,
     },
   );
   const model = await command<AIModel>(
@@ -250,6 +268,7 @@ function immutableContentFields(content: ContentVersion) {
 
 test('AI Production：成功、自然化、失败详情与 exact snapshot retry', async ({ page }) => {
   const suffix = randomUUID().slice(0, 8);
+  await registerArtifactSecrets(Object.values(contentAiArtifactSecrets));
   const session = await login(page);
   const { platform, platformPrompt } = await configurePlatform(page, session.csrf_token, suffix);
   const successModel = await configureModel(page, session.csrf_token, {
@@ -398,7 +417,10 @@ test('AI Production：成功、自然化、失败详情与 exact snapshot retry'
     page,
     session.csrf_token,
     `/api/v1/ai-channels/${timeoutModel.channel.id}/api-key`,
-    { api_key: 'e2e-second-key-updated', expected_revision: timeoutModel.channel.revision },
+    {
+      api_key: contentAiArtifactSecrets.replacementApiKey,
+      expected_revision: timeoutModel.channel.revision,
+    },
     'PUT',
   );
   const updatedHeader = await command<AIChannel>(
@@ -409,7 +431,7 @@ test('AI Production：成功、自然化、失败详情与 exact snapshot retry'
       expected_channel_revision: replacedKey.revision,
       is_sensitive: true,
       name: 'X-E2E-Secret',
-      value: 'timeout-secret-updated',
+      value: contentAiArtifactSecrets.replacementSensitiveHeader,
     },
     'PATCH',
   );

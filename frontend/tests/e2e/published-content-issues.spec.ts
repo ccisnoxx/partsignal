@@ -39,6 +39,11 @@ test('Article 登记后交接 Workspace，repair 与 resolve 保持独立', asyn
     csrfToken: 'publication-e2e-csrf',
   });
 
+  await page.goto(canonical);
+  await expect(page.getByRole('link', { name: publishedArticle.actual_title })).toBeVisible();
+  await page.getByRole('link', { name: publishedArticle.actual_title }).click();
+  await expect(page).toHaveURL(workspacePath);
+
   await page.getByRole('button', { name: '创建修复任务' }).click();
   await page.getByRole('combobox', { name: '修复依据' }).click();
   await page.getByRole('option', { name: 'FactVersion v2 · 批准修复依据' }).click();
@@ -61,6 +66,26 @@ test('Article 登记后交接 Workspace，repair 与 resolve 保持独立', asyn
     path: `/api/v1/published-content-issues/${publicationIds.issue}/resolve`,
     body: { outcome: 'RESTORED', comment: '公开页面已恢复。', expected_revision: 0 },
   });
+
+  await page.goto(canonical);
+  await expect(page.getByText('暂无待处理问题')).toBeVisible();
+  await page.getByRole('combobox', { name: '问题状态' }).click();
+  await page.getByRole('option', { name: '已解决' }).click();
+  await expect(page).toHaveURL('/publishing/issues?status=RESOLVED&page=1&pageSize=20');
+  await expect(page.getByRole('link', { name: publishedArticle.actual_title })).toBeVisible();
+  await expect(page.getByRole('link', { name: '查看解决记录' })).toHaveAttribute('href', `/publishing/issues/${publicationIds.issue}#resolution`);
+  expect(publicationApi.issueListRequests.at(-1)?.searchParams.get('status')).toBe('RESOLVED');
+
+  await page.getByRole('combobox', { name: '问题状态' }).click();
+  await page.getByRole('option', { name: '全部问题' }).click();
+  await expect(page).toHaveURL('/publishing/issues?status=ALL&page=1&pageSize=20');
+  expect(publicationApi.issueListRequests.at(-1)?.searchParams.has('status')).toBe(false);
+  await page.reload();
+  await expect(page).toHaveURL('/publishing/issues?status=ALL&page=1&pageSize=20');
+  await page.goBack();
+  await expect(page).toHaveURL('/publishing/issues?status=RESOLVED&page=1&pageSize=20');
+  await page.goForward();
+  await expect(page).toHaveURL('/publishing/issues?status=ALL&page=1&pageSize=20');
 });
 
 test('非法列表状态与未知 Workspace hash 被 canonicalize，页面无根横向溢出', async ({

@@ -7,6 +7,7 @@ import { geoIds, test as base } from './geo.fixture';
 
 type CandidateMode = 'success' | 'empty' | 'loading';
 type CreateMode = 'success' | 'conflict' | 'pending';
+type UploadCompleteMode = 'success' | 'pending';
 type GeoObservationCreate = components['schemas']['GeoObservationCreate'];
 type GeoPublicationCandidate = components['schemas']['GeoPublicationCandidate'];
 
@@ -23,8 +24,10 @@ type NewGeoApiController = {
   uploadRequests: string[];
   releaseCandidates: () => void;
   releaseCreate: () => void;
+  releaseUploadComplete: () => void;
   setCandidateMode: (mode: CandidateMode) => void;
   setCreateMode: (mode: CreateMode) => void;
+  setUploadCompleteMode: (mode: UploadCompleteMode) => void;
 };
 
 type NewGeoFixtures = { newGeoApi: NewGeoApiController };
@@ -97,8 +100,10 @@ const test = base.extend<NewGeoFixtures>({
   newGeoApi: [async ({ page }, use) => {
     let candidateMode: CandidateMode = 'success';
     let createMode: CreateMode = 'success';
+    let uploadCompleteMode: UploadCompleteMode = 'success';
     let releaseCandidates: (() => void) | undefined;
     let releaseCreate: (() => void) | undefined;
+    let releaseUploadComplete: (() => void) | undefined;
     const candidateRequests: URL[] = [];
     const createRequests: CreateRequest[] = [];
     const detailRequests: URL[] = [];
@@ -283,6 +288,9 @@ const test = base.extend<NewGeoFixtures>({
       }
       if (method === 'POST' && url.pathname === `/api/v1/files/${fileRecord.id}/complete`) {
         uploadRequests.push(url.pathname);
+        if (uploadCompleteMode === 'pending') {
+          await new Promise<void>((resolve) => { releaseUploadComplete = resolve; });
+        }
         await route.fulfill({ status: 200, json: { ...fileRecord, status: 'VERIFIED' } satisfies components['schemas']['FileRecord'] });
         return;
       }
@@ -302,8 +310,10 @@ const test = base.extend<NewGeoFixtures>({
       uploadRequests,
       releaseCandidates: () => releaseCandidates?.(),
       releaseCreate: () => releaseCreate?.(),
+      releaseUploadComplete: () => releaseUploadComplete?.(),
       setCandidateMode: (mode) => { candidateMode = mode; },
       setCreateMode: (mode) => { createMode = mode; },
+      setUploadCompleteMode: (mode) => { uploadCompleteMode = mode; },
     });
 
     expect(unexpectedRequests, '新建 GEO 页面不得依赖未声明 API 或浏览器 join').toEqual([]);

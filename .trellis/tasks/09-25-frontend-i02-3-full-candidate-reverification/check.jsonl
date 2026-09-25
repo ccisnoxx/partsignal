@@ -1,0 +1,2 @@
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"复核真实栈、数据库/Redis/端口、secret artifact 与失败清理"}
+{"file":".trellis/spec/infra/ci-execution.md","reason":"复核顶层门禁覆盖与远端 CI 覆盖缺口"}

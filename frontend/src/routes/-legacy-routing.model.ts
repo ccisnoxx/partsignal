@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 import {
   canonicalAuditSearchRecord,
   auditSearchSchema,
@@ -113,7 +115,9 @@ function geoInsightsLegacyHref(
 
 function platformsLegacyHref(raw: RawSearch, selectedKey: 'platform' | 'platform_profile_id') {
   const selected = value(raw, selectedKey);
-  if (selected) return href(`/settings/platforms/${encodeURIComponent(selected)}`, { tab: 'accounts' });
+  if (selected && z.uuid().safeParse(selected).success) {
+    return href(`/settings/platforms/${encodeURIComponent(selected.toLowerCase())}`, { tab: 'accounts' });
+  }
 
   const search = platformSearchSchema.parse({
     q: value(raw, 'q'),
@@ -167,6 +171,7 @@ function auditLegacyHref(raw: RawSearch) {
     module: value(raw, 'business_module'),
     action: value(raw, 'action'),
     targetType: value(raw, 'target_type'),
+    targetId: value(raw, 'target_id'),
     outcome: value(raw, 'outcome'),
     requestId: value(raw, 'request_id'),
     keyword: value(raw, 'keyword'),

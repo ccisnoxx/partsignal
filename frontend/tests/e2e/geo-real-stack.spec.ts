@@ -10,6 +10,7 @@ import {
 } from '@playwright/test';
 
 import type { components } from '../../src/shared/api/generated/schema';
+import { registerCurrentRealStackCookies, registerRealStackLoginSecrets } from './real-stack-session';
 
 type AuthSession = components['schemas']['AuthSession'];
 type ContentTask = components['schemas']['ContentTask'];
@@ -53,7 +54,8 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test.afterEach(async ({ page }) => {
+test.afterEach(async ({ context, page }) => {
+  await registerCurrentRealStackCookies(context, apiBaseUrl);
   expect(browserErrors.get(page), 'GEO 真实栈不得产生未处理浏览器错误').toEqual([]);
 });
 
@@ -67,9 +69,11 @@ async function responseBody<T>(response: APIResponse | Response): Promise<T> {
 }
 
 async function login(page: Page) {
-  return responseBody<AuthSession>(await page.request.post(`${apiBaseUrl}/api/v1/auth/login`, {
+  const session = await responseBody<AuthSession>(await page.request.post(`${apiBaseUrl}/api/v1/auth/login`, {
     data: { username: 'admin', password },
   }));
+  await registerRealStackLoginSecrets(page.context(), apiBaseUrl, session.csrf_token);
+  return session;
 }
 
 async function createGeoPrerequisites(
@@ -324,6 +328,15 @@ test('Flow A：新建 Observation 后追加 Correction，原记录保持不可�
   const rootQuery = `GEO 原始搜索 ${suffix}`;
   const rootNotes = `GEO 原始备注 ${suffix}`;
   const correctionNotes = `GEO 更正原因 ${suffix}`;
+  // 工作台只统计 UTC 今日及前 29 日；两次真实观测始终落在当前窗口内。
+  const [rootTestedAt, correctionTestedAt] = await page.evaluate(() => {
+    const now = Date.now();
+    const localDaysAgo = (daysAgo: number) => {
+      const date = new Date(now - daysAgo * 86_400_000);
+      return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+    };
+    return [localDaysAgo(2), localDaysAgo(1)] as const;
+  });
 
   await page.goto('/geo/observations/new');
   await page.getByLabel('搜索产品').fill(setup.product.part_number);
@@ -340,7 +353,7 @@ test('Flow A：新建 Observation 后追加 Correction，原记录保持不可�
   );
   await expect(page.getByRole('group', { name: setup.article.actual_title })).toBeVisible();
   await page.getByLabel('GEO platform').fill('Perplexity');
-  await page.getByLabel('观测时间').fill('2026-08-12T10:15');
+  await page.getByLabel('观测时间').fill(rootTestedAt);
   await page.getByLabel('实际搜索问题').fill(rootQuery);
   const rootArticle = page.getByRole('group', { name: setup.article.actual_title });
   await chooseSelect(page, rootArticle.getByRole('combobox', { name: '是否发现' }), '是');
@@ -406,7 +419,7 @@ test('Flow A：新建 Observation 后追加 Correction，原记录保持不可�
     name: /Product|Query Topic|GEO platform|Search query/,
   })).toHaveCount(0);
 
-  await page.getByLabel('本次观测时间').fill('2026-08-13T11:45');
+  await page.getByLabel('本次观测时间').fill(correctionTestedAt);
   const correctionArticle = page.getByRole('group', { name: setup.article.actual_title });
   await chooseSelect(
     page,
@@ -631,7 +644,7 @@ test('Flow B：真实 Insights 复算异常并创建带不可变 GEO 来源的�
   await expect(page.getByRole('link', { name: `v${setup.approvedFact.version} · 已批准` }))
     .toBeVisible();
   await expect(page.getByRole('link', { name: setup.platform.name })).toBeVisible();
-  await expect(page.getByText('GEO Optimization')).toBeVisible();
+  await expect(page.getByText('GEO 优化', { exact: true })).toBeVisible();
   await expect(page.getByText('内容表现下降')).toBeVisible();
   await expect(page.getByText('2026-07-01 至 2026-07-31')).toBeVisible();
   await expect(page.getByText(`${setup.article.actual_title} · ${setup.platform.name}`))

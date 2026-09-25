@@ -52,9 +52,8 @@ e2e:
 	deploy/scripts/e2e-local.sh
 	npm --prefix frontend run e2e
 
-build:
+build: build-frontend
 	docker build -f backend/Dockerfile -t partsignal-backend:test backend
-	$(MAKE) build-frontend
 
 build-frontend:
 	docker build -f frontend/Dockerfile -t partsignal-frontend-v2:test frontend
@@ -64,6 +63,9 @@ verify: contract-check lint typecheck test-unit test-integration build e2e test-
 	PARTSIGNAL_BACKEND_IMAGE=partsignal-backend PARTSIGNAL_FRONTEND_IMAGE=partsignal-frontend-v2 PARTSIGNAL_VERSION=test PARTSIGNAL_RUNTIME_ENV_FILE=$(CURDIR)/.env PARTSIGNAL_DATA_ROOT=$(CURDIR)/data docker compose --env-file .env -f deploy/compose.prod.yaml config --quiet
 
 test-deploy-scripts: test-frontend-container
+	deploy/scripts/test-e2e-run-lifecycle.sh
+	deploy/scripts/test-e2e-database-lifecycle.sh
+	frontend/tests/helpers/test-secret-artifact-post-run.sh
 	deploy/scripts/test-deploy-staging.sh
 	deploy/scripts/test-deploy-production.sh
 

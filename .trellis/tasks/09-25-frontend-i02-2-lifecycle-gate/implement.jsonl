@@ -1,0 +1,2 @@
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"E2E lifecycle、清理与失败传播的稳定合同"}
+{"file":".trellis/spec/infra/ci-execution.md","reason":"make verify 顶层质量门禁与 CI 执行合同"}

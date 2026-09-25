@@ -130,11 +130,16 @@ test('deleted actor、三态结果、相关对象三态与安全投影错误均�
   await expect(page.getByRole('row', { name: /更新用户/ }).first()).toContainText('失败');
   await expect(page.getByRole('row', { name: /完成发布工作/ }).first()).toContainText('已拒绝');
 
-  const missing = page.getByRole('row', { name: /更新用户/ }).first();
-  await missing.click();
+  const unsupported = page.getByRole('row', { name: /更新用户/ }).first();
+  await unsupported.click();
   const container = page.viewportSize()!.width >= 1280
     ? page.getByRole('complementary', { name: '审计详情' })
     : page.getByRole('dialog', { name: '审计详情' });
+  await expect(container.getByText('当前对象没有可用的关联入口。')).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  const missing = page.getByRole('row', { name: /完成发布工作/ }).first();
+  await missing.click();
   await expect(container.getByText('关联对象已不存在，历史审计记录保持不变。')).toBeVisible();
   await page.keyboard.press('Escape');
 
@@ -153,7 +158,7 @@ test('deleted actor、三态结果、相关对象三态与安全投影错误均�
 
   systemAuditApi.setProjectionFailure(true);
   systemAuditApi.allowHttpError(409);
-  await page.getByRole('row', { name: /完成发布工作/ }).first().click();
+  await page.getByRole('row', { name: /完成发布工作/ }).nth(1).click();
   await expect(container.getByRole('alert')).toContainText('该审计详情当前无法安全展示');
   const safeOutput = `${await page.locator('body').innerText()}\n${page.url()}\n${JSON.stringify(systemAuditApi.requests)}`;
   expect(safeOutput).not.toContain(secretSentinel);
@@ -179,6 +184,45 @@ test('未知动作筛选项与当前 URL 筛选保持局部且可明确清除', 
   await page.getByRole('button', { name: '搜索' }).click();
   await expect(page).not.toHaveURL(new RegExp(`action=${encodeURIComponent(unknownAction)}`));
   expect(systemAuditApi.requests.filter((request) => request.path === '/api/v1/audit-logs').at(-1)?.query.action).toBeUndefined();
+});
+
+test('详情对象、嵌套数组与原型字段由局部严格投影拒绝且不进入 DOM', async ({ page, systemAuditApi }) => {
+  systemAuditApi.setUnsafeDetail(true);
+  await page.goto('/system/audit');
+  await page.getByRole('row', { name: /更新 AI 渠道/ }).first().click();
+  const container = page.viewportSize()!.width >= 1280
+    ? page.getByRole('complementary', { name: '审计详情' })
+    : page.getByRole('dialog', { name: '审计详情' });
+  await expect(container.getByRole('alert')).toContainText('安全投影失败');
+  const rendered = `${await page.locator('body').innerText()}\n${page.url()}`;
+  expect(rendered).not.toContain(secretSentinel);
+  expect(rendered).not.toContain('constructor');
+});
+
+test('非法 related registry/status/parent 被拒绝且 sentinel 不进入 cache 可见面', async ({ page, systemAuditApi }) => {
+  systemAuditApi.setUnsafeRelatedDetail(true);
+  await page.goto('/system/audit');
+  await page.getByRole('row', { name: /更新 AI 渠道/ }).first().click();
+  const container = page.viewportSize()!.width >= 1280
+    ? page.getByRole('complementary', { name: '审计详情' })
+    : page.getByRole('dialog', { name: '审计详情' });
+  await expect(container.getByRole('alert')).toContainText('审计响应安全投影失败');
+  await expect(container.getByRole('link', { name: '查看 AI 渠道' })).toHaveCount(0);
+  const rendered = `${await page.locator('body').innerText()}\n${page.url()}`;
+  expect(rendered).not.toContain(secretSentinel);
+});
+
+test('AVAILABLE 非法 target UUID 被拒绝且 sentinel 不进入 DOM、链接或 URL', async ({ page, systemAuditApi }) => {
+  systemAuditApi.setUnsafeAvailableTarget(true);
+  await page.goto('/system/audit');
+  await page.getByRole('row', { name: /更新 AI 渠道/ }).first().click();
+  const container = page.viewportSize()!.width >= 1280
+    ? page.getByRole('complementary', { name: '审计详情' })
+    : page.getByRole('dialog', { name: '审计详情' });
+  await expect(container.getByRole('alert')).toContainText('审计响应安全投影失败');
+  await expect(container.getByRole('link', { name: '查看 AI 渠道' })).toHaveCount(0);
+  const rendered = `${await page.locator('body').innerText()}\n${page.url()}`;
+  expect(rendered).not.toContain(secretSentinel);
 });
 
 test('列表失败可重试、越界自动规范、四档无页面根溢出且 ENGINEER 被拒绝', async ({ page, systemAuditApi }, testInfo) => {

@@ -120,8 +120,13 @@ function PublishedContentIssueWorkspacePage({
   ];
 
   async function refreshCanonicalContext(repairTaskId?: string) {
+    const refreshed = await query.refetch();
+    if (refreshed.error) throw refreshed.error;
+    if (!refreshed.data) throw new Error('命令提交后未返回最新内容问题工作区');
+    if (!matchesIssueWorkspaceIdentity(refreshed.data, issueId)) {
+      throw new Error('命令提交后的内容问题工作区身份不一致');
+    }
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: options.queryKey }),
       queryClient.invalidateQueries({ queryKey: publicationKeys.issueLists() }),
       queryClient.invalidateQueries({ queryKey: publicationKeys.article(article.id) }),
       queryClient.invalidateQueries({ queryKey: publicationKeys.articleLists() }),
@@ -129,6 +134,7 @@ function PublishedContentIssueWorkspacePage({
       queryClient.invalidateQueries({ queryKey: publicationKeys.issueRepairContexts() }),
       ...(repairTaskId ? [onContentProjectionChange(repairTaskId)] : []),
     ]);
+    return refreshed.data;
   }
 
   const contextPane = (
@@ -255,6 +261,7 @@ function PublishedContentIssueWorkspacePage({
         reference={{ label: '不可变历史', content: referencePane }}
       />
       <PublishedContentIssueWorkspaceActions
+        key={issueId}
         context={context}
         csrfToken={csrfToken}
         onCanonicalChange={refreshCanonicalContext}
@@ -262,6 +269,9 @@ function PublishedContentIssueWorkspacePage({
           const refreshed = await query.refetch();
           if (refreshed.error) throw refreshed.error;
           if (!refreshed.data) throw new Error('重载内容问题工作区后未返回 Context');
+          if (!matchesIssueWorkspaceIdentity(refreshed.data, issueId)) {
+            throw new Error('重载后的内容问题工作区身份不一致');
+          }
           return refreshed.data;
         }}
       />

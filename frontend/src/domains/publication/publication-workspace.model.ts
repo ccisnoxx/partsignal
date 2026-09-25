@@ -69,18 +69,18 @@ function publicationWorkspaceActions(context: PublicationWorkspaceContext) {
 
 const preparationFormSchema = z.object({
   platformAccountId: z.string().min(1, '请选择发布账号'),
-  comment: z.string().trim().max(2000, '备注不能超过 2000 个字符'),
+  comment: z.string().trim().min(1, '请输入备注').max(2000, '备注不能超过 2000 个字符'),
 });
 
 const platformReviewFormSchema = z.object({
-  comment: z.string().trim().max(2000, '备注不能超过 2000 个字符'),
+  comment: z.string().trim().min(1, '请输入备注').max(2000, '备注不能超过 2000 个字符'),
 });
 
 const resultFormSchema = z.object({
   actualTitle: z.string().trim().min(1, '请输入实际发布标题').max(500, '标题不能超过 500 个字符'),
   finalUrl: z.url('请输入有效的最终 URL'),
   publishedAt: z.string().min(1, '请选择发布时间'),
-  comment: z.string().trim().max(2000, '备注不能超过 2000 个字符'),
+  comment: z.string().trim().min(1, '请输入备注').max(2000, '备注不能超过 2000 个字符'),
 });
 
 const closeFormSchema = z.object({

@@ -1,0 +1,4 @@
+{"file":".trellis/spec/infra/ci-execution.md","reason":"独立复核 CI 与 make verify 执行图差异是否完整"}
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"独立复核 lifecycle、secret artifact 与 clean-checkout 风险"}
+{"file":".trellis/spec/frontend/directory-structure.md","reason":"独立复核历史字符串和第二套源码目录分类"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"独立复核 canonical build/test 入口与生成类型调用"}

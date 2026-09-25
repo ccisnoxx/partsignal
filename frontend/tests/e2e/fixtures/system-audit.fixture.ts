@@ -15,6 +15,9 @@ type AuditApiController = {
   requests: AuditRequest[];
   setAccountType: (value: AccountType) => void;
   setProjectionFailure: (value: boolean) => void;
+  setUnsafeAvailableTarget: (value: boolean) => void;
+  setUnsafeDetail: (value: boolean) => void;
+  setUnsafeRelatedDetail: (value: boolean) => void;
 };
 
 type AuditFixtures = { systemAuditApi: AuditApiController };
@@ -48,12 +51,25 @@ function detailFor(log: AuditLog): AuditLogDetail {
   const related = log.target_type === 'AIChannel'
     ? { status: 'AVAILABLE' as const, kind: 'AIChannel', parent_id: null }
     : log.target_type === 'User'
-      ? { status: 'MISSING' as const, kind: 'User', parent_id: null }
-      : { status: 'UNSUPPORTED' as const, kind: 'PublicationWork', parent_id: null };
+      ? { status: 'UNSUPPORTED' as const, kind: null, parent_id: null }
+      : { status: 'MISSING' as const, kind: 'PublicationWork', parent_id: null };
+  const projection: Pick<AuditLogDetail, 'changes' | 'facts'> = log.business_module === 'CONFIGURATION'
+    ? {
+        changes: [{ field: 'revision', before: null, after: 5 }],
+        facts: { configured: true, bound_platform_ids: ['平台甲', '平台乙'] },
+      }
+    : log.business_module === 'IDENTITY'
+      ? {
+          changes: [{ field: 'display_name', before: '旧名称', after: '系统管理员' }],
+          facts: { account_type: 'ADMIN' },
+        }
+      : {
+          changes: [{ field: 'status', before: 'READY', after: 'COMPLETED' }],
+          facts: { revision: 5 },
+        };
   return {
     ...log,
-    changes: [{ field: 'revision', before: null, after: 5 }],
-    facts: { configured: true, bound_platform_ids: ['平台甲', '平台乙'] },
+    ...projection,
     result_message: '审计操作已完成',
     error_code: log.outcome === 'SUCCESS' ? null : 'AUDIT_SAMPLE_RESULT',
     related_entry: related,
@@ -69,6 +85,9 @@ const test = base.extend<AuditFixtures>({
     let accountType: AccountType = 'ADMIN';
     let listFailure = false;
     let projectionFailure = false;
+    let unsafeAvailableTarget = false;
+    let unsafeDetail = false;
+    let unsafeRelatedDetail = false;
     const logs = auditLogs();
     const requests: AuditRequest[] = [];
     const unexpectedRequests: string[] = [];
@@ -158,7 +177,20 @@ const test = base.extend<AuditFixtures>({
         await route.fulfill({ status: 404, json: errorBody('AUDIT_LOG_NOT_FOUND', '审计日志不存在', 'req-audit-detail-404') });
         return;
       }
-      const body = detailFor(log);
+      const body = unsafeDetail
+        ? ({
+            ...detailFor(log),
+            facts: JSON.parse(`{"constructor":"${secretSentinel}","reason":{"secret":"${secretSentinel}"}}`),
+            changes: [{ field: 'revision', before: [[secretSentinel]], after: 5 }],
+          } as unknown as AuditLogDetail)
+        : unsafeRelatedDetail
+          ? ({
+              ...detailFor(log),
+              related_entry: { status: 'AVAILABLE', kind: secretSentinel, parent_id: secretSentinel },
+            } as unknown as AuditLogDetail)
+          : unsafeAvailableTarget
+            ? ({ ...detailFor(log), target_id: secretSentinel } as unknown as AuditLogDetail)
+          : detailFor(log);
       requests.push({ path: url.pathname, query: {}, status: 200 });
       await route.fulfill({ status: 200, json: body });
     });
@@ -169,6 +201,9 @@ const test = base.extend<AuditFixtures>({
       requests,
       setAccountType: (value) => { accountType = value; },
       setProjectionFailure: (value) => { projectionFailure = value; },
+      setUnsafeAvailableTarget: (value) => { unsafeAvailableTarget = value; },
+      setUnsafeDetail: (value) => { unsafeDetail = value; },
+      setUnsafeRelatedDetail: (value) => { unsafeRelatedDetail = value; },
     });
     expect(unexpectedRequests, 'System Audit 不得请求 Users 或业务详情 API').toEqual([]);
     expect(runtimeErrors, 'System Audit 不得产生未批准的浏览器错误').toEqual([]);

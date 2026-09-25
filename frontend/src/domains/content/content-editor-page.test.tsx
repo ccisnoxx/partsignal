@@ -193,6 +193,111 @@ afterEach(() => {
 });
 
 describe('ContentEditorPage', () => {
+  it.each(['pointer', 'revision', 'status', 'actions'] as const)('后台 %s 变化保留 dirty 表单，重载失败也不丢失现场', async (change) => {
+    const initial = editorContext(version());
+    const next = editorContext(version({
+      ...(change === 'pointer' ? { id: ids.previous } : {}),
+      ...(change === 'revision' ? { revision: 3 } : {}),
+      ...(change === 'status' ? { status: 'CHANGES_REQUESTED' } : {}),
+      ...(change === 'actions' ? { available_actions: ['CREATE_REVISION'] } : {}),
+      title: '最新服务端标题',
+    }));
+    const get = vi.spyOn(api, 'GET').mockResolvedValueOnce(response(initial)).mockResolvedValue(response(next));
+    const put = vi.spyOn(api, 'PUT');
+    const user = userEvent.setup();
+    const { queryClient } = renderEditor();
+    const title = await screen.findByRole('textbox', { name: '标题' });
+    await user.clear(title);
+    await user.type(title, '必须保留的本地草稿');
+    await act(async () => { await queryClient.invalidateQueries(); });
+    expect(await screen.findByText('服务端内容已更新')).toBeInTheDocument();
+    expect(title).toHaveValue('必须保留的本地草稿');
+    expect(screen.getByRole('button', { name: '保存草稿' })).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.queryByText(/错误代码：undefined/)).not.toBeInTheDocument();
+    get.mockResolvedValueOnce(apiError('EDITOR_CONTEXT_UNAVAILABLE', '稍后重试', 'req-background', 503));
+    await user.click(screen.getByRole('button', { name: '重新加载最新版本' }));
+    expect(await screen.findByText('重新加载失败')).toBeInTheDocument();
+    expect(title).toHaveValue('必须保留的本地草稿');
+    await user.click(screen.getByRole('button', { name: '重新加载最新版本' }));
+    await waitFor(() => expect(title).toHaveValue('最新服务端标题'));
+    expect(put).not.toHaveBeenCalled();
+  });
+
+  it('后台主线切换保留提交 Dialog 的备注并阻止旧版本提交', async () => {
+    vi.spyOn(api, 'GET').mockResolvedValueOnce(response(editorContext(version())))
+      .mockResolvedValue(response(editorContext(version({ id: ids.previous, title: '另一会话的版本' }))));
+    const post = vi.spyOn(api, 'POST');
+    const user = userEvent.setup();
+    const { queryClient } = renderEditor();
+    await screen.findByRole('textbox', { name: '标题' });
+    await user.click(screen.getByRole('button', { name: '提交审核' }));
+    const dialog = screen.getByRole('dialog', { name: '提交内容审核' });
+    const comment = within(dialog).getByRole('textbox', { name: '备注（可选）' });
+    await user.type(comment, '本地审核备注');
+    await act(async () => { await queryClient.invalidateQueries(); });
+    expect(await within(dialog).findByText('服务端内容已更新')).toBeInTheDocument();
+    expect(comment).toHaveValue('本地审核备注');
+    expect(within(dialog).getByRole('button', { name: '确认提交审核' })).toBeDisabled();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('已开始但尚未改字的人工修订在后台主线变化时保留，clean 草稿可自动采用', async () => {
+    const get = vi.spyOn(api, 'GET').mockResolvedValueOnce(response(editorContext(version())))
+      .mockResolvedValue(response(editorContext(version({ id: ids.previous, title: 'AI 新版本', source_type: 'AI', available_actions: ['CREATE_REVISION'] }))));
+    const { queryClient } = renderEditor();
+    const title = await screen.findByRole('textbox', { name: '标题' });
+    await act(async () => { await queryClient.invalidateQueries(); });
+    await waitFor(() => expect(title).toHaveValue('AI 新版本'));
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '创建人工修订' }));
+    get.mockResolvedValue(response(editorContext(version({ title: '更新主线' }))));
+    await act(async () => { await queryClient.invalidateQueries(); });
+    expect(await screen.findByText('服务端内容已更新')).toBeInTheDocument();
+    expect(title).toHaveValue('AI 新版本');
+    expect(screen.getByText('新人工修订')).toBeInTheDocument();
+  });
+
+  it('保存请求未完成时后台切换主线也保留输入，命令失败不解除过期保护', async () => {
+    vi.spyOn(api, 'GET').mockResolvedValueOnce(response(editorContext(version())))
+      .mockResolvedValue(response(editorContext(version({ id: ids.previous, title: '后台新主线' }))));
+    let finishSave!: (value: ReturnType<typeof apiError>) => void;
+    vi.spyOn(api, 'PUT').mockReturnValue(new Promise((resolve) => { finishSave = resolve; }));
+    const user = userEvent.setup();
+    const { queryClient } = renderEditor();
+    const title = await screen.findByRole('textbox', { name: '标题' });
+    await user.clear(title);
+    await user.type(title, '正在保存的本地输入');
+    await user.click(screen.getByRole('button', { name: '保存草稿' }));
+    await act(async () => { await queryClient.invalidateQueries(); });
+    expect(await screen.findByText('服务端内容已更新')).toBeInTheDocument();
+    expect(title).toHaveValue('正在保存的本地输入');
+    await act(async () => { finishSave(apiError('REVISION_CONFLICT', '保存目标已变化', 'req-pending', 409)); });
+    expect(await screen.findByText('检测到 revision 冲突')).toBeInTheDocument();
+    expect(title).toHaveValue('正在保存的本地输入');
+    expect(screen.getByRole('button', { name: '保存草稿' })).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('命令成功但刷新失败时阻止旧快照再次写入，成功重载后恢复', async () => {
+    const canonical = editorContext(version({ revision: 3, title: '已保存的标题' }));
+    const get = vi.spyOn(api, 'GET').mockResolvedValueOnce(response(editorContext(version())))
+      .mockResolvedValueOnce(apiError('EDITOR_CONTEXT_UNAVAILABLE', '刷新失败', 'req-after-save', 503))
+      .mockResolvedValue(response(canonical));
+    const put = vi.spyOn(api, 'PUT').mockResolvedValue(response(canonical.current_content));
+    const user = userEvent.setup();
+    renderEditor();
+    const title = await screen.findByRole('textbox', { name: '标题' });
+    await user.clear(title);
+    await user.type(title, '已保存的标题');
+    await user.click(screen.getByRole('button', { name: '保存草稿' }));
+    expect((await screen.findAllByText('操作已完成，但未能读取最新内容。请重新加载最新版本后继续。')).length).toBeGreaterThan(0);
+    expect(title).toHaveValue('已保存的标题');
+    expect(screen.getByRole('button', { name: '提交审核' })).toHaveAttribute('aria-disabled', 'true');
+    await user.click(screen.getByRole('button', { name: '重新加载最新版本' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: '提交审核' })).toBeEnabled());
+    expect(get).toHaveBeenCalledTimes(3);
+    expect(put).toHaveBeenCalledOnce();
+  });
+
   it('显示首屏 loading', async () => {
     vi.spyOn(api, 'GET').mockReturnValue(new Promise(() => undefined));
     renderEditor();
@@ -259,7 +364,7 @@ describe('ContentEditorPage', () => {
     const current = version();
     const context = editorContext(current);
     const canonical = version({ title: '已保存标题', revision: 3 });
-    vi.spyOn(api, 'GET').mockResolvedValue(response(context));
+    vi.spyOn(api, 'GET').mockResolvedValueOnce(response(context)).mockResolvedValue(response(editorContext(canonical)));
     const put = vi.spyOn(api, 'PUT').mockResolvedValue(response(canonical));
     const user = userEvent.setup();
     renderEditor();

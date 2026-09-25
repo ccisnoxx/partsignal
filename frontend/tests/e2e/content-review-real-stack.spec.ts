@@ -8,6 +8,7 @@ import {
 } from '@playwright/test';
 
 import type { components } from '../../src/shared/api/generated/schema';
+import { registerCurrentRealStackCookies, registerRealStackLoginSecrets } from './real-stack-session';
 
 type AuthSession = components['schemas']['AuthSession'];
 type ContentReviewContext = components['schemas']['ContentReviewContext'];
@@ -37,6 +38,7 @@ const password = process.env.PARTSIGNAL_SEED_ADMIN_PASSWORD ?? 'partsignal-admin
 
 test.skip(!realStackEnabled, '只由隔离真实栈入口运行');
 test.setTimeout(90_000);
+test.afterEach(async ({ context }) => registerCurrentRealStackCookies(context, apiBaseUrl));
 
 async function responseBody<T>(response: APIResponse): Promise<T> {
   if (!response.ok()) {
@@ -46,9 +48,11 @@ async function responseBody<T>(response: APIResponse): Promise<T> {
 }
 
 async function login(page: Page): Promise<AuthSession> {
-  return responseBody<AuthSession>(await page.request.post(`${apiBaseUrl}/api/v1/auth/login`, {
+  const session = await responseBody<AuthSession>(await page.request.post(`${apiBaseUrl}/api/v1/auth/login`, {
     data: { username: 'admin', password },
   }));
+  await registerRealStackLoginSecrets(page.context(), apiBaseUrl, session.csrf_token);
+  return session;
 }
 
 async function createActivePlatform(page: Page, csrfToken: string, suffix: string) {
@@ -238,7 +242,6 @@ test('Flow A：人工内容批准后进入只读版本并出现发布交接', as
 
   await page.getByRole('link', { name: '返回任务详情', exact: true }).click();
   await expect(page).toHaveURL(`/content/tasks/${taskId}`);
-  await expect(page.getByText('START_PUBLICATION', { exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: '开始发布' })).toHaveAttribute(
     'href',
     '/publishing/work',

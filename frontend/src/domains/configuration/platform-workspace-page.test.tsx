@@ -1,6 +1,6 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -8,6 +8,7 @@ import type { AuthContextValue, AuthUser } from '@/app/auth/auth-provider';
 import { TooltipProvider } from '@/design-system/primitives/tooltip';
 import { routeTree } from '@/routeTree.gen';
 import { api } from '@/shared/api/client';
+import * as fileTransfer from '@/shared/api/file-transfer';
 import type { components } from '@/shared/api/generated/schema';
 import { createAuthenticatedTestQueryClient } from '@/test/auth-session';
 import { platformKeys } from './platform.api';
@@ -262,6 +263,116 @@ describe('PlatformWorkspacePage', () => {
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['configuration', 'platforms', 'detail', platformId] });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['content', 'tasks', 'platform-references'] });
     expect(queryClient.getQueryState(['configuration', 'platforms', 'detail', platformId])).toBeDefined();
+  });
+
+  it('dirty Overview 保留草稿 revision 和另一表面字段，409 与失败 reload 不解冻', async () => {
+    let current = workspaceDetail();
+    const get = mockWorkspaceReads(() => current);
+    const patch = vi.spyOn(api, 'PATCH').mockResolvedValue({
+      error: { error: { code: 'REVISION_CONFLICT', message: '版本冲突', details: {}, request_id: 'req-draft-baseline' } },
+      response: Response.json({}, { status: 409 }),
+    } as never);
+    const { queryClient } = renderWorkspace();
+    const name = await screen.findByRole('textbox', { name: '平台名称' });
+    await userEvent.clear(name);
+    await userEvent.type(name, '本地草稿');
+    await userEvent.click(screen.getByRole('button', { name: '移除 Logo' }));
+    current = workspaceDetail(profile({ revision: 5, platform_prompt: null }));
+    await act(async () => { queryClient.setQueryData(platformKeys.detail(platformId), current); });
+    await userEvent.click(screen.getByRole('button', { name: '保存概览' }));
+    await waitFor(() => expect(patch).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      body: expect.objectContaining({ expected_revision: 4, platform_prompt_id: promptId, name: '本地草稿', logo: null }),
+    })));
+    expect(await screen.findByRole('alert')).toHaveTextContent('req-draft-baseline');
+    expect(screen.getByRole('button', { name: '保存概览' })).toBeDisabled();
+    get.mockRejectedValueOnce(new Error('重载失败'));
+    await userEvent.click(screen.getByRole('button', { name: '重新加载服务端版本' }));
+    await waitFor(() => expect(screen.getByRole('alert', { name: '请修正以下问题' })).toHaveTextContent('重载失败'));
+    expect(screen.getByRole('alert', { name: '请修正以下问题' })).toHaveTextContent('req-draft-baseline');
+    expect(name).toHaveValue('本地草稿');
+    expect(screen.getByText('无 Logo')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '保存概览' })).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { name: '重新加载服务端版本' }));
+    await waitFor(() => expect(name).toHaveValue('工程师社区'));
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    await userEvent.type(name, '新版');
+    await userEvent.click(screen.getByRole('button', { name: '保存概览' }));
+    await waitFor(() => expect(patch).toHaveBeenLastCalledWith(expect.anything(), expect.objectContaining({
+      body: expect.objectContaining({ expected_revision: 5, platform_prompt_id: null }),
+    })));
+  });
+
+  it('Generation dirty 基线不混入后台平台身份，冲突取消也不能解冻保存', async () => {
+    mockWorkspaceReads(() => workspaceDetail());
+    const patch = vi.spyOn(api, 'PATCH').mockResolvedValue({
+      error: { error: { code: 'REVISION_CONFLICT', message: '版本冲突', details: {}, request_id: 'req-generation' } },
+      response: Response.json({}, { status: 409 }),
+    } as never);
+    const { queryClient } = renderWorkspace(`/settings/platforms/${platformId}?tab=generation`);
+    await userEvent.click(await screen.findByRole('combobox', { name: '绑定 Prompt' }));
+    await userEvent.click(await screen.findByRole('option', { name: '不绑定 Prompt' }));
+    await act(async () => { queryClient.setQueryData(platformKeys.detail(platformId), workspaceDetail(profile({ revision: 8, name: '后台名称' }))); });
+    await userEvent.click(screen.getByRole('button', { name: '保存生成配置' }));
+    await waitFor(() => expect(patch).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      body: expect.objectContaining({ expected_revision: 4, name: '工程师社区', platform_prompt_id: null }),
+    })));
+    await screen.findByRole('alert');
+    await userEvent.click(screen.getByRole('button', { name: /^取消$/ }));
+    await userEvent.click(screen.getByRole('combobox', { name: '绑定 Prompt' }));
+    await userEvent.click(await screen.findByRole('option', { name: '不绑定 Prompt' }));
+    expect(screen.getByRole('button', { name: '保存生成配置' })).toBeDisabled();
+    expect(patch).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['取消', '离开'] as const)('Logo 候选 pending 阻止保存，%s后晚到响应不会恢复草稿', async (action) => {
+    mockWorkspaceReads(() => workspaceDetail());
+    let finish!: (value: never) => void;
+    vi.spyOn(api, 'POST').mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+    const patch = vi.spyOn(api, 'PATCH');
+    const { router } = renderWorkspace();
+    await screen.findByRole('textbox', { name: '平台名称' });
+    await userEvent.click(screen.getByRole('button', { name: '从官网导入候选' }));
+    expect(screen.getByRole('button', { name: '保存概览' })).toBeDisabled();
+    if (action === '取消') {
+      await userEvent.click(screen.getByRole('button', { name: /^取消$/ }));
+    } else {
+      await userEvent.click(screen.getByRole('tab', { name: '发布账号' }));
+      await userEvent.click(await screen.findByRole('button', { name: '放弃修改并离开' }));
+      await waitFor(() => expect(router.state.location.search).toEqual({ tab: 'accounts' }));
+    }
+    await act(async () => { finish(response({ file_id: '00000000-0000-4000-8000-000000000040', preview: { url: 'https://storage.example.invalid/late.png', expires_at: '2026-08-13T01:00:00Z' } })); });
+    expect(screen.queryByAltText('官网 Logo 候选')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('tab', { name: '生成配置' }));
+    await waitFor(() => expect(router.state.location.search).toEqual({ tab: 'generation' }));
+    expect(screen.queryByRole('dialog', { name: '要离开当前页面吗？' })).not.toBeInTheDocument();
+    expect(patch).not.toHaveBeenCalled();
+  });
+
+  it('上传 complete pending 与父表单协调，取消后不创建预览或写回 Logo', async () => {
+    mockWorkspaceReads(() => workspaceDetail());
+    vi.spyOn(fileTransfer, 'sha256File').mockResolvedValue('a'.repeat(64));
+    vi.spyOn(fileTransfer, 'transferFile').mockResolvedValue(undefined);
+    let complete!: (value: never) => void;
+    const post = vi.spyOn(api, 'POST').mockImplementation(async (path) => {
+      if (path === '/api/v1/files/upload-intents') return response({ file: { id: '00000000-0000-4000-8000-000000000040' } });
+      if (path === '/api/v1/files/{file_id}/complete') return new Promise((resolve) => { complete = resolve; });
+      throw new Error(`未声明 POST：${path}`);
+    });
+    const patch = vi.spyOn(api, 'PATCH');
+    renderWorkspace();
+    const name = await screen.findByRole('textbox', { name: '平台名称' });
+    await userEvent.type(name, '草稿');
+    await userEvent.upload(screen.getByLabelText('上传平台 Logo'), new File(['image'], 'logo.png', { type: 'image/png' }));
+    await waitFor(() => expect(post).toHaveBeenCalledWith('/api/v1/files/{file_id}/complete', expect.anything()));
+    expect(screen.getByRole('button', { name: '保存概览' })).toBeDisabled();
+    fireEvent.submit(screen.getByRole('button', { name: '保存概览' }).closest('form')!);
+    expect(patch).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: /^取消$/ }));
+    await act(async () => { complete(response({ id: '00000000-0000-4000-8000-000000000040' })); });
+    expect(within(name.closest('form')!).getByRole('img', { name: '工程师社区 Logo' })).toHaveAttribute('src', 'https://cdn.example.invalid/community.png');
+    expect(name).toHaveValue('工程师社区');
+    expect(screen.getByRole('button', { name: '保存概览' })).toBeDisabled();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
   it('官网 Logo 候选必须二次确认，SVG 明确拒绝，保存才绑定 file_id', async () => {
@@ -654,6 +765,40 @@ describe('PlatformWorkspacePage', () => {
     ));
   });
 
+  it('删除 409 的 hold 按账号 ID 隔离，关闭重开仍冻结', async () => {
+    const currentAccounts: components['schemas']['PlatformAccountList'] = structuredClone(accounts);
+    vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+      if (path === '/api/v1/platform-profiles/{platform_profile_id}') return response(workspaceDetail());
+      if (path === '/api/v1/platform-accounts') return response(currentAccounts);
+      throw new Error(`测试收到未声明 GET：${path}`);
+    });
+    const remove = vi.spyOn(api, 'DELETE')
+      .mockResolvedValueOnce({
+        error: { error: { code: 'PLATFORM_ACCOUNT_IN_USE', message: '账号仍被使用', details: {}, request_id: 'req-hold-a' } },
+        response: Response.json({}, { status: 409 }),
+      } as never)
+      .mockResolvedValueOnce({ response: new Response(null, { status: 204 }) } as never);
+    renderWorkspace(`/settings/platforms/${platformId}?tab=accounts`);
+    await screen.findAllByText('运营主账号');
+    await userEvent.click(screen.getAllByRole('button', { name: '更多操作：运营主账号' })[0]!);
+    await userEvent.click(within(await screen.findByRole('menu', { name: '更多操作：运营主账号' })).getByRole('menuitem', { name: '删除账号' }));
+    let dialog = await screen.findByRole('dialog', { name: '删除发布账号“运营主账号”？' });
+    await userEvent.click(within(dialog).getByRole('button', { name: '确认删除' }));
+    await within(dialog).findByText(/req-hold-a/);
+    await userEvent.click(within(dialog).getAllByRole('button', { name: '关闭' })[0]!);
+    await userEvent.click(screen.getAllByRole('button', { name: '更多操作：运营主账号' })[0]!);
+    await userEvent.click(within(await screen.findByRole('menu', { name: '更多操作：运营主账号' })).getByRole('menuitem', { name: '删除账号' }));
+    dialog = await screen.findByRole('dialog', { name: '删除发布账号“运营主账号”？' });
+    expect(within(dialog).getByRole('button', { name: '确认删除' })).toBeDisabled();
+    await userEvent.click(within(dialog).getAllByRole('button', { name: '关闭' })[0]!);
+    await userEvent.click(screen.getAllByRole('button', { name: '更多操作：停用账号' })[0]!);
+    await userEvent.click(within(await screen.findByRole('menu', { name: '更多操作：停用账号' })).getByRole('menuitem', { name: '删除账号' }));
+    dialog = await screen.findByRole('dialog', { name: '删除发布账号“停用账号”？' });
+    expect(within(dialog).getByRole('button', { name: '确认删除' })).toBeEnabled();
+    await userEvent.click(within(dialog).getByRole('button', { name: '确认删除' }));
+    await waitFor(() => expect(remove).toHaveBeenCalledTimes(2));
+  });
+
   it('最新 accounts query 移除目标后关闭删除 Dialog 且不提交', async () => {
     const currentAccounts: components['schemas']['PlatformAccountList'] = structuredClone(accounts);
     vi.spyOn(api, 'GET').mockImplementation(async (path) => {
@@ -764,5 +909,45 @@ describe('PlatformWorkspacePage', () => {
     renderWorkspace(`/settings/platforms/${platformId}?tab=accounts`);
     expect(await screen.findByText(/创建第一个账号/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '创建发布账号' })).toBeInTheDocument();
+  });
+
+  it('两个账号分别 409 时 hold 不互相覆盖', async () => {
+    const currentAccounts: components['schemas']['PlatformAccountList'] = structuredClone(accounts);
+    vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+      if (path === '/api/v1/platform-profiles/{platform_profile_id}') return response(workspaceDetail());
+      if (path === '/api/v1/platform-accounts') return response(currentAccounts);
+      throw new Error(`测试收到未声明 GET：${path}`);
+    });
+    const remove = vi.spyOn(api, 'DELETE').mockResolvedValue({
+      error: { error: { code: 'REVISION_CONFLICT', message: '账号已变化', details: {}, request_id: 'req-hold-both' } },
+      response: Response.json({}, { status: 409 }),
+    } as never);
+    renderWorkspace(`/settings/platforms/${platformId}?tab=accounts`);
+    await screen.findAllByText('运营主账号');
+    for (const label of ['运营主账号', '停用账号']) {
+      await userEvent.click(screen.getAllByRole('button', { name: `更多操作：${label}` })[0]!);
+      await userEvent.click(within(await screen.findByRole('menu', { name: `更多操作：${label}` })).getByRole('menuitem', { name: '删除账号' }));
+      const dialog = await screen.findByRole('dialog', { name: `删除发布账号“${label}”？` });
+      await userEvent.click(within(dialog).getByRole('button', { name: '确认删除' }));
+      await within(dialog).findByText(/req-hold-both/);
+      await userEvent.click(within(dialog).getAllByRole('button', { name: '关闭' })[0]!);
+    }
+    expect(remove).toHaveBeenCalledTimes(2);
+  });
+
+  it('DELETE 204 后消费者失效失败仍只提交一次并显示刷新提示', async () => {
+    mockWorkspaceReads(() => workspaceDetail());
+    vi.spyOn(api, 'DELETE').mockResolvedValue({ response: new Response(null, { status: 204 }) } as never);
+    const { queryClient } = renderWorkspace(`/settings/platforms/${platformId}?tab=accounts`);
+    await screen.findAllByText('运营主账号');
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries').mockRejectedValue(new Error('消费者刷新失败'));
+    await userEvent.click(screen.getAllByRole('button', { name: '更多操作：运营主账号' })[0]!);
+    await userEvent.click(within(await screen.findByRole('menu', { name: '更多操作：运营主账号' })).getByRole('menuitem', { name: '删除账号' }));
+    const dialog = await screen.findByRole('dialog', { name: '删除发布账号“运营主账号”？' });
+    await userEvent.click(within(dialog).getByRole('button', { name: '确认删除' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '删除发布账号“运营主账号”？' })).not.toBeInTheDocument());
+    await screen.findByText(/删除已接受，但账号列表刷新失败/);
+    expect(invalidate).toHaveBeenCalled();
+    expect(api.DELETE).toHaveBeenCalledTimes(1);
   });
 });

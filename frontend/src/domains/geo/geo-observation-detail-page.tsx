@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/design-system/primitives/dialog';
 
 import { RowActions } from '@/design-system/data-table/row-actions';
 import { Badge } from '@/design-system/primitives/badge';
@@ -38,60 +39,131 @@ type GeoObservationDetailPageProps = {
   onDeleted: () => Promise<void>;
 };
 
-function GeoObservationDetailPage({
-  csrfToken,
-  observationId,
-  onDeleted,
-}: GeoObservationDetailPageProps) {
+function GeoObservationDetailPage(props: GeoObservationDetailPageProps) {
+  return <GeoObservationDetailSession key={props.observationId.toLowerCase()} {...props} />;
+}
+
+function GeoObservationDetailSession({ csrfToken, observationId, onDeleted }: GeoObservationDetailPageProps) {
   const queryClient = useQueryClient();
-  const detail = useQuery(geoObservationDetailQueryOptions(observationId));
+  const [deleteIntent, setDeleteIntent] = useState<string | null>(null);
+  const [conflict, setConflict] = useState(false);
+  const [acknowledgedErrors, setAcknowledgedErrors] = useState(0);
+  const [deleted, setDeleted] = useState(false);
+  const [navigationError, setNavigationError] = useState<string | null>(null);
+  const mounted = useRef(true);
+  const commandPending = useRef(false);
+  const focusReturn = useRef<HTMLElement | null>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
+  const options = geoObservationDetailQueryOptions(observationId);
+  const detail = useQuery({
+    ...options,
+    enabled: !deleted,
+    refetchOnWindowFocus: (query) => (query.state.status !== 'error' && !conflict && !deleted
+      ? 'always' : false),
+  });
   const remove = useMutation({
-    mutationFn: (targetId: string) => deleteGeoObservation(targetId, csrfToken),
-    onSuccess: async () => {
-      const productId = detail.data?.product.id;
-      const detailIds = detail.data?.observation_kind === 'MANUAL_ARTICLE_SEARCH'
-        ? detail.data.correction_history.map((item) => item.observation.id)
-        : detail.data
-          ? [detail.data.observation.id]
-          : [];
-      await onDeleted();
-      await Promise.all([
-        ...detailIds.map((id) => queryClient.invalidateQueries({
-          queryKey: geoKeys.detail(id),
-          refetchType: 'none',
+    mutationFn: (target: { id: string; detailIds: string[]; productId: string }) => (
+      deleteGeoObservation(target.id, csrfToken)
+    ),
+    onSuccess: async (_, target) => {
+      if (mounted.current) { setDeleted(true); setDeleteIntent(null); }
+      // 提交时固定链身份；卸载后仍清理原链，不能使用新路由的 Product 或节点。
+      await Promise.all(target.detailIds.map((id) => queryClient.cancelQueries({
+        queryKey: geoKeys.detail(id), exact: true,
+      })));
+      void Promise.allSettled([
+        ...target.detailIds.map((id) => queryClient.invalidateQueries({
+          queryKey: geoKeys.detail(id), refetchType: 'none',
         })),
-        queryClient.invalidateQueries({
-          queryKey: geoKeys.correctionContexts(),
-          refetchType: 'none',
-        }),
+        queryClient.invalidateQueries({ queryKey: geoKeys.correctionContexts(), refetchType: 'none' }),
         queryClient.invalidateQueries({ queryKey: geoKeys.lists() }),
         queryClient.invalidateQueries({ queryKey: geoKeys.insights() }),
         queryClient.invalidateQueries({ queryKey: geoKeys.topicLists() }),
-        ...(productId
-          ? [queryClient.invalidateQueries({ queryKey: productsKeys.detail(productId) })]
-          : []),
+        queryClient.invalidateQueries({ queryKey: productsKeys.detail(target.productId) }),
       ]);
+      if (!mounted.current) return;
+      try { await onDeleted(); }
+      catch (error) { if (mounted.current) setNavigationError(errorMessage(error)); }
     },
   });
 
+  async function reloadDetail() {
+    setDeleteIntent(null);
+    const result = await detail.refetch();
+    if (!mounted.current || result.isError) return;
+    setAcknowledgedErrors(queryClient.getQueryState(options.queryKey)?.errorUpdateCount ?? 0);
+    setConflict(false);
+    remove.reset();
+  }
+
+  async function confirmDelete() {
+    const state = queryClient.getQueryState<GeoObservationDetail>(options.queryKey);
+    if (commandPending.current || conflict || deleted || !deleteIntent
+      || (state?.errorUpdateCount ?? 0) > acknowledgedErrors
+      || state?.status !== 'success' || state.fetchStatus !== 'idle' || !state.data) return;
+    const current = detailView(state.data);
+    if (current.actionTargetId !== deleteIntent || !current.actions.some((action) => action === 'DELETE')) return;
+    commandPending.current = true;
+    try {
+      await remove.mutateAsync({
+        id: deleteIntent,
+        productId: state.data.product.id,
+        detailIds: state.data.observation_kind === 'MANUAL_ARTICLE_SEARCH'
+          ? state.data.correction_history.map((item) => item.observation.id)
+          : [state.data.observation.id],
+      });
+    } catch (error) {
+      if (mounted.current && error instanceof GeoRequestError && error.status === 409) {
+        setConflict(true);
+        setDeleteIntent(null);
+      }
+    } finally { commandPending.current = false; }
+  }
+
+  if (deleted) return (
+    <section className="space-y-3" role="status">
+      <h1 className="type-page-title">GEO 观测已删除</h1>
+      <p>完整更正链已删除。</p>
+      {navigationError && <p role="alert">返回列表失败：{navigationError}</p>}
+      <a href="/geo/observations?page=1&pageSize=20" className="text-link">返回观测列表</a>
+    </section>
+  );
+
   if (detail.isPending) return <DetailSkeleton observationId={observationId} />;
   if (!detail.data && detail.error) {
-    return <DetailFailure error={detail.error} onRetry={() => void detail.refetch()} />;
+    return <DetailFailure error={detail.error} onRetry={() => void reloadDetail()} />;
   }
   if (!detail.data) return null;
 
   const view = detailView(detail.data);
-  const primary = resolveGeoObservationPrimaryAction(view.primaryTask, view.actionTargetId);
+  const readFailed = (queryClient.getQueryState(options.queryKey)?.errorUpdateCount ?? 0) > acknowledgedErrors;
+  const unavailable = conflict || readFailed || detail.isError || detail.isFetching || remove.isPending;
+  const resolvedPrimary = resolveGeoObservationPrimaryAction(view.primaryTask, view.actionTargetId);
+  const primary = view.primaryTask === 'CORRECT_OBSERVATION' && unavailable
+    ? { ...resolvedPrimary, enabled: false, disabledReason: '请先刷新详情' }
+    : resolvedPrimary;
   const overflow = resolveGeoObservationOverflowActions({
     actions: view.actions,
     deleting: remove.isPending,
     label: view.queryText,
     observationId: view.actionTargetId,
-  });
+  }).map((action) => ({
+    ...action,
+    enabled: action.enabled && !unavailable,
+    disabledReason: unavailable ? '请先刷新详情或等待当前操作完成' : action.disabledReason,
+    ...(action.command === 'delete-observation' ? { confirmation: 'custom' as const } : {}),
+  }));
 
-  function handleCommand(command: string) {
+  function handleCommand(command: string, trigger?: HTMLElement | null) {
     if (command === 'delete-observation') {
-      remove.mutate(view.actionTargetId);
+      if (unavailable || !view.actions.some((action) => action === 'DELETE')) return;
+      focusReturn.current = trigger ?? null;
+      remove.reset();
+      setDeleteIntent(view.actionTargetId);
       return;
     }
     throw new Error(`GEO Observation Detail 收到未知页面命令：${command}`);
@@ -108,7 +180,7 @@ function GeoObservationDetailPage({
               {view.current ? '当前链尾' : '历史记录'}
             </Badge>
           </div>
-          <h1 className="break-words type-page-title" id="geo-observation-detail-title">
+          <h1 ref={titleRef} tabIndex={-1} className="break-words type-page-title" id="geo-observation-detail-title">
             {view.queryText}
           </h1>
           <p className="break-words text-text-secondary">
@@ -128,12 +200,37 @@ function GeoObservationDetailPage({
       {detail.error && (
         <InlineError
           message={`刷新失败，已保留当前只读详情：${errorMessage(detail.error)}`}
-          onRetry={() => void detail.refetch()}
+          onRetry={() => void reloadDetail()}
         />
       )}
-      {remove.error && (
-        <InlineError message={errorMessage(remove.error)} onRetry={() => remove.reset()} />
+      {readFailed && !detail.error && (
+        <InlineError message="详情曾刷新失败，请显式重载后再操作。" onRetry={() => void reloadDetail()} retryLabel="重载详情" />
       )}
+      {remove.error && (
+        <InlineError message={errorMessage(remove.error)} onRetry={() => void reloadDetail()} retryLabel="重载详情" />
+      )}
+
+      <Dialog open={deleteIntent !== null} onOpenChange={(open) => {
+        if (!open && !remove.isPending) setDeleteIntent(null);
+      }}>
+        <DialogContent finalFocus={() => focusReturn.current?.isConnected
+          ? focusReturn.current : titleRef.current} showCloseButton={!remove.isPending}>
+          <DialogHeader>
+            <DialogTitle>删除 GEO 观测</DialogTitle>
+            <DialogDescription>将永久删除“{view.queryText}”的完整更正链。此操作无法撤销。</DialogDescription>
+          </DialogHeader>
+          {(unavailable || deleteIntent !== view.actionTargetId || !view.actions.some((action) => action === 'DELETE')) && (
+            <p role="status">当前详情已变化或暂不可用，请关闭确认并刷新详情。</p>
+          )}
+          <DialogFooter>
+            <DialogClose render={<Button disabled={remove.isPending} variant="outline" />}>取消</DialogClose>
+            <Button variant="destructive" disabled={unavailable || deleteIntent !== view.actionTargetId
+              || !view.actions.some((action) => action === 'DELETE')} onClick={() => void confirmDelete()}>
+              {remove.isPending ? '删除中…' : '确认删除'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="overflow-hidden rounded-xl border border-border-subtle bg-surface-panel">
         <DetailSection description="服务端投影的只读阶段、主任务和动作资格。" title="摘要">
@@ -454,11 +551,11 @@ function TextBlock({ label, value }: { label: string; value: string }) {
   );
 }
 
-function InlineError({ message, onRetry }: { message: string; onRetry: () => void }) {
+function InlineError({ message, onRetry, retryLabel = '重试' }: { message: string; onRetry: () => void; retryLabel?: string }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive" role="alert">
       <span>{message}</span>
-      <Button onClick={onRetry} size="sm" type="button" variant="outline">重试</Button>
+      <Button onClick={onRetry} size="sm" type="button" variant="outline">{retryLabel}</Button>
     </div>
   );
 }

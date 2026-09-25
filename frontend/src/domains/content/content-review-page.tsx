@@ -210,7 +210,7 @@ function ContentReviewWorkspace({
     <article className="min-w-0 space-y-4" aria-labelledby="content-review-title">
       <header className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 space-y-1">
-          <p className="type-label text-text-muted">Content Review</p>
+          <p className="type-label text-text-muted">内容审核</p>
           <h1 className="break-words type-page-title" id="content-review-title">
             {context.content.title}
           </h1>
@@ -236,22 +236,22 @@ function ContentReviewWorkspace({
           content: <ContentReviewContextPanel context={context} />,
         }}
         main={{
-          label: 'Canonical Markdown',
+          label: '当前内容 Markdown',
           content: (
             <div className="min-w-0">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle bg-surface-raised px-4 py-3">
-                <h2 className="type-section-title">Canonical Markdown</h2>
+                <h2 className="type-section-title">当前内容 Markdown</h2>
                 <Badge variant="outline">只读主线</Badge>
               </div>
               <MarkdownPreview
-                ariaLabel={`内容版本 v${context.content.version} canonical Markdown`}
+                ariaLabel={`内容版本 v${context.content.version} Markdown 正文`}
                 value={context.content.body_markdown}
               />
             </div>
           ),
         }}
         reference={{
-          label: 'Review Panel',
+          label: '审核依据',
           content: <ContentReviewPanel context={context} />,
         }}
       />
@@ -305,13 +305,13 @@ function ContentReviewPanel({ context }: { context: ContentReviewContext }) {
 
   return (
     <div className="space-y-6 p-4">
-      <ReviewSection id="content-review-blocking" title="Blocking issues">
+      <ReviewSection id="content-review-blocking" title="阻断问题">
         <QualityIssues emptyMessage="没有阻断问题" issues={blocking} />
       </ReviewSection>
-      <ReviewSection id="content-review-warnings" title="Warnings">
+      <ReviewSection id="content-review-warnings" title="警告">
         <QualityIssues emptyMessage="没有警告" issues={warnings} />
       </ReviewSection>
-      <ReviewSection id="content-review-facts" title="Fact consistency">
+      <ReviewSection id="content-review-facts" title="事实一致性">
         <p className="text-sm text-text-secondary">
           以下批准事实是当前内容的锁定核对依据。
         </p>
@@ -321,7 +321,7 @@ function ContentReviewPanel({ context }: { context: ContentReviewContext }) {
           value={context.fact_version.body_markdown}
         />
       </ReviewSection>
-      <ReviewSection id="content-review-platform" title="Platform adaptation">
+      <ReviewSection id="content-review-platform" title="平台适配">
         {snapshot ? (
           <div className="space-y-3 text-sm">
             <Metadata label="生成合同" mono value={snapshot.contract_version} />
@@ -331,18 +331,18 @@ function ContentReviewPanel({ context }: { context: ContentReviewContext }) {
             <SnapshotValue label="渠道快照" value={snapshot.channel} />
           </div>
         ) : (
-          <p className="text-sm text-text-muted">该内容版本没有 AI generation snapshot。</p>
+          <p className="text-sm text-text-muted">该内容版本没有 AI 生成快照。</p>
         )}
         {context.humanization_traces.length > 0 && (
           <p className="text-xs text-text-muted">
-            已记录 {context.humanization_traces.length} 次自然化快照；canonical 内容仍以当前版本为准。
+            已记录 {context.humanization_traces.length} 次自然化快照；当前内容仍以服务端指向的版本为准。
           </p>
         )}
       </ReviewSection>
-      <ReviewSection id="content-review-diff" title="Canonical diff">
+      <ReviewSection id="content-review-diff" title="内容差异">
         <ContentVersionDiff diff={context.diff} />
       </ReviewSection>
-      <ReviewSection id="content-review-timeline" title="Review timeline">
+      <ReviewSection id="content-review-timeline" title="审核记录">
         <Timeline
           emptyMessage="该内容版本暂无审核记录"
           items={contentReviewTimelineItems(context)}
@@ -389,7 +389,7 @@ function SnapshotValue({ label, value }: { label: string; value: unknown }) {
 function ContentVersionDiff({ diff }: { diff: ContentDiff | null }) {
   if (!diff) return <p className="text-sm text-text-muted">首个内容版本，没有前序版本可比较。</p>;
   return (
-    <div className="max-w-full overflow-x-auto rounded-lg border border-border-subtle" role="region" aria-label="内容版本 canonical Markdown 差异" tabIndex={0}>
+    <div className="max-w-full overflow-x-auto rounded-lg border border-border-subtle" role="region" aria-label="内容版本 Markdown 差异" tabIndex={0}>
       <ol className="min-w-max font-mono text-xs leading-5">
         {diff.lines.map((line, index) => {
           const presentation = {
@@ -517,15 +517,15 @@ function ContentReviewSkeleton({ taskId }: { taskId: string }) {
   return (
     <article className="min-w-0 space-y-4" aria-busy="true" aria-labelledby="content-review-loading-title">
       <header className="space-y-2">
-        <p className="type-label text-text-muted">Content Review</p>
+        <p className="type-label text-text-muted">内容审核</p>
         <h1 className="type-page-title" id="content-review-loading-title">正在加载内容审核上下文</h1>
         <p className="break-all font-mono text-sm text-text-secondary">{taskId}</p>
       </header>
       <WorkspaceShell
         ariaLabel="正在加载内容审核工作台"
         context={{ label: '审核上下文', content: panel }}
-        main={{ label: 'Canonical Markdown', content: <div className="p-4"><Skeleton className="h-80" /></div> }}
-        reference={{ label: 'Review Panel', content: panel }}
+        main={{ label: '当前内容 Markdown', content: <div className="p-4"><Skeleton className="h-80" /></div> }}
+        reference={{ label: '审核依据', content: panel }}
       />
     </article>
   );

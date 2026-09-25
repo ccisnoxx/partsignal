@@ -205,6 +205,37 @@ test('Accounts 删除 Dialog 只使用独立 accounts query 的 focus 最新 pro
   await expect.poll(() => platformWorkspaceApi.accountRequests.at(-1)?.expectedRevision).toBe(19);
 });
 
+test('Accounts 删除 409 关闭重开仍冻结，失败 reload 不解冻且 A/B hold 隔离', async ({ page, platformWorkspaceApi }) => {
+  await page.goto(`/settings/platforms/${platformId}?tab=accounts`);
+  const rowA = page.locator('tr:visible, li:visible').filter({ hasText: 'Workspace 运营账号' }).first();
+  await rowA.getByRole('button', { name: '更多操作：Workspace 运营账号' }).click();
+  await page.getByRole('menuitem', { name: '删除账号' }).click();
+  let dialog = page.getByRole('dialog', { name: '删除发布账号“Workspace 运营账号”？' });
+  await expect(dialog).toBeVisible();
+  platformWorkspaceApi.conflictNextDelete();
+  await dialog.getByRole('button', { name: '确认删除' }).click();
+  await expect(dialog).toContainText('req-account-delete-conflict');
+  await dialog.getByRole('button', { name: '关闭' }).first().click();
+
+  await rowA.getByRole('button', { name: '更多操作：Workspace 运营账号' }).click();
+  await page.getByRole('menuitem', { name: '删除账号' }).click();
+  dialog = page.getByRole('dialog', { name: '删除发布账号“Workspace 运营账号”？' });
+  await expect(dialog.getByRole('button', { name: '确认删除' })).toBeDisabled();
+  platformWorkspaceApi.failNextAccountReload();
+  await dialog.getByRole('button', { name: '重新加载当前账号列表' }).click();
+  await expect(dialog).toContainText('req-accounts-reload-failed');
+  await expect(dialog.getByRole('button', { name: '确认删除' })).toBeDisabled();
+  await dialog.getByRole('button', { name: '重新加载当前账号列表' }).click();
+  await expect(dialog.getByRole('button', { name: '确认删除' })).toBeEnabled();
+  await dialog.getByRole('button', { name: '关闭' }).first().click();
+
+  const rowB = page.locator('tr:visible, li:visible').filter({ hasText: 'Workspace 停用账号' }).first();
+  await rowB.getByRole('button', { name: '更多操作：Workspace 停用账号' }).click();
+  await page.getByRole('menuitem', { name: '删除账号' }).click();
+  dialog = page.getByRole('dialog', { name: '删除发布账号“Workspace 停用账号”？' });
+  await expect(dialog.getByRole('button', { name: '确认删除' })).toBeEnabled();
+});
+
 test('Accounts 最新 query 移除目标后关闭删除 Dialog 且不提交陈旧请求', async ({ page, platformWorkspaceApi }) => {
   const accountId = '30000000-0000-4000-8000-000000000001';
   await page.goto(`/settings/platforms/${platformId}?tab=accounts`);

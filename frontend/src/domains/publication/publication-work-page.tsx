@@ -216,7 +216,7 @@ function ReadyQueue({
     <section className="space-y-3" aria-labelledby="ready-queue-title">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h2 className="type-section-title" id="ready-queue-title">Ready Queue</h2>
+          <h2 className="type-section-title" id="ready-queue-title">待开始队列</h2>
           <p className="mt-1 text-sm text-text-secondary">等待创建发布工作的已批准内容。</p>
         </div>
       </div>
@@ -233,7 +233,7 @@ function ReadyQueue({
       ) : (
         <>
           {query.data && query.error && (
-            <CachedRefreshAlert error={query.error} onRetry={query.refetch} surface="Ready Queue" />
+            <CachedRefreshAlert error={query.error} onRetry={query.refetch} surface="待开始队列" />
           )}
           {query.data.items.length === 0 ? (
             <div className="rounded-xl border border-dashed border-border p-6 text-center" role="status">
@@ -281,7 +281,7 @@ function ReadyQueueItem({
           {item.content_version.title}
         </a>
         <p className="text-sm text-text-secondary">
-          {item.platform_profile_name} · Approved Content v{item.content_version.version}
+          {item.platform_profile_name} · 已批准内容 v{item.content_version.version}
         </p>
       </div>
       <div className="text-sm">

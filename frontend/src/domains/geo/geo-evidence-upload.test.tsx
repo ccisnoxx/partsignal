@@ -48,21 +48,45 @@ describe('GeoEvidenceUpload', () => {
     } as never);
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 200 }));
     const onUploaded = vi.fn();
-    render(<GeoEvidenceUpload csrfToken="csrf" onUploaded={onUploaded} />);
+    const onBlockingChange = vi.fn();
+    render(<GeoEvidenceUpload csrfToken="csrf" onUploaded={onUploaded} onBlockingChange={onBlockingChange} />);
 
     await userEvent.upload(
       screen.getByLabelText('上传 GEO 证据截图'),
       new File(['evidence'], 'proof.png', { type: 'image/png' }),
     );
     expect(await screen.findByRole('alert')).toHaveTextContent('文件校验失败');
+    expect(onBlockingChange).toHaveBeenLastCalledWith(true);
     await userEvent.click(screen.getByRole('button', { name: '重试校验' }));
 
     await waitFor(() => expect(onUploaded).toHaveBeenCalledWith({
       ...pendingFile,
       status: 'VERIFIED',
     }));
+    expect(onBlockingChange).toHaveBeenLastCalledWith(false);
     expect(post).toHaveBeenNthCalledWith(1, '/api/v1/files/upload-intents', expect.anything());
     expect(post).toHaveBeenNthCalledWith(2, '/api/v1/files/{file_id}/complete', expect.anything());
     expect(post).toHaveBeenNthCalledWith(3, '/api/v1/files/{file_id}/complete', expect.anything());
   });
+  it('校验失败后放弃上传，abort 失败保留阻塞，成功后才允许继续', async () => {
+    const post = vi.spyOn(api, 'POST');
+    post.mockResolvedValueOnce({ data: intent, response: Response.json(intent) } as never);
+    post.mockResolvedValueOnce({ error: {}, response: Response.json({}, { status: 422 }) } as never);
+    post.mockResolvedValueOnce({ error: {}, response: Response.json({}, { status: 500 }) } as never);
+    post.mockResolvedValueOnce({ data: { ...pendingFile, status: 'ABORTED' }, response: Response.json({}) } as never);
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 200 }));
+    const onBlockingChange = vi.fn();
+    const onUploaded = vi.fn();
+    render(<GeoEvidenceUpload csrfToken="csrf" onUploaded={onUploaded} onBlockingChange={onBlockingChange} />);
+    await userEvent.upload(screen.getByLabelText('上传 GEO 证据截图'), new File(['evidence'], 'proof.png', { type: 'image/png' }));
+    await userEvent.click(await screen.findByRole('button', { name: '放弃上传' }));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('HTTP 500'));
+    expect(onBlockingChange).toHaveBeenLastCalledWith(true);
+    expect(screen.getByLabelText('上传 GEO 证据截图')).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { name: '放弃上传' }));
+    await waitFor(() => expect(onBlockingChange).toHaveBeenLastCalledWith(false));
+    expect(screen.getByLabelText('上传 GEO 证据截图')).toBeEnabled();
+    expect(onUploaded).not.toHaveBeenCalled();
+  });
+
 });

@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { expect, test, type APIResponse, type Page } from '@playwright/test';
 
 import type { components } from '../../src/shared/api/generated/schema';
+import { registerCurrentRealStackCookies, registerRealStackLoginSecrets } from './real-stack-session';
 
 type AuthSession = components['schemas']['AuthSession'];
 type Product = components['schemas']['Product'];
@@ -14,6 +15,7 @@ type PlatformAccount = components['schemas']['PlatformAccount'];
 type ContentTask = components['schemas']['ContentTask'];
 type ContentTaskDetail = components['schemas']['ContentTaskDetail'];
 type ContentVersion = components['schemas']['ContentVersion'];
+type ContentVersionDetail = components['schemas']['ContentVersionDetail'];
 type PublicationWork = components['schemas']['PublicationWork'];
 type PublicationWorkspaceContext = components['schemas']['PublicationWorkspaceContext'];
 type PublishedArticle = components['schemas']['PublishedArticle'];
@@ -25,6 +27,7 @@ const password = process.env.PARTSIGNAL_SEED_ADMIN_PASSWORD ?? 'partsignal-admin
 
 test.skip(!realStackEnabled, '只由隔离真实栈入口运行');
 test.setTimeout(90_000);
+test.afterEach(async ({ context }) => registerCurrentRealStackCookies(context, apiBaseUrl));
 
 async function responseBody<T>(response: APIResponse): Promise<T> {
   if (!response.ok()) {
@@ -34,9 +37,11 @@ async function responseBody<T>(response: APIResponse): Promise<T> {
 }
 
 async function login(page: Page) {
-  return responseBody<AuthSession>(await page.request.post(`${apiBaseUrl}/api/v1/auth/login`, {
+  const session = await responseBody<AuthSession>(await page.request.post(`${apiBaseUrl}/api/v1/auth/login`, {
     data: { username: 'admin', password },
   }));
+  await registerRealStackLoginSecrets(page.context(), apiBaseUrl, session.csrf_token);
+  return session;
 }
 
 async function createPrerequisites(page: Page, csrfToken: string, suffix: string) {
@@ -305,11 +310,12 @@ test('Flow A：V2 UI 从开始发布连续完成成果、修复任务与问题�
   await expect(continueRepair).toHaveAttribute('href', `/content/tasks/${repairTaskId}`);
   await continueRepair.click();
   await expect(page).toHaveURL(`/content/tasks/${repairTaskId}`);
-  await expect(page.getByText('CREATE_FIRST_DRAFT', { exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: '创建初稿' })).toBeVisible();
+  await expect(page.getByText('CREATE_FIRST_DRAFT', { exact: true })).toHaveCount(0);
   const currentContentSection = page.getByRole('heading', { level: 2, name: '当前内容' })
     .locator('..').locator('..').locator('..');
   await expect(currentContentSection.getByText('暂无', { exact: true })).toBeVisible();
-  const sourceIssueLink = page.getByRole('link', { name: '内容发生变化 · OPEN' });
+  const sourceIssueLink = page.getByRole('link', { name: '内容发生变化 · 待处理' });
   await expect(sourceIssueLink).toHaveAttribute('href', `/publishing/issues/${issueId}`);
   await sourceIssueLink.click();
   await expect(page).toHaveURL(`/publishing/issues/${issueId}#issue`);
@@ -481,6 +487,16 @@ test('Flow B：失败核验经内容修订审批、换版和重登记后完成�
   await dialog.getByRole('button', { name: '确认提交' }).click();
   await expect(dialog).toBeHidden();
 
+  const firstResult = await responseBody<PublicationWorkspaceContext>(await page.request.get(
+    `${apiBaseUrl}/api/v1/publication-works/${work.id}/workspace-context`,
+  ));
+  expect(firstResult.work).toMatchObject({
+    actual_title: firstTitle,
+    final_url: firstUrl,
+    content_version_id: setup.approvedContent.id,
+  });
+  expect(firstResult.work.published_at).not.toBeNull();
+
   await page.getByRole('button', { name: '核验发布结果' }).click();
   dialog = page.getByRole('dialog', { name: '核验发布结果' });
   await dialog.getByRole('radio', { name: '不一致，记录失败并进入内容修正' }).check();
@@ -576,6 +592,21 @@ test('Flow B：失败核验经内容修订审批、换版和重登记后完成�
       ['FAILED', setup.approvedContent.id],
       ['PASSED', revisedContentId],
     ]);
+  expect(finalContext.work.verifications[0]).toMatchObject({
+    outcome: 'FAILED',
+    content_version_id: setup.approvedContent.id,
+    actual_title_snapshot: firstTitle,
+    final_url_snapshot: firstUrl,
+    published_at_snapshot: firstResult.work.published_at,
+    comment: failureComment,
+  });
+  expect(finalContext.work.verifications[1]).toMatchObject({
+    outcome: 'PASSED',
+    content_version_id: revisedContentId,
+    actual_title_snapshot: finalTitle,
+    final_url_snapshot: finalUrl,
+    published_at_snapshot: finalContext.work.published_at,
+  });
   expect(finalContext.work.events.map((event) => event.action)).toEqual([
     'CREATED',
     'RESULT_REGISTERED',
@@ -596,6 +627,24 @@ test('Flow B：失败核验经内容修订审批、换版和重登记后完成�
     `${apiBaseUrl}/api/v1/published-articles/${work.id}`,
   ));
   expect(article.id).toBe(work.id);
+  expect(article.verification).toEqual(finalContext.work.verifications[1]);
+  expect(article.source_content.content).toMatchObject({
+    id: revisedContentId,
+    title: revisedTitle,
+    body_markdown: savedBody,
+    content_hash: finalContext.content.content_hash,
+  });
+  expect(article.source_content.content.content_hash).not.toBe(setup.approvedContent.content_hash);
+  const originalVersion = await responseBody<ContentVersionDetail>(await page.request.get(
+    `${apiBaseUrl}/api/v1/content-versions/${setup.approvedContent.id}/detail`,
+  ));
+  expect(originalVersion.content).toMatchObject({
+    id: setup.approvedContent.id,
+    title: setup.approvedContent.title,
+    body_markdown: setup.approvedContent.body_markdown,
+    content_hash: setup.approvedContent.content_hash,
+    status: 'SUPERSEDED',
+  });
   await expect(page.getByRole('button', {
     name: /登记发布结果|核验发布结果|切换内容版本|关闭发布工作/,
   })).toHaveCount(0);

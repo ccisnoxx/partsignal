@@ -1,4 +1,5 @@
 import {
+  createFactHistory,
   createFactVersion,
   createProducts,
   expect,
@@ -83,6 +84,21 @@ test('direct navigation 覆盖 loading、empty、404、403、通用错误与 ret
   productsApi.setFactHistoryMode('success');
   await page.getByRole('button', { name: '重试' }).click();
   await expect(page.getByRole('heading', { name: 'PS-0006 事实版本历史' })).toBeVisible();
+});
+
+test('历史响应包含其他产品版本时阻断整张表', async ({ page, productsApi }) => {
+  const history = createFactHistory(product, new URL(historyPath, 'http://localhost'));
+  productsApi.setFactHistory({
+    ...history,
+    items: [{ ...history.items[0]!, product_id: '00000000-0000-4000-8000-000000000777' }],
+    total: 1,
+  });
+
+  await page.goto(historyPath);
+  await expect(page.getByText('未找到该产品的事实历史')).toBeVisible();
+  await expect(page.getByRole('link', { name: /查看事实版本/ })).toHaveCount(0);
+  await expect(page.getByRole('navigation', { name: '表格分页' })).toHaveCount(0);
+  expect(productsApi.factHistoryRequests).toHaveLength(1);
 });
 
 test('事实历史在四档宽度无页面级横向溢出，表格区和版本链接可获得焦点', async ({ page }, testInfo) => {

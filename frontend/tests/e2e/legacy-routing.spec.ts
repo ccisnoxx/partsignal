@@ -46,6 +46,18 @@ test('query 白名单、workspace 与 Publishing 优先级写入 canonical URL',
   await page.goto(`/settings?platform_profile_id=${id}&configuration_status=COMPLETE`);
   await expect(page).toHaveURL(`/settings/platforms/${id}?tab=accounts`);
 
+  await page.goto('/settings?platform_profile_id=bad');
+  await expect(page).toHaveURL('/settings/platforms?page=1&pageSize=20');
+
+  await page.goto('/configuration/platforms?platform=bad');
+  await expect(page).toHaveURL('/settings/platforms?page=1&pageSize=20');
+
+  await page.goto(`/audit?target_id=${id}`);
+  await expect.poll(() => {
+    const current = new URL(page.url());
+    return { pathname: current.pathname, targetId: current.searchParams.get('targetId') };
+  }).toEqual({ pathname: '/system/audit', targetId: id });
+
   await page.goto(`/configuration/ai/channels/${id}?tab=logs&q=drop`);
   await expect(page).toHaveURL(`/settings/ai/${id}?tab=basic`);
 

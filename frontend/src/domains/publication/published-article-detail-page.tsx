@@ -41,6 +41,7 @@ import {
 } from './published-article.model';
 import {
   issueKindLabels,
+  issueStatusLabels,
   openIssueFormSchema,
   type PublishedContentIssue,
 } from './published-content-issue.model';
@@ -103,6 +104,8 @@ function PublishedArticleDetailView({ article, csrfToken, onIssueOpened, onReloa
   onIssueOpened: (issue: PublishedContentIssue) => Promise<void> | void;
   onReload: () => Promise<void>;
 }) {
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const issueLinkRef = useRef<HTMLAnchorElement>(null);
   const content = article.source_content.content;
   const fact = article.source_content.fact_version;
   const stage = publishedArticleStageRegistry[article.workflow_stage];
@@ -117,12 +120,12 @@ function PublishedArticleDetailView({ article, csrfToken, onIssueOpened, onReloa
     <article aria-labelledby="published-article-title" className="min-w-0 space-y-4">
       <header className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 space-y-1">
-          <p className="type-label text-text-muted">Published Article</p>
-          <h1 className="break-words type-page-title" id="published-article-title">{article.actual_title}</h1>
+          <p className="type-label text-text-muted">发布成果</p>
+          <h1 className="break-words type-page-title" id="published-article-title" ref={titleRef} tabIndex={-1}>{article.actual_title}</h1>
           <p className="text-text-secondary">首次成功核验形成的只读发布成果；发布结果、来源正文与核验快照均不可原地修改。</p>
           <div className="flex flex-wrap gap-2 pt-1">
             <Badge variant={stage.tone}>{stage.label}</Badge>
-            <Badge variant="outline">Passed</Badge>
+            <Badge variant="outline">核验通过</Badge>
             <Badge variant="outline">只读 · 不可变快照</Badge>
           </div>
         </div>
@@ -130,16 +133,15 @@ function PublishedArticleDetailView({ article, csrfToken, onIssueOpened, onReloa
           <a className={navLinkClass} href="/publishing/articles?page=1&pageSize=20">返回成果列表</a>
           <a className={navLinkClass} href={article.final_url} rel="noreferrer" target="_blank">打开公开页面</a>
           {article.primary_task === 'HANDLE_CONTENT_ISSUE' && article.open_issue_id && (
-            <a className={navLinkClass} href={`/publishing/issues/${article.open_issue_id}#issue`}>处理内容问题</a>
+            <a className={navLinkClass} href={`/publishing/issues/${article.open_issue_id}#issue`} ref={issueLinkRef}>处理内容问题</a>
           )}
-          {article.available_actions.includes('OPEN_ISSUE') && (
-            <OpenIssueDialog
-              article={article}
-              csrfToken={csrfToken}
-              onIssueOpened={onIssueOpened}
-              onReload={onReload}
-            />
-          )}
+          <OpenIssueDialog
+            article={article}
+            csrfToken={csrfToken}
+            focusFallback={() => issueLinkRef.current ?? titleRef.current}
+            onIssueOpened={onIssueOpened}
+            onReload={onReload}
+          />
         </nav>
       </header>
 
@@ -196,7 +198,7 @@ function PublishedArticleDetailView({ article, csrfToken, onIssueOpened, onReloa
 
         <DetailSection description="PublishedArticle 固定指向首次 PASSED verification。" title="首次成功核验快照">
           <dl className="grid min-w-0 gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Metadata label="结果" value="PASSED" />
+            <Metadata label="结果" value="通过" />
             <Metadata label="Verification ID" mono value={article.verification.id} />
             <Metadata label="核验人 ID" mono value={article.verification.actor_id} />
             <Metadata label="标题 snapshot" value={article.verification.actual_title_snapshot} />
@@ -233,7 +235,7 @@ function PublishedArticleDetailView({ article, csrfToken, onIssueOpened, onReloa
                   <a className="font-medium text-link hover:underline" href={`/publishing/issues/${issue.id}#issue`}>
                     {issueKindLabels[issue.kind]}
                   </a>
-                  {' · '}{issue.status}{' · '}{issue.description}
+                  {' · '}{issueStatusLabels[issue.status]}{' · '}{issue.description}
                 </li>
               ))}
             </ul>
@@ -244,9 +246,10 @@ function PublishedArticleDetailView({ article, csrfToken, onIssueOpened, onReloa
   );
 }
 
-function OpenIssueDialog({ article, csrfToken, onIssueOpened, onReload }: {
+function OpenIssueDialog({ article, csrfToken, focusFallback, onIssueOpened, onReload }: {
   article: PublishedArticle;
   csrfToken: string | null;
+  focusFallback: () => HTMLElement | null;
   onIssueOpened: (issue: PublishedContentIssue) => Promise<void> | void;
   onReload: () => Promise<void>;
 }) {
@@ -257,6 +260,8 @@ function OpenIssueDialog({ article, csrfToken, onIssueOpened, onReload }: {
   const [serverError, setServerError] = useState<PublicationStartErrorMapping>();
   const [contextStale, setContextStale] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const canOpen = article.available_actions.includes('OPEN_ISSUE');
+  const stale = contextStale || !canOpen;
   const mutation = useMutation({
     mutationFn: (body: { kind: typeof kind; description: string }) => (
       openPublishedContentIssue(article.id, body, csrfToken)
@@ -274,7 +279,7 @@ function OpenIssueDialog({ article, csrfToken, onIssueOpened, onReload }: {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (mutation.isPending || contextStale) return;
+    if (mutation.isPending || stale) return;
     setFieldError(undefined);
     setServerError(undefined);
     const parsed = openIssueFormSchema.safeParse({ kind, description });
@@ -296,8 +301,12 @@ function OpenIssueDialog({ article, csrfToken, onIssueOpened, onReload }: {
   async function reloadArticle() {
     try {
       await onReload();
+      setKind('PAGE_UNAVAILABLE');
+      setDescription('');
+      setFieldError(undefined);
       setContextStale(false);
       setServerError(undefined);
+      setOpen(false);
     } catch (error) {
       setServerError(mapPublicationError(error));
     }
@@ -305,27 +314,26 @@ function OpenIssueDialog({ article, csrfToken, onIssueOpened, onReload }: {
 
   return (
     <>
-      <Button onClick={() => setOpen(true)} ref={triggerRef} type="button">登记内容问题</Button>
+      {canOpen && <Button onClick={() => setOpen(true)} ref={triggerRef} type="button">登记内容问题</Button>}
       <Dialog
         onOpenChange={(next) => !mutation.isPending && setOpen(next)}
         onOpenChangeComplete={(next) => {
-          if (!next) {
+          if (!next && !contextStale) {
             setDescription('');
             setFieldError(undefined);
             setServerError(undefined);
-            setContextStale(false);
           }
         }}
         open={open}
       >
-        <DialogContent finalFocus={() => triggerRef.current} showCloseButton={!mutation.isPending}>
+        <DialogContent finalFocus={() => triggerRef.current?.isConnected ? triggerRef.current : focusFallback()} showCloseButton={!mutation.isPending}>
           <DialogHeader>
             <DialogTitle>登记“{article.actual_title}”的内容问题</DialogTitle>
             <DialogDescription>问题类型与描述提交后不可编辑；服务端会重新校验成果资格。</DialogDescription>
           </DialogHeader>
           <form className="space-y-4" onSubmit={submit}>
             <ErrorSummary errors={errors} title="内容问题未登记" />
-            {contextStale && (
+            {stale && (
               <Button onClick={() => void reloadArticle()} type="button" variant="outline">
                 显式重载发布成果
               </Button>
@@ -333,7 +341,7 @@ function OpenIssueDialog({ article, csrfToken, onIssueOpened, onReload }: {
             <label className="block space-y-1.5" htmlFor="published-issue-kind">
               <span className="font-medium">问题类型</span>
               <Select
-                disabled={mutation.isPending || contextStale}
+                disabled={mutation.isPending || stale}
                 items={Object.entries(issueKindLabels).map(([value, label]) => ({ value, label }))}
                 onValueChange={(value) => value && setKind(value as typeof kind)}
                 value={kind}
@@ -350,7 +358,7 @@ function OpenIssueDialog({ article, csrfToken, onIssueOpened, onReload }: {
               <span className="font-medium">问题描述</span>
               <textarea
                 className="min-h-28 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm"
-                disabled={mutation.isPending || contextStale}
+                disabled={mutation.isPending || stale}
                 id="published-issue-description"
                 onChange={(event) => setDescription(event.target.value)}
                 value={description}
@@ -358,7 +366,7 @@ function OpenIssueDialog({ article, csrfToken, onIssueOpened, onReload }: {
             </label>
             <DialogFooter>
               <DialogClose disabled={mutation.isPending} render={<Button variant="outline" />}>取消</DialogClose>
-              <Button disabled={mutation.isPending || contextStale} type="submit">
+              <Button disabled={mutation.isPending || stale} type="submit">
                 {mutation.isPending ? '正在登记…' : '确认登记'}
               </Button>
             </DialogFooter>
@@ -393,7 +401,7 @@ function PublishedArticleSkeleton({ articleId }: { articleId: string }) {
   return (
     <article aria-busy="true" className="space-y-4">
       <header className="space-y-2">
-        <p className="type-label text-text-muted">Published Article</p>
+        <p className="type-label text-text-muted">发布成果</p>
         <h1 className="type-page-title">正在加载发布成果</h1>
         <p className="break-all font-mono text-sm text-text-secondary">{articleId}</p>
       </header>

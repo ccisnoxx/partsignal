@@ -286,9 +286,27 @@
     .ps-table [data-column-role='metadata'] {
       display: none;
     }
+
+    .products-list-table {
+      min-width: 100%;
+      table-layout: fixed;
+    }
+
+    .products-list-table [data-column-role='primary'] {
+      min-width: 0;
+      width: auto;
+    }
+
+    .products-list-table [data-column-role='status'] {
+      width: 7rem;
+    }
   }
 
   @media (max-width: 767px) {
+    .products-list-table [data-column-role='status'] {
+      display: none;
+    }
+
     .audit-list-table {
       min-width: 100%;
       table-layout: fixed;

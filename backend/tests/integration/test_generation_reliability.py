@@ -1587,7 +1587,17 @@ def test_worker_late_final_failure_rolls_back_content_pointer_and_provider_metad
         assert len(observed) == 1
         assert observed[0].orig.sqlstate == "23505"
         assert observed[0].orig.diag.constraint_name == "uq_content_versions_source_job_id"
-        assert flushed_metadata == [("req-reliability", 0, 10, 20, 30)]
+        assert len(flushed_metadata) == 1
+        (
+            provider_request_id,
+            response_duration_ms,
+            prompt_tokens,
+            completion_tokens,
+            total_tokens,
+        ) = flushed_metadata[0]
+        assert provider_request_id == "req-reliability"
+        assert type(response_duration_ms) is int and response_duration_ms >= 0
+        assert (prompt_tokens, completion_tokens, total_tokens) == (10, 20, 30)
         assert rollback_states == ["RUNNING"]
 
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:

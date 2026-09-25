@@ -5,7 +5,7 @@ import { URL } from 'node:url';
 import type { components } from '../../../src/shared/api/generated/schema';
 import { geoIds, test as base } from './geo.fixture';
 
-type DetailMode = 'success' | 'not-found' | 'forbidden' | 'conflict' | 'error' | 'loading';
+type DetailMode = 'success' | 'no-actions' | 'not-found' | 'forbidden' | 'conflict' | 'error' | 'loading';
 type GeoDetailApiController = {
   detailRequests: URL[];
   releaseLoading: () => void;
@@ -166,7 +166,11 @@ function errorEnvelope(code: string, message: string, requestId: string) {
 }
 
 const test = base.extend<GeoDetailFixtures>({
-  geoDetailApi: [async ({ page }, use) => {
+  geoDetailApi: [async ({ page, geoApi }, use) => {
+    geoApi.registerDeleteChain(
+      manualDetail.correction_history.map((item) => item.observation.id),
+      detailIds.selected,
+    );
     let mode: DetailMode = 'success';
     let releaseDetail: (() => void) | undefined;
     const detailRequests: URL[] = [];
@@ -184,11 +188,11 @@ const test = base.extend<GeoDetailFixtures>({
       if (mode === 'loading') {
         await new Promise<void>((resolve) => { releaseDetail = resolve; });
       }
-      if (mode !== 'success') {
+      if (mode !== 'success' && mode !== 'no-actions') {
         const response = {
           'not-found': [404, 'NOT_FOUND', 'GEO 观测不存在'],
           forbidden: [403, 'FORBIDDEN', '无权访问 GEO 观测'],
-          conflict: [409, 'REVISION_CONFLICT', 'GEO 观测更正链不完整'],
+          conflict: [409, 'GEO_OBSERVATION_CONTEXT_INCOMPLETE', 'GEO 观测更正链不完整'],
           error: [500, 'INTERNAL_ERROR', '读取 GEO 观测失败'],
           loading: [500, 'INTERNAL_ERROR', 'loading 已释放但未切换模式'],
         }[mode] as [number, string, string];
@@ -204,13 +208,26 @@ const test = base.extend<GeoDetailFixtures>({
         await route.fulfill({ status: 404, json: errorEnvelope('NOT_FOUND', 'GEO 观测不存在', 'req-detail-not-found') });
         return;
       }
-      await route.fulfill({ status: 200, json: data });
+      const projection = mode === 'no-actions' && data?.observation_kind === 'MANUAL_ARTICLE_SEARCH'
+        ? {
+          ...data,
+          correction_history: data.correction_history.map((item) => item.is_chain_tail
+            ? { ...item, observation: { ...item.observation, available_actions: [] } }
+            : item),
+        } satisfies components['schemas']['ManualGeoObservationDetail']
+        : data;
+      await route.fulfill({ status: 200, json: projection });
     });
 
     await use({
       detailRequests,
       releaseLoading: () => releaseDetail?.(),
-      setDetailMode: (next) => { mode = next; },
+      setDetailMode: (next) => {
+        mode = next;
+        if (next === 'not-found') geoApi.allowHttpStatus(404);
+        if (next === 'forbidden') geoApi.allowHttpStatus(403);
+        if (next === 'error') geoApi.allowHttpStatus(500);
+      },
     });
 
     expect(unexpectedRequests, 'GEO Detail 只允许单个聚合 GET').toEqual([]);

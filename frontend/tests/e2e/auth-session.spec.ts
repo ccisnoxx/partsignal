@@ -3,18 +3,18 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath, URL } from 'node:url';
 
 import type { components } from '../../src/shared/api/generated/schema';
-import { expectSecretsAbsent } from './secret-artifact';
 import { emptyAggregate } from './fixtures/workbench.fixture';
+import { fixtureArtifactSecrets } from './fixture-secrets';
 
 type AuthUser = components['schemas']['User'];
 type AuthFixture = {
   authApi: undefined;
 };
 
-const initialPassword = 'auth-fixture-old-password';
-const firstNewPassword = 'auth-fixture-new-password';
-const secondNewPassword = 'auth-fixture-next-password';
-const csrfToken = 'auth-fixture-csrf';
+const initialPassword = fixtureArtifactSecrets.authInitialPassword;
+const firstNewPassword = fixtureArtifactSecrets.authFirstNewPassword;
+const secondNewPassword = fixtureArtifactSecrets.authSecondNewPassword;
+const csrfToken = fixtureArtifactSecrets.authCsrf;
 const securityHeaders = readFileSync(
   fileURLToPath(new URL('../../../deploy/nginx/partsignal-security-headers.conf', import.meta.url)),
   'utf8',
@@ -195,7 +195,7 @@ test('登录关键控件在移动端满足触控目标且桌面保持紧凑高�
   }
 });
 
-test('Auth production artifact 完成强制改密、自助改密、ENGINEER 403 与退出', async ({ page }, testInfo: TestInfo) => {
+test('Auth production artifact 完成强制改密、自助改密、ENGINEER 403 与退出', async ({ page }) => {
   const runtimeErrors: string[] = [];
   page.on('console', (message) => {
     if (message.type() === 'error') runtimeErrors.push(`console.error: ${message.text()}`);
@@ -209,53 +209,49 @@ test('Auth production artifact 完成强制改密、自助改密、ENGINEER 403 
     if (!interceptedNoContentPost) runtimeErrors.push(`requestfailed: ${request.method()} ${pathname}`);
   });
 
-  try {
-    await page.goto('/system/users');
-    await expect(page).toHaveURL('/login?redirect=%2Fsystem%2Fusers%3Fstatus%3DENABLED%26page%3D1%26pageSize%3D20');
-    await expect(page.getByRole('heading', { level: 1, name: '登录' })).toBeVisible();
-    await expect(page.getByRole('navigation', { name: '主导航' })).toHaveCount(0);
+  await page.goto('/system/users');
+  await expect(page).toHaveURL('/login?redirect=%2Fsystem%2Fusers%3Fstatus%3DENABLED%26page%3D1%26pageSize%3D20');
+  await expect(page.getByRole('heading', { level: 1, name: '登录' })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: '主导航' })).toHaveCount(0);
 
-    await page.getByRole('textbox', { name: '用户名' }).fill(engineer.username);
-    await page.getByLabel(/^密码/).fill(initialPassword);
-    await page.getByRole('button', { name: '登录' }).click();
-    await expect(page).toHaveURL('/account/security');
-    await expect(page.getByText('首次登录必须修改临时密码，完成前不能进入业务页面。')).toBeVisible();
+  await page.getByRole('textbox', { name: '用户名' }).fill(engineer.username);
+  await page.getByLabel(/^密码/).fill(initialPassword);
+  await page.getByRole('button', { name: '登录' }).click();
+  await expect(page).toHaveURL('/account/security');
+  await expect(page.getByText('首次登录必须修改临时密码，完成前不能进入业务页面。')).toBeVisible();
 
-    await page.getByLabel(/^当前密码/).fill(initialPassword);
-    await page.getByLabel(/^新密码/).fill(firstNewPassword);
-    await page.getByRole('button', { name: '确认修改' }).click();
-    await expect(page).toHaveURL('/');
-    await expect(page.getByRole('heading', { level: 1, name: '工作台' })).toBeVisible();
+  await page.getByLabel(/^当前密码/).fill(initialPassword);
+  await page.getByLabel(/^新密码/).fill(firstNewPassword);
+  await page.getByRole('button', { name: '确认修改' }).click();
+  await expect(page).toHaveURL('/');
+  await expect(page.getByRole('heading', { level: 1, name: '工作台' })).toBeVisible();
 
-    await page.getByRole('button', { name: /内容工程师/ }).click();
-    await page.getByRole('menuitem', { name: '修改密码' }).click();
-    await expect(page).toHaveURL('/account/security');
-    await expect(page.getByText('修改成功后，当前会话继续有效，其他会话将由服务端撤销。')).toBeVisible();
-    await page.getByLabel(/^当前密码/).fill(firstNewPassword);
-    await page.getByLabel(/^新密码/).fill(secondNewPassword);
-    await page.getByRole('button', { name: '确认修改' }).click();
-    await expect(page).toHaveURL('/');
+  await page.getByRole('button', { name: /内容工程师/ }).click();
+  await page.getByRole('menuitem', { name: '修改密码' }).click();
+  await expect(page).toHaveURL('/account/security');
+  await expect(page.getByText('修改成功后，当前会话继续有效，其他会话将由服务端撤销。')).toBeVisible();
+  await page.getByLabel(/^当前密码/).fill(firstNewPassword);
+  await page.getByLabel(/^新密码/).fill(secondNewPassword);
+  await page.getByRole('button', { name: '确认修改' }).click();
+  await expect(page).toHaveURL('/');
 
-    await page.goto('/system/users');
-    const forbidden = page.getByRole('heading', { name: '无权访问系统管理' });
-    await expect(forbidden).toBeVisible();
-    await expect(forbidden.locator('xpath=ancestor::section[1]')).toBeFocused();
+  await page.goto('/system/users');
+  const forbidden = page.getByRole('heading', { name: '无权访问系统管理' });
+  await expect(forbidden).toBeVisible();
+  await expect(forbidden.locator('xpath=ancestor::section[1]')).toBeFocused();
 
-    await page.getByRole('button', { name: /内容工程师/ }).click();
-    await page.getByRole('menuitem', { name: '退出登录' }).click();
-    await expect(page).toHaveURL('/login?redirect=%2Fsystem%2Fusers%3Fstatus%3DENABLED%26page%3D1%26pageSize%3D20');
-    await expect(page.getByRole('heading', { level: 1, name: '登录' })).toBeVisible();
+  await page.getByRole('button', { name: /内容工程师/ }).click();
+  await page.getByRole('menuitem', { name: '退出登录' }).click();
+  await expect(page).toHaveURL('/login?redirect=%2Fsystem%2Fusers%3Fstatus%3DENABLED%26page%3D1%26pageSize%3D20');
+  await expect(page.getByRole('heading', { level: 1, name: '登录' })).toBeVisible();
 
-    await page.goto('/change-password');
-    await expect(page).toHaveURL('/login?redirect=%2Fchange-password');
-    await page.getByRole('textbox', { name: '用户名' }).fill(engineer.username);
-    await page.getByLabel(/^密码/).fill(secondNewPassword);
-    await page.getByRole('button', { name: '登录' }).click();
-    await expect(page).toHaveURL('/account/security');
-    expect(runtimeErrors, 'Auth 页面不得出现未捕获异常或失败资源').toEqual([]);
-  } finally {
-    await expectSecretsAbsent(testInfo.outputDir, [initialPassword, firstNewPassword, secondNewPassword]);
-  }
+  await page.goto('/change-password');
+  await expect(page).toHaveURL('/login?redirect=%2Fchange-password');
+  await page.getByRole('textbox', { name: '用户名' }).fill(engineer.username);
+  await page.getByLabel(/^密码/).fill(secondNewPassword);
+  await page.getByRole('button', { name: '登录' }).click();
+  await expect(page).toHaveURL('/account/security');
+  expect(runtimeErrors, 'Auth 页面不得出现未捕获异常或失败资源').toEqual([]);
 });
 
 export { expect, test };

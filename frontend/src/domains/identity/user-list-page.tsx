@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -94,9 +95,12 @@ type UserListPageProps = {
 
 type SelectedUser = Pick<User, 'id' | 'revision' | 'username'>;
 type Selection = { scope: string; items: Record<string, SelectedUser> };
+type BulkDisableIntent = { scope: string; items: SelectedUser[] };
 type CommandTarget = { command: Exclude<UserCommand, 'delete-user' | 'show-deletion-blockers'>; user: User; focusReturn: HTMLElement | null };
 type DeletionIntent = { id: string; command: 'delete-user' | 'show-deletion-blockers'; focusReturn: HTMLElement | null };
+type DeletionHold = { id: string; error: UserRequestError };
 type BulkFeedback = {
+  scope: string;
   succeeded: number;
   failures: Array<components['schemas']['UserBulkStatusFailure'] & { username: string }>;
 };
@@ -118,9 +122,19 @@ function UserListPage({
   const [resetTarget, setResetTarget] = useState<CommandTarget>();
   const [commandTarget, setCommandTarget] = useState<CommandTarget>();
   const [deletionIntent, setDeletionIntent] = useState<DeletionIntent>();
-  const [bulkDisableTarget, setBulkDisableTarget] = useState<SelectedUser[]>();
+  const [deletionHolds, setDeletionHolds] = useState<Record<string, UserRequestError>>({});
+  const [bulkDisableTarget, setBulkDisableTarget] = useState<BulkDisableIntent>();
   const scope = userSelectionScope(search);
   const [selection, setSelection] = useState<Selection>({ scope, items: {} });
+  const selectionRef = useRef(selection);
+  const selectionEpoch = useRef(0);
+  const bulkWorking = useRef(false);
+  const updateSelection = useCallback((next: Selection) => {
+    selectionEpoch.current += 1;
+    selectionRef.current = next;
+    setSelection(next);
+    setBulkDisableTarget(undefined);
+  }, []);
   const [selectionNotice, setSelectionNotice] = useState<string>();
   const [bulkFeedback, setBulkFeedback] = useState<BulkFeedback>();
   const rows = users.data?.items ?? emptyUsers;
@@ -129,6 +143,7 @@ function UserListPage({
   const selectedItems = selection.scope === scope ? Object.values(selection.items) : [];
   const selectedIds = new Set(selectedItems.map((item) => item.id));
   const filtered = hasUserFilters(search);
+  const deletionErrorForIntent = deletionIntent ? deletionHolds[deletionIntent.id] : undefined;
 
   useEffect(() => {
     if (previousListKey.current !== activeListKey) {
@@ -156,8 +171,10 @@ function UserListPage({
   }
 
   async function refreshUsers(savedUsers: readonly User[] = []) {
-    await queryClient.invalidateQueries({ queryKey: userKeys.lists() });
-    if (savedUsers.some((user) => user.id === currentUserId)) await onAuthChanged();
+    await Promise.all([
+      savedUsers.some((user) => user.id === currentUserId) ? onAuthChanged() : Promise.resolve(),
+      queryClient.invalidateQueries({ queryKey: userKeys.lists() }),
+    ]);
   }
 
   useEffect(() => {
@@ -165,7 +182,7 @@ function UserListPage({
       // URL 查询是选择范围的外部 owner，范围切换后必须同步销毁旧快照。
       // eslint-disable-next-line react-hooks/set-state-in-effect
       if (Object.keys(selection.items).length) setSelectionNotice('查询范围已变化，已清除原有选择。');
-      setSelection({ scope, items: {} });
+      updateSelection({ scope, items: {} });
       return;
     }
     if (!users.data) return;
@@ -173,10 +190,10 @@ function UserListPage({
     const stale = Object.values(selection.items).some((item) => visible.get(item.id) !== item.revision);
     if (stale) {
       // 服务端 revision 是选择有效性的权威依据，刷新后发现漂移必须整体清空。
-      setSelection({ scope, items: {} });
+      updateSelection({ scope, items: {} });
       setSelectionNotice('列表数据已更新，已清除过期选择。');
     }
-  }, [rows, scope, selection, users.data]);
+  }, [rows, scope, selection, users.data, updateSelection]);
 
   const command = useMutation({
     mutationFn: async (target: CommandTarget) => {
@@ -194,7 +211,7 @@ function UserListPage({
   });
 
   const bulk = useMutation({
-    mutationFn: ({ items, status }: { items: SelectedUser[]; status: UserStatus }) => (
+    mutationFn: ({ items, status }: { items: SelectedUser[]; status: UserStatus; scope: string; selectionEpoch: number }) => (
       bulkUpdateUserStatus(
         items.map((item) => ({ user_id: item.id, expected_revision: item.revision })),
         status,
@@ -204,14 +221,18 @@ function UserListPage({
     onSuccess: async (result, variables) => {
       const names = new Map(variables.items.map((item) => [item.id, item.username]));
       setBulkFeedback({
+        scope: variables.scope,
         succeeded: result.succeeded.length,
         failures: result.failures.map((failure) => ({
           ...failure,
           username: names.get(failure.user_id) ?? failure.user_id,
         })),
       });
-      setSelection({ scope, items: {} });
-      setBulkDisableTarget(undefined);
+      if (variables.scope === scope && selectionRef.current.scope === variables.scope
+        && selectionEpoch.current === variables.selectionEpoch) {
+        updateSelection({ scope, items: {} });
+        setBulkDisableTarget(undefined);
+      }
       await refreshUsers(result.succeeded);
     },
   });
@@ -263,25 +284,49 @@ function UserListPage({
   }
 
   function toggleSelected(user: User, checked: boolean) {
-    setSelection((current) => {
-      const items = current.scope === scope ? { ...current.items } : {};
-      if (checked) items[user.id] = { id: user.id, username: user.username, revision: user.revision };
-      else delete items[user.id];
-      return { scope, items };
-    });
+    const current = selectionRef.current;
+    const items = current.scope === scope ? { ...current.items } : {};
+    if (checked) items[user.id] = { id: user.id, username: user.username, revision: user.revision };
+    else delete items[user.id];
+    updateSelection({ scope, items });
     setSelectionNotice(undefined);
+  }
+
+  const bulkIntentValid = bulkDisableTarget && bulkDisableTarget.scope === scope
+    && matchesSelection(bulkDisableTarget.items, selectedItems, rows);
+  if (bulkDisableTarget && !bulkIntentValid) setBulkDisableTarget(undefined);
+
+  function currentBulkSelection(items: SelectedUser[], expectedScope = scope) {
+    const query = queryClient.getQueryState<components['schemas']['UserList']>(userKeys.list(userSearchToApiParams(search)));
+    const current = selectionRef.current;
+    return expectedScope === scope && current.scope === scope
+      && query?.status === 'success' && query.fetchStatus === 'idle' && query.data
+      && matchesSelection(items, Object.values(current.items), query.data.items);
+  }
+
+  function submitBulk(items: SelectedUser[], status: UserStatus, expectedScope = scope) {
+    if (bulkWorking.current || bulk.isPending) return;
+    if (!currentBulkSelection(items, expectedScope)) {
+      setBulkDisableTarget(undefined);
+      return;
+    }
+    bulkWorking.current = true;
+    setBulkFeedback(undefined);
+    void bulk.mutateAsync({ items, status, scope: expectedScope, selectionEpoch: selectionEpoch.current }).catch(() => {
+      // 顶层错误由 mutation.error 呈现，保留原选择以便人工恢复。
+    }).finally(() => { bulkWorking.current = false; });
   }
 
   const allVisibleSelected = rows.length > 0 && rows.every((user) => selectedIds.has(user.id));
   const someVisibleSelected = rows.some((user) => selectedIds.has(user.id));
   const bulkActions: readonly BulkAction[] = [
-    { key: 'enable', label: '批量启用', command: 'bulk-enable', intent: 'secondary', enabled: !bulk.isPending },
+    { key: 'enable', label: '批量启用', command: 'bulk-enable', intent: 'secondary', enabled: !bulk.isPending && !users.isFetching && !users.isError },
     {
       key: 'disable',
       label: '批量停用',
       command: 'bulk-disable',
       intent: 'danger',
-      enabled: !bulk.isPending,
+      enabled: !bulk.isPending && !users.isFetching && !users.isError,
       confirmation: 'custom',
     },
   ];
@@ -302,10 +347,10 @@ function UserListPage({
         <Notice message={`刷新失败，已保留当前列表：${errorMessage(users.error)}`} onClose={() => void users.refetch()} />
       )}
       {selectionNotice && <Notice message={selectionNotice} onClose={() => setSelectionNotice(undefined)} tone="warning" />}
-      {(bulk.error || exportList.error) && (
-        <Notice message={errorMessage(bulk.error ?? exportList.error)} onClose={() => { bulk.reset(); exportList.reset(); }} />
+      {((bulk.error && bulk.variables?.scope === scope) || exportList.error) && (
+        <Notice message={errorMessage(bulk.variables?.scope === scope ? bulk.error : exportList.error)} onClose={() => { bulk.reset(); exportList.reset(); }} />
       )}
-      {bulkFeedback && <BulkResult feedback={bulkFeedback} onClose={() => setBulkFeedback(undefined)} />}
+      {bulkFeedback?.scope === scope && <BulkResult feedback={bulkFeedback} onClose={() => setBulkFeedback(undefined)} />}
 
       <TableToolbar actions={(
         <Button
@@ -326,13 +371,12 @@ function UserListPage({
 
       <BulkActionBar
         actions={bulkActions}
-        onClear={() => setSelection({ scope, items: {} })}
+        onClear={() => updateSelection({ scope, items: {} })}
         onCommand={(commandName) => {
           if (commandName === 'bulk-enable') {
-            setBulkFeedback(undefined);
-            bulk.mutate({ items: selectedItems, status: 'ENABLED' });
+            submitBulk(selectedItems, 'ENABLED');
           } else if (commandName === 'bulk-disable') {
-            setBulkDisableTarget(selectedItems);
+            if (currentBulkSelection(selectedItems)) setBulkDisableTarget({ scope, items: selectedItems });
           } else {
             throw new Error(`用户列表收到未知批量命令：${commandName}`);
           }
@@ -466,13 +510,23 @@ function UserListPage({
       />
       <UserDeletionDialog
         csrfToken={csrfToken}
+        hold={deletionIntent && deletionErrorForIntent
+          ? { id: deletionIntent.id, error: deletionErrorForIntent }
+          : undefined}
         intent={deletionIntent}
         key={deletionIntent?.id ?? 'none'}
         onClose={() => setDeletionIntent(undefined)}
         onDeleted={handleUserDeleted}
+        onConflict={(id, error) => setDeletionHolds((current) => ({ ...current, [id]: error }))}
         onReload={async () => {
+          const id = deletionIntent?.id;
           const result = await users.refetch();
-          if (result.error) throw result.error;
+          if (!result.isSuccess) throw result.error ?? new Error('用户列表重新加载失败');
+          if (id) setDeletionHolds((current) => {
+            const next = { ...current };
+            delete next[id];
+            return next;
+          });
           if (deletionIntent && !result.data?.items.some((user) => user.id === deletionIntent.id)) {
             setDeletionIntent(undefined);
           }
@@ -484,16 +538,16 @@ function UserListPage({
         users={users.data}
       />
       <BulkDisableDialog
-        error={bulk.error}
-        items={bulkDisableTarget}
+        error={bulk.variables?.scope === scope ? bulk.error : null}
+        items={bulkIntentValid ? bulkDisableTarget.items : undefined}
         onClose={() => { if (!bulk.isPending) { setBulkDisableTarget(undefined); bulk.reset(); } }}
         onConfirm={() => {
           if (!bulkDisableTarget) return;
-          setBulkFeedback(undefined);
-          bulk.mutate({ items: bulkDisableTarget, status: 'DISABLED' });
+          submitBulk(bulkDisableTarget.items, 'DISABLED', bulkDisableTarget.scope);
         }}
         onReload={async () => { setBulkDisableTarget(undefined); bulk.reset(); await users.refetch(); }}
         pending={bulk.isPending}
+        disabled={users.isFetching || users.isError}
       />
     </section>
   );
@@ -613,23 +667,38 @@ function CreateUserDialog({
   onClose: () => void;
   onCreated: (user: User) => Promise<void>;
 }) {
+  const queryClient = useQueryClient();
   const [error, setError] = useState<UserCreateErrorMapping>();
   const form = useForm<UserCreateFormValues>({
     defaultValues: { username: '', display_name: '', temporary_password: '', account_type: 'ENGINEER' },
     resolver: zodResolver(userCreateFormSchema),
   });
-  const create = useMutation({ gcTime: 0, mutationFn: (values: UserCreateFormValues) => createUser(values, csrfToken) });
+  const [pending, setPending] = useState(false);
+  const submitting = useRef(false);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; form.setValue('temporary_password', ''); };
+  }, [form]);
 
   async function submit(values: UserCreateFormValues) {
+    if (submitting.current) return;
+    submitting.current = true;
+    setPending(true);
     setError(undefined);
     form.clearErrors();
     try {
-      const created = await create.mutateAsync(values);
-      create.reset();
+      // 密码只交给当前请求，不进入共享 MutationCache 的 variables。
+      const created = await createUser(values, csrfToken);
+      if (!mounted.current) {
+        await queryClient.invalidateQueries({ queryKey: userKeys.lists() });
+        return;
+      }
       form.reset();
       onClose();
       await onCreated(created);
     } catch (reason) {
+      if (!mounted.current) return;
       const detail = reason instanceof UserRequestError ? reason.detail : undefined;
       const mapped = detail
         ? mapUserCreateError(detail)
@@ -637,8 +706,10 @@ function CreateUserDialog({
       setError(mapped);
       if (mapped.kind === 'username') form.setError('username', { type: 'server', message: mapped.fieldMessage });
       form.setValue('temporary_password', '');
-      create.reset();
       if (mapped.kind === 'username') form.setFocus('username');
+    } finally {
+      submitting.current = false;
+      if (mounted.current) setPending(false);
     }
   }
 
@@ -647,14 +718,14 @@ function CreateUserDialog({
   if (error?.requestId) summaryErrors.push({ id: 'server-request-id', message: `请求 ID：${error.requestId}` });
 
   return (
-    <Dialog onOpenChange={(open) => !open && !create.isPending && onClose()} open>
-      <DialogContent finalFocus={finalFocus} showCloseButton={!create.isPending}>
+    <Dialog onOpenChange={(open) => !open && !pending && onClose()} open>
+      <DialogContent finalFocus={finalFocus} showCloseButton={!pending}>
         <DialogHeader>
           <DialogTitle>新增用户</DialogTitle>
           <DialogDescription>临时密码只用于本次提交；用户首次登录必须修改密码。</DialogDescription>
         </DialogHeader>
         <FormProvider {...form}>
-          <form className="grid gap-4 sm:grid-cols-2" id="user-create-form" noValidate onSubmit={form.handleSubmit(submit)}>
+          <form className="grid gap-4 sm:grid-cols-2" id="user-create-form" noValidate onSubmit={(event) => void form.handleSubmit(submit)(event)}>
             <ErrorSummary className="sm:col-span-2" errors={summaryErrors} />
             <FormField<UserCreateFormValues, 'username'>
               id="user-create-username"
@@ -693,8 +764,8 @@ function CreateUserDialog({
           </form>
         </FormProvider>
         <DialogFooter>
-          <DialogClose disabled={create.isPending} render={<Button variant="outline" />}>取消</DialogClose>
-          <Button disabled={create.isPending} form="user-create-form" type="submit">{create.isPending ? '创建中…' : '创建用户'}</Button>
+          <DialogClose disabled={pending} render={<Button variant="outline" />}>取消</DialogClose>
+          <Button disabled={pending} form="user-create-form" type="submit">{pending ? '创建中…' : '创建用户'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -802,40 +873,53 @@ function ResetPasswordDialog({
   onSaved: () => Promise<void>;
   target: CommandTarget;
 }) {
+  const queryClient = useQueryClient();
   const [error, setError] = useState<unknown>();
   const form = useForm<ResetPasswordFormValues>({
     defaultValues: { temporary_password: '' },
     resolver: zodResolver(resetPasswordFormSchema),
   });
-  const resetPassword = useMutation({
-    gcTime: 0,
-    mutationFn: (values: ResetPasswordFormValues) => resetUserPassword(target.user, values.temporary_password, csrfToken),
-  });
+  const [pending, setPending] = useState(false);
+  const submitting = useRef(false);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; form.setValue('temporary_password', ''); };
+  }, [form]);
   const conflict = isRevisionConflict(error);
 
   async function submit(values: ResetPasswordFormValues) {
+    if (submitting.current) return;
+    submitting.current = true;
+    setPending(true);
     setError(undefined);
     try {
-      await resetPassword.mutateAsync(values);
-      resetPassword.reset();
+      await resetUserPassword(target.user, values.temporary_password, csrfToken);
+      if (!mounted.current) {
+        await queryClient.invalidateQueries({ queryKey: userKeys.lists() });
+        return;
+      }
       form.reset();
       await onSaved();
     } catch (reason) {
+      if (!mounted.current) return;
       setError(reason);
       if (!isRevisionConflict(reason)) form.setValue('temporary_password', '');
-      resetPassword.reset();
+    } finally {
+      submitting.current = false;
+      if (mounted.current) setPending(false);
     }
   }
 
   return (
-    <Dialog onOpenChange={(open) => !open && !resetPassword.isPending && onClose()} open>
-      <DialogContent finalFocus={{ current: target.focusReturn }} showCloseButton={!resetPassword.isPending}>
+    <Dialog onOpenChange={(open) => !open && !pending && onClose()} open>
+      <DialogContent finalFocus={{ current: target.focusReturn }} showCloseButton={!pending}>
         <DialogHeader>
           <DialogTitle>重置 {target.user.username} 的临时密码</DialogTitle>
           <DialogDescription>成功后会撤销该用户全部会话，下次登录必须修改密码。</DialogDescription>
         </DialogHeader>
         <FormProvider {...form}>
-          <form className="space-y-4" id="user-reset-password-form" noValidate onSubmit={form.handleSubmit(submit)}>
+          <form className="space-y-4" id="user-reset-password-form" noValidate onSubmit={(event) => void form.handleSubmit(submit)(event)}>
             <ErrorSummary errors={error ? [{ id: 'server', message: errorMessage(error) }] : []} />
             {conflict && <Button onClick={() => void onReload()} type="button" variant="outline">重新加载列表</Button>}
             <FormField<ResetPasswordFormValues, 'temporary_password'>
@@ -848,8 +932,8 @@ function ResetPasswordDialog({
           </form>
         </FormProvider>
         <DialogFooter>
-          <DialogClose disabled={resetPassword.isPending} render={<Button variant="outline" />}>取消</DialogClose>
-          <Button disabled={resetPassword.isPending} form="user-reset-password-form" type="submit">{resetPassword.isPending ? '重置中…' : '重置临时密码'}</Button>
+          <DialogClose disabled={pending} render={<Button variant="outline" />}>取消</DialogClose>
+          <Button disabled={pending} form="user-reset-password-form" type="submit">{pending ? '重置中…' : '重置临时密码'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -896,8 +980,10 @@ function UserCommandDialog({
 
 function UserDeletionDialog({
   csrfToken,
+  hold,
   intent,
   onClose,
+  onConflict,
   onDeleted,
   onReload,
   queryClient,
@@ -907,8 +993,10 @@ function UserDeletionDialog({
   users,
 }: {
   csrfToken: string | null;
+  hold?: DeletionHold;
   intent?: DeletionIntent;
   onClose: () => void;
+  onConflict: (id: string, error: UserRequestError) => void;
   onDeleted: () => Promise<void>;
   onReload: () => Promise<void>;
   queryClient: ReturnType<typeof useQueryClient>;
@@ -927,7 +1015,8 @@ function UserDeletionDialog({
   if (!current) return null;
   const blockers = current.deletion?.blockers ?? [];
   const hasDeleteProjection = current.deletion !== null && current.available_actions.includes('DELETE');
-  const conflict = remove.error instanceof UserRequestError && remove.error.status === 409;
+  const conflict = Boolean(hold) || (remove.error instanceof UserRequestError && remove.error.status === 409);
+  const deletionError = hold?.error ?? remove.error;
   const stale = Boolean(queryError);
   const canDelete = !queryFetching
     && !stale
@@ -948,8 +1037,8 @@ function UserDeletionDialog({
     try {
       await remove.mutateAsync({ id: latest.id, expectedRevision: latest.revision });
       await onDeleted();
-    } catch {
-      // 删除冲突保留当前确认上下文，只有显式重新加载才解除冻结。
+    } catch (error) {
+      if (error instanceof UserRequestError && error.status === 409) onConflict(activeIntent.id, error);
     }
   }
 
@@ -994,7 +1083,7 @@ function UserDeletionDialog({
         )}
         {queryFetching && <p className="text-sm text-text-secondary" role="status">正在同步用户投影…</p>}
         {Boolean(queryError) && <p className="text-sm text-destructive" role="alert">当前用户列表刷新失败，无法确认最新删除资格。</p>}
-        {remove.error && <p className="text-sm text-destructive" role="alert">{errorMessage(remove.error)}</p>}
+        {deletionError && <p className="text-sm text-destructive" role="alert">{errorMessage(deletionError)}</p>}
         {hasDeleteProjection && conflict && <Button onClick={() => void reload()} type="button" variant="outline">重新加载当前用户列表</Button>}
         {reloadMessage && <p className="text-sm text-text-secondary" role="status">{reloadMessage}</p>}
         <DialogFooter>
@@ -1016,7 +1105,14 @@ function commandPresentation(target: CommandTarget) {
   }
 }
 
+function matchesSelection(expected: readonly SelectedUser[], selected: readonly SelectedUser[], visible: readonly User[]) {
+  return expected.length > 0 && expected.length === selected.length
+    && expected.every((item) => selected.some((current) => current.id === item.id && current.revision === item.revision)
+      && visible.some((current) => current.id === item.id && current.revision === item.revision));
+}
+
 function BulkDisableDialog({
+  disabled,
   error,
   items,
   onClose,
@@ -1024,6 +1120,7 @@ function BulkDisableDialog({
   onReload,
   pending,
 }: {
+  disabled: boolean;
   error: unknown;
   items?: SelectedUser[];
   onClose: () => void;
@@ -1042,7 +1139,7 @@ function BulkDisableDialog({
         {isRevisionConflict(error) && <Button onClick={() => void onReload()} type="button" variant="outline">重新加载列表</Button>}
         <DialogFooter>
           <DialogClose disabled={pending} render={<Button variant="outline" />}>取消</DialogClose>
-          <Button disabled={pending} onClick={onConfirm} type="button" variant="destructive">{pending ? '处理中…' : '批量停用'}</Button>
+          <Button disabled={pending || disabled} onClick={onConfirm} type="button" variant="destructive">{pending ? '处理中…' : '批量停用'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

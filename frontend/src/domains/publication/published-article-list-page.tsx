@@ -242,7 +242,7 @@ function PublishedArticleRow({ article }: { article: PublishedArticleListItem })
       </td>
       <td data-column-role="date">
         <div className="space-y-1">
-          <Badge variant="success">Passed</Badge>
+          <Badge variant="success">通过</Badge>
           <time className="block whitespace-nowrap text-xs" dateTime={article.verified_at}>
             {formatPublicationTime(article.verified_at)}
           </time>

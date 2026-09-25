@@ -244,6 +244,192 @@ beforeAll(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe('PromptWorkspacePage', () => {
+  it.each([
+    ['create', 'reject'], ['create', 'hang'],
+    ['update', 'reject'], ['update', 'hang'],
+    ['delete', 'reject'], ['delete', 'hang'],
+  ] as const)('%s 成功后 invalidation %s 不阻塞完成、不重发命令', async (kind, outcome) => {
+    const get = mockReads();
+    const canonical = prompt({
+      id: kind === 'create' ? '10000000-0000-4000-8000-000000000003' : secondPromptId,
+      name: '刷新失败也已保存',
+      revision: kind === 'create' ? 0 : 3,
+      bound_platform_count: 0,
+      bound_platforms: [],
+    });
+    const post = vi.spyOn(api, 'POST').mockResolvedValue(response(canonical));
+    const put = vi.spyOn(api, 'PUT').mockResolvedValue(response(canonical));
+    const remove = vi.spyOn(api, 'DELETE').mockResolvedValue({ response: new Response(null, { status: 204 }) } as never);
+    const { queryClient, router } = renderWorkspace(kind === 'create'
+      ? '/settings/prompts?new=1'
+      : `/settings/prompts?promptId=${secondPromptId}`);
+    let failRefresh = true;
+    let finishRefresh: (() => void) | undefined;
+    const hanging = new Promise<void>((resolve) => { finishRefresh = resolve; });
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries').mockImplementation((filters) => {
+      const failedKey = kind === 'update' ? 'configuration/platforms/list' : 'configuration/prompts/list';
+      if (failRefresh && filters?.queryKey?.join('/') === failedKey) {
+        return outcome === 'reject' ? Promise.reject(new Error('刷新连接断开')) : hanging;
+      }
+      return Promise.resolve();
+    });
+    const name = await screen.findByRole('textbox', { name: 'Prompt 名称' });
+    const user = userEvent.setup();
+    if (kind === 'delete') {
+      await user.click(screen.getByRole('button', { name: '删除 Prompt' }));
+      const dialog = await screen.findByRole('dialog', { name: '删除 Prompt“产品简报 Prompt”？' });
+      await user.click(within(dialog).getByRole('button', { name: '确认删除' }));
+      await waitFor(() => expect(router.state.location.search).toEqual({}));
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(screen.getByText(/从 Prompt Library 选择/)).toBeInTheDocument();
+      expect(get.mock.calls.filter((call) => call[0] === '/api/v1/platform-prompts/{platform_prompt_id}')).toHaveLength(2);
+    } else {
+      await user.clear(name);
+      await user.type(name, canonical.name);
+      if (kind === 'create') {
+        const markdown = screen.getByRole('textbox', { name: 'Prompt Markdown' });
+        act(() => EditorView.findFromDOM(markdown)?.dispatch({ changes: { from: 0, insert: '# 写作约束' } }));
+      }
+      const saveName = kind === 'create' ? '创建 Prompt' : '保存 Prompt';
+      await waitFor(() => expect(screen.getByRole('button', { name: saveName })).not.toHaveAttribute('aria-disabled', 'true'));
+      await user.click(screen.getByRole('button', { name: saveName }));
+      await waitFor(() => expect(router.state.location.search).toEqual({ promptId: canonical.id }));
+      expect(await screen.findByText(`未修改 · Revision ${canonical.revision}`)).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: '创建 Prompt' })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: '保存 Prompt' })).toHaveAttribute('aria-disabled', 'true');
+      const form = screen.getByRole('textbox', { name: 'Prompt 名称' }).closest('form');
+      if (!form) throw new Error('未找到保存后的表单');
+      fireEvent.submit(form);
+    }
+    if (kind !== 'create') {
+      // 即使列表刷新挂起，其他消费者失效也必须已经启动。
+      expect(invalidate).toHaveBeenCalledWith({ queryKey: ['configuration', 'platforms', 'list'] });
+    }
+    await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: ['configuration', 'prompts', 'list'] }));
+    if (outcome === 'reject') {
+      expect(await screen.findByText('Prompt 操作已完成，刷新相关页面失败：刷新连接断开')).toBeInTheDocument();
+      failRefresh = false;
+      await user.click(screen.getByRole('button', { name: '重试刷新相关页面' }));
+      await waitFor(() => expect(screen.queryByText(/Prompt 操作已完成，刷新相关页面失败/)).not.toBeInTheDocument());
+    } else {
+      await act(async () => { finishRefresh?.(); });
+    }
+    expect(post).toHaveBeenCalledTimes(kind === 'create' ? 1 : 0);
+    expect(put).toHaveBeenCalledTimes(kind === 'update' ? 1 : 0);
+    expect(remove).toHaveBeenCalledTimes(kind === 'delete' ? 1 : 0);
+  });
+
+  it.each([500, 403])('409 后显式 reload HTTP %i 保留草稿、基线和冻结，成功读取才解除', async (status) => {
+    let current = prompt({ bound_platform_count: 0, bound_platforms: [] });
+    let failRead = false;
+    const get = mockReads(() => current);
+    const originalRead = get.getMockImplementation()! as unknown as (path: string, options: unknown) => Promise<never>;
+    get.mockImplementation(async (path, options) => {
+      if (failRead && path === '/api/v1/platform-prompts/{platform_prompt_id}') {
+        return { error: { error: { code: status === 403 ? 'PERMISSION_DENIED' : 'INTERNAL_ERROR', message: '详情读取失败', details: {}, request_id: 'req-reload-failure' } }, response: Response.json({}, { status }) } as never;
+      }
+      return originalRead(path, options);
+    });
+    const put = vi.spyOn(api, 'PUT').mockImplementation(async () => {
+      current = prompt({ revision: 5, template_markdown: '# 服务端新版本', bound_platform_count: 0, bound_platforms: [] });
+      return { error: { error: { code: 'REVISION_CONFLICT', message: 'Prompt 已变化', details: {}, request_id: 'req-save-conflict' } }, response: Response.json({}, { status: 409 }) } as never;
+    });
+    renderWorkspace(`/settings/prompts?promptId=${promptId}`);
+    const name = await screen.findByRole('textbox', { name: 'Prompt 名称' });
+    const markdown = screen.getByRole('textbox', { name: 'Prompt Markdown' });
+    act(() => EditorView.findFromDOM(markdown)?.dispatch({ changes: { from: 0, insert: '本地草稿\n' } }));
+    const form = name.closest('form')!;
+    await waitFor(() => expect(screen.getByRole('button', { name: '保存 Prompt' })).not.toHaveAttribute('aria-disabled', 'true'));
+    fireEvent.submit(form);
+    expect(await screen.findByText('Revision 冲突 · 本地草稿已保留')).toBeInTheDocument();
+    failRead = true;
+    await userEvent.click(screen.getByRole('button', { name: '重新加载最新版本' }));
+    expect(await screen.findByText(/重新加载失败，本地草稿和版本保持不变/)).toBeInTheDocument();
+    expect(screen.getByText('请求 ID：req-save-conflict')).toBeInTheDocument();
+    expect(screen.getByText('Revision 冲突 · 本地草稿已保留')).toBeInTheDocument();
+    expect(EditorView.findFromDOM(screen.getByRole('textbox', { name: 'Prompt Markdown' }))?.state.doc.toString()).toBe('本地草稿\n# 写作约束');
+    fireEvent.submit(form);
+    expect(put).toHaveBeenCalledOnce();
+    expect(put.mock.calls[0]?.[1]).toMatchObject({ body: { expected_revision: 4 } });
+    failRead = false;
+    await userEvent.click(screen.getByRole('button', { name: '重试重新加载' }));
+    expect(await screen.findByText('未修改 · Revision 5')).toBeInTheDocument();
+    expect(EditorView.findFromDOM(screen.getByRole('textbox', { name: 'Prompt Markdown' }))?.state.doc.toString()).toBe('# 服务端新版本');
+    expect(screen.queryByText('请求 ID：req-save-conflict')).not.toBeInTheDocument();
+    expect(put).toHaveBeenCalledOnce();
+  });
+
+  it.each([500, 403])('保存前 GET HTTP %i 不接受 Query 保留的旧 data，不发送 PUT', async (status) => {
+    const get = mockReads();
+    renderWorkspace(`/settings/prompts?promptId=${promptId}`);
+    const name = await screen.findByRole('textbox', { name: 'Prompt 名称' });
+    await userEvent.type(name, ' 本地修改');
+    const put = vi.spyOn(api, 'PUT');
+    get.mockResolvedValue({ error: { error: { code: status === 403 ? 'PERMISSION_DENIED' : 'INTERNAL_ERROR', message: '读取失败', details: {}, request_id: 'req-preflight' } }, response: Response.json({}, { status }) } as never);
+    fireEvent.submit(name.closest('form')!);
+    expect(await screen.findByText(/无法刷新 Prompt 影响范围：读取失败/)).toBeInTheDocument();
+    expect(name).toHaveValue('技术文章 Prompt 本地修改');
+    expect(screen.queryByRole('dialog', { name: '保存将影响绑定平台' })).not.toBeInTheDocument();
+    expect(put).not.toHaveBeenCalled();
+  });
+
+  it.each(['create', 'update'] as const)('%s 请求 pending 时冻结 Markdown，响应后保留已提交正文', async (kind) => {
+    mockReads();
+    let complete!: (result: ReturnType<typeof response>) => void;
+    const mutation = new Promise<never>((resolve) => { complete = resolve; });
+    const post = vi.spyOn(api, 'POST').mockReturnValue(mutation);
+    const put = vi.spyOn(api, 'PUT').mockReturnValue(mutation);
+    renderWorkspace(kind === 'create' ? '/settings/prompts?new=1' : `/settings/prompts?promptId=${secondPromptId}`);
+    const name = await screen.findByRole('textbox', { name: 'Prompt 名称' });
+    await userEvent.clear(name);
+    await userEvent.type(name, '等待保存的 Prompt');
+    const editor = EditorView.findFromDOM(screen.getByRole('textbox', { name: 'Prompt Markdown' }));
+    act(() => editor?.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: '# 保存中的正文' } }));
+    await waitFor(() => expect(screen.getByRole('button', { name: kind === 'create' ? '创建 Prompt' : '保存 Prompt' })).not.toHaveAttribute('aria-disabled', 'true'));
+    fireEvent.submit(name.closest('form')!);
+    await waitFor(() => expect(kind === 'create' ? post : put).toHaveBeenCalledOnce());
+    const frozen = screen.getByRole('textbox', { name: 'Prompt Markdown' });
+    expect(frozen).toHaveAttribute('contenteditable', 'false');
+    expect(screen.getByRole('textbox', { name: 'Prompt 名称' })).toBeDisabled();
+    await userEvent.click(frozen);
+    await userEvent.keyboard('不能写入');
+    expect(EditorView.findFromDOM(frozen)?.state.doc.toString()).toBe('# 保存中的正文');
+    await act(async () => complete(response(prompt({
+      id: kind === 'create' ? '10000000-0000-4000-8000-000000000003' : secondPromptId,
+      name: '等待保存的 Prompt', template_markdown: '# 保存中的正文', revision: 3,
+      bound_platform_count: 0, bound_platforms: [],
+    }))));
+    expect(await screen.findByText('未修改 · Revision 3')).toBeInTheDocument();
+    expect(EditorView.findFromDOM(screen.getByRole('textbox', { name: 'Prompt Markdown' }))?.state.doc.toString()).toBe('# 保存中的正文');
+    expect(kind === 'create' ? post : put).toHaveBeenCalledOnce();
+  });
+
+  it('同步锁覆盖 deferred preflight 和确认，重复提交不会留下第二个 GET 或 PUT', async () => {
+    const get = mockReads();
+    const { queryClient } = renderWorkspace(`/settings/prompts?promptId=${promptId}`);
+    const name = await screen.findByRole('textbox', { name: 'Prompt 名称' });
+    await userEvent.type(name, ' 已修改');
+    let finishPreflight!: (result: ReturnType<typeof response>) => void;
+    const pendingRead = new Promise<never>((resolve) => { finishPreflight = resolve; });
+    const readBefore = get.mock.calls.filter((call) => call[0] === '/api/v1/platform-prompts/{platform_prompt_id}').length;
+    const originalRead = get.getMockImplementation()! as unknown as (path: string, options: unknown) => Promise<never>;
+    get.mockImplementation((path, options) => path === '/api/v1/platform-prompts/{platform_prompt_id}'
+      ? pendingRead : originalRead(path, options));
+    const put = vi.spyOn(api, 'PUT').mockResolvedValue(response(prompt({ name: '技术文章 Prompt 已修改', revision: 5 })));
+    vi.spyOn(queryClient, 'invalidateQueries').mockResolvedValue(undefined);
+    const form = name.closest('form')!;
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+    await waitFor(() => expect(get.mock.calls.filter((call) => call[0] === '/api/v1/platform-prompts/{platform_prompt_id}')).toHaveLength(readBefore + 1));
+    await act(async () => finishPreflight(response(prompt())));
+    const dialog = await screen.findByRole('dialog', { name: '保存将影响绑定平台' });
+    fireEvent.submit(form);
+    await userEvent.click(within(dialog).getByRole('button', { name: '确认保存' }));
+    expect(await screen.findByText('未修改 · Revision 5')).toBeInTheDocument();
+    expect(put).toHaveBeenCalledOnce();
+    expect(get.mock.calls.filter((call) => call[0] === '/api/v1/platform-prompts/{platform_prompt_id}')).toHaveLength(readBefore + 1);
+  });
+
   it('空 URL 不自动选中；q-only 导航保留草稿，切换 Prompt 仍由 DirtyGuard 阻断', async () => {
     const get = mockReads();
     const { router } = renderWorkspace();
@@ -559,7 +745,7 @@ describe('PromptWorkspacePage', () => {
     await userEvent.click(screen.getByRole('button', { name: '重新加载最新版本' }));
 
     expect(await screen.findByText('未修改 · Revision 5')).toBeInTheDocument();
-    expect(EditorView.findFromDOM(markdown)?.state.doc.toString()).toBe('# 服务端版本');
+    expect(EditorView.findFromDOM(screen.getByRole('textbox', { name: 'Prompt Markdown' }))?.state.doc.toString()).toBe('# 服务端版本');
   });
 
   it('删除前重读 Detail，提交最新 revision，成功清除选择并保留 q', async () => {

@@ -1,7 +1,7 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MoreHorizontalIcon } from 'lucide-react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { Badge } from '@/design-system/primitives/badge';
 import { Button } from '@/design-system/primitives/button';
@@ -98,14 +98,15 @@ describe('PartSignal core primitives', () => {
     expect(screen.getByRole('combobox', { name: '选择状态' })).toHaveTextContent('审核中');
   });
 
-  it('DropdownMenu 支持键盘打开并聚焦首项', async () => {
+  it('DropdownMenu 支持键盘打开并激活高亮首项', async () => {
     const user = userEvent.setup();
+    const onSelect = vi.fn();
     render(
       <DropdownMenu>
         <DropdownMenuTrigger render={<Button variant="outline" />}>操作</DropdownMenuTrigger>
         <DropdownMenuContent>
           <DropdownMenuGroup>
-            <DropdownMenuItem>查看详情</DropdownMenuItem>
+            <DropdownMenuItem onClick={onSelect}>查看详情</DropdownMenuItem>
           </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>,
@@ -113,7 +114,10 @@ describe('PartSignal core primitives', () => {
 
     await user.tab();
     await user.keyboard('{Enter}');
-    expect(await screen.findByRole('menuitem', { name: '查看详情' })).toHaveFocus();
+    const item = await screen.findByRole('menuitem', { name: '查看详情' });
+    await waitFor(() => expect(item).toHaveAttribute('data-highlighted'));
+    await user.keyboard('{Enter}');
+    expect(onSelect).toHaveBeenCalledOnce();
   });
 
   it('Dialog 具备标题，并在 Escape 关闭后恢复触发器焦点', async () => {

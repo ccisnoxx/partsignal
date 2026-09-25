@@ -1,6 +1,6 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -471,7 +471,7 @@ describe('UserListPage', () => {
     const { queryClient } = renderUsers();
     await userEvent.click(await screen.findByRole('button', { name: '更多操作：conflicted-user' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: '删除用户' }));
-    const dialog = await screen.findByRole('dialog', { name: '删除用户“conflicted-user”？' });
+    let dialog = await screen.findByRole('dialog', { name: '删除用户“conflicted-user”？' });
     await userEvent.click(within(dialog).getByRole('button', { name: '删除用户' }));
 
     expect(await within(dialog).findByRole('alert')).toHaveTextContent('请求 ID：req-user-delete-conflict');
@@ -484,6 +484,13 @@ describe('UserListPage', () => {
     );
     expect(await screen.findByRole('dialog', { name: '删除用户“passive-latest-user”？' })).toBeInTheDocument();
     expect(within(dialog).getByRole('button', { name: '删除用户' })).toBeDisabled();
+
+    await userEvent.click(within(dialog).getAllByRole('button', { name: '关闭' })[0]!);
+    await userEvent.click(screen.getByRole('button', { name: '更多操作：passive-latest-user' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: '删除用户' }));
+    dialog = await screen.findByRole('dialog', { name: '删除用户“passive-latest-user”？' });
+    expect(within(dialog).getByRole('button', { name: '删除用户' })).toBeDisabled();
+    expect(within(dialog).getByText(/请求 ID：req-user-delete-conflict/)).toBeInTheDocument();
 
     failNextReload = true;
     await userEvent.click(within(dialog).getByRole('button', { name: '重新加载当前用户列表' }));
@@ -498,6 +505,47 @@ describe('UserListPage', () => {
       '/api/v1/users/{user_id}',
       expect.objectContaining({ params: expect.objectContaining({ query: { expected_revision: 21 } }) }),
     ));
+  });
+
+  it('两个用户先后删除 409 时，各自冻结不会被另一目标覆盖', async () => {
+    const first = managedUser({
+      username: 'first-conflict',
+      is_active: false,
+      workflow_stage: 'DISABLED',
+      primary_task: 'ENABLE_USER',
+      available_actions: ['UPDATE', 'ENABLE', 'DELETE'],
+      deletion: { blockers: [] },
+    });
+    const second = managedUser({ ...first, id: '00000000-0000-4000-8000-000000000008', username: 'second-conflict' });
+    const list = result([first, second]);
+    vi.spyOn(api, 'GET').mockResolvedValue({ data: list, response: Response.json(list) } as never);
+    const remove = vi.spyOn(api, 'DELETE').mockResolvedValue({
+      error: { error: { code: 'USER_IN_USE', message: '用户仍有业务历史引用', details: {}, request_id: 'req-two-users-conflict' } },
+      response: Response.json({}, { status: 409 }),
+    } as never);
+    renderUsers();
+
+    for (const username of ['first-conflict', 'second-conflict']) {
+      await userEvent.click(await screen.findByRole('button', { name: `更多操作：${username}` }));
+      await userEvent.click(await screen.findByRole('menuitem', { name: '删除用户' }));
+      const dialog = await screen.findByRole('dialog', { name: `删除用户“${username}”？` });
+      await userEvent.click(within(dialog).getByRole('button', { name: '删除用户' }));
+      expect(await within(dialog).findByText(/req-two-users-conflict/)).toBeInTheDocument();
+      await userEvent.click(within(dialog).getAllByRole('button', { name: '关闭' })[0]!);
+    }
+    expect(remove).toHaveBeenCalledTimes(2);
+    await userEvent.click(screen.getByRole('button', { name: '更多操作：first-conflict' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: '删除用户' }));
+    const firstAgain = await screen.findByRole('dialog', { name: '删除用户“first-conflict”？' });
+    expect(within(firstAgain).getByRole('button', { name: '删除用户' })).toBeDisabled();
+    await userEvent.click(within(firstAgain).getByRole('button', { name: '重新加载当前用户列表' }));
+    await waitFor(() => expect(within(firstAgain).getByRole('button', { name: '删除用户' })).toBeEnabled());
+    await userEvent.click(within(firstAgain).getAllByRole('button', { name: '关闭' })[0]!);
+    await userEvent.click(screen.getByRole('button', { name: '更多操作：second-conflict' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: '删除用户' }));
+    const secondAgain = await screen.findByRole('dialog', { name: '删除用户“second-conflict”？' });
+    expect(within(secondAgain).getByRole('button', { name: '删除用户' })).toBeDisabled();
+    expect(remove).toHaveBeenCalledTimes(2);
   });
 
   it('最新 users query 移除目标后关闭删除 Dialog 且不提交', async () => {
@@ -527,5 +575,121 @@ describe('UserListPage', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(trigger).not.toBeInTheDocument();
     expect(remove).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('Users lifecycle boundaries', () => {
+  it.each(['create', 'reset'] as const)('%s pending 离开页面时密码从未进入共享 cache，迟到响应不回写 DOM', async (kind) => {
+    const target = managedUser({ must_change_password: true, workflow_stage: 'FIRST_PASSWORD_CHANGE', primary_task: 'MANAGE_LOGIN_SECURITY' });
+    const list = result([target]);
+    vi.spyOn(api, 'GET').mockResolvedValue({ data: list, response: Response.json(list) } as never);
+    let resolvePost: ((value: unknown) => void) | undefined;
+    const post = vi.spyOn(api, 'POST').mockImplementation(() => new Promise((resolve) => { resolvePost = resolve; }) as never);
+    const { queryClient, view } = renderUsers();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    await userEvent.click(await screen.findByRole('button', { name: kind === 'create' ? '新增用户' : '重置临时密码' }));
+    const dialog = await screen.findByRole('dialog');
+    if (kind === 'create') {
+      await userEvent.type(within(dialog).getByRole('textbox', { name: '用户名' }), 'pending-user');
+      await userEvent.type(within(dialog).getByRole('textbox', { name: '显示名称' }), '等待中的用户');
+    }
+    const secret = `pending-${kind}-password-123`;
+    await userEvent.type(within(dialog).getByLabelText(/临时密码/), secret);
+    await userEvent.click(within(dialog).getByRole('button', { name: kind === 'create' ? '创建用户' : '重置临时密码' }));
+    await waitFor(() => expect(post).toHaveBeenCalledOnce());
+    const assertNoCachedSecret = () => {
+      expect(JSON.stringify(queryClient.getMutationCache().getAll().map((item) => item.state))).not.toContain(secret);
+      expect(JSON.stringify(queryClient.getQueryCache().getAll().map((item) => item.state))).not.toContain(secret);
+    };
+    assertNoCachedSecret();
+    view.unmount();
+    assertNoCachedSecret();
+    expect(document.querySelector('input[type="password"]')).toBeNull();
+    await act(async () => resolvePost?.({ data: target, response: Response.json(target) }));
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: userKeys.lists() });
+    assertNoCachedSecret();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it.each(['scope', 'selection', 'missing', 'revision'] as const)('bulk 确认在 %s 漂移后撤销，旧确认不能提交', async (change) => {
+    const target = managedUser();
+    const list = result([target]);
+    vi.spyOn(api, 'GET').mockResolvedValue({ data: list, response: Response.json(list) } as never);
+    const post = vi.spyOn(api, 'POST');
+    const { queryClient, router } = renderUsers();
+    const checkbox = await screen.findByRole('checkbox', { name: '选择用户 operator' });
+    await userEvent.click(checkbox);
+    await userEvent.click(screen.getByRole('button', { name: '批量停用' }));
+    const dialog = await screen.findByRole('dialog', { name: '批量停用 1 个用户？' });
+    const confirm = within(dialog).getByRole('button', { name: '批量停用' });
+    if (change === 'scope') {
+      await act(() => router.navigate({ to: '/system/users', search: { q: 'new', status: 'ENABLED', page: 1, pageSize: 20 } }));
+    } else {
+      act(() => {
+        if (change === 'selection') fireEvent.click(checkbox);
+        else queryClient.setQueryData(userKeys.list(userSearchToApiParams({ status: 'ENABLED', page: 1, pageSize: 20 })), result(change === 'missing' ? [] : [{ ...target, revision: target.revision + 1 }]));
+        // 同一事件批次先改变权威来源，再触发旧节点：不能依赖下一次 React render。
+        fireEvent.click(confirm);
+      });
+    }
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '批量停用 1 个用户？' })).not.toBeInTheDocument());
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it.each(['scope', 'selection'] as const)('旧 bulk 响应迟到后不清除 %s 的新选择', async (change) => {
+    const first = managedUser();
+    const second = managedUser({ id: '00000000-0000-4000-8000-000000000007', username: 'second-user' });
+    vi.spyOn(api, 'GET').mockImplementation(async (_path, options) => {
+      const q = (options as { params?: { query?: { q?: string } } })?.params?.query?.q;
+      const data = result(q === 'new' ? [second] : [first]);
+      return { data, response: Response.json(data) } as never;
+    });
+    let finishBulk: ((value: unknown) => void) | undefined;
+    const post = vi.spyOn(api, 'POST').mockImplementation(() => new Promise((resolve) => { finishBulk = resolve; }) as never);
+    const { router } = renderUsers();
+    const firstCheckbox = await screen.findByRole('checkbox', { name: '选择用户 operator' });
+    await userEvent.click(firstCheckbox);
+    await userEvent.click(screen.getByRole('button', { name: '批量停用' }));
+    const dialog = await screen.findByRole('dialog', { name: '批量停用 1 个用户？' });
+    await userEvent.click(within(dialog).getByRole('button', { name: '批量停用' }));
+    await waitFor(() => expect(post).toHaveBeenCalledOnce());
+    if (change === 'scope') {
+      await act(() => router.navigate({ to: '/system/users', search: { q: 'new', status: 'ENABLED', page: 1, pageSize: 20 } }));
+      await userEvent.click(await screen.findByRole('checkbox', { name: '选择用户 second-user' }));
+    } else {
+      await userEvent.click(firstCheckbox);
+      await userEvent.click(firstCheckbox);
+    }
+    await act(async () => finishBulk?.({
+      data: { succeeded: [], failures: [{ user_id: first.id, code: 'REVISION_CONFLICT', message: '旧范围冲突' }] },
+      response: Response.json({}, { status: 200 }),
+    }));
+    expect(screen.getByRole('toolbar', { name: '批量操作' })).toHaveTextContent('已选择 1 项');
+    if (change === 'scope') {
+      expect(screen.getByRole('checkbox', { name: '选择用户 second-user' })).toBeChecked();
+      expect(screen.queryByText(/旧范围冲突/)).not.toBeInTheDocument();
+    } else {
+      expect(firstCheckbox).toBeChecked();
+    }
+    expect(post).toHaveBeenCalledOnce();
+  });
+
+  it.each(['role', 'status'] as const)('当前管理员 %s 成功变化立即刷新 auth，不等待 Users invalidation', async (kind) => {
+    const current = { ...admin, available_actions: ['UPDATE', 'DISABLE'] as User['available_actions'] };
+    const list = result([current]);
+    vi.spyOn(api, 'GET').mockResolvedValue({ data: list, response: Response.json(list) } as never);
+    const saved = kind === 'role' ? { ...current, account_type: 'ENGINEER', revision: current.revision + 1 } : { ...current, is_active: false, revision: current.revision + 1 };
+    const patch = vi.spyOn(api, 'PATCH').mockResolvedValue({ data: saved, response: Response.json(saved) } as never);
+    const refresh = vi.spyOn(auth, 'refresh').mockResolvedValue(undefined).mockClear();
+    const { queryClient } = renderUsers();
+    vi.spyOn(queryClient, 'invalidateQueries').mockImplementation(() => new Promise(() => {}));
+    await userEvent.click(await screen.findByRole('button', { name: '管理用户' }));
+    const dialog = await screen.findByRole('dialog', { name: '编辑用户 admin' });
+    await userEvent.click(within(dialog).getByRole('combobox', { name: kind === 'role' ? '账号类型' : '状态' }));
+    await userEvent.click(await screen.findByRole('option', { name: kind === 'role' ? 'ENGINEER' : 'Disabled' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: '保存修改' }));
+    await waitFor(() => expect(patch).toHaveBeenCalledOnce());
+    await waitFor(() => expect(refresh).toHaveBeenCalledOnce());
   });
 });

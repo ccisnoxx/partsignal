@@ -1,6 +1,6 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -10,7 +10,7 @@ import { routeTree } from '@/routeTree.gen';
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
 import { createAuthenticatedTestQueryClient } from '@/test/auth-session';
-import { aiChannelKeys } from './ai-channel.api';
+import { aiChannelKeys, aiChannelListQueryOptions } from './ai-channel.api';
 
 type AIChannelSummary = components['schemas']['AIChannelSummary'];
 type AIChannelList = components['schemas']['AIChannelList'];
@@ -270,6 +270,90 @@ describe('AIChannelListPage', () => {
       .not.toContain('failed-create-secret');
   });
 
+  it('创建请求挂起并离页时 API Key 不进入共享缓存或 DOM', async () => {
+    const sentinel = 'pending-create-key-sentinel';
+    vi.spyOn(api, 'GET').mockResolvedValue({
+      data: result([]),
+      response: Response.json(result([])),
+    } as never);
+    let finishCreate: ((response: unknown) => void) | undefined;
+    const post = vi.spyOn(api, 'POST').mockImplementation(() => new Promise((resolve) => {
+      finishCreate = resolve;
+    }) as never);
+    const { queryClient, view } = renderAIChannels();
+    await userEvent.click(await screen.findByRole('button', { name: '创建渠道' }));
+    const dialog = await screen.findByRole('dialog', { name: '创建 AI 渠道' });
+    await userEvent.type(within(dialog).getByRole('textbox', { name: '渠道名称' }), '挂起渠道');
+    await userEvent.type(within(dialog).getByRole('textbox', { name: 'API 根地址' }), 'https://pending.example.com/v1');
+    await userEvent.type(within(dialog).getByLabelText(/API Key/), sentinel);
+    await userEvent.click(within(dialog).getByRole('button', { name: '创建渠道' }));
+    await waitFor(() => expect(post).toHaveBeenCalledOnce());
+    expect(within(dialog).getByRole('button', { name: '创建中…' })).toBeDisabled();
+    expect(JSON.stringify(queryClient.getMutationCache().getAll().map((entry) => entry.state.variables)))
+      .not.toContain(sentinel);
+    expect(JSON.stringify(queryClient.getQueryCache().getAll().map((entry) => entry.state.data)))
+      .not.toContain(sentinel);
+
+    view.unmount();
+    expect(document.body).not.toHaveTextContent(sentinel);
+    expect(JSON.stringify(queryClient.getMutationCache().getAll().map((entry) => entry.state.variables)))
+      .not.toContain(sentinel);
+    expect(JSON.stringify(queryClient.getQueryCache().getAll().map((entry) => entry.state.data)))
+      .not.toContain(sentinel);
+    await act(async () => finishCreate?.({
+      error: { error: { code: 'AI_CHANNEL_UNAVAILABLE', message: '创建失败', details: {}, request_id: 'req-pending-create' } },
+      response: Response.json({}, { status: 503 }),
+    }));
+    expect(document.body).not.toHaveTextContent(sentinel);
+  });
+
+  it('渠道已创建但打开工作区失败时只重试交接，不重复 POST', async () => {
+    vi.spyOn(api, 'GET').mockResolvedValue({
+      data: result([]),
+      response: Response.json(result([])),
+    } as never);
+    const created = {
+      id: '00000000-0000-4000-8000-000000000010',
+      name: '交接失败渠道',
+      description: null,
+      protocol_type: 'openai-compatible-chat-completions',
+      provider_brand: 'CUSTOM',
+      base_url: 'https://handoff.example.com/v1',
+      timeout_seconds: 30,
+      is_enabled: false,
+      api_key_configured: true,
+      api_key_updated_at: '2026-08-14T08:00:00Z',
+      headers: [],
+      enabled_models: [],
+      latest_test_status: 'UNTESTED',
+      last_tested_at: null,
+      workflow_stage: 'UNVERIFIED',
+      primary_task: 'TEST_MODEL',
+      available_actions: ['UPDATE', 'REPLACE_API_KEY', 'DELETE', 'DISCOVER_MODELS', 'CREATE_HEADER', 'CREATE_MODEL'],
+      revision: 0,
+      created_by: admin.id,
+      created_at: '2026-08-14T08:00:00Z',
+      updated_at: '2026-08-14T08:00:00Z',
+    } as const;
+    const post = vi.spyOn(api, 'POST').mockResolvedValue({
+      data: created,
+      response: Response.json(created, { status: 201 }),
+    } as never);
+    const { queryClient, router } = renderAIChannels();
+    vi.spyOn(queryClient, 'invalidateQueries').mockRejectedValueOnce(new Error('目标导航暂不可用'));
+    await userEvent.click(await screen.findByRole('button', { name: '创建渠道' }));
+    const dialog = await screen.findByRole('dialog', { name: '创建 AI 渠道' });
+    await userEvent.type(within(dialog).getByRole('textbox', { name: '渠道名称' }), '交接失败渠道');
+    await userEvent.type(within(dialog).getByRole('textbox', { name: 'API 根地址' }), 'https://handoff.example.com/v1');
+    await userEvent.type(within(dialog).getByLabelText(/API Key/), 'handoff-key-sentinel');
+    await userEvent.click(within(dialog).getByRole('button', { name: '创建渠道' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('已创建，但打开工作区失败：目标导航暂不可用');
+    expect(post).toHaveBeenCalledOnce();
+    await userEvent.click(screen.getByRole('button', { name: '重新打开渠道' }));
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/settings/ai/${created.id}`));
+    expect(post).toHaveBeenCalledOnce();
+  });
+
   it('启用命令携带 revision；409 不自动重放或刷新', async () => {
     const disabled = channel({
       is_enabled: false,
@@ -363,5 +447,111 @@ describe('AIChannelListPage', () => {
       isAdmin: false,
     });
     expect(await screen.findByRole('heading', { name: '无权访问系统管理' })).toBeInTheDocument();
+  });
+});
+
+const currentListKey = aiChannelListQueryOptions({ page: 1, pageSize: 20 }).queryKey;
+function readyChannel() {
+  return channel({ is_enabled: false, workflow_stage: 'READY_TO_ENABLE', primary_task: 'ENABLE_CHANNEL', available_actions: ['UPDATE', 'ENABLE', 'DELETE'], revision: 7 });
+}
+function listResponse(items: AIChannelSummary[]) {
+  return { data: result(items), response: Response.json(result(items)) } as never;
+}
+async function confirmListCommand(label: string) {
+  if (label === '启用渠道') await userEvent.click(await screen.findByRole('button', { name: label }));
+  else {
+    await userEvent.click(await screen.findByRole('button', { name: '更多操作：生产 OpenAI' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: label }));
+  }
+  const dialog = await screen.findByRole('dialog');
+  await userEvent.click(within(dialog).getByRole('button', { name: label }));
+}
+
+describe('AI Channel list command boundaries', () => {
+  it('启用确认从当前 exact query 读取名称和 revision', async () => {
+    vi.spyOn(api, 'GET').mockResolvedValue(listResponse([readyChannel()]));
+    const post = vi.spyOn(api, 'POST').mockResolvedValue({ data: channel(), response: Response.json(channel()) } as never);
+    const { queryClient } = renderAIChannels();
+    await userEvent.click(await screen.findByRole('button', { name: '启用渠道' }));
+    await screen.findByRole('dialog', { name: '启用渠道“生产 OpenAI”？' });
+    act(() => queryClient.setQueryData(currentListKey, result([{ ...readyChannel(), name: '已更新名称', revision: 12 }])));
+    const dialog = await screen.findByRole('dialog', { name: '启用渠道“已更新名称”？' });
+    await userEvent.click(within(dialog).getByRole('button', { name: '启用渠道' }));
+    await waitFor(() => expect(post).toHaveBeenCalledOnce());
+    expect(post.mock.calls[0]?.[1]).toMatchObject({ body: { expected_revision: 12 } });
+  });
+
+  it('启用资格撤销或列表读取失败，旧确认不能提交', async () => {
+    const get = vi.spyOn(api, 'GET').mockResolvedValue(listResponse([readyChannel()]));
+    const post = vi.spyOn(api, 'POST');
+    const { queryClient } = renderAIChannels();
+    await userEvent.click(await screen.findByRole('button', { name: '启用渠道' }));
+    await screen.findByRole('dialog');
+    get.mockRejectedValue(new Error('列表刷新失败'));
+    await act(() => queryClient.refetchQueries({ queryKey: currentListKey, exact: true }));
+    await waitFor(() => expect(within(screen.getByRole('dialog')).getByRole('button', { name: '启用渠道' })).toBeDisabled());
+    act(() => queryClient.setQueryData(currentListKey, result([channel()])));
+    const revoked = await screen.findByRole('dialog', { name: '渠道操作已不可用' });
+    expect(within(revoked).getByRole('button', { name: '确认执行' })).toBeDisabled();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('启用请求 pending 时 Primary 禁用且不能重复派发', async () => {
+    vi.spyOn(api, 'GET').mockResolvedValue(listResponse([readyChannel()]));
+    let resolvePost: ((value: unknown) => void) | undefined;
+    const post = vi.spyOn(api, 'POST').mockImplementation(() => new Promise((resolve) => { resolvePost = resolve; }) as never);
+    renderAIChannels();
+    await confirmListCommand('启用渠道');
+    await waitFor(() => expect(post).toHaveBeenCalledOnce());
+    const primary = screen.getByRole('button', { name: '启用渠道' });
+    expect(primary).toHaveAttribute('aria-disabled', 'true');
+    await userEvent.click(primary);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(post).toHaveBeenCalledOnce();
+    await act(async () => resolvePost?.({ data: channel(), response: Response.json(channel()) }));
+  });
+
+  it.each(['启用渠道', '停用渠道', '删除渠道'])('%s 的 409 仅显式成功刷新解冻；失败或被动成功保留 request ID', async (label) => {
+    const source = label === '启用渠道' ? readyChannel() : channel();
+    const get = vi.spyOn(api, 'GET').mockResolvedValue(listResponse([source]));
+    const rejected = { error: { error: { code: 'AI_CHANNEL_STATE_CHANGED', message: '状态已变化', details: {}, request_id: 'req-command-conflict' } }, response: Response.json({}, { status: 409 }) } as never;
+    const post = vi.spyOn(api, 'POST').mockResolvedValue(rejected);
+    const remove = vi.spyOn(api, 'DELETE').mockResolvedValue(rejected);
+    const { queryClient } = renderAIChannels();
+    await confirmListCommand(label);
+    await screen.findByText(/请求 ID：req-command-conflict/);
+    get.mockRejectedValue(new Error('重载暂时失败'));
+    await userEvent.click(screen.getByRole('button', { name: '重新加载列表' }));
+    await screen.findByText(/重载暂时失败/);
+    expect(screen.getByText(/请求 ID：req-command-conflict/)).toBeInTheDocument();
+    act(() => queryClient.setQueryData(currentListKey, result([{ ...source, revision: 10 }])));
+    if (label === '启用渠道') expect(screen.getByRole('button', { name: label })).toHaveAttribute('aria-disabled', 'true');
+    else {
+      await userEvent.click(screen.getByRole('button', { name: '更多操作：生产 OpenAI' }));
+      expect(await screen.findByRole('menuitem', { name: new RegExp(label) })).toHaveAttribute('aria-disabled', 'true');
+      await userEvent.keyboard('{Escape}');
+    }
+    get.mockResolvedValue(listResponse([{ ...source, revision: 10 }]));
+    await userEvent.click(screen.getByRole('button', { name: '重新加载列表' }));
+    await waitFor(() => expect(screen.queryByText(/请求 ID：req-command-conflict/)).not.toBeInTheDocument());
+    expect(post.mock.calls.length + remove.mock.calls.length).toBe(1);
+  });
+
+  it('DELETE 204 后刷新失败也从全部包含目标的列表缓存移除旧行', async () => {
+    const get = vi.spyOn(api, 'GET').mockResolvedValue(listResponse([channel()]));
+    const remove = vi.spyOn(api, 'DELETE').mockImplementation(async () => {
+      get.mockRejectedValue(new Error('删除后刷新失败'));
+      return { response: new Response(null, { status: 204 }) } as never;
+    });
+    const { queryClient } = renderAIChannels();
+    const otherKey = aiChannelListQueryOptions({ page: 1, pageSize: 20, status: 'ENABLED' }).queryKey;
+    queryClient.setQueryData(otherKey, result([channel()]));
+    await confirmListCommand('删除渠道');
+    await screen.findByText(/删除后刷新失败/);
+    expect(remove).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('link', { name: '生产 OpenAI' })).not.toBeInTheDocument();
+    expect(queryClient.getQueryData<AIChannelList>(currentListKey)?.items).toEqual([]);
+    expect(queryClient.getQueryData<AIChannelList>(otherKey)?.items).toEqual([]);
+    expect(screen.queryByRole('button', { name: '更多操作：生产 OpenAI' })).not.toBeInTheDocument();
   });
 });

@@ -8,7 +8,7 @@ import {
   RouterProvider,
   useRouter,
 } from '@tanstack/react-router';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -143,7 +143,7 @@ function contextResult(data: CorrectionContext) {
   return { data, response: Response.json(data) } as never;
 }
 
-function conflictResult(code: 'GEO_PUBLICATIONS_CHANGED' | 'REVISION_CONFLICT') {
+function conflictResult(code: 'GEO_PUBLICATIONS_CHANGED' | 'GEO_OBSERVATION_HAS_SUCCESSOR' | 'GEO_OBSERVATION_CONTEXT_INCOMPLETE') {
   return {
     error: {
       error: {
@@ -157,7 +157,7 @@ function conflictResult(code: 'GEO_PUBLICATIONS_CHANGED' | 'REVISION_CONFLICT') 
   } as never;
 }
 
-async function renderCorrection() {
+async function renderCorrection(onCreated?: (id: string) => void | Promise<void>) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
   const rootRoute = createRootRoute({ component: Outlet });
@@ -176,7 +176,7 @@ async function renderCorrection() {
           replace: true,
           to: '/geo/observations/$observationId/correct',
         })}
-        onCreated={(id) => router.history.push(`/geo/observations/${id}`)}
+        onCreated={onCreated ?? ((id) => router.history.push(`/geo/observations/${id}`))}
       />
     );
   }
@@ -207,7 +207,8 @@ async function renderCorrection() {
       </TooltipProvider>
     </QueryClientProvider>,
   );
-  return { invalidateQueries, router };
+  await waitFor(() => expect(screen.getByRole('button', { name: '追加 Correction' })).not.toHaveAttribute('aria-disabled', 'true'));
+  return { invalidateQueries, queryClient, router };
 }
 
 beforeEach(() => {
@@ -308,7 +309,7 @@ describe('GeoObservationCorrectionPage', () => {
     });
   });
 
-  it.each(['GEO_PUBLICATIONS_CHANGED', 'REVISION_CONFLICT'] as const)(
+  it.each(['GEO_PUBLICATIONS_CHANGED', 'GEO_OBSERVATION_HAS_SUCCESSOR', 'GEO_OBSERVATION_CONTEXT_INCOMPLETE'] as const)(
     '%s 不自动重放，显式刷新保留草稿并采用服务端新尾',
     async (code) => {
       let changed = false;
@@ -348,6 +349,94 @@ describe('GeoObservationCorrectionPage', () => {
       expect(get.mock.calls.length).toBeGreaterThanOrEqual(2);
     },
   );
+
+  it('冲突后失败重载保留 request ID 与旧草稿，被动成功不能解冻', async () => {
+    const get = vi.spyOn(api, 'GET').mockResolvedValue(contextResult(correctionContext()));
+    const post = vi.spyOn(api, 'POST').mockResolvedValue(conflictResult('GEO_OBSERVATION_HAS_SUCCESSOR'));
+    const { queryClient } = await renderCorrection();
+    const user = userEvent.setup();
+    await user.type(await screen.findByRole('textbox', { name: '更正原因 / Notes' }), '保留草稿');
+    await user.click(screen.getByRole('button', { name: '追加 Correction' }));
+    await screen.findByText('请求 ID：req-geo_observation_has_successor');
+    get.mockRejectedValue(new Error('显式读取失败'));
+    await user.click(screen.getByRole('button', { name: '重新加载最新上下文' }));
+    await screen.findByText('显式读取失败');
+    expect(screen.getByText('请求 ID：req-geo_observation_has_successor')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: '更正原因 / Notes' })).toHaveValue('保留草稿');
+    act(() => queryClient.setQueryData(geoKeys.correctionContext(tailId), correctionContext()));
+    fireEvent.submit(document.querySelector('form')!);
+    expect(post).toHaveBeenCalledOnce();
+    expect(screen.getByRole('button', { name: '追加 Correction' })).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('201 已接受后消费者悬停与导航失败均不允许再次 POST，重试只使用响应 ID', async () => {
+    vi.spyOn(api, 'GET').mockResolvedValue(contextResult(correctionContext()));
+    const created = historyItem(createdId, tailId, false, true, true).observation;
+    const post = vi.spyOn(api, 'POST').mockResolvedValue({ data: created, response: Response.json(created, { status: 201 }) } as never);
+    const navigate = vi.fn().mockRejectedValueOnce(new Error('导航暂时失败')).mockResolvedValue(undefined);
+    const { invalidateQueries } = await renderCorrection(navigate);
+    invalidateQueries.mockImplementation(() => new Promise(() => {}));
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: '追加 Correction' }));
+    await screen.findByText('打开新观测失败：导航暂时失败');
+    expect(navigate).toHaveBeenCalledWith(createdId);
+    fireEvent.submit(document.querySelector('form')!);
+    expect(post).toHaveBeenCalledOnce();
+    await user.click(screen.getByRole('button', { name: '打开新观测' }));
+    await waitFor(() => expect(navigate).toHaveBeenCalledTimes(2));
+    expect(navigate).toHaveBeenLastCalledWith(createdId);
+    expect(post).toHaveBeenCalledOnce();
+  });
+
+  it('后台新尾冻结旧草稿，显式成功刷新才合并与更换 canonical URL', async () => {
+    vi.spyOn(api, 'GET').mockImplementation(async (_path, request) => {
+      const id = (request as { params: { path: { observation_id: string } } }).params.path.observation_id;
+      return contextResult(correctionContext(id, id === nextTailId ? nextTailId : tailId));
+    });
+    const post = vi.spyOn(api, 'POST');
+    const { queryClient } = await renderCorrection();
+    const user = userEvent.setup();
+    await user.type(await screen.findByRole('textbox', { name: '更正原因 / Notes' }), '尚未确认新尾');
+    act(() => queryClient.setQueryData(geoKeys.correctionContext(tailId), correctionContext(tailId, nextTailId)));
+    await screen.findByText(/草稿与本次上传仍保留/);
+    fireEvent.submit(document.querySelector('form')!);
+    expect(post).not.toHaveBeenCalled();
+    expect(screen.getByRole('textbox', { name: '更正原因 / Notes' })).toHaveValue('尚未确认新尾');
+  });
+
+  it('同链外部身份切换建立新会话，不带入旧草稿', async () => {
+    vi.spyOn(api, 'GET').mockImplementation(async (_path, request) => {
+      const id = (request as { params: { path: { observation_id: string } } }).params.path.observation_id;
+      return contextResult(correctionContext(id, id === nextTailId ? nextTailId : tailId));
+    });
+    const { router } = await renderCorrection();
+    const user = userEvent.setup();
+    await user.type(await screen.findByRole('textbox', { name: '更正原因 / Notes' }), '旧会话草稿');
+    await act(() => router.navigate({ to: '/geo/observations/$observationId/correct', params: { observationId: nextTailId }, ignoreBlocker: true }));
+    await waitFor(() => expect(screen.getByRole('textbox', { name: '更正原因 / Notes' })).toHaveValue(''));
+  });
+
+  it('A 提交中切到同链 B，A 的迟到成功不会导航 B 或清空 B 草稿', async () => {
+    vi.spyOn(api, 'GET').mockImplementation(async (_path, request) => {
+      const id = (request as { params: { path: { observation_id: string } } }).params.path.observation_id;
+      return contextResult(correctionContext(id, id === nextTailId ? nextTailId : tailId));
+    });
+    let resolvePost: ((value: unknown) => void) | undefined;
+    const post = vi.spyOn(api, 'POST').mockImplementation(() => new Promise((resolve) => { resolvePost = resolve; }) as never);
+    const navigate = vi.fn();
+    const { router, invalidateQueries } = await renderCorrection(navigate);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '追加 Correction' }));
+    await waitFor(() => expect(post).toHaveBeenCalledOnce());
+    await act(() => router.navigate({ to: '/geo/observations/$observationId/correct', params: { observationId: nextTailId }, ignoreBlocker: true }));
+    await user.type(await screen.findByRole('textbox', { name: '更正原因 / Notes' }), 'B 的草稿');
+    const created = historyItem(createdId, tailId, false, true, true).observation;
+    await act(async () => resolvePost?.({ data: created, response: Response.json(created, { status: 201 }) }));
+    await waitFor(() => expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: productsKeys.detail(productId) }));
+    expect(navigate).not.toHaveBeenCalled();
+    expect(screen.getByRole('textbox', { name: '更正原因 / Notes' })).toHaveValue('B 的草稿');
+    expect(router.state.location.pathname).toBe(`/geo/observations/${nextTailId}/correct`);
+  });
 
   it('pending 期间禁用表单并阻止重复 POST', async () => {
     vi.spyOn(api, 'GET').mockResolvedValue(contextResult(correctionContext()));

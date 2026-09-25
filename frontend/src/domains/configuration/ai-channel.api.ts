@@ -1,5 +1,6 @@
 import { queryOptions } from '@tanstack/react-query';
 
+import { parseAuditLogListResponse } from '@/domains/audit/audit.model';
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
 import {
@@ -122,7 +123,7 @@ function aiChannelLogsQueryOptions(channelId: string, page: number, pageSize: nu
         params: { path: { channel_id: channelId }, query: { page, page_size: pageSize } },
       });
       if (!result.data) throw aiChannelRequestError('读取 AI 渠道操作日志', result);
-      return result.data;
+      return parseAuditLogListResponse(result.data, { page, page_size: pageSize });
     },
     retry: false,
     retryOnMount: false,

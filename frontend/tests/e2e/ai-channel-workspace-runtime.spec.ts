@@ -1,4 +1,10 @@
-import { channelId, expect, test } from './fixtures/ai-channel-workspace.fixture';
+import {
+  channelId,
+  expect,
+  runtimeSecretSentinel,
+  runtimeUnknownAction,
+  test,
+} from './fixtures/ai-channel-workspace.fixture';
 
 test('Usage canonical URL、服务端 period 与 history 恢复一致', async ({
   page,
@@ -61,6 +67,21 @@ test('Logs 保持服务端分页和 actor，详情按需读取且未知 shape �
     path: `/api/v1/ai-channels/${channelId}/audit-logs`,
     query: { page: '2', page_size: '10' },
   }]);
+  const unknownRow = page.getByRole('row', { name: '渠道操作日志动作无法安全投影' });
+  await expect(unknownRow).toBeVisible();
+  await expect(unknownRow).toContainText('无法安全投影');
+  await expect(unknownRow).not.toContainText(runtimeUnknownAction);
+  await expect(unknownRow).not.toContainText(runtimeSecretSentinel);
+  await expect(unknownRow.getByRole('button', { name: '查看详情' })).toHaveCount(0);
+  const detailRequestCount = aiChannelWorkspaceApi.runtimeRequests
+    .filter((request) => /^\/api\/v1\/audit-logs\//.test(request.path)).length;
+  await unknownRow.click();
+  await unknownRow.press('Enter');
+  expect(aiChannelWorkspaceApi.runtimeRequests
+    .filter((request) => /^\/api\/v1\/audit-logs\//.test(request.path))).toHaveLength(detailRequestCount);
+  await expect(page.getByRole('navigation', { name: '表格分页' })).toContainText('共 21 条');
+  expect(`${await page.locator('body').innerText()}\n${page.url()}`).not.toContain(runtimeUnknownAction);
+  expect(`${await page.locator('body').innerText()}\n${page.url()}`).not.toContain(runtimeSecretSentinel);
 
   const trigger = firstRow.getByRole('button', { name: '查看详情' });
   await trigger.click();

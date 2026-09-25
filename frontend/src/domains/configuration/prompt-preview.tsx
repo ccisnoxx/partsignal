@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { MarkdownPreview } from '@/design-system/editor/markdown-editor';
 import { Badge } from '@/design-system/primitives/badge';
@@ -56,6 +56,14 @@ type SubmittedPreview = {
 
 type CommandKey = { key: string; signature: string };
 
+type ConsumerRefresh = {
+  error?: string;
+  isPending: boolean;
+  jobId: string;
+};
+
+type GenerationJobStatus = components['schemas']['GenerationJobStatus'];
+
 function PromptPreview({
   csrfToken,
   dirty,
@@ -74,9 +82,11 @@ function PromptPreview({
   const [confirmationIdentity, setConfirmationIdentity] = useState<string>();
   const [submitted, setSubmitted] = useState<SubmittedPreview>();
   const [error, setError] = useState<string>();
+  const [consumerRefresh, setConsumerRefresh] = useState<ConsumerRefresh>();
   const [fullscreen, setFullscreen] = useState(false);
   const commandKey = useRef<CommandKey | undefined>(undefined);
   const pending = useRef(false);
+  const consumerRefreshAttempt = useRef(0);
   const terminalRefetched = useRef(new Set<string>());
 
   const optionPrompt = options.data?.platform_prompt;
@@ -99,9 +109,15 @@ function PromptPreview({
   const trackedJobId = submitted?.job.id ?? null;
   const trackedTaskId = submitted?.context.content_task_id ?? 'untracked';
   const jobs = useQuery(generationJobsQueryOptions(trackedTaskId, trackedJobId));
-  const trackedJob = jobs.data?.items.find((job) => job.id === trackedJobId) ?? submitted?.job;
-  const contentVersionId = trackedJob?.status === 'SUCCEEDED'
-    ? trackedJob.content_version_id
+  const trackedJob = jobs.data?.items.find((job) => job.id === trackedJobId);
+  const trackedStatus = isGenerationJobStatus(trackedJob?.status)
+    ? trackedJob.status
+    : undefined;
+  const jobReadError = jobs.error
+    ? errorMessage(jobs.error)
+    : generationJobContractError(trackedJobId, jobs.data, trackedJob);
+  const contentVersionId = trackedStatus === 'SUCCEEDED'
+    ? trackedJob?.content_version_id ?? null
     : null;
   const version = useQuery({
     ...contentVersionQueryOptions(contentVersionId ?? 'unavailable'),
@@ -131,15 +147,37 @@ function PromptPreview({
     ),
   });
 
+  const refreshConsumers = useCallback((taskId: string, jobId: string, includeJobs: boolean) => {
+    const attempt = consumerRefreshAttempt.current + 1;
+    consumerRefreshAttempt.current = attempt;
+    setConsumerRefresh({ isPending: true, jobId });
+    void invalidatePreviewConsumers(queryClient, taskId, includeJobs).then(
+      () => {
+        if (consumerRefreshAttempt.current === attempt) {
+          setConsumerRefresh({ isPending: false, jobId });
+        }
+      },
+      (caught: unknown) => {
+        if (consumerRefreshAttempt.current === attempt) {
+          setConsumerRefresh({
+            error: errorMessage(caught),
+            isPending: false,
+            jobId,
+          });
+        }
+      },
+    );
+  }, [queryClient]);
+
   useEffect(() => {
     if (
       !trackedJob
-      || (trackedJob.status !== 'SUCCEEDED' && trackedJob.status !== 'FAILED')
+      || (trackedStatus !== 'SUCCEEDED' && trackedStatus !== 'FAILED')
       || terminalRefetched.current.has(trackedJob.id)
     ) return;
     terminalRefetched.current.add(trackedJob.id);
-    void invalidatePreviewConsumers(queryClient, trackedTaskId, false);
-  }, [queryClient, trackedJob, trackedTaskId]);
+    refreshConsumers(trackedTaskId, trackedJob.id, false);
+  }, [refreshConsumers, trackedJob, trackedStatus, trackedTaskId]);
 
   function changeContext(contextId: string | undefined) {
     commandKey.current = undefined;
@@ -189,7 +227,8 @@ function PromptPreview({
           items: [job, ...(current?.items.filter((item) => item.id !== job.id) ?? [])],
         }),
       );
-      await invalidatePreviewConsumers(queryClient, selectedContext.content_task_id, true);
+      pending.current = false;
+      refreshConsumers(selectedContext.content_task_id, job.id, true);
     } catch (caught) {
       if (isErrorCode(caught, 'IDEMPOTENCY_CONFLICT')) commandKey.current = undefined;
       if (isErrorCode(caught, 'PLATFORM_PROMPT_CHANGED')) {
@@ -317,9 +356,18 @@ function PromptPreview({
 
       {submitted ? (
         <PreviewJob
-          error={jobs.error}
-          job={trackedJob ?? submitted.job}
+          consumerRefresh={consumerRefresh?.jobId === submitted.job.id
+            ? consumerRefresh
+            : undefined}
+          job={trackedJob}
+          jobReadError={jobReadError}
           onFullscreen={() => setFullscreen(true)}
+          onRetryConsumers={() => refreshConsumers(
+            submitted.context.content_task_id,
+            submitted.job.id,
+            true,
+          )}
+          onRetryJob={() => void jobs.refetch()}
           onRetryVersion={() => void version.refetch()}
           submitted={submitted}
           version={version.data}
@@ -380,47 +428,74 @@ function PromptPreview({
 }
 
 function PreviewJob({
-  error,
+  consumerRefresh,
   job,
+  jobReadError,
   onFullscreen,
+  onRetryConsumers,
+  onRetryJob,
   onRetryVersion,
   submitted,
   version,
   versionError,
 }: {
-  error: Error | null;
-  job: GenerationJob;
+  consumerRefresh?: ConsumerRefresh;
+  job?: GenerationJob;
+  jobReadError?: string;
   onFullscreen: () => void;
+  onRetryConsumers: () => void;
+  onRetryJob: () => void;
   onRetryVersion: () => void;
   submitted: SubmittedPreview;
   version?: ContentVersion;
   versionError: Error | null;
 }) {
+  const status = isGenerationJobStatus(job?.status) ? job.status : undefined;
   return (
     <section aria-labelledby="prompt-preview-result-title" className="space-y-3 rounded-lg border border-border-subtle bg-surface-raised p-3">
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="font-medium text-text-primary" id="prompt-preview-result-title">Preview 结果</h3>
-        <Badge variant={job.status === 'SUCCEEDED' ? 'success' : job.status === 'FAILED' ? 'destructive' : 'info'}>
-          {job.status}
+        <Badge variant={status === 'SUCCEEDED' ? 'success' : status === 'FAILED' ? 'destructive' : 'info'}>
+          {status ?? '读取异常'}
         </Badge>
       </div>
       <div className="space-y-1 break-all font-mono text-xs text-text-muted">
-        <p>Job {job.id}</p>
+        <p>Job {submitted.job.id}</p>
         <p>Prompt {submitted.prompt.id} · Revision {submitted.prompt.revision}</p>
       </div>
       <a className="text-sm text-primary underline-offset-4 hover:underline" href={`/content/tasks/${submitted.context.content_task_id}`}>
         查看任务 {submitted.context.identifier}
       </a>
-      {error ? <p className="text-sm text-danger" role="alert">{errorMessage(error)}</p> : null}
-      {job.status === 'PENDING' ? <p className="text-sm text-text-secondary">作业已排队，等待 Worker 执行。</p> : null}
-      {job.status === 'RUNNING' ? <p className="text-sm text-text-secondary">作业正在执行。</p> : null}
-      {job.status === 'FAILED' ? (
+      {jobReadError ? (
+        <div className="space-y-2" role="alert">
+          <p className="text-sm text-danger">{jobReadError}</p>
+          <Button onClick={onRetryJob} size="sm" type="button" variant="outline">
+            重试读取作业状态
+          </Button>
+        </div>
+      ) : null}
+      {status === 'PENDING' ? <p className="text-sm text-text-secondary">作业已排队，等待 Worker 执行。</p> : null}
+      {status === 'RUNNING' ? <p className="text-sm text-text-secondary">作业正在执行。</p> : null}
+      {status === 'FAILED' ? (
         <p className="text-sm text-danger" role="alert">
-          {job.error_code ? `${job.error_code}：` : ''}{job.error_summary ?? '生成作业失败'}
+          {job?.error_code ? `${job.error_code}：` : ''}{job?.error_summary ?? '生成作业失败'}
         </p>
       ) : null}
-      {job.status === 'SUCCEEDED' && !job.content_version_id ? (
+      {status === 'SUCCEEDED' && !job?.content_version_id ? (
         <p className="text-sm text-danger" role="alert">作业成功但缺少 ContentVersion 身份。</p>
+      ) : null}
+      {consumerRefresh?.isPending ? (
+        <p aria-live="polite" className="text-sm text-text-secondary">正在刷新 Preview 相关数据…</p>
+      ) : null}
+      {consumerRefresh?.error ? (
+        <div className="space-y-2" role="alert">
+          <p className="text-sm text-danger">
+            Preview 命令已完成，刷新相关数据失败：{consumerRefresh.error}
+          </p>
+          <Button onClick={onRetryConsumers} size="sm" type="button" variant="outline">
+            重试刷新 Preview 相关数据
+          </Button>
+        </div>
       ) : null}
       {versionError ? (
         <div className="space-y-2" role="alert">
@@ -472,6 +547,28 @@ function stableCommandKey(reference: { current: CommandKey | undefined }, signat
   const next = { key: crypto.randomUUID(), signature };
   reference.current = next;
   return next.key;
+}
+
+function isGenerationJobStatus(value: unknown): value is GenerationJobStatus {
+  return value === 'PENDING'
+    || value === 'RUNNING'
+    || value === 'SUCCEEDED'
+    || value === 'FAILED';
+}
+
+function generationJobContractError(
+  trackedJobId: string | null,
+  jobs: GenerationJobList | undefined,
+  trackedJob: GenerationJob | undefined,
+) {
+  if (!trackedJobId || !jobs) return undefined;
+  if (!trackedJob) {
+    return `无法确认作业 ${trackedJobId} 状态：生成作业列表未包含该作业。`;
+  }
+  if (!isGenerationJobStatus(trackedJob.status)) {
+    return `无法确认作业 ${trackedJobId} 状态：服务端返回未知状态“${String(trackedJob.status)}”。`;
+  }
+  return undefined;
 }
 
 async function invalidatePreviewConsumers(

@@ -8,8 +8,10 @@ type ListMode = 'success' | 'empty' | 'error' | 'loading';
 type DeleteMode = 'success' | 'conflict';
 type DeleteRequest = { path: string; csrfToken: string | null };
 type GeoApiController = {
+  allowHttpStatus: (status: 403 | 404 | 500) => void;
   deleteRequests: DeleteRequest[];
   listRequests: URL[];
+  registerDeleteChain: (nodeIds: readonly string[], listItemId: string) => void;
   releaseLoading: () => void;
   setDeleteMode: (mode: DeleteMode) => void;
   setListMode: (mode: ListMode) => void;
@@ -100,13 +102,17 @@ const test = base.extend<GeoFixtures>({
     let deleteMode: DeleteMode = 'success';
     let releaseList: (() => void) | undefined;
     let currentItems = [...observations];
+    const deleteTargets = new Map<string, string>(observations.map((item) => [item.id, item.id]));
     const listRequests: URL[] = [];
     const deleteRequests: DeleteRequest[] = [];
     const unexpectedRequests: string[] = [];
     const runtimeErrors: string[] = [];
+    const allowedHttpStatuses = new Set<number>();
 
     page.on('console', (message) => {
-      if (message.type() === 'error' && !message.text().includes('409 (Conflict)')) {
+      const expectedHttpError = Array.from(allowedHttpStatuses).some((status) =>
+        message.text().includes(`${status} (`));
+      if (message.type() === 'error' && !message.text().includes('409 (Conflict)') && !expectedHttpError) {
         runtimeErrors.push(`console.error: ${message.text()}`);
       }
     });
@@ -171,14 +177,23 @@ const test = base.extend<GeoFixtures>({
           await route.fulfill({
             status: 409,
             json: errorEnvelope(
-              'GEO_OBSERVATION_HAS_SUCCESSOR',
-              '该观测已有后继更正',
+              'GEO_OBSERVATION_CHAIN_CHANGED',
+              'GEO 观测更正链已经变化',
               'req-geo-delete',
             ),
           });
           return;
         }
-        currentItems = currentItems.filter((item) => item.id !== match[1]);
+        const listItemId = deleteTargets.get(match[1]);
+        if (!listItemId) {
+          unexpectedRequests.push(`${method} ${url.pathname}`);
+          await route.fulfill({ status: 404, json: errorEnvelope('NOT_FOUND', 'GEO 观测不存在', 'req-geo-delete-unknown') });
+          return;
+        }
+        currentItems = currentItems.filter((item) => item.id !== listItemId);
+        for (const [nodeId, targetId] of Array.from(deleteTargets)) {
+          if (targetId === listItemId) deleteTargets.delete(nodeId);
+        }
         await route.fulfill({ status: 204, body: '' });
         return;
       }
@@ -195,8 +210,15 @@ const test = base.extend<GeoFixtures>({
     });
 
     await use({
+      allowHttpStatus: (status) => { allowedHttpStatuses.add(status); },
       deleteRequests,
       listRequests,
+      registerDeleteChain: (nodeIds, listItemId) => {
+        if (!currentItems.some((item) => item.id === listItemId)) {
+          throw new Error(`GEO 删除映射缺少列表项: ${listItemId}`);
+        }
+        for (const nodeId of nodeIds) deleteTargets.set(nodeId, listItemId);
+      },
       releaseLoading: () => releaseList?.(),
       setDeleteMode: (mode) => { deleteMode = mode; },
       setListMode: (mode) => { listMode = mode; },

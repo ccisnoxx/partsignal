@@ -2,7 +2,12 @@ import { queryOptions } from '@tanstack/react-query';
 
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
-import { auditSearchToApiParams, type AuditSearch } from './audit.model';
+import {
+  auditSearchToApiParams,
+  parseAuditLogDetailResponse,
+  parseAuditLogListResponse,
+  type AuditSearch,
+} from './audit.model';
 
 type ErrorDetail = components['schemas']['ErrorDetail'];
 type ErrorEnvelope = components['schemas']['ErrorEnvelope'];
@@ -21,7 +26,7 @@ class AuditRequestError extends Error {
 const auditKeys = {
   list: (params: ReturnType<typeof auditSearchToApiParams>) => ['audit', 'list', params] as const,
   options: () => ['audit', 'filter-options'] as const,
-  detail: (auditLogId: string) => ['audit', 'detail', auditLogId] as const,
+  detail: (auditLogId: string) => ['audit', 'detail', auditLogId.toLowerCase()] as const,
 };
 
 function auditListQueryOptions(search: AuditSearch) {
@@ -31,7 +36,7 @@ function auditListQueryOptions(search: AuditSearch) {
     queryFn: async () => {
       const result = await api.GET('/api/v1/audit-logs', { params: { query: params } });
       if (!result.data) throw auditRequestError('读取审计日志', result);
-      return result.data;
+      return parseAuditLogListResponse(result.data, { page: search.page, page_size: search.pageSize });
     },
     retry: false,
     retryOnMount: false,
@@ -54,14 +59,15 @@ function auditFilterOptionsQueryOptions() {
 }
 
 function auditDetailQueryOptions(auditLogId: string) {
+  const requestedLogId = auditLogId.toLowerCase();
   return queryOptions({
-    queryKey: auditKeys.detail(auditLogId),
+    queryKey: auditKeys.detail(requestedLogId),
     queryFn: async () => {
       const result = await api.GET('/api/v1/audit-logs/{audit_log_id}', {
-        params: { path: { audit_log_id: auditLogId } },
+        params: { path: { audit_log_id: requestedLogId } },
       });
       if (!result.data) throw auditRequestError('读取审计详情', result);
-      return result.data;
+      return parseAuditLogDetailResponse(result.data, requestedLogId);
     },
     retry: false,
     retryOnMount: false,

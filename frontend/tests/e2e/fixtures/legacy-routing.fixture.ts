@@ -3,6 +3,7 @@ import { expect, test as base } from '@playwright/test';
 import { URL } from 'node:url';
 
 import type { components } from '../../../src/shared/api/generated/schema';
+import { fixtureArtifactSecrets } from '../fixture-secrets';
 import { createProductDetail, createProducts } from './products.fixture';
 
 type AuthUser = components['schemas']['User'];
@@ -14,8 +15,8 @@ type LegacyRoutingFixtures = {
   legacySession: LegacySession;
 };
 
-const loginPassword = 'legacy-routing-password';
-const csrfToken = 'legacy-routing-csrf';
+const loginPassword = fixtureArtifactSecrets.legacyLoginPassword;
+const csrfToken = fixtureArtifactSecrets.legacyCsrf;
 const product = createProducts(1)[0];
 
 const admin: AuthUser = {

@@ -13,7 +13,7 @@ test('从五列成果表以键盘进入单请求只读详情', async ({ page, pu
   await expect(page.getByRole('heading', { level: 1, name: '发布成果' })).toBeVisible();
   await expect(page.locator('thead th')).toHaveCount(5);
   await expect(page.getByRole('columnheader', { name: '操作' })).toHaveCount(0);
-  await expect(page.getByText('Passed').first()).toHaveCount(1);
+  await expect(page.getByText('通过').first()).toHaveCount(1);
   const detailLink = page.getByRole('link', { name: publishedArticle.actual_title });
   await detailLink.focus();
   await detailLink.press('Enter');

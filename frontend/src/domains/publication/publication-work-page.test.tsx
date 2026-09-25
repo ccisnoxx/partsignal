@@ -20,10 +20,12 @@ import {
 
 function mockPublicationGet({
   empty = false,
+  failFilteredWorkList,
   readyItems = [readyItem, noAccountReadyItem],
   total = 1,
 }: {
   empty?: boolean;
+  failFilteredWorkList?: () => boolean;
   readyItems?: PublicationReadyItem[];
   total?: number;
 } = {}) {
@@ -36,8 +38,11 @@ function mockPublicationGet({
       return { data, response: Response.json(data) } as never;
     }
     if (path === '/api/v1/publication-works') {
-      const query = (request as { params?: { query?: { page?: number; page_size?: number } } })
+      const query = (request as { params?: { query?: { page?: number; page_size?: number; status?: string } } })
         .params?.query;
+      if (query?.status === 'ACTION_REQUIRED' && failFilteredWorkList?.()) {
+        return structuredError(503, 'WORKS_FILTERED_UNAVAILABLE', 'req-works-filtered');
+      }
       const data = {
         items: empty ? [] : [workListItem],
         page: query?.page ?? 1,
@@ -295,7 +300,7 @@ describe('PublicationWorkPage', () => {
     await waitFor(() => expect(screen.getAllByRole('alert')).toHaveLength(3));
 
     const summary = screen.getByRole('heading', { name: '运营摘要' }).closest('section')!;
-    const ready = screen.getByRole('heading', { name: 'Ready Queue' }).closest('section')!;
+    const ready = screen.getByRole('heading', { name: '待开始队列' }).closest('section')!;
     const works = screen.getByRole('heading', { name: '发布工作列表' }).closest('section')!;
     expect(within(summary).getByRole('alert')).toHaveTextContent('后台刷新失败，已保留当前数据');
     expect(within(summary).getByRole('alert')).toHaveTextContent('req-summary-refresh');
@@ -340,16 +345,8 @@ describe('PublicationWorkPage', () => {
   });
 
   it('切换到无缓存的 Work List exact key 初始失败时不回退旧 key 投影', async () => {
-    const get = mockPublicationGet();
-    const originalImplementation = get.getMockImplementation();
-    if (!originalImplementation) throw new Error('Publication GET mock 缺少默认实现');
     let failFilteredWorkList = false;
-    get.mockImplementation(async (path, request) => {
-      if (path === '/api/v1/publication-works' && failFilteredWorkList) {
-        return structuredError(503, 'WORKS_FILTERED_UNAVAILABLE', 'req-works-filtered');
-      }
-      return originalImplementation(path, request);
-    });
+    mockPublicationGet({ failFilteredWorkList: () => failFilteredWorkList });
     const { onContentProjectionChange, onSearchChange, queryClient, view } = renderPage();
     expect(await screen.findByText('已开始发布')).toBeInTheDocument();
 

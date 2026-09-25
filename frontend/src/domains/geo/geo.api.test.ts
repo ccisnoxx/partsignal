@@ -9,6 +9,7 @@ import {
   deleteQueryTopic,
   deleteGeoObservation,
   GeoRequestError,
+  geoKeys,
   geoInsightsQueryOptions,
   geoObservationCorrectionContextQueryOptions,
   geoObservationDetailQueryOptions,
@@ -25,6 +26,11 @@ import { queryTopicSearchSchema } from './query-topic-list.model';
 afterEach(() => vi.restoreAllMocks());
 
 describe('GEO API', () => {
+  it('大小写 UUID 共享 Detail 与 Correction Context 缓存身份', () => {
+    const id = 'abcdef00-0000-4000-8000-abcdef000001';
+    expect(geoKeys.detail(id.toUpperCase())).toEqual(geoKeys.detail(id));
+    expect(geoKeys.correctionContext(id.toUpperCase())).toEqual(geoKeys.correctionContext(id));
+  });
   it('更正上下文只请求 generated 聚合 endpoint 并校验 CORRECT 尾节点', async () => {
     const observationId = '10000000-0000-4000-8000-000000000001';
     const data = {

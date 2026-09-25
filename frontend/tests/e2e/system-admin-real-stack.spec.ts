@@ -9,10 +9,18 @@ import {
 } from '@playwright/test';
 
 import type { components } from '../../src/shared/api/generated/schema';
-import { expectSecretsAbsent } from './secret-artifact';
+import {
+  createRealStackRuntimeAudit,
+  createSystemTrafficScope,
+  trafficExpectationErrors,
+  type RuntimeCancellation,
+} from './real-stack-runtime';
+import { registerCurrentRealStackCookies, registerRealStackLoginSecrets } from './real-stack-session';
+import { registerArtifactSecrets } from './secret-artifact';
 
 type AuditLogDetail = components['schemas']['AuditLogDetail'];
 type AuditLogList = components['schemas']['AuditLogList'];
+type AuthSession = components['schemas']['AuthSession'];
 type CsrfToken = components['schemas']['CsrfToken'];
 type ErrorEnvelope = components['schemas']['ErrorEnvelope'];
 type User = components['schemas']['User'];
@@ -23,6 +31,9 @@ type JsonResponse = {
   json(): Promise<unknown>;
   status(): number;
   url(): string;
+};
+type RuntimePhase = {
+  current: string;
 };
 
 const realStackEnabled = process.env.PARTSIGNAL_E2E_REAL_STACK === '1';
@@ -53,11 +64,22 @@ async function requestId(response: Response, label: string) {
   return value!;
 }
 
-async function login(page: Page, username: string, password: string) {
+async function login(
+  page: Page,
+  context: BrowserContext,
+  username: string,
+  password: string,
+) {
   await page.goto('/login');
   await page.getByRole('textbox', { name: '用户名' }).fill(username);
   await page.getByLabel(/^密码/).fill(password);
+  const responsePromise = page.waitForResponse((response) => (
+    matchesResponse(response, 'POST', '/api/v1/auth/login')
+  ));
   await page.getByRole('button', { name: '登录' }).click();
+  const response = await responsePromise;
+  const session = await readJson<AuthSession>(response, 200, '登录');
+  await registerRealStackLoginSecrets(context, apiBaseUrl, session.csrf_token);
 }
 
 function userRow(page: Page, username: string) {
@@ -72,25 +94,29 @@ function assertNoSecrets(values: readonly string[], secrets: ReadonlySet<string>
   expect(values.some((value) => containsSecret(value, secrets)), label).toBe(false);
 }
 
-function watchRuntime(page: Page, rawValues: string[], errors: string[]) {
-  page.on('console', (message) => {
-    rawValues.push(message.text());
-    if (message.type() === 'error') errors.push('console.error');
+function watchRuntime(
+  page: Page,
+  phase: RuntimePhase,
+  allowedCancellations: readonly RuntimeCancellation[],
+) {
+  const audit = createRealStackRuntimeAudit({
+    apiOrigin: new URL(apiBaseUrl).origin,
+    getPhase: () => phase.current,
+    allowedCancellations,
+    allowedConsoleErrors: [{
+      phase: 'reset-invalid-session',
+      text: 'Failed to load resource: the server responded with a status of 401 (Unauthorized)',
+    }],
+    allowedHttpErrors: [{
+      phase: 'reset-invalid-session',
+      origin: new URL(apiBaseUrl).origin,
+      method: 'GET',
+      pathname: '/api/v1/auth/me',
+      status: 401,
+    }],
   });
-  page.on('pageerror', (error) => {
-    rawValues.push(error.message);
-    errors.push('pageerror');
-  });
-  page.on('requestfailed', (request) => {
-    rawValues.push(request.url());
-    const pathname = new URL(request.url()).pathname;
-    const expectedNoContentAbort = (
-      request.method() === 'POST' && pathname === '/api/v1/auth/change-password'
-    ) || (
-      request.method() === 'DELETE' && /^\/api\/v1\/users\/[0-9a-f-]{36}$/.test(pathname)
-    );
-    if (!expectedNoContentAbort) errors.push(`requestfailed: ${request.method()} ${pathname}`);
-  });
+  audit.watch(page);
+  return audit;
 }
 
 async function expectForbidden(
@@ -117,6 +143,9 @@ async function showAuditByRequestId(
   expectedTargetId: string,
   safePayloads: string[],
 ) {
+  const filterOptionsPromise = page.waitForResponse((response) => (
+    matchesResponse(response, 'GET', '/api/v1/audit-logs/filter-options')
+  ));
   const responsePromise = page.waitForResponse((response) => {
     const url = new URL(response.url());
     return response.request().method() === 'GET'
@@ -124,6 +153,9 @@ async function showAuditByRequestId(
       && url.searchParams.get('request_id') === value;
   });
   await page.goto(`/system/audit?requestId=${encodeURIComponent(value)}`);
+  const filterOptionsResponse = await filterOptionsPromise;
+  expect(filterOptionsResponse.status(), 'Audit Filter Options 应返回 HTTP 200').toBe(200);
+  expect(await filterOptionsResponse.finished(), 'Audit Filter Options 响应应完整结束').toBeNull();
   const body = await readJson<AuditLogList>(await responsePromise, 200, 'Audit List');
   safePayloads.push(JSON.stringify(body));
   expect(body.items).toHaveLength(1);
@@ -137,11 +169,14 @@ async function showAuditByRequestId(
   return { body, row };
 }
 
-async function showPasswordChangedAudit(
+async function showPasswordChangedAudits(
   page: Page,
   targetId: string,
   safePayloads: string[],
 ) {
+  const filterOptionsPromise = page.waitForResponse((response) => (
+    matchesResponse(response, 'GET', '/api/v1/audit-logs/filter-options')
+  ));
   const responsePromise = page.waitForResponse((response) => {
     const url = new URL(response.url());
     return response.request().method() === 'GET'
@@ -150,37 +185,99 @@ async function showPasswordChangedAudit(
       && url.searchParams.get('target_id') === targetId;
   });
   await page.goto(`/system/audit?action=user.password_changed&targetId=${encodeURIComponent(targetId)}`);
+  const filterOptionsResponse = await filterOptionsPromise;
+  expect(filterOptionsResponse.status(), 'Audit Filter Options 应返回 HTTP 200').toBe(200);
+  expect(await filterOptionsResponse.finished(), 'Audit Filter Options 响应应完整结束').toBeNull();
   const body = await readJson<AuditLogList>(await responsePromise, 200, '改密审计列表');
   safePayloads.push(JSON.stringify(body));
-  expect(body.items).toHaveLength(1);
-  expect(body.items[0]).toMatchObject({ action: 'user.password_changed', target_id: targetId });
-  return body.items[0]!;
+  expect(body.items).toHaveLength(2);
+  expect(body.items.every((item) => (
+    item.action === 'user.password_changed' && item.target_id === targetId
+  ))).toBe(true);
+  return body.items;
 }
 
 test('System Admin 真实栈完成用户、权限、会话与审计闭环', async ({
   browser,
   context,
   page,
-}, testInfo) => {
+}) => {
   const suffix = randomUUID().slice(0, 8);
   const username = `e2e-engineer-${suffix}`;
   const createPassword = `create-${randomUUID()}`;
   const changedPassword = `changed-${randomUUID()}`;
   const resetPassword = `reset-${randomUUID()}`;
-  const secrets = new Set([adminPassword, createPassword, changedPassword, resetPassword]);
+  const recoveredPassword = `recovered-${randomUUID()}`;
+  const secrets = new Set([
+    adminPassword, createPassword, changedPassword, resetPassword, recoveredPassword,
+  ]);
   const safePayloads: string[] = [];
   const browserValues: string[] = [];
-  const runtimeValues: string[] = [];
-  const runtimeErrors: string[] = [];
+  const adminRuntimePhase: RuntimePhase = {
+    current: 'admin-login',
+  };
+  const engineerRuntimePhase: RuntimePhase = {
+    current: 'engineer-login',
+  };
+  const apiOrigin = new URL(apiBaseUrl).origin;
+  const adminAllowedCancellations: RuntimeCancellation[] = [
+    {
+      phase: 'admin-login',
+      origin: apiOrigin,
+      method: 'GET',
+      pathname: '/api/v1/workbench',
+      reason: 'net::ERR_ABORTED',
+    },
+    {
+      phase: 'admin-users-initial',
+      origin: apiOrigin,
+      method: 'GET',
+      pathname: '/api/v1/users',
+      reason: 'net::ERR_ABORTED',
+    },
+  ];
+  const engineerAllowedCancellations: RuntimeCancellation[] = [
+    {
+      phase: 'engineer-first-change',
+      origin: apiOrigin,
+      method: 'POST',
+      pathname: '/api/v1/auth/change-password',
+      reason: 'net::ERR_ABORTED',
+    },
+    {
+      phase: 'engineer-system-users',
+      origin: apiOrigin,
+      method: 'GET',
+      pathname: '/api/v1/workbench',
+      reason: 'net::ERR_ABORTED',
+    },
+    {
+      phase: 'reset-invalid-session',
+      origin: apiOrigin,
+      method: 'GET',
+      pathname: '/api/v1/workbench',
+      reason: 'net::ERR_ABORTED',
+    },
+    {
+      phase: 'engineer-recovered-change',
+      origin: apiOrigin,
+      method: 'POST',
+      pathname: '/api/v1/auth/change-password',
+      reason: 'net::ERR_ABORTED',
+    },
+  ];
   let engineerContext: BrowserContext | undefined;
   let engineerPage: Page | undefined;
 
-  watchRuntime(page, runtimeValues, runtimeErrors);
+  await registerArtifactSecrets(Array.from(secrets));
+  const adminRuntime = watchRuntime(page, adminRuntimePhase, adminAllowedCancellations);
+  let engineerRuntime: ReturnType<typeof watchRuntime> | undefined;
 
   try {
-    await login(page, 'admin', adminPassword);
+    await login(page, context, 'admin', adminPassword);
     await expect(page).toHaveURL('/');
 
+    adminRuntimePhase.current = 'admin-users-initial';
     const initialUsersPromise = page.waitForResponse((response) => (
       matchesResponse(response, 'GET', '/api/v1/users')
     ));
@@ -218,6 +315,7 @@ test('System Admin 真实栈完成用户、权限、会话与审计闭环', asyn
       'ADMIN CSRF',
     );
     secrets.add(adminCsrf.csrf_token);
+    await registerArtifactSecrets([adminCsrf.csrf_token]);
     const createAuditQuery = new URLSearchParams({
       page: '1',
       page_size: '20',
@@ -237,8 +335,12 @@ test('System Admin 真实栈完成用户、权限、会话与审计闭环', asyn
       viewport: { width: 1440, height: 900 },
     });
     engineerPage = await engineerContext.newPage();
-    watchRuntime(engineerPage, runtimeValues, runtimeErrors);
-    await login(engineerPage, username, createPassword);
+    engineerRuntime = watchRuntime(
+      engineerPage,
+      engineerRuntimePhase,
+      engineerAllowedCancellations,
+    );
+    await login(engineerPage, engineerContext, username, createPassword);
     await expect(engineerPage).toHaveURL('/account/security');
     await expect(engineerPage.getByText('首次登录必须修改临时密码，完成前不能进入业务页面。')).toBeVisible();
 
@@ -248,8 +350,10 @@ test('System Admin 真实栈完成用户、权限、会话与审计闭环', asyn
       'ENGINEER CSRF',
     );
     secrets.add(engineerCsrf.csrf_token);
+    await registerArtifactSecrets([engineerCsrf.csrf_token]);
     await engineerPage.getByLabel(/^当前密码/).fill(createPassword);
     await engineerPage.getByLabel(/^新密码/).fill(changedPassword);
+    engineerRuntimePhase.current = 'engineer-first-change';
     const changeResponsePromise = engineerPage.waitForResponse((response) => (
       matchesResponse(response, 'POST', '/api/v1/auth/change-password')
     ));
@@ -270,7 +374,11 @@ test('System Admin 真实栈完成用户、权限、会话与审计闭环', asyn
     await expect(engineerPage.getByRole('link', { name: '用户管理' })).toHaveCount(0);
     await expect(engineerPage.getByRole('link', { name: '系统审计' })).toHaveCount(0);
 
-    for (const pathname of ['/system/users', '/system/audit']) {
+    const forbiddenPaths = ['/system/users', '/system/audit'];
+    for (const pathname of forbiddenPaths) {
+      engineerRuntimePhase.current = pathname === '/system/users'
+        ? 'engineer-system-users'
+        : 'engineer-system-audit';
       await engineerPage.goto(pathname);
       expect(new URL(engineerPage.url()).pathname).toBe(pathname);
       const forbidden = engineerPage.getByRole('heading', { name: '无权访问系统管理' });
@@ -315,6 +423,16 @@ test('System Admin 真实栈完成用户、权限、会话与审计闭环', asyn
       safePayloads,
     );
 
+    const engineerCookiesBeforeReset = await engineerContext.cookies(apiBaseUrl);
+    const oldEngineerSession = engineerCookiesBeforeReset.find((cookie) => (
+      cookie.name === 'partsignal_session'
+    ));
+    expect(Boolean(oldEngineerSession), '重置前应存在 ENGINEER session Cookie').toBe(true);
+    for (const cookie of engineerCookiesBeforeReset) {
+      if (cookie.value) secrets.add(cookie.value);
+    }
+    await registerArtifactSecrets(engineerCookiesBeforeReset.map((cookie) => cookie.value));
+
     await page.bringToFront();
     await page.reload();
     const currentRow = userRow(page, username);
@@ -339,6 +457,50 @@ test('System Admin 真实栈完成用户、权限、会话与审计闭环', asyn
     const invalidSessionBody = await readJson<ErrorEnvelope>(invalidSession, 401, '重置后的旧会话');
     safePayloads.push(JSON.stringify(invalidSessionBody));
     expect(invalidSessionBody.error.code).toBe('AUTH_REQUIRED');
+
+    engineerRuntimePhase.current = 'reset-invalid-session';
+    await engineerPage.reload();
+    await expect(engineerPage).toHaveURL(/\/login(?:\?|$)/);
+    await expect(engineerPage.getByRole('heading', { name: '登录' })).toBeVisible();
+    await expect(engineerPage.getByRole('alert')).toHaveCount(0);
+
+    await login(engineerPage, engineerContext, username, resetPassword);
+    engineerRuntimePhase.current = 'engineer-reset-login';
+    await expect(engineerPage).toHaveURL('/account/security');
+    await expect(engineerPage.getByText('首次登录必须修改临时密码，完成前不能进入业务页面。')).toBeVisible();
+    await engineerPage.getByLabel(/^当前密码/).fill(resetPassword);
+    await engineerPage.getByLabel(/^新密码/).fill(recoveredPassword);
+    engineerRuntimePhase.current = 'engineer-recovered-change';
+    const recoveredChangePromise = engineerPage.waitForResponse((response) => (
+      matchesResponse(response, 'POST', '/api/v1/auth/change-password')
+    ));
+    await engineerPage.getByRole('button', { name: '确认修改' }).click();
+    expect((await recoveredChangePromise).status(), '重置后强制改密应成功').toBe(204);
+    await expect(engineerPage).toHaveURL('/');
+    await expect(engineerPage.getByRole('heading', { level: 1, name: '工作台' })).toBeVisible();
+
+    const recoveredEngineer = await readJson<User>(
+      await engineerContext.request.get(apiUrl('/api/v1/auth/me')),
+      200,
+      '重置后 canonical session',
+    );
+    safePayloads.push(JSON.stringify(recoveredEngineer));
+    expect(recoveredEngineer.must_change_password).toBe(false);
+    expect(recoveredEngineer.revision).toBeGreaterThan(resetUser.revision);
+
+    const usersAfterRecoveryPromise = page.waitForResponse((response) => (
+      matchesResponse(response, 'GET', '/api/v1/users')
+    ));
+    await page.reload();
+    const usersAfterRecovery = await readJson<UserList>(
+      await usersAfterRecoveryPromise,
+      200,
+      '重置恢复后用户列表',
+    );
+    safePayloads.push(JSON.stringify(usersAfterRecovery));
+    expect(usersAfterRecovery.items.find((user) => user.id === created.id)?.revision).toBe(
+      recoveredEngineer.revision,
+    );
 
     await expect(page.getByRole('checkbox', { name: `选择用户 ${username}` })).toBeVisible();
     await page.getByRole('checkbox', { name: `选择用户 ${username}` }).check();
@@ -425,8 +587,8 @@ test('System Admin 真实栈完成用户、权限、会话与审计闭环', asyn
     );
     expect(bulkAudit.body.items.some((log) => log.target_id === admin!.id)).toBe(false);
 
-    const auditBeforeDelete = await showPasswordChangedAudit(page, created.id, safePayloads);
-    expect(auditBeforeDelete.actor?.id).toBe(created.id);
+    const auditsBeforeDelete = await showPasswordChangedAudits(page, created.id, safePayloads);
+    expect(auditsBeforeDelete.every((audit) => audit.actor?.id === created.id)).toBe(true);
 
     const disabledUsersPromise = page.waitForResponse((response) => {
       const url = new URL(response.url());
@@ -443,6 +605,14 @@ test('System Admin 真实栈完成用户、权限、会话与审计闭环', asyn
     await disabledRow.getByRole('button', { name: `更多操作：${username}` }).click();
     await page.getByRole('menuitem', { name: '删除用户' }).click();
     const deleteDialog = page.getByRole('dialog', { name: `删除用户“${username}”？` });
+    adminRuntimePhase.current = 'delete-user';
+    adminAllowedCancellations.push({
+      phase: 'delete-user',
+      origin: apiOrigin,
+      method: 'DELETE',
+      pathname: `/api/v1/users/${created.id}`,
+      reason: 'net::ERR_ABORTED',
+    });
     const deleteResponsePromise = page.waitForResponse((response) => (
       matchesResponse(response, 'DELETE', `/api/v1/users/${created.id}`)
     ));
@@ -450,13 +620,153 @@ test('System Admin 真实栈完成用户、权限、会话与审计闭环', asyn
     expect((await deleteResponsePromise).status(), '删除临时用户应成功').toBe(204);
     await expect(userRow(page, username)).toHaveCount(0);
 
-    const auditAfterDelete = await showPasswordChangedAudit(page, created.id, safePayloads);
-    expect(auditAfterDelete.id).toBe(auditBeforeDelete.id);
-    expect(auditAfterDelete.actor_id).toBeNull();
-    expect(auditAfterDelete.actor).toBeNull();
-    await expect(page.getByRole('row').filter({ hasText: auditAfterDelete.request_id })).toContainText('用户已删除/未记录');
+    const auditsAfterDelete = await showPasswordChangedAudits(page, created.id, safePayloads);
+    expect(auditsAfterDelete.map((audit) => audit.id).sort()).toEqual(
+      auditsBeforeDelete.map((audit) => audit.id).sort(),
+    );
+    expect(auditsAfterDelete.every((audit) => (
+      audit.actor_id === null && audit.actor === null
+    ))).toBe(true);
+    for (const audit of auditsAfterDelete) {
+      await expect(page.getByRole('row').filter({ hasText: audit.request_id })).toContainText('用户已删除/未记录');
+    }
+
+    const runtimeAudits = [adminRuntime, engineerRuntime!];
+    const attempts = runtimeAudits.flatMap((audit) => audit.attempts);
+    const responses = runtimeAudits.flatMap((audit) => audit.responses);
+    expect(trafficExpectationErrors(attempts, responses, [
+      {
+        phase: 'admin-login',
+        origin: apiOrigin,
+        method: 'POST',
+        pathname: '/api/v1/auth/login',
+        status: 200,
+        attempts: 1,
+        responses: 1,
+      },
+      {
+        phase: 'engineer-login',
+        origin: apiOrigin,
+        method: 'POST',
+        pathname: '/api/v1/auth/login',
+        status: 200,
+        attempts: 1,
+        responses: 1,
+      },
+      {
+        phase: 'reset-invalid-session',
+        origin: apiOrigin,
+        method: 'POST',
+        pathname: '/api/v1/auth/login',
+        status: 200,
+        attempts: 1,
+        responses: 1,
+      },
+      {
+        phase: 'engineer-first-change',
+        origin: apiOrigin,
+        method: 'POST',
+        pathname: '/api/v1/auth/change-password',
+        status: 204,
+        attempts: 1,
+        responses: 1,
+      },
+      {
+        phase: 'engineer-recovered-change',
+        origin: apiOrigin,
+        method: 'POST',
+        pathname: '/api/v1/auth/change-password',
+        status: 204,
+        attempts: 1,
+        responses: 1,
+      },
+      {
+        phase: 'admin-users-initial',
+        origin: apiOrigin,
+        method: 'POST',
+        pathname: '/api/v1/users',
+        status: 201,
+        attempts: 1,
+        responses: 1,
+      },
+      {
+        phase: 'admin-users-initial',
+        origin: apiOrigin,
+        method: 'POST',
+        pathname: `/api/v1/users/${created.id}/reset-password`,
+        status: 200,
+        attempts: 1,
+        responses: 1,
+      },
+      {
+        phase: 'admin-users-initial',
+        origin: apiOrigin,
+        method: 'POST',
+        pathname: '/api/v1/users/bulk-status',
+        status: 200,
+        attempts: 1,
+        responses: 1,
+      },
+      {
+        phase: 'delete-user',
+        origin: apiOrigin,
+        method: 'DELETE',
+        pathname: `/api/v1/users/${created.id}`,
+        status: 204,
+        attempts: 1,
+        responses: 1,
+      },
+      {
+        phase: 'admin-users-initial',
+        origin: apiOrigin,
+        method: 'GET',
+        pathname: '/api/v1/audit-logs',
+        status: 200,
+        attempts: 4,
+        responses: 4,
+      },
+      {
+        phase: 'delete-user',
+        origin: apiOrigin,
+        method: 'GET',
+        pathname: '/api/v1/audit-logs',
+        status: 200,
+        attempts: 1,
+        responses: 1,
+      },
+      {
+        phase: 'admin-users-initial',
+        origin: apiOrigin,
+        method: 'GET',
+        pathname: '/api/v1/audit-logs/filter-options',
+        status: 200,
+        attempts: 4,
+        responses: 4,
+      },
+      {
+        phase: 'delete-user',
+        origin: apiOrigin,
+        method: 'GET',
+        pathname: '/api/v1/audit-logs/filter-options',
+        status: 200,
+        attempts: 1,
+        responses: 1,
+      },
+      {
+        phase: 'admin-users-initial',
+        origin: apiOrigin,
+        method: 'GET',
+        pathname: `/api/v1/audit-logs/${createAuditId}`,
+        status: 200,
+        attempts: 1,
+        responses: 1,
+      },
+    ], createSystemTrafficScope(apiOrigin)),
+    'System mutation 与全部 Audit path 的 phase/attempt/response multiset 必须精确').toEqual([]);
 
     browserValues.push(await browserSurface(page), await browserSurface(engineerPage));
+    const runtimeValues = runtimeAudits.flatMap((audit) => audit.rawValues);
+    const runtimeErrors = runtimeAudits.flatMap((audit) => audit.errors);
     assertNoSecrets(safePayloads, secrets, '安全响应不得包含密码或会话敏感值');
     assertNoSecrets(browserValues, secrets, 'DOM、URL 和 Web Storage 不得包含敏感值');
     assertNoSecrets(runtimeValues, secrets, '浏览器输出不得包含敏感值');
@@ -465,17 +775,18 @@ test('System Admin 真实栈完成用户、权限、会话与审计闭环', asyn
   } finally {
     for (const owner of [context, engineerContext]) {
       if (!owner) continue;
-      for (const cookie of await owner.cookies()) {
-        if (cookie.value) secrets.add(cookie.value);
+      for (const value of await registerCurrentRealStackCookies(owner, apiBaseUrl)) {
+        secrets.add(value);
       }
     }
     for (const ownerPage of [page, engineerPage]) {
       if (ownerPage && !ownerPage.isClosed()) browserValues.push(await browserSurface(ownerPage));
     }
+    const finalRuntimeValues = [adminRuntime, ...(engineerRuntime ? [engineerRuntime] : [])]
+      .flatMap((audit) => audit.rawValues);
     assertNoSecrets(safePayloads, secrets, '安全响应不得包含 Cookie 或 CSRF');
     assertNoSecrets(browserValues, secrets, 'DOM、URL 和 Web Storage 不得包含 Cookie 或 CSRF');
-    assertNoSecrets(runtimeValues, secrets, '浏览器输出不得包含 Cookie 或 CSRF');
-    await expectSecretsAbsent(testInfo.outputDir, Array.from(secrets));
+    assertNoSecrets(finalRuntimeValues, secrets, '浏览器输出不得包含 Cookie 或 CSRF');
     await engineerContext?.close();
   }
 });

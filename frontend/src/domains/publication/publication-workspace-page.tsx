@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSyncExternalStore, useState } from 'react';
+import { useSyncExternalStore, useState, useRef, useEffect } from 'react';
 
 import { MarkdownPreview } from '@/design-system/editor/markdown-editor';
 import { Badge } from '@/design-system/primitives/badge';
@@ -59,7 +59,24 @@ function PublicationWorkspacePage({
 }: PublicationWorkspacePageProps) {
   const queryClient = useQueryClient();
   const options = publicationWorkspaceContextQueryOptions(workId);
-  const query = useQuery(options);
+  const submittedWork = useRef<PublicationWorkspaceContext['work'] | undefined>(undefined);
+  const copyEpoch = useRef(0);
+  useEffect(() => () => { copyEpoch.current += 1; }, [workId]);
+  const [commandBusy, setCommandBusy] = useState(false);
+  const [syncRequired, setSyncRequired] = useState(false);
+  const query = useQuery({
+    ...options,
+    queryFn: async (queryContext) => {
+      const latest = await options.queryFn!(queryContext);
+      const expected = submittedWork.current;
+      if (expected && (
+        latest.work.revision < expected.revision
+        || (latest.work.revision === expected.revision
+          && latest.work.content_version_id !== expected.content_version_id)
+      )) throw new Error('发布工作台 Context 修订号不一致，请重新读取');
+      return latest;
+    },
+  });
   const [notice, setNotice] = useState<string>();
   const [readError, setReadError] = useState<string>();
   const activeSection = useSyncExternalStore(subscribeHash, currentHash, () => 'summary');
@@ -101,12 +118,25 @@ function PublicationWorkspacePage({
   }));
 
   async function copyPackage() {
+    if (commandBusy || syncRequired) return;
+    const epoch = ++copyEpoch.current;
     setReadError(undefined);
     setNotice(undefined);
     try {
       const publicationPackage = await queryClient.fetchQuery(
         publicationPackageQueryOptions(context.content.id),
       );
+      const latest = queryClient.getQueryData<PublicationWorkspaceContext>(options.queryKey);
+      if (
+        copyEpoch.current !== epoch
+        || latest?.work.id !== work.id
+        || latest.work.revision !== work.revision
+        || latest.content.id !== context.content.id
+        || latest.content.content_hash !== context.content.content_hash
+      ) {
+        setReadError('工作上下文已变化，本次发布包未复制；请确认最新内容后重新复制。');
+        return;
+      }
       const value = [
         publicationPackage.title,
         publicationPackage.body_markdown,
@@ -129,15 +159,25 @@ function PublicationWorkspacePage({
     }
   }
 
+  async function reloadContext() {
+    const refreshed = await query.refetch();
+    if (refreshed.error) throw refreshed.error;
+    if (!refreshed.data) throw new Error('重载发布工作台后未返回 Context');
+    setSyncRequired(false);
+    return refreshed.data;
+  }
+
   async function acceptCanonicalWork(canonicalWork: typeof work) {
+    // 命令响应只含 work；正文与候选必须等待完整 Context，禁止拼接快照。
+    submittedWork.current = canonicalWork;
+    setSyncRequired(true);
     await queryClient.cancelQueries({ queryKey: options.queryKey });
-    queryClient.setQueryData(options.queryKey, { ...context, work: canonicalWork });
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: options.queryKey }),
       queryClient.invalidateQueries({ queryKey: publicationKeys.workLists() }),
       queryClient.invalidateQueries({ queryKey: publicationKeys.summary() }),
       onContentProjectionChange(work.task_id),
     ]);
+    await reloadContext();
   }
 
   const contextPane = (
@@ -210,7 +250,7 @@ function PublicationWorkspacePage({
       </div>
       <div id="content-version" tabIndex={-1}>
         <DetailSection
-          actions={<Button onClick={() => void copyPackage()} size="sm" type="button" variant="outline">复制发布包</Button>}
+          actions={<Button disabled={commandBusy || syncRequired} onClick={() => void copyPackage()} size="sm" type="button" variant="outline">复制发布包</Button>}
           description={`批准内容 v${context.content.version}，只读且绑定工作哈希。`}
           title={context.content.title}
         >
@@ -282,12 +322,12 @@ function PublicationWorkspacePage({
         context={context}
         csrfToken={csrfToken}
         onCanonicalWork={acceptCanonicalWork}
-        onReload={async () => {
-          const refreshed = await query.refetch();
-          if (refreshed.error) throw refreshed.error;
-          if (!refreshed.data) throw new Error('重载发布工作台后未返回 Context');
-          return refreshed.data;
+        busy={commandBusy}
+        onBusyChange={(busy) => {
+          if (busy) copyEpoch.current += 1;
+          setCommandBusy(busy);
         }}
+        onReload={reloadContext}
       />
     </section>
   );

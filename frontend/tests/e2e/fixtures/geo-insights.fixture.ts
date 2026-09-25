@@ -4,8 +4,9 @@ import { URL } from 'node:url';
 
 import type { components } from '../../../src/shared/api/generated/schema';
 
-type InsightsMode = 'success' | 'empty' | 'error' | 'loading';
-type CreateMode = 'success' | 'stale';
+type InsightsMode = 'success' | 'empty' | 'error' | 'loading' | 'no-action';
+type CreateMode = 'success' | 'stale' | 'pending';
+type OptionsMode = 'success' | 'error' | 'no-fact';
 type OptimizationCreate = components['schemas']['GeoOptimizationContentTaskCreate'];
 type InsightsController = {
   insightRequests: URL[];
@@ -13,8 +14,10 @@ type InsightsController = {
   createRequests: Array<{ body: OptimizationCreate; csrf: string | null; key: string | null }>;
   setInsightsMode: (mode: InsightsMode) => void;
   setCreateMode: (mode: CreateMode) => void;
+  setOptionsMode: (mode: OptionsMode) => void;
   setReadOnly: (readOnly: boolean) => void;
   releaseLoading: () => void;
+  releaseCreate: () => void;
 };
 
 const ids = {
@@ -86,6 +89,17 @@ const emptyInsights = {
     unavailable_sections: [{ code: 'NO_COMPLETE_OBSERVATIONS', message: '当前范围没有完整观测' }],
   },
 } satisfies components['schemas']['GeoInsights'];
+const noActionInsights = {
+  ...insights,
+  content_rankings: {
+    ...insights.content_rankings,
+    declining: insights.content_rankings.declining.map((item) => ({
+      ...item,
+      primary_task: 'VIEW_CONTENT_PERFORMANCE' as const,
+      optimization_action: null,
+    })),
+  },
+} satisfies components['schemas']['GeoInsights'];
 const creationOptions = {
   products: [{ id: ids.product, brand: 'PartSignal', part_number: 'PS-LNA', approved_fact_versions: [{ id: ids.fact, version: 3, classification: 'PUBLIC' }] }],
   platforms: [{ id: ids.platform, name: '官网' }],
@@ -106,8 +120,11 @@ const test = base.extend<{ insightsApi: InsightsController }>({
   insightsApi: [async ({ page }, use) => {
     let insightsMode: InsightsMode = 'success';
     let createMode: CreateMode = 'success';
+    let optionsMode: OptionsMode = 'success';
     let readOnly = false;
     let releaseInsights: (() => void) | undefined;
+    let releaseCreate: (() => void) | undefined;
+    const allowedHttpStatuses = new Set<number>();
     const insightRequests: URL[] = [];
     const optionRequests: URL[] = [];
     const createRequests: InsightsController['createRequests'] = [];
@@ -115,7 +132,8 @@ const test = base.extend<{ insightsApi: InsightsController }>({
     const runtimeErrors: string[] = [];
     page.on('pageerror', (error) => runtimeErrors.push(error.message));
     page.on('console', (message) => {
-      if (message.type() === 'error' && !message.text().includes('409 (Conflict)')) runtimeErrors.push(message.text());
+      const expectedHttpError = Array.from(allowedHttpStatuses).some((status) => message.text().includes(`${status} (`));
+      if (message.type() === 'error' && !message.text().includes('409 (Conflict)') && !expectedHttpError) runtimeErrors.push(message.text());
     });
     await page.route('**/api/v1/**', async (route) => {
       const request = route.request(); const url = new URL(request.url()); const method = request.method();
@@ -125,17 +143,26 @@ const test = base.extend<{ insightsApi: InsightsController }>({
         insightRequests.push(url);
         if (insightsMode === 'loading') await new Promise<void>((resolve) => { releaseInsights = resolve; });
         if (insightsMode === 'error') return route.fulfill({ status: 409, json: errorEnvelope('GEO_INSIGHT_CONTEXT_INCOMPLETE', '洞察上下文变化', 'req-insights') });
-        return route.fulfill({ status: 200, json: insightsMode === 'empty' ? emptyInsights : insights });
+        return route.fulfill({ status: 200, json: insightsMode === 'empty' ? emptyInsights : insightsMode === 'no-action' ? noActionInsights : insights });
       }
       if (readOnly) {
         unexpected.push(`${method} ${url.pathname}`);
         return route.fulfill({ status: 501, json: errorEnvelope('UNEXPECTED_API', '打印页只能读取 GEO Insights', 'req-unexpected') });
       }
       if (method === 'GET' && url.pathname === '/api/v1/content-tasks/creation-options') {
-        optionRequests.push(url); return route.fulfill({ status: 200, json: creationOptions });
+        optionRequests.push(url);
+        if (optionsMode === 'error') {
+          allowedHttpStatuses.add(500);
+          return route.fulfill({ status: 500, json: errorEnvelope('INTERNAL_ERROR', '创建选项暂不可读', 'req-options') });
+        }
+        const options = optionsMode === 'no-fact'
+          ? { ...creationOptions, products: creationOptions.products.map((item) => ({ ...item, approved_fact_versions: [] })) }
+          : creationOptions;
+        return route.fulfill({ status: 200, json: options });
       }
       if (method === 'POST' && url.pathname === '/api/v1/geo-insights/optimization-content-tasks') {
         createRequests.push({ body: request.postDataJSON() as OptimizationCreate, csrf: request.headers()['x-csrf-token'] ?? null, key: request.headers()['idempotency-key'] ?? null });
+        if (createMode === 'pending') await new Promise<void>((resolve) => { releaseCreate = resolve; });
         if (createMode === 'stale') return route.fulfill({ status: 409, json: errorEnvelope('GEO_INSIGHT_STALE', '洞察已经变化', 'req-stale') });
         const body = createRequests.at(-1)!.body;
         return route.fulfill({ status: 201, json: {
@@ -157,8 +184,10 @@ const test = base.extend<{ insightsApi: InsightsController }>({
     await use({
       insightRequests, optionRequests, createRequests,
       releaseLoading: () => { insightsMode = 'success'; releaseInsights?.(); },
+      releaseCreate: () => { createMode = 'success'; releaseCreate?.(); },
       setInsightsMode: (mode) => { insightsMode = mode; },
       setCreateMode: (mode) => { createMode = mode; },
+      setOptionsMode: (mode) => { optionsMode = mode; },
       setReadOnly: (value) => { readOnly = value; },
     });
     expect(unexpected, 'Insights 页面不得请求未声明 API').toEqual([]);

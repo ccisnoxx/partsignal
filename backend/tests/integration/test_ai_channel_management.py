@@ -25,6 +25,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 import app.routers.configuration as configuration_routes
+import app.services.identity as identity_service
 from app.audit import contains_sensitive_key
 from app.db import get_db
 from app.deps import get_current_session
@@ -42,6 +43,7 @@ from app.services.ai_configuration import (
     _flush_ai_configuration,
     create_ai_channel_header,
     create_ai_model,
+    list_ai_channel_audit_logs,
     list_ai_channels,
 )
 
@@ -1335,6 +1337,108 @@ def test_ai_channel_api_enforces_permissions_contract_and_secret_redaction(
             assert "second-channel-key" not in second_channel.api_key_ciphertext
 
         engine.dispose()
+
+
+@pytest.mark.integration
+def test_ai_channel_audit_logs_keep_deleted_actor_history_and_stable_pagination() -> None:
+    """删除操作者只清空 actor 投影，不得改变渠道历史日志的集合身份。"""
+    with temporary_database("head") as (_, database_url, _, _):
+        engine = create_engine(database_url)
+        try:
+            with Session(engine) as db:
+                owner = User(
+                    username=f"ai-log-owner-{uuid.uuid4().hex[:8]}",
+                    display_name="渠道日志所有者",
+                    password_hash="not-used",
+                    account_type="ADMIN",
+                )
+                deleted_actor = User(
+                    username=f"ai-log-actor-{uuid.uuid4().hex[:8]}",
+                    display_name="待删除操作者",
+                    password_hash="not-used",
+                    account_type="ADMIN",
+                    is_active=False,
+                )
+                db.add_all([owner, deleted_actor])
+                db.flush()
+                channel = AIChannel(
+                    name=f"历史渠道 {uuid.uuid4().hex[:8]}",
+                    description="验证删除操作者后日志分页稳定",
+                    protocol_type="openai-compatible-chat-completions",
+                    provider_brand="CUSTOM",
+                    base_url="https://8.8.8.8/v1",
+                    api_key_ciphertext="ciphertext",
+                    api_key_updated_at=datetime.now(UTC),
+                    timeout_seconds=30,
+                    created_by=owner.id,
+                )
+                db.add(channel)
+                db.flush()
+                deleted_actor_log_id = uuid.uuid4()
+                db.add_all(
+                    [
+                        AuditLog(
+                            id=deleted_actor_log_id,
+                            actor_id=deleted_actor.id,
+                            business_module="CONFIGURATION",
+                            action="ai_channel.updated",
+                            target_type="AIChannel",
+                            target_id=str(channel.id),
+                            outcome="SUCCESS",
+                            result_message="渠道配置已更新",
+                            details={},
+                            request_id=f"ai-log-deleted-actor-{uuid.uuid4().hex}",
+                            created_at=datetime(2026, 8, 15, 12, tzinfo=UTC),
+                        ),
+                        AuditLog(
+                            actor_id=owner.id,
+                            business_module="CONFIGURATION",
+                            action="ai_channel.created",
+                            target_type="AIChannel",
+                            target_id=str(channel.id),
+                            outcome="SUCCESS",
+                            result_message="渠道已创建",
+                            details={},
+                            request_id=f"ai-log-owner-{uuid.uuid4().hex}",
+                            created_at=datetime(2026, 8, 15, 11, tzinfo=UTC),
+                        ),
+                    ]
+                )
+                db.commit()
+
+                before = list_ai_channel_audit_logs(
+                    db=db,
+                    channel_id=channel.id,
+                    page=1,
+                    page_size=100,
+                )
+                before_ids = [item.id for item in before.items]
+                assert before.total == 2
+                assert before_ids[0] == deleted_actor_log_id
+
+                identity_service.delete_user(
+                    db=db,
+                    user_id=deleted_actor.id,
+                    expected_revision=0,
+                    actor=owner,
+                    request_id=f"delete-ai-log-actor-{uuid.uuid4().hex}",
+                )
+
+                after = list_ai_channel_audit_logs(
+                    db=db,
+                    channel_id=channel.id,
+                    page=1,
+                    page_size=100,
+                )
+                assert after.total == before.total
+                assert [item.id for item in after.items] == before_ids
+                deleted_actor_item = next(
+                    item for item in after.items if item.id == deleted_actor_log_id
+                )
+                assert deleted_actor_item.actor_id is None
+                assert deleted_actor_item.actor is None
+        finally:
+            engine.dispose()
 
 
 @pytest.mark.integration

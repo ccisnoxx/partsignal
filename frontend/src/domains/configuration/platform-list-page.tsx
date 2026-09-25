@@ -71,6 +71,9 @@ type DeletionIntent = {
   focusReturn: HTMLElement | null;
 };
 type EnableTarget = { platform: PlatformProfile; focusReturn: HTMLElement | null };
+type CommandHold =
+  | { kind: 'delete-conflict'; id: string; error: unknown }
+  | { kind: 'accepted'; id: string; listKey: string; listUpdateCount: number };
 
 function PlatformListPage({
   canManagePlatformTypes,
@@ -85,16 +88,29 @@ function PlatformListPage({
   const previousListKey = useRef(activeListKey);
   const [deletionIntent, setDeletionIntent] = useState<DeletionIntent>();
   const [enableTarget, setEnableTarget] = useState<EnableTarget>();
+  const [commandHold, setCommandHold] = useState<CommandHold>();
+  const [commandReloadError, setCommandReloadError] = useState<string>();
+  const commandHoldRef = useRef<CommandHold | undefined>(undefined);
+  const commandPendingRef = useRef(false);
+  const [commandPending, setCommandPending] = useState(false);
   const rows = platforms.data?.items ?? [];
   const total = platforms.data?.total ?? 0;
   const pageCount = Math.ceil(total / search.pageSize);
   const filtered = hasPlatformFilters(search);
+  const commandsUnavailable = commandPending || commandHold?.kind === 'accepted'
+    || platforms.isFetching || platforms.isError;
+
+  function holdCommand(next: CommandHold | undefined) {
+    commandHoldRef.current = next;
+    setCommandHold(next);
+  }
 
   useEffect(() => {
     if (previousListKey.current !== activeListKey) {
       previousListKey.current = activeListKey;
       // 搜索、分页或分页大小改变后，旧删除意图不得在新 query key 中复活。
       setDeletionIntent(undefined);
+      setEnableTarget(undefined);
     }
   }, [activeListKey]);
 
@@ -106,8 +122,22 @@ function PlatformListPage({
     }
   }, [deletionIntent, platforms.data]);
 
+  useEffect(() => {
+    if (commandHold?.kind !== 'accepted' || commandHold.listKey !== activeListKey
+      || !platforms.isSuccess || platforms.isFetching) return;
+    const state = queryClient.getQueryState(platformKeys.list(platformSearchToApiParams(search)));
+    if (state && state.dataUpdateCount > commandHold.listUpdateCount) {
+      // 命令已接受后，只有新的成功列表读取才能恢复写入口。
+      commandHoldRef.current = undefined;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setCommandHold(undefined);
+      setCommandReloadError(undefined);
+    }
+  }, [activeListKey, commandHold, platforms.isSuccess, platforms.isFetching, platforms.dataUpdatedAt, queryClient, search]);
+
   function changeSearch(changes: Partial<PlatformSearch>, resetPage = true) {
     setDeletionIntent(undefined);
+    setEnableTarget(undefined);
     void onSearchChange({
       ...search,
       ...changes,
@@ -123,29 +153,73 @@ function PlatformListPage({
       }
       await runPlatformCommand(variables.command, variables.platform, csrfToken);
     },
-    onSuccess: async (_result, variables) => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: platformKeys.lists() }),
-        queryClient.invalidateQueries({ queryKey: platformKeys.detail('platform' in variables ? variables.platform.id : variables.id) }),
-        queryClient.invalidateQueries({ queryKey: platformKeys.accounts('platform' in variables ? variables.platform.id : variables.id) }),
-        onPlatformChanged(
-          variables.command === 'delete-platform' ? 'delete' : 'status',
-          'platform' in variables ? variables.platform.id : variables.id,
-        ),
+    onSuccess: (_result, variables) => {
+      const id = 'platform' in variables ? variables.platform.id : variables.id;
+      const returnToPreviousPage = variables.command === 'delete-platform' && rows.length === 1 && search.page > 1;
+      const resumeSearch = returnToPreviousPage ? { ...search, page: search.page - 1 } : search;
+      const resumeParams = platformSearchToApiParams(resumeSearch);
+      const listState = queryClient.getQueryState(platformKeys.list(resumeParams));
+      holdCommand({
+        kind: 'accepted',
+        id,
+        listKey: JSON.stringify(resumeParams),
+        listUpdateCount: listState?.dataUpdateCount ?? 0,
+      });
+      setCommandReloadError(undefined);
+      void Promise.allSettled([
+        queryClient.cancelQueries({ queryKey: platformKeys.lists() })
+          .then(() => queryClient.invalidateQueries({ queryKey: platformKeys.lists() })),
+        queryClient.invalidateQueries({ queryKey: platformKeys.detail(id) }),
+        queryClient.invalidateQueries({ queryKey: platformKeys.accounts(id) }),
+        onPlatformChanged(variables.command === 'delete-platform' ? 'delete' : 'status', id),
       ]);
       if (variables.command === 'delete-platform') {
         queryClient.removeQueries({ queryKey: platformKeys.detail(variables.id) });
         queryClient.removeQueries({ queryKey: platformKeys.accounts(variables.id) });
       }
-      if (variables.command === 'delete-platform' && rows.length === 1 && search.page > 1) {
-        changeSearch({ page: search.page - 1 }, false);
+      if (returnToPreviousPage) {
+        changeSearch({ page: resumeSearch.page }, false);
       }
       if (variables.command === 'delete-platform') setDeletionIntent(undefined);
     },
-    onError: async () => {
-      await queryClient.invalidateQueries({ queryKey: platformKeys.lists() });
+    onError: (error, variables) => {
+      if (variables.command === 'delete-platform'
+        && error instanceof Error && 'status' in error && error.status === 409) {
+        holdCommand({ kind: 'delete-conflict', id: variables.id, error });
+        setCommandReloadError(undefined);
+      }
+      void queryClient.invalidateQueries({ queryKey: platformKeys.lists() });
     },
   });
+
+  function dispatchCommand(variables: CommandVariables) {
+    if (commandPendingRef.current || commandHoldRef.current || platforms.isFetching || platforms.isError) return false;
+    commandPendingRef.current = true;
+    setCommandPending(true);
+    mutation.mutate(variables, {
+      onSettled: () => {
+        commandPendingRef.current = false;
+        setCommandPending(false);
+      },
+    });
+    return true;
+  }
+
+  async function reloadCurrentList() {
+    setCommandReloadError(undefined);
+    try {
+      const result = await platforms.refetch();
+      if (!result.isSuccess) throw result.error ?? new Error('平台列表重新加载失败');
+      holdCommand(undefined);
+      mutation.reset();
+      if (deletionIntent && !result.data.items.some((item) => item.id === deletionIntent.id)) {
+        setDeletionIntent(undefined);
+      }
+    } catch (error) {
+      setCommandReloadError(errorMessage(error));
+      throw error;
+    }
+  }
 
   function handleCommand(
     command: string,
@@ -156,6 +230,8 @@ function PlatformListPage({
       setDeletionIntent({ id: platform.id, command: 'view-delete-conditions', focusReturn: focusReturn ?? null });
       return;
     }
+    if (commandPendingRef.current || platforms.isFetching || platforms.isError || commandHoldRef.current?.kind === 'accepted') return;
+    if (commandHoldRef.current?.kind === 'delete-conflict' && command !== 'delete-platform') return;
     if (command === 'enable-platform') {
       setEnableTarget({
         platform,
@@ -165,7 +241,7 @@ function PlatformListPage({
       return;
     }
     if (command === 'disable-platform') {
-      mutation.mutate({ command: 'disable-platform', platform });
+      dispatchCommand({ command: 'disable-platform', platform });
       return;
     }
     if (command === 'delete-platform') {
@@ -180,7 +256,7 @@ function PlatformListPage({
   }
 
   function confirmDelete() {
-    if (!deletionIntent || platforms.isFetching || platforms.error) return;
+    if (!deletionIntent || commandPendingRef.current || commandHoldRef.current || platforms.isFetching || platforms.error) return;
     const exactKey = platformKeys.list(platformSearchToApiParams(search));
     const queryState = queryClient.getQueryState(exactKey);
     if (!queryState || queryState.fetchStatus === 'fetching' || queryState.error) return;
@@ -189,7 +265,7 @@ function PlatformListPage({
     if (!current) return;
     resolvePlatformOverflowActions(current, false);
     if (current.deletion === null || !current.available_actions.includes('DELETE') || current.deletion.blockers.length > 0) return;
-    mutation.mutate({ command: 'delete-platform', id: current.id, expectedRevision: current.revision });
+    dispatchCommand({ command: 'delete-platform', id: current.id, expectedRevision: current.revision });
   }
 
   return (
@@ -217,6 +293,16 @@ function PlatformListPage({
           onAction={() => void platforms.refetch()}
         />
       )}
+      {commandHold && (
+        <Notice
+          actionLabel="重新加载列表"
+          message={commandHold.kind === 'accepted'
+            ? '平台命令已成功，正在确认最新列表；同步失败时旧操作保持冻结。'
+            : `删除条件已变化，请显式读取当前列表后再确认。${errorMessage(commandHold.error)}`}
+          onAction={() => { void reloadCurrentList().catch(() => { /* 错误已在页面呈现。 */ }); }}
+        />
+      )}
+      {commandReloadError && <p className="text-sm text-destructive" role="alert">重新加载失败：{commandReloadError}</p>}
       {mutation.error && mutation.variables?.command !== 'delete-platform' && (
         <Notice
           actionLabel="关闭"
@@ -291,10 +377,8 @@ function PlatformListPage({
         ) : (
           <tbody>
             {rows.map((platform) => {
-              const pendingTargetId = mutation.variables?.command === 'delete-platform'
-                ? mutation.variables.id
-                : mutation.variables?.platform.id;
-              const pending = mutation.isPending && pendingTargetId === platform.id;
+              const pending = commandPending;
+              const primary = resolvePlatformPrimaryAction(platform);
               return (
                 <tr key={platform.id}>
                   <td data-column-role="primary"><PlatformIdentity platform={platform} /></td>
@@ -314,8 +398,16 @@ function PlatformListPage({
                           onCommand={(command, focusReturn) => (
                             handleCommand(command, platform, focusReturn)
                           )}
-                          overflow={resolvePlatformOverflowActions(platform, pending)}
-                          primary={resolvePlatformPrimaryAction(platform)}
+                          overflow={resolvePlatformOverflowActions(platform, pending).map((action) => (
+                            action.command && (commandsUnavailable
+                              || (commandHold?.kind === 'delete-conflict' && action.command !== 'delete-platform'))
+                              ? { ...action, enabled: false, disabledReason: commandHold
+                                ? '请先重新加载列表' : pending ? '请求正在处理' : '当前列表正在刷新' }
+                              : action
+                          ))}
+                          primary={primary?.command && (commandsUnavailable || commandHold)
+                            ? { ...primary, enabled: false }
+                            : primary}
                         />
                       )}
                   </td>
@@ -341,27 +433,22 @@ function PlatformListPage({
 
       <PlatformDeletionDialog
         key={deletionIntent?.id ?? 'none'}
+        commandHold={commandHold}
         intent={deletionIntent}
         mutation={mutation}
         onConfirm={confirmDelete}
         onClose={() => { if (!mutation.isPending) { setDeletionIntent(undefined); mutation.reset(); } }}
-        onReload={async () => {
-          const result = await platforms.refetch();
-          if (result.error) throw result.error;
-          if (deletionIntent && !result.data?.items.some((item) => item.id === deletionIntent.id)) {
-            setDeletionIntent(undefined);
-          }
-          mutation.reset();
-        }}
+        onReload={reloadCurrentList}
         platforms={platforms.data}
         queryError={platforms.error}
         queryFetching={platforms.isFetching}
       />
       <EnablePlatformDialog
+        disabled={Boolean(commandPending || commandHold || platforms.isFetching || platforms.isError)}
         onClose={() => setEnableTarget(undefined)}
         onConfirm={() => {
           if (enableTarget) {
-            mutation.mutate({ command: 'enable-platform', platform: enableTarget.platform });
+            if (!dispatchCommand({ command: 'enable-platform', platform: enableTarget.platform })) return;
           }
           setEnableTarget(undefined);
         }}
@@ -372,10 +459,12 @@ function PlatformListPage({
 }
 
 function EnablePlatformDialog({
+  disabled,
   onClose,
   onConfirm,
   target,
 }: {
+  disabled: boolean;
   onClose: () => void;
   onConfirm: () => void;
   target?: EnableTarget;
@@ -389,7 +478,7 @@ function EnablePlatformDialog({
         </DialogHeader>
         <DialogFooter>
           <DialogClose render={<Button variant="outline" />}>取消</DialogClose>
-          <Button onClick={onConfirm} type="button">启用平台</Button>
+          <Button disabled={disabled} onClick={onConfirm} type="button">启用平台</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -576,6 +665,7 @@ function Notice({
 }
 
 function PlatformDeletionDialog({
+  commandHold,
   intent,
   mutation,
   onClose,
@@ -585,6 +675,7 @@ function PlatformDeletionDialog({
   queryError,
   queryFetching,
 }: {
+  commandHold?: CommandHold;
   intent?: DeletionIntent;
   mutation: { error: unknown; isPending: boolean; variables?: CommandVariables };
   onClose: () => void;
@@ -600,14 +691,13 @@ function PlatformDeletionDialog({
   if (!current) return null;
   const blockers = current.deletion?.blockers ?? [];
   const hasDeleteProjection = current.deletion !== null && current.available_actions.includes('DELETE');
-  const deletionError = mutation.variables?.command === 'delete-platform' ? mutation.error : null;
-  const conflict = deletionError instanceof Error
-    && 'status' in deletionError
-    && deletionError.status === 409;
+  const conflict = commandHold?.kind === 'delete-conflict' && commandHold.id === intent.id;
+  const deletionError = conflict ? commandHold.error
+    : mutation.variables?.command === 'delete-platform' ? mutation.error : null;
   const stale = Boolean(queryError);
   const canDelete = !queryFetching
     && !stale
-    && !conflict
+    && !commandHold
     && hasDeleteProjection
     && blockers.length === 0;
 

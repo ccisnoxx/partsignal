@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { useRef, useState, type RefObject } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useRef, useState, type FormEvent, type RefObject } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 
 import { EmptyTable } from '@/design-system/data-table/empty-table';
@@ -10,7 +10,7 @@ import { TablePagination } from '@/design-system/data-table/table-pagination';
 import { TableShell } from '@/design-system/data-table/table-shell';
 import { TableSkeleton } from '@/design-system/data-table/table-skeleton';
 import { TableToolbar } from '@/design-system/data-table/table-toolbar';
-import type { ColumnRole } from '@/design-system/data-table/types';
+import type { ActionConfirmation, ColumnRole } from '@/design-system/data-table/types';
 import { FormField } from '@/design-system/forms/form-field';
 import { ErrorSummary } from '@/design-system/forms/form-layout';
 import { Badge } from '@/design-system/primitives/badge';
@@ -34,6 +34,7 @@ import {
 import {
   AIChannelRequestError,
   aiChannelListQueryOptions,
+  aiChannelKeys,
   createAIChannel,
   runAIChannelCommand,
 } from './ai-channel.api';
@@ -48,6 +49,7 @@ import {
   resolveAIChannelOverflowActions,
   resolveAIChannelPrimaryAction,
   type AIChannelCommand,
+  type AIChannelList,
   type AIChannelSearch,
   type AIChannelSummary,
 } from './ai-channel-list.model';
@@ -74,8 +76,8 @@ type AIChannelListPageProps = {
   search: AIChannelSearch;
 };
 
-type CommandVariables = { command: AIChannelCommand; channel: AIChannelSummary };
-type EnableTarget = { channel: AIChannelSummary; focusReturn: HTMLElement | null };
+type CommandVariables = { command: AIChannelCommand; channel: Pick<AIChannelSummary, 'id' | 'revision'> };
+type CommandIntent = { id: string; command: AIChannelCommand; scope: string; focusReturn: HTMLElement | null };
 
 function AIChannelListPage({
   csrfToken,
@@ -84,8 +86,21 @@ function AIChannelListPage({
   onSearchChange,
   search,
 }: AIChannelListPageProps) {
-  const channels = useQuery(aiChannelListQueryOptions(search));
-  const [enableTarget, setEnableTarget] = useState<EnableTarget>();
+  const queryClient = useQueryClient();
+  const queryOptions = aiChannelListQueryOptions(search);
+  const scope = JSON.stringify(queryOptions.queryKey);
+  const channels = useQuery(queryOptions);
+  const [intent, setIntent] = useState<CommandIntent>();
+  const [processing, setProcessing] = useState(false);
+  const [refreshError, setRefreshError] = useState<string>();
+  const [reloading, setReloading] = useState(false);
+  const working = useRef(false);
+  const activeScope = useRef(scope);
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => { activeScope.current = scope; }, [scope]);
+  if (intent && intent.scope !== scope) setIntent(undefined);
   const [createOpen, setCreateOpen] = useState(false);
   const createTrigger = useRef<HTMLButtonElement>(null);
   const rows = channels.data?.items ?? [];
@@ -105,45 +120,87 @@ function AIChannelListPage({
     mutationFn: ({ command, channel }: CommandVariables) => (
       runAIChannelCommand(command, channel, csrfToken)
     ),
-    onSuccess: async (_result, variables) => {
-      await onChannelChanged(
-        variables.command === 'delete-channel' ? 'delete' : 'status',
-        variables.channel.id,
-      );
-      if (variables.command === 'delete-channel' && rows.length === 1 && search.page > 1) {
-        changeSearch({ page: search.page - 1 }, false);
-      }
-    },
   });
+  const conflict = mutation.error instanceof AIChannelRequestError && mutation.error.status === 409;
+  const blocked = processing || conflict || reloading || channels.isFetching || channels.isError || Boolean(refreshError);
+  const currentTarget = intent?.scope === scope ? rows.find((row) => row.id === intent.id) : undefined;
+  const confirmation = currentTarget && intent ? commandConfirmation(currentTarget, intent.command) : undefined;
 
-  function handleCommand(
-    command: string,
-    channel: AIChannelSummary,
-    focusReturn?: HTMLElement | null,
-  ) {
-    if (command === 'enable-channel' && channel.primary_task === 'ENABLE_CHANNEL') {
-      setEnableTarget({
-        channel,
-        focusReturn: focusReturn
-          ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null),
-      });
-      return;
-    }
-    if (command === 'enable-channel' || command === 'disable-channel' || command === 'delete-channel') {
-      mutation.mutate({ command, channel });
-      return;
-    }
-    throw new Error(`AI 渠道列表收到未知页面命令：${command}`);
+  function currentCommandTarget(command: AIChannelCommand, id: string) {
+    if (working.current || blocked) return;
+    const current = queryClient.getQueryState<AIChannelList>(queryOptions.queryKey);
+    if (current?.status !== 'success' || current.fetchStatus !== 'idle') return;
+    const target = current.data?.items.find((row) => row.id === id);
+    return target && commandConfirmation(target, command) ? target : undefined;
   }
 
-  const conflict = mutation.error instanceof AIChannelRequestError
-    && mutation.error.detail?.code === 'REVISION_CONFLICT';
+  function handleCommand(command: string, channel: AIChannelSummary, focusReturn?: HTMLElement | null) {
+    if (command !== 'enable-channel' && command !== 'disable-channel' && command !== 'delete-channel') {
+      throw new Error(`AI 渠道列表收到未知页面命令：${command}`);
+    }
+    if (!currentCommandTarget(command, channel.id)) return;
+    setIntent({
+      id: channel.id,
+      command,
+      scope,
+      focusReturn: focusReturn ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null),
+    });
+  }
+
+  async function confirmCommand() {
+    if (!intent || intent.scope !== scope) return;
+    const target = currentCommandTarget(intent.command, intent.id);
+    if (!target) return;
+    working.current = true;
+    setProcessing(true);
+    setRefreshError(undefined);
+    setIntent(undefined);
+    const command = intent.command;
+    try {
+      await mutation.mutateAsync({ command, channel: { id: target.id, revision: target.revision } });
+    } catch {
+      working.current = false;
+      setProcessing(false);
+      return;
+    }
+    try {
+      if (command === 'delete-channel') {
+        // 先结束旧读取并投影已确认删除，再让服务端刷新集合。
+        await queryClient.cancelQueries({ queryKey: aiChannelKeys.lists() });
+        queryClient.setQueriesData<AIChannelList>({ queryKey: aiChannelKeys.lists() }, (current) => {
+          if (!current?.items.some((row) => row.id === target.id)) return current;
+          return { ...current, items: current.items.filter((row) => row.id !== target.id), total: current.total - 1 };
+        });
+      }
+      await onChannelChanged(command === 'delete-channel' ? 'delete' : 'status', target.id);
+      if (command === 'delete-channel' && rows.length === 1 && search.page > 1 && mounted.current && activeScope.current === scope) {
+        changeSearch({ page: search.page - 1 }, false);
+      }
+    } catch (error) {
+      setRefreshError(`命令已成功，刷新相关数据失败：${errorMessage(error)}`);
+    } finally {
+      working.current = false;
+      setProcessing(false);
+    }
+  }
+
+  async function reload() {
+    if (working.current || reloading) return;
+    setReloading(true);
+    const result = await channels.refetch();
+    if (activeScope.current === scope && result.isSuccess && !result.isFetching) {
+      mutation.reset();
+      setRefreshError(undefined);
+      setIntent(undefined);
+    }
+    setReloading(false);
+  }
 
   return (
     <section aria-labelledby="ai-channel-list-title" className="min-w-0 space-y-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
-          <h1 className="type-page-title" id="ai-channel-list-title">AI 渠道</h1>
+          <h1 className="type-page-title" id="ai-channel-list-title" ref={titleRef} tabIndex={-1}>AI 渠道</h1>
           <p className="max-w-3xl text-text-secondary">
             查看渠道、模型与连接状态，并按服务端提供的动作继续管理。
           </p>
@@ -155,19 +212,18 @@ function AIChannelListPage({
         <Notice
           actionLabel="重试刷新"
           message={`刷新失败，已保留当前列表：${errorMessage(channels.error)}`}
-          onAction={() => void channels.refetch()}
+          onAction={() => void reload()}
         />
       )}
       {mutation.error && (
         <Notice
           actionLabel={conflict ? '重新加载列表' : '关闭'}
           message={errorMessage(mutation.error)}
-          onAction={() => {
-            mutation.reset();
-            if (conflict) void channels.refetch();
-          }}
+          onAction={() => { if (conflict) void reload(); else mutation.reset(); }}
         />
       )}
+
+      {refreshError && <Notice actionLabel="重试刷新" message={refreshError} onAction={() => void reload()} />}
 
       <TableToolbar>
         <AIChannelFilters
@@ -230,7 +286,13 @@ function AIChannelListPage({
         ) : (
           <tbody>
             {rows.map((channel) => {
-              const pending = mutation.isPending && mutation.variables?.channel.id === channel.id;
+              const primary = resolveAIChannelPrimaryAction(channel);
+              const resolvedPrimary = primary.command && blocked
+                ? { ...primary, enabled: false, disabledReason: conflict ? '请先重新加载列表' : '列表命令暂不可用' }
+                : primary;
+              const overflow = resolveAIChannelOverflowActions(channel, false).map((action) => action.command
+                ? { ...action, enabled: action.enabled && !blocked, disabledReason: blocked ? '请先等待或重新加载列表' : action.disabledReason, confirmation: 'custom' as const }
+                : action);
               return (
                 <tr key={channel.id}>
                   <td data-column-role="primary"><ChannelIdentity channel={channel} /></td>
@@ -243,8 +305,8 @@ function AIChannelListPage({
                     <RowActions
                       objectLabel={channel.name}
                       onCommand={(command, focusReturn) => handleCommand(command, channel, focusReturn)}
-                      overflow={resolveAIChannelOverflowActions(channel, pending)}
-                      primary={resolveAIChannelPrimaryAction(channel)}
+                      overflow={overflow}
+                      primary={resolvedPrimary}
                     />
                   </td>
                 </tr>
@@ -265,13 +327,13 @@ function AIChannelListPage({
         />
       )}
 
-      <EnableChannelDialog
-        onClose={() => setEnableTarget(undefined)}
-        onConfirm={() => {
-          if (enableTarget) mutation.mutate({ command: 'enable-channel', channel: enableTarget.channel });
-          setEnableTarget(undefined);
-        }}
-        target={enableTarget}
+      <ChannelCommandDialog
+        confirmation={confirmation}
+        disabled={blocked || !confirmation}
+        fallbackFocus={titleRef}
+        onClose={() => setIntent(undefined)}
+        onConfirm={() => void confirmCommand()}
+        target={intent}
       />
       <AIChannelCreateDialog
         csrfToken={csrfToken}
@@ -297,56 +359,101 @@ function AIChannelCreateDialog({
   onCreated: (channel: AIChannel) => Promise<void> | void;
   open: boolean;
 }) {
+  const queryClient = useQueryClient();
   const [error, setError] = useState<string>();
+  const [handoff, setHandoff] = useState<{ channel: AIChannel; error: string }>();
+  const [isCreating, setIsCreating] = useState(false);
+  const [isOpening, setIsOpening] = useState(false);
+  const creating = useRef(false);
+  const opening = useRef(false);
+  const mounted = useRef(true);
   const form = useForm<AIChannelCreateFormValues>({
     defaultValues: aiChannelCreateFormValues(),
     resolver: zodResolver(aiChannelCreateFormSchema),
   });
-  const create = useMutation({
-    gcTime: 0,
-    mutationFn: (values: AIChannelCreateFormValues) => (
-      createAIChannel(toAIChannelCreate(values), csrfToken)
-    ),
-  });
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      form.reset(aiChannelCreateFormValues());
+    };
+  }, [form]);
 
   function close() {
     form.reset(aiChannelCreateFormValues());
-    create.reset();
     setError(undefined);
     onClose();
   }
 
+  async function openCreatedChannel(channel: AIChannel) {
+    if (opening.current) return;
+    opening.current = true;
+    setIsOpening(true);
+    try {
+      await onCreated(channel);
+      if (mounted.current) setHandoff(undefined);
+    } catch (reason) {
+      if (mounted.current) setHandoff({ channel, error: errorMessage(reason) });
+    } finally {
+      opening.current = false;
+      if (mounted.current) setIsOpening(false);
+    }
+  }
+
   async function submit(values: AIChannelCreateFormValues) {
+    if (creating.current) return;
+    creating.current = true;
+    setIsCreating(true);
     setError(undefined);
     let channel: AIChannel;
     try {
-      channel = await create.mutateAsync(values);
+      channel = await createAIChannel(toAIChannelCreate(values), csrfToken);
     } catch (reason) {
-      setError(errorMessage(reason));
-      form.setValue('apiKey', '');
-      create.reset();
+      if (mounted.current) {
+        setError(errorMessage(reason));
+        form.setValue('apiKey', '');
+      }
+      return;
+    } finally {
+      creating.current = false;
+      if (mounted.current) setIsCreating(false);
+    }
+    if (!mounted.current) {
+      await queryClient.invalidateQueries({ queryKey: aiChannelKeys.lists() });
       return;
     }
     close();
-    await onCreated(channel);
+    await openCreatedChannel(channel);
+  }
+
+  function handleFormSubmit(event: FormEvent<HTMLFormElement>) {
+    void form.handleSubmit(submit)(event);
   }
 
   return (
-    <Dialog onOpenChange={(nextOpen) => !nextOpen && !create.isPending && close()} open={open}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl" finalFocus={finalFocus} showCloseButton={!create.isPending}>
+    <>
+    {handoff && (
+      <Notice
+        actionLabel={isOpening ? '正在打开…' : '重新打开渠道'}
+        message={`渠道“${handoff.channel.name}”已创建，但打开工作区失败：${handoff.error}`}
+        onAction={() => { void openCreatedChannel(handoff.channel); }}
+      />
+    )}
+    <Dialog onOpenChange={(nextOpen) => !nextOpen && !isCreating && close()} open={open}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl" finalFocus={finalFocus} showCloseButton={!isCreating}>
         <DialogHeader>
           <DialogTitle>创建 AI 渠道</DialogTitle>
           <DialogDescription>创建后默认停用；API Key 只用于本次提交且不会回显。</DialogDescription>
         </DialogHeader>
         <FormProvider {...form}>
-          <form className="grid gap-4 sm:grid-cols-2" id="ai-channel-create-form" noValidate onSubmit={form.handleSubmit(submit)}>
+          <form className="grid gap-4 sm:grid-cols-2" id="ai-channel-create-form" noValidate onSubmit={handleFormSubmit}>
             <ErrorSummary className="sm:col-span-2" errors={error ? [{ id: 'server', message: error }] : []} />
             <FormField<AIChannelCreateFormValues, 'name'>
               id="ai-channel-create-name"
               label="渠道名称"
               name="name"
               required
-              render={(context) => <Input {...context.field} aria-describedby={context['aria-describedby']} aria-invalid={context['aria-invalid']} autoFocus disabled={create.isPending} id={context.inputId} maxLength={160} />}
+              render={(context) => <Input {...context.field} aria-describedby={context['aria-describedby']} aria-invalid={context['aria-invalid']} autoFocus disabled={isCreating} id={context.inputId} maxLength={160} />}
             />
             <FormField<AIChannelCreateFormValues, 'providerBrand'>
               id="ai-channel-create-provider"
@@ -365,21 +472,21 @@ function AIChannelCreateDialog({
               id="ai-channel-create-description"
               label="描述"
               name="description"
-              render={(context) => <Textarea {...context.field} aria-describedby={context['aria-describedby']} aria-invalid={context['aria-invalid']} disabled={create.isPending} id={context.inputId} maxLength={500} rows={3} />}
+              render={(context) => <Textarea {...context.field} aria-describedby={context['aria-describedby']} aria-invalid={context['aria-invalid']} disabled={isCreating} id={context.inputId} maxLength={500} rows={3} />}
             />
             <FormField<AIChannelCreateFormValues, 'baseUrl'>
               id="ai-channel-create-base-url"
               label="API 根地址"
               name="baseUrl"
               required
-              render={(context) => <Input {...context.field} aria-describedby={context['aria-describedby']} aria-invalid={context['aria-invalid']} disabled={create.isPending} id={context.inputId} inputMode="url" placeholder="https://api.example.com/v1" />}
+              render={(context) => <Input {...context.field} aria-describedby={context['aria-describedby']} aria-invalid={context['aria-invalid']} disabled={isCreating} id={context.inputId} inputMode="url" placeholder="https://api.example.com/v1" />}
             />
             <FormField<AIChannelCreateFormValues, 'timeoutSeconds'>
               id="ai-channel-create-timeout"
               label="超时时间（秒）"
               name="timeoutSeconds"
               required
-              render={(context) => <Input {...context.field} aria-describedby={context['aria-describedby']} aria-invalid={context['aria-invalid']} disabled={create.isPending} id={context.inputId} max={600} min={10} onChange={(event) => context.field.onChange(event.currentTarget.valueAsNumber)} type="number" />}
+              render={(context) => <Input {...context.field} aria-describedby={context['aria-describedby']} aria-invalid={context['aria-invalid']} disabled={isCreating} id={context.inputId} max={600} min={10} onChange={(event) => context.field.onChange(event.currentTarget.valueAsNumber)} type="number" />}
             />
             <FormField<AIChannelCreateFormValues, 'apiKey'>
               className="sm:col-span-2"
@@ -388,16 +495,17 @@ function AIChannelCreateDialog({
               label="API Key"
               name="apiKey"
               required
-              render={(context) => <Input {...context.field} aria-describedby={context['aria-describedby']} aria-invalid={context['aria-invalid']} autoComplete="new-password" disabled={create.isPending} id={context.inputId} type="password" />}
+              render={(context) => <Input {...context.field} aria-describedby={context['aria-describedby']} aria-invalid={context['aria-invalid']} autoComplete="new-password" disabled={isCreating} id={context.inputId} type="password" />}
             />
           </form>
         </FormProvider>
         <DialogFooter>
-          <DialogClose disabled={create.isPending} render={<Button variant="outline" />}>取消</DialogClose>
-          <Button disabled={create.isPending} form="ai-channel-create-form" type="submit">{create.isPending ? '创建中…' : '创建渠道'}</Button>
+          <DialogClose disabled={isCreating} render={<Button variant="outline" />}>取消</DialogClose>
+          <Button disabled={isCreating} form="ai-channel-create-form" type="submit">{isCreating ? '创建中…' : '创建渠道'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    </>
   );
 }
 
@@ -529,25 +637,35 @@ function ConfigurationBadge({ channel }: { channel: AIChannelSummary }) {
   return <Badge variant={presentation.tone}>{presentation.label}</Badge>;
 }
 
-function EnableChannelDialog({
-  onClose,
-  onConfirm,
-  target,
-}: {
+function commandConfirmation(channel: AIChannelSummary, command: AIChannelCommand): ActionConfirmation | undefined {
+  if (command === 'enable-channel' && channel.primary_task === 'ENABLE_CHANNEL') {
+    resolveAIChannelPrimaryAction(channel);
+    return { title: `启用渠道“${channel.name}”？`, description: '服务端会重新校验模型测试结果与当前修订。', confirmLabel: '启用渠道', intent: 'default' };
+  }
+  const action = resolveAIChannelOverflowActions(channel, false).find((item) => item.command === command);
+  return action?.confirmation && action.confirmation !== 'custom' ? action.confirmation : undefined;
+}
+
+function ChannelCommandDialog({ confirmation, disabled, fallbackFocus, onClose, onConfirm, target }: {
+  confirmation?: ActionConfirmation;
+  disabled: boolean;
+  fallbackFocus: RefObject<HTMLElement | null>;
   onClose: () => void;
   onConfirm: () => void;
-  target?: EnableTarget;
+  target?: CommandIntent;
 }) {
+  const focusReturn = useRef<HTMLElement | null>(null);
+  useEffect(() => { if (target) focusReturn.current = target.focusReturn; }, [target]);
   return (
     <Dialog onOpenChange={(open) => !open && onClose()} open={Boolean(target)}>
-      <DialogContent finalFocus={{ current: target?.focusReturn ?? null }}>
+      <DialogContent finalFocus={() => focusReturn.current?.isConnected ? focusReturn.current : fallbackFocus.current}>
         <DialogHeader>
-          <DialogTitle>启用渠道“{target?.channel.name}”？</DialogTitle>
-          <DialogDescription>服务端会重新校验模型测试结果与当前修订。</DialogDescription>
+          <DialogTitle>{confirmation?.title ?? '渠道操作已不可用'}</DialogTitle>
+          <DialogDescription>{confirmation?.description ?? '当前列表已不再提供此操作，请关闭后检查最新渠道信息。'}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <DialogClose render={<Button variant="outline" />}>取消</DialogClose>
-          <Button onClick={onConfirm} type="button">启用渠道</Button>
+          <Button disabled={disabled} onClick={onConfirm} type="button" variant={confirmation?.intent ?? 'default'}>{confirmation?.confirmLabel ?? '确认执行'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

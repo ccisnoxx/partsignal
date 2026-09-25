@@ -2,6 +2,7 @@ import { QueryClient } from '@tanstack/react-query';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { api } from '@/shared/api/client';
+import type { components } from '@/shared/api/generated/schema';
 import {
   mapPublicationError,
   PublicationRequestError,
@@ -61,6 +62,26 @@ describe('Publication API errors', () => {
     await client.fetchQuery(publicationPackageQueryOptions(workspaceContext.content.id));
     expect(get).toHaveBeenCalledTimes(2);
   });
+
+  it.each(['work', 'content', 'hash', 'version', 'task', 'platform'] as const)(
+    '路由预取拒绝 %s 身份不一致的 Context，不创建可消费的 fresh cache',
+    async (field) => {
+      const data: components['schemas']['PublicationWorkspaceContext'] = structuredClone(workspaceContext);
+      if (field === 'work') data.work.id = 'another-work';
+      if (field === 'content') data.content.id = 'another-content';
+      if (field === 'hash') data.content.content_hash = 'another-hash';
+      if (field === 'version') data.content.version += 1;
+      if (field === 'task') data.content.task_id = 'another-task';
+      if (field === 'platform') data.platform.id = 'another-platform';
+      vi.spyOn(api, 'GET').mockResolvedValue({ data, response: Response.json(data) } as never);
+      const client = new QueryClient();
+      const options = publicationWorkspaceContextQueryOptions(workspaceContext.work.id);
+      await client.prefetchQuery(options);
+      expect(client.getQueryData(options.queryKey)).toBeUndefined();
+      expect(client.getQueryState(options.queryKey)?.status).toBe('error');
+      expect(client.getQueryState(options.queryKey)?.error?.message).toContain('Context 身份不一致');
+    },
+  );
 
   it('Article list/detail 使用独立 GET endpoint 且 list 参数来自 canonical search', async () => {
     const get = vi.spyOn(api, 'GET').mockImplementation(async (path) => {

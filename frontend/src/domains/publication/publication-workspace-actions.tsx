@@ -71,6 +71,8 @@ type SwitchContentVersionValues = z.infer<typeof switchContentVersionFormSchema>
 type PublicationWorkspaceActionsProps = {
   context: PublicationWorkspaceContext;
   csrfToken: string | null;
+  busy: boolean;
+  onBusyChange: (busy: boolean) => void;
   onCanonicalWork: (work: PublicationWork) => Promise<void>;
   onReload: () => Promise<PublicationWorkspaceContext>;
 };
@@ -93,14 +95,20 @@ function toLocalDateTime(value: string | null) {
 function PublicationWorkspaceActions({
   context,
   csrfToken,
+  busy,
+  onBusyChange,
   onCanonicalWork,
   onReload,
 }: PublicationWorkspaceActionsProps) {
   const [openAction, setOpenAction] = useState<PublicationWorkspaceAction>();
   const [serverError, setServerError] = useState<PublicationStartErrorMapping>();
+  const [submittedAwaitingContext, setSubmittedAwaitingContext] = useState(false);
   const [contextStale, setContextStale] = useState(false);
+  const [draftRevision, setDraftRevision] = useState<number>();
   const [focusContentVersionOnClose, setFocusContentVersionOnClose] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<FileRecord[]>([]);
+  const [uploadBusy, setUploadBusy] = useState(false);
+  const operationRef = useRef(false);
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const lastActionRef = useRef<PublicationWorkspaceAction | undefined>(undefined);
   const preparation = useForm<PreparationValues>({
@@ -136,9 +144,24 @@ function PublicationWorkspaceActions({
     resolver: zodResolver(switchContentVersionFormSchema),
   });
 
+  function resetForms(latest: PublicationWorkspaceContext) {
+    preparation.reset({ platformAccountId: latest.work.platform_account_id ?? '', comment: '' });
+    platformReview.reset({ comment: '' });
+    result.reset({
+      actualTitle: latest.work.actual_title ?? latest.content.title,
+      finalUrl: latest.work.final_url ?? '',
+      publishedAt: toLocalDateTime(latest.work.published_at),
+      comment: '',
+    });
+    close.reset({ reason: 'OTHER', comment: '' });
+    verification.reset({ comment: '' });
+    switchContentVersion.reset({ comment: '' });
+    setUploadedFiles([]);
+  }
+
   const mutation = useMutation({
     mutationFn: (command: Command) => {
-      const revision = context.work.revision;
+      const revision = draftRevision ?? context.work.revision;
       switch (command.action) {
         case 'UPDATE_PREPARATION':
           return updatePublicationPreparation(context.work.id, {
@@ -189,12 +212,22 @@ function PublicationWorkspaceActions({
     || verification.formState.isDirty
     || switchContentVersion.formState.isDirty
     || uploadedFiles.length > 0;
+  const stale = contextStale || (draftRevision !== undefined
+    && (openAction !== undefined || dirty)
+    && draftRevision !== context.work.revision);
 
   async function run(command: Command) {
-    if (mutation.isPending || contextStale) return;
+    if (operationRef.current || stale || !context.work.available_actions.includes(command.action) || (command.action === 'REGISTER_RESULT' && uploadBusy)) return;
+    operationRef.current = true;
+    onBusyChange(true);
     setServerError(undefined);
+    let submitted = false;
     try {
       const work = await mutation.mutateAsync(command);
+      submitted = true;
+      setSubmittedAwaitingContext(true);
+      await onCanonicalWork(work);
+      setSubmittedAwaitingContext(false);
       if (command.action === 'UPDATE_PREPARATION') {
         preparation.reset({ platformAccountId: work.platform_account_id ?? '', comment: '' });
       } else if (command.action === 'MARK_PLATFORM_REVIEW') {
@@ -214,15 +247,20 @@ function PublicationWorkspaceActions({
       } else {
         close.reset({ reason: 'OTHER', comment: '' });
       }
-      await onCanonicalWork(work);
       if (command.action === 'SWITCH_CONTENT_VERSION') {
         setFocusContentVersionOnClose(true);
       }
       setOpenAction(undefined);
     } catch (error) {
       const mapped = mapPublicationError(error);
-      setServerError(mapped);
-      if (mapped.status === 409) setContextStale(true);
+      setServerError(submitted ? {
+        ...mapped,
+        message: `操作已提交，但最新工作台读取失败。请显式重载，勿重复提交。${mapped.message}`,
+      } : mapped);
+      if (submitted || mapped.status === 409) setContextStale(true);
+    } finally {
+      operationRef.current = false;
+      onBusyChange(false);
     }
   }
 
@@ -230,11 +268,15 @@ function PublicationWorkspaceActions({
     const base = {
       key: item.action,
       label: item.label,
-      enabled: !mutation.isPending && !contextStale,
-      disabledReason: contextStale ? '工作已变化，请先显式重载' : '正在提交',
+      enabled: !busy && !stale,
+      disabledReason: stale ? '工作已变化，请先显式重载' : '正在提交',
       onSelect: () => {
         if (document.activeElement instanceof HTMLElement) returnFocusRef.current = document.activeElement;
         lastActionRef.current = item.action;
+        if (!dirty) {
+          resetForms(context);
+          setDraftRevision(context.work.revision);
+        }
         setServerError(undefined);
         setOpenAction(item.action);
       },
@@ -269,9 +311,15 @@ function PublicationWorkspaceActions({
   ];
 
   async function reloadContext() {
+    if (uploadBusy || operationRef.current) return;
+    operationRef.current = true;
+    onBusyChange(true);
     try {
       const latest = await onReload();
+      resetForms(latest);
+      setDraftRevision(latest.work.revision);
       setContextStale(false);
+      setSubmittedAwaitingContext(false);
       setServerError(undefined);
       if (
         openAction
@@ -284,23 +332,26 @@ function PublicationWorkspaceActions({
       }
     } catch (error) {
       setServerError(mapPublicationError(error));
+    } finally {
+      operationRef.current = false;
+      onBusyChange(false);
     }
   }
 
-  if (actions.length === 0) return null;
+  if (actions.length === 0 && !stale) return null;
 
   return (
     <>
       <DirtyGuard when={dirty || uploadedFiles.length > 0} />
       <StickyActionBar
         actions={actions}
-        status={contextStale
-          ? <span className="text-destructive">工作已变化；表单与文件已保留，请显式重载。</span>
+        status={stale
+          ? <span className="flex flex-wrap items-center gap-2 text-destructive">{submittedAwaitingContext ? '操作已提交，等待完整工作台确认；请显式重载，勿重复提交。' : '工作已变化；表单与文件已保留。'}<Button disabled={uploadBusy || busy} onClick={() => void reloadContext()} size="sm" type="button" variant="outline">显式重载最新工作</Button></span>
           : `服务端修订号 ${context.work.revision}`}
       />
       <Dialog
         onOpenChange={(open) => {
-          if (!mutation.isPending && !open) {
+          if (!busy && !uploadBusy && !open) {
             setOpenAction(undefined);
             setServerError(undefined);
           }
@@ -319,19 +370,19 @@ function PublicationWorkspaceActions({
         }}
         open={Boolean(openAction)}
       >
-        <DialogContent finalFocus={() => returnFocusRef.current} showCloseButton={!mutation.isPending}>
+        <DialogContent finalFocus={() => returnFocusRef.current} showCloseButton={!busy && !uploadBusy}>
           <DialogHeader>
             <DialogTitle>{openAction ? actionTitle(openAction) : '发布操作'}</DialogTitle>
             <DialogDescription>提交时服务端会重新校验状态、权限和修订号。</DialogDescription>
           </DialogHeader>
-          <ErrorSummary errors={errors} title="发布操作未完成" />
-          {contextStale && (
-            <Button onClick={() => void reloadContext()} type="button" variant="outline">
+          <ErrorSummary errors={errors} title={submittedAwaitingContext ? '操作已提交，等待工作台同步' : '发布操作未完成'} />
+          {stale && (
+            <Button disabled={uploadBusy || busy} onClick={() => void reloadContext()} type="button" variant="outline">
               显式重载最新工作
             </Button>
           )}
           {openAction === 'UPDATE_PREPARATION' && (
-            <form className="space-y-4" onSubmit={preparation.handleSubmit((values) => run({ action: 'UPDATE_PREPARATION', values }))}>
+            <form className="space-y-4" onSubmit={(event) => void preparation.handleSubmit((values) => run({ action: 'UPDATE_PREPARATION', values }))(event)}>
               <Controller
                 control={preparation.control}
                 name="platformAccountId"
@@ -339,7 +390,7 @@ function PublicationWorkspaceActions({
                   <label className="block space-y-1.5">
                     <span className="font-medium">发布账号</span>
                     <Select
-                      disabled={mutation.isPending || contextStale}
+                      disabled={busy || stale}
                       items={context.eligible_accounts.map((account) => ({ value: account.id, label: `${account.label} · ${account.account_identifier}` }))}
                       onValueChange={(value) => field.onChange(value ?? '')}
                       value={field.value || null}
@@ -357,36 +408,37 @@ function PublicationWorkspaceActions({
                   </label>
                 )}
               />
-              <CommentField disabled={mutation.isPending || contextStale} form={preparation} name="comment" />
-              <FormFooter pending={mutation.isPending} />
+              <CommentField disabled={busy || stale} form={preparation} name="comment" />
+              <FormFooter submitDisabled={stale} pending={busy} />
             </form>
           )}
           {openAction === 'MARK_PLATFORM_REVIEW' && (
-            <form className="space-y-4" onSubmit={platformReview.handleSubmit((values) => run({ action: 'MARK_PLATFORM_REVIEW', values }))}>
-              <CommentField disabled={mutation.isPending || contextStale} form={platformReview} name="comment" />
-              <FormFooter pending={mutation.isPending} />
+            <form className="space-y-4" onSubmit={(event) => void platformReview.handleSubmit((values) => run({ action: 'MARK_PLATFORM_REVIEW', values }))(event)}>
+              <CommentField disabled={busy || stale} form={platformReview} name="comment" />
+              <FormFooter submitDisabled={stale} pending={busy} />
             </form>
           )}
           {openAction === 'REGISTER_RESULT' && (
-            <form className="space-y-4" onSubmit={result.handleSubmit((values) => run({ action: 'REGISTER_RESULT', values, attachmentFileIds: uploadedFiles.map((file) => file.id) }))}>
-              <TextField disabled={mutation.isPending || contextStale} form={result} label="实际发布标题" name="actualTitle" />
-              <TextField disabled={mutation.isPending || contextStale} form={result} label="最终 URL" name="finalUrl" type="url" />
-              <TextField disabled={mutation.isPending || contextStale} form={result} label="发布时间" name="publishedAt" type="datetime-local" />
-              <CommentField disabled={mutation.isPending || contextStale} form={result} name="comment" />
+            <form className="space-y-4" onSubmit={(event) => void result.handleSubmit((values) => run({ action: 'REGISTER_RESULT', values, attachmentFileIds: uploadedFiles.map((file) => file.id) }))(event)}>
+              <TextField disabled={busy || stale} form={result} label="实际发布标题" name="actualTitle" />
+              <TextField disabled={busy || stale} form={result} label="最终 URL" name="finalUrl" type="url" />
+              <TextField disabled={busy || stale} form={result} label="发布时间" name="publishedAt" type="datetime-local" />
+              <CommentField disabled={busy || stale} form={result} name="comment" />
               <div className="space-y-2">
                 <p className="font-medium">证据截图</p>
                 <PublicationEvidenceUpload
                   csrfToken={csrfToken}
-                  disabled={mutation.isPending || contextStale}
+                  disabled={busy || stale}
+                  onBusyChange={setUploadBusy}
                   onUploaded={(file) => setUploadedFiles((files) => [...files, file])}
                 />
                 {uploadedFiles.map((file) => <p className="text-sm text-text-secondary" key={file.id}>已校验：{file.original_filename}</p>)}
               </div>
-              <FormFooter pending={mutation.isPending} />
+              <FormFooter disabled={uploadBusy} submitDisabled={stale} pending={busy} />
             </form>
           )}
           {openAction === 'VERIFY' && (
-            <form className="space-y-4" onSubmit={verification.handleSubmit((values) => run({ action: 'VERIFY', values }))}>
+            <form className="space-y-4" onSubmit={(event) => void verification.handleSubmit((values) => run({ action: 'VERIFY', values }))(event)}>
               <dl className="grid gap-2 rounded-lg border border-border-subtle bg-surface-muted p-3 text-sm sm:grid-cols-2">
                 <ContextSummary label="实际标题" value={context.work.actual_title ?? '未登记'} />
                 <ContextSummary label="最终 URL" value={context.work.final_url ?? '未登记'} />
@@ -396,33 +448,33 @@ function PublicationWorkspaceActions({
               <fieldset className="space-y-2">
                 <legend className="font-medium">发布页正文是否与当前批准内容一致？</legend>
                 <label className="flex min-h-11 items-center gap-2 rounded-lg border border-border-subtle px-3 py-2 text-sm">
-                  <input disabled={mutation.isPending || contextStale} id="verification-match" type="radio" value="MATCH" {...verification.register('match')} />
+                  <input disabled={busy || stale} id="verification-match" type="radio" value="MATCH" {...verification.register('match')} />
                   一致，通过本次核验
                 </label>
                 <label className="flex min-h-11 items-center gap-2 rounded-lg border border-border-subtle px-3 py-2 text-sm">
-                  <input disabled={mutation.isPending || contextStale} type="radio" value="MISMATCH" {...verification.register('match')} />
+                  <input disabled={busy || stale} type="radio" value="MISMATCH" {...verification.register('match')} />
                   不一致，记录失败并进入内容修正
                 </label>
                 {verification.formState.errors.match && <span className="text-xs text-destructive">{verification.formState.errors.match.message}</span>}
               </fieldset>
-              <CommentField disabled={mutation.isPending || contextStale} form={verification} id="verification-comment" label="核验说明" name="comment" />
-              <FormFooter pending={mutation.isPending} />
+              <CommentField disabled={busy || stale} form={verification} id="verification-comment" label="核验说明" name="comment" />
+              <FormFooter submitDisabled={stale} pending={busy} />
             </form>
           )}
-          {openAction === 'SWITCH_CONTENT_VERSION' && context.switch_candidate && (
-            <form className="space-y-4" onSubmit={switchContentVersion.handleSubmit((values) => run({ action: 'SWITCH_CONTENT_VERSION', values, contentVersionId: context.switch_candidate!.id }))}>
-              <dl className="space-y-2 rounded-lg border border-warning/30 bg-warning/5 p-3 text-sm">
+          {openAction === 'SWITCH_CONTENT_VERSION' && (
+            <form className="space-y-4" onSubmit={(event) => void switchContentVersion.handleSubmit((values) => { if (context.switch_candidate) return run({ action: 'SWITCH_CONTENT_VERSION', values, contentVersionId: context.switch_candidate.id }); })(event)}>
+              {context.switch_candidate && <dl className="space-y-2 rounded-lg border border-warning/30 bg-warning/5 p-3 text-sm">
                 <ContextSummary label="候选版本" value={`v${context.switch_candidate.version}`} />
                 <ContextSummary label="标题" value={context.switch_candidate.title} />
                 <ContextSummary label="摘要" value={context.switch_candidate.summary} />
                 <ContextSummary label="内容哈希" value={context.switch_candidate.content_hash} mono />
-              </dl>
-              <CommentField disabled={mutation.isPending || contextStale} form={switchContentVersion} id="switch-comment" label="换版说明" name="comment" />
-              <FormFooter pending={mutation.isPending} />
+              </dl>}
+              <CommentField disabled={busy || stale} form={switchContentVersion} id="switch-comment" label="换版说明" name="comment" />
+              <FormFooter submitDisabled={stale} pending={busy} />
             </form>
           )}
           {openAction === 'CLOSE' && (
-            <form className="space-y-4" onSubmit={close.handleSubmit((values) => run({ action: 'CLOSE', values }))}>
+            <form className="space-y-4" onSubmit={(event) => void close.handleSubmit((values) => run({ action: 'CLOSE', values }))(event)}>
               <label className="block space-y-1.5">
                 <span className="font-medium">关闭原因</span>
                 <select className="h-8 w-full rounded-lg border border-input bg-background px-2.5 text-sm" {...close.register('reason')}>
@@ -431,8 +483,8 @@ function PublicationWorkspaceActions({
                   <option value="OTHER">其他</option>
                 </select>
               </label>
-              <CommentField disabled={mutation.isPending || contextStale} form={close} name="comment" />
-              <FormFooter pending={mutation.isPending} destructive />
+              <CommentField disabled={busy || stale} form={close} name="comment" />
+              <FormFooter submitDisabled={stale} pending={busy} destructive />
             </form>
           )}
         </DialogContent>
@@ -481,11 +533,11 @@ function CommentField<T extends FieldValues>({ disabled, form, id, label = '备�
   );
 }
 
-function FormFooter({ destructive = false, pending }: { destructive?: boolean; pending: boolean }) {
+function FormFooter({ destructive = false, disabled = false, submitDisabled = false, pending }: { destructive?: boolean; disabled?: boolean; submitDisabled?: boolean; pending: boolean }) {
   return (
     <DialogFooter>
-      <DialogClose disabled={pending} render={<Button type="button" variant="outline" />}>取消</DialogClose>
-      <Button disabled={pending} type="submit" variant={destructive ? 'destructive' : 'default'}>
+      <DialogClose disabled={pending || disabled} render={<Button type="button" variant="outline" />}>取消</DialogClose>
+      <Button disabled={pending || disabled || submitDisabled} type="submit" variant={destructive ? 'destructive' : 'default'}>
         {pending ? '正在提交…' : '确认提交'}
       </Button>
     </DialogFooter>

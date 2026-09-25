@@ -8,7 +8,7 @@ export const Route = createFileRoute('/_app/geo/observations/new')({
   search: {
     middlewares: [({ search, next }) => next(newGeoObservationSearchSchema.parse(search))],
   },
-  staticData: { breadcrumb: '新建 Observation' },
+  staticData: { breadcrumb: '新建观测' },
   component: NewGeoObservationRoute,
 });
 

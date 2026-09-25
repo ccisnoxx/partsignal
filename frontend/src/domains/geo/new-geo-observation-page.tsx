@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { FormProvider, useForm, useWatch, type FieldPath } from 'react-hook-form';
 
 import { DirtyGuard } from '@/design-system/forms/dirty-guard';
@@ -26,7 +26,7 @@ import {
   geoPublicationCandidatesQueryOptions,
   queryTopicsQueryOptions,
 } from './geo.api';
-import { GeoEvidenceUpload } from './geo-evidence-upload';
+import { GeoEvidenceUploadView, useGeoEvidenceUpload, type GeoEvidenceUploadController } from './geo-evidence-upload';
 import {
   accuracyLabels,
   accuracyValues,
@@ -77,6 +77,14 @@ function NewGeoObservationPage({
   const [candidateStale, setCandidateStale] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<FileRecord[]>([]);
   const [createdId, setCreatedId] = useState<string>();
+  const acceptedId = useRef<string | undefined>(undefined);
+  const [uploadBlocking, setUploadBlocking] = useState(false);
+  const uploadBlockingRef = useRef(false);
+  const uploadedFilesRef = useRef<FileRecord[]>([]);
+  const updateUploadBlocking = useCallback((blocking: boolean) => {
+    uploadBlockingRef.current = blocking;
+    setUploadBlocking(blocking);
+  }, []);
   const appliedQueryTopicId = useRef<string | undefined>(undefined);
   const appliedGeoPlatform = useRef<string | undefined>(undefined);
   const submitting = useRef(false);
@@ -100,6 +108,32 @@ function NewGeoObservationPage({
       createGeoObservation(toGeoObservationCreate(values), csrfToken)
     ),
   });
+  const upload = useGeoEvidenceUpload({
+    csrfToken,
+    disabled: create.isPending || Boolean(createdId),
+    onBlockingChange: updateUploadBlocking,
+    onUploaded: (file) => {
+      if (acceptedId.current) return;
+      if (uploadedFilesRef.current.some((item) => item.id === file.id)) return;
+      const next = [...uploadedFilesRef.current, file];
+      uploadedFilesRef.current = next;
+      setUploadedFiles(next);
+      form.setValue('attachment_file_ids', next.map((item) => item.id), {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    },
+  });
+  const removeFile = (fileId: string) => {
+    if (acceptedId.current) return;
+    const next = uploadedFilesRef.current.filter((item) => item.id !== fileId);
+    uploadedFilesRef.current = next;
+    setUploadedFiles(next);
+    form.setValue('attachment_file_ids', next.map((item) => item.id), {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  };
   const isDirty = form.formState.isDirty;
   const handoffError = queryTopicId
     && topics.data
@@ -137,32 +171,45 @@ function NewGeoObservationPage({
   }, [form, geoPlatform]);
 
   useEffect(() => {
-    if (!candidates.data) return;
+    if (!candidates.isSuccess || candidates.isFetching || acceptedId.current) return;
     form.setValue(
       'article_results',
       syncArticleResults(candidates.data.items, form.getValues('article_results')),
       { shouldDirty: isDirty, shouldValidate: false },
     );
-  }, [candidates.data, form, isDirty]);
+  }, [candidates.data, candidates.isSuccess, candidates.isFetching, form, isDirty]);
 
   useEffect(() => {
     if (createdId && !isDirty) onCreated(createdId);
   }, [createdId, isDirty, onCreated]);
 
+  function submissionBlocked() {
+    const productId = form.getValues('product_id');
+    const current = queryClient.getQueryState<GeoPublicationCandidateList>(geoKeys.publicationCandidates(productId));
+    return Boolean(acceptedId.current || uploadBlockingRef.current || candidateStale
+      || blocked || productId !== selectedProductId || current?.status !== 'success'
+      || current.fetchStatus !== 'idle' || !current.data?.items.length);
+  }
+
   async function submit(values: NewGeoObservationFormValues) {
+    if (submissionBlocked()) return;
+    const currentCandidates = queryClient.getQueryData<GeoPublicationCandidateList>(geoKeys.publicationCandidates(values.product_id));
+    if (!currentCandidates || currentCandidates.items.length !== values.article_results.length
+      || currentCandidates.items.some((item, index) => item.published_article_id !== values.article_results[index]?.published_article_id)) return;
     form.clearErrors();
     setRequestId(undefined);
     create.reset();
     try {
       const observation = await create.mutateAsync(values);
+      acceptedId.current = observation.id;
       form.reset(values);
-      await Promise.all([
+      setCreatedId(observation.id);
+      void Promise.allSettled([
         queryClient.invalidateQueries({ queryKey: geoKeys.lists() }),
         queryClient.invalidateQueries({ queryKey: geoKeys.insights() }),
         queryClient.invalidateQueries({ queryKey: geoKeys.topicLists() }),
         queryClient.invalidateQueries({ queryKey: productsKeys.detail(values.product_id) }),
       ]);
-      setCreatedId(observation.id);
     } catch (error) {
       const mapped = mapGeoObservationCreateError(error);
       for (const [field, message] of Object.entries(mapped.fields)) {
@@ -180,7 +227,7 @@ function NewGeoObservationPage({
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    if (submitting.current) {
+    if (submitting.current || submissionBlocked()) {
       event.preventDefault();
       return;
     }
@@ -194,8 +241,13 @@ function NewGeoObservationPage({
   }
 
   async function refreshCandidates() {
+    const productId = form.getValues('product_id');
     const result = await candidates.refetch();
-    if (result.data) {
+    if (result.isSuccess && !result.isFetching && productId === form.getValues('product_id') && !acceptedId.current) {
+      form.setValue('article_results', syncArticleResults(result.data.items, form.getValues('article_results')), {
+        shouldDirty: true,
+        shouldValidate: false,
+      });
       form.clearErrors('root.server');
       setCandidateStale(false);
       setRequestId(undefined);
@@ -207,7 +259,11 @@ function NewGeoObservationPage({
   const formMessage = form.formState.errors.root?.server?.message;
   if (formMessage) summaryErrors.push({ id: 'form', message: formMessage });
   if (requestId) summaryErrors.push({ id: 'request-id', message: `请求 ID：${requestId}` });
-  const blocked = create.isPending
+  const locked = create.isPending || Boolean(createdId);
+  const blocked = locked
+    || uploadBlocking
+    || candidates.isFetching
+    || !candidates.isSuccess
     || products.isPending
     || topics.isPending
     || Boolean(products.error)
@@ -222,19 +278,19 @@ function NewGeoObservationPage({
       key: 'cancel',
       label: '取消',
       intent: 'secondary',
-      enabled: !create.isPending,
+      enabled: !locked,
       disabledReason: '正在创建观测',
       onSelect: onCancel,
     },
     {
       key: 'create',
-      label: create.isPending ? '创建中…' : '创建 Observation',
+      label: locked ? '创建中…' : '创建 Observation',
       intent: 'primary',
       enabled: !blocked,
-      disabledReason: submitDisabledReason({
+      disabledReason: uploadBlocking ? '请先完成或放弃证据上传' : candidates.isFetching ? '正在读取 Published Article 候选' : candidates.isError ? 'Published Article 候选读取失败' : submitDisabledReason({
         candidateStale,
         candidates: candidates.data?.items.length ?? 0,
-        createPending: create.isPending,
+        createPending: locked,
         handoffError: Boolean(handoffError),
         productsFailed: Boolean(products.error),
         productsPending: products.isPending,
@@ -262,7 +318,7 @@ function NewGeoObservationPage({
           {candidateStale && (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warning/30 bg-warning/10 p-3" role="alert">
               <span>Published Article 候选已经变化。请重新读取后确认新增或移除的文章。</span>
-              <Button onClick={() => void refreshCandidates()} type="button" variant="outline">
+              <Button disabled={locked || candidates.isFetching} onClick={() => void refreshCandidates()} type="button" variant="outline">
                 重新读取候选
               </Button>
             </div>
@@ -273,7 +329,7 @@ function NewGeoObservationPage({
               label: '观测上下文',
               content: (
                 <ContextPanel
-                  createPending={create.isPending}
+                  createPending={locked}
                   handoffError={handoffError}
                   onProductSearch={() => setProductSearch(productSearchInput.trim())}
                   onProductSearchInput={setProductSearchInput}
@@ -295,7 +351,7 @@ function NewGeoObservationPage({
                 <MainPanel
                   articleResults={articleResults}
                   candidates={candidates}
-                  createPending={create.isPending}
+                  createPending={locked}
                   selectedProductId={selectedProductId}
                 />
               ),
@@ -304,25 +360,9 @@ function NewGeoObservationPage({
               label: '证据与备注',
               content: (
                 <ReferencePanel
-                  createPending={create.isPending}
-                  csrfToken={csrfToken}
-                  onUploaded={(file) => {
-                    if (uploadedFiles.some((item) => item.id === file.id)) return;
-                    const next = [...uploadedFiles, file];
-                    setUploadedFiles(next);
-                    form.setValue('attachment_file_ids', next.map((item) => item.id), {
-                      shouldDirty: true,
-                      shouldValidate: true,
-                    });
-                  }}
-                  onRemove={(fileId) => {
-                    const next = uploadedFiles.filter((item) => item.id !== fileId);
-                    setUploadedFiles(next);
-                    form.setValue('attachment_file_ids', next.map((item) => item.id), {
-                      shouldDirty: true,
-                      shouldValidate: true,
-                    });
-                  }}
+                  createPending={locked}
+                  upload={upload}
+                  onRemove={removeFile}
                   uploadedFiles={uploadedFiles}
                 />
               ),
@@ -330,11 +370,11 @@ function NewGeoObservationPage({
           />
           <StickyActionBar
             actions={actions}
-            status={<span aria-live="polite">{create.isPending ? '正在提交并由服务端校验候选…' : '尚未创建'}</span>}
+            status={<span aria-live="polite">{createdId ? '已创建，正在打开详情…' : create.isPending ? '正在提交并由服务端校验候选…' : '尚未创建'}</span>}
           />
         </form>
       </FormProvider>
-      <DirtyGuard when={isDirty} />
+      <DirtyGuard when={isDirty || uploadBlocking} />
     </section>
   );
 }
@@ -502,15 +542,13 @@ function MainPanel({
 
 function ReferencePanel({
   createPending,
-  csrfToken,
+  upload,
   onRemove,
-  onUploaded,
   uploadedFiles,
 }: {
   createPending: boolean;
-  csrfToken: string | null;
+  upload: GeoEvidenceUploadController;
   onRemove: (fileId: string) => void;
-  onUploaded: (file: FileRecord) => void;
   uploadedFiles: FileRecord[];
 }) {
   return (
@@ -520,7 +558,7 @@ function ReferencePanel({
           <h2 className="type-section-title" id="new-geo-evidence-title">Evidence attachments</h2>
           <p className="mt-1 text-sm text-text-secondary">可选截图只作为人工证据，系统不会解析或推导结果。</p>
         </div>
-        <GeoEvidenceUpload csrfToken={csrfToken} disabled={createPending} onUploaded={onUploaded} />
+        <GeoEvidenceUploadView controller={upload} />
         {uploadedFiles.length > 0 && (
           <ul className="space-y-2">
             {uploadedFiles.map((file) => (

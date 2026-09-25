@@ -12,13 +12,13 @@ import {
 } from '@/domains/geo/geo-observation-correction-page';
 
 export const Route = createFileRoute('/_app/geo/observations/$observationId_/correct')({
-  staticData: { breadcrumb: '更正 Observation' },
+  staticData: { breadcrumb: '更正观测' },
   head: ({ params }) => ({
-    meta: [{ title: `更正 GEO Observation ${params.observationId} | PartSignal` }],
+    meta: [{ title: `更正 GEO 观测 ${params.observationId} | PartSignal` }],
   }),
   beforeLoad: ({ params }) => {
     if (!z.uuid().safeParse(params.observationId).success) {
-      throw new Error(`GEO Observation ID 不是有效 UUID：${params.observationId}`);
+      throw new Error(`GEO 观测 ID 不是有效 UUID：${params.observationId}`);
     }
   },
   loader: async ({ context, params }) => {
@@ -67,7 +67,7 @@ function GeoObservationCorrectionRoute() {
         params: { observationId: targetId },
         replace: true,
       })}
-      onCreated={(createdId) => void navigate({
+      onCreated={(createdId) => navigate({
         to: '/geo/observations/$observationId',
         params: { observationId: createdId },
       })}
@@ -76,9 +76,9 @@ function GeoObservationCorrectionRoute() {
 }
 
 function correctionErrorTitle(error: Error) {
-  if (!(error instanceof GeoRequestError)) return 'GEO Correction Workspace 发生意外错误';
-  if (error.status === 404) return '未找到可更正的 GEO Observation';
-  if (error.status === 403) return '当前账号不能更正该 GEO Observation';
-  if (error.status === 409) return 'GEO Observation 当前不能进入更正工作台';
-  return 'GEO Correction Workspace 加载失败';
+  if (!(error instanceof GeoRequestError)) return 'GEO 更正工作台发生意外错误';
+  if (error.status === 404) return '未找到可更正的 GEO 观测';
+  if (error.status === 403) return '当前账号不能更正该 GEO 观测';
+  if (error.status === 409) return 'GEO 观测当前不能进入更正工作台';
+  return 'GEO 更正工作台加载失败';
 }

@@ -1,0 +1,2 @@
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"复核 lifecycle 故障、清理与顶层失败传播"}
+{"file":".trellis/spec/infra/ci-execution.md","reason":"复核 test-deploy-scripts 到 verify 的必经依赖关系"}

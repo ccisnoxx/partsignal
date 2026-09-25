@@ -94,6 +94,41 @@ test('AI Channel List 发送三类 revision command，冲突不自动重放', as
   expect(aiChannelsApi.commandRequests).toHaveLength(commandCount);
 });
 
+test('AI Channel List 删除 409 被动列表不解冻，显式刷新失败仍保留冲突', async ({ page, aiChannelsApi }) => {
+  await page.goto('/settings/ai?sort=NAME_ASC&page=1&pageSize=20');
+  const row = page.getByRole('row', { name: /AI 渠道 004/ });
+  aiChannelsApi.conflictNext('delete');
+  aiChannelsApi.allowHttpError(409);
+  await row.getByRole('button', { name: /更多操作/ }).click();
+  await page.getByRole('menuitem', { name: '删除渠道' }).click();
+  await page.getByRole('dialog', { name: /删除渠道/ }).getByRole('button', { name: '删除渠道' }).click();
+  await expect(page.getByRole('alert')).toContainText('req-ai-conflict');
+  await row.getByRole('button', { name: /更多操作/ }).click();
+  await expect(page.getByRole('menuitem', { name: '删除渠道' })).toHaveAttribute('aria-disabled', 'true');
+  await page.keyboard.press('Escape');
+  aiChannelsApi.failNextList();
+  await page.getByRole('button', { name: '重新加载列表' }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'req-ai-conflict' })).toBeVisible();
+  expect(aiChannelsApi.commandRequests.filter((request) => request.command === 'delete')).toHaveLength(1);
+  await page.getByRole('button', { name: '重新加载列表' }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'req-ai-conflict' })).toHaveCount(0);
+});
+
+test('AI Channel List 删除成功后列表刷新失败也不恢复旧行', async ({ page, aiChannelsApi }) => {
+  await page.goto('/settings/ai?sort=NAME_ASC&page=1&pageSize=20');
+  const row = page.getByRole('row', { name: /AI 渠道 002/ });
+  await row.getByRole('button', { name: /更多操作/ }).click();
+  await page.getByRole('menuitem', { name: '删除渠道' }).click();
+  aiChannelsApi.failNextList();
+  await page.getByRole('dialog', { name: /删除渠道/ }).getByRole('button', { name: '删除渠道' }).click();
+  await expect(row).toHaveCount(0);
+  await expect(page.getByRole('alert')).toContainText('渠道列表暂不可用');
+  expect(aiChannelsApi.commandRequests.filter((request) => request.command === 'delete')).toHaveLength(1);
+  await page.getByRole('button', { name: '重试刷新' }).click();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  expect(aiChannelsApi.commandRequests.filter((request) => request.command === 'delete')).toHaveLength(1);
+});
+
 test('AI Channel List 管理员边界、移动响应式和敏感字段边界成立', async ({ page, aiChannelsApi }, testInfo) => {
   const widths = testInfo.project.name === 'foundation-mobile' ? [375, 768] : [1024, 1440];
   await page.goto('/settings/ai?page=1&pageSize=20');

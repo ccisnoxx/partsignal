@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { AuthContextValue, AuthUser } from '@/app/auth/auth-provider';
 import { TooltipProvider } from '@/design-system/primitives/tooltip';
+import { auditKeys } from '@/domains/audit/audit.api';
 import { routeTree } from '@/routeTree.gen';
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
@@ -19,6 +20,8 @@ type AuditLog = components['schemas']['AuditLog'];
 type AuditLogDetail = components['schemas']['AuditLogDetail'];
 
 const channelId = '00000000-0000-4000-8000-000000000001';
+const runtimeUnknownAction = 'runtime.action.unknown.sentinel';
+const runtimeSecretSentinel = 'runtime-log-secret-sentinel';
 const admin: AuthUser = {
   id: '00000000-0000-4000-8000-000000000099',
   username: 'admin',
@@ -332,6 +335,124 @@ describe('AIChannelWorkspacePage', () => {
     await waitFor(() => expect(router.state.location.search).toEqual({ tab: 'logs', page: 3, pageSize: 10 }));
   });
 
+  it('Logs 未知 action 逐行安全失败，正常行、Workspace 与分页继续可用且不请求坏行详情', async () => {
+    const known = auditLog();
+    const unknown = {
+      ...auditLog({
+        id: '00000000-0000-4000-8000-000000000021',
+        action: runtimeUnknownAction,
+        actor_id: null,
+        actor: null,
+        request_id: 'req-runtime-unknown',
+      }),
+      raw_json: runtimeSecretSentinel,
+    } as AuditLog;
+    const secondKnown = auditLog({
+      id: '00000000-0000-4000-8000-000000000022',
+      action: 'ai_model.enabled',
+      request_id: 'req-runtime-second-known',
+    });
+    const get = vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+      if (path === '/api/v1/ai-channels/{channel_id}/audit-logs') {
+        return success({ items: [known, unknown, secondKnown], page: 1, page_size: 10, total: 21 });
+      }
+      if (path === '/api/v1/audit-logs/{audit_log_id}') return success(auditDetail());
+      return success(channel());
+    });
+    const { queryClient } = renderWorkspace(`/settings/ai/${channelId}?tab=logs&page=1&pageSize=10`);
+
+    expect(await screen.findByRole('heading', { level: 1, name: '生产 OpenAI' })).toBeInTheDocument();
+    expect(await screen.findByText('更新 AI 渠道')).toBeInTheDocument();
+    expect(await screen.findByText('启用模型')).toBeInTheDocument();
+    const unknownRow = screen.getByRole('row', { name: '渠道操作日志动作无法安全投影' });
+    expect(unknownRow).toHaveTextContent('无法安全投影');
+    expect(unknownRow).toHaveTextContent('用户已删除/未记录');
+    expect(unknownRow).not.toHaveTextContent(runtimeUnknownAction);
+    expect(unknownRow).not.toHaveTextContent(runtimeSecretSentinel);
+    expect(document.body.innerHTML).not.toContain(runtimeUnknownAction);
+    expect(document.body.innerHTML).not.toContain(runtimeSecretSentinel);
+    expect(screen.getAllByRole('button', { name: '查看详情' })).toHaveLength(2);
+    expect(screen.getByRole('navigation', { name: '表格分页' })).toHaveTextContent('共 21 条');
+    expect(screen.getByRole('button', { name: '下一页' })).toBeEnabled();
+    const cachedLogs = queryClient.getQueryData<components['schemas']['AuditLogList']>(
+      aiChannelKeys.logs(channelId, 1, 10),
+    );
+    expect(cachedLogs?.items[1]?.action).toBe(runtimeUnknownAction);
+    expect(JSON.stringify(cachedLogs)).not.toContain('raw_json');
+    expect(JSON.stringify(cachedLogs)).not.toContain(runtimeSecretSentinel);
+
+    fireEvent.click(unknownRow);
+    fireEvent.keyDown(unknownRow, { key: 'Enter', code: 'Enter' });
+    expect((get.mock.calls as unknown as Array<[string]>).filter(([path]) => path === '/api/v1/audit-logs/{audit_log_id}')).toHaveLength(0);
+    await userEvent.click(screen.getAllByRole('button', { name: '查看详情' })[0]!);
+    expect(await screen.findByRole('dialog', { name: '渠道操作日志详情' })).toBeInTheDocument();
+    expect((get.mock.calls as unknown as Array<[string]>).filter(([path]) => path === '/api/v1/audit-logs/{audit_log_id}')).toHaveLength(1);
+  });
+
+  it.each([403, 404, 409, 503])('Runtime Detail 已有缓存时 refetch %s 保留旧数据，exact retry 只重发同一 logId', async (status) => {
+    const row = auditLog();
+    let detailRequestCount = 0;
+    const get = vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+      if (path === '/api/v1/ai-channels/{channel_id}/audit-logs') {
+        return success({ items: [row], page: 1, page_size: 10, total: 1 });
+      }
+      if (path === '/api/v1/audit-logs/{audit_log_id}') {
+        detailRequestCount += 1;
+        return detailRequestCount === 2
+          ? failure(status, `日志详情刷新失败 ${status}`)
+          : success(auditDetail());
+      }
+      return success(channel());
+    });
+    const { queryClient } = renderWorkspace(`/settings/ai/${channelId}?tab=logs&page=1&pageSize=10`);
+    await userEvent.click(await screen.findByRole('button', { name: '查看详情' }));
+    const sheet = await screen.findByRole('dialog', { name: '渠道操作日志详情' });
+    expect(within(sheet).getByText('渠道配置已更新')).toBeInTheDocument();
+
+    await queryClient.invalidateQueries({ exact: true, queryKey: auditKeys.detail(row.id) });
+
+    const alert = await within(sheet).findByRole('alert');
+    expect(alert).toHaveTextContent(`日志详情刷新失败 ${status}`);
+    expect(within(sheet).getByText('渠道配置已更新')).toBeInTheDocument();
+    await userEvent.click(within(alert).getByRole('button', { name: '重试' }));
+    await waitFor(() => expect(within(sheet).queryByRole('alert')).not.toBeInTheDocument());
+
+    expect(detailRequestCount).toBe(3);
+    const detailCalls = (get.mock.calls as unknown as Array<[
+      string,
+      { params: { path: { audit_log_id: string } } },
+    ]>).filter(([path]) => path === '/api/v1/audit-logs/{audit_log_id}');
+    expect(detailCalls).toHaveLength(3);
+    expect(detailCalls.every(([, options]) => options.params.path.audit_log_id === row.id)).toBe(true);
+  });
+
+  it('Runtime Detail 非法 related registry 响应不入 cache，sentinel 不进入 DOM', async () => {
+    const row = auditLog();
+    vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+      if (path === '/api/v1/ai-channels/{channel_id}/audit-logs') {
+        return success({ items: [row], page: 1, page_size: 10, total: 1 });
+      }
+      if (path === '/api/v1/audit-logs/{audit_log_id}') {
+        return success({
+          ...auditDetail(),
+          related_entry: {
+            status: 'AVAILABLE',
+            kind: runtimeSecretSentinel,
+            parent_id: runtimeSecretSentinel,
+          },
+        } as unknown as AuditLogDetail);
+      }
+      return success(channel());
+    });
+    const { queryClient } = renderWorkspace(`/settings/ai/${channelId}?tab=logs&page=1&pageSize=10`);
+
+    await userEvent.click(await screen.findByRole('button', { name: '查看详情' }));
+    const sheet = await screen.findByRole('dialog', { name: '渠道操作日志详情' });
+    expect(within(sheet).getByRole('alert')).toHaveTextContent('审计响应安全投影失败');
+    expect(queryClient.getQueryData(auditKeys.detail(row.id))).toBeUndefined();
+    expect(document.body.innerHTML).not.toContain(runtimeSecretSentinel);
+  });
+
   it('Channel 与 Model Runtime 主任务都进入渠道 Usage', async () => {
     const runtimeChannel = channel({
       is_enabled: true,
@@ -487,6 +608,22 @@ describe('AIChannelWorkspacePage', () => {
     expect(patch).toHaveBeenCalledOnce();
   });
 
+  it('配置 409 后 reload 失败保持冲突冻结', async () => {
+    vi.spyOn(api, 'GET')
+      .mockResolvedValueOnce(success(channel()))
+      .mockResolvedValueOnce(failure(503, '渠道详情暂不可用'));
+    vi.spyOn(api, 'PATCH').mockResolvedValue(conflict());
+    renderWorkspace();
+    const name = await screen.findByRole('textbox', { name: '渠道名称' });
+    await userEvent.clear(name);
+    await userEvent.type(name, '本地草稿');
+    await userEvent.click(screen.getByRole('button', { name: '保存配置' }));
+    const reload = await screen.findByRole('button', { name: '重新加载服务端版本' });
+    await userEvent.click(reload);
+    expect(name).toHaveValue('本地草稿');
+    expect(screen.getByRole('button', { name: '保存配置' })).toHaveAttribute('aria-disabled', 'true');
+  });
+
   it('API Key 冲突立即清除 secret，Header DELETE 携带当前 channel revision', async () => {
     vi.spyOn(api, 'GET')
       .mockResolvedValueOnce(success(channel()))
@@ -524,6 +661,145 @@ describe('AIChannelWorkspacePage', () => {
         header: { 'X-CSRF-Token': auth.csrfToken },
       },
     });
+  });
+
+  it('配置草稿 dirty 时 API Key reload 不替换旧配置 revision baseline', async () => {
+    const get = vi.spyOn(api, 'GET')
+      .mockResolvedValueOnce(success(channel()))
+      .mockResolvedValueOnce(success(channel({ revision: 5, base_url: 'https://new.example.invalid/v1' })));
+    vi.spyOn(api, 'PUT').mockResolvedValue(conflict());
+    const patch = vi.spyOn(api, 'PATCH').mockResolvedValue(success(channel({ revision: 6 })));
+    renderWorkspace(`/settings/ai/${channelId}?tab=request`);
+    await screen.findByRole('textbox', { name: 'API 根地址' });
+    await userEvent.click(screen.getByRole('tab', { name: '基本信息' }));
+    const name = await screen.findByRole('textbox', { name: '渠道名称' });
+    await userEvent.clear(name);
+    await userEvent.type(name, '本地配置草稿');
+    await userEvent.click(screen.getByRole('tab', { name: '请求配置' }));
+    await userEvent.click(screen.getByRole('button', { name: '重新配置' }));
+    const dialog = await screen.findByRole('dialog', { name: '重新配置 API Key' });
+    await userEvent.type(dialog.querySelector('input[type="password"]') as HTMLInputElement, 'key-for-conflict');
+    await userEvent.click(within(dialog).getByRole('button', { name: '保存新密钥' }));
+    await userEvent.click(await within(dialog).findByRole('button', { name: '重新加载服务端版本' }));
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+    await userEvent.click(within(dialog).getByRole('button', { name: '取消' }));
+    await userEvent.click(screen.getByRole('tab', { name: '基本信息' }));
+    await userEvent.click(screen.getByRole('button', { name: '保存配置' }));
+    await waitFor(() => expect(patch).toHaveBeenCalledOnce());
+    expect(patch.mock.calls[0]?.[1]).toEqual(expect.objectContaining({
+      body: expect.objectContaining({ expected_revision: 4 }),
+    }));
+  });
+
+  it('API Key 请求 pending 时 secret 不进入 MutationCache 且完成后清空', async () => {
+    vi.spyOn(api, 'GET').mockResolvedValue(success(channel()));
+    let resolvePut!: (value: unknown) => void;
+    const put = vi.spyOn(api, 'PUT').mockReturnValue(new Promise((resolve) => {
+      resolvePut = resolve;
+    }) as never);
+    const { queryClient, view } = renderWorkspace(`/settings/ai/${channelId}?tab=request`);
+    await userEvent.click(await screen.findByRole('button', { name: '重新配置' }));
+    const dialog = await screen.findByRole('dialog', { name: '重新配置 API Key' });
+    const input = dialog.querySelector('input[type="password"]') as HTMLInputElement;
+    await userEvent.type(input, 'pending-api-key-sentinel');
+    await userEvent.click(within(dialog).getByRole('button', { name: '保存新密钥' }));
+    await waitFor(() => expect(put).toHaveBeenCalledOnce());
+    expect(JSON.stringify(queryClient.getMutationCache().getAll().map((item) => item.state.variables)))
+      .not.toContain('pending-api-key-sentinel');
+    view.unmount();
+    expect(JSON.stringify(queryClient.getMutationCache().getAll().map((item) => item.state.variables)))
+      .not.toContain('pending-api-key-sentinel');
+    resolvePut(success(channel({ revision: 5 })));
+    expect(document.body).not.toHaveTextContent('pending-api-key-sentinel');
+  });
+
+  it('API Key 写入成功但 canonical handoff 失败时显示页面级重试且不重复提交 secret', async () => {
+    vi.spyOn(api, 'GET').mockResolvedValue(success(channel()));
+    const put = vi.spyOn(api, 'PUT').mockResolvedValue(success(channel({ revision: 5 })));
+    const { queryClient } = renderWorkspace(`/settings/ai/${channelId}?tab=request`);
+    await screen.findByRole('button', { name: '重新配置' });
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    invalidate.mockRejectedValueOnce(new Error('消费者缓存刷新失败'));
+    await userEvent.click(screen.getByRole('button', { name: '重新配置' }));
+    const dialog = await screen.findByRole('dialog', { name: '重新配置 API Key' });
+    await userEvent.type(dialog.querySelector('input[type="password"]') as HTMLInputElement, 'handoff-only-secret');
+    await userEvent.click(within(dialog).getByRole('button', { name: '保存新密钥' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '重新配置 API Key' })).not.toBeInTheDocument());
+    expect(screen.getByRole('alert')).toHaveTextContent('页面刷新失败');
+    expect(put).toHaveBeenCalledOnce();
+    const setQueryData = vi.spyOn(queryClient, 'setQueryData');
+    invalidate.mockResolvedValue(undefined as never);
+    await userEvent.click(screen.getByRole('button', { name: '重试刷新' }));
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+    expect(setQueryData).not.toHaveBeenCalled();
+    expect(put).toHaveBeenCalledOnce();
+  });
+
+  it('C5 handoff 失败后 C6 保存采用 canonical，旧 retry 不会在消费者刷新窗口回写 C5', async () => {
+    vi.spyOn(api, 'GET').mockResolvedValue(success(channel()));
+    const put = vi.spyOn(api, 'PUT').mockResolvedValue(success(channel({ revision: 5 })));
+    const patch = vi.spyOn(api, 'PATCH').mockResolvedValue(success(channel({ revision: 6, name: '新配置' })));
+    const { queryClient } = renderWorkspace(`/settings/ai/${channelId}?tab=request`);
+    await screen.findByRole('button', { name: '重新配置' });
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    let resolveC6Refresh!: () => void;
+    const c6Refresh = new Promise<void>((resolve) => {
+      resolveC6Refresh = resolve;
+    });
+    invalidate
+      .mockRejectedValueOnce(new Error('消费者缓存刷新失败'))
+      .mockResolvedValueOnce(undefined as never)
+      .mockResolvedValueOnce(undefined as never)
+      .mockResolvedValueOnce(undefined as never)
+      .mockResolvedValueOnce(undefined as never)
+      .mockReturnValueOnce(c6Refresh as never)
+      .mockResolvedValue(undefined as never);
+    await userEvent.click(screen.getByRole('button', { name: '重新配置' }));
+    const dialog = await screen.findByRole('dialog', { name: '重新配置 API Key' });
+    await userEvent.type(dialog.querySelector('input[type="password"]') as HTMLInputElement, 'old-revision-secret');
+    await userEvent.click(within(dialog).getByRole('button', { name: '保存新密钥' }));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('页面刷新失败'));
+    const staleRetry = screen.getByRole('button', { name: '重试刷新' });
+    await userEvent.click(screen.getByRole('tab', { name: '基本信息' }));
+    const name = await screen.findByRole('textbox', { name: '渠道名称' });
+    await userEvent.clear(name);
+    await userEvent.type(name, '新配置');
+    await userEvent.click(screen.getByRole('button', { name: '保存配置' }));
+    await waitFor(() => expect(patch).toHaveBeenCalledOnce());
+    await waitFor(() => expect(queryClient.getQueryData<AIChannel>(aiChannelKeys.detail(channelId))?.revision).toBe(6));
+    fireEvent.click(staleRetry);
+    expect(queryClient.getQueryData<AIChannel>(aiChannelKeys.detail(channelId))?.revision).toBe(6);
+    await waitFor(() => expect(screen.queryByText(/页面刷新失败/)).not.toBeInTheDocument());
+    resolveC6Refresh();
+    expect(await screen.findByText('渠道配置已保存')).toBeInTheDocument();
+    expect(queryClient.getQueryData<AIChannel>(aiChannelKeys.detail(channelId))?.revision).toBe(6);
+    expect(put).toHaveBeenCalledOnce();
+  });
+
+  it('旧 handoff 失败后配置冲突 reload 成功会推进 epoch，旧刷新 Notice 不会复活', async () => {
+    const get = vi.spyOn(api, 'GET')
+      .mockResolvedValueOnce(success(channel()))
+      .mockResolvedValueOnce(success(channel({ revision: 5, name: '服务端新配置' })));
+    vi.spyOn(api, 'PUT').mockResolvedValue(success(channel({ revision: 5 })));
+    vi.spyOn(api, 'PATCH').mockResolvedValue(conflict());
+    const { queryClient } = renderWorkspace(`/settings/ai/${channelId}?tab=request`);
+    await screen.findByRole('button', { name: '重新配置' });
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    invalidate.mockRejectedValueOnce(new Error('消费者缓存刷新失败'));
+    await userEvent.click(screen.getByRole('button', { name: '重新配置' }));
+    const keyDialog = await screen.findByRole('dialog', { name: '重新配置 API Key' });
+    await userEvent.type(keyDialog.querySelector('input[type="password"]') as HTMLInputElement, 'stale-retry-secret');
+    await userEvent.click(within(keyDialog).getByRole('button', { name: '保存新密钥' }));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('页面刷新失败'));
+    await userEvent.click(screen.getByRole('tab', { name: '基本信息' }));
+    const name = await screen.findByRole('textbox', { name: '渠道名称' });
+    await userEvent.clear(name);
+    await userEvent.type(name, '本地冲突草稿');
+    await userEvent.click(screen.getByRole('button', { name: '保存配置' }));
+    await screen.findByRole('button', { name: '重新加载服务端版本' });
+    await userEvent.click(screen.getByRole('button', { name: '重新加载服务端版本' }));
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.queryByText(/页面刷新失败/)).not.toBeInTheDocument());
   });
 
   it('Header identity duplicate 定位名称、清除 secret、保留草稿且不 reload', async () => {

@@ -32,6 +32,9 @@ type ReviewAction = NonNullable<
 type SourceBasis = NonNullable<
   NonNullable<ContentTaskDetail['source']>['geo_optimization']
 >['basis'];
+type IssueStatus = NonNullable<
+  NonNullable<ContentTaskDetail['source']>['published_content_issue']
+>['status'];
 
 type ContentTaskDetailPageProps = {
   csrfToken: string | null;
@@ -45,6 +48,19 @@ const factStatusLabels = {
   APPROVED: '已批准',
   RETIRED: '已停用',
 } satisfies Record<FactStatus, string>;
+const productStatusLabels = {
+  ACTIVE: '使用中',
+  RETIRED: '已停用',
+} satisfies Record<ContentTaskDetail['product']['status'], string>;
+const confidentialityLabels = {
+  PUBLIC: '公开',
+  INTERNAL: '内部',
+  RESTRICTED: '受限',
+} satisfies Record<ContentTaskDetail['fact']['classification'], string>;
+const issueStatusLabels = {
+  OPEN: '待处理',
+  RESOLVED: '已解决',
+} satisfies Record<IssueStatus, string>;
 const generationStatusLabels = {
   PENDING: '等待执行',
   RUNNING: '执行中',
@@ -124,18 +140,15 @@ function ContentTaskDetailPage({ csrfToken, onDeleted, taskId }: ContentTaskDeta
 
       <div className="overflow-hidden rounded-xl border border-border-subtle bg-surface-panel">
         <div id="summary">
-          <DetailSection title="摘要" description="服务端投影的当前阶段、下一步和 canonical command state。">
+          <DetailSection title="摘要" description="当前阶段、下一步与任务状态。">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <SummaryItem label="Workflow stage">
+              <SummaryItem label="工作阶段">
                 <Badge variant={contentWorkflowStageRegistry[data.task.workflow_stage].tone}>
                   {contentWorkflowStageRegistry[data.task.workflow_stage].label}
                 </Badge>
               </SummaryItem>
               <SummaryItem label="下一步">
                 <span>{primary.label}</span>
-                <code className="mt-1 block break-all text-xs text-text-muted">
-                  {data.task.primary_task}
-                </code>
               </SummaryItem>
               <SummaryItem label="任务状态">
                 <Badge variant={data.task.status === 'OPEN' ? 'info' : 'secondary'}>
@@ -144,7 +157,7 @@ function ContentTaskDetailPage({ csrfToken, onDeleted, taskId }: ContentTaskDeta
                     : data.task.status === 'COMPLETED' ? '已完成' : '已取消'}
                 </Badge>
               </SummaryItem>
-              <SummaryItem label="Revision">
+              <SummaryItem label="修订号">
                 <span className="font-mono">{data.task.revision}</span>
               </SummaryItem>
             </div>
@@ -159,24 +172,24 @@ function ContentTaskDetailPage({ csrfToken, onDeleted, taskId }: ContentTaskDeta
           </DetailSection>
         </div>
 
-        <DetailSection title="锁定上下文" description="任务创建时锁定的 Product、Fact 与 Platform identity。">
+        <DetailSection title="锁定上下文" description="创建任务时选定的产品、事实版本与目标平台。">
           <div className="grid gap-3 md:grid-cols-3">
-            <ContextCard title="Product">
+            <ContextCard title="产品">
               <a className={linkClass} href={`/products/${encodeURIComponent(data.product.id)}`}>
                 {data.product.brand} · {data.product.part_number}
               </a>
-              <p className="mt-1 text-xs text-text-muted">状态：{data.product.status}</p>
+              <p className="mt-1 text-xs text-text-muted">状态：{productStatusLabels[data.product.status]}</p>
             </ContextCard>
-            <ContextCard title="Current Fact Version">
+            <ContextCard title="绑定事实版本">
               <a
                 className={linkClass}
                 href={`/products/${encodeURIComponent(data.product.id)}/facts/versions/${encodeURIComponent(data.fact.id)}`}
               >
                 v{data.fact.version} · {factStatusLabels[data.fact.status]}
               </a>
-              <p className="mt-1 text-xs text-text-muted">分级：{data.fact.classification}</p>
+              <p className="mt-1 text-xs text-text-muted">分级：{confidentialityLabels[data.fact.classification]}</p>
             </ContextCard>
-            <ContextCard title="Target Platform">
+            <ContextCard title="目标平台">
               <div className="flex items-center gap-2">
                 {data.platform.logo && (
                   <img alt="" className="size-6 rounded object-contain" src={data.platform.logo.url} />
@@ -196,7 +209,7 @@ function ContentTaskDetailPage({ csrfToken, onDeleted, taskId }: ContentTaskDeta
           </div>
         </DetailSection>
 
-        <DetailSection title="当前内容" description="严格来自 current_content_version_id，不按版本号猜测。">
+        <DetailSection title="当前内容" description="当前主线的内容版本。">
           {data.current_content ? (
             <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
               <Metadata
@@ -219,7 +232,7 @@ function ContentTaskDetailPage({ csrfToken, onDeleted, taskId }: ContentTaskDeta
         </DetailSection>
 
         <div id="generation">
-          <DetailSection title="最近生成作业" description="服务端按 created_at、id 确定；本页不轮询。">
+          <DetailSection title="最近生成作业" description="最新一次生成作业及其状态。">
             {data.generation ? (
               <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
                 <Metadata label="作业" value={data.generation.job_type === 'GENERATE' ? '原始生成' : '自然化'} />
@@ -235,7 +248,7 @@ function ContentTaskDetailPage({ csrfToken, onDeleted, taskId }: ContentTaskDeta
           </DetailSection>
         </div>
 
-        <DetailSection title="审核摘要" description="只描述当前主线内容，不加载 Review Context 或 Diff。">
+        <DetailSection title="审核摘要" description="当前内容版本的审核概况。">
           {data.review ? (
             <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
               <Metadata
@@ -264,10 +277,10 @@ function ContentTaskDetailPage({ csrfToken, onDeleted, taskId }: ContentTaskDeta
           ) : <EmptyValue />}
         </DetailSection>
 
-        <DetailSection title="发布摘要" description="只展示当前工作与已核验结果，不加载 Publication Workspace。">
+        <DetailSection title="发布摘要" description="当前发布进度与已核验结果。">
           {data.publishing ? (
             <div className="grid gap-3 md:grid-cols-2">
-              <ContextCard title="Publication Work">
+              <ContextCard title="发布工作">
                 <a className={linkClass} href={`/publishing/work/${encodeURIComponent(data.publishing.work.id)}`}>
                   {publicationStatusLabels[data.publishing.work.status]}
                 </a>
@@ -275,7 +288,7 @@ function ContentTaskDetailPage({ csrfToken, onDeleted, taskId }: ContentTaskDeta
                   更新于 <TaskTime value={data.publishing.work.updated_at} />
                 </p>
               </ContextCard>
-              <ContextCard title="Published Result">
+              <ContextCard title="发布成果">
                 {data.publishing.result ? (
                   <>
                     <a className={linkClass} href={`/publishing/articles/${encodeURIComponent(data.publishing.result.id)}`}>
@@ -291,13 +304,13 @@ function ContentTaskDetailPage({ csrfToken, onDeleted, taskId }: ContentTaskDeta
           ) : <EmptyValue />}
         </DetailSection>
 
-        <DetailSection title="来源上下文" description="仅显示真实存在的 Query Topic、GEO 优化或发布问题来源。">
+        <DetailSection title="来源上下文" description="与此任务关联的来源信息。">
           {data.source ? (
             <div className="grid gap-3 md:grid-cols-3">
-              <ContextCard title="Query Topic">
+              <ContextCard title="问题主题">
                 {data.source.query_topic?.canonical_question ?? <EmptyValue />}
               </ContextCard>
-              <ContextCard title="GEO Optimization">
+              <ContextCard title="GEO 优化">
                 {data.source.geo_optimization ? (
                   <div className="space-y-1 text-sm">
                     <p>{geoRuleLabel(data.source.geo_optimization.rule_code)}</p>
@@ -310,13 +323,13 @@ function ContentTaskDetailPage({ csrfToken, onDeleted, taskId }: ContentTaskDeta
                   </div>
                 ) : <EmptyValue />}
               </ContextCard>
-              <ContextCard title="Published Content Issue">
+              <ContextCard title="已发布内容问题">
                 {data.source.published_content_issue ? (
                   <a
                     className={linkClass}
                     href={`/publishing/issues/${encodeURIComponent(data.source.published_content_issue.id)}`}
                   >
-                    {issueKindLabel(data.source.published_content_issue.kind)} · {data.source.published_content_issue.status}
+                    {issueKindLabel(data.source.published_content_issue.kind)} · {issueStatusLabels[data.source.published_content_issue.status]}
                   </a>
                 ) : <EmptyValue />}
               </ContextCard>
@@ -325,7 +338,7 @@ function ContentTaskDetailPage({ csrfToken, onDeleted, taskId }: ContentTaskDeta
         </DetailSection>
 
         <div id="activity">
-          <DetailSection title="Activity Timeline" description="服务端已排序并限制最近十项；前端保持原顺序。">
+          <DetailSection title="活动记录" description="最近的任务活动。">
             <Timeline
               emptyMessage="暂无"
               items={data.activity.map((item) => ({
@@ -352,7 +365,7 @@ function ContentTaskDetailPage({ csrfToken, onDeleted, taskId }: ContentTaskDeta
 }
 
 function ContentTaskDetailSkeleton({ taskId }: { taskId: string }) {
-  const sections = ['摘要', '锁定上下文', '当前内容', '最近生成作业', '审核摘要', '发布摘要', '来源上下文', 'Activity Timeline'];
+  const sections = ['摘要', '锁定上下文', '当前内容', '最近生成作业', '审核摘要', '发布摘要', '来源上下文', '活动记录'];
   return (
     <article className="min-w-0 space-y-4" aria-busy="true" aria-labelledby="content-task-detail-loading-title">
       <header className="space-y-2">

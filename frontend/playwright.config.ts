@@ -3,9 +3,12 @@ import { defineConfig, devices } from '@playwright/test';
 
 const externalBaseUrl = process.env.PARTSIGNAL_E2E_BASE_URL;
 const realStackEnabled = process.env.PARTSIGNAL_E2E_REAL_STACK === '1';
+const secretArtifactRegressionEnabled = process.env.PARTSIGNAL_E2E_SECRET_ARTIFACT_REGRESSION === '1';
 
 export default defineConfig({
+  globalSetup: './tests/e2e/secret-artifact-global-setup.ts',
   testDir: './tests/e2e',
+  testIgnore: secretArtifactRegressionEnabled ? [] : ['**/secret-artifact-post-run.spec.ts'],
   fullyParallel: false,
   workers: 1,
   reporter: 'list',
@@ -24,7 +27,7 @@ export default defineConfig({
     baseURL: externalBaseUrl ?? 'http://127.0.0.1:4174',
     trace: realStackEnabled ? 'off' : 'retain-on-failure',
   },
-  webServer: externalBaseUrl ? undefined : {
+  webServer: externalBaseUrl || secretArtifactRegressionEnabled ? undefined : {
     command: 'npm run build && npm exec -- vite preview --host 127.0.0.1 --port 4174 --strictPort',
     url: 'http://127.0.0.1:4174',
     reuseExistingServer: false,

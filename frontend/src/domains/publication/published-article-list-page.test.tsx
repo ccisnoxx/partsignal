@@ -52,6 +52,7 @@ describe('PublishedArticleListPage', () => {
       'href',
       publishedArticle.final_url,
     );
+    expect(screen.getByText('通过')).toBeInTheDocument();
     expect(screen.queryByRole('columnheader', { name: '操作' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /删除|核验|问题/ })).not.toBeInTheDocument();
     expect(get).toHaveBeenCalledWith('/api/v1/published-articles', {

@@ -6,9 +6,9 @@ import type { components } from '../../../src/shared/api/generated/schema';
 import { detailIds, manualDetail } from './geo-detail.fixture';
 import { geoIds } from './geo.fixture';
 
-type ContextMode = 'success' | 'loading' | 'not-found' | 'forbidden';
-type CreateMode = 'success' | 'pending' | 'publication-conflict' | 'revision-conflict' | 'forbidden';
-type UploadMode = 'success' | 'complete-failure';
+type ContextMode = 'success' | 'loading' | 'not-found' | 'forbidden' | 'incomplete' | 'error';
+type CreateMode = 'success' | 'pending' | 'publication-conflict' | 'successor-conflict' | 'incomplete-conflict' | 'forbidden';
+type UploadMode = 'success' | 'complete-failure' | 'pending-complete';
 type GeoObservationCreate = components['schemas']['GeoObservationCreate'];
 type ManualDetail = components['schemas']['ManualGeoObservationDetail'];
 
@@ -25,6 +25,7 @@ type GeoCorrectionApiController = {
   uploadRequests: string[];
   releaseContext: () => void;
   releaseCreate: () => void;
+  releaseUpload: () => void;
   setContextMode: (mode: ContextMode) => void;
   setCreateMode: (mode: CreateMode) => void;
   setUploadMode: (mode: UploadMode) => void;
@@ -244,6 +245,7 @@ const test = base.extend<GeoCorrectionFixtures>({
     let refreshed = false;
     let releaseContext: (() => void) | undefined;
     let releaseCreate: (() => void) | undefined;
+    let releaseUpload: (() => void) | undefined;
     const contextRequests: URL[] = [];
     const createRequests: CreateRequest[] = [];
     const detailRequests: URL[] = [];
@@ -294,6 +296,18 @@ const test = base.extend<GeoCorrectionFixtures>({
           });
           return;
         }
+        if (contextMode === 'incomplete' || contextMode === 'error') {
+          const incomplete = contextMode === 'incomplete';
+          await route.fulfill({
+            status: incomplete ? 409 : 500,
+            json: errorEnvelope(
+              incomplete ? 'GEO_OBSERVATION_CONTEXT_INCOMPLETE' : 'INTERNAL_ERROR',
+              incomplete ? '更正链上下文不完整' : '读取更正上下文失败',
+              incomplete ? 'req-correction-incomplete' : 'req-correction-error',
+            ),
+          });
+          return;
+        }
         const selectedId = contextMatch[1]!;
         if (selectedId === geoIds.legacy) {
           await route.fulfill({
@@ -315,14 +329,21 @@ const test = base.extend<GeoCorrectionFixtures>({
         if (createMode === 'pending') {
           await new Promise<void>((resolve) => { releaseCreate = resolve; });
         }
-        if (createMode === 'publication-conflict' || createMode === 'revision-conflict') {
+        if (createMode === 'publication-conflict' || createMode === 'successor-conflict') {
           refreshed = true;
           const code = createMode === 'publication-conflict'
             ? 'GEO_PUBLICATIONS_CHANGED'
-            : 'REVISION_CONFLICT';
+            : 'GEO_OBSERVATION_HAS_SUCCESSOR';
           await route.fulfill({
             status: 409,
             json: errorEnvelope(code, '更正上下文已经变化', `req-${code.toLowerCase()}`),
+          });
+          return;
+        }
+        if (createMode === 'incomplete-conflict') {
+          await route.fulfill({
+            status: 409,
+            json: errorEnvelope('GEO_OBSERVATION_CONTEXT_INCOMPLETE', '更正链上下文不完整', 'req-correction-incomplete-submit'),
           });
           return;
         }
@@ -359,6 +380,9 @@ const test = base.extend<GeoCorrectionFixtures>({
 
       if (method === 'POST' && url.pathname === `/api/v1/files/${correctionIds.file}/complete`) {
         uploadRequests.push(url.pathname);
+        if (uploadMode === 'pending-complete') {
+          await new Promise<void>((resolve) => { releaseUpload = resolve; });
+        }
         if (uploadMode === 'complete-failure') {
           await route.fulfill({
             status: 422,
@@ -413,6 +437,7 @@ const test = base.extend<GeoCorrectionFixtures>({
       uploadRequests,
       releaseContext: () => releaseContext?.(),
       releaseCreate: () => releaseCreate?.(),
+      releaseUpload: () => releaseUpload?.(),
       setContextMode: (mode) => { contextMode = mode; },
       setCreateMode: (mode) => { createMode = mode; },
       setUploadMode: (mode) => { uploadMode = mode; },

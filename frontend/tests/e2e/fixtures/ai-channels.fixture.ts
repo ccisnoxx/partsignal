@@ -19,6 +19,7 @@ type AIChannelsApiController = {
   allowHttpError: (status: number) => void;
   commandRequests: AIChannelCommandRequest[];
   conflictNext: (command: AIChannelCommandRequest['command']) => void;
+  failNextList: () => void;
   listRequests: URL[];
   responsePayloads: string[];
   setAccountType: (accountType: AccountType) => void;
@@ -155,6 +156,7 @@ const test = base.extend<AIChannelFixtures>({
     let items = createAIChannels();
     let accountType: AccountType = 'ADMIN';
     let nextConflict: AIChannelCommandRequest['command'] | undefined;
+    let nextListFailure = false;
     const listRequests: URL[] = [];
     const commandRequests: AIChannelCommandRequest[] = [];
     const responsePayloads: string[] = [];
@@ -196,6 +198,11 @@ const test = base.extend<AIChannelFixtures>({
         listRequests.push(url);
         if (accountType !== 'ADMIN') {
           await route.fulfill({ status: 403, json: { error: { code: 'FORBIDDEN', message: '仅管理员可访问', details: {}, request_id: 'req-ai-forbidden' } } });
+          return;
+        }
+        if (nextListFailure) {
+          nextListFailure = false;
+          await route.fulfill({ status: 503, json: { error: { code: 'AI_CHANNELS_UNAVAILABLE', message: '渠道列表暂不可用', details: {}, request_id: 'req-ai-list-refresh' } } });
           return;
         }
         const body = listAIChannels(items, url);
@@ -263,6 +270,10 @@ const test = base.extend<AIChannelFixtures>({
       allowHttpError: (status) => allowedHttpErrors.push(status),
       commandRequests,
       conflictNext: (command) => { nextConflict = command; },
+      failNextList: () => {
+        nextListFailure = true;
+        allowedHttpErrors.push(503);
+      },
       listRequests,
       responsePayloads,
       setAccountType: (next) => { accountType = next; },

@@ -13,7 +13,7 @@ test('direct URL、refresh、Back 与 Forward 始终读取 task-scoped Review Co
   expect(contentApi.reviewContextRequests).toHaveLength(1);
 
   await page.reload();
-  await expect(page.getByLabel('内容版本 v2 canonical Markdown')).toContainText('工作电压');
+  await expect(page.getByLabel('内容版本 v2 Markdown 正文')).toContainText('工作电压');
   expect(contentApi.reviewContextRequests).toHaveLength(2);
 
   if (page.viewportSize()?.width === 375) {
@@ -36,13 +36,13 @@ test('一次快照展示 canonical、blocking/warnings、fact、platform、diff 
 }, testInfo) => {
   contentApi.setReviewMode('blocking');
   await page.goto(reviewPath);
-  await expect(page.getByLabel('内容版本 v2 canonical Markdown')).toContainText('Canonical 内容');
+  await expect(page.getByLabel('内容版本 v2 Markdown 正文')).toContainText('Canonical 内容');
   await openReviewPanel(page, testInfo.project.name);
   await expect(page.getByText('缺少来源说明')).toBeVisible();
   await expect(page.getByText('标题可能过长')).toBeVisible();
   await expect(page.getByLabel('事实版本 v3 Markdown 核对依据')).toContainText('温度范围');
   await expect(page.getByText('content-markdown-v3')).toBeVisible();
-  await expect(page.getByRole('region', { name: '内容版本 canonical Markdown 差异' })).toContainText('旧正文');
+  await expect(page.getByRole('region', { name: '内容版本 Markdown 差异' })).toContainText('旧正文');
   await expect(page.getByText('提交审核')).toBeVisible();
   await expect(page.getByRole('button', { name: '批准内容' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: '退回修改' })).toBeVisible();
@@ -165,13 +165,13 @@ test('375/1440 使用既有 WorkspaceShell 响应式形态', async ({ page }, te
   await page.goto(reviewPath);
   if (testInfo.project.name === 'foundation-mobile') {
     expect(page.viewportSize()?.width).toBe(375);
-    await expect(page.getByRole('tab', { name: 'Canonical Markdown' })).toBeVisible();
-    await expect(page.getByRole('tab', { name: 'Review Panel' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: '当前内容 Markdown' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: '审核依据' })).toBeVisible();
   } else {
     expect(page.viewportSize()?.width).toBe(1440);
     await expect(page.getByRole('region', { name: '审核上下文' })).toBeVisible();
-    await expect(page.getByRole('region', { name: 'Canonical Markdown', exact: true })).toBeVisible();
-    await expect(page.getByRole('region', { name: 'Review Panel' })).toBeVisible();
+    await expect(page.getByRole('region', { name: '当前内容 Markdown', exact: true })).toBeVisible();
+    await expect(page.getByRole('region', { name: '审核依据' })).toBeVisible();
   }
 });
 
@@ -180,9 +180,9 @@ test('768/1024 保持 tabbed workspace 且内容无水平溢出', async ({ page 
   for (const width of [768, 1024]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto(reviewPath);
-    await expect(page.getByRole('tab', { name: 'Canonical Markdown' })).toBeVisible();
-    await page.getByRole('tab', { name: 'Review Panel' }).click();
-    await expect(page.getByRole('heading', { name: 'Blocking issues' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: '当前内容 Markdown' })).toBeVisible();
+    await page.getByRole('tab', { name: '审核依据' }).click();
+    await expect(page.getByRole('heading', { name: '阻断问题' })).toBeVisible();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
     expect(overflow).toBe(false);
   }
@@ -190,6 +190,6 @@ test('768/1024 保持 tabbed workspace 且内容无水平溢出', async ({ page 
 
 async function openReviewPanel(page: import('@playwright/test').Page, projectName: string) {
   if (projectName === 'foundation-mobile') {
-    await page.getByRole('tab', { name: 'Review Panel' }).click();
+    await page.getByRole('tab', { name: '审核依据' }).click();
   }
 }

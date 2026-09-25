@@ -195,11 +195,11 @@ describe('ContentVersionDetailPage', () => {
     expect(screen.getByLabelText('内容版本 v3 Markdown 快照')).not.toHaveTextContent('危险内容');
     expect(screen.getByText('平台 Prompt')).toBeInTheDocument();
     expect(screen.getAllByText('批准内容')).toHaveLength(2);
-    expect(screen.getByRole('link', { name: '返回所属 Content Task' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '返回所属内容任务' })).toHaveAttribute(
       'href',
       `/content/tasks/${taskId}`,
     );
-    expect(screen.getByRole('link', { name: 'FactVersion v2' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '事实版本 v2' })).toHaveAttribute(
       'href',
       `/products/${productId}/facts/versions/${factId}`,
     );

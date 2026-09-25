@@ -97,6 +97,11 @@ test('校验显式事实；上传失败只重试 complete，POST 防重复并按
     buffer: Buffer.from('evidence'),
   });
   await expect(page.getByRole('alert')).toContainText('文件校验失败');
+  await page.setViewportSize({
+    width: page.viewportSize()?.width === 375 ? 1440 : 375,
+    height: 1000,
+  });
+  await showPanel(page, '新证据与原因');
   geoCorrectionApi.setUploadMode('success');
   await page.getByRole('button', { name: '重试校验' }).click();
   await expect(page.getByText('correction-proof.png')).toBeVisible();
@@ -152,7 +157,7 @@ test('校验显式事实；上传失败只重试 complete，POST 防重复并按
 });
 
 test.describe('更正冲突', () => {
-  for (const mode of ['publication-conflict', 'revision-conflict'] as const) {
+  for (const mode of ['publication-conflict', 'successor-conflict'] as const) {
     test(`${mode} 不重放；显式刷新按 ID 合并草稿、证据和新尾`, async ({
       page,
       geoCorrectionApi,
@@ -204,6 +209,122 @@ test.describe('更正冲突', () => {
   }
 });
 
+test('successor 后显式上下文刷新失败仍冻结旧尾并保留草稿与 request ID', async ({
+  page,
+  geoCorrectionApi,
+}) => {
+  geoCorrectionApi.setCreateMode('successor-conflict');
+  await page.goto(canonicalCorrectionRoute);
+  await fillNewArticleFacts(page);
+  await showPanel(page, '新证据与原因');
+  await page.getByLabel('更正原因 / Notes').fill('刷新失败必须保留');
+  await page.getByRole('button', { name: '追加 Correction' }).click();
+  await expect(page.getByText('请求 ID：req-geo_observation_has_successor')).toBeVisible();
+  expect(geoCorrectionApi.createRequests).toHaveLength(1);
+
+  geoCorrectionApi.setContextMode('error');
+  await page.getByRole('button', { name: '重新加载最新上下文' }).click();
+  await expect(page.getByRole('button', { name: '追加 Correction' })).toBeDisabled();
+  await expect(page.getByText('请求 ID：req-geo_observation_has_successor')).toBeVisible();
+  await expect(page.getByLabel('更正原因 / Notes')).toHaveValue('刷新失败必须保留');
+  expect(geoCorrectionApi.createRequests).toHaveLength(1);
+
+  geoCorrectionApi.setContextMode('success');
+  await page.getByRole('button', { name: '重新加载最新上下文' }).click();
+  await expect(page).toHaveURL(`/geo/observations/${correctionIds.conflictTail}/correct`);
+  await showPanel(page, '新证据与原因');
+  await expect(page.getByLabel('更正原因 / Notes')).toHaveValue('刷新失败必须保留');
+  expect(geoCorrectionApi.createRequests).toHaveLength(1);
+});
+
+test('链上下文不完整后禁止重放，显式 GET 失败也不能用缓存旧数据解冻', async ({
+  page,
+  geoCorrectionApi,
+}) => {
+  geoCorrectionApi.setCreateMode('incomplete-conflict');
+  await page.goto(canonicalCorrectionRoute);
+  await fillNewArticleFacts(page);
+  await page.getByRole('button', { name: '追加 Correction' }).click();
+  await expect(page.getByRole('button', { name: '追加 Correction' })).toBeDisabled();
+  await expect(page.getByText('请求 ID：req-correction-incomplete-submit')).toBeVisible();
+  expect(geoCorrectionApi.createRequests).toHaveLength(1);
+
+  geoCorrectionApi.setContextMode('incomplete');
+  await page.getByRole('button', { name: '重新加载最新上下文' }).click();
+  await expect(page.getByRole('button', { name: '追加 Correction' })).toBeDisabled();
+  await expect(page.getByText('请求 ID：req-correction-incomplete-submit')).toBeVisible();
+  expect(geoCorrectionApi.createRequests).toHaveLength(1);
+
+  geoCorrectionApi.setContextMode('success');
+  await page.getByRole('button', { name: '重新加载最新上下文' }).click();
+  await expect(page.getByRole('button', { name: '追加 Correction' })).toBeEnabled();
+  expect(geoCorrectionApi.createRequests).toHaveLength(1);
+});
+
+test('upload complete 悬停跨布局时阻止 POST，成功后仅提交新证据', async ({
+  page,
+  geoCorrectionApi,
+}) => {
+  geoCorrectionApi.setUploadMode('pending-complete');
+  await page.goto(canonicalCorrectionRoute);
+  await fillNewArticleFacts(page);
+  await showPanel(page, '新证据与原因');
+  await page.getByLabel('上传 GEO 证据截图').setInputFiles({
+    name: 'correction-proof.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from('evidence'),
+  });
+  await expect.poll(() => geoCorrectionApi.uploadRequests.filter((path) => path.endsWith('/complete')).length).toBe(1);
+  await expect(page.getByRole('button', { name: '追加 Correction' })).toBeDisabled();
+  expect(geoCorrectionApi.createRequests).toHaveLength(0);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  geoCorrectionApi.releaseUpload();
+  await expect(page.getByText('correction-proof.png')).toBeVisible();
+  await expect(page.getByRole('button', { name: '追加 Correction' })).toBeEnabled();
+  await page.getByRole('button', { name: '追加 Correction' }).click();
+  await expect(page).toHaveURL(createdDetailRoute);
+  expect(geoCorrectionApi.createRequests).toHaveLength(1);
+  expect(geoCorrectionApi.createRequests[0]!.body.attachment_file_ids).toEqual([pendingFile.id]);
+});
+
+test('空白草稿开始上传后，离开仍需确认', async ({ page, geoCorrectionApi }) => {
+  geoCorrectionApi.setUploadMode('pending-complete');
+  await page.goto(canonicalCorrectionRoute);
+  await showPanel(page, '新证据与原因');
+  await page.getByLabel('上传 GEO 证据截图').setInputFiles({
+    name: 'correction-proof.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from('evidence'),
+  });
+  await expect.poll(() => geoCorrectionApi.uploadRequests.filter((path) => path.endsWith('/complete')).length).toBe(1);
+  await page.getByRole('button', { name: '返回当前 Detail' }).click();
+  const dialog = page.getByRole('dialog', { name: '要离开当前页面吗？' });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: '继续编辑' }).click();
+  geoCorrectionApi.releaseUpload();
+  await expect(page.getByText('correction-proof.png')).toBeVisible();
+  expect(geoCorrectionApi.createRequests).toHaveLength(0);
+});
+
+test('后台读取撤销更正资格后冻结旧上下文与写入入口', async ({ page, geoCorrectionApi }) => {
+  await page.goto(canonicalCorrectionRoute);
+  await fillNewArticleFacts(page);
+  await showPanel(page, '新证据与原因');
+  await page.getByLabel('更正原因 / Notes').fill('后台失败时保留');
+  const requestCount = geoCorrectionApi.contextRequests.length;
+  geoCorrectionApi.setContextMode('forbidden');
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    window.dispatchEvent(new Event('visibilitychange'));
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    window.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect.poll(() => geoCorrectionApi.contextRequests.length).toBeGreaterThan(requestCount);
+  await expect(page.getByRole('button', { name: '追加 Correction' })).toBeDisabled();
+  await expect(page.getByLabel('更正原因 / Notes')).toHaveValue('后台失败时保留');
+  expect(geoCorrectionApi.createRequests).toHaveLength(0);
+});
+
 test('loading、404、403、Legacy 与提交时权限变化均明确且保留输入', async ({
   page,
   geoCorrectionApi,
@@ -214,17 +335,17 @@ test('loading、404、403、Legacy 与提交时权限变化均明确且保留输
   geoCorrectionApi.setContextMode('forbidden');
   geoCorrectionApi.releaseContext();
   await expect(page.getByRole('heading', {
-    name: '当前账号不能更正该 GEO Observation',
+    name: '当前账号不能更正该 GEO 观测',
   })).toBeVisible();
 
   geoCorrectionApi.setContextMode('not-found');
   await page.goto('/geo/observations/90000000-0000-4000-8000-000000000001/correct');
-  await expect(page.getByRole('heading', { name: '未找到可更正的 GEO Observation' }))
+  await expect(page.getByRole('heading', { name: '未找到可更正的 GEO 观测' }))
     .toBeVisible();
   geoCorrectionApi.setContextMode('success');
   await page.goto(`/geo/observations/${geoIds.legacy}/correct`);
   await expect(page.getByRole('heading', {
-    name: 'GEO Observation 当前不能进入更正工作台',
+    name: 'GEO 观测当前不能进入更正工作台',
   })).toBeVisible();
 
   await page.goto(canonicalCorrectionRoute);

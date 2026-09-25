@@ -100,6 +100,10 @@ test('按既定顺序展示 facts/content/publishing/GEO compact summary 与服�
   await expect(sections.locator('h2')).toHaveText([
     '摘要', '基本信息', '事实', '内容任务', '发布成果', 'GEO 摘要', '最近 Activity',
   ]);
+  await expect(page.getByText('下一步')).toBeVisible();
+  await expect(page.getByText('其他操作')).toBeVisible();
+  await expect(page.getByText('CREATE_CONTENT_TASK')).toHaveCount(0);
+  await expect(page.getByText('UPDATE', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('region', { name: '当前批准事实' })).toContainText('v3');
   await expect(page.getByRole('region', { name: '当前待审核或待修订事实' })).toContainText('v4');
   await expect(page.getByRole('heading', { name: '内容任务' }).locator('xpath=ancestor::section[1]')).toContainText('1');

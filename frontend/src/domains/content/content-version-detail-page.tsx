@@ -84,7 +84,7 @@ function ContentVersionDetailView({ detail }: { detail: ContentVersionDetail }) 
     <article aria-labelledby="content-version-title" className="min-w-0 space-y-4">
       <header className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 space-y-1">
-          <p className="type-label text-text-muted">Content Version v{content.version}</p>
+          <p className="type-label text-text-muted">内容版本 v{content.version}</p>
           <h1 className="break-words type-page-title" id="content-version-title">
             {content.title}
           </h1>
@@ -112,7 +112,7 @@ function ContentVersionDetailView({ detail }: { detail: ContentVersionDetail }) 
         </DetailSection>
 
         <DetailSection
-          description="Markdown 是该版本冻结时的 canonical 正文，只可阅读。"
+          description="Markdown 是该版本冻结时的正文，只可阅读。"
           title="正文 Markdown"
         >
           <div className="min-w-0 overflow-hidden rounded-lg border border-border-subtle">
@@ -130,18 +130,18 @@ function ContentVersionDetailView({ detail }: { detail: ContentVersionDetail }) 
             <Metadata label="来源" value={sourceLabels[content.source_type]} />
             <Metadata label="主线位置" value={content.is_current ? '当前版本' : '历史版本'} />
             <Metadata
-              label="对应 Fact Version"
+              label="对应事实版本"
               value={(
                 <a
                   className="font-medium text-link underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                   href={`/products/${encodeURIComponent(fact.product_id)}/facts/versions/${encodeURIComponent(fact.id)}`}
                 >
-                  FactVersion v{fact.version}
+                  事实版本 v{fact.version}
                 </a>
               )}
             />
             <Metadata
-              label="Fact 状态 / 数据级别"
+              label="事实状态 / 数据级别"
               value={`${factStatusLabels[fact.status]} · ${classificationLabels[fact.classification]}`}
             />
             <Metadata label="内容版本 ID" mono value={content.id} />
@@ -218,21 +218,21 @@ function LineageStepSnapshot({ label, step }: { label: string; step: LineageStep
     <section className="min-w-0 rounded-lg border border-border-subtle p-3">
       <h3 className="font-medium text-text-primary">{label}</h3>
       <dl className="mt-3 grid min-w-0 gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
-        <Metadata label="Job ID" mono value={step.job_id} />
-        <Metadata label="Job 类型" value={step.job_type} />
+        <Metadata label="作业 ID" mono value={step.job_id} />
+        <Metadata label="作业类型" value={step.job_type} />
         <Metadata label="合同版本" mono value={step.contract_version} />
-        <Metadata label="来源 Content Version" mono value={step.source_content_version_id ?? <EmptyValue />} />
+        <Metadata label="来源内容版本" mono value={step.source_content_version_id ?? <EmptyValue />} />
         <Metadata label="Prompt 类型" value={prompt.kind} />
         <Metadata label="Prompt 名称" value={prompt.name ?? '未记录'} />
         <Metadata label="Prompt ID" mono value={prompt.id ?? <EmptyValue />} />
-        <Metadata label="Prompt Revision" mono value={prompt.revision === null ? <EmptyValue /> : String(prompt.revision)} />
+        <Metadata label="Prompt 修订号" mono value={prompt.revision === null ? <EmptyValue /> : String(prompt.revision)} />
       </dl>
       <div className="mt-3 grid min-w-0 gap-3 lg:grid-cols-2">
-        <SnapshotDetails label="Channel snapshot" value={step.channel} />
-        <SnapshotDetails label="Model snapshot" value={step.model} />
-        <SnapshotDetails label="Prompt template" value={prompt.template_markdown ?? '未记录'} />
-        <SnapshotDetails label="System message" value={prompt.system_message} />
-        <SnapshotDetails className="lg:col-span-2" label="User message" value={prompt.user_message} />
+        <SnapshotDetails label="渠道快照" value={step.channel} />
+        <SnapshotDetails label="模型快照" value={step.model} />
+        <SnapshotDetails label="Prompt 模板" value={prompt.template_markdown ?? '未记录'} />
+        <SnapshotDetails label="系统消息" value={prompt.system_message} />
+        <SnapshotDetails className="lg:col-span-2" label="用户消息" value={prompt.user_message} />
       </div>
     </section>
   );
@@ -286,12 +286,12 @@ function reviewTimelineItems(records: ReviewRecord[]): TimelineItem[] {
 
 function ContentTaskLink({ taskId }: { taskId: string }) {
   return (
-    <nav aria-label="Content Version 返回导航" className="flex flex-wrap sm:justify-end">
+    <nav aria-label="内容版本返回导航" className="flex flex-wrap sm:justify-end">
       <a
         className="inline-flex min-h-11 items-center rounded-md border border-border-default px-3 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
         href={`/content/tasks/${encodeURIComponent(taskId)}`}
       >
-        返回所属 Content Task
+        返回所属内容任务
       </a>
     </nav>
   );
@@ -301,7 +301,7 @@ function ContentVersionDetailSkeleton({ versionId }: { versionId: string }) {
   return (
     <article aria-busy="true" aria-labelledby="content-version-loading-title" className="min-w-0 space-y-4">
       <header className="space-y-2">
-        <p className="type-label text-text-muted">Content Version 快照</p>
+        <p className="type-label text-text-muted">内容版本快照</p>
         <h1 className="type-page-title" id="content-version-loading-title">正在加载内容版本</h1>
         <p className="break-all font-mono text-sm text-text-secondary">{versionId}</p>
       </header>

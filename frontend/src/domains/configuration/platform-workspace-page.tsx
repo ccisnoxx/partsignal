@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { FormProvider, useForm, useWatch, type FieldPath } from 'react-hook-form';
 
 import { RowActions } from '@/design-system/data-table/row-actions';
@@ -118,7 +118,8 @@ function PlatformWorkspacePage({
 }: PlatformWorkspacePageProps) {
   const queryClient = useQueryClient();
   const detail = useQuery(platformDetailQueryOptions(platformId));
-  const [dirty, setDirty] = useState(false);
+  const [overviewDirty, setOverviewDirty] = useState(false);
+  const [generationDirty, setGenerationDirty] = useState(false);
   const [blockerTarget, setBlockerTarget] = useState<HTMLElement | null>();
   const [enableTarget, setEnableTarget] = useState<HTMLElement | null>();
 
@@ -181,6 +182,12 @@ function PlatformWorkspacePage({
   if (detail.isPending) return <PlatformWorkspaceSkeleton platformId={platformId} />;
   if (!detail.data) {
     return <PlatformWorkspaceFailure error={detail.error} onRetry={() => void detail.refetch()} />;
+  }
+
+  async function reloadDetail() {
+    const result = await detail.refetch();
+    if (!result.isSuccess) throw result.error;
+    return result.data;
   }
 
   const profile = detail.data.profile;
@@ -253,13 +260,15 @@ function PlatformWorkspacePage({
           <TabsTrigger value="generation">生成配置</TabsTrigger>
         </TabsList>
         <TabsContent className="pt-3" value="overview">
-          <PlatformOverviewSection
+          {tab === 'overview' && <PlatformOverviewSection
+            key={platformId}
+            readBlocked={detail.isError || detail.isFetching}
             csrfToken={csrfToken}
             detail={detail.data}
-            onDirtyChange={setDirty}
-            onReload={async () => (await detail.refetch()).data}
+            onDirtyChange={setOverviewDirty}
+            onReload={reloadDetail}
             onUpdated={(canonical) => invalidatePlatform('identity', canonical)}
-          />
+          />}
         </TabsContent>
         <TabsContent className="pt-3" value="accounts">
           <PlatformAccountsSection
@@ -270,18 +279,20 @@ function PlatformWorkspacePage({
           />
         </TabsContent>
         <TabsContent className="pt-3" value="generation">
-          <PlatformGenerationSection
+          {tab === 'generation' && <PlatformGenerationSection
+            key={platformId}
+            readBlocked={detail.isError || detail.isFetching}
             active={tab === 'generation'}
             csrfToken={csrfToken}
             detail={detail.data}
-            onDirtyChange={setDirty}
-            onReload={async () => (await detail.refetch()).data}
+            onDirtyChange={setGenerationDirty}
+            onReload={reloadDetail}
             onUpdated={(canonical) => invalidatePlatform('generation', canonical)}
-          />
+          />}
         </TabsContent>
       </Tabs>
 
-      <DirtyGuard when={dirty} />
+      <DirtyGuard when={tab === 'overview' ? overviewDirty : tab === 'generation' && generationDirty} />
       <DeletionBlockersDialog
         finalFocus={blockerTarget ?? null}
         onClose={() => setBlockerTarget(undefined)}
@@ -371,14 +382,28 @@ function PlatformOverviewSection({
   onDirtyChange,
   onReload,
   onUpdated,
+  readBlocked,
 }: {
   csrfToken: string | null;
   detail: PlatformProfileDetail;
+  readBlocked: boolean;
   onDirtyChange: (dirty: boolean) => void;
-  onReload: () => Promise<PlatformProfileDetail | undefined>;
+  onReload: () => Promise<PlatformProfileDetail>;
   onUpdated: (profile: PlatformProfile) => Promise<void>;
 }) {
+  // 草稿与完整 PATCH 的隐藏字段共同绑定此 revision，后台刷新不能单独推进它。
+  const baseline = useRef(detail.profile);
+  const submitting = useRef(false);
+  const [reloadError, setReloadError] = useState<unknown>();
+  const [reloading, setReloading] = useState(false);
   const canUpdate = detail.profile.available_actions.includes('UPDATE');
+  const [logoBusy, setLogoBusy] = useState(false);
+  const logoBusyRef = useRef(false);
+  const [logoSession, setLogoSession] = useState(0);
+  const onLogoBusy = useCallback((busy: boolean) => {
+    logoBusyRef.current = busy;
+    setLogoBusy(busy);
+  }, []);
   const [logo, setLogo] = useState<PlatformLogoChange>();
   const [logoPreview, setLogoPreview] = useState<string>();
   const [candidate, setCandidate] = useState<PlatformLogoCandidate>();
@@ -389,36 +414,64 @@ function PlatformOverviewSection({
   const update = useMutation({
     mutationFn: (values: PlatformOverviewFormValues) => updatePlatformProfile(
       detail.profile.id,
-      toPlatformOverviewUpdate(values, detail.profile, logo),
+      toPlatformOverviewUpdate(values, baseline.current, logo),
       csrfToken,
     ),
   });
   const websiteUrl = useWatch({ control: form.control, name: 'websiteUrl' });
-  const dirty = form.formState.isDirty || logo !== undefined;
+  const dirty = form.formState.isDirty || logo !== undefined || logoBusy || candidate !== undefined;
 
-  useEffect(() => onDirtyChange(dirty), [dirty, onDirtyChange]);
   useEffect(() => {
-    if (!dirty) form.reset(platformToOverviewValues(detail.profile));
-  }, [detail.profile, dirty, form]);
+    onDirtyChange(dirty);
+    return () => onDirtyChange(false);
+  }, [dirty, onDirtyChange]);
+  const conflict = update.error instanceof PlatformRequestError && update.error.status === 409;
+  useEffect(() => {
+    if (!dirty && !conflict && !readBlocked && !submitting.current) {
+      baseline.current = detail.profile;
+      form.reset(platformToOverviewValues(detail.profile));
+    }
+  }, [detail.profile, dirty, conflict, readBlocked, form]);
   useEffect(() => () => {
     if (logoPreview?.startsWith('blob:')) URL.revokeObjectURL(logoPreview);
   }, [logoPreview]);
 
-  function reset(profile = detail.profile) {
+  function reset(profile = baseline.current, clearError = false) {
+    baseline.current = profile;
     form.reset(platformToOverviewValues(profile));
+    setLogoSession((session) => session + 1);
+    onLogoBusy(false);
     setLogo(undefined);
     setLogoPreview(undefined);
     setCandidate(undefined);
-    update.reset();
+    if (clearError) { update.reset(); setReloadError(undefined); }
+  }
+
+  async function reload() {
+    if (reloading) return;
+    setReloading(true);
+    try {
+      const fresh = await onReload();
+      reset(fresh.profile, true);
+    } catch (reason) {
+      setReloadError(reason);
+    } finally {
+      setReloading(false);
+    }
   }
 
   async function submit(values: PlatformOverviewFormValues) {
+    if (submitting.current || readBlocked || conflict || reloading || !canUpdate || logoBusyRef.current || candidate) return;
+    submitting.current = true;
     try {
       const canonical = await update.mutateAsync(values);
-      reset(canonical);
-      await onUpdated(canonical);
+      reset(canonical, true);
+      // PATCH 已成功；消费者刷新不能延长命令锁，刷新失败单独展示。
+      void onUpdated(canonical).catch(setReloadError);
     } catch {
       // mutation.error 统一展示；revision 冲突必须保留当前表单和 Logo 选择。
+    } finally {
+      submitting.current = false;
     }
   }
 
@@ -429,13 +482,13 @@ function PlatformOverviewSection({
   return (
     <div className="overflow-hidden rounded-xl border border-border-subtle bg-surface-panel">
       <FormProvider {...form}>
-        <form className="space-y-0" noValidate onSubmit={form.handleSubmit(submit)}>
+        <form className="space-y-0" noValidate onSubmit={(event) => void form.handleSubmit(submit)(event)}>
           <DetailSection title="平台身份" description="Slug 创建后保持只读；名称、类型和官网由服务端合同更新。">
-            <ErrorSummary errors={update.error ? [{ id: 'server', message: errorMessage(update.error) }] : []} />
-            {isPlatformRevisionConflict(update.error) && (
+            <ErrorSummary errors={[...(update.error ? [{ id: 'server', message: errorMessage(update.error) }] : []), ...(reloadError ? [{ id: 'reload', message: errorMessage(reloadError) }] : [])]} />
+            {conflict && (
               <div className="mb-4">
                 <Button
-                  onClick={() => void onReload().then((fresh) => fresh && reset(fresh.profile))}
+                  disabled={reloading} onClick={() => void reload()}
                   type="button"
                   variant="outline"
                 >
@@ -450,7 +503,7 @@ function PlatformOverviewSection({
                 name="name"
                 required
                 render={(context) => (
-                  <Input {...context.field} aria-describedby={context['aria-describedby']} aria-invalid={context['aria-invalid']} disabled={update.isPending} id={context.inputId} maxLength={160} />
+                  <Input {...context.field} aria-describedby={context['aria-describedby']} aria-invalid={context['aria-invalid']} disabled={update.isPending || reloading} id={context.inputId} maxLength={160} />
                 )}
               />
               <div className="space-y-1.5">
@@ -464,7 +517,7 @@ function PlatformOverviewSection({
                 name="platformTypeId"
                 required
                 render={(context) => (
-                  <Select items={detail.platform_type_options.map((item) => ({ label: item.name, value: item.id }))} onValueChange={(value) => value && context.field.onChange(value)} value={context.field.value}>
+                  <Select disabled={update.isPending || reloading} items={detail.platform_type_options.map((item) => ({ label: item.name, value: item.id }))} onValueChange={(value) => value && context.field.onChange(value)} value={context.field.value}>
                     <SelectTrigger aria-describedby={context['aria-describedby']} aria-invalid={context['aria-invalid']} id={context.inputId}><SelectValue placeholder="请选择平台类型" /></SelectTrigger>
                     <SelectContent>{detail.platform_type_options.map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectContent>
                   </Select>
@@ -475,7 +528,7 @@ function PlatformOverviewSection({
                 label="Website URL"
                 name="websiteUrl"
                 render={(context) => (
-                  <Input {...context.field} aria-describedby={context['aria-describedby']} aria-invalid={context['aria-invalid']} disabled={update.isPending} id={context.inputId} inputMode="url" placeholder="https://example.com" />
+                  <Input {...context.field} aria-describedby={context['aria-describedby']} aria-invalid={context['aria-invalid']} disabled={update.isPending || reloading} id={context.inputId} inputMode="url" placeholder="https://example.com" />
                 )}
               />
               <FormField<PlatformOverviewFormValues, 'allowedDomains'>
@@ -486,7 +539,7 @@ function PlatformOverviewSection({
                 name="allowedDomains"
                 required
                 render={(context) => (
-                  <Textarea {...context.field} aria-describedby={context['aria-describedby']} aria-invalid={context['aria-invalid']} disabled={update.isPending} id={context.inputId} rows={4} />
+                  <Textarea {...context.field} aria-describedby={context['aria-describedby']} aria-invalid={context['aria-invalid']} disabled={update.isPending || reloading} id={context.inputId} rows={4} />
                 )}
               />
             </div>
@@ -494,9 +547,11 @@ function PlatformOverviewSection({
 
           <DetailSection title="Logo" description="仅绑定已校验的 PLATFORM_LOGO 文件；替换和移除由服务端文件生命周期处理。">
             <PlatformLogoField
+              key={logoSession}
+              onBusyChange={onLogoBusy}
               candidate={candidate}
               csrfToken={csrfToken}
-              disabled={update.isPending}
+              disabled={update.isPending || reloading}
               logo={logo}
               onCandidate={setCandidate}
               onChange={(nextLogo, preview) => {
@@ -515,7 +570,7 @@ function PlatformOverviewSection({
 
           <FormActions className="border-t border-border-subtle p-4">
             <Button disabled={update.isPending || !dirty} onClick={() => reset()} type="button" variant="outline">取消</Button>
-            <Button disabled={update.isPending || !dirty} type="submit">{update.isPending ? '保存中…' : '保存概览'}</Button>
+            <Button disabled={update.isPending || readBlocked || conflict || reloading || !dirty || logoBusy || !!candidate || !(form.formState.isDirty || logo !== undefined)} type="submit">{update.isPending ? '保存中…' : '保存概览'}</Button>
           </FormActions>
         </form>
       </FormProvider>
@@ -547,6 +602,7 @@ function PlatformLogoField({
   csrfToken,
   disabled,
   logo,
+  onBusyChange,
   onCandidate,
   onChange,
   preview,
@@ -557,12 +613,18 @@ function PlatformLogoField({
   csrfToken: string | null;
   disabled: boolean;
   logo: PlatformLogoChange;
+  onBusyChange: (busy: boolean) => void;
   onCandidate: (candidate?: PlatformLogoCandidate) => void;
   onChange: (logo: PlatformLogoChange, preview?: string) => void;
   preview?: string;
   profile: PlatformProfile;
   websiteUrl: string;
 }) {
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
   const [phase, setPhase] = useState<'idle' | 'uploading' | 'candidate'>('idle');
   const [error, setError] = useState<string>();
 
@@ -573,6 +635,7 @@ function PlatformLogoField({
     if (file.size > maximumPlatformLogoBytes) {
       throw new Error('Logo 不能超过 2 MiB');
     }
+    onBusyChange(true);
     setPhase('uploading');
     setError(undefined);
     const intent = await createPlatformLogoUploadIntent({
@@ -594,9 +657,11 @@ function PlatformLogoField({
       }
       throw reason;
     }
+    if (!mounted.current) return;
     onCandidate(undefined);
     onChange({ source: 'UPLOAD', file_id: intent.file.id }, URL.createObjectURL(file));
     setPhase('idle');
+    onBusyChange(false);
   }
 
   async function importCandidate() {
@@ -604,14 +669,16 @@ function PlatformLogoField({
       setError('请先填写有效的 Website URL');
       return;
     }
+    onBusyChange(true);
     setPhase('candidate');
     setError(undefined);
     try {
-      onCandidate(await createPlatformLogoCandidate(websiteUrl.trim(), csrfToken));
+      const nextCandidate = await createPlatformLogoCandidate(websiteUrl.trim(), csrfToken);
+      if (mounted.current) onCandidate(nextCandidate);
     } catch (reason) {
-      setError(errorMessage(reason));
+      if (mounted.current) setError(errorMessage(reason));
     } finally {
-      setPhase('idle');
+      if (mounted.current) { setPhase('idle'); onBusyChange(false); }
     }
   }
 
@@ -632,6 +699,8 @@ function PlatformLogoField({
             event.currentTarget.value = '';
             if (!file) return;
             void upload(file).catch((reason: unknown) => {
+              if (!mounted.current) return;
+              onBusyChange(false);
               setPhase('idle');
               setError(errorMessage(reason));
             });
@@ -643,7 +712,7 @@ function PlatformLogoField({
             {phase === 'candidate' ? '正在导入…' : '从官网导入候选'}
           </Button>
           {(profile.logo || logo !== undefined) && logo !== null && (
-            <Button disabled={disabled} onClick={() => { onCandidate(undefined); onChange(null); }} size="sm" type="button" variant="outline">移除 Logo</Button>
+            <Button disabled={disabled || phase !== 'idle'} onClick={() => { onCandidate(undefined); onChange(null); }} size="sm" type="button" variant="outline">移除 Logo</Button>
           )}
         </div>
         {phase === 'uploading' && <p aria-live="polite" className="text-sm text-text-secondary">正在上传并校验 Logo…</p>}
@@ -654,8 +723,8 @@ function PlatformLogoField({
             <div className="space-y-2">
               <p className="text-sm text-text-secondary">候选已存入自有存储，确认后才会写入平台。</p>
               <div className="flex gap-2">
-                <Button onClick={() => { onChange({ source: 'UPLOAD', file_id: candidate.file_id }, candidate.preview.url); onCandidate(undefined); }} size="sm" type="button">使用此候选</Button>
-                <Button onClick={() => onCandidate(undefined)} size="sm" type="button" variant="outline">放弃候选</Button>
+                <Button disabled={disabled || phase !== 'idle'} onClick={() => { onChange({ source: 'UPLOAD', file_id: candidate.file_id }, candidate.preview.url); onCandidate(undefined); }} size="sm" type="button">使用此候选</Button>
+                <Button disabled={disabled || phase !== 'idle'} onClick={() => onCandidate(undefined)} size="sm" type="button" variant="outline">放弃候选</Button>
               </div>
             </div>
           </div>
@@ -699,6 +768,8 @@ function PlatformAccountsSection({
   const [editor, setEditor] = useState<AccountEditorTarget>();
   const [commandTarget, setCommandTarget] = useState<AccountCommandTarget>();
   const [deletionIntent, setDeletionIntent] = useState<AccountDeletionIntent>();
+  const [deletionHoldIds, setDeletionHoldIds] = useState<Set<string>>(() => new Set());
+  const [accountRefreshError, setAccountRefreshError] = useState<unknown>();
 
   async function invalidateAccount(kind: PlatformAccountMutationKind) {
     await Promise.all([
@@ -746,6 +817,12 @@ function PlatformAccountsSection({
   }
 
   const items = accounts.data?.items ?? [];
+
+  function acceptDeleted(accountId: string) {
+    setDeletionHoldIds((current) => { const next = new Set(current); next.delete(accountId); return next; });
+    setDeletionIntent(undefined);
+    void invalidateAccount('delete').catch((error: unknown) => setAccountRefreshError(error));
+  }
   useEffect(() => {
     if (!active) {
       // Accounts Tab 卸载/隐藏后不保留删除意图，避免回到旧 query 时自动重开。
@@ -758,6 +835,7 @@ function PlatformAccountsSection({
       // Accounts 当前活动 query 已确认目标消失，删除意图必须随 scope 清理。
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setDeletionIntent(undefined);
+      setDeletionHoldIds((current) => { const next = new Set(current); next.delete(deletionIntent.id); return next; });
     }
   }, [accounts.data, deletionIntent]);
   return (
@@ -775,6 +853,7 @@ function PlatformAccountsSection({
           创建发布账号
         </Button>
       </div>
+      {Boolean(accountRefreshError) && <Notice actionLabel="重试刷新" message={`删除已接受，但账号列表刷新失败：${String(errorMessage(accountRefreshError))}`} onAction={() => { setAccountRefreshError(undefined); void accounts.refetch().catch((error: unknown) => setAccountRefreshError(error)); }} />}
       {accounts.isPending ? (
         <div aria-busy="true" className="space-y-3"><Skeleton className="h-12" /><Skeleton className="h-12" /></div>
       ) : accounts.error ? (
@@ -857,13 +936,14 @@ function PlatformAccountsSection({
         intent={deletionIntent}
         key={deletionIntent?.id ?? 'none'}
         onClose={() => setDeletionIntent(undefined)}
-        onDeleted={async () => {
-          await invalidateAccount('delete');
-          setDeletionIntent(undefined);
-        }}
+        onConflict={(id) => setDeletionHoldIds((current) => new Set(current).add(id))}
+        conflictHeld={deletionHoldIds.has(deletionIntent?.id ?? '')}
+        onDeleted={acceptDeleted}
         onReload={async () => {
           if (!deletionIntent) return;
-          const fresh = await reloadAccount(deletionIntent.id);
+          const id = deletionIntent.id;
+          const fresh = await reloadAccount(id);
+          setDeletionHoldIds((current) => { const next = new Set(current); next.delete(id); return next; });
           if (!fresh) {
             setDeletionIntent(undefined);
             return;
@@ -1116,9 +1196,11 @@ function PlatformAccountCommandDialog({
 
 function PlatformAccountDeletionDialog({
   accounts,
+  conflictHeld,
   csrfToken,
   intent,
   onClose,
+  onConflict,
   onDeleted,
   onReload,
   platformId,
@@ -1127,10 +1209,12 @@ function PlatformAccountDeletionDialog({
   queryFetching,
 }: {
   accounts?: components['schemas']['PlatformAccountList'];
+  conflictHeld: boolean;
   csrfToken: string | null;
   intent?: AccountDeletionIntent;
   onClose: () => void;
-  onDeleted: () => Promise<void>;
+  onConflict: (id: string) => void;
+  onDeleted: (id: string) => void;
   onReload: () => Promise<PlatformAccount | undefined>;
   platformId: string;
   queryClient: ReturnType<typeof useQueryClient>;
@@ -1147,7 +1231,7 @@ function PlatformAccountDeletionDialog({
   if (!current) return null;
   const blockers = current.deletion?.blockers ?? [];
   const hasDeleteProjection = current.deletion !== null && current.available_actions.includes('DELETE');
-  const conflict = remove.error instanceof PlatformRequestError && remove.error.status === 409;
+  const conflict = conflictHeld || (remove.error instanceof PlatformRequestError && remove.error.status === 409);
   const stale = Boolean(queryError);
   const canDelete = !queryFetching
     && !stale
@@ -1167,8 +1251,9 @@ function PlatformAccountDeletionDialog({
     if (latest.deletion === null || !latest.available_actions.includes('DELETE') || latest.deletion.blockers.length > 0) return;
     try {
       await remove.mutateAsync({ id: latest.id, expectedRevision: latest.revision });
-      await onDeleted();
-    } catch {
+      onDeleted(activeIntent.id);
+    } catch (error) {
+      if (error instanceof PlatformRequestError && error.status === 409) onConflict(activeIntent.id);
       // 删除冲突保留在当前 Dialog，必须由用户显式重新加载后才能再次确认。
     }
   }
@@ -1233,14 +1318,21 @@ function PlatformGenerationSection({
   onDirtyChange,
   onReload,
   onUpdated,
+  readBlocked,
 }: {
   active: boolean;
   csrfToken: string | null;
   detail: PlatformProfileDetail;
+  readBlocked: boolean;
   onDirtyChange: (dirty: boolean) => void;
-  onReload: () => Promise<PlatformProfileDetail | undefined>;
+  onReload: () => Promise<PlatformProfileDetail>;
   onUpdated: (profile: PlatformProfile) => Promise<void>;
 }) {
+  // 草稿与完整 PATCH 的隐藏字段共同绑定此 revision，后台刷新不能单独推进它。
+  const baseline = useRef(detail.profile);
+  const submitting = useRef(false);
+  const [reloadError, setReloadError] = useState<unknown>();
+  const [reloading, setReloading] = useState(false);
   const canUpdate = detail.profile.available_actions.includes('UPDATE');
   const prompts = useQuery(platformPromptListQueryOptions(active && canUpdate));
   const form = useForm<PlatformGenerationFormValues>({
@@ -1250,28 +1342,54 @@ function PlatformGenerationSection({
   const update = useMutation({
     mutationFn: (values: PlatformGenerationFormValues) => updatePlatformProfile(
       detail.profile.id,
-      toPlatformGenerationUpdate(values, detail.profile),
+      toPlatformGenerationUpdate(values, baseline.current),
       csrfToken,
     ),
   });
   const dirty = form.formState.isDirty;
-  useEffect(() => onDirtyChange(dirty), [dirty, onDirtyChange]);
   useEffect(() => {
-    if (!dirty) form.reset(platformToGenerationValues(detail.profile));
-  }, [detail.profile, dirty, form]);
+    onDirtyChange(dirty);
+    return () => onDirtyChange(false);
+  }, [dirty, onDirtyChange]);
+  const conflict = update.error instanceof PlatformRequestError && update.error.status === 409;
+  useEffect(() => {
+    if (!dirty && !conflict && !readBlocked && !submitting.current) {
+      baseline.current = detail.profile;
+      form.reset(platformToGenerationValues(detail.profile));
+    }
+  }, [detail.profile, dirty, conflict, readBlocked, form]);
 
-  function reset(profile = detail.profile) {
+  function reset(profile = baseline.current, clearError = false) {
+    baseline.current = profile;
     form.reset(platformToGenerationValues(profile));
-    update.reset();
+    if (clearError) { update.reset(); setReloadError(undefined); }
+  }
+
+  async function reload() {
+    if (reloading) return;
+    setReloading(true);
+    try {
+      const fresh = await onReload();
+      reset(fresh.profile, true);
+    } catch (reason) {
+      setReloadError(reason);
+    } finally {
+      setReloading(false);
+    }
   }
 
   async function submit(values: PlatformGenerationFormValues) {
+    if (submitting.current || readBlocked || conflict || reloading || !canUpdate || prompts.isError || prompts.isFetching) return;
+    submitting.current = true;
     try {
       const canonical = await update.mutateAsync(values);
-      reset(canonical);
-      await onUpdated(canonical);
+      reset(canonical, true);
+      // PATCH 已成功；消费者刷新不能延长命令锁，刷新失败单独展示。
+      void onUpdated(canonical).catch(setReloadError);
     } catch {
       // 409 与其他服务端错误均保留用户选择，由错误区提供显式恢复动作。
+    } finally {
+      submitting.current = false;
     }
   }
 
@@ -1293,10 +1411,10 @@ function PlatformGenerationSection({
         <div className="mt-4"><Notice actionLabel="重试" message={errorMessage(prompts.error)} onAction={() => void prompts.refetch()} /></div>
       ) : (
         <FormProvider {...form}>
-          <form className="mt-4 space-y-4" noValidate onSubmit={form.handleSubmit(submit)}>
-            <ErrorSummary errors={update.error ? [{ id: 'server', message: errorMessage(update.error) }] : []} />
-            {isPlatformRevisionConflict(update.error) && (
-              <Button onClick={() => void onReload().then((fresh) => fresh && reset(fresh.profile))} type="button" variant="outline">重新加载服务端版本</Button>
+          <form className="mt-4 space-y-4" noValidate onSubmit={(event) => void form.handleSubmit(submit)(event)}>
+            <ErrorSummary errors={[...(update.error ? [{ id: 'server', message: errorMessage(update.error) }] : []), ...(reloadError ? [{ id: 'reload', message: errorMessage(reloadError) }] : [])]} />
+            {conflict && (
+              <Button disabled={reloading} onClick={() => void reload()} type="button" variant="outline">重新加载服务端版本</Button>
             )}
             <FormField<PlatformGenerationFormValues, 'promptId'>
               description="解除绑定会使平台缺少生成配置，并立即影响 readiness。"
@@ -1304,7 +1422,7 @@ function PlatformGenerationSection({
               label="绑定 Prompt"
               name="promptId"
               render={(context) => (
-                <Select items={[{ label: '不绑定 Prompt', value: 'NONE' }, ...(prompts.data?.items ?? []).map((prompt) => ({ label: `${prompt.name} · r${prompt.revision}`, value: prompt.id }))]} onValueChange={(value) => value && context.field.onChange(value)} value={context.field.value}>
+                <Select disabled={update.isPending || reloading} items={[{ label: '不绑定 Prompt', value: 'NONE' }, ...(prompts.data?.items ?? []).map((prompt) => ({ label: `${prompt.name} · r${prompt.revision}`, value: prompt.id }))]} onValueChange={(value) => value && context.field.onChange(value)} value={context.field.value}>
                   <SelectTrigger aria-describedby={context['aria-describedby']} aria-invalid={context['aria-invalid']} id={context.inputId}><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="NONE">不绑定 Prompt</SelectItem>
@@ -1315,7 +1433,7 @@ function PlatformGenerationSection({
             />
             <FormActions>
               <Button disabled={update.isPending || !dirty} onClick={() => reset()} type="button" variant="outline">取消</Button>
-              <Button disabled={update.isPending || !dirty} type="submit">{update.isPending ? '保存中…' : '保存生成配置'}</Button>
+              <Button disabled={update.isPending || readBlocked || conflict || reloading || !dirty} type="submit">{update.isPending ? '保存中…' : '保存生成配置'}</Button>
             </FormActions>
           </form>
         </FormProvider>

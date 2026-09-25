@@ -4,7 +4,7 @@ import { useRef, useState } from 'react';
 
 import { AuditDetailContent, OutcomeBadge, actorLabel, formatTime } from '@/domains/audit/audit-detail-content';
 import { auditDetailQueryOptions } from '@/domains/audit/audit.api';
-import { auditActionLabel, auditOutcomeLabels } from '@/domains/audit/audit.model';
+import { auditOutcomeLabels, projectAuditActionLabel } from '@/domains/audit/audit.model';
 import { TablePagination } from '@/design-system/data-table/table-pagination';
 import { TableShell } from '@/design-system/data-table/table-shell';
 import { Button } from '@/design-system/primitives/button';
@@ -147,30 +147,14 @@ function LogsSection({ channelId, onSearchChange, search }: AIChannelRuntimeSect
                 <thead><tr><th data-column-role="primary" scope="col">动作</th><th className="hidden md:table-cell" data-column-role="metadata" scope="col">时间</th><th className="hidden lg:table-cell" data-column-role="metadata" scope="col">操作者</th><th className="hidden md:table-cell" data-column-role="status" scope="col">结果</th><th data-column-role="actions" scope="col">操作</th></tr></thead>
                 <tbody>
                   {logs.data.items.map((log) => (
-                    <tr key={log.id}>
-                      <td className="min-w-56" data-column-role="primary">
-                        <strong className="block">{auditActionLabel(log.action)}</strong>
-                        <code className="mt-1 block break-all text-xs text-text-muted">{log.request_id}</code>
-                        <div className="mt-2 space-y-1 text-xs text-text-secondary md:hidden">
-                          <p>{formatTime(log.created_at)}</p>
-                          <p>{actorLabel(log)} · {auditOutcomeLabels[log.outcome]}</p>
-                        </div>
-                      </td>
-                      <td className="hidden whitespace-nowrap md:table-cell" data-column-role="metadata"><time dateTime={log.created_at}>{formatTime(log.created_at)}</time></td>
-                      <td className="hidden min-w-36 lg:table-cell" data-column-role="metadata"><span className="block">{log.actor?.display_name ?? '用户已删除/未记录'}</span><span className="text-xs text-text-muted">{log.actor?.account_type ?? '未记录'}</span></td>
-                      <td className="hidden md:table-cell" data-column-role="status"><OutcomeBadge outcome={log.outcome} /></td>
-                      <td data-column-role="actions">
-                        <Button
-                          onClick={(event) => {
-                            finalFocus.current = event.currentTarget;
-                            setTarget(log);
-                          }}
-                          size="sm"
-                          type="button"
-                          variant="outline"
-                        >查看详情</Button>
-                      </td>
-                    </tr>
+                    <RuntimeAuditRow
+                      key={log.id}
+                      log={log}
+                      onOpen={(target, trigger) => {
+                        finalFocus.current = trigger;
+                        setTarget(target);
+                      }}
+                    />
                   ))}
                 </tbody>
               </TableShell>
@@ -195,6 +179,39 @@ function LogsSection({ channelId, onSearchChange, search }: AIChannelRuntimeSect
   );
 }
 
+function RuntimeAuditRow({ log, onOpen }: {
+  log: AuditLog;
+  onOpen: (log: AuditLog, trigger: HTMLElement) => void;
+}) {
+  const action = projectAuditActionLabel(log.action);
+  const isProjected = action.status === 'projected';
+  return (
+    <tr aria-label={isProjected ? undefined : '渠道操作日志动作无法安全投影'}>
+      <td className="min-w-56" data-column-role="primary">
+        <strong className="block">{isProjected ? action.label : <span role="status">无法安全投影</span>}</strong>
+        <code className="mt-1 block break-all text-xs text-text-muted">{log.request_id}</code>
+        <div className="mt-2 space-y-1 text-xs text-text-secondary md:hidden">
+          <p>{formatTime(log.created_at)}</p>
+          <p>{actorLabel(log)} · {auditOutcomeLabels[log.outcome]}</p>
+        </div>
+      </td>
+      <td className="hidden whitespace-nowrap md:table-cell" data-column-role="metadata"><time dateTime={log.created_at}>{formatTime(log.created_at)}</time></td>
+      <td className="hidden min-w-36 lg:table-cell" data-column-role="metadata"><span className="block">{log.actor?.display_name ?? '用户已删除/未记录'}</span><span className="text-xs text-text-muted">{log.actor?.account_type ?? '未记录'}</span></td>
+      <td className="hidden md:table-cell" data-column-role="status"><OutcomeBadge outcome={log.outcome} /></td>
+      <td data-column-role="actions">
+        {isProjected ? (
+          <Button
+            onClick={(event) => onOpen(log, event.currentTarget)}
+            size="sm"
+            type="button"
+            variant="outline"
+          >查看详情</Button>
+        ) : <span className="text-xs text-text-muted">详情不可用</span>}
+      </td>
+    </tr>
+  );
+}
+
 function AuditDetailSheet({ finalFocus, onClose, target }: {
   finalFocus: { current: HTMLElement | null };
   onClose: () => void;
@@ -214,7 +231,14 @@ function AuditDetailSheet({ finalFocus, onClose, target }: {
         <div className="space-y-5 px-4 pb-6">
           {detail.isPending ? <RuntimeSkeleton label="正在加载日志详情" /> : !detail.data ? (
             <RuntimeNotice message={errorMessage(detail.error)} onRetry={() => void detail.refetch()} />
-          ) : <AuditDetailContent detail={detail.data} />}
+          ) : (
+            <div className="space-y-5">
+              {detail.error && (
+                <RuntimeNotice message={`日志详情刷新失败：${errorMessage(detail.error)}`} onRetry={() => void detail.refetch()} />
+              )}
+              <AuditDetailContent detail={detail.data} />
+            </div>
+          )}
         </div>
       </SheetContent>
     </Sheet>

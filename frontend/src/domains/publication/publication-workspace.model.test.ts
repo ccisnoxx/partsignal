@@ -8,6 +8,9 @@ import {
   publicationVerificationPayload,
   publicationWorkspaceActions,
   publicationWorkspaceSections,
+  preparationFormSchema,
+  platformReviewFormSchema,
+  resultFormSchema,
 } from './publication-workspace.model';
 
 describe('Publication workspace model', () => {
@@ -52,5 +55,16 @@ describe('Publication workspace model', () => {
       .toEqual({
         outcome: 'FAILED', content_matches: false, expected_revision: 8, comment: '正文不一致',
       });
+  });
+
+  it('三个写入命令的备注须与服务端 NonblankText 合同一致', () => {
+    expect(preparationFormSchema.safeParse({ platformAccountId: 'account-1', comment: '  ' }).success).toBe(false);
+    expect(platformReviewFormSchema.safeParse({ comment: '' }).success).toBe(false);
+    expect(resultFormSchema.safeParse({
+      actualTitle: '实际标题',
+      finalUrl: 'https://community.example.com/article',
+      publishedAt: '2026-08-11T11:00',
+      comment: '   ',
+    }).success).toBe(false);
   });
 });

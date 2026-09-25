@@ -1,0 +1,6 @@
+{"file":".trellis/spec/frontend/directory-structure.md","reason":"核对唯一 canonical frontend 与源码目录恢复边界"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"核对 canonical build/test 入口与维护文件必要性"}
+{"file":".trellis/spec/infra/ci-execution.md","reason":"核对 CI 统一 Make owner 引用的 staged 文件完整性"}
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"核对 lifecycle、secret harness、缓存与临时产物排除边界"}
+{"file":".trellis/tasks/09-25-frontend-i03-1-canonical-reference-audit/research/canonical-source-integration-audit.md","reason":"复用 21 个非任务未跟踪维护文件的 owner、入口和必要性审计"}
+{"file":".trellis/tasks/09-25-frontend-i03-3-candidate-atomic-assembly/research/candidate-assembly-manifest.md","reason":"精确 staging 分类、排除项与 Git 恢复点记录"}

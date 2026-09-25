@@ -50,11 +50,11 @@ const geoKeys = {
   ),
   details: () => ['geo', 'observations', 'detail'] as const,
   detail: (observationId: string) => (
-    ['geo', 'observations', 'detail', observationId] as const
+    ['geo', 'observations', 'detail', observationId.toLowerCase()] as const
   ),
   correctionContexts: () => ['geo', 'observations', 'correction-context'] as const,
   correctionContext: (observationId: string) => (
-    ['geo', 'observations', 'correction-context', observationId] as const
+    ['geo', 'observations', 'correction-context', observationId.toLowerCase()] as const
   ),
   topics: () => ['geo', 'query-topics'] as const,
   topicOptions: () => ['geo', 'query-topics', 'options'] as const,

@@ -23,6 +23,7 @@ type PlatformsApiController = {
   removePlatform: (platformId: string) => void;
   setProjection: (platformId: string, changes: Partial<PlatformProfile>) => void;
   conflictNextDelete: () => void;
+  failNextList: () => void;
 };
 
 type PlatformFixtures = { platformsApi: PlatformsApiController };
@@ -148,6 +149,7 @@ const test = base.extend<PlatformFixtures>({
     const runtimeErrors: string[] = [];
     const allowedHttpErrors: number[] = [];
     let nextDeleteConflict = false;
+    let nextListFailure = false;
 
     page.on('console', (message) => {
       if (message.type() !== 'error') return;
@@ -187,6 +189,11 @@ const test = base.extend<PlatformFixtures>({
       }
       if (request.method() === 'GET' && url.pathname === '/api/v1/platform-profiles') {
         listRequests.push(url);
+        if (nextListFailure) {
+          nextListFailure = false;
+          await route.fulfill({ status: 503, json: { error: { code: 'PLATFORMS_UNAVAILABLE', message: '列表暂不可用', details: {}, request_id: 'req-platform-list-refresh' } } });
+          return;
+        }
         await route.fulfill({ status: 200, json: listPlatforms(items, url) });
         return;
       }
@@ -256,6 +263,10 @@ const test = base.extend<PlatformFixtures>({
       conflictNextDelete: () => {
         nextDeleteConflict = true;
         allowedHttpErrors.push(409);
+      },
+      failNextList: () => {
+        nextListFailure = true;
+        allowedHttpErrors.push(503);
       },
     });
     expect(unexpectedRequests, '平台列表不得依赖未声明的 API').toEqual([]);

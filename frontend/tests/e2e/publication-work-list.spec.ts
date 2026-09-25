@@ -141,7 +141,7 @@ test('成功缓存经 hidden→visible focus 刷新失败时保留投影，并�
   await expect.poll(() => publicationApi.listRequests.length).toBe(2);
 
   const summary = page.getByRole('region', { name: '运营摘要' });
-  const ready = page.getByRole('region', { name: 'Ready Queue' });
+  const ready = page.getByRole('region', { name: '待开始队列' });
   const works = page.locator('section[aria-labelledby="active-publication-work-title"]');
   await expect(page.getByRole('alert')).toHaveCount(3);
   await expect(summary.getByText('待开始')).toBeVisible();

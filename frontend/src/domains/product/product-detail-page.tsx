@@ -161,18 +161,17 @@ function ProductDetailPage({ csrfToken, onDeleted, productId }: ProductDetailPag
             <SummaryItem label="产品状态">
               <StatusBadge presentation={productStatusRegistry[product.status]} />
             </SummaryItem>
-            <SummaryItem label="Workflow stage">
+            <SummaryItem label="工作阶段">
               <StatusBadge presentation={productWorkflowStageRegistry[product.workflow_stage]} />
             </SummaryItem>
-            <SummaryItem label="Primary task">
+            <SummaryItem label="下一步">
               <span>{primary.label}</span>
-              <code className="mt-1 block break-all text-xs text-text-muted">{product.primary_task}</code>
             </SummaryItem>
-            <SummaryItem label="Available actions">
-              {product.available_actions.length > 0 ? (
-                <ul className="flex flex-wrap gap-1" aria-label="可用动作">
-                  {product.available_actions.map((action) => (
-                    <li key={action}><Badge variant="outline">{action}</Badge></li>
+            <SummaryItem label="其他操作">
+              {overflow.length > 0 ? (
+                <ul className="flex flex-wrap gap-1" aria-label="其他操作">
+                  {overflow.map((action) => (
+                    <li key={action.key}><Badge variant="outline">{action.label}</Badge></li>
                   ))}
                 </ul>
               ) : <EmptyValue />}
@@ -185,7 +184,7 @@ function ProductDetailPage({ csrfToken, onDeleted, productId }: ProductDetailPag
             <Metadata label="型号" value={product.part_number} mono />
             <Metadata label="品牌" value={product.brand} />
             <Metadata label="类别" value={product.category} />
-            <Metadata label="Revision" value={String(product.revision)} mono />
+            <Metadata label="修订号" value={String(product.revision)} mono />
             <Metadata label="创建时间" value={<ProductTime value={product.created_at} />} />
             <Metadata label="最近更新" value={<ProductTime value={product.updated_at} />} />
           </dl>

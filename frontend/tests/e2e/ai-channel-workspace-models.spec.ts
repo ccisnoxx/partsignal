@@ -67,6 +67,72 @@ test('Models 完成发现、创建、冲突 reload、测试、启停与删除闭
   ]);
 });
 
+test('模型命令先采用 canonical，deferred/reject refresh 只读重试且不重发', async ({
+  page,
+  aiChannelWorkspaceApi,
+}) => {
+  await page.goto(`/settings/ai/${channelId}?tab=models`);
+  const row = page.getByRole('row', { name: /Workspace Model/ });
+  await expect(row).toBeVisible();
+
+  aiChannelWorkspaceApi.deferNextModelsGet();
+  await row.getByRole('button', { name: '测试连接' }).click();
+  await page.getByRole('dialog', { name: /测试模型/ }).getByRole('button', { name: '开始测试' }).click();
+  await expect(page.getByText(/连接测试通过；模型仍保持停用/)).toBeVisible();
+  await expect(row.getByRole('button', { name: '启用模型' })).toBeEnabled();
+  expect(aiChannelWorkspaceApi.mutationRequests.filter((request) => request.path.endsWith('/test'))).toHaveLength(1);
+  const completedDeferredRefresh = page.waitForResponse((response) => (
+    response.request().method() === 'GET'
+    && new URL(response.url()).pathname === `/api/v1/ai-channels/${channelId}/models`
+    && response.status() === 200
+  ));
+  aiChannelWorkspaceApi.releaseModelsGet();
+  await completedDeferredRefresh;
+
+  aiChannelWorkspaceApi.failNextModelsGet();
+  await row.getByRole('button', { name: '启用模型' }).click();
+  await expect(page.getByText('模型已启用')).toBeVisible();
+  const refreshFailure = page.getByText(/模型命令已完成，但页面刷新失败：模型列表暂不可用/).locator('..');
+  await expect(refreshFailure).toBeVisible();
+  const commandCount = aiChannelWorkspaceApi.mutationRequests.length;
+  await refreshFailure.getByRole('button', { name: '重试刷新' }).click();
+  await expect(page.getByText(/模型命令已完成，但页面刷新失败/)).toHaveCount(0);
+  expect(aiChannelWorkspaceApi.mutationRequests).toHaveLength(commandCount);
+});
+
+test('discovery 409 关闭重开仍冻结，成功 channel reload 后拒绝未知 projection', async ({
+  page,
+  aiChannelsApi,
+  aiChannelWorkspaceApi,
+}) => {
+  aiChannelWorkspaceApi.conflictNextDiscovery();
+  aiChannelsApi.allowHttpError(409);
+  await page.goto(`/settings/ai/${channelId}?tab=models`);
+  await page.getByRole('button', { name: '发现模型' }).click();
+  let discovery = page.getByRole('dialog', { name: '发现远端模型' });
+  await expect(discovery.getByText(/AI 渠道已被其他请求修改/)).toBeVisible();
+  await discovery.locator('[data-slot="dialog-footer"]').getByRole('button', { name: '关闭' }).click();
+
+  const discoveryRequestCount = aiChannelWorkspaceApi.mutationRequests
+    .filter((request) => request.path.endsWith('/discover-models')).length;
+  await page.getByRole('button', { name: '发现模型' }).click();
+  discovery = page.getByRole('dialog', { name: '发现远端模型' });
+  expect(aiChannelWorkspaceApi.mutationRequests.filter((request) => request.path.endsWith('/discover-models')))
+    .toHaveLength(discoveryRequestCount);
+  await discovery.getByRole('button', { name: '重新加载渠道' }).click();
+  await expect(discovery).toHaveCount(0);
+
+  aiChannelWorkspaceApi.setNextDiscoveryItems([
+    { model_id: 'unknown-model', configured: false, primary_task: 'UNKNOWN_TASK' },
+  ]);
+  await page.getByRole('button', { name: '发现模型' }).click();
+  discovery = page.getByRole('dialog', { name: '发现远端模型' });
+  await expect(discovery.getByText(/返回未知主任务：UNKNOWN_TASK/)).toBeVisible();
+  await expect(discovery.getByRole('button', { name: '添加' })).toHaveCount(0);
+  expect(aiChannelWorkspaceApi.mutationRequests.filter((request) => request.path.endsWith('/discover-models')).at(-1))
+    .toMatchObject({ revision: 5 });
+});
+
 test('dirty 配置进入 Models 需确认，确认后卸载表单且四档宽度无根溢出', async ({
   page,
 }, testInfo) => {

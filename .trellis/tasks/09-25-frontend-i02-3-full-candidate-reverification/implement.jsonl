@@ -1,0 +1,2 @@
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"完整门禁的 E2E 资源隔离、秘密产物与清理合同"}
+{"file":".trellis/spec/infra/ci-execution.md","reason":"make verify 与当前 CI 执行边界"}

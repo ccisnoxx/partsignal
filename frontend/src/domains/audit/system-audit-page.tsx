@@ -334,7 +334,14 @@ function AuditDetailSurface({ auditLogId }: { auditLogId: string }) {
   const detail = useQuery(auditDetailQueryOptions(auditLogId));
   if (detail.isPending) return <div aria-label="正在加载审计详情" className="space-y-3"><Skeleton className="h-24" /><Skeleton className="h-40" /></div>;
   if (!detail.data) return <Notice message={errorMessage(detail.error)} onRetry={() => void detail.refetch()} />;
-  return <AuditDetailContent detail={detail.data} />;
+  return (
+    <div className="space-y-5">
+      {detail.error && (
+        <Notice message={`审计详情刷新失败：${errorMessage(detail.error)}`} onRetry={() => void detail.refetch()} />
+      )}
+      <AuditDetailContent detail={detail.data} />
+    </div>
+  );
 }
 
 function Notice({ message, onRetry }: { message: string; onRetry: () => void }) {

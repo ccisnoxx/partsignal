@@ -10,7 +10,7 @@ import {
   type PaginationState,
   useTable,
 } from '@tanstack/react-table';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { ColumnHeader } from '@/design-system/data-table/column-header';
 import { EmptyTable } from '@/design-system/data-table/empty-table';
@@ -22,6 +22,8 @@ import { TableSkeleton } from '@/design-system/data-table/table-skeleton';
 import { TableToolbar } from '@/design-system/data-table/table-toolbar';
 import type { ColumnRole } from '@/design-system/data-table/types';
 import { Button, buttonVariants } from '@/design-system/primitives/button';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/design-system/primitives/dialog';
+import type { components } from '@/shared/api/generated/schema';
 import { Input } from '@/design-system/primitives/input';
 import {
   Select,
@@ -31,7 +33,7 @@ import {
   SelectValue,
 } from '@/design-system/primitives/select';
 import { productsKeys } from '@/domains/product/product.api';
-import { deleteGeoObservation, geoKeys, geoObservationListQueryOptions } from './geo.api';
+import { deleteGeoObservation, GeoRequestError, geoKeys, geoObservationListQueryOptions } from './geo.api';
 import { resolveGeoObservationOverflowActions } from './geo-observation-actions';
 import {
   accuracyLabels,
@@ -69,12 +71,31 @@ function GeoObservationListPage({
   search,
 }: GeoObservationListPageProps) {
   const queryClient = useQueryClient();
-  const observations = useQuery(geoObservationListQueryOptions(search));
+  const options = geoObservationListQueryOptions(search);
+  const observations = useQuery(options);
+  const [deleteIntent, setDeleteIntent] = useState<string | null>(null);
+  const focusId = useRef<string | null>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const commandPending = useRef(false);
+  const [conflict, setConflict] = useState(false);
+  const conflictRef = useRef(false);
+  const [commandError, setCommandError] = useState<string | null>(null);
   const remove = useMutation({
     mutationFn: (observation: GeoObservationListItem) => (
       deleteGeoObservation(observation.id, csrfToken)
     ),
     onSuccess: async (_data, observation) => {
+      // 先取消旧读请求并移除已删除记录，重读失败也不能恢复旧动作。
+      await queryClient.cancelQueries({ queryKey: geoKeys.lists() });
+      queryClient.setQueriesData<components['schemas']['GeoObservationListPage']>(
+        { queryKey: geoKeys.lists() },
+        (data) => data && ({
+          ...data,
+          items: data.items.filter((item) => item.id !== observation.id),
+          total: data.total - data.items.filter((item) => item.id === observation.id).length,
+        }),
+      );
+      setDeleteIntent(null);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: geoKeys.lists() }),
         queryClient.invalidateQueries({ queryKey: geoKeys.details(), refetchType: 'none' }),
@@ -104,16 +125,55 @@ function GeoObservationListPage({
     });
   }
 
-  function handleCommand(command: string, observation: GeoObservationListItem) {
-    if (command === 'delete-observation') {
-      remove.mutate(observation);
+  const handleCommand = useCallback((command: string, observation: GeoObservationListItem) => {
+    if (command !== 'delete-observation') {
+      throw new Error(`GEO Observations 收到未知页面命令：${command}`);
+    }
+    focusId.current = observation.id;
+    setDeleteIntent(observation.id);
+    setCommandError(null);
+  }, []);
+
+  async function reloadList() {
+    const result = await observations.refetch();
+    if (!result.error) {
+      conflictRef.current = false;
+      setConflict(false);
+      setCommandError(null);
+      remove.reset();
+    }
+  }
+
+  async function confirmDelete() {
+    if (!deleteIntent || commandPending.current || conflictRef.current) return;
+    const current = queryClient.getQueryState(options.queryKey);
+    const observation = current?.data?.items.find((item) => item.id === deleteIntent);
+    if (current?.fetchStatus !== 'idle' || current.error || !observation?.available_actions.includes('DELETE')) {
+      setCommandError('列表正在刷新、读取失败或该记录已不可删除，请重载列表后确认。');
       return;
     }
-    throw new Error(`GEO Observations 收到未知页面命令：${command}`);
+    commandPending.current = true;
+    setCommandError(null);
+    try {
+      await remove.mutateAsync(observation);
+    } catch (error) {
+      setCommandError(errorMessage(error));
+      if (error instanceof GeoRequestError && error.status === 409) {
+        conflictRef.current = true;
+        setConflict(true);
+      }
+    } finally {
+      commandPending.current = false;
+    }
   }
+
+  const intentRow = rows.find((row) => row.id === deleteIntent);
+  const deleteBlocked = conflict || observations.isFetching || Boolean(observations.error)
+    || !intentRow?.available_actions.includes('DELETE');
 
   const columns = useGeoObservationColumns({
     deletingId: remove.isPending ? remove.variables.id : undefined,
+    unavailable: Boolean(observations.error) || observations.isFetching,
     onCommand: handleCommand,
   });
   const table = useTable({
@@ -148,7 +208,7 @@ function GeoObservationListPage({
     <section aria-labelledby="geo-observation-list-title" className="min-w-0 space-y-4">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">
-          <h1 className="type-page-title" id="geo-observation-list-title">GEO 观测记录</h1>
+          <h1 className="type-page-title" id="geo-observation-list-title" ref={titleRef} tabIndex={-1}>GEO 观测记录</h1>
           <p className="max-w-3xl text-text-secondary">
             查看服务端汇总的发现、提及和准确性结果，并进入每条观测的规范地址。
           </p>
@@ -156,16 +216,16 @@ function GeoObservationListPage({
         <a className={buttonVariants()} href="/geo/observations/new">新建 Observation</a>
       </header>
 
-      {remove.error && (
-        <div className="flex flex-col gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive sm:flex-row sm:items-center sm:justify-between" role="alert">
-          <span>{errorMessage(remove.error)}</span>
-          <Button onClick={() => remove.reset()} size="sm" variant="outline">关闭</Button>
+      {conflict && (
+        <div role="alert" className="space-y-2 text-sm text-destructive">
+          <p>删除发生冲突，请显式重载列表后重新确认。{commandError}</p>
+          <Button disabled={observations.isFetching} onClick={() => void reloadList()} variant="outline">重载列表</Button>
         </div>
       )}
       {observations.data && observations.error && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive" role="alert">
           <span>刷新失败，已保留当前观测列表：{errorMessage(observations.error)}</span>
-          <Button onClick={() => void observations.refetch()} size="sm" variant="outline">重试刷新</Button>
+          <Button onClick={() => void reloadList()} size="sm" variant="outline">重试刷新</Button>
         </div>
       )}
       {search.queryTopicId && (
@@ -254,15 +314,37 @@ function GeoObservationListPage({
           totalItems={total}
         />
       )}
+      <Dialog open={deleteIntent !== null} onOpenChange={(open) => {
+        if (!open && !commandPending.current) setDeleteIntent(null);
+      }}>
+        <DialogContent finalFocus={() => {
+          const trigger = document.getElementById(`geo-actions-${focusId.current}`)?.querySelector('button');
+          return trigger ?? titleRef.current;
+        }}>
+          <DialogHeader>
+            <DialogTitle>删除 GEO 观测</DialogTitle>
+            <DialogDescription>{intentRow ? `将永久删除“${intentRow.query_text}”的完整更正链。此操作无法撤销。` : '该记录已不在当前列表中，无法执行删除。'}</DialogDescription>
+          </DialogHeader>
+          {commandError && <p role="alert" className="text-sm text-destructive">{commandError}</p>}
+          {deleteBlocked && <p role="status">当前记录不可确认删除，请重载列表核对最新动作。</p>}
+          <DialogFooter>
+            <Button disabled={remove.isPending} onClick={() => setDeleteIntent(null)} variant="outline">取消</Button>
+            <Button disabled={remove.isPending || observations.isFetching} onClick={() => void reloadList()} variant="outline">重载列表</Button>
+            <Button disabled={remove.isPending || deleteBlocked} onClick={() => void confirmDelete()} variant="destructive">确认删除</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
 
 function useGeoObservationColumns({
   deletingId,
+  unavailable,
   onCommand,
 }: {
   deletingId?: string;
+  unavailable: boolean;
   onCommand: (command: string, observation: GeoObservationListItem) => void;
 }) {
   const columnHelper = useMemo(
@@ -323,7 +405,7 @@ function useGeoObservationColumns({
       meta: { role: 'actions' },
       enableSorting: false,
       cell: ({ row }) => (
-        <RowActions
+        <div id={`geo-actions-${row.original.id}`}><RowActions
           objectLabel={row.original.query_text}
           onCommand={(command) => onCommand(command, row.original)}
           overflow={resolveGeoObservationOverflowActions({
@@ -331,11 +413,17 @@ function useGeoObservationColumns({
             deleting: deletingId === row.original.id,
             label: row.original.query_text,
             observationId: row.original.id,
-          })}
-        />
+          }).map((action) => action.command === 'delete-observation'
+            ? { ...action, confirmation: 'custom' as const }
+            : action).map((action) => ({
+            ...action,
+            enabled: action.enabled && !unavailable,
+            disabledReason: unavailable ? '请等待列表成功刷新' : action.disabledReason,
+          }))}
+        /></div>
       ),
     }),
-  ]), [columnHelper, deletingId, onCommand]);
+  ]), [columnHelper, deletingId, onCommand, unavailable]);
 }
 
 function GeoObservationIdentity({ observation }: { observation: GeoObservationListItem }) {

@@ -168,7 +168,7 @@ function ProductsListPage({ csrfToken, onSearchChange, search }: ProductsListPag
         />
       </TableToolbar>
 
-      <TableShell regionLabel="产品事实列表">
+      <TableShell className="products-list-table" regionLabel="产品事实列表">
         <thead>
           {table.getHeaderGroups().map((headerGroup) => (
             <tr key={headerGroup.id}>
@@ -385,6 +385,10 @@ function ProductIdentity({ product }: { product: ProductListItem }) {
         <TooltipContent>{product.part_number}</TooltipContent>
       </Tooltip>
       <TruncatedText className="text-xs text-text-muted" text={product.brand} />
+      <div className="mt-1 md:hidden">
+        <span className="sr-only">事实状态：</span>
+        <ProductStatusBadge status={product.fact_status} />
+      </div>
     </div>
   );
 }

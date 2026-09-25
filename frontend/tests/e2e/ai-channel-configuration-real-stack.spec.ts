@@ -9,6 +9,8 @@ import {
 } from '@playwright/test';
 
 import type { components } from '../../src/shared/api/generated/schema';
+import { registerArtifactSecrets } from './secret-artifact';
+import { registerCurrentRealStackCookies, registerRealStackLoginSecrets } from './real-stack-session';
 
 type AIChannel = components['schemas']['AIChannel'];
 type AIModelList = components['schemas']['AIModelList'];
@@ -30,6 +32,7 @@ const password = process.env.PARTSIGNAL_SEED_ADMIN_PASSWORD ?? 'partsignal-admin
 
 test.skip(!realStackEnabled, '只由隔离真实栈入口运行');
 test.setTimeout(180_000);
+test.afterEach(async ({ context }) => registerCurrentRealStackCookies(context, apiBaseUrl));
 
 async function responseBody<T>(response: APIResponse): Promise<T> {
   if (!response.ok()) {
@@ -39,9 +42,11 @@ async function responseBody<T>(response: APIResponse): Promise<T> {
 }
 
 async function login(page: Page): Promise<AuthSession> {
-  return responseBody<AuthSession>(await page.request.post(`${apiBaseUrl}/api/v1/auth/login`, {
+  const session = await responseBody<AuthSession>(await page.request.post(`${apiBaseUrl}/api/v1/auth/login`, {
     data: { username: 'admin', password },
   }));
+  await registerRealStackLoginSecrets(page.context(), apiBaseUrl, session.csrf_token);
+  return session;
 }
 
 async function apiGet<T>(page: Page, path: string): Promise<T> {
@@ -79,49 +84,59 @@ async function createSupportData(page: Page, session: AuthSession, suffix: strin
     platform_type_id: platformType.id,
     slug: `configuration-platform-${suffix}`,
   });
-  const partNumber = `CONFIG-${suffix}`;
-  const product = await command<Product>(page, session.csrf_token, '/api/v1/products', {
-    brand: 'PartSignal E2E',
-    category: 'AI Channel Configuration 真实闭环',
-    part_number: partNumber,
-  });
-  const initialFacts = await apiGet<ProductFactsDraft>(page, `/api/v1/products/${product.id}/facts`);
-  const savedFacts = await command<ProductFactsDraft>(
-    page,
-    session.csrf_token,
-    `/api/v1/products/${product.id}/facts`,
-    {
-      body_markdown: `# ${partNumber}\n\n- 工作电压：5 V\n- 数据性质：仅用于本地虚构验收`,
-      classification: 'PUBLIC',
-      expected_revision: initialFacts.revision,
-    },
-    'PUT',
-  );
-  const submitted = await command<FactVersion>(
-    page,
-    session.csrf_token,
-    `/api/v1/products/${product.id}/fact-review-submissions`,
-    { change_summary: `Configuration E2E ${suffix}`, expected_revision: savedFacts.revision },
-  );
-  const fact = await command<FactVersion>(
-    page,
-    session.csrf_token,
-    `/api/v1/fact-versions/${submitted.id}/approve`,
-    { comment: '', expected_revision: submitted.revision },
-  );
-  const task = await command<ContentTask>(
-    page,
-    session.csrf_token,
-    '/api/v1/content-tasks',
-    {
-      fact_version_id: fact.id,
-      platform_profile_id: platform.id,
-      product_id: product.id,
-    },
-    'POST',
-    { 'Idempotency-Key': `configuration-${suffix}` },
-  );
-  return { partNumber, platform, prompt, task };
+
+  async function createContentTask(kind: 'preview' | 'generation') {
+    const partNumber = kind === 'preview'
+      ? `CONFIG-PREVIEW-${suffix}`
+      : `CONFIG-${suffix}`;
+    const label = kind === 'preview' ? 'Prompt Preview' : 'Content Editor';
+    const product = await command<Product>(page, session.csrf_token, '/api/v1/products', {
+      brand: 'PartSignal E2E',
+      category: `AI Channel Configuration ${label} 真实闭环`,
+      part_number: partNumber,
+    });
+    const initialFacts = await apiGet<ProductFactsDraft>(page, `/api/v1/products/${product.id}/facts`);
+    const savedFacts = await command<ProductFactsDraft>(
+      page,
+      session.csrf_token,
+      `/api/v1/products/${product.id}/facts`,
+      {
+        body_markdown: `# ${partNumber}\n\n- 工作电压：5 V\n- 数据性质：仅用于本地虚构验收`,
+        classification: 'PUBLIC',
+        expected_revision: initialFacts.revision,
+      },
+      'PUT',
+    );
+    const submitted = await command<FactVersion>(
+      page,
+      session.csrf_token,
+      `/api/v1/products/${product.id}/fact-review-submissions`,
+      { change_summary: `Configuration E2E ${label} ${suffix}`, expected_revision: savedFacts.revision },
+    );
+    const fact = await command<FactVersion>(
+      page,
+      session.csrf_token,
+      `/api/v1/fact-versions/${submitted.id}/approve`,
+      { comment: '', expected_revision: submitted.revision },
+    );
+    const task = await command<ContentTask>(
+      page,
+      session.csrf_token,
+      '/api/v1/content-tasks',
+      {
+        fact_version_id: fact.id,
+        platform_profile_id: platform.id,
+        product_id: product.id,
+      },
+      'POST',
+      { 'Idempotency-Key': `configuration-${suffix}-${kind}` },
+    );
+    return { partNumber, task };
+  }
+
+  const preview = await createContentTask('preview');
+  const generation = await createContentTask('generation');
+  return { generation, platform, preview, prompt };
 }
 
 async function openContentEditor(page: Page, partNumber: string) {
@@ -201,6 +216,7 @@ test('AI Channel Configuration 真实栈闭环', async ({ page }) => {
     initialSecretHeader,
     replacementSecretHeader,
   ];
+  await registerArtifactSecrets(protectedValues);
   const browserApiRequests: Array<{ method: string; url: string }> = [];
   const browserGetBodies: Array<Promise<string>> = [];
   const consoleMessages: string[] = [];
@@ -222,11 +238,11 @@ test('AI Channel Configuration 真实栈闭环', async ({ page }) => {
   await page.goto(`/settings/prompts?promptId=${support.prompt.id}`);
   await expect(page.getByRole('combobox', { name: 'Test Context' })).toBeEnabled();
   await page.getByRole('combobox', { name: 'Test Context' }).click();
-  await expect(page.getByRole('option', { name: new RegExp(support.partNumber) })).toBeVisible();
+  await expect(page.getByRole('option', { name: new RegExp(support.preview.partNumber) })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.getByText('当前没有已启用且测试通过的模型。')).toBeVisible();
 
-  await openContentEditor(page, support.partNumber);
+  await openContentEditor(page, support.generation.partNumber);
   await page.getByRole('button', { name: 'AI 生成首稿' }).click();
   const emptyGeneration = page.getByRole('dialog', { name: '确认 Prompt 与模型' });
   await expect(emptyGeneration.getByText('当前没有可用模型。')).toBeVisible();
@@ -356,7 +372,7 @@ test('AI Channel Configuration 真实栈闭环', async ({ page }) => {
   await expect(page.getByRole('option', { name: new RegExp(finalModelName) })).toBeVisible();
   await page.keyboard.press('Escape');
 
-  await openContentEditor(page, support.partNumber);
+  await openContentEditor(page, support.generation.partNumber);
   await page.getByRole('button', { name: 'AI 生成首稿' }).click();
   let generation = page.getByRole('dialog', { name: '确认 Prompt 与模型' });
   await generation.getByRole('combobox', { name: '模型' }).click();
@@ -368,7 +384,34 @@ test('AI Channel Configuration 真实栈闭环', async ({ page }) => {
   await page.getByRole('tab', { name: '使用统计' }).click();
   await expect(page.getByText('业务作业').locator('..')).toContainText('0');
 
-  await openContentEditor(page, support.partNumber);
+  await openPrompt(page, support.prompt.name);
+  await page.getByRole('combobox', { name: 'Test Context' }).click();
+  await page.getByRole('option', { name: new RegExp(support.preview.partNumber) }).click();
+  await page.getByRole('combobox', { name: '模型' }).click();
+  await page.getByRole('option', { name: new RegExp(finalModelName) }).click();
+  await page.getByRole('button', { name: '运行真实 Preview' }).click();
+  const previewConfirmation = page.getByRole('dialog', { name: '确认创建真实首稿？' });
+  await expect(previewConfirmation.getByText(/这不是沙箱/)).toBeVisible();
+  await previewConfirmation.getByRole('button', { name: '确认创建真实首稿' }).click();
+
+  const previewResult = page.getByRole('region', { name: 'Preview 结果' });
+  await expect(previewResult.getByText('SUCCEEDED', { exact: true })).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(previewResult.getByText(/^Job [0-9a-f-]+$/i)).toBeVisible();
+  await expect(previewResult.getByText(/^Version [0-9a-f-]+$/i)).toBeVisible();
+  await expect(previewResult.getByRole('heading', { level: 4, name: '连接测试' })).toBeVisible();
+  await expect(previewResult.getByText('不得将虚构验收数据用于真实选型。')).toBeVisible();
+  await previewResult.getByRole('button', { name: '全屏查看结果' }).click();
+  const immutablePreview = page.getByRole('dialog', { name: '连接测试' });
+  await expect(immutablePreview.getByText(/不可变 ContentVersion [0-9a-f-]+/i)).toBeVisible();
+  await expect(immutablePreview.getByText('不得将虚构验收数据用于真实选型。')).toBeVisible();
+  await page.keyboard.press('Escape');
+  expect(await responseBody<{ count: number }>(
+    await page.request.get(`${fakeAiBaseUrl}/e2e/calls/${modelId}`),
+  )).toEqual({ count: 3 });
+
+  await openContentEditor(page, support.generation.partNumber);
   await page.getByRole('button', { name: 'AI 生成首稿' }).click();
   generation = page.getByRole('dialog', { name: '确认 Prompt 与模型' });
   await generation.getByRole('combobox', { name: '模型' }).click();
@@ -379,12 +422,12 @@ test('AI Channel Configuration 真实栈闭环', async ({ page }) => {
   });
   const context = await apiGet<ContentEditorContext>(
     page,
-    `/api/v1/content-tasks/${support.task.id}/editor-context`,
+    `/api/v1/content-tasks/${support.generation.task.id}/editor-context`,
   );
   expect(context.current_content).toMatchObject({ source_type: 'AI', status: 'DRAFT' });
   expect(await responseBody<{ count: number }>(
     await page.request.get(`${fakeAiBaseUrl}/e2e/calls/${modelId}`),
-  )).toEqual({ count: 3 });
+  )).toEqual({ count: 4 });
   const providerPayload = await responseBody<Record<string, unknown>>(
     await page.request.get(`${fakeAiBaseUrl}/e2e/payloads/${modelId}`),
   );
@@ -394,8 +437,8 @@ test('AI Channel Configuration 真实栈闭环', async ({ page }) => {
   await page.getByRole('tab', { name: '使用统计' }).click();
   await page.getByRole('combobox', { name: '统计时间范围' }).click();
   await page.getByRole('option', { name: '全部时间' }).click();
-  await expect(page.getByText('业务作业', { exact: true }).locator('..')).toContainText('1');
-  await expect(page.getByText('成功', { exact: true }).locator('..')).toContainText('1');
+  await expect(page.getByText('业务作业', { exact: true }).locator('..')).toContainText('2');
+  await expect(page.getByText('成功', { exact: true }).locator('..')).toContainText('2');
   await expect(page.getByText('失败', { exact: true }).locator('..')).toContainText('0');
 
   await page.getByRole('tab', { name: '操作日志' }).click();

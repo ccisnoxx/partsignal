@@ -156,7 +156,7 @@ function renderProduction(editorContext: ContentEditorContext) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-  render(
+  const rendered = render(
     <QueryClientProvider client={queryClient}>
       <ContentAiProduction
         context={editorContext}
@@ -165,7 +165,16 @@ function renderProduction(editorContext: ContentEditorContext) {
       />
     </QueryClientProvider>,
   );
-  return queryClient;
+  return {
+    queryClient,
+    rerenderContext(next: ContentEditorContext) {
+      rendered.rerender(
+        <QueryClientProvider client={queryClient}>
+          <ContentAiProduction context={next} csrfToken="ai-production-csrf" taskId={ids.task} />
+        </QueryClientProvider>,
+      );
+    },
+  };
 }
 
 function response<T>(value: T, status = 200) {
@@ -185,6 +194,67 @@ afterEach(() => {
 });
 
 describe('ContentAiProduction', () => {
+  it.each(['generate', 'humanize'] as const)('打开 %s Dialog 后 token 被撤销，禁止继续提交', async (mode) => {
+    vi.spyOn(api, 'GET').mockResolvedValue(response(generationOptions));
+    const post = vi.spyOn(api, 'POST');
+    const initial = context({ current: mode === 'humanize' ? version() : null });
+    const { rerenderContext } = renderProduction(initial);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: mode === 'generate' ? 'AI 生成首稿' : '创建自然化版本' }));
+    const dialog = screen.getByRole('dialog');
+    await user.click(within(dialog).getByRole('combobox', { name: '模型' }));
+    await user.click(await screen.findByRole('option', { name: /Fixture Model/ }));
+    const submit = within(dialog).getByRole('button', { name: mode === 'generate' ? '确认 Prompt 与模型并开始生成' : '确认创建自然化版本' });
+    expect(submit).toBeEnabled();
+    rerenderContext({
+      ...initial,
+      task: { ...initial.task, available_actions: ['CANCEL'] },
+      current_content: initial.current_content ? { ...initial.current_content, available_actions: ['CREATE_REVISION'] } : null,
+    });
+    expect(submit).toBeDisabled();
+    await user.click(submit);
+    expect(post).not.toHaveBeenCalled();
+    expect(dialog).toBeInTheDocument();
+  });
+
+  it('本页 J1 结束后接管外部 J2，重新读取列表并轮询至终态刷新主线', async () => {
+    const first = job({ status: 'SUCCEEDED', workflow_stage: 'SUCCEEDED', primary_task: 'VIEW_GENERATED_CONTENT' });
+    let external = job({ id: ids.retry, status: 'RUNNING' });
+    let externalPublished = false;
+    vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+      if (path === '/api/v1/content-tasks/{content_task_id}/generation-options') return response(generationOptions);
+      if (path === '/api/v1/content-tasks/{content_task_id}/generation-jobs') return response({ items: externalPublished ? [first, external] : [first] });
+      throw new Error(`未声明 GET：${path}`);
+    });
+    vi.spyOn(api, 'POST').mockResolvedValue(response(first));
+    const { queryClient, rerenderContext } = renderProduction(context());
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'AI 生成首稿' }));
+    const dialog = screen.getByRole('dialog');
+    await user.click(within(dialog).getByRole('combobox', { name: '模型' }));
+    await user.click(await screen.findByRole('option', { name: /Fixture Model/ }));
+    await user.click(within(dialog).getByRole('button', { name: '确认 Prompt 与模型并开始生成' }));
+    expect(await screen.findByText(`Job ${ids.job}`)).toBeInTheDocument();
+    await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ exact: true, queryKey: contentKeysForEditor() }));
+    // Context 可直接从旧值跳到外部 J2，不要求先观察本页 J1。
+    externalPublished = true;
+    rerenderContext(context({ current: version(), latest: {
+      ...external,
+      error_code: null,
+      error_summary: null,
+      started_at: null,
+      finished_at: null,
+    } }));
+    expect(await screen.findByText(`Job ${ids.retry}`)).toBeInTheDocument();
+    expect(await screen.findByText('生成作业正在执行。')).toBeInTheDocument();
+    invalidate.mockClear();
+    external = { ...external, status: 'SUCCEEDED', workflow_stage: 'SUCCEEDED', primary_task: 'VIEW_GENERATED_CONTENT' };
+    await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ exact: true, queryKey: contentKeysForEditor() }), { timeout: 4000 });
+    expect(screen.getByText(`Job ${ids.retry}`)).toBeInTheDocument();
+    expect(screen.getByText(/生成作业成功/)).toBeInTheDocument();
+  });
+
   it('按需加载完整 Prompt，并为同一生成命令复用稳定 Idempotency-Key', async () => {
     const get = vi.spyOn(api, 'GET').mockResolvedValue(response(generationOptions));
     const post = vi.spyOn(api, 'POST').mockResolvedValue(
@@ -259,7 +329,7 @@ describe('ContentAiProduction', () => {
         finished_at: null,
       },
     });
-    const queryClient = renderProduction(editorContext);
+    const { queryClient } = renderProduction(editorContext);
     const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
 
     await vi.waitFor(() => expect(get).toHaveBeenCalledOnce());
@@ -368,7 +438,7 @@ describe('ContentAiProduction', () => {
     });
     const post = vi.spyOn(api, 'POST').mockResolvedValue(response(humanization, 202));
     const user = userEvent.setup();
-    const queryClient = renderProduction(context({ current: version() }));
+    const { queryClient } = renderProduction(context({ current: version() }));
     const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
 
     await user.click(screen.getByRole('button', { name: '创建自然化版本' }));

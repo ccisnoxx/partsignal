@@ -40,4 +40,32 @@ describe('PublishedContentIssueListPage', () => {
       params: { query: { page: 1, page_size: 20, status: 'OPEN' } },
     });
   });
+
+  it('列表读取失败时展示 request ID 与重试入口，不伪造问题行', async () => {
+    vi.spyOn(api, 'GET').mockResolvedValue({
+      error: {
+        error: {
+          code: 'PUBLICATION_CONTEXT_INCOMPLETE',
+          message: '内容问题列表暂不可用',
+          details: {},
+          request_id: 'req-issue-list',
+        },
+      },
+      response: Response.json({}, { status: 409 }),
+    } as never);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <PublishedContentIssueListPage
+          onSearchChange={vi.fn()}
+          search={{ status: 'OPEN', page: 1, pageSize: 20 }}
+        />
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText('内容问题列表加载失败')).toBeInTheDocument();
+    expect(screen.getByText(/req-issue-list/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '重试' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: issueListItem.actual_title })).not.toBeInTheDocument();
+  });
 });

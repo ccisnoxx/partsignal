@@ -5,9 +5,9 @@ import { contentEditorContextQueryOptions } from '@/domains/content/content.api'
 import { RouteError } from '@/design-system/workspace/route-error';
 
 export const Route = createFileRoute('/_app/content/tasks/$taskId_/editor')({
-  staticData: { breadcrumb: 'Content Editor' },
+  staticData: { breadcrumb: '内容编辑' },
   head: ({ params }) => ({
-    meta: [{ title: `Content Editor ${params.taskId} | PartSignal` }],
+    meta: [{ title: `内容编辑 ${params.taskId} | PartSignal` }],
   }),
   loader: ({ context, params }) => {
     const options = contentEditorContextQueryOptions(params.taskId);
@@ -16,7 +16,7 @@ export const Route = createFileRoute('/_app/content/tasks/$taskId_/editor')({
     }
   },
   errorComponent: ({ error, reset }) => (
-    <RouteError error={error} onRetry={reset} title="Content Editor 发生意外错误" />
+    <RouteError error={error} onRetry={reset} title="内容编辑发生意外错误" />
   ),
   component: ContentEditorRoute,
 });

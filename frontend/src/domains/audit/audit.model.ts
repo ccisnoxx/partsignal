@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { components, operations } from '@/shared/api/generated/schema';
 
 type AuditLog = components['schemas']['AuditLog'];
+type AuditLogList = components['schemas']['AuditLogList'];
 type AuditLogDetail = components['schemas']['AuditLogDetail'];
 type AuditModule = components['schemas']['AuditModule'];
 type AuditOutcome = components['schemas']['AuditOutcome'];
@@ -25,6 +26,360 @@ const auditModuleValues = [
 ] as const satisfies readonly AuditModule[];
 const auditOutcomeValues = ['SUCCESS', 'FAILED', 'DENIED'] as const satisfies readonly AuditOutcome[];
 const auditPageSizeValues = [10, 20, 50] as const;
+const auditAccountTypeValues = ['ADMIN', 'ENGINEER'] as const;
+const auditRelatedStatusValues = ['AVAILABLE', 'MISSING', 'UNSUPPORTED'] as const;
+// 与后端 audit_logs._related_entry 的登记类型及 parent_id 语义保持一一对应。
+const auditRelatedRegistry = new Map<string, 'NONE' | 'AVAILABLE' | 'MISSING'>([
+  ['Product', 'NONE'],
+  ['FactVersion', 'AVAILABLE'],
+  ['ContentTask', 'NONE'],
+  ['ContentVersion', 'AVAILABLE'],
+  ['PublicationWork', 'NONE'],
+  ['PublishedContentIssue', 'NONE'],
+  ['GeoObservation', 'NONE'],
+  ['PlatformProfile', 'NONE'],
+  ['PlatformProfileVersion', 'MISSING'],
+  ['PlatformAccount', 'AVAILABLE'],
+  ['AIChannel', 'NONE'],
+  ['AIModel', 'AVAILABLE'],
+]);
+const auditRuntimeProjectionErrorMessage = '审计响应安全投影失败';
+
+const auditFactFields: Record<AuditModule, ReadonlySet<string>> = {
+  IDENTITY: new Set(['account_type', 'is_active', 'source', 'status', 'row_count', 'revision']),
+  PRODUCT_FACTS: new Set(['product_id', 'review_record_count', 'revision', 'status', 'version']),
+  CONTENT_PLANNING: new Set([
+    'content_review_record_count', 'content_version_count', 'fact_version_id', 'generation_job_count',
+    'platform_profile_id', 'platform_profile_version_id', 'platform_type_id', 'previous_active_version_id',
+    'publication_work_count', 'reason', 'replacement_version_id', 'revision', 'status', 'version',
+  ]),
+  CONTENT_PRODUCTION: new Set([
+    'based_on_id', 'content_version_id', 'retry_of_id', 'source_content_version_id', 'task_id', 'version',
+  ]),
+  CONTENT_REVIEW: new Set(['revision', 'status']),
+  PUBLICATION: new Set([
+    'attachment_count', 'content_version_id', 'fact_version_id', 'platform_profile_id',
+    'platform_profile_version_id', 'publication_id', 'publication_reference_count', 'repair_task_id',
+    'revision', 'status', 'status_event_count', 'task_id', 'trigger_status',
+  ]),
+  GEO_OBSERVATION: new Set([
+    'article_count', 'article_result_count', 'attachment_count', 'observation_count', 'product_id',
+    'publication_count', 'query_topic_id', 'root_observation_id', 'supersedes_id',
+  ]),
+  CONFIGURATION: new Set([
+    'account_count', 'allowed_domain_count', 'bound_platform_count', 'bound_platform_ids', 'channel_id',
+    'configured', 'header_name', 'is_active', 'is_sensitive', 'model_count', 'platform_account_count',
+    'platform_profile_id', 'platform_type_id', 'previous_active_version_id', 'protocol_type',
+    'provider_brand', 'reason', 'reference_count', 'replacement_version_id', 'revision', 'status',
+    'test_status', 'unbound_platform_count', 'version',
+  ]),
+  FILE_MANAGEMENT: new Set(['access_level', 'category', 'size', 'status']),
+};
+
+const auditChangeFields: Record<AuditModule, ReadonlySet<string>> = {
+  IDENTITY: new Set(['account_type', 'display_name', 'is_active']),
+  PRODUCT_FACTS: new Set(['status']),
+  CONTENT_PLANNING: new Set(['generation_data_classification', 'generation_input_configured', 'status']),
+  CONTENT_PRODUCTION: new Set(),
+  CONTENT_REVIEW: new Set(['status']),
+  PUBLICATION: new Set(['is_active', 'status']),
+  GEO_OBSERVATION: new Set(),
+  CONFIGURATION: new Set([
+    'allowed_domain_count', 'is_active', 'is_configured', 'logo_configured', 'name', 'platform_type_id',
+    'revision', 'status', 'website_configured',
+  ]),
+  FILE_MANAGEMENT: new Set(['status']),
+};
+
+type RuntimeRecord = Record<string, unknown>;
+
+function auditRuntimeProjectionFailed(): Error {
+  return new Error(auditRuntimeProjectionErrorMessage);
+}
+
+function runtimeRecord(value: unknown): RuntimeRecord {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw auditRuntimeProjectionFailed();
+  }
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) {
+    throw auditRuntimeProjectionFailed();
+  }
+  return value as RuntimeRecord;
+}
+
+function exactOwnKeys(record: RuntimeRecord, allowedKeys: readonly string[]) {
+  const ownKeys = Reflect.ownKeys(record);
+  if (
+    ownKeys.length !== allowedKeys.length
+    || ownKeys.some((key) => typeof key !== 'string' || !allowedKeys.includes(key))
+  ) {
+    throw auditRuntimeProjectionFailed();
+  }
+}
+
+function ownValue(record: RuntimeRecord, key: string): unknown {
+  if (!Object.hasOwn(record, key)) throw auditRuntimeProjectionFailed();
+  return record[key];
+}
+
+function runtimeString(record: RuntimeRecord, key: string): string {
+  const value = ownValue(record, key);
+  if (typeof value !== 'string') throw auditRuntimeProjectionFailed();
+  return value;
+}
+
+function runtimeNullableString(record: RuntimeRecord, key: string): string | null {
+  const value = ownValue(record, key);
+  if (value !== null && typeof value !== 'string') throw auditRuntimeProjectionFailed();
+  return value;
+}
+
+function canonicalRuntimeUuid(value: string): string {
+  // OpenAPI UUID 字段由 Pydantic 以标准连字符形式序列化；大小写不改变 PostgreSQL UUID 身份。
+  if (!z.uuid().safeParse(value).success) throw auditRuntimeProjectionFailed();
+  return value.toLowerCase();
+}
+
+function runtimeUuid(record: RuntimeRecord, key: string): string {
+  return canonicalRuntimeUuid(runtimeString(record, key));
+}
+
+function runtimeNullableUuid(record: RuntimeRecord, key: string): string | null {
+  const value = runtimeNullableString(record, key);
+  return value === null ? null : canonicalRuntimeUuid(value);
+}
+
+function runtimeDateTime(record: RuntimeRecord, key: string): string {
+  const value = runtimeString(record, key);
+  if (!z.iso.datetime({ offset: true }).safeParse(value).success) throw auditRuntimeProjectionFailed();
+  return value;
+}
+
+function runtimeEnum<const T extends readonly string[]>(
+  record: RuntimeRecord,
+  key: string,
+  values: T,
+): T[number] {
+  const value = runtimeString(record, key);
+  if (!values.includes(value)) throw auditRuntimeProjectionFailed();
+  return value as T[number];
+}
+
+function runtimePositiveInteger(record: RuntimeRecord, key: string): number {
+  const value = ownValue(record, key);
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value <= 0) {
+    throw auditRuntimeProjectionFailed();
+  }
+  return value;
+}
+
+function runtimeNonNegativeInteger(record: RuntimeRecord, key: string): number {
+  const value = ownValue(record, key);
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
+    throw auditRuntimeProjectionFailed();
+  }
+  return value;
+}
+
+function runtimeArray(value: unknown): unknown[] {
+  if (!Array.isArray(value)) throw auditRuntimeProjectionFailed();
+  if (Object.getPrototypeOf(value) !== Array.prototype) throw auditRuntimeProjectionFailed();
+  const ownKeys = Reflect.ownKeys(value);
+  if (
+    ownKeys.length !== value.length + 1
+    || !ownKeys.includes('length')
+    || Array.from({ length: value.length }, (_, index) => String(index))
+      .some((key) => !ownKeys.includes(key))
+  ) {
+    throw auditRuntimeProjectionFailed();
+  }
+  return value;
+}
+
+function projectRuntimeAuditActor(value: unknown, strict: boolean): AuditLog['actor'] {
+  if (value === null) return null;
+  const actor = runtimeRecord(value);
+  if (strict) exactOwnKeys(actor, ['id', 'display_name', 'account_type']);
+  return {
+    id: runtimeUuid(actor, 'id'),
+    display_name: runtimeString(actor, 'display_name'),
+    account_type: runtimeEnum(actor, 'account_type', auditAccountTypeValues),
+  };
+}
+
+function projectRuntimeAuditLog(value: unknown, strictNested: boolean): AuditLog {
+  const log = runtimeRecord(value);
+  const actorId = runtimeNullableUuid(log, 'actor_id');
+  const actor = projectRuntimeAuditActor(ownValue(log, 'actor'), strictNested);
+  if (
+    (actorId === null) !== (actor === null)
+    || (actorId !== null && actor !== null && actor.id !== actorId)
+  ) {
+    throw auditRuntimeProjectionFailed();
+  }
+  return {
+    id: runtimeUuid(log, 'id'),
+    actor_id: actorId,
+    actor,
+    business_module: runtimeEnum(log, 'business_module', auditModuleValues),
+    action: runtimeString(log, 'action'),
+    target_type: runtimeString(log, 'target_type'),
+    target_id: runtimeNullableString(log, 'target_id'),
+    outcome: runtimeEnum(log, 'outcome', auditOutcomeValues),
+    primary_task: runtimeEnum(log, 'primary_task', ['VIEW_LOG_DETAIL'] as const),
+    request_id: runtimeString(log, 'request_id'),
+    created_at: runtimeDateTime(log, 'created_at'),
+  };
+}
+
+function projectAuditSafeValue(value: unknown): AuditSafeValue {
+  if (
+    value === null
+    || typeof value === 'string'
+    || typeof value === 'boolean'
+    || (typeof value === 'number' && Number.isFinite(value))
+  ) {
+    return value;
+  }
+  return runtimeArray(value).map((item) => {
+    if (
+      item === null
+      || typeof item === 'string'
+      || typeof item === 'boolean'
+      || (typeof item === 'number' && Number.isFinite(item))
+    ) {
+      return item;
+    }
+    throw auditRuntimeProjectionFailed();
+  });
+}
+
+function projectRuntimeAuditChanges(value: unknown, module: AuditModule): AuditLogDetail['changes'] {
+  return runtimeArray(value).map((item) => {
+    const change = runtimeRecord(item);
+    const hasBefore = Object.hasOwn(change, 'before');
+    const hasAfter = Object.hasOwn(change, 'after');
+    exactOwnKeys(change, [
+      'field',
+      ...(hasBefore ? ['before'] : []),
+      ...(hasAfter ? ['after'] : []),
+    ]);
+    if (!hasBefore && !hasAfter) throw auditRuntimeProjectionFailed();
+    const field = runtimeString(change, 'field');
+    if (!auditChangeFields[module].has(field)) throw auditRuntimeProjectionFailed();
+    return {
+      field,
+      ...(hasBefore ? { before: projectAuditSafeValue(ownValue(change, 'before')) } : {}),
+      ...(hasAfter ? { after: projectAuditSafeValue(ownValue(change, 'after')) } : {}),
+    };
+  });
+}
+
+function projectRuntimeAuditFacts(value: unknown, module: AuditModule): AuditLogDetail['facts'] {
+  const rawFacts = runtimeRecord(value);
+  const facts: AuditLogDetail['facts'] = {};
+  for (const key of Reflect.ownKeys(rawFacts)) {
+    if (typeof key !== 'string' || !auditFactFields[module].has(key)) {
+      throw auditRuntimeProjectionFailed();
+    }
+    facts[key] = projectAuditSafeValue(ownValue(rawFacts, key));
+  }
+  return facts;
+}
+
+function projectRuntimeRelatedEntry(
+  value: unknown,
+  target: Pick<AuditLog, 'target_id' | 'target_type'>,
+): {
+  relatedEntry: AuditLogDetail['related_entry'];
+  targetId: AuditLog['target_id'];
+} {
+  const related = runtimeRecord(value);
+  exactOwnKeys(related, ['status', 'kind', 'parent_id']);
+  const status = runtimeEnum(related, 'status', auditRelatedStatusValues);
+  const kind = runtimeNullableString(related, 'kind');
+  const parentId = runtimeNullableString(related, 'parent_id');
+  const parentContract = auditRelatedRegistry.get(target.target_type);
+
+  if (parentContract === undefined) {
+    if (status !== 'UNSUPPORTED' || kind !== null || parentId !== null) {
+      throw auditRuntimeProjectionFailed();
+    }
+    return { relatedEntry: { status, kind, parent_id: parentId }, targetId: target.target_id };
+  }
+  if (status === 'UNSUPPORTED' || kind !== target.target_type) {
+    throw auditRuntimeProjectionFailed();
+  }
+  if (parentContract === 'MISSING') {
+    if (status !== 'MISSING') throw auditRuntimeProjectionFailed();
+    return { relatedEntry: { status, kind, parent_id: parentId }, targetId: target.target_id };
+  }
+  const targetId = status === 'AVAILABLE'
+    ? canonicalRuntimeUuid(target.target_id ?? '')
+    : target.target_id;
+  if (parentContract === 'NONE') {
+    if (parentId !== null) throw auditRuntimeProjectionFailed();
+    return { relatedEntry: { status, kind, parent_id: parentId }, targetId };
+  }
+  if (status === 'AVAILABLE') {
+    if (parentId === null) throw auditRuntimeProjectionFailed();
+    return {
+      relatedEntry: { status, kind, parent_id: canonicalRuntimeUuid(parentId) },
+      targetId,
+    };
+  }
+  if (parentId !== null) throw auditRuntimeProjectionFailed();
+  return { relatedEntry: { status, kind, parent_id: parentId }, targetId };
+}
+
+function parseAuditLogListResponse(
+  value: unknown,
+  requested: Pick<AuditLogList, 'page' | 'page_size'>,
+): AuditLogList {
+  try {
+    const response = runtimeRecord(value);
+    const items = runtimeArray(ownValue(response, 'items'));
+    const page = runtimePositiveInteger(response, 'page');
+    const pageSize = runtimePositiveInteger(response, 'page_size');
+    if (page !== requested.page || pageSize !== requested.page_size) {
+      throw auditRuntimeProjectionFailed();
+    }
+    return {
+      items: items.map((item) => projectRuntimeAuditLog(item, false)),
+      page,
+      page_size: pageSize,
+      total: runtimeNonNegativeInteger(response, 'total'),
+    };
+  } catch {
+    throw auditRuntimeProjectionFailed();
+  }
+}
+
+function parseAuditLogDetailResponse(value: unknown, requestedLogId: string): AuditLogDetail {
+  try {
+    const response = runtimeRecord(value);
+    exactOwnKeys(response, [
+      'id', 'actor_id', 'actor', 'business_module', 'action', 'target_type', 'target_id', 'outcome',
+      'primary_task', 'request_id', 'created_at', 'changes', 'facts', 'result_message', 'error_code',
+      'related_entry',
+    ]);
+    const base = projectRuntimeAuditLog(response, true);
+    if (base.id !== canonicalRuntimeUuid(requestedLogId)) throw auditRuntimeProjectionFailed();
+    const related = projectRuntimeRelatedEntry(ownValue(response, 'related_entry'), base);
+    return {
+      ...base,
+      target_id: related.targetId,
+      changes: projectRuntimeAuditChanges(ownValue(response, 'changes'), base.business_module),
+      facts: projectRuntimeAuditFacts(ownValue(response, 'facts'), base.business_module),
+      result_message: runtimeString(response, 'result_message'),
+      error_code: runtimeNullableString(response, 'error_code'),
+      related_entry: related.relatedEntry,
+    };
+  } catch {
+    throw auditRuntimeProjectionFailed();
+  }
+}
 
 function initialAuditRange(now = new Date()) {
   return {
@@ -33,7 +388,9 @@ function initialAuditRange(now = new Date()) {
   };
 }
 
-const auditDefaultRange = initialAuditRange();
+function auditDefaultRange(now = new Date()) {
+  return initialAuditRange(now);
+}
 
 function normalizeText(value: unknown, maxLength: number) {
   if (typeof value !== 'string') return undefined;
@@ -52,11 +409,21 @@ function normalizeIso(value: unknown, fallback: string) {
   return Number.isNaN(parsed.getTime()) ? fallback : parsed.toISOString();
 }
 
-const auditSearchSchema = z.object({
+const auditSearchSchema = z.preprocess((raw) => {
+  const defaults = auditDefaultRange();
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return raw;
+  const input = raw as Record<string, unknown>;
+  const createdFrom = normalizeIso(input.createdFrom, defaults.createdFrom);
+  const createdTo = normalizeIso(input.createdTo, defaults.createdTo);
+  const range = new Date(createdFrom) < new Date(createdTo)
+    ? { createdFrom, createdTo }
+    : defaults;
+  return { ...input, ...range };
+}, z.object({
   page: z.coerce.number().int().positive().catch(1).default(1),
   pageSize: z.coerce.number().pipe(z.union(auditPageSizeValues.map((value) => z.literal(value)))).catch(20).default(20),
-  createdFrom: z.preprocess((value) => normalizeIso(value, auditDefaultRange.createdFrom), z.iso.datetime()),
-  createdTo: z.preprocess((value) => normalizeIso(value, auditDefaultRange.createdTo), z.iso.datetime()),
+  createdFrom: z.iso.datetime(),
+  createdTo: z.iso.datetime(),
   actorId: z.preprocess(normalizeUuid, z.uuid().optional()),
   module: z.preprocess(
     (value) => typeof value === 'string' && auditModuleValues.includes(value as AuditModule) ? value : undefined,
@@ -72,11 +439,7 @@ const auditSearchSchema = z.object({
   requestId: z.preprocess((value) => normalizeText(value, 100), z.string().max(100).optional()),
   keyword: z.preprocess((value) => normalizeText(value, 100), z.string().max(100).optional()),
   logId: z.preprocess(normalizeUuid, z.uuid().optional()),
-}).transform((search) => (
-  new Date(search.createdFrom) < new Date(search.createdTo)
-    ? search
-    : { ...search, ...auditDefaultRange }
-));
+}))
 
 type AuditSearch = z.output<typeof auditSearchSchema>;
 
@@ -127,7 +490,7 @@ function isCanonicalAuditSearch(raw: Record<string, unknown>, search: AuditSearc
 }
 
 function auditResetSearch(): AuditSearch {
-  return auditSearchSchema.parse(auditDefaultRange);
+  return auditSearchSchema.parse({});
 }
 
 function normalizeAuditPageSize(value: number): AuditSearch['pageSize'] {
@@ -202,29 +565,42 @@ function projectAuditActionLabel(action: string): AuditActionLabelProjection {
 
 function auditActionLabel(action: string) {
   const projection = projectAuditActionLabel(action);
-  if (projection.status === 'failed') throw new Error(`审计返回未知动作：${action}`);
+  if (projection.status === 'failed') throw new Error('审计返回未知动作');
   return projection.label;
 }
 
-function formatAuditValue(value: AuditSafeValue): string {
+function formatAuditScalar(value: unknown): string {
   if (value === null) return '空';
   if (typeof value === 'boolean') return value ? '是' : '否';
-  if (Array.isArray(value)) return value.length ? value.map(formatAuditValue).join('、') : '空数组';
-  return String(value);
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  throw new Error('审计详情包含无法安全展示的值');
+}
+
+function formatAuditValue(value: AuditSafeValue): string {
+  if (Array.isArray(value)) {
+    return value.length ? value.map(formatAuditScalar).join('、') : '空数组';
+  }
+  return formatAuditScalar(value);
+}
+
+function auditFieldLabel(field: string) {
+  if (!Object.hasOwn(auditFieldLabels, field)) {
+    throw new Error('审计详情包含未登记字段');
+  }
+  return auditFieldLabels[field]!;
 }
 
 function projectAuditFacts(facts: Record<string, AuditSafeValue>): AuditDisplayItem[] {
   return Object.entries(facts).map(([field, value]) => {
-    const label = auditFieldLabels[field];
-    if (!label) throw new Error(`审计返回未登记事实字段：${field}`);
+    const label = auditFieldLabel(field);
     return { field, label, value: formatAuditValue(value) };
   });
 }
 
 function projectAuditChanges(changes: AuditLogDetail['changes']): AuditDisplayChange[] {
   return changes.map((change) => {
-    const label = auditFieldLabels[change.field];
-    if (!label) throw new Error(`审计返回未登记变更字段：${change.field}`);
+    const label = auditFieldLabel(change.field);
     return {
       field: change.field,
       label,
@@ -235,9 +611,10 @@ function projectAuditChanges(changes: AuditLogDetail['changes']): AuditDisplayCh
 }
 
 function resolveAuditRelatedLink(detail: AuditLogDetail): AuditRelatedLink | undefined {
-  const related = detail.related_entry;
+  const projection = projectRuntimeRelatedEntry(detail.related_entry, detail);
+  const related = projection.relatedEntry;
   if (related.status !== 'AVAILABLE') return undefined;
-  const targetId = detail.target_id;
+  const targetId = projection.targetId;
   switch (related.kind) {
     case 'Product': return targetId ? { href: `/products/${targetId}`, label: '查看产品' } : undefined;
     case 'FactVersion': return targetId && related.parent_id ? { href: `/products/${related.parent_id}/facts/versions/${targetId}`, label: '查看事实版本' } : undefined;
@@ -250,7 +627,7 @@ function resolveAuditRelatedLink(detail: AuditLogDetail): AuditRelatedLink | und
     case 'PlatformAccount': return related.parent_id ? { href: `/settings/platforms/${related.parent_id}?tab=accounts`, label: '查看平台账号' } : undefined;
     case 'AIChannel': return targetId ? { href: `/settings/ai/${targetId}?tab=basic`, label: '查看 AI 渠道' } : undefined;
     case 'AIModel': return related.parent_id ? { href: `/settings/ai/${related.parent_id}?tab=models`, label: '查看 AI 模型' } : undefined;
-    default: return undefined;
+    default: throw auditRuntimeProjectionFailed();
   }
 }
 
@@ -270,6 +647,8 @@ export {
   initialAuditRange,
   isCanonicalAuditSearch,
   normalizeAuditPageSize,
+  parseAuditLogDetailResponse,
+  parseAuditLogListResponse,
   projectAuditActionLabel,
   projectAuditChanges,
   projectAuditFacts,
@@ -281,6 +660,7 @@ export type {
   AuditDisplayChange,
   AuditDisplayItem,
   AuditLog,
+  AuditLogList,
   AuditLogDetail,
   AuditModule,
   AuditOutcome,

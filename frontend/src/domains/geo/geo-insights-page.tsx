@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 
@@ -30,6 +30,7 @@ import {
   mapGeoOptimizationError,
 } from './geo.api';
 import {
+  canonicalGeoInsightSearchRecord,
   defaultGeoInsightDates,
   formatInsightGeneratedAt,
   geoInsightPrintHref,
@@ -49,17 +50,27 @@ type GeoInsightOptimizationAction = components['schemas']['GeoInsightOptimizatio
 
 type GeoInsightsPageProps = {
   csrfToken: string | null;
-  onCreated: (taskId: string) => void;
+  onCreated: (taskId: string) => void | Promise<void>;
   onSearchChange: (search: GeoInsightSearch) => void;
   search: GeoInsightSearch;
 };
 
-function GeoInsightsPage({
+type OptimizationCommand = { key: string; pending: boolean; acceptedId?: string };
+type OptimizationCommands = Map<string, OptimizationCommand>;
+
+function GeoInsightsPage(props: GeoInsightsPageProps) {
+  // 同一页面的 Dialog 重开与筛选切换仍复用完整载荷的命令身份。
+  const [commands] = useState<OptimizationCommands>(() => new Map());
+  return <GeoInsightsSession {...props} commands={commands} key={JSON.stringify(canonicalGeoInsightSearchRecord(props.search))} />;
+}
+
+function GeoInsightsSession({
   csrfToken,
+  commands,
   onCreated,
   onSearchChange,
   search,
-}: GeoInsightsPageProps) {
+}: GeoInsightsPageProps & { commands: OptimizationCommands }) {
   const insights = useQuery(geoInsightsQueryOptions(search));
   const [optimization, setOptimization] = useState<OptimizationContext>();
 
@@ -111,22 +122,12 @@ function GeoInsightsPage({
       {optimization && (
         <OptimizationDialog
           context={optimization}
+          commands={commands}
+          insights={insights}
+          search={search}
           csrfToken={csrfToken}
           onClose={() => setOptimization(undefined)}
           onCreated={onCreated}
-          onReload={async () => {
-            const refreshed = await insights.refetch();
-            if (!refreshed.isSuccess) return false;
-            const nextAction = refreshed.data
-              ? findOptimizationAction(refreshed.data, optimization.action)
-              : undefined;
-            if (!nextAction) {
-              setOptimization(undefined);
-              return false;
-            }
-            setOptimization((current) => current ? { ...current, action: nextAction } : current);
-            return true;
-          }}
         />
       )}
     </section>
@@ -191,7 +192,7 @@ function findOptimizationAction(
     ...data.content_rankings.declining,
     ...data.content_rankings.long_unmentioned,
     ...data.question_coverage.matrix,
-  ].flatMap((item) => item.optimization_action ? [item.optimization_action] : []);
+  ].flatMap((item) => item.primary_task === 'CREATE_OPTIMIZATION_TASK' && item.optimization_action ? [item.optimization_action] : []);
   return actions.find((action) => (
     action.rule_code === expected.rule_code
     && action.date_from === expected.date_from
@@ -202,112 +203,198 @@ function findOptimizationAction(
   ));
 }
 
-function OptimizationDialog({ context, csrfToken, onClose, onCreated, onReload }: { context: OptimizationContext; csrfToken: string | null; onClose: () => void; onCreated: (taskId: string) => void; onReload: () => Promise<boolean> }) {
+function OptimizationDialog({ context, commands, csrfToken, insights, search, onClose, onCreated }: {
+  context: OptimizationContext;
+  commands: OptimizationCommands;
+  csrfToken: string | null;
+  insights: UseQueryResult<GeoInsights>;
+  search: GeoInsightSearch;
+  onClose: () => void;
+  onCreated: (taskId: string) => void | Promise<void>;
+}) {
   const queryClient = useQueryClient();
   const options = useQuery(contentTaskCreationOptionsQueryOptions(context.initialProductId));
-  const idempotency = useRef<{ signature: string; key: string } | undefined>(undefined);
   const [stale, setStale] = useState(false);
+  const [reloading, setReloading] = useState(false);
   const [requestId, setRequestId] = useState<string>();
+  const [acceptedId, setAcceptedId] = useState<string>();
+  const [navigationError, setNavigationError] = useState<string>();
   const form = useForm<GeoOptimizationTarget>({ defaultValues: { product_id: '', platform_profile_id: '', fact_version_id: '' }, resolver: zodResolver(geoOptimizationTargetSchema) });
   const productId = useWatch({ control: form.control, name: 'product_id' });
   const platformId = useWatch({ control: form.control, name: 'platform_profile_id' });
   const factVersionId = useWatch({ control: form.control, name: 'fact_version_id' });
   const initialized = useRef(false);
   const submitting = useRef(false);
+  const mounted = useRef(true);
+  const accepted = useRef<string | undefined>(undefined);
   const create = useMutation({ mutationFn: ({ body, key }: { body: ReturnType<typeof toGeoOptimizationCreate>; key: string }) => createGeoOptimizationContentTask(body, csrfToken, key) });
 
   useEffect(() => {
-    if (!options.data || initialized.current) return;
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
+  useEffect(() => {
+    if (!options.isSuccess || initialized.current) return;
     const product = options.data.products.find((item) => item.id === context.initialProductId);
     const platform = options.data.platforms.find((item) => item.id === context.initialPlatformId);
     form.reset({ product_id: product?.id ?? '', platform_profile_id: platform?.id ?? '', fact_version_id: '' });
     initialized.current = true;
-  }, [context, form, options.data]);
+  }, [context, form, options.data, options.isSuccess]);
+
+  const sourceAvailable = Boolean(insights.data && findOptimizationAction(insights.data, context.action));
+  const targetRevoked = Boolean(options.data && (
+    (productId && !options.data.products.some((item) => item.id === productId))
+    || (platformId && !options.data.platforms.some((item) => item.id === platformId))
+    || (factVersionId && !options.data.products.find((item) => item.id === productId)?.approved_fact_versions.some((item) => item.id === factVersionId))
+  ));
+  if (!stale && (insights.isError || options.isError || !sourceAvailable || targetRevoked)) setStale(true);
 
   const product = options.data?.products.find((item) => item.id === productId);
-  async function submit(values: GeoOptimizationTarget) {
-    form.clearErrors(); setRequestId(undefined); create.reset();
-    const body = toGeoOptimizationCreate(context.action, values);
-    const signature = JSON.stringify(body);
-    const key = idempotency.current?.signature === signature ? idempotency.current.key : crypto.randomUUID();
-    idempotency.current = { signature, key };
+  const locked = create.isPending || Boolean(acceptedId);
+  const blocked = locked || reloading || stale || insights.isFetching || options.isFetching
+    || insights.isError || options.isError || !sourceAvailable || targetRevoked;
+
+  async function openAccepted(id: string) {
+    if (!mounted.current) return;
+    setNavigationError(undefined);
     try {
-      const task = await create.mutateAsync({ body, key });
-      idempotency.current = undefined;
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: geoKeys.insights() }),
-        queryClient.invalidateQueries({ queryKey: contentKeys.lists() }),
-        queryClient.invalidateQueries({ queryKey: productsKeys.detail(values.product_id) }),
-        context.action.query_topic_id ? queryClient.invalidateQueries({ queryKey: geoKeys.topicLists() }) : Promise.resolve(),
-      ]);
-      onCreated(task.id);
+      await onCreated(id);
     } catch (error) {
-      const mapped = mapGeoOptimizationError(error);
-      for (const [field, message] of Object.entries(mapped.fields)) form.setError(field as GeoOptimizationTargetField, { type: 'server', message });
-      if (mapped.formMessage) form.setError('root.server', { type: 'server', message: mapped.formMessage });
-      setRequestId(mapped.requestId);
-      setStale(mapped.stale);
-      if (mapped.code === 'IDEMPOTENCY_CONFLICT') idempotency.current = undefined;
+      if (mounted.current) setNavigationError(errorMessage(error));
     }
   }
+
+  async function submit(values: GeoOptimizationTarget) {
+    if (blocked || accepted.current) return;
+    const currentInsights = queryClient.getQueryState<GeoInsights>(geoInsightsQueryOptions(search).queryKey);
+    const currentOptions = queryClient.getQueryState<components['schemas']['ContentTaskCreationOptions']>(contentKeys.creationOptions(context.initialProductId));
+    if (currentInsights?.status !== 'success' || currentInsights.fetchStatus !== 'idle'
+      || currentOptions?.status !== 'success' || currentOptions.fetchStatus !== 'idle'
+      || !currentInsights.data || !findOptimizationAction(currentInsights.data, context.action)
+      || !currentOptions.data || targetErrors(currentOptions.data, values).length) {
+      setStale(true);
+      return;
+    }
+    const body = toGeoOptimizationCreate(context.action, values);
+    const signature = JSON.stringify(body);
+    const command = commands.get(signature) ?? { key: crypto.randomUUID(), pending: false };
+    commands.set(signature, command);
+    if (command.pending) {
+      form.setError('root.server', { message: '同一优化任务正在创建，请等待原请求完成' });
+      return;
+    }
+    if (command.acceptedId) {
+      accepted.current = command.acceptedId;
+      setAcceptedId(command.acceptedId);
+      await openAccepted(command.acceptedId);
+      return;
+    }
+    form.clearErrors(); setRequestId(undefined); create.reset();
+    command.pending = true;
+    let task: components['schemas']['ContentTask'];
+    try {
+      task = await create.mutateAsync({ body, key: command.key });
+    } catch (error) {
+      const mapped = mapGeoOptimizationError(error);
+      if (mapped.code === 'IDEMPOTENCY_CONFLICT') commands.delete(signature);
+      if (mounted.current) {
+        for (const [field, message] of Object.entries(mapped.fields)) form.setError(field as GeoOptimizationTargetField, { type: 'server', message });
+        if (mapped.formMessage) form.setError('root.server', { type: 'server', message: mapped.formMessage });
+        setRequestId(mapped.requestId);
+        if (mapped.stale) setStale(true);
+      }
+      return;
+    } finally {
+      command.pending = false;
+    }
+    command.acceptedId = task.id;
+    if (mounted.current) {
+      accepted.current = task.id;
+      setAcceptedId(task.id);
+    }
+    void Promise.allSettled([
+      queryClient.invalidateQueries({ queryKey: geoKeys.insights() }),
+      queryClient.invalidateQueries({ queryKey: contentKeys.lists() }),
+      queryClient.invalidateQueries({ queryKey: productsKeys.detail(values.product_id) }),
+      ...(context.action.query_topic_id ? [queryClient.invalidateQueries({ queryKey: geoKeys.topicLists() })] : []),
+    ]);
+    await openAccepted(task.id);
+  }
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    if (submitting.current) {
+    if (submitting.current || blocked || accepted.current) {
       event.preventDefault();
       return;
     }
     submitting.current = true;
     void form.handleSubmit(submit)(event).finally(() => { submitting.current = false; });
   }
+
   async function reload() {
-    idempotency.current = undefined;
-    const [stillValid, refreshedOptions] = await Promise.all([onReload(), options.refetch()]);
-    if (!stillValid || !refreshedOptions.isSuccess) return;
-    const values = form.getValues();
-    const selectedProduct = refreshedOptions.data.products.find(
-      (item) => item.id === values.product_id,
-    );
-    const invalidFields: Array<[GeoOptimizationTargetField, string]> = [];
-    if (!selectedProduct) invalidFields.push(['product_id', '所选产品已不再可用']);
-    if (!refreshedOptions.data.platforms.some((item) => item.id === values.platform_profile_id)) {
-      invalidFields.push(['platform_profile_id', '所选目标平台已不再可用']);
+    if (reloading || submitting.current || accepted.current) return;
+    setStale(true);
+    setReloading(true);
+    try {
+      const [refreshedInsights, refreshedOptions] = await Promise.all([insights.refetch(), options.refetch()]);
+      if (!mounted.current) return;
+      if (!refreshedInsights.isSuccess || !refreshedOptions.isSuccess) return;
+      if (!findOptimizationAction(refreshedInsights.data, context.action)) {
+        form.setError('root.server', { type: 'server', message: '原优化来源已不再可用，已保留目标输入。请关闭后从最新洞察重新选择来源。' });
+        return;
+      }
+      const errors = targetErrors(refreshedOptions.data, form.getValues());
+      form.clearErrors();
+      for (const [field, message] of errors) form.setError(field, { type: 'server', message });
+      if (errors.length) return;
+      setStale(false);
+      setRequestId(undefined);
+      create.reset();
+    } catch (error) {
+      if (mounted.current) form.setError('root.server', { type: 'server', message: errorMessage(error) });
+    } finally {
+      if (mounted.current) setReloading(false);
     }
-    if (!selectedProduct?.approved_fact_versions.some((item) => item.id === values.fact_version_id)) {
-      invalidFields.push(['fact_version_id', '所选事实版本已不再可用']);
-    }
-    form.clearErrors();
-    for (const [field, message] of invalidFields) {
-      form.setError(field, { type: 'server', message });
-    }
-    if (invalidFields.length > 0) return;
-    setStale(false);
-    setRequestId(undefined);
-    create.reset();
   }
+
+  function close() {
+    if (!submitting.current && !accepted.current) onClose();
+  }
+
   return (
-    <Dialog onOpenChange={(open) => { if (!open) onClose(); }} open>
-      <DialogContent className="sm:max-w-lg">
+    <Dialog onOpenChange={(open) => { if (!open) close(); }} open>
+      <DialogContent className="sm:max-w-lg" showCloseButton={!locked}>
         <DialogHeader><DialogTitle>创建 GEO 优化任务</DialogTitle><DialogDescription>{context.label}。来源规则与周期由服务端洞察快照提供，请明确选择目标与已批准事实。</DialogDescription></DialogHeader>
+        {acceptedId && <div className="space-y-2" role="status"><p>任务已创建：{acceptedId}</p>{navigationError && <p role="alert">打开任务失败：{navigationError}</p>}<Button onClick={() => void openAccepted(acceptedId)} type="button">打开已创建任务</Button></div>}
         {options.isPending && <p aria-busy="true">正在读取创建选项…</p>}
-        {options.isError && <div role="alert"><p>{errorMessage(options.error)}</p><Button onClick={() => void options.refetch()} type="button" variant="outline">重试</Button></div>}
+        {options.isError && <div role="alert"><p>{errorMessage(options.error)}</p><Button disabled={locked || reloading} onClick={() => void reload()} type="button" variant="outline">重试</Button></div>}
         {options.data && <form className="space-y-4" onSubmit={handleSubmit}>
           {form.formState.errors.root?.server?.message && <p className="text-destructive" role="alert">{form.formState.errors.root.server.message}</p>}
           {requestId && <p className="text-sm text-text-secondary">请求 ID：{requestId}</p>}
-          <TaskSelect error={form.formState.errors.product_id?.message} label="产品" onChange={(value) => { form.setValue('product_id', value, { shouldDirty: true, shouldValidate: true }); form.setValue('fact_version_id', '', { shouldDirty: true, shouldValidate: true }); }} options={options.data.products.map((item) => ({ id: item.id, label: `${item.brand} · ${item.part_number}` }))} value={productId} />
-          <TaskSelect error={form.formState.errors.platform_profile_id?.message} label="目标平台" onChange={(value) => form.setValue('platform_profile_id', value, { shouldDirty: true, shouldValidate: true })} options={options.data.platforms.map((item) => ({ id: item.id, label: item.name }))} value={platformId} />
-          <TaskSelect error={form.formState.errors.fact_version_id?.message} label="已批准事实版本" onChange={(value) => form.setValue('fact_version_id', value, { shouldDirty: true, shouldValidate: true })} options={(product?.approved_fact_versions ?? []).map((item) => ({ id: item.id, label: `v${item.version} · ${item.classification}` }))} value={factVersionId} />
-          {stale && <div className="space-y-2 rounded-lg border border-warning/30 bg-warning/10 p-3" role="alert"><p>洞察来源或目标上下文已经变化。表单已保留，请重新加载后从最新洞察发起。</p><Button onClick={() => void reload()} type="button" variant="outline">重新加载洞察</Button></div>}
-          <DialogFooter><Button disabled={create.isPending || stale} type="submit">{create.isPending ? '正在创建…' : '创建任务'}</Button><Button onClick={onClose} type="button" variant="outline">取消</Button></DialogFooter>
+          <TaskSelect disabled={locked || reloading} error={form.formState.errors.product_id?.message} label="产品" onChange={(value) => { form.setValue('product_id', value, { shouldDirty: true, shouldValidate: true }); form.setValue('fact_version_id', '', { shouldDirty: true, shouldValidate: true }); }} options={options.data.products.map((item) => ({ id: item.id, label: `${item.brand} · ${item.part_number}` }))} value={productId} />
+          <TaskSelect disabled={locked || reloading} error={form.formState.errors.platform_profile_id?.message} label="目标平台" onChange={(value) => form.setValue('platform_profile_id', value, { shouldDirty: true, shouldValidate: true })} options={options.data.platforms.map((item) => ({ id: item.id, label: item.name }))} value={platformId} />
+          <TaskSelect disabled={locked || reloading} error={form.formState.errors.fact_version_id?.message} label="已批准事实版本" onChange={(value) => form.setValue('fact_version_id', value, { shouldDirty: true, shouldValidate: true })} options={(product?.approved_fact_versions ?? []).map((item) => ({ id: item.id, label: `v${item.version} · ${item.classification}` }))} value={factVersionId} />
+          {!acceptedId && stale && <div className="space-y-2 rounded-lg border border-warning/30 bg-warning/10 p-3" role="alert"><p>洞察来源或目标上下文已经变化。表单已保留，请重新加载后从最新洞察发起。</p><Button disabled={reloading || create.isPending} onClick={() => void reload()} type="button" variant="outline">重新加载洞察</Button></div>}
+          <DialogFooter><Button disabled={blocked} type="submit">{create.isPending ? '正在创建…' : '创建任务'}</Button><Button disabled={locked} onClick={close} type="button" variant="outline">取消</Button></DialogFooter>
         </form>}
       </DialogContent>
     </Dialog>
   );
 }
 
-function TaskSelect({ error, label, onChange, options, value }: { error?: string; label: string; onChange: (value: string) => void; options: readonly { id: string; label: string }[]; value: string }) {
+function targetErrors(options: components['schemas']['ContentTaskCreationOptions'], values: GeoOptimizationTarget): Array<[GeoOptimizationTargetField, string]> {
+  const product = options.products.find((item) => item.id === values.product_id);
+  const errors: Array<[GeoOptimizationTargetField, string]> = [];
+  if (!product) errors.push(['product_id', '所选产品已不再可用']);
+  if (!options.platforms.some((item) => item.id === values.platform_profile_id)) errors.push(['platform_profile_id', '所选目标平台已不再可用']);
+  if (!product?.approved_fact_versions.some((item) => item.id === values.fact_version_id)) errors.push(['fact_version_id', '所选事实版本已不再可用']);
+  return errors;
+}
+
+function TaskSelect({ disabled, error, label, onChange, options, value }: { disabled: boolean; error?: string; label: string; onChange: (value: string) => void; options: readonly { id: string; label: string }[]; value: string }) {
   const labelId = useId();
   const errorId = useId();
   const items = options.map((item) => ({ value: item.id, label: item.label }));
-  return <div className="block space-y-1 text-sm"><span id={labelId}>{label}</span><Select items={items} onValueChange={(next) => next && onChange(next)} value={value || null}><SelectTrigger aria-describedby={error ? errorId : undefined} aria-invalid={Boolean(error)} aria-labelledby={labelId} className="w-full"><SelectValue placeholder="请选择" /></SelectTrigger><SelectContent alignItemWithTrigger={false}>{items.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent></Select>{error && <span className="text-destructive" id={errorId}>{error}</span>}</div>;
+  return <div className="block space-y-1 text-sm"><span id={labelId}>{label}</span><Select disabled={disabled} items={items} onValueChange={(next) => next && onChange(next)} value={value || null}><SelectTrigger aria-describedby={error ? errorId : undefined} aria-invalid={Boolean(error)} aria-labelledby={labelId} className="w-full"><SelectValue placeholder="请选择" /></SelectTrigger><SelectContent alignItemWithTrigger={false}>{items.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent></Select>{error && <span className="text-destructive" id={errorId}>{error}</span>}</div>;
 }
 
 function resetFilters(): GeoInsightSearch {

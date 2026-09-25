@@ -78,6 +78,12 @@ type AIChannelHeaderTarget = {
   header?: AIChannelHeader;
 };
 
+type AIChannelCanonicalHandoffFailure = {
+  epoch: number;
+  error: unknown;
+  kind: Exclude<AIChannelMutationKind, 'delete'>;
+};
+
 type AIChannelWorkspacePageProps = {
   channelId: string;
   csrfToken: string | null;
@@ -101,7 +107,7 @@ function AIChannelWorkspacePage(props: AIChannelWorkspacePageProps) {
         csrfToken={props.csrfToken}
         onConsumersChanged={props.onConsumersChanged}
         onDeleted={props.onDeleted}
-        onReload={async () => (await detail.refetch()).data}
+        onReload={async () => { const result = await detail.refetch(); if (result.error) throw result.error; return result.data; }}
         onSearchChange={props.onSearchChange}
         search={props.search}
       />
@@ -114,7 +120,7 @@ function AIChannelWorkspacePage(props: AIChannelWorkspacePageProps) {
       csrfToken={props.csrfToken}
       onConsumersChanged={props.onConsumersChanged}
       onDeleted={props.onDeleted}
-      onReload={async () => (await detail.refetch()).data}
+      onReload={async () => { const result = await detail.refetch(); if (result.error) throw result.error; return result.data; }}
       onSearchChange={props.onSearchChange}
       search={props.search}
     />
@@ -138,6 +144,8 @@ function LoadedAIChannelWorkspace({
   const queryClient = useQueryClient();
   const [draftBaseline, setDraftBaseline] = useState(channel);
   const [status, setStatus] = useState('');
+  const [canonicalHandoffFailure, setCanonicalHandoffFailure] = useState<AIChannelCanonicalHandoffFailure>();
+  const canonicalEpoch = useRef(0);
   const [keyOpen, setKeyOpen] = useState(false);
   const [headerTarget, setHeaderTarget] = useState<AIChannelHeaderTarget>();
   const keyTrigger = useRef<HTMLButtonElement>(null);
@@ -153,35 +161,81 @@ function LoadedAIChannelWorkspace({
   useEffect(() => {
     if (dirty) return;
     // 干净表单接收后台 canonical 更新时，也要同步下一次编辑使用的 revision。
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDraftBaseline(channel);
     form.reset(aiChannelConfigurationFormValues(channel));
   }, [channel, dirty, form]);
+
+  function adoptCanonical(
+    canonical: AIChannel,
+    preserveDraft: boolean,
+  ) {
+    const epoch = canonicalEpoch.current + 1;
+    canonicalEpoch.current = epoch;
+    setCanonicalHandoffFailure(undefined);
+    if (!preserveDraft || !dirty) setDraftBaseline(canonical);
+    queryClient.setQueryData(aiChannelKeys.detail(channelId), canonical);
+    if (!preserveDraft) form.reset(aiChannelConfigurationFormValues(canonical));
+    return epoch;
+  }
+
+  async function refreshCanonicalConsumers(
+    kind: Exclude<AIChannelMutationKind, 'delete'>,
+    epoch: number,
+  ) {
+    try {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: aiChannelKeys.lists() }),
+        queryClient.invalidateQueries({ queryKey: aiChannelKeys.models(channelId) }),
+        queryClient.invalidateQueries({ queryKey: aiChannelKeys.logsRoot(channelId) }),
+        onConsumersChanged(kind),
+      ]);
+      setCanonicalHandoffFailure((current) => (
+        canonicalEpoch.current === epoch && current?.epoch === epoch ? undefined : current
+      ));
+    } catch (error) {
+      setCanonicalHandoffFailure((current) => canonicalEpoch.current === epoch
+        ? { epoch, error, kind }
+        : current);
+      throw error;
+    }
+  }
 
   async function publishCanonical(
     canonical: AIChannel,
     kind: Exclude<AIChannelMutationKind, 'delete'>,
     preserveDraft: boolean,
   ) {
-    setDraftBaseline(canonical);
-    queryClient.setQueryData(aiChannelKeys.detail(channelId), canonical);
-    if (!preserveDraft) form.reset(aiChannelConfigurationFormValues(canonical));
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: aiChannelKeys.lists() }),
-      queryClient.invalidateQueries({ queryKey: aiChannelKeys.models(channelId) }),
-      queryClient.invalidateQueries({ queryKey: aiChannelKeys.logsRoot(channelId) }),
-      onConsumersChanged(kind),
-    ]);
+    const epoch = adoptCanonical(canonical, preserveDraft);
+    await refreshCanonicalConsumers(kind, epoch);
   }
 
   async function reloadCanonical() {
     const fresh = await onReload();
     if (!fresh) throw new Error('该 AI 渠道已不存在');
-    setDraftBaseline(fresh);
-    queryClient.setQueryData(aiChannelKeys.detail(channelId), fresh);
-    form.reset(aiChannelConfigurationFormValues(fresh));
+    adoptCanonical(fresh, false);
     setStatus(`已加载 revision ${fresh.revision}`);
     return fresh;
+  }
+
+  async function handoffCanonical(canonical: AIChannel, kind: Exclude<AIChannelMutationKind, 'delete'>) {
+    const epoch = adoptCanonical(canonical, true);
+    try {
+      await refreshCanonicalConsumers(kind, epoch);
+    } catch {
+      // 写入与 canonical 采用已经成功；页面级 Notice 只负责重试消费者刷新。
+    }
+  }
+
+  async function retryCanonicalHandoff() {
+    const failure = canonicalHandoffFailure;
+    if (!failure || canonicalEpoch.current !== failure.epoch) {
+      return;
+    }
+    try {
+      await refreshCanonicalConsumers(failure.kind, failure.epoch);
+    } catch {
+      // 当前 epoch 的失败由 refreshCanonicalConsumers 保留在页面级 Notice。
+    }
   }
 
   const save = useMutation({
@@ -286,6 +340,13 @@ function LoadedAIChannelWorkspace({
           }}
         />
       )}
+      {canonicalHandoffFailure && (
+        <Notice
+          actionLabel="重试刷新"
+          message={`渠道已保存，但页面刷新失败：${errorMessage(canonicalHandoffFailure.error)}`}
+          onAction={() => void retryCanonicalHandoff()}
+        />
+      )}
 
       <FormProvider {...form}>
         <form className="overflow-hidden rounded-xl border border-border-subtle bg-surface-panel" noValidate onSubmit={form.handleSubmit(submit)}>
@@ -307,7 +368,7 @@ function LoadedAIChannelWorkspace({
             {conflict && (
               <div className="m-4 mb-0 space-y-2 rounded-lg border border-warning/30 bg-warning/10 p-3" role="alert">
                 <p>渠道已被其他请求修改。当前非敏感草稿已保留，不会自动重放。</p>
-                <Button onClick={() => void reloadCanonical().then(() => save.reset())} type="button" variant="outline">重新加载服务端版本</Button>
+                <Button onClick={() => void reloadCanonical().then(() => save.reset()).catch((error) => setStatus(errorMessage(error)))} type="button" variant="outline">重新加载服务端版本</Button>
               </div>
             )}
             <TabsContent value="basic">
@@ -344,7 +405,7 @@ function LoadedAIChannelWorkspace({
         channel={baseline}
         csrfToken={csrfToken}
         finalFocus={keyTrigger}
-        onCanonical={(canonical) => publishCanonical(canonical, 'connection', true)}
+        onCanonical={(canonical) => handoffCanonical(canonical, 'connection')}
         onClose={() => setKeyOpen(false)}
         onReload={onReload}
         open={keyOpen}
@@ -355,7 +416,7 @@ function LoadedAIChannelWorkspace({
           csrfToken={csrfToken}
           finalFocus={() => headerTarget.focusReturn}
           header={headerTarget.header}
-          onCanonical={(canonical) => publishCanonical(canonical, 'connection', true)}
+          onCanonical={(canonical) => handoffCanonical(canonical, 'connection')}
           onClose={() => setHeaderTarget(undefined)}
           onReload={onReload}
         />
@@ -654,41 +715,46 @@ function AIChannelApiKeyDialog({
 }) {
   const [error, setError] = useState<string>();
   const [conflict, setConflict] = useState(false);
+  const [pending, setPending] = useState(false);
   const form = useForm<AIChannelApiKeyFormValues>({ defaultValues: { apiKey: '' }, resolver: zodResolver(aiChannelApiKeyFormSchema) });
-  const replace = useMutation({ gcTime: 0, mutationFn: (values: AIChannelApiKeyFormValues) => replaceAIChannelApiKey(channel, values.apiKey, csrfToken) });
-
-  function reset() { form.reset({ apiKey: '' }); replace.reset(); setError(undefined); setConflict(false); }
+  function reset() { form.reset({ apiKey: '' }); setError(undefined); setConflict(false); }
   function close() { reset(); onClose(); }
   async function submit(values: AIChannelApiKeyFormValues) {
     setError(undefined);
     try {
-      const canonical = await replace.mutateAsync(values);
+      setPending(true);
+      const canonical = await replaceAIChannelApiKey(channel, values.apiKey, csrfToken);
       reset();
       onClose();
       await onCanonical(canonical);
+      setPending(false);
     } catch (reason) {
       setError(errorMessage(reason));
       setConflict(isAIChannelRevisionConflict(reason));
       form.reset({ apiKey: '' });
-      replace.reset();
+      setPending(false);
     }
   }
   async function reload() {
-    const fresh = await onReload();
-    if (!fresh) { setError('该 AI 渠道已不存在'); return; }
-    await onCanonical(fresh);
-    reset();
+    try {
+      const fresh = await onReload();
+      if (!fresh) { setError('该 AI 渠道已不存在'); return; }
+      await onCanonical(fresh);
+      reset();
+    } catch (reason) {
+      setError(errorMessage(reason));
+    }
   }
   return (
-    <Dialog onOpenChange={(nextOpen) => !nextOpen && !replace.isPending && close()} open={open}>
-      <DialogContent finalFocus={finalFocus} showCloseButton={!replace.isPending}>
+    <Dialog onOpenChange={(nextOpen) => !nextOpen && !pending && close()} open={open}>
+      <DialogContent finalFocus={finalFocus} showCloseButton={!pending}>
         <DialogHeader><DialogTitle>重新配置 API Key</DialogTitle><DialogDescription>原密钥不会回显；保存后渠道与模型测试状态会重置。</DialogDescription></DialogHeader>
         <FormProvider {...form}><form className="space-y-4" id="ai-channel-api-key-form" noValidate onSubmit={form.handleSubmit(submit)}>
           <ErrorSummary errors={error ? [{ id: 'server', message: error }] : []} />
           {conflict && <Button onClick={() => void reload()} type="button" variant="outline">重新加载服务端版本</Button>}
-          <FormField<AIChannelApiKeyFormValues, 'apiKey'> id="ai-channel-api-key" label="新的 API Key" name="apiKey" required render={(context) => <Input {...context.field} aria-describedby={context['aria-describedby']} aria-invalid={context['aria-invalid']} autoComplete="new-password" autoFocus disabled={replace.isPending || conflict} id={context.inputId} type="password" />} />
+          <FormField<AIChannelApiKeyFormValues, 'apiKey'> id="ai-channel-api-key" label="新的 API Key" name="apiKey" required render={(context) => <Input {...context.field} aria-describedby={context['aria-describedby']} aria-invalid={context['aria-invalid']} autoComplete="new-password" autoFocus disabled={pending || conflict} id={context.inputId} type="password" />} />
         </form></FormProvider>
-        <DialogFooter><DialogClose disabled={replace.isPending} render={<Button variant="outline" />}>取消</DialogClose><Button disabled={replace.isPending || conflict} form="ai-channel-api-key-form" type="submit">{replace.isPending ? '保存中…' : '保存新密钥'}</Button></DialogFooter>
+        <DialogFooter><DialogClose disabled={pending} render={<Button variant="outline" />}>取消</DialogClose><Button disabled={pending || conflict} form="ai-channel-api-key-form" type="submit">{pending ? '保存中…' : '保存新密钥'}</Button></DialogFooter>
       </DialogContent>
     </Dialog>
   );
@@ -716,15 +782,9 @@ function AIChannelHeaderDialog({
   const [requestId, setRequestId] = useState<string>();
   const [conflict, setConflict] = useState(false);
   const form = useForm<AIChannelHeaderFormValues>({ defaultValues: aiChannelHeaderFormValues(header), resolver: zodResolver(aiChannelHeaderFormSchema) });
-  const save = useMutation({
-    gcTime: 0,
-    mutationFn: (values: AIChannelHeaderFormValues) => header
-      ? updateAIChannelHeader(channel, header.id, toAIChannelHeaderInput(values), csrfToken)
-      : createAIChannelHeader(channel, toAIChannelHeaderInput(values), csrfToken),
-  });
+  const [pending, setPending] = useState(false);
   function reset() {
     form.reset(aiChannelHeaderFormValues(header));
-    save.reset();
     setError(undefined);
     setRequestId(undefined);
     setConflict(false);
@@ -735,10 +795,14 @@ function AIChannelHeaderDialog({
     setRequestId(undefined);
     form.clearErrors();
     try {
-      const canonical = await save.mutateAsync(values);
+      setPending(true);
+      const canonical = await (header
+        ? updateAIChannelHeader(channel, header.id, toAIChannelHeaderInput(values), csrfToken)
+        : createAIChannelHeader(channel, toAIChannelHeaderInput(values), csrfToken));
       reset();
       onClose();
       await onCanonical(canonical);
+      setPending(false);
     } catch (reason) {
       // 失败时也清除本次提交的 Header 值，避免敏感草稿留在表单或 mutation 状态中。
       form.reset({ ...values, value: '' });
@@ -747,25 +811,28 @@ function AIChannelHeaderDialog({
       setError(mapped.formMessage);
       setRequestId(mapped.requestId);
       setConflict(mapped.code === 'REVISION_CONFLICT');
-      save.reset();
+      setPending(false);
     }
   }
   async function reload() {
-    const fresh = await onReload();
-    if (!fresh) { setError('该 AI 渠道已不存在'); return; }
-    const freshHeader = header ? fresh.headers.find((item) => item.id === header.id) : undefined;
-    if (header && !freshHeader) { setError('该 Header 已不存在'); return; }
-    setHeader(freshHeader);
-    form.reset(aiChannelHeaderFormValues(freshHeader));
-    setError(undefined);
-    setRequestId(undefined);
-    setConflict(false);
-    save.reset();
-    await onCanonical(fresh);
+    try {
+      const fresh = await onReload();
+      if (!fresh) { setError('该 AI 渠道已不存在'); return; }
+      const freshHeader = header ? fresh.headers.find((item) => item.id === header.id) : undefined;
+      if (header && !freshHeader) { setError('该 Header 已不存在'); return; }
+      setHeader(freshHeader);
+      form.reset(aiChannelHeaderFormValues(freshHeader));
+      setError(undefined);
+      setRequestId(undefined);
+      setConflict(false);
+      await onCanonical(fresh);
+    } catch (reason) {
+      setError(errorMessage(reason));
+    }
   }
   return (
-    <Dialog onOpenChange={(open) => !open && !save.isPending && close()} open>
-      <DialogContent finalFocus={finalFocus} showCloseButton={!save.isPending}>
+    <Dialog onOpenChange={(open) => !open && !pending && close()} open>
+      <DialogContent finalFocus={finalFocus} showCloseButton={!pending}>
         <DialogHeader><DialogTitle>{header ? '编辑 Header' : '新增 Header'}</DialogTitle><DialogDescription>{header?.is_sensitive ? '敏感值不可恢复；请提供完整替换值。' : '现有值不会回显；普通与敏感 Header 都必须提供完整替换值。'}</DialogDescription></DialogHeader>
         <FormProvider {...form}><form className="space-y-4" id="ai-channel-header-form" noValidate onSubmit={form.handleSubmit(submit)}>
           <ErrorSummary errors={[
@@ -773,16 +840,16 @@ function AIChannelHeaderDialog({
             ...(requestId ? [{ id: 'request', message: `请求 ID：${requestId}` }] : []),
           ]} />
           {conflict && <Button onClick={() => void reload()} type="button" variant="outline">重新加载服务端版本</Button>}
-          <FormField<AIChannelHeaderFormValues, 'name'> id="ai-channel-header-name" label="Header 名" name="name" required render={(context) => <Input {...context.field} aria-describedby={context['aria-describedby']} aria-invalid={context['aria-invalid']} autoFocus disabled={save.isPending || conflict} id={context.inputId} />} />
-          <FormField<AIChannelHeaderFormValues, 'value'> description="只存在于本次请求，不会回显。" id="ai-channel-header-value" label="替换值" name="value" required render={(context) => <Input {...context.field} aria-describedby={context['aria-describedby']} aria-invalid={context['aria-invalid']} autoComplete="new-password" disabled={save.isPending || conflict} id={context.inputId} type="password" />} />
+          <FormField<AIChannelHeaderFormValues, 'name'> id="ai-channel-header-name" label="Header 名" name="name" required render={(context) => <Input {...context.field} aria-describedby={context['aria-describedby']} aria-invalid={context['aria-invalid']} autoFocus disabled={pending || conflict} id={context.inputId} />} />
+          <FormField<AIChannelHeaderFormValues, 'value'> description="只存在于本次请求，不会回显。" id="ai-channel-header-value" label="替换值" name="value" required render={(context) => <Input {...context.field} aria-describedby={context['aria-describedby']} aria-invalid={context['aria-invalid']} autoComplete="new-password" disabled={pending || conflict} id={context.inputId} type="password" />} />
           <FormField<AIChannelHeaderFormValues, 'isSensitive'> id="ai-channel-header-sensitive" label="类型" name="isSensitive" required render={(context) => (
-            <Select disabled={save.isPending || conflict} items={[{ value: 'false', label: '普通' }, { value: 'true', label: '敏感且永不回显' }]} onValueChange={(value) => value && context.field.onChange(value === 'true')} value={String(context.field.value)}>
+            <Select disabled={pending || conflict} items={[{ value: 'false', label: '普通' }, { value: 'true', label: '敏感且永不回显' }]} onValueChange={(value) => value && context.field.onChange(value === 'true')} value={String(context.field.value)}>
               <SelectTrigger aria-describedby={context['aria-describedby']} aria-invalid={context['aria-invalid']} id={context.inputId}><SelectValue /></SelectTrigger>
               <SelectContent><SelectItem value="false">普通</SelectItem><SelectItem value="true">敏感且永不回显</SelectItem></SelectContent>
             </Select>
           )} />
         </form></FormProvider>
-        <DialogFooter><DialogClose disabled={save.isPending} render={<Button variant="outline" />}>取消</DialogClose><Button disabled={save.isPending || conflict} form="ai-channel-header-form" type="submit">{save.isPending ? '保存中…' : '保存 Header'}</Button></DialogFooter>
+        <DialogFooter><DialogClose disabled={pending} render={<Button variant="outline" />}>取消</DialogClose><Button disabled={pending || conflict} form="ai-channel-header-form" type="submit">{pending ? '保存中…' : '保存 Header'}</Button></DialogFooter>
       </DialogContent>
     </Dialog>
   );

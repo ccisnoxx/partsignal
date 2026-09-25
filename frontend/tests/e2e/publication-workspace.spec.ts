@@ -80,18 +80,67 @@ test('409 保留输入且不重放；pending 禁止双提交', async ({ page, pu
   await expect(dialog.getByText('请求 ID：req-workspace-conflict')).toBeVisible();
   await expect(comment).toHaveValue('必须保留的输入');
   expect(publicationApi.commandRequests).toHaveLength(1);
-  await dialog.getByRole('button', { name: '显式重载最新工作' }).click();
+  await dialog.getByRole('button', { name: '取消' }).click();
+  await expect(dialog).toBeHidden();
+  await page.locator('[data-safe-area="bottom"]').getByRole('button', { name: '显式重载最新工作' }).click();
   expect(publicationApi.commandRequests).toHaveLength(1);
+  await page.getByRole('button', { name: '标记平台处理中' }).click();
+  dialog = page.getByRole('dialog', { name: '标记平台处理中' });
+  await expect(dialog.getByRole('textbox', { name: '备注' })).toHaveValue('');
   await dialog.getByRole('button', { name: '取消' }).click();
 
   publicationApi.setCommandMode('pending');
   await page.getByRole('button', { name: '标记平台处理中' }).click();
   dialog = page.getByRole('dialog', { name: '标记平台处理中' });
+  await dialog.getByRole('textbox', { name: '备注' }).fill('重载后重新填写');
   await dialog.getByRole('button', { name: '确认提交' }).click();
   await expect(dialog.getByRole('button', { name: '正在提交…' })).toBeDisabled();
   expect(publicationApi.commandRequests).toHaveLength(2);
   publicationApi.releaseCommand();
   await expect(dialog).toBeHidden();
+});
+
+test('证据上传完成前禁止登记，完成后携带已校验文件 ID', async ({ page, publicationApi }) => {
+  let markUploadStarted!: () => void;
+  let releaseUpload!: () => void;
+  const uploadStarted = new Promise<void>((resolve) => { markUploadStarted = resolve; });
+  const uploadReleased = new Promise<void>((resolve) => { releaseUpload = resolve; });
+  await page.route('**/e2e-storage/**', async (route) => {
+    markUploadStarted();
+    await uploadReleased;
+    await route.fulfill({ status: 200, body: 'stored' });
+  });
+
+  await page.goto(`${workspace}#result`);
+  await page.getByRole('button', { name: '标记平台处理中' }).click();
+  const reviewDialog = page.getByRole('dialog', { name: '标记平台处理中' });
+  await reviewDialog.getByRole('textbox', { name: '备注' }).fill('已进入平台审核');
+  await reviewDialog.getByRole('button', { name: '确认提交' }).click();
+  await expect(reviewDialog).toBeHidden();
+  await page.getByRole('button', { name: '登记发布结果' }).click();
+  const dialog = page.getByRole('dialog', { name: '登记发布结果' });
+  await dialog.getByRole('textbox', { name: '实际发布标题' }).fill('真实发布标题');
+  await dialog.getByRole('textbox', { name: '最终 URL' }).fill('https://community.example.com/articles/lna');
+  await dialog.getByLabel('发布时间').fill('2026-08-11T11:00');
+  await dialog.getByRole('textbox', { name: '备注' }).fill('证据上传后登记');
+  await dialog.getByLabel('上传发布证据截图').setInputFiles({
+    name: 'publication-proof.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from('evidence'),
+  });
+  await uploadStarted;
+  try {
+    await expect(dialog.getByRole('button', { name: '确认提交' })).toBeDisabled();
+    await expect(dialog.getByRole('button', { name: '取消' })).toBeDisabled();
+    expect(publicationApi.commandRequests).toHaveLength(1);
+  } finally {
+    releaseUpload();
+  }
+  await expect(dialog.getByText('已校验：publication-proof.png')).toBeVisible();
+  await dialog.getByRole('button', { name: '确认提交' }).click();
+  await expect(dialog).toBeHidden();
+  expect((publicationApi.commandRequests[1].body as { attachment_file_ids: string[] }).attachment_file_ids)
+    .toEqual(['a0000000-0000-4000-8000-000000000001']);
 });
 
 test('Verification 完成 fail → candidate → switch → result → pass 只读闭环', async ({ page, publicationApi }) => {
@@ -139,6 +188,8 @@ test('Verification 完成 fail → candidate → switch → result → pass 只�
   expect(publicationApi.commandRequests.filter((request) => request.path === switchPath)).toHaveLength(1);
 
   publicationApi.setCommandMode('success');
+  await expect(switchComment).toHaveValue('');
+  await switchComment.fill('采用批准修订版本');
   await dialog.getByRole('button', { name: '确认提交' }).click();
   await expect(dialog).toBeHidden();
   await expect(page.locator('#content-version')).toContainText('如何选择低噪声放大器（修订）');

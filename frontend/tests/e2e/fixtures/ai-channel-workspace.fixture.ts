@@ -28,14 +28,19 @@ type RuntimeRequest = {
 };
 
 type AIChannelWorkspaceApiController = {
+  conflictNextDiscovery: () => void;
   conflictNextUpdate: () => void;
   conflictNextModelMutation: () => void;
   createRequests: AIChannelCreateRecord[];
+  deferNextModelsGet: () => void;
   detailRequests: string[];
+  failNextModelsGet: (status?: number) => void;
   failNextRuntimeRequest: (path: 'usage' | 'logs' | 'detail', status?: number) => void;
   mutationRequests: WorkspaceRequest[];
+  releaseModelsGet: () => void;
   responsePayloads: string[];
   runtimeRequests: RuntimeRequest[];
+  setNextDiscoveryItems: (items: unknown[]) => void;
   setRuntimePrimaryTasks: () => void;
   setUnsafeAuditDetail: (unsafe: boolean) => void;
 };
@@ -43,6 +48,8 @@ type AIChannelWorkspaceApiController = {
 type WorkspaceFixtures = { aiChannelWorkspaceApi: AIChannelWorkspaceApiController };
 
 const channelId = 'a0000000-0000-4000-8000-000000000001';
+const runtimeUnknownAction = 'runtime.action.unknown.sentinel';
+const runtimeSecretSentinel = 'runtime-log-secret-sentinel';
 
 function createWorkspaceChannel(overrides: Partial<AIChannel> = {}): AIChannel {
   return {
@@ -119,23 +126,27 @@ function createUsageSummary(period: components['schemas']['AIUsagePeriod']): AIC
 }
 
 function createAuditLogs(): AuditLog[] {
-  return Array.from({ length: 21 }, (_, index) => ({
-    id: `93000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
-    actor_id: index === 1 ? null : '00000000-0000-4000-8000-000000000099',
-    actor: index === 1 ? null : {
-      id: '00000000-0000-4000-8000-000000000099',
-      display_name: '系统管理员',
-      account_type: 'ADMIN',
-    },
-    business_module: 'CONFIGURATION',
-    action: index % 2 === 0 ? 'ai_channel.updated' : 'ai_model.enabled',
-    target_type: index % 2 === 0 ? 'AIChannel' : 'AIModel',
-    target_id: index % 2 === 0 ? channelId : '92000000-0000-4000-8000-000000000001',
-    outcome: 'SUCCESS',
-    primary_task: 'VIEW_LOG_DETAIL',
-    request_id: `req-runtime-${index + 1}`,
-    created_at: new Date(Date.UTC(2026, 7, 14, 9) - index * 60_000).toISOString(),
-  }));
+  return Array.from({ length: 21 }, (_, index) => {
+    const log = {
+      id: `93000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
+      actor_id: index === 1 ? null : '00000000-0000-4000-8000-000000000099',
+      actor: index === 1 ? null : {
+        id: '00000000-0000-4000-8000-000000000099',
+        display_name: '系统管理员',
+        account_type: 'ADMIN',
+      },
+      business_module: 'CONFIGURATION',
+      action: index === 12 ? runtimeUnknownAction : index % 2 === 0 ? 'ai_channel.updated' : 'ai_model.enabled',
+      target_type: index % 2 === 0 ? 'AIChannel' : 'AIModel',
+      target_id: index % 2 === 0 ? channelId : '92000000-0000-4000-8000-000000000001',
+      outcome: 'SUCCESS',
+      primary_task: 'VIEW_LOG_DETAIL',
+      request_id: `req-runtime-${index + 1}`,
+      created_at: new Date(Date.UTC(2026, 7, 14, 9) - index * 60_000).toISOString(),
+    } satisfies AuditLog;
+    if (index === 12) Object.assign(log, { raw_json: runtimeSecretSentinel });
+    return log;
+  });
 }
 
 function createAuditDetail(log: AuditLog): AuditLogDetail {
@@ -154,11 +165,17 @@ function createAuditDetail(log: AuditLog): AuditLogDetail {
 }
 
 const test = aiChannelsTest.extend<WorkspaceFixtures>({
-  aiChannelWorkspaceApi: [async ({ page }, use) => {
+  aiChannelWorkspaceApi: [async ({ aiChannelsApi, page }, use) => {
     let channel = createWorkspaceChannel();
     let models = [createWorkspaceModel()];
     let nextUpdateConflict = false;
     let nextModelMutationConflict = false;
+    let nextDiscoveryConflict = false;
+    let nextDiscoveryItems: unknown[] | undefined;
+    let nextModelsFailure: number | undefined;
+    let shouldDeferNextModelsGet = false;
+    let releaseModelsGetRequested = false;
+    let releaseDeferredModelsGet: (() => void) | undefined;
     let nextRuntimeFailure: { path: 'usage' | 'logs' | 'detail'; status: number } | undefined;
     let unsafeAuditDetail = false;
     const auditLogs = createAuditLogs();
@@ -352,6 +369,22 @@ const test = aiChannelsTest.extend<WorkspaceFixtures>({
 
       if (url.pathname === `/api/v1/ai-channels/${channel.id}/models`) {
         if (request.method() === 'GET') {
+          if (shouldDeferNextModelsGet) {
+            shouldDeferNextModelsGet = false;
+            if (!releaseModelsGetRequested) {
+              await new Promise<void>((resolve) => {
+                releaseDeferredModelsGet = resolve;
+              });
+            }
+            releaseModelsGetRequested = false;
+            releaseDeferredModelsGet = undefined;
+          }
+          if (nextModelsFailure !== undefined) {
+            const status = nextModelsFailure;
+            nextModelsFailure = undefined;
+            await route.fulfill({ status, json: { error: { code: 'AI_MODELS_UNAVAILABLE', message: '模型列表暂不可用', details: {}, request_id: 'req-models-unavailable' } } });
+            return;
+          }
           responsePayloads.push(JSON.stringify({ items: models }));
           await route.fulfill({ status: 200, json: { items: models } });
           return;
@@ -375,10 +408,22 @@ const test = aiChannelsTest.extend<WorkspaceFixtures>({
       if (request.method() === 'POST' && url.pathname === `/api/v1/ai-channels/${channel.id}/discover-models`) {
         const body = request.postDataJSON() as components['schemas']['RevisionRequest'];
         mutationRequests.push({ body, csrfToken, method: 'POST', path: url.pathname, revision: body.expected_revision });
-        await route.fulfill({ status: 200, json: { items: [
+        if (nextDiscoveryConflict) {
+          nextDiscoveryConflict = false;
+          channel = { ...channel, revision: channel.revision + 1 };
+          await route.fulfill({ status: 409, json: { error: { code: 'REVISION_CONFLICT', message: 'AI 渠道已被其他请求修改', details: {}, request_id: 'req-discovery-conflict' } } });
+          return;
+        }
+        if (body.expected_revision !== channel.revision) {
+          await route.fulfill({ status: 409, json: { error: { code: 'REVISION_CONFLICT', message: 'AI 渠道 revision 已变化', details: {}, request_id: 'req-discovery-stale' } } });
+          return;
+        }
+        const items = nextDiscoveryItems ?? [
           { model_id: 'workspace-model', configured: true, primary_task: 'VIEW_CONFIGURED_MODEL' },
           { model_id: 'remote-new-model', configured: false, primary_task: 'ADD_MODEL' },
-        ] } });
+        ];
+        nextDiscoveryItems = undefined;
+        await route.fulfill({ status: 200, json: { items } });
         return;
       }
 
@@ -400,6 +445,10 @@ const test = aiChannelsTest.extend<WorkspaceFixtures>({
             await route.fulfill({ status: 409, json: { error: { code: 'REVISION_CONFLICT', message: 'AI 模型已被其他请求修改', details: {}, request_id: 'req-ai-model-conflict' } } });
             return;
           }
+          if (body.expected_revision !== current.revision) {
+            await route.fulfill({ status: 409, json: { error: { code: 'REVISION_CONFLICT', message: 'AI 模型 revision 已变化', details: {}, request_id: 'req-ai-model-stale' } } });
+            return;
+          }
           const updated = { ...current, ...body, display_name: body.display_name, model_id: body.model_id, request_parameters: body.request_parameters, revision: current.revision + 1 };
           models[modelIndex] = updated;
           await route.fulfill({ status: 200, json: updated });
@@ -408,6 +457,10 @@ const test = aiChannelsTest.extend<WorkspaceFixtures>({
         if (request.method() === 'POST' && operation) {
           const body = request.postDataJSON() as components['schemas']['RevisionRequest'];
           mutationRequests.push({ body, csrfToken, method: 'POST', path: url.pathname, revision: body.expected_revision });
+          if (body.expected_revision !== current.revision) {
+            await route.fulfill({ status: 409, json: { error: { code: 'REVISION_CONFLICT', message: 'AI 模型 revision 已变化', details: {}, request_id: 'req-ai-model-stale' } } });
+            return;
+          }
           const updated = operation === 'test'
             ? { ...current, test_status: 'PASSED' as const, workflow_stage: 'READY_TO_ENABLE' as const, primary_task: 'ENABLE_MODEL' as const, available_actions: ['UPDATE', 'TEST', 'ENABLE', 'DELETE'] as AIModel['available_actions'], is_enabled: false, last_tested_at: '2026-08-14T02:00:00Z', revision: current.revision + 1 }
             : { ...current, is_enabled: operation === 'enable', workflow_stage: operation === 'enable' ? 'CHANNEL_DISABLED' as const : 'READY_TO_ENABLE' as const, primary_task: operation === 'enable' ? 'ENABLE_CHANNEL' as const : 'ENABLE_MODEL' as const, available_actions: operation === 'enable' ? ['UPDATE', 'TEST', 'DISABLE', 'DELETE'] as AIModel['available_actions'] : ['UPDATE', 'TEST', 'ENABLE', 'DELETE'] as AIModel['available_actions'], revision: current.revision + 1 };
@@ -418,6 +471,10 @@ const test = aiChannelsTest.extend<WorkspaceFixtures>({
         if (request.method() === 'DELETE' && !operation) {
           const revision = Number(url.searchParams.get('expected_revision'));
           mutationRequests.push({ csrfToken, method: 'DELETE', path: url.pathname, revision });
+          if (revision !== current.revision) {
+            await route.fulfill({ status: 409, json: { error: { code: 'REVISION_CONFLICT', message: 'AI 模型 revision 已变化', details: {}, request_id: 'req-ai-model-stale' } } });
+            return;
+          }
           models = models.filter((item) => item.id !== current.id);
           await route.fulfill({ status: 204 });
           return;
@@ -428,14 +485,30 @@ const test = aiChannelsTest.extend<WorkspaceFixtures>({
     });
 
     await use({
+      conflictNextDiscovery: () => { nextDiscoveryConflict = true; },
       conflictNextUpdate: () => { nextUpdateConflict = true; },
       conflictNextModelMutation: () => { nextModelMutationConflict = true; },
       createRequests,
+      deferNextModelsGet: () => { shouldDeferNextModelsGet = true; },
       detailRequests,
+      failNextModelsGet: (status = 503) => {
+        nextModelsFailure = status;
+        aiChannelsApi.allowHttpError(status);
+      },
       failNextRuntimeRequest: (path, status = 500) => { nextRuntimeFailure = { path, status }; },
       mutationRequests,
+      releaseModelsGet: () => {
+        if (releaseDeferredModelsGet) {
+          releaseDeferredModelsGet();
+        } else if (shouldDeferNextModelsGet) {
+          releaseModelsGetRequested = true;
+        } else {
+          throw new Error('当前没有 deferred Models GET');
+        }
+      },
       responsePayloads,
       runtimeRequests,
+      setNextDiscoveryItems: (items) => { nextDiscoveryItems = items; },
       setRuntimePrimaryTasks: () => {
         channel = {
           ...channel,
@@ -454,5 +527,5 @@ const test = aiChannelsTest.extend<WorkspaceFixtures>({
   }, { auto: true }],
 });
 
-export { channelId, expect, test };
+export { channelId, expect, runtimeSecretSentinel, runtimeUnknownAction, test };
 export type { AIChannelWorkspaceApiController };

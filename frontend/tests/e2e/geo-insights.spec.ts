@@ -77,6 +77,26 @@ test('优化 Dialog 按需读取 options，以响应 ID 导航并携带稳定命
   expect(insightsApi.createRequests[0]!.key).toBeTruthy();
 });
 
+test('优化 POST pending 时取消、Escape 与外点都不能重建命令会话', async ({ page, insightsApi }) => {
+  insightsApi.setCreateMode('pending');
+  await page.goto(canonical);
+  await page.getByRole('button', { name: '创建优化任务' }).click();
+  await page.getByRole('combobox', { name: '已批准事实版本' }).click();
+  await page.getByRole('option', { name: 'v3 · PUBLIC' }).click();
+  await page.getByRole('button', { name: '创建任务' }).click();
+  await expect.poll(() => insightsApi.createRequests.length).toBe(1);
+  const dialog = page.getByRole('dialog', { name: '创建 GEO 优化任务' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('button', { name: '取消' })).toBeDisabled();
+  await page.keyboard.press('Escape');
+  await page.mouse.click(2, 2);
+  await expect(dialog).toBeVisible();
+  expect(insightsApi.createRequests).toHaveLength(1);
+  insightsApi.releaseCreate();
+  await expect(page).toHaveURL(`/content/tasks/${ids.task}`);
+  expect(insightsApi.createRequests).toHaveLength(1);
+});
+
 test('stale/409 不自动重放，保留选择并要求显式刷新', async ({ page, insightsApi }) => {
   insightsApi.setCreateMode('stale');
   await page.goto(canonical);
@@ -96,6 +116,80 @@ test('stale/409 不自动重放，保留选择并要求显式刷新', async ({ p
     .toContainText('v3 · PUBLIC');
   await expect(page.getByRole('button', { name: '创建任务' })).toBeEnabled();
   expect(insightsApi.createRequests).toHaveLength(1);
+  insightsApi.setCreateMode('success');
+  await page.getByRole('button', { name: '创建任务' }).click();
+  await expect(page).toHaveURL(`/content/tasks/${ids.task}`);
+  expect(insightsApi.createRequests).toHaveLength(2);
+  expect(insightsApi.createRequests[1]!.body).toEqual(insightsApi.createRequests[0]!.body);
+  expect(insightsApi.createRequests[1]!.key).toBe(insightsApi.createRequests[0]!.key);
+});
+
+test('stale 刷新后来源消失仍保留目标与 request ID，并禁止再次 POST', async ({ page, insightsApi }) => {
+  insightsApi.setCreateMode('stale');
+  await page.goto(canonical);
+  await page.getByRole('button', { name: '创建优化任务' }).click();
+  await page.getByRole('combobox', { name: '已批准事实版本' }).click();
+  await page.getByRole('option', { name: 'v3 · PUBLIC' }).click();
+  await page.getByRole('button', { name: '创建任务' }).click();
+  await expect(page.getByText('请求 ID：req-stale')).toBeVisible();
+  insightsApi.setInsightsMode('no-action');
+  await page.getByRole('button', { name: '重新加载洞察' }).click();
+  await expect(page.getByRole('dialog', { name: '创建 GEO 优化任务' })).toBeVisible();
+  await expect(page.getByRole('combobox', { name: '已批准事实版本' })).toContainText('v3 · PUBLIC');
+  await expect(page.getByText('请求 ID：req-stale')).toBeVisible();
+  await expect(page.getByRole('button', { name: '创建任务' })).toBeDisabled();
+  expect(insightsApi.createRequests).toHaveLength(1);
+});
+
+test('后台撤销优化来源或创建选项失败时旧选择可见但不能提交', async ({ page, insightsApi }) => {
+  await page.goto(canonical);
+  await page.getByRole('button', { name: '创建优化任务' }).click();
+  await page.getByRole('combobox', { name: '已批准事实版本' }).click();
+  await page.getByRole('option', { name: 'v3 · PUBLIC' }).click();
+  const optionCount = insightsApi.optionRequests.length;
+  insightsApi.setOptionsMode('error');
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    window.dispatchEvent(new Event('visibilitychange'));
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    window.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect.poll(() => insightsApi.optionRequests.length).toBeGreaterThan(optionCount);
+  await expect(page.getByRole('button', { name: '创建任务' })).toBeDisabled();
+  await expect(page.getByRole('combobox', { name: '已批准事实版本' })).toContainText('v3 · PUBLIC');
+  expect(insightsApi.createRequests).toHaveLength(0);
+
+  insightsApi.setOptionsMode('success');
+  const insightCount = insightsApi.insightRequests.length;
+  insightsApi.setInsightsMode('no-action');
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    window.dispatchEvent(new Event('visibilitychange'));
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    window.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect.poll(() => insightsApi.insightRequests.length).toBeGreaterThan(insightCount);
+  await expect(page.getByRole('dialog', { name: '创建 GEO 优化任务' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '创建任务' })).toBeDisabled();
+  expect(insightsApi.createRequests).toHaveLength(0);
+});
+
+test('后台创建选项撤销已批准事实版本后阻止旧目标 POST', async ({ page, insightsApi }) => {
+  await page.goto(canonical);
+  await page.getByRole('button', { name: '创建优化任务' }).click();
+  await page.getByRole('combobox', { name: '已批准事实版本' }).click();
+  await page.getByRole('option', { name: 'v3 · PUBLIC' }).click();
+  const requestCount = insightsApi.optionRequests.length;
+  insightsApi.setOptionsMode('no-fact');
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    window.dispatchEvent(new Event('visibilitychange'));
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    window.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect.poll(() => insightsApi.optionRequests.length).toBeGreaterThan(requestCount);
+  await expect(page.getByRole('button', { name: '创建任务' })).toBeDisabled();
+  expect(insightsApi.createRequests).toHaveLength(0);
 });
 
 test('打印报告使用相同查询，只呈现只读数据并调用浏览器打印', async ({ page, insightsApi }, testInfo) => {

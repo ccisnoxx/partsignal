@@ -66,6 +66,7 @@ test('Manual 一次请求展示 selected record、完整 chain、direct evidence
   await page.getByRole('dialog', { name: '删除 GEO 观测' })
     .getByRole('button', { name: '确认删除' }).click();
   await expect(page).toHaveURL(listRoute);
+  await expect(page.getByRole('link', { name: manualObservation.query_text })).toHaveCount(0);
   expect(geoApi.deleteRequests).toEqual([{
     path: `/api/v1/geo-observations/${detailIds.tail}`,
     csrfToken: 'geo-e2e-csrf',
@@ -106,6 +107,73 @@ test('loading、409、retry 与 contract error 均不回退到旧 GET', async ({
     .toBeVisible();
   expect(geoDetailApi.detailRequests.every((request) => request.pathname.endsWith('/detail')))
     .toBe(true);
+});
+
+test('404、403 和普通读取失败明确展示错误，不使用旧单条 GET', async ({ page, geoDetailApi }) => {
+  const failures = [
+    { mode: 'not-found', title: '未找到 GEO Observation', requestId: 'req-detail-not-found' },
+    { mode: 'forbidden', title: '无法访问 GEO Observation', requestId: 'req-detail-forbidden' },
+    { mode: 'error', title: 'GEO Observation 加载失败', requestId: 'req-detail-error' },
+  ] as const;
+  for (const failure of failures) {
+    geoDetailApi.setDetailMode(failure.mode);
+    await page.goto(manualRoute);
+    await expect(page.getByRole('heading', { level: 1, name: failure.title })).toBeVisible();
+    await expect(page.getByRole('alert')).toContainText(failure.requestId);
+    await expect(page.getByRole('button', { name: /更多操作/ })).toHaveCount(0);
+    await page.reload();
+    await expect(page.getByRole('heading', { level: 1, name: failure.title })).toBeVisible();
+  }
+  expect(geoDetailApi.detailRequests.every((request) => request.pathname === `/api/v1/geo-observations/${detailIds.selected}/detail`)).toBe(true);
+});
+
+test('删除确认期间后台撤销尾节点动作，确认禁用且焦点回到标题', async ({ page, geoApi, geoDetailApi }) => {
+  await page.goto(manualRoute);
+  await page.getByRole('button', { name: /更多操作/ }).click();
+  await page.getByRole('menuitem', { name: '删除' }).click();
+  const dialog = page.getByRole('dialog', { name: '删除 GEO 观测' });
+  await expect(dialog).toBeVisible();
+  geoDetailApi.setDetailMode('no-actions');
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    window.dispatchEvent(new Event('visibilitychange'));
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    window.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect.poll(() => geoDetailApi.detailRequests.length).toBeGreaterThan(1);
+  await expect(dialog.getByRole('button', { name: '确认删除' })).toBeDisabled();
+  expect(geoApi.deleteRequests).toHaveLength(0);
+  await dialog.getByRole('button', { name: '取消' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: manualObservation.query_text })).toBeFocused();
+});
+
+test('DELETE 409 冻结旧确认，显式重载后需重新打开并人工确认', async ({ page, geoApi }) => {
+  geoApi.setDeleteMode('conflict');
+  await page.goto(manualRoute);
+  const trigger = page.getByRole('button', { name: /更多操作/ });
+  await trigger.click();
+  await page.getByRole('menuitem', { name: '删除' }).click();
+  await page.getByRole('dialog', { name: '删除 GEO 观测' })
+    .getByRole('button', { name: '确认删除' }).click();
+  await expect(page.getByRole('dialog', { name: '删除 GEO 观测' })).toHaveCount(0);
+  await expect(page.getByRole('alert')).toContainText('req-geo-delete');
+  expect(geoApi.deleteRequests).toHaveLength(1);
+  await trigger.click();
+  await expect(page.getByRole('menuitem', { name: '删除' })).toHaveAttribute('aria-disabled', 'true');
+  await page.keyboard.press('Escape');
+  expect(geoApi.deleteRequests).toHaveLength(1);
+
+  geoApi.setDeleteMode('success');
+  await page.getByRole('button', { name: '重载详情' }).click();
+  await trigger.click();
+  await page.getByRole('menuitem', { name: '删除' }).click();
+  await expect(page.getByRole('dialog', { name: '删除 GEO 观测' })).toBeVisible();
+  expect(geoApi.deleteRequests).toHaveLength(1);
+  await page.getByRole('dialog', { name: '删除 GEO 观测' })
+    .getByRole('button', { name: '确认删除' }).click();
+  await expect(page).toHaveURL(listRoute);
+  await expect(page.getByRole('link', { name: manualObservation.query_text })).toHaveCount(0);
+  expect(geoApi.deleteRequests).toHaveLength(2);
 });
 
 test('375/768/1024/1440 无根级横向溢出且键盘可达', async ({ page }, testInfo) => {

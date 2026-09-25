@@ -34,7 +34,7 @@ function GeoInsightsRoute() {
   return (
     <GeoInsightsPage
       csrfToken={auth.csrfToken}
-      onCreated={(taskId) => void navigate({
+      onCreated={(taskId) => navigate({
         to: '/content/tasks/$taskId',
         params: { taskId },
       })}

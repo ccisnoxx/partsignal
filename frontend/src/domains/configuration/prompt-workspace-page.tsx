@@ -78,6 +78,12 @@ function PromptWorkspacePage({
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>();
   const [deleteMessage, setDeleteMessage] = useState<string>();
   const [discardedPromptId, setDiscardedPromptId] = useState<string>();
+  const deleteInFlight = useRef(false);
+  const followUpAttempt = useRef(0);
+  const [followUpFailure, setFollowUpFailure] = useState<{
+    message: string;
+    retry: () => Promise<void>;
+  }>();
   const remove = useMutation({
     mutationFn: (prompt: PlatformPromptDetail) => deletePlatformPrompt(prompt, csrfToken),
   });
@@ -97,12 +103,51 @@ function PromptWorkspacePage({
     ));
   }, [editorIdentity]);
 
+  // 命令结果已提交；后续只重试导航或读取，不再调用 mutation。
+  function startFollowUp(action: () => Promise<void>) {
+    const attempt = ++followUpAttempt.current;
+    setFollowUpFailure(undefined);
+    void action().catch((error: unknown) => {
+      if (attempt !== followUpAttempt.current) return;
+      setFollowUpFailure({
+        message: `Prompt 操作已完成，刷新相关页面失败：${errorMessage(error)}`,
+        retry: action,
+      });
+    });
+  }
+
+  async function refreshAfterMutation(kind: PromptMutationKind, id: string) {
+    await Promise.all([
+      ...(kind === 'delete' ? [queryClient.invalidateQueries({
+        queryKey: promptKeys.detail(id),
+        refetchType: 'none',
+      })] : []),
+      queryClient.invalidateQueries({ queryKey: promptKeys.lists() }),
+      onConsumersChanged(kind),
+    ]);
+  }
+
+  function completeSave(kind: 'create' | 'update', canonical: PlatformPromptDetail) {
+    if (kind === 'update') {
+      startFollowUp(() => refreshAfterMutation(kind, canonical.id));
+      return;
+    }
+    // 新建编辑器即将卸载，导航与刷新反馈由页面持有。
+    const nextSearch = { ...(search.q ? { q: search.q } : {}), promptId: canonical.id };
+    startFollowUp(async () => {
+      await onSearchChange(nextSearch, true);
+      startFollowUp(() => refreshAfterMutation(kind, canonical.id));
+    });
+  }
+
   async function openDelete() {
+    if (discardedPromptId === promptId && promptId) return;
     const result = await detail.refetch();
-    if (!result.data) return;
+    if (result.error || !result.data) return;
     const activeElement = document.activeElement;
     setDeleteMessage(undefined);
     remove.reset();
+    deleteInFlight.current = false;
     setDeleteTarget({
       prompt: result.data,
       focusReturn: deleteButtonRef.current
@@ -111,30 +156,30 @@ function PromptWorkspacePage({
   }
 
   async function confirmDelete() {
-    if (!deleteTarget) return;
+    if (!deleteTarget || deleteInFlight.current) return;
+    deleteInFlight.current = true;
     try {
       await remove.mutateAsync(deleteTarget.prompt);
     } catch {
       // 保留确认上下文和服务端错误；revision 冲突只能显式重新加载后再确认。
+      deleteInFlight.current = false;
       return;
     }
     const deletedId = deleteTarget.prompt.id;
-    flushSync(() => setDiscardedPromptId(deletedId));
+    flushSync(() => {
+      setDiscardedPromptId(deletedId);
+      setDeleteTarget(undefined);
+    });
     queryClient.setQueryData<PlatformPromptList>(promptKeys.list(), (current) => current ? {
       ...current,
       items: current.items.filter((item) => item.id !== deletedId),
     } : current);
-    await onSearchChange(search.q ? { q: search.q } : {}, true);
-    await Promise.all([
-      queryClient.invalidateQueries({
-        queryKey: promptKeys.detail(deletedId),
-        refetchType: 'none',
-      }),
-      queryClient.invalidateQueries({ queryKey: promptKeys.lists() }),
-      onConsumersChanged('delete'),
-    ]);
-    setDeleteTarget(undefined);
-    setDiscardedPromptId(undefined);
+    const nextSearch = search.q ? { q: search.q } : {};
+    startFollowUp(async () => {
+      await onSearchChange(nextSearch, true);
+      setDiscardedPromptId(undefined);
+      startFollowUp(() => refreshAfterMutation('delete', deletedId));
+    });
   }
 
   async function reloadDeleteTarget() {
@@ -173,6 +218,13 @@ function PromptWorkspacePage({
         </Button>
       </header>
 
+      {followUpFailure && (
+        <Notice
+          actionLabel="重试刷新相关页面"
+          message={followUpFailure.message}
+          onAction={() => startFollowUp(followUpFailure.retry)}
+        />
+      )}
       {list.data && list.error && (
         <Notice
           actionLabel="重试刷新"
@@ -221,11 +273,7 @@ function PromptWorkspacePage({
               detail={detail}
               editorIdentity={editorIdentity}
               onDirtyChange={onEditorDirtyChange}
-              onConsumersChanged={onConsumersChanged}
-              onCreated={(canonical) => onSearchChange({
-                ...(search.q ? { q: search.q } : {}),
-                promptId: canonical.id,
-              }, true)}
+              onSaved={completeSave}
               promptId={discardedPromptId === promptId ? undefined : promptId}
             />
           ),
@@ -345,8 +393,7 @@ function PromptEditorSurface({
   detail,
   editorIdentity,
   onDirtyChange,
-  onConsumersChanged,
-  onCreated,
+  onSaved,
   promptId,
 }: {
   creating: boolean;
@@ -354,8 +401,7 @@ function PromptEditorSurface({
   detail: UseQueryResult<PlatformPromptDetail, Error>;
   editorIdentity: string;
   onDirtyChange: (dirty: boolean) => void;
-  onConsumersChanged: (kind: PromptMutationKind) => Promise<void>;
-  onCreated: (prompt: PlatformPromptDetail) => Promise<void> | void;
+  onSaved: (kind: 'create' | 'update', prompt: PlatformPromptDetail) => void;
   promptId?: string;
 }) {
   if (creating) {
@@ -365,8 +411,7 @@ function PromptEditorSurface({
         csrfToken={csrfToken}
         key={editorIdentity}
         onDirtyChange={onDirtyChange}
-        onConsumersChanged={onConsumersChanged}
-        onCreated={onCreated}
+        onSaved={onSaved}
       />
     );
   }
@@ -381,9 +426,13 @@ function PromptEditorSurface({
       csrfToken={csrfToken}
       key={editorIdentity}
       onDirtyChange={onDirtyChange}
-      onConsumersChanged={onConsumersChanged}
-      onCreated={onCreated}
-      onReload={async () => (await detail.refetch()).data}
+      onSaved={onSaved}
+      onReload={async () => {
+        const result = await detail.refetch();
+        if (result.error) throw result.error;
+        if (!result.data) throw new Error('服务端未返回 Prompt 详情');
+        return result.data;
+      }}
       prompt={detail.data}
     />
   );
@@ -392,22 +441,26 @@ function PromptEditorSurface({
 function PromptEditor({
   creating = false,
   csrfToken,
-  onConsumersChanged,
-  onCreated,
+  onSaved,
   onDirtyChange,
   onReload,
   prompt,
 }: {
   creating?: boolean;
   csrfToken: string | null;
-  onConsumersChanged: (kind: PromptMutationKind) => Promise<void>;
-  onCreated: (prompt: PlatformPromptDetail) => Promise<void> | void;
+  onSaved: (kind: 'create' | 'update', prompt: PlatformPromptDetail) => void;
   onDirtyChange: (dirty: boolean) => void;
-  onReload?: () => Promise<PlatformPromptDetail | undefined>;
+  onReload?: () => Promise<PlatformPromptDetail>;
   prompt?: PlatformPromptDetail;
 }) {
   const queryClient = useQueryClient();
   const [baseRevision, setBaseRevision] = useState(prompt?.revision);
+  // 一次保存 intent 跨越 preflight、影响确认和 mutation；确认不能再取得第二把锁。
+  const saveAttempt = useRef<{ submitted: boolean } | undefined>(undefined);
+  const [preparing, setPreparing] = useState(false);
+  const [reloadError, setReloadError] = useState<string>();
+  const reloadInFlight = useRef(false);
+  const [created, setCreated] = useState(false);
   const [conflict, setConflict] = useState<string>();
   const [requestId, setRequestId] = useState<string>();
   const [impact, setImpact] = useState<{
@@ -436,35 +489,34 @@ function PromptEditor({
   const actions = prompt ? resolvePromptActions(prompt) : { canDelete: false, canUpdate: true };
 
   useEffect(() => {
-    if (!prompt || isDirty || prompt.revision === baseRevision) return;
+    if (!prompt || conflict || preparing || save.isPending || impact || isDirty || prompt.revision === baseRevision) return;
     form.reset(promptFormValues(prompt));
     // 只有 clean 表单接收后台 canonical revision，dirty 草稿必须显式 reload。
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setBaseRevision(prompt.revision);
-  }, [baseRevision, form, isDirty, prompt]);
+  }, [baseRevision, conflict, form, impact, isDirty, preparing, prompt, save.isPending]);
 
   useEffect(() => {
     onDirtyChange(isDirty);
   }, [isDirty, onDirtyChange]);
 
   async function submit(values: PromptFormValues) {
+    const attempt = saveAttempt.current;
+    if (!attempt || attempt.submitted || created) return;
+    attempt.submitted = true;
+    setPreparing(true);
     form.clearErrors();
     setConflict(undefined);
     setRequestId(undefined);
+    let canonical: PlatformPromptDetail;
     try {
       if (prompt) {
         await queryClient.cancelQueries({ exact: true, queryKey: promptKeys.detail(prompt.id) });
       }
-      const canonical = await save.mutateAsync(values);
-      queryClient.setQueryData(promptKeys.detail(canonical.id), canonical);
-      flushSync(() => {
-        form.reset(promptFormValues(canonical));
-        setBaseRevision(canonical.revision);
-      });
-      await queryClient.invalidateQueries({ queryKey: promptKeys.lists() });
-      if (creating) await onCreated(canonical);
-      else await onConsumersChanged('update');
+      canonical = await save.mutateAsync(values);
     } catch (error) {
+      saveAttempt.current = undefined;
+      setPreparing(false);
       const mapped = mapPromptFormError(error);
       for (const [field, message] of Object.entries(mapped.fields)) {
         form.setError(field as FieldPath<PromptFormValues>, { type: 'server', message });
@@ -476,45 +528,79 @@ function PromptEditor({
       if (mapped.code === 'REVISION_CONFLICT') {
         setConflict(mapped.formMessage ?? '服务端 Prompt 已有更新。');
       }
+      return;
     }
+    queryClient.setQueryData(promptKeys.detail(canonical.id), canonical);
+    flushSync(() => {
+      form.reset(promptFormValues(canonical));
+      setBaseRevision(canonical.revision);
+      setImpact(undefined);
+      setPreparing(false);
+      if (creating) setCreated(true);
+    });
+    saveAttempt.current = undefined;
+    onSaved(creating ? 'create' : 'update', canonical);
   }
 
   async function requestSave(values: PromptFormValues) {
-    if (!prompt || !onReload) {
+    if (saveAttempt.current || created || !canSave) return;
+    saveAttempt.current = { submitted: false };
+    setPreparing(true);
+    try {
+      if (!prompt || !onReload) {
+        await submit(values);
+        return;
+      }
+      const result = await onReload();
+      if (result.revision !== baseRevision) {
+        const message = `服务端已更新到 Revision ${result.revision}，当前草稿仍基于 Revision ${baseRevision}。`;
+        setConflict(message);
+        form.setError('root.server', { type: 'server', message });
+        saveAttempt.current = undefined;
+        return;
+      }
+      if (result.bound_platforms.length > 0) {
+        setImpact({
+          focusReturn: document.activeElement instanceof HTMLElement ? document.activeElement : null,
+          prompt: result,
+          values,
+        });
+        return;
+      }
       await submit(values);
-      return;
-    }
-    const result = await onReload();
-    if (!result) {
-      form.setError('root.server', { type: 'server', message: '无法刷新 Prompt 影响范围，请重试。' });
-      return;
-    }
-    if (result.revision !== baseRevision) {
-      const message = `服务端已更新到 Revision ${result.revision}，当前草稿仍基于 Revision ${baseRevision}。`;
-      setConflict(message);
-      form.setError('root.server', { type: 'server', message });
-      return;
-    }
-    if (result.bound_platforms.length > 0) {
-      setImpact({
-        focusReturn: document.activeElement instanceof HTMLElement ? document.activeElement : null,
-        prompt: result,
-        values,
+    } catch (error) {
+      saveAttempt.current = undefined;
+      form.setError('root.server', {
+        type: 'server',
+        message: `无法刷新 Prompt 影响范围：${errorMessage(error)}`,
       });
-      return;
+    } finally {
+      setPreparing(false);
     }
-    await submit(values);
+  }
+
+  function cancelImpact() {
+    if (saveAttempt.current?.submitted) return;
+    saveAttempt.current = undefined;
+    setImpact(undefined);
   }
 
   async function reloadCanonical() {
-    if (!onReload) return;
-    const canonical = await onReload();
-    if (!canonical) return;
-    form.reset(promptFormValues(canonical));
-    setBaseRevision(canonical.revision);
-    setConflict(undefined);
-    setRequestId(undefined);
-    save.reset();
+    if (!onReload || reloadInFlight.current || saveAttempt.current) return;
+    reloadInFlight.current = true;
+    try {
+      const canonical = await onReload();
+      form.reset(promptFormValues(canonical));
+      setBaseRevision(canonical.revision);
+      setConflict(undefined);
+      setRequestId(undefined);
+      setReloadError(undefined);
+      save.reset();
+    } catch (error) {
+      setReloadError(`重新加载失败，本地草稿和版本保持不变：${errorMessage(error)}`);
+    } finally {
+      reloadInFlight.current = false;
+    }
   }
 
   const summary: ErrorSummaryItem[] = [];
@@ -529,21 +615,24 @@ function PromptEditor({
   }
   if (requestId) summary.push({ id: 'request', message: `请求 ID：${requestId}` });
 
-  const canSave = actions.canUpdate && isDirty && isValid && !save.isPending && !conflict;
+  const editingLocked = created || preparing || save.isPending || Boolean(impact);
+  const canSave = actions.canUpdate && isDirty && isValid && !editingLocked && !conflict;
   const stickyActions: StickyAction[] = [{
     key: creating ? 'CREATE' : 'UPDATE',
     label: save.isPending ? '保存中…' : creating ? '创建 Prompt' : '保存 Prompt',
     intent: 'primary',
     enabled: canSave,
-    disabledReason: !actions.canUpdate
-      ? '服务端未提供 UPDATE 动作'
-      : conflict
-        ? '请先重新加载服务端版本'
-        : !isDirty
-          ? '当前没有未保存修改'
-          : !isValid
-            ? '请先修正表单错误'
-            : '正在保存',
+    disabledReason: created
+      ? 'Prompt 已创建，正在打开详情'
+      : !actions.canUpdate
+        ? '服务端未提供 UPDATE 动作'
+        : conflict
+          ? '请先重新加载服务端版本'
+          : !isDirty
+            ? '当前没有未保存修改'
+            : !isValid
+              ? '请先修正表单错误'
+              : '正在保存',
     onSelect: () => void form.handleSubmit(requestSave)(),
   }];
   const status = conflict
@@ -564,9 +653,10 @@ function PromptEditor({
 
   return (
     <FormProvider {...form}>
-      <form className="min-w-0" noValidate onKeyDown={handleShortcut} onSubmit={form.handleSubmit(requestSave)}>
+      <form className="min-w-0" noValidate onKeyDown={handleShortcut} onSubmit={(event) => void form.handleSubmit(requestSave)(event)}>
         <div className="space-y-4 p-4">
           <ErrorSummary errors={summary} />
+          {reloadError && <Notice actionLabel="重试重新加载" message={reloadError} onAction={() => void reloadCanonical()} />}
           <FormField<PromptFormValues, 'name'>
             id="prompt-name"
             label="Prompt 名称"
@@ -577,7 +667,7 @@ function PromptEditor({
                 {...context.field}
                 aria-describedby={context['aria-describedby']}
                 aria-invalid={context['aria-invalid']}
-                disabled={save.isPending || (!creating && !actions.canUpdate)}
+                disabled={editingLocked || (!creating && !actions.canUpdate)}
                 id={context.inputId}
                 maxLength={300}
               />
@@ -596,7 +686,7 @@ function PromptEditor({
                 ariaLabel="Prompt Markdown"
                 conflict={conflict ? { message: conflict, onReload: () => void reloadCanonical() } : undefined}
                 id={context.inputId}
-                {...(!creating && !actions.canUpdate
+                {...(editingLocked || (!creating && !actions.canUpdate)
                   ? { readOnly: true as const }
                   : { dirty: isDirty, onChange: context.field.onChange })}
                 revision={baseRevision}
@@ -610,11 +700,11 @@ function PromptEditor({
           shouldBlockNavigation={({ current, next }) => (
             shouldBlockPromptWorkspaceNavigation(current, next)
           )}
-          when={isDirty}
+          when={isDirty && !created}
         />
       </form>
 
-      <Dialog onOpenChange={(open) => !open && !save.isPending && setImpact(undefined)} open={Boolean(impact)}>
+      <Dialog onOpenChange={(open) => { if (!open) cancelImpact(); }} open={Boolean(impact)}>
         <DialogContent finalFocus={() => impact?.focusReturn ?? null}>
           <DialogHeader>
             <DialogTitle>保存将影响绑定平台</DialogTitle>

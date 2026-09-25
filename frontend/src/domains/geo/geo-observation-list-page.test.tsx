@@ -1,6 +1,6 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -179,6 +179,10 @@ describe('GeoObservationListPage', () => {
       '刷新失败，已保留当前观测列表',
     );
     expect(screen.getByRole('link', { name: observation.query_text })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: `更多操作：${observation.query_text}` }));
+    expect(await screen.findByRole('menuitem', { name: /更正/ })).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('menuitem', { name: /更正/ })).not.toHaveAttribute('href');
+    expect(screen.getByRole('menuitem', { name: /删除/ })).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('删除 Dialog 单次发送 CSRF、成功刷新并把焦点返回 overflow', async () => {
@@ -229,6 +233,83 @@ describe('GeoObservationListPage', () => {
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: productsKeys.detail(observation.product.id),
     });
+  });
+
+  it.each(['撤销动作', '移除记录'])('背景刷新%s时保留确认框、阻止删除并恢复焦点', async (change) => {
+    let data = page([observation]);
+    vi.spyOn(api, 'GET').mockImplementation(async () => ({ data, response: Response.json(data) }) as never);
+    const remove = vi.spyOn(api, 'DELETE');
+    const { queryClient } = renderGeo();
+    await userEvent.click(await screen.findByRole('button', { name: `更多操作：${observation.query_text}` }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: '删除' }));
+    await screen.findByRole('dialog', { name: '删除 GEO 观测' });
+    data = change === '移除记录' ? page([]) : page([{ ...observation, available_actions: [] }]);
+    await act(() => queryClient.invalidateQueries({ queryKey: geoKeys.lists() }));
+    const dialog = screen.getByRole('dialog', { name: '删除 GEO 观测' });
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: '确认删除' })).toBeDisabled());
+    await userEvent.click(within(dialog).getByRole('button', { name: '确认删除' }));
+    expect(remove).not.toHaveBeenCalled();
+    await userEvent.click(within(dialog).getByRole('button', { name: '取消' }));
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'GEO 观测记录' })).toHaveFocus());
+  });
+
+  it('409 关闭重开及背景刷新仍冻结，显式重载成功后才能再次确认', async () => {
+    const data = page([observation]);
+    let failRead = false;
+    vi.spyOn(api, 'GET').mockImplementation(async () => {
+      if (failRead) throw new Error('读取失败');
+      return { data, response: Response.json(data) } as never;
+    });
+    const remove = vi.spyOn(api, 'DELETE').mockResolvedValue({
+      error: { error: { code: 'CONFLICT', message: '记录已改变', details: {}, request_id: 'geo-conflict' } },
+      response: Response.json({}, { status: 409 }),
+    } as never);
+    const { queryClient } = renderGeo();
+    async function openDelete() {
+      await userEvent.click(await screen.findByRole('button', { name: `更多操作：${observation.query_text}` }));
+      await userEvent.click(await screen.findByRole('menuitem', { name: '删除' }));
+      return screen.findByRole('dialog', { name: '删除 GEO 观测' });
+    }
+    let dialog = await openDelete();
+    await userEvent.click(within(dialog).getByRole('button', { name: '确认删除' }));
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: '确认删除' })).toBeDisabled());
+    await userEvent.click(within(dialog).getByRole('button', { name: '取消' }));
+    await act(() => queryClient.invalidateQueries({ queryKey: geoKeys.lists() }));
+    dialog = await openDelete();
+    expect(within(dialog).getByRole('button', { name: '确认删除' })).toBeDisabled();
+    failRead = true;
+    await userEvent.click(within(dialog).getByRole('button', { name: '重载列表' }));
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: '重载列表' })).toBeEnabled());
+    expect(within(dialog).getByRole('button', { name: '确认删除' })).toBeDisabled();
+    failRead = false;
+    await userEvent.click(within(dialog).getByRole('button', { name: '重载列表' }));
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: '确认删除' })).toBeEnabled());
+    expect(remove).toHaveBeenCalledOnce();
+    await userEvent.click(within(dialog).getByRole('button', { name: '确认删除' }));
+    await waitFor(() => expect(remove).toHaveBeenCalledTimes(2));
+  });
+
+  it('204 后列表重读失败也移除旧删除和更正入口并恢复稳定焦点', async () => {
+    let deleted = false;
+    const data = page([observation]);
+    vi.spyOn(api, 'GET').mockImplementation(async () => {
+      if (deleted) throw new Error('列表重读失败');
+      return { data, response: Response.json(data) } as never;
+    });
+    const remove = vi.spyOn(api, 'DELETE').mockImplementation(async () => {
+      deleted = true;
+      return { response: new Response(null, { status: 204 }) } as never;
+    });
+    renderGeo();
+    await userEvent.click(await screen.findByRole('button', { name: `更多操作：${observation.query_text}` }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: '删除' }));
+    const dialog = await screen.findByRole('dialog', { name: '删除 GEO 观测' });
+    await userEvent.click(within(dialog).getByRole('button', { name: '确认删除' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('列表重读失败');
+    expect(screen.queryByRole('button', { name: /更多操作/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: observation.query_text })).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'GEO 观测记录' })).toHaveFocus());
+    expect(remove).toHaveBeenCalledOnce();
   });
 
   it('排序与分页只更新 canonical URL 并由服务端重新请求', async () => {

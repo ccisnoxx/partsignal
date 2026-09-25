@@ -143,3 +143,23 @@ test('375/768/1024/1440 页面根无横向溢出，表格只在区域内滚动',
     await expect(page.getByRole('region', { name: 'GEO 观测记录列表' })).toBeVisible();
   }
 });
+
+test('确认删除期间背景移除行仍保留 Dialog，取消后焦点回到标题', async ({ page, geoApi }) => {
+  await page.goto(canonical);
+  await page.getByRole('button', { name: `更多操作：${manualObservation.query_text}` }).click();
+  await page.getByRole('menuitem', { name: '删除' }).click();
+  const dialog = page.getByRole('dialog', { name: '删除 GEO 观测' });
+  await expect(dialog).toBeVisible();
+  geoApi.setListMode('empty');
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    window.dispatchEvent(new Event('visibilitychange'));
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    window.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect(dialog.getByRole('button', { name: '确认删除' })).toBeDisabled();
+  await expect(dialog).toBeVisible();
+  expect(geoApi.deleteRequests).toHaveLength(0);
+  await dialog.getByRole('button', { name: '取消' }).click();
+  await expect(page.getByRole('heading', { name: 'GEO 观测记录' })).toBeFocused();
+});

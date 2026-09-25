@@ -135,7 +135,16 @@ function publicationWorkspaceContextQueryOptions(workId: string) {
         params: { path: { work_id: workId } },
       });
       if (!result.data) throw publicationRequestError('读取发布工作台', result);
-      return result.data;
+      const context = result.data;
+      if (
+        context.work.id !== workId
+        || context.work.content_version_id !== context.content.id
+        || context.work.content_hash !== context.content.content_hash
+        || context.work.content_version !== context.content.version
+        || context.work.task_id !== context.content.task_id
+        || context.work.platform_profile_id !== context.platform.id
+      ) throw new Error('发布工作台 Context 身份不一致，请重新读取');
+      return context;
     },
   });
 }

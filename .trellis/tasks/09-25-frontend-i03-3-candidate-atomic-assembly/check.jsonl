@@ -1,0 +1,4 @@
+{"file":".trellis/spec/frontend/directory-structure.md","reason":"独立复核唯一 canonical frontend 和目录结构"}
+{"file":".trellis/spec/infra/ci-execution.md","reason":"独立复核 Makefile、CI 和六项 harness 引用在 staged tree 中闭合"}
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"独立复核 lifecycle、secret harness、模式位和排除边界"}
+{"file":".trellis/tasks/09-25-frontend-i03-3-candidate-atomic-assembly/research/candidate-assembly-manifest.md","reason":"独立复核 staged 完整性、计数、排除项和恢复点"}

@@ -294,10 +294,15 @@ describe('PlatformListPage', () => {
       available_actions: ['UPDATE', 'ENABLE', 'DELETE'],
       deletion: { blockers: [] },
     });
-    const get = vi.spyOn(api, 'GET').mockResolvedValue({
-      data: result([blocked, deletable]),
-      response: Response.json(result([blocked, deletable])),
-    } as never);
+    const list = result([blocked, deletable]);
+    const get = vi.spyOn(api, 'GET')
+      .mockResolvedValueOnce({ data: list, response: Response.json(list) } as never)
+      .mockResolvedValueOnce({ data: list, response: Response.json(list) } as never)
+      .mockResolvedValueOnce({
+        error: { error: { code: 'PLATFORMS_UNAVAILABLE', message: '显式刷新失败', details: {}, request_id: 'req-platform-reload' } },
+        response: Response.json({}, { status: 503 }),
+      } as never)
+      .mockResolvedValue({ data: list, response: Response.json(list) } as never);
     const remove = vi.spyOn(api, 'DELETE').mockResolvedValue({
       error: { error: { code: 'REVISION_CONFLICT', message: '平台已被其他请求修改', details: {}, request_id: 'req-platform-conflict' } },
       response: Response.json({}, { status: 409 }),
@@ -317,7 +322,7 @@ describe('PlatformListPage', () => {
     const confirm = await screen.findByRole('dialog', { name: '确认删除平台“待删除平台”' });
     await userEvent.click(within(confirm).getByRole('button', { name: '确认删除' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('平台已被其他请求修改（请求 ID：req-platform-conflict）');
+    expect(await within(confirm).findByRole('alert')).toHaveTextContent('平台已被其他请求修改（请求 ID：req-platform-conflict）');
     expect(remove).toHaveBeenCalledOnce();
     expect(remove).toHaveBeenCalledWith('/api/v1/platform-profiles/{platform_profile_id}', {
       params: {
@@ -328,9 +333,18 @@ describe('PlatformListPage', () => {
     });
     await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
     expect(within(confirm).getByRole('button', { name: '确认删除' })).toBeDisabled();
-    await userEvent.click(within(confirm).getByRole('button', { name: '重新加载当前列表' }));
+    await userEvent.click(within(confirm).getAllByRole('button', { name: '关闭' })[0]!);
+    await userEvent.click(screen.getByRole('button', { name: '更多操作：待删除平台' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: '删除平台' }));
+    const reopened = await screen.findByRole('dialog', { name: '确认删除平台“待删除平台”' });
+    expect(within(reopened).getByRole('button', { name: '确认删除' })).toBeDisabled();
+    await userEvent.click(within(reopened).getByRole('button', { name: '重新加载当前列表' }));
     await waitFor(() => expect(get).toHaveBeenCalledTimes(3));
-    expect(within(confirm).getByRole('button', { name: '确认删除' })).toBeEnabled();
+    expect(within(reopened).getByRole('button', { name: '确认删除' })).toBeDisabled();
+    expect(within(reopened).getByText('显式刷新失败（请求 ID：req-platform-reload）')).toBeInTheDocument();
+    await userEvent.click(within(reopened).getByRole('button', { name: '重新加载当前列表' }));
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(4));
+    expect(within(reopened).getByRole('button', { name: '确认删除' })).toBeEnabled();
     expect(remove).toHaveBeenCalledOnce();
   });
 
@@ -363,6 +377,104 @@ describe('PlatformListPage', () => {
     expect(within(dialog).queryByRole('alert')).not.toBeInTheDocument();
     expect(within(dialog).getByRole('button', { name: '确认删除' })).toBeEnabled();
     expect(within(dialog).queryByRole('button', { name: '重新加载当前列表' })).not.toBeInTheDocument();
+  });
+
+  it('启用 pending 只派发一次，命令已接受但列表刷新失败时冻结旧操作', async () => {
+    const disabled = platform({
+      name: '待启用平台',
+      is_active: false,
+      workflow_stage: 'DISABLED',
+      primary_task: 'ENABLE_PLATFORM',
+      available_actions: ['UPDATE', 'ENABLE', 'DELETE'],
+      deletion: { blockers: [] },
+    });
+    const enabled = platform({
+      ...disabled,
+      revision: disabled.revision + 1,
+      is_active: true,
+      workflow_stage: 'OPERATIONAL',
+      primary_task: 'VIEW_PLATFORM_OPERATION',
+      available_actions: ['UPDATE', 'DISABLE'],
+      deletion: null,
+    });
+    const other = platform({
+      ...disabled,
+      id: '00000000-0000-4000-8000-000000000005',
+      name: '其他待启用平台',
+    });
+    const get = vi.spyOn(api, 'GET')
+      .mockResolvedValueOnce({ data: result([disabled, other]), response: Response.json(result([disabled, other])) } as never)
+      .mockResolvedValueOnce({
+        error: { error: { code: 'PLATFORMS_UNAVAILABLE', message: '同步失败', details: {}, request_id: 'req-status-refresh' } },
+        response: Response.json({}, { status: 503 }),
+      } as never)
+      .mockResolvedValue({ data: result([enabled, other]), response: Response.json(result([enabled, other])) } as never);
+    let finishEnable: ((response: unknown) => void) | undefined;
+    const post = vi.spyOn(api, 'POST').mockImplementation(() => new Promise((resolve) => {
+      finishEnable = resolve;
+    }) as never);
+    renderPlatforms();
+
+    const firstRow = await screen.findByRole('row', { name: /^待启用平台 / });
+    const otherRow = screen.getByRole('row', { name: /^其他待启用平台 / });
+    await userEvent.click(within(firstRow).getByRole('button', { name: '重新启用' }));
+    await userEvent.click(await screen.findByRole('button', { name: '启用平台' }));
+    await waitFor(() => expect(post).toHaveBeenCalledOnce());
+    expect(within(firstRow).getByRole('button', { name: '重新启用' })).toHaveAttribute('aria-disabled', 'true');
+    expect(within(otherRow).getByRole('button', { name: '重新启用' })).toHaveAttribute('aria-disabled', 'true');
+    await userEvent.click(within(otherRow).getByRole('button', { name: '重新启用' }));
+    expect(post).toHaveBeenCalledOnce();
+    finishEnable?.({ data: enabled, response: Response.json(enabled) });
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+    expect(screen.getByText(/平台命令已成功，正在确认最新列表/)).toBeInTheDocument();
+    expect(within(firstRow).getByRole('button', { name: '重新启用' })).toHaveAttribute('aria-disabled', 'true');
+    expect(post).toHaveBeenCalledOnce();
+
+    await userEvent.click(screen.getByRole('button', { name: '重新加载列表' }));
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(3));
+    expect(await screen.findByRole('link', { name: '查看运营' })).toBeInTheDocument();
+    expect(within(firstRow).queryByRole('button', { name: '重新启用' })).not.toBeInTheDocument();
+    expect(post).toHaveBeenCalledOnce();
+  });
+
+  it('删除末页唯一行后自动返回上一页，新列表读取成功便恢复写入口', async () => {
+    const target = platform({
+      name: '末页待删除平台',
+      is_active: false,
+      workflow_stage: 'DISABLED',
+      primary_task: 'ENABLE_PLATFORM',
+      available_actions: ['UPDATE', 'ENABLE', 'DELETE'],
+      deletion: { blockers: [] },
+    });
+    const previous = platform({
+      ...target,
+      id: '00000000-0000-4000-8000-000000000006',
+      name: '上一页平台',
+    });
+    let removed = false;
+    const fetchedPages: number[] = [];
+    vi.spyOn(api, 'GET').mockImplementation((_path, options) => {
+      const page = (options as { params?: { query?: { page?: number } } })?.params?.query?.page;
+      fetchedPages.push(page ?? 0);
+      const data = page === 2 ? result(removed ? [] : [target], removed ? 20 : 21)
+        : result([previous], removed ? 20 : 21);
+      return Promise.resolve({ data, response: Response.json(data) }) as never;
+    });
+    vi.spyOn(api, 'DELETE').mockImplementation(() => {
+      removed = true;
+      return Promise.resolve({ response: new Response(null, { status: 204 }) }) as never;
+    });
+    const { router } = renderPlatforms('/settings/platforms?page=2&pageSize=20');
+
+    await userEvent.click(await screen.findByRole('button', { name: '更多操作：末页待删除平台' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: '删除平台' }));
+    await userEvent.click(screen.getByRole('button', { name: '确认删除' }));
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ page: 1 }));
+    const previousRow = await screen.findByRole('row', { name: /^上一页平台 / });
+    expect(fetchedPages).toContain(1);
+    await waitFor(() => expect(within(previousRow).getByRole('button', { name: '重新启用' }))
+      .not.toHaveAttribute('aria-disabled', 'true'));
+    expect(screen.queryByText(/平台命令已成功，正在确认最新列表/)).not.toBeInTheDocument();
   });
 
   it('删除确认始终读取 exact list projection 的最新名称与 revision', async () => {

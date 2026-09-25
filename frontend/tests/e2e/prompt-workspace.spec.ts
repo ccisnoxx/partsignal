@@ -228,3 +228,92 @@ test('q-only 导航保留草稿，切换 Prompt 被阻断，四档宽度无页�
     ).toBe(true);
   }
 });
+
+test('创建和删除成功后，列表刷新挂起也立即完成 URL handoff 与关闭 Dialog', async ({
+  page,
+  promptWorkspaceApi,
+}, testInfo) => {
+  await page.goto('/settings/prompts?new=1');
+  await expect(page.getByRole('textbox', { name: 'Prompt 名称' })).toBeVisible();
+  let releaseRefresh: (() => void) | undefined;
+  let refreshGate = new Promise<void>((resolve) => { releaseRefresh = resolve; });
+  let pendingReads = 0;
+  await page.route('**/api/v1/platform-prompts', async (route) => {
+    if (route.request().method() === 'GET') {
+      pendingReads += 1;
+      await refreshGate;
+    }
+    await route.fallback();
+  });
+  try {
+    await page.getByRole('textbox', { name: 'Prompt 名称' }).fill('刷新独立于命令');
+    await page.getByRole('textbox', { name: 'Prompt Markdown' }).fill('# 已保存正文');
+    await page.getByRole('button', { name: '创建 Prompt' }).click();
+    await expect(page).toHaveURL(`/settings/prompts?promptId=${createdPromptId}`);
+    await expect.poll(() => pendingReads).toBe(1);
+    await expect(page.getByText('未修改 · Revision 0')).toBeVisible();
+    await expect(page.getByRole('button', { name: '创建 Prompt' })).toHaveCount(0);
+    expect(promptWorkspaceApi.requests.map((request) => request.method)).toEqual(['POST']);
+    const refreshed = page.waitForResponse((response) => (
+      new URL(response.url()).pathname === '/api/v1/platform-prompts'
+      && response.request().method() === 'GET'
+    ));
+    releaseRefresh?.();
+    await refreshed;
+
+    refreshGate = new Promise<void>((resolve) => { releaseRefresh = resolve; });
+    if (testInfo.project.name === 'foundation-mobile') {
+      await page.getByRole('tab', { name: '绑定平台' }).click();
+    }
+    await page.getByRole('button', { name: '删除 Prompt' }).click();
+    const dialog = page.getByRole('dialog', { name: '删除 Prompt“刷新独立于命令”？' });
+    await dialog.getByRole('button', { name: '确认删除' }).click();
+    await expect(page).toHaveURL('/settings/prompts');
+    await expect(dialog).toHaveCount(0);
+    await expect.poll(() => pendingReads).toBe(2);
+    expect(promptWorkspaceApi.requests.map((request) => request.method)).toEqual(['POST', 'DELETE']);
+    expect(promptWorkspaceApi.requests[1]?.expectedRevision).toBe(0);
+  } finally {
+    releaseRefresh?.();
+  }
+});
+
+
+for (const kind of ['create', 'update'] as const) {
+  test(`${kind} 等待响应期间 Markdown 只读，键盘输入不会被成功响应覆盖`, async ({ page, promptWorkspaceApi }) => {
+    await page.goto(kind === 'create' ? '/settings/prompts?new=1' : `/settings/prompts?promptId=${secondPromptId}`);
+    const name = page.getByRole('textbox', { name: 'Prompt 名称' });
+    await name.fill('延迟保存 Prompt');
+    const markdown = page.getByRole('textbox', { name: 'Prompt Markdown' });
+    await markdown.fill('# 提交正文');
+    let release: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    let waiting = false;
+    await page.route('**/api/v1/platform-prompts**', async (route) => {
+      if (route.request().method() === (kind === 'create' ? 'POST' : 'PUT')) {
+        waiting = true;
+        await gate;
+      }
+      await route.fallback();
+    });
+    try {
+      await page.getByRole('button', { name: kind === 'create' ? '创建 Prompt' : '保存 Prompt' }).click();
+      await expect.poll(() => waiting).toBe(true);
+      await expect(markdown).toHaveAttribute('contenteditable', 'false');
+      await expect(name).toBeDisabled();
+      await markdown.click();
+      await page.keyboard.type('must-not-enter');
+      await expect(markdown).toHaveText('# 提交正文');
+      release?.();
+      await expect(page.getByText(`未修改 · Revision ${kind === 'create' ? 0 : 3}`)).toBeVisible();
+      await expect(markdown).toHaveText('# 提交正文');
+      expect(promptWorkspaceApi.requests).toHaveLength(1);
+      expect(promptWorkspaceApi.requests[0]).toMatchObject({
+        method: kind === 'create' ? 'POST' : 'PUT',
+        body: { name: '延迟保存 Prompt', template_markdown: '# 提交正文' },
+      });
+    } finally {
+      release?.();
+    }
+  });
+}

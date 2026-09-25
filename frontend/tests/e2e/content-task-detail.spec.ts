@@ -97,7 +97,7 @@ test('archived verified 与 cancelled Detail 明确只读，保留服务端 prim
   await page.goto(detailUrl);
   await expect(page.getByText('只读')).toBeVisible();
   await expect(page.getByRole('link', { name: '查看取消记录' })).toHaveAttribute('href', '#summary');
-  await expect(page.getByText('VIEW_CANCELLATION', { exact: true })).toBeVisible();
+  await expect(page.getByText('VIEW_CANCELLATION', { exact: true })).toHaveCount(0);
 });
 
 test('375/768/1024/1440 无根横溢出，overflow 可键盘操作并返回焦点', async ({ page }, testInfo) => {

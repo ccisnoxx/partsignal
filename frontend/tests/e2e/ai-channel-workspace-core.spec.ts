@@ -1,4 +1,5 @@
 import { channelId, expect, test } from './fixtures/ai-channel-workspace.fixture';
+import { fixtureArtifactSecrets } from './fixture-secrets';
 
 // 本文件会提交 replacement-only secret；Playwright trace 会记录网络请求体，必须关闭。
 test.use({ trace: 'off' });
@@ -13,7 +14,7 @@ test('List 创建后进入 canonical Workspace，并支持 direct/refresh/histor
   await dialog.getByRole('textbox', { name: '渠道名称' }).fill('Core 新渠道');
   await dialog.getByRole('textbox', { name: '描述' }).fill('Core 创建交接');
   await dialog.getByRole('textbox', { name: 'API 根地址' }).fill('https://core.example.invalid/v1');
-  await dialog.getByLabel('API Key').fill('create-secret-sentinel');
+  await dialog.getByLabel('API Key').fill(fixtureArtifactSecrets.aiChannelCreateApiKey);
   await dialog.getByRole('button', { name: '创建渠道' }).click();
 
   await expect(page).toHaveURL(`/settings/ai/${channelId}?tab=basic`);
@@ -27,8 +28,10 @@ test('List 创建后进入 canonical Workspace，并支持 direct/refresh/histor
     api_key_present: true,
     timeout_seconds: 30,
   }]);
-  expect(aiChannelWorkspaceApi.responsePayloads.join('\n')).not.toContain('create-secret-sentinel');
-  expect(await page.locator('body').innerText()).not.toContain('create-secret-sentinel');
+  expect(aiChannelWorkspaceApi.responsePayloads.join('\n'))
+    .not.toContain(fixtureArtifactSecrets.aiChannelCreateApiKey);
+  expect(await page.locator('body').innerText())
+    .not.toContain(fixtureArtifactSecrets.aiChannelCreateApiKey);
 
   await page.getByRole('tab', { name: '请求配置' }).click();
   await page.reload();
@@ -98,7 +101,7 @@ test('API Key 与 Header 只写不回显，Header 删除提交渠道 revision �
   const replaceTrigger = page.getByRole('button', { name: '重新配置' });
   await replaceTrigger.click();
   let dialog = page.getByRole('dialog', { name: '重新配置 API Key' });
-  await dialog.getByLabel('新的 API Key').fill('api-key-secret-sentinel');
+  await dialog.getByLabel('新的 API Key').fill(fixtureArtifactSecrets.aiChannelReplacementApiKey);
   await dialog.getByRole('button', { name: '保存新密钥' }).click();
   await expect(replaceTrigger).toBeFocused();
 
@@ -106,7 +109,7 @@ test('API Key 与 Header 只写不回显，Header 删除提交渠道 revision �
   await createTrigger.click();
   dialog = page.getByRole('dialog', { name: '新增 Header' });
   await dialog.getByRole('textbox', { name: 'Header 名' }).fill('X-Secret-Core');
-  await dialog.getByLabel('替换值').fill('header-secret-sentinel');
+  await dialog.getByLabel('替换值').fill(fixtureArtifactSecrets.aiChannelSecretHeader);
   await dialog.getByRole('combobox', { name: '类型' }).click();
   await page.getByRole('option', { name: '敏感且永不回显' }).click();
   await dialog.getByRole('button', { name: '保存 Header' }).click();
@@ -125,8 +128,8 @@ test('API Key 与 Header 只写不回显，Header 删除提交渠道 revision �
     { method: 'DELETE', revision: 6 },
   ]);
   const safeOutput = `${aiChannelWorkspaceApi.responsePayloads.join('\n')}\n${await page.locator('body').innerText()}`;
-  expect(safeOutput).not.toContain('api-key-secret-sentinel');
-  expect(safeOutput).not.toContain('header-secret-sentinel');
+  expect(safeOutput).not.toContain(fixtureArtifactSecrets.aiChannelReplacementApiKey);
+  expect(safeOutput).not.toContain(fixtureArtifactSecrets.aiChannelSecretHeader);
 });
 
 test('Workspace 保持 ADMIN 边界、键盘可达且根节点无响应式溢出', async ({

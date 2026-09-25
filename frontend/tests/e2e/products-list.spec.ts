@@ -115,11 +115,15 @@ test('Products 明确呈现 loading、empty、filtered empty、error 与 retry',
 });
 
 test('Products 在目标宽度无页面级横向溢出且键盘焦点可操作', async ({ page }, testInfo) => {
-  const widths = testInfo.project.name === 'foundation-mobile' ? [375, 768] : [1024, 1440];
+  const widths = testInfo.project.name === 'foundation-mobile' ? [320, 375, 768] : [1024, 1440];
   await page.goto('/products?page=1');
   for (const width of widths) {
     await page.setViewportSize({ width, height: 900 });
     await expect(page.getByRole('heading', { level: 1, name: '产品事实' })).toBeVisible();
+    const statusColumn = width < 768 ? 'primary' : 'status';
+    const statusCell = page.getByRole('row', { name: /PS-0001/ }).locator(`td[data-column-role="${statusColumn}"]`);
+    await expect(statusCell.getByText('未录入')).toBeVisible();
+    if (width < 768) expect(await statusCell.ariaSnapshot()).toMatch(/事实状态：\s*未录入/);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), `${width}px 页面根不应横向溢出`).toBe(true);
   }
 

@@ -118,6 +118,10 @@ function RowActions({ objectLabel, onCommand, overflow, primary }: RowActionsPro
   const [pendingAction, setPendingAction] = useState<OverflowRowAction | null>(null);
   const overflowTriggerRef = useRef<HTMLButtonElement>(null);
 
+  if (overflow.some((action) => action.href && action.confirmation)) {
+    throw new Error('RowActions 的链接操作不能要求确认；请使用命令交由业务页面处理');
+  }
+
   function runAction(action: OverflowRowAction) {
     if (!action.enabled) return;
     if (action.confirmation && action.confirmation !== 'custom') {

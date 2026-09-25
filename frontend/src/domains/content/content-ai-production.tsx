@@ -40,16 +40,25 @@ type GenerationJobStatus = components['schemas']['GenerationJobStatus'];
 type ProductionMode = 'generate' | 'humanize';
 
 type ContentAiProductionProps = {
+  blocked?: boolean;
   context: ContentEditorContext;
   csrfToken: string | null;
   taskId: string;
 };
 
-function ContentAiProduction({ context, csrfToken, taskId }: ContentAiProductionProps) {
+function ContentAiProduction({ blocked = false, context, csrfToken, taskId }: ContentAiProductionProps) {
   const queryClient = useQueryClient();
   const [mode, setMode] = useState<ProductionMode | null>(null);
   const [selectedModelId, setSelectedModelId] = useState<string>();
-  const [submittedJob, setSubmittedJob] = useState<GenerationJob>();
+  const [submission, setSubmission] = useState<{
+    job: GenerationJob;
+    previousLatestId: string | null;
+  }>();
+  // 本地响应仅桥接命令成功到 Editor Context 更新；服务端接管后不再固定旧 job。
+  const submittedJob = submission
+    && (context.latest_generation?.id ?? null) === submission.previousLatestId
+    ? submission.job
+    : undefined;
   const [detailJobId, setDetailJobId] = useState<string>();
   const [retryOpen, setRetryOpen] = useState(false);
   const [error, setError] = useState<string>();
@@ -63,6 +72,14 @@ function ContentAiProduction({ context, csrfToken, taskId }: ContentAiProduction
     enabled: mode !== null,
   });
   const jobs = useQuery(generationJobsQueryOptions(taskId, trackedJobId));
+  const previousTrackedId = useRef(trackedJobId);
+  const refetchJobs = jobs.refetch;
+  useEffect(() => {
+    if (previousTrackedId.current === trackedJobId) return;
+    previousTrackedId.current = trackedJobId;
+    // 列表 query key 属于 task，切换 job 不会自动重新读取既有缓存。
+    if (trackedJobId) void refetchJobs();
+  }, [refetchJobs, trackedJobId]);
   const jobDetail = useQuery({
     ...generationJobDetailQueryOptions(detailJobId ?? 'disabled'),
     enabled: detailJobId !== undefined,
@@ -133,6 +150,14 @@ function ContentAiProduction({ context, csrfToken, taskId }: ContentAiProduction
     ]);
   }, [queryClient, submittedJob?.id, taskId, trackedJobId, trackedStatus]);
 
+  useEffect(() => {
+    if (submission && context.latest_generation
+      && context.latest_generation.id !== submission.previousLatestId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSubmission(undefined);
+    }
+  }, [context.latest_generation, submission]);
+
   function openProduction(nextMode: ProductionMode) {
     setError(undefined);
     setSelectedModelId(undefined);
@@ -147,7 +172,8 @@ function ContentAiProduction({ context, csrfToken, taskId }: ContentAiProduction
   }
 
   async function submitProduction() {
-    if (!mode || !selectedModelId || !options.data) return;
+    if (blocked || !mode || !selectedModelId || !options.data) return;
+    if (mode === 'generate' ? !canGenerate : !canHumanize) return;
     setError(undefined);
     const prompt = options.data.platform_prompt;
     const sourceId = context.current_content?.id ?? '';
@@ -158,10 +184,9 @@ function ContentAiProduction({ context, csrfToken, taskId }: ContentAiProduction
       const job = mode === 'generate'
         ? await create.mutateAsync({ modelId: selectedModelId, signature })
         : await humanize.mutateAsync({ modelId: selectedModelId, signature });
-      setSubmittedJob(job);
+      setSubmission({ job, previousLatestId: context.latest_generation?.id ?? null });
       setMode(null);
       setSelectedModelId(undefined);
-      await queryClient.invalidateQueries({ queryKey: contentKeys.generationJobs(taskId) });
     } catch (caught) {
       if (isErrorCode(caught, 'IDEMPOTENCY_CONFLICT')) commandKeys.current.delete(signature);
       if (isErrorCode(caught, 'PLATFORM_PROMPT_CHANGED')) {
@@ -173,14 +198,13 @@ function ContentAiProduction({ context, csrfToken, taskId }: ContentAiProduction
   }
 
   async function submitRetry() {
-    if (!summaryJob?.available_actions.includes('RETRY')) return;
+    if (blocked || !summaryJob?.available_actions.includes('RETRY')) return;
     setError(undefined);
     const signature = `RETRY:${summaryJob.id}`;
     try {
       const job = await retry.mutateAsync({ jobId: summaryJob.id, signature });
-      setSubmittedJob(job);
+      setSubmission({ job, previousLatestId: context.latest_generation?.id ?? null });
       setRetryOpen(false);
-      await queryClient.invalidateQueries({ queryKey: contentKeys.generationJobs(taskId) });
     } catch (caught) {
       if (isErrorCode(caught, 'IDEMPOTENCY_CONFLICT')) commandKeys.current.delete(signature);
       setError(errorMessage(caught));
@@ -195,7 +219,7 @@ function ContentAiProduction({ context, csrfToken, taskId }: ContentAiProduction
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex flex-col gap-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="type-section-title" id="content-ai-production-title">AI Production</h2>
+            <h2 className="type-section-title" id="content-ai-production-title">AI 内容生产</h2>
             {trackedStatus ? <JobStatusBadge status={trackedStatus} /> : null}
           </div>
           <p className="text-sm text-text-secondary">
@@ -204,12 +228,12 @@ function ContentAiProduction({ context, csrfToken, taskId }: ContentAiProduction
         </div>
         <div className="flex flex-wrap gap-2">
           {canGenerate ? (
-            <Button disabled={pending} onClick={() => openProduction('generate')} type="button">
+            <Button disabled={blocked || pending} onClick={() => openProduction('generate')} type="button">
               AI 生成首稿
             </Button>
           ) : null}
           {canHumanize ? (
-            <Button disabled={pending} onClick={() => openProduction('humanize')} type="button" variant="outline">
+            <Button disabled={blocked || pending} onClick={() => openProduction('humanize')} type="button" variant="outline">
               创建自然化版本
             </Button>
           ) : null}
@@ -235,7 +259,7 @@ function ContentAiProduction({ context, csrfToken, taskId }: ContentAiProduction
               查看完整作业快照
             </Button>
             {summaryJob?.available_actions.includes('RETRY') ? (
-              <Button onClick={() => { setError(undefined); setRetryOpen(true); }} size="sm" type="button">
+              <Button disabled={blocked} onClick={() => { setError(undefined); setRetryOpen(true); }} size="sm" type="button">
                 按原快照重试
               </Button>
             ) : null}
@@ -253,6 +277,7 @@ function ContentAiProduction({ context, csrfToken, taskId }: ContentAiProduction
 
       {mode ? (
         <ProductionDialog
+          blocked={blocked || (mode === 'generate' ? !canGenerate : !canHumanize)}
           error={error}
           loading={options.isPending}
           mode={mode}
@@ -279,7 +304,7 @@ function ContentAiProduction({ context, csrfToken, taskId }: ContentAiProduction
             {error ? <p className="text-sm text-danger" role="alert">{error}</p> : null}
             <DialogFooter>
               <DialogClose render={<Button disabled={retry.isPending} variant="outline" />}>取消</DialogClose>
-              <Button disabled={retry.isPending} onClick={() => void submitRetry()} type="button">
+              <Button disabled={blocked || retry.isPending} onClick={() => void submitRetry()} type="button">
                 {retry.isPending ? '创建重试作业中…' : '确认按原快照重试'}
               </Button>
             </DialogFooter>
@@ -310,6 +335,7 @@ function ContentAiProduction({ context, csrfToken, taskId }: ContentAiProduction
 }
 
 function ProductionDialog({
+  blocked,
   error,
   loading,
   mode,
@@ -322,6 +348,7 @@ function ProductionDialog({
   selectedModelId,
   submitting,
 }: {
+  blocked: boolean;
   error?: string;
   loading: boolean;
   mode: ProductionMode;
@@ -374,7 +401,7 @@ function ProductionDialog({
               </section>
             ) : (
               <p className="text-sm text-text-secondary">
-                Humanization Prompt：{options.humanization_prompt_configured ? '已配置' : '未配置'}
+                自然化 Prompt：{options.humanization_prompt_configured ? '已配置' : '未配置'}
               </p>
             )}
 
@@ -399,7 +426,7 @@ function ProductionDialog({
             </label>
             {models.length === 0 ? <p className="text-sm text-danger">当前没有可用模型。</p> : null}
             {humanizationUnavailable ? (
-              <p className="text-sm text-danger" role="alert">Humanization Prompt 尚未配置，不能创建作业。</p>
+              <p className="text-sm text-danger" role="alert">自然化 Prompt 尚未配置，不能创建作业。</p>
             ) : null}
           </div>
         ) : null}
@@ -408,7 +435,7 @@ function ProductionDialog({
         <DialogFooter>
           <DialogClose render={<Button disabled={submitting} variant="outline" />}>取消</DialogClose>
           <Button
-            disabled={!options || !selectedModelId || models.length === 0 || humanizationUnavailable || submitting}
+            disabled={blocked || !options || !selectedModelId || models.length === 0 || humanizationUnavailable || submitting}
             onClick={onSubmit}
             type="button"
           >
@@ -442,7 +469,13 @@ function JobStatusBadge({ status }: { status: GenerationJobStatus }) {
     : status === 'FAILED'
       ? 'destructive'
       : 'info';
-  return <Badge variant={variant}>{status}</Badge>;
+  const label: Record<GenerationJobStatus, string> = {
+    PENDING: '排队中',
+    RUNNING: '执行中',
+    SUCCEEDED: '已完成',
+    FAILED: '失败',
+  };
+  return <Badge variant={variant}>{label[status]}</Badge>;
 }
 
 function jobStatusCopy(status: GenerationJobStatus) {
@@ -459,7 +492,7 @@ function isErrorCode(error: unknown, code: string) {
 }
 
 function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : 'AI Production 请求失败';
+  return error instanceof Error ? error.message : 'AI 内容生产请求失败';
 }
 
 export { ContentAiProduction };

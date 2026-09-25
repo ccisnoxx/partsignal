@@ -445,3 +445,46 @@ test('375/768/1024/1440 复用 Workspace 响应式、键盘焦点且 StickyActio
   const actionBox = await page.locator('[data-safe-area="bottom"]').boundingBox();
   expect(documentBox && actionBox && documentBox.y + documentBox.height <= actionBox.y + 1).toBe(true);
 });
+
+
+test('后台主线变化保留 dirty 草稿与提交备注，显式重载才采用新主线', async ({ page, contentApi }) => {
+  await page.goto(editorPath);
+  const title = page.getByRole('textbox', { name: '标题' });
+  await title.fill('另一会话更新时仍需保留');
+  contentApi.setEditorMode('no-current');
+  await page.evaluate(() => window.dispatchEvent(new Event('visibilitychange')));
+  await expect(page.getByText('服务端内容已更新', { exact: true })).toBeVisible();
+  await expect(title).toHaveValue('另一会话更新时仍需保留');
+  await expect(page.getByRole('button', { name: '保存草稿' })).toHaveAttribute('aria-disabled', 'true');
+  await page.getByRole('button', { name: '重新加载最新版本' }).click();
+  await expect(title).toHaveValue('');
+  await expect(page.getByRole('button', { name: '创建人工首稿' })).toBeVisible();
+
+  contentApi.setEditorMode('human-draft');
+  await page.evaluate(() => window.dispatchEvent(new Event('visibilitychange')));
+  await expect(title).toHaveValue('当前人工草稿');
+  await page.getByRole('button', { name: '提交审核' }).click();
+  const dialog = page.getByRole('dialog', { name: '提交内容审核' });
+  await dialog.getByRole('textbox', { name: '备注（可选）' }).fill('保留审核备注');
+  contentApi.setEditorMode('no-current');
+  await page.evaluate(() => window.dispatchEvent(new Event('visibilitychange')));
+  await expect(dialog.getByText('服务端内容已更新', { exact: true })).toBeVisible();
+  await expect(dialog.getByRole('textbox', { name: '备注（可选）' })).toHaveValue('保留审核备注');
+  await expect(dialog.getByRole('button', { name: '确认提交审核' })).toBeDisabled();
+});
+
+test('AI terminal 保留生成期间编辑的人工首稿', async ({ page, contentApi }) => {
+  contentApi.setEditorMode('no-current');
+  await page.goto(editorPath);
+  await page.getByRole('textbox', { name: '标题' }).fill('本地人工首稿尚未保存');
+  await page.getByRole('button', { name: 'AI 生成首稿' }).click();
+  const dialog = page.getByRole('dialog', { name: '确认 Prompt 与模型' });
+  await dialog.getByRole('combobox', { name: '模型' }).click();
+  await page.getByRole('option', { name: /Fixture Model/ }).click();
+  await dialog.getByRole('button', { name: '确认 Prompt 与模型并开始生成' }).click();
+  await expect(page.getByText('服务端内容已更新', { exact: true })).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole('textbox', { name: '标题' })).toHaveValue('本地人工首稿尚未保存');
+  await expect(page.getByRole('button', { name: '创建人工首稿' })).toHaveAttribute('aria-disabled', 'true');
+  await page.getByRole('button', { name: '重新加载最新版本' }).click();
+  await expect(page.getByRole('textbox', { name: '标题' })).toHaveValue('AI 生成首稿');
+});

@@ -89,9 +89,7 @@ Primary 来源 `primary_task`，显示在 Table row、Workspace StickyActionBar�
 
 ## 6. Product Action 示例
 
-可能 token：`ENTER_FACTS`、`REVIEW_FACT`、`REVISE_FACT`、`CREATE_CONTENT_TASK`。
-
-事实历史查看不是 row primary action，应该通过对象详情/历史 section 访问。
+`ProductListItem.primary_task` 的完整 token：`ENTER_FACTS`、`SUBMIT_FACT_REVIEW`、`REVIEW_FACT`、`REVISE_FACT`、`CREATE_CONTENT_TASK`、`VIEW_FACT_HISTORY`。列表行依服务端投影显示唯一 Primary；`VIEW_FACT_HISTORY` 进入该产品的只读事实历史。对象详情也提供事实历史入口。
 
 ## 7. Content Action 示例
 
@@ -230,7 +228,7 @@ create/update 入口使用短 Dialog；canonical question 与 variants 的 trim�
 
 `GET /api/v1/geo-observations/list-items` 是 `/geo/observations` 的 V2 专用紧凑 read model；既有 `GET /api/v1/geo-observations` 继续返回完整 `GeoObservation` 并服务 V1。新响应只包含链尾观测的标准问题/搜索词、Product identity、统一 GEO 平台、发现/提及/准确 compact counts、关联成果数量、证据数量、recorder、观测时间与 `available_actions`，不含 notes、citation、文章 URL、attachment ID 或详情正文。
 
-query 显式固定为 `search/product_id/geo_platform/accuracy/date_from/date_to/sort/page/page_size`。`search` 由服务端匹配 canonical question、raw prompt/search query、Product brand/part number；其他筛选、`OBSERVED_DESC|OBSERVED_ASC` 排序、count 和 `10|20|50` 分页也全部在服务端完成。URL 的 `q/productId/geoPlatform/accuracy/from/to/sort/page/pageSize` 只按这一组名称映射，不提供 alias；浏览器不得对分页结果本地过滤、排序、join Product/Query Topic 或逐行补请求。
+query 显式固定为 `search/product_id/query_topic_id/geo_platform/accuracy/date_from/date_to/sort/page/page_size`。`search` 由服务端匹配 canonical question、raw prompt/search query、Product brand/part number；`query_topic_id` 精确筛选 Query Topic 引用；其他筛选、`OBSERVED_DESC|OBSERVED_ASC` 排序、count 和 `10|20|50` 分页也全部在服务端完成。URL 的 `q/productId/queryTopicId/geoPlatform/accuracy/from/to/sort/page/pageSize` 只按这一组名称映射，不提供 alias；浏览器不得对分页结果本地过滤、排序、join Product/Query Topic 或逐行补请求。
 
 manual 的 discovered/mentioned 由数据库约束保证完整，accuracy 的 null/`UNJUDGEABLE` 通过 `positive_count/assessed_count/total_count` 明确表达未评估；legacy `discovered=null` 表示未采集。投影缺少 Product、recorder、query、platform、manual result 或必填事实时返回结构化 409，不以 0 或空文案补齐。`CORRECT` 与 `DELETE` 只按服务端 `available_actions` 显示；`/geo/observations/{id}` 是 canonical readonly Detail，`CORRECT` 指向当前尾的 `/geo/observations/{id}/correct`。
 

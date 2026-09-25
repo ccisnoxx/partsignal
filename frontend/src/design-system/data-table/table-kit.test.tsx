@@ -120,6 +120,23 @@ describe('Table Kit', () => {
     expect(onCommand).toHaveBeenCalledWith('archive');
   });
 
+  it('RowActions 拒绝会绕过确认的链接操作配置', () => {
+    expect(() => render(
+      <RowActions
+        objectLabel="示例对象"
+        onCommand={vi.fn()}
+        overflow={[{
+          key: 'delete-link',
+          label: '删除对象',
+          intent: 'danger',
+          enabled: true,
+          href: '/delete',
+          confirmation: { title: '确认删除', description: '删除后无法恢复。' },
+        }]}
+      />,
+    )).toThrow('RowActions 的链接操作不能要求确认');
+  });
+
   it('disabled Primary 与 overflow 都解释原因且不执行', async () => {
     const user = userEvent.setup();
     const onCommand = vi.fn();

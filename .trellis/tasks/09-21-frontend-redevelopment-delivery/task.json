@@ -79,6 +79,6 @@
   ],
   "parent": null,
   "relatedFiles": [],
-  "notes": "",
+  "notes": "R00 至 I02 及 I03-1～I03-3 已完成；I03-4 clean-checkout 完整门禁和资源清理通过，但最终 fresh critical_reviewer 发现旧身份 pending mutation 可在身份切换后迟到写回共享 QueryCache 的 P1 权限并发阻断。总体本地交付保持 in_progress，等待独立 blocker 修复、新 clean-checkout 完整复验与高风险复核；I04 未创建、未执行。",
   "meta": {}
 }

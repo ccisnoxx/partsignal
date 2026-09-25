@@ -21,10 +21,11 @@
   "children": [
     "09-25-frontend-i03-1-canonical-reference-audit",
     "09-25-frontend-i03-2-ci-gate-consistency",
-    "09-25-frontend-i03-3-candidate-atomic-assembly"
+    "09-25-frontend-i03-3-candidate-atomic-assembly",
+    "09-25-frontend-i03-4-clean-checkout-integration"
   ],
   "parent": "09-21-frontend-redevelopment-delivery",
   "relatedFiles": [],
-  "notes": "I03-1 Canonical 引用审计、I03-2 CI 门禁一致性修复和 I03-3 候选文件原子组装与恢复点均已完成；I03-3 原子候选 commit 为 fa285837425c66041da8e53f6e150912283d50ed、tree 为 bc728b072b77e2fd0b9e74399e21cfb9114f0a02，fresh staged-tree critical_reviewer 结论 NO BLOCKER。I03 继续保持 in_progress；下一任务为 I03 最终 clean-checkout 本地集成复验。本会话不进入后继任务，不完成 I03 或总体交付。",
+  "notes": "I03-1～I03-3 已完成；I03-4 从固定 88992307/tree 209bde2d 的 detached clean worktree 单次执行 make verify 全绿，secret scan、六项 harness、单次前后端 Docker build、资源清理与 tree 无漂移均成立。但最终 fresh critical_reviewer 发现 P1 身份边界迟到 mutation 缓存回写阻断，已记录为 I03-4 的未启动独立 blocker。I03 与总体交付继续保持 in_progress；未创建 Trellis 收尾提交，不进入 I04。",
   "meta": {}
 }

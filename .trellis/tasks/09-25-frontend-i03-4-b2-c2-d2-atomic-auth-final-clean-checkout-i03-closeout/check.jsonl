@@ -1,0 +1,4 @@
+{"file":".trellis/spec/infra/ci-execution.md","reason":"复核单次完整 make verify 与 CI owner"}
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"复核资源前后置、secret scan 与清理证据"}
+{"file":".trellis/spec/infra/production-image-delivery.md","reason":"复核 Production deploy harness 与 TMPDIR cleanup regression"}
+{"file":".trellis/tasks/09-25-frontend-i03-4-b2-c2-d1-atomic-auth-session-snapshot/implement.md","reason":"复核固定 D1 产品候选的权限与并发修复范围"}

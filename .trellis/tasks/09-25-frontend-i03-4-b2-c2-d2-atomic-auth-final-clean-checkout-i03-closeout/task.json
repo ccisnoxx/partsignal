@@ -1,0 +1,32 @@
+{
+  "id": "frontend-i03-4-b2-c2-d2-atomic-auth-final-clean-checkout-i03-closeout",
+  "name": "frontend-i03-4-b2-c2-d2-atomic-auth-final-clean-checkout-i03-closeout",
+  "title": "I03-4-B2-C2-D2 原子认证候选最终 clean-checkout 复验与 I03 收尾",
+  "description": "从 ff018cb9 固定候选执行单次 clean-checkout 全仓门禁、资源清理、完整候选独立高风险复核并在 NO BLOCKER 后完成 I03 收尾。",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P0",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-09-25",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "09-26-frontend-i03-4-b2-c2-d2-system-admin-atomic-session-audit-blocker"
+  ],
+  "parent": "09-25-frontend-i03-4-b2-c2-auth-session-cross-snapshot-blocker",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "outcome": "BLOCKER",
+    "make_verify_exit": "2",
+    "remote_writes": "none"
+  }
+}

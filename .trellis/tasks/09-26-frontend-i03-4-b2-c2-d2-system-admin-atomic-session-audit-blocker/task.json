@@ -1,0 +1,31 @@
+{
+  "id": "frontend-i03-4-b2-c2-d2-system-admin-atomic-session-audit-blocker",
+  "name": "frontend-i03-4-b2-c2-d2-system-admin-atomic-session-audit-blocker",
+  "title": "I03-4-B2-C2-D2 Blocker System Admin 原子 session 失效响应审计",
+  "description": "最终 clean-checkout make verify 在真实栈 System Admin 场景中因 reset-invalid-session 仍只允许旧 /api/v1/auth/me 401、未允许 D1 后规范化 /api/v1/auth/session 401 而失败；修复并重新建立完整门禁证据。",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P0",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-09-26",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "09-25-frontend-i03-4-b2-c2-d2-atomic-auth-final-clean-checkout-i03-closeout",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "trigger_log_sha256": "ff58ff180b8e4455b6a1bd7ace11f270b0ab526a2057f7e213349b1d1231b7fd",
+    "diagnosis": "redundant-test-navigation",
+    "targeted_e2e": "passed",
+    "targeted_log_sha256": "59efaeb87bb708ae3d1aaf102c447a2b5d57dbfa602d87ad2bf667ab8be78fae"
+  }
+}

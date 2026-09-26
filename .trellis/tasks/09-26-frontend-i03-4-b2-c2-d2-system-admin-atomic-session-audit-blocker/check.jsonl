@@ -1,0 +1,4 @@
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"复核测试不能以宽泛 allowlist 掩盖真实错误。"}
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"复核门禁资源和 secret 清理证据。"}
+{"file":".trellis/tasks/09-25-frontend-i03-4-b2-c2-d1-atomic-auth-session-snapshot/prd.md","reason":"复核修复与原子 session 合同一致。"}
+{"file":".trellis/tasks/09-25-frontend-i03-4-b2-c2-d2-atomic-auth-final-clean-checkout-i03-closeout/prd.md","reason":"复核 D2 恢复所需的完整门禁条件。"}

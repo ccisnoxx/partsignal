@@ -1,0 +1,4 @@
+{"file":".trellis/spec/infra/ci-execution.md","reason":"核对顶层门禁、CI、Docker/Compose 与失败传播合同"}
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"核对 PostgreSQL、Redis、端口、对象存储、secret artifact 与 E2E 清理合同"}
+{"file":".trellis/spec/infra/production-image-delivery.md","reason":"核对 production harness、maintenance 与候选交付合同"}
+{"file":".trellis/tasks/09-25-frontend-i03-4-b2-c2-d1-atomic-auth-session-snapshot/implement.md","reason":"核对 D1 实现、定向证据与剩余完整复验边界"}

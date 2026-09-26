@@ -69,8 +69,9 @@ async function login(
   context: BrowserContext,
   username: string,
   password: string,
+  { navigate = true }: { navigate?: boolean } = {},
 ) {
-  await page.goto('/login');
+  if (navigate) await page.goto('/login');
   await page.getByRole('textbox', { name: '用户名' }).fill(username);
   await page.getByLabel(/^密码/).fill(password);
   const responsePromise = page.waitForResponse((response) => (
@@ -111,7 +112,7 @@ function watchRuntime(
       phase: 'reset-invalid-session',
       origin: new URL(apiBaseUrl).origin,
       method: 'GET',
-      pathname: '/api/v1/auth/me',
+      pathname: '/api/v1/auth/session',
       status: 401,
     }],
   });
@@ -464,7 +465,7 @@ test('System Admin 真实栈完成用户、权限、会话与审计闭环', asyn
     await expect(engineerPage.getByRole('heading', { name: '登录' })).toBeVisible();
     await expect(engineerPage.getByRole('alert')).toHaveCount(0);
 
-    await login(engineerPage, engineerContext, username, resetPassword);
+    await login(engineerPage, engineerContext, username, resetPassword, { navigate: false });
     engineerRuntimePhase.current = 'engineer-reset-login';
     await expect(engineerPage).toHaveURL('/account/security');
     await expect(engineerPage.getByText('首次登录必须修改临时密码，完成前不能进入业务页面。')).toBeVisible();
@@ -650,6 +651,15 @@ test('System Admin 真实栈完成用户、权限、会话与审计闭环', asyn
         method: 'POST',
         pathname: '/api/v1/auth/login',
         status: 200,
+        attempts: 1,
+        responses: 1,
+      },
+      {
+        phase: 'reset-invalid-session',
+        origin: apiOrigin,
+        method: 'GET',
+        pathname: '/api/v1/auth/session',
+        status: 401,
         attempts: 1,
         responses: 1,
       },

@@ -19,7 +19,8 @@
   "pr_url": null,
   "subtasks": [],
   "children": [
-    "09-25-frontend-i03-4-b2-c2-d1-atomic-auth-session-snapshot"
+    "09-25-frontend-i03-4-b2-c2-d1-atomic-auth-session-snapshot",
+    "09-25-frontend-i03-4-b2-c2-d2-atomic-auth-final-clean-checkout-i03-closeout"
   ],
   "parent": "09-25-frontend-i03-4-b2-c2-clean-checkout-revalidation-i03-closeout",
   "relatedFiles": [],

@@ -19,7 +19,8 @@
   "pr_url": null,
   "subtasks": [],
   "children": [
-    "09-26-frontend-i03-4-b2-c2-d2-system-admin-atomic-session-audit-blocker"
+    "09-26-frontend-i03-4-b2-c2-d2-system-admin-atomic-session-audit-blocker",
+    "09-26-frontend-i03-4-b2-c2-d2-platform-types-fixture-csrf-blocker"
   ],
   "parent": "09-25-frontend-i03-4-b2-c2-auth-session-cross-snapshot-blocker",
   "relatedFiles": [],
@@ -27,6 +28,10 @@
   "meta": {
     "outcome": "BLOCKER",
     "make_verify_exit": "2",
-    "remote_writes": "none"
+    "remote_writes": "none",
+    "candidate_commit": "4e739f68f3ef87286d7b22e77ebfd353bafda6e8",
+    "candidate_tree": "425ec420f117ddf094172bd862ffd059f59cde45",
+    "make_verify_log_sha256": "d52a1a14bb86a4b892c5eecba6eef45e57184f88675a5cfd5f73ad2ec1582b21",
+    "blocker": "platform-types-fixture-csrf"
   }
 }

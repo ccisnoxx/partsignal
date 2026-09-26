@@ -66,17 +66,17 @@ test('创建、编辑和删除只提交 Name、Slug、CSRF 与 canonical revisio
     {
       method: 'POST',
       body: { name: '社交平台', slug: 'social-platform' },
-      csrfToken: 'platforms-e2e-csrf',
+      csrfToken: 'platform-types-csrf',
     },
     {
       method: 'PATCH',
       body: { name: '社交媒体', slug: 'social-platform', expected_revision: 0 },
-      csrfToken: 'platforms-e2e-csrf',
+      csrfToken: 'platform-types-csrf',
       expectedRevision: 0,
     },
     {
       method: 'DELETE',
-      csrfToken: 'platforms-e2e-csrf',
+      csrfToken: 'platform-types-csrf',
       expectedRevision: 1,
     },
   ]);

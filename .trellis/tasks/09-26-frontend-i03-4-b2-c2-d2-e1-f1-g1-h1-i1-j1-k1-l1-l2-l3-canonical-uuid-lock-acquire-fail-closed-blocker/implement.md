@@ -36,8 +36,22 @@ I04、fetch/push/SSH 或写入 Hostdzire。
 - 真实栈清理确认端口 8000/9001/4174/19009、Redis DB 14、`partsignal_e2e_%` 数据库、storage/secret
   临时目录与测试容器均为 0。
 
-## 下一步
+## Fixed candidate 门禁与 fresh review
 
-把 L2/L1 既有 Trellis 记录、L3 实现/测试/记录和稳定 spec 组装为新 fixed candidate；只为该 commit 创建
-全新 detached validation checkout，先跑 26/26 bind sentinel，再单次执行完整 `make verify`。只有完整门禁、
-资源归零和 fresh critical review `NO BLOCKER` 全部成立后才统一关闭阻断链与 I03。
+- fixed candidate：commit `b7318ef67c40301cc2b2f745e04e7f543e40eab8`；tree
+  `4a6c789d5b2687641eeca6c2da4f1ab7e348f4db`。
+- 全新 `/Users/sc/...` detached checkout bootstrap 后，26/26 bind sentinel 通过；完整 `make verify` 仅运行一次并退出
+  `0`。日志 252,114 bytes，SHA-256
+  `b16c14451d41f82aa577313433b5bfd521edcf5a2f3746156595cbd925642b0c`。
+- 实际计数：backend unit 683、Vitest 91 files / 834 tests、PostgreSQL integration 337、real-stack 21、
+  fixture 494 passed / 44 skipped；两次 secret scan、production/Docker build、lifecycle/deploy harness 与
+  dev/prod Compose config 全部通过。
+- pre/post resource snapshot 逐字一致且受控资源全部为 0；validation identity 未漂移，checkout 已安全清理。
+- fresh critical review 为 `BLOCKER`；audit id
+  `20260926T170307Z-i03-l3-canonical-uuid-and-lock-fail-closed-9ae850cc`。
+
+## L4 恢复点
+
+bulk current-actor exact success 在请求期间若被另一标签页推进 principal epoch，会因旧 continuation stale 跳过
+结果后的 `runAuthBoundary()`，却仍被记为 handled 并捕获新 continuation。已建立 L4 子任务；本会话不继续修复、
+不重跑完整门禁、不关闭父链、不创建 I04。

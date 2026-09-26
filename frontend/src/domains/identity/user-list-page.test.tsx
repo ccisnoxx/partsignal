@@ -4,7 +4,15 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { AuthContextValue } from '@/app/auth/auth-provider';
+import {
+  authSessionQueryKey,
+  type AuthContextValue,
+  type AuthSession,
+} from '@/app/auth/auth-provider';
+import {
+  advancePrincipalEpoch,
+  capturePrincipalContinuation,
+} from '@/app/auth/principal-epoch';
 import { TooltipProvider } from '@/design-system/primitives/tooltip';
 import { routeTree } from '@/routeTree.gen';
 import { api } from '@/shared/api/client';
@@ -729,7 +737,7 @@ describe('Users lifecycle boundaries', () => {
     expect(refresh).not.toHaveBeenCalled();
   });
 
-  it('批量停用只有当前主体实际成功后才进入 principal boundary', async () => {
+  it('批量停用只有当前主体实际成功后才执行 post-result canonical reconciliation', async () => {
     const current = { ...admin, available_actions: ['UPDATE', 'DISABLE'] as User['available_actions'] };
     const saved = { ...current, is_active: false, revision: current.revision + 1 };
     vi.spyOn(api, 'GET').mockResolvedValue({ data: result([current]), response: Response.json(result([current])) } as never);
@@ -738,6 +746,7 @@ describe('Users lifecycle boundaries', () => {
       response: Response.json({}, { status: 200 }),
     } as never);
     const boundary = vi.mocked(auth.runPrincipalBoundary).mockClear();
+    const reconcile = vi.mocked(auth.reconcileUnknownPrincipalResult).mockClear();
     const refresh = vi.spyOn(auth, 'refresh').mockResolvedValue(undefined).mockClear();
     renderUsers();
 
@@ -746,10 +755,92 @@ describe('Users lifecycle boundaries', () => {
     const dialog = await screen.findByRole('dialog', { name: '批量停用 1 个用户？' });
     await userEvent.click(within(dialog).getByRole('button', { name: '批量停用' }));
 
-    await waitFor(() => expect(boundary).toHaveBeenCalledOnce());
-    expect(post.mock.invocationCallOrder[0]).toBeLessThan(boundary.mock.invocationCallOrder[0]!);
+    await waitFor(() => expect(reconcile).toHaveBeenCalledOnce());
+    expect(post.mock.invocationCallOrder[0]).toBeLessThan(reconcile.mock.invocationCallOrder[0]!);
+    expect(boundary).not.toHaveBeenCalled();
     expect(refresh).not.toHaveBeenCalled();
     expect(screen.getByRole('status')).toHaveTextContent('成功 1，失败 0');
+  });
+
+  it('较早 binding reconciliation 不能替代 bulk exact success 后的 canonical boundary', async () => {
+    const current = { ...admin, available_actions: ['UPDATE', 'DISABLE'] as User['available_actions'] };
+    const saved = { ...current, is_active: false, revision: current.revision + 1 };
+    vi.spyOn(api, 'GET').mockResolvedValue({
+      data: result([current]),
+      response: Response.json(result([current])),
+    } as never);
+    let releaseBulk!: (value: unknown) => void;
+    const events: string[] = [];
+    const post = vi.spyOn(api, 'POST').mockImplementation(() => new Promise((resolve) => {
+      events.push('bulk-started');
+      releaseBulk = (value) => {
+        events.push('bulk-result-known');
+        resolve(value);
+      };
+    }) as never);
+    const reconcile = vi.fn(async () => {
+      events.push('post-result-reconciliation');
+      expect(events).toEqual([
+        'bulk-started',
+        'earlier-binding-reconciliation',
+        'bulk-result-known',
+        'post-result-reconciliation',
+      ]);
+      advancePrincipalEpoch(queryClient, null);
+      queryClient.removeQueries({
+        predicate: (query) => query.queryKey[0] !== authSessionQueryKey[0],
+      });
+      queryClient.setQueryData<AuthSession | null>(authSessionQueryKey, null);
+    });
+    const boundary = vi.mocked(auth.runPrincipalBoundary).mockClear();
+    const authContext: AuthContextValue = {
+      ...auth,
+      reconcileUnknownPrincipalResult: reconcile,
+      runPrincipalBoundary: boundary,
+    };
+    const { queryClient } = renderUsers(undefined, authContext);
+    const commandContinuation = capturePrincipalContinuation(queryClient);
+    queryClient.setQueryData(['audit', 'bulk-stale-command'], { value: '旧 ADMIN 缓存' });
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+
+    await userEvent.click(await screen.findByRole('checkbox', { name: '选择用户 admin' }));
+    await userEvent.click(screen.getByRole('button', { name: '批量停用' }));
+    await userEvent.click(within(await screen.findByRole('dialog', { name: '批量停用 1 个用户？' }))
+      .getByRole('button', { name: '批量停用' }));
+    await waitFor(() => expect(post).toHaveBeenCalledOnce());
+
+    const replacementSession: AuthSession = {
+      user: { ...current, revision: current.revision + 1 },
+      csrfToken: 'replacement-csrf',
+      sessionBinding: 'b'.repeat(64),
+    };
+    advancePrincipalEpoch(queryClient, JSON.stringify([
+      replacementSession.sessionBinding,
+      replacementSession.user.id,
+      replacementSession.user.account_type,
+      replacementSession.user.is_active,
+      replacementSession.user.must_change_password,
+      replacementSession.user.workflow_stage,
+    ]));
+    queryClient.removeQueries({
+      predicate: (query) => query.queryKey[0] !== authSessionQueryKey[0],
+    });
+    queryClient.setQueryData(authSessionQueryKey, replacementSession);
+    events.push('earlier-binding-reconciliation');
+    expect(commandContinuation.isCurrent()).toBe(false);
+
+    await act(async () => releaseBulk({
+      data: { succeeded: [saved], failures: [] },
+      response: Response.json({}, { status: 200 }),
+    }));
+
+    await waitFor(() => expect(reconcile).toHaveBeenCalledOnce());
+    expect(post).toHaveBeenCalledOnce();
+    expect(boundary).not.toHaveBeenCalled();
+    expect(queryClient.getQueryData(authSessionQueryKey)).toBeNull();
+    expect(queryClient.getQueryData(['audit', 'bulk-stale-command'])).toBeUndefined();
+    expect(screen.queryByText('批量操作完成：成功 1，失败 0')).not.toBeInTheDocument();
+    expect(invalidate).not.toHaveBeenCalledWith({ queryKey: userKeys.lists() });
   });
 
   it('批量停用当前主体失败时不进入 principal boundary', async () => {
@@ -843,7 +934,7 @@ describe('Users lifecycle boundaries', () => {
       user: { ...admin, id: currentId.toUpperCase() },
     };
 
-    it('uppercase actor 的 exact success 使用 canonical request/response 并进入 boundary', async () => {
+    it('uppercase actor 的 exact success 使用 canonical request/response 并进入 post-result reconciliation', async () => {
       vi.spyOn(api, 'GET').mockResolvedValue({
         data: result([current]),
         response: Response.json(result([current])),
@@ -856,6 +947,7 @@ describe('Users lifecycle boundaries', () => {
         response: Response.json({}, { status: 200 }),
       } as never);
       const boundary = vi.mocked(auth.runPrincipalBoundary).mockClear();
+      const reconcile = vi.mocked(auth.reconcileUnknownPrincipalResult).mockClear();
       renderUsers(undefined, uppercaseAuth);
 
       await userEvent.click(await screen.findByRole('checkbox', { name: '选择用户 admin' }));
@@ -863,7 +955,8 @@ describe('Users lifecycle boundaries', () => {
       await userEvent.click(within(await screen.findByRole('dialog', { name: '批量停用 1 个用户？' }))
         .getByRole('button', { name: '批量停用' }));
 
-      await waitFor(() => expect(boundary).toHaveBeenCalledOnce());
+      await waitFor(() => expect(reconcile).toHaveBeenCalledOnce());
+      expect(boundary).not.toHaveBeenCalled();
       expect(post).toHaveBeenCalledWith('/api/v1/users/bulk-status', expect.objectContaining({
         body: {
           items: [{ expected_revision: current.revision, user_id: currentId }],

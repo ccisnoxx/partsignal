@@ -1,4 +1,5 @@
 /** 通过唯一真实栈验证系统管理员、用户生命周期、权限和审计闭环。 */
+import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import {
   expect,
@@ -34,6 +35,10 @@ type JsonResponse = {
 };
 type RuntimePhase = {
   current: string;
+};
+type UsersTableLock = {
+  blocked: Promise<void>;
+  release: () => Promise<void>;
 };
 
 const realStackEnabled = process.env.PARTSIGNAL_E2E_REAL_STACK === '1';
@@ -118,6 +123,89 @@ function watchRuntime(
   });
   audit.watch(page);
   return audit;
+}
+
+async function holdUsersTableLock(): Promise<UsersTableLock> {
+  const script = `
+import os
+import sys
+import time
+from sqlalchemy import create_engine, text
+
+engine = create_engine(os.environ["DATABASE_URL"])
+holder = engine.connect()
+transaction = holder.begin()
+try:
+    holder.execute(text("LOCK TABLE users IN SHARE ROW EXCLUSIVE MODE"))
+    print("LOCKED", flush=True)
+    deadline = time.monotonic() + 20
+    with engine.connect() as monitor:
+        while time.monotonic() < deadline:
+            blocked = monitor.scalar(text("""
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM pg_locks AS lock
+                    JOIN pg_class AS relation ON relation.oid = lock.relation
+                    WHERE relation.relname = 'users' AND NOT lock.granted
+                )
+            """))
+            if blocked:
+                print("BLOCKED", flush=True)
+                break
+            time.sleep(0.02)
+        else:
+            raise RuntimeError("bulk transaction did not block on users table")
+    sys.stdin.readline()
+finally:
+    transaction.rollback()
+    holder.close()
+    engine.dispose()
+print("RELEASED", flush=True)
+`;
+  const child = spawn('uv', ['run', '--project', '../backend', 'python', '-c', script], {
+    cwd: process.cwd(),
+    env: process.env,
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
+  let output = '';
+  let readyResolve!: () => void;
+  let readyReject!: (error: Error) => void;
+  const ready = new Promise<void>((resolve, reject) => {
+    readyResolve = resolve;
+    readyReject = reject;
+  });
+  let blockedResolve!: () => void;
+  let blockedReject!: (error: Error) => void;
+  const blocked = new Promise<void>((resolve, reject) => {
+    blockedResolve = resolve;
+    blockedReject = reject;
+  });
+  child.stdout.setEncoding('utf8');
+  child.stdout.on('data', (chunk: string) => {
+    output += chunk;
+    if (output.includes('LOCKED\n')) readyResolve();
+    if (output.includes('BLOCKED\n')) blockedResolve();
+  });
+  const exit = new Promise<number>((resolve) => {
+    child.once('exit', (code) => {
+      const status = code ?? 1;
+      if (status !== 0) {
+        const error = new Error(`users table lock helper exited ${status}`);
+        readyReject(error);
+        blockedReject(error);
+      }
+      resolve(status);
+    });
+  });
+  await ready;
+  return {
+    blocked,
+    release: async () => {
+      child.stdin.end('\n');
+      expect(await exit, 'users table lock helper 应正常释放').toBe(0);
+      expect(output).toContain('RELEASED\n');
+    },
+  };
 }
 
 async function expectForbidden(
@@ -229,6 +317,9 @@ test('当前管理员自降权与自停用通过同一 BrowserContext principal 
       phase: 'self-disable',
       text: 'Failed to load resource: the server responded with a status of 401 (Unauthorized)',
     }, {
+      phase: 'bulk-self-disable-stale-exact',
+      text: 'Failed to load resource: the server responded with a status of 401 (Unauthorized)',
+    }, {
       phase: 'bulk-self-disable-response-lost',
       text: 'Failed to load resource: net::ERR_FAILED',
     }, {
@@ -237,6 +328,12 @@ test('当前管理员自降权与自停用通过同一 BrowserContext principal 
     }],
     allowedHttpErrors: [{
       phase: 'self-disable',
+      origin: apiOrigin,
+      method: 'GET',
+      pathname: '/api/v1/auth/session',
+      status: 401,
+    }, {
+      phase: 'bulk-self-disable-stale-exact',
       origin: apiOrigin,
       method: 'GET',
       pathname: '/api/v1/auth/session',
@@ -254,6 +351,7 @@ test('当前管理员自降权与自停用通过同一 BrowserContext principal 
   let backupPage: Page | undefined;
   let cleanupContext: BrowserContext | undefined;
   let backupUser: User | undefined;
+  let exactBulkTableLock: UsersTableLock | undefined;
 
   await registerArtifactSecrets([adminPassword, backupInitialPassword, backupPassword]);
   runtimeAudit.watch(owner);
@@ -358,6 +456,127 @@ test('当前管理员自降权与自停用通过同一 BrowserContext principal 
       is_active: true,
     });
 
+    await context.clearCookies();
+    await Promise.all([owner.goto('/login'), observer.goto('/login')]);
+    phase.current = 'seed-relogin';
+    await login(owner, context, 'admin', adminPassword, { navigate: false });
+    await expect(owner).toHaveURL('/');
+    await expect(observer).toHaveURL('/');
+    await Promise.all([
+      owner.goto('/system/users?status=ENABLED&page=1&pageSize=20'),
+      observer.goto('/system/users?status=ENABLED&page=1&pageSize=20'),
+    ]);
+    await expect(userRow(owner, 'admin')).toHaveCount(1);
+    await expect(userRow(observer, 'admin')).toHaveCount(1);
+
+    phase.current = 'bulk-self-disable-stale-exact';
+    exactBulkTableLock = await holdUsersTableLock();
+    await owner.getByRole('checkbox', { name: '选择用户 admin' }).check();
+    await owner.getByRole('button', { name: '批量停用' }).click();
+    const staleExactDialog = owner.getByRole('dialog', { name: '批量停用 1 个用户？' });
+    await staleExactDialog.getByRole('button', { name: '批量停用' }).click();
+    await exactBulkTableLock.blocked;
+
+    const replacementSession = await readJson<AuthSession>(await context.request.post(
+      apiUrl('/api/v1/auth/login'),
+      { data: { password: adminPassword, username: 'admin' } },
+    ), 200, '建立同用户新 session binding');
+    await registerRealStackLoginSecrets(context, apiBaseUrl, replacementSession.csrf_token);
+    const remoteOwnerId = randomUUID();
+    const remoteTransitionId = randomUUID();
+    const startedMarker = JSON.stringify({
+      eventId: randomUUID(),
+      leaseExpiresAt: Date.now() + 60_000,
+      ownerId: remoteOwnerId,
+      phase: 'STARTED',
+      transitionId: remoteTransitionId,
+      version: 2,
+    });
+    const settledMarker = JSON.stringify({
+      eventId: randomUUID(),
+      leaseExpiresAt: Date.now() + 60_000,
+      ownerId: remoteOwnerId,
+      phase: 'SETTLED',
+      transitionId: remoteTransitionId,
+      version: 2,
+    });
+    await observer.evaluate(({ key, value }) => localStorage.setItem(key, value), {
+      key: 'partsignal.auth-transition.v2',
+      value: startedMarker,
+    });
+    await owner.evaluate(({ key, value }) => window.dispatchEvent(new StorageEvent('storage', {
+      key,
+      newValue: value,
+    })), { key: 'partsignal.auth-transition.v2', value: startedMarker });
+    await expect(owner.getByRole('heading', { level: 1, name: '用户管理' })).toHaveCount(0);
+
+    const earlierCanonicalPromise = owner.waitForResponse((response) => (
+      matchesResponse(response, 'GET', '/api/v1/auth/session')
+      && response.status() === 200
+    ));
+    await observer.evaluate(({ key, value }) => localStorage.setItem(key, value), {
+      key: 'partsignal.auth-transition.v2',
+      value: settledMarker,
+    });
+    await owner.evaluate(({ key, value }) => window.dispatchEvent(new StorageEvent('storage', {
+      key,
+      newValue: value,
+    })), { key: 'partsignal.auth-transition.v2', value: settledMarker });
+    const earlierCanonical = await readJson<AuthSession>(
+      await earlierCanonicalPromise,
+      200,
+      'bulk 提交前的新 binding canonical session',
+    );
+    expect(earlierCanonical.user).toMatchObject({ id: seedAdmin.id, is_active: true });
+    expect(earlierCanonical.session_binding).toBe(replacementSession.session_binding);
+    await expect(owner.getByRole('heading', { level: 1, name: '用户管理' })).toBeVisible();
+
+    const exactBulkResponsePromise = owner.waitForResponse((response) => (
+      matchesResponse(response, 'POST', '/api/v1/users/bulk-status')
+    ));
+    await exactBulkTableLock.release();
+    exactBulkTableLock = undefined;
+    const exactBulkResponse = await exactBulkResponsePromise;
+    const exactBulkResult = await readJson<UserBulkStatusResult>(
+      exactBulkResponse,
+      200,
+      'stale continuation 后的 exact bulk self-disable',
+    );
+    const exactDisabled = exactBulkResult.succeeded.find((user) => user.id === seedAdmin.id);
+    expect(exactDisabled, 'bulk exact success 必须包含当前管理员').toBeDefined();
+
+    for (const target of [owner, observer]) {
+      await expect(target).toHaveURL(/\/login(?:\?|$)/, { timeout: 20_000 });
+      await expect(target.getByRole('heading', { level: 1, name: '登录' })).toBeVisible();
+      await expect(target.getByRole('heading', { level: 1, name: '用户管理' })).toHaveCount(0);
+    }
+    const staleExactAttempts = runtimeAudit.attempts.filter((item) => (
+      item.phase === 'bulk-self-disable-stale-exact'
+      && item.origin === apiOrigin
+      && item.method === 'POST'
+      && item.pathname === '/api/v1/users/bulk-status'
+    ));
+    const staleExactCanonical = runtimeAudit.responses.filter((item) => (
+      item.phase === 'bulk-self-disable-stale-exact'
+      && item.origin === apiOrigin
+      && item.method === 'GET'
+      && item.pathname === '/api/v1/auth/session'
+    ));
+    expect(staleExactAttempts, 'stale exact bulk POST 必须恰好一次').toHaveLength(1);
+    expect(staleExactCanonical.map((item) => item.status), '必须先读到启用 ADMIN，再在结果后收敛两页')
+      .toEqual([200, 401, 401]);
+    const durableMarker = await owner.evaluate(() => (
+      localStorage.getItem('partsignal.auth-transition.v2')
+    ));
+    expect(JSON.parse(durableMarker ?? '{}')).toMatchObject({ phase: 'SETTLED', version: 2 });
+    expect(durableMarker).not.toContain(replacementSession.csrf_token);
+    expect(durableMarker).not.toContain(replacementSession.session_binding);
+    expect(runtimeAudit.errors, 'stale exact success 不得恢复旧 route/cache 或形成请求风暴').toEqual([]);
+
+    await updateSeedAdmin(backupContext, exactDisabled!, {
+      account_type: 'ADMIN',
+      is_active: true,
+    });
     await context.clearCookies();
     await Promise.all([owner.goto('/login'), observer.goto('/login')]);
     phase.current = 'seed-relogin';
@@ -506,6 +725,7 @@ test('当前管理员自降权与自停用通过同一 BrowserContext principal 
     backupUser = undefined;
     expect(restored.account_type).toBe('ADMIN');
   } finally {
+    await exactBulkTableLock?.release();
     if (backupUser && backupContext) {
       const users = await readJson<UserList>(await backupContext.request.get(
         apiUrl('/api/v1/users?page=1&page_size=20'),

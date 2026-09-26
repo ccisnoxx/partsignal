@@ -29,7 +29,7 @@
     "frontend/src/domains/identity/user-list-page.test.tsx",
     "frontend/tests/e2e/system-admin-real-stack.spec.ts"
   ],
-  "notes": "L2 fixed candidate 0cf79209 的精确分区与严格错误信封修复通过全部定向检查及唯一完整门禁，但 fresh review 因 canonical UUID 与 Web Lock acquire fail-closed 两项 P1 阻断。L3 为当前唯一叶子；I03/I04 与所有远程动作继续暂停。",
+  "notes": "L1 owner barrier 与 bulk unknown 合同保持有效；L3 fixed candidate b7318ef 的完整门禁通过，但 fresh review 又确认 bulk exact success 的 stale-continuation P1。L4 为当前唯一叶子；I03/I04 与所有远程动作继续暂停。",
   "meta": {
     "stage": "l2_fresh_review_blocked",
     "fixed_candidate_commit": "0cf79209607a7504f6f0f0019d11ee2d682d5b3d",

@@ -531,6 +531,86 @@ describe('AuthProvider', () => {
     expect(readAuthTransitionState()).toEqual({ status: 'ABSENT' });
   });
 
+  it('较早同用户 binding transition 完成后，结果后的 reconciliation 仍执行新的 canonical read', async () => {
+    const replacementBinding = 'b'.repeat(64);
+    const get = vi.spyOn(api, 'GET')
+      .mockResolvedValueOnce(authSnapshot(admin, 'initial-csrf', adminBinding))
+      .mockResolvedValueOnce(authSnapshot(
+        { ...admin, revision: 2 },
+        'replacement-csrf',
+        replacementBinding,
+      ))
+      .mockResolvedValueOnce({
+        error: { error: { code: 'AUTH_REQUIRED', message: '登录会话无效或已过期' } },
+        response: Response.json({}, { status: 401 }),
+      } as never);
+    const queryClient = createAppQueryClient();
+    queryClient.setDefaultOptions({ queries: { retry: false } });
+    let actions: UnknownReconciliationActions | undefined;
+    render(
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <UnknownReconciliationProbe onActions={(next) => { actions = next; }} />
+        </AuthProvider>
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText('unknown reconciliation ADMIN')).toBeInTheDocument();
+    const commandContinuation = capturePrincipalContinuation(queryClient);
+    queryClient.setQueryData(['audit', 'bulk-before-binding-transition'], { value: '旧 ADMIN 缓存' });
+    const transitionId = '00000000-0000-4000-8000-000000000091';
+    const started = JSON.stringify({
+      eventId: '00000000-0000-4000-8000-000000000092',
+      leaseExpiresAt: Date.now() + 60_000,
+      ownerId: remoteOwnerId,
+      phase: 'STARTED',
+      transitionId,
+      version: 2,
+    });
+    const settled = JSON.stringify({
+      eventId: '00000000-0000-4000-8000-000000000093',
+      leaseExpiresAt: Date.now() + 60_000,
+      ownerId: remoteOwnerId,
+      phase: 'SETTLED',
+      transitionId,
+      version: 2,
+    });
+
+    act(() => {
+      localStorage.setItem(authTransitionStorageKey, started);
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: authTransitionStorageKey,
+        newValue: started,
+      }));
+      localStorage.setItem(authTransitionStorageKey, settled);
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: authTransitionStorageKey,
+        newValue: settled,
+      }));
+    });
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+    expect(commandContinuation.isCurrent()).toBe(false);
+    expect(actions!.readProtectedRouteUser()).toMatchObject({ id: admin.id, revision: 2 });
+    expect(queryClient.getQueryData(['audit', 'bulk-before-binding-transition'])).toBeUndefined();
+    queryClient.setQueryData(['audit', 'bulk-result-known'], { value: '新 binding 下的旧 ADMIN 缓存' });
+
+    await actions!.reconcile();
+
+    expect(await screen.findByText('unknown reconciliation 非管理员')).toBeInTheDocument();
+    expect(get).toHaveBeenCalledTimes(3);
+    expect(actions!.readProtectedRouteUser()).toBeNull();
+    expect(queryClient.getQueryData(['audit', 'bulk-result-known'])).toBeUndefined();
+    expect(queryClient.getQueryData(['auth', 'session'])).toBeNull();
+    expect(readAuthTransitionState()).toMatchObject({
+      message: { phase: 'SETTLED' },
+      status: 'VALID',
+    });
+
+    window.dispatchEvent(new Event('focus'));
+    document.dispatchEvent(new Event('visibilitychange'));
+    await act(async () => Promise.resolve());
+    expect(get).toHaveBeenCalledTimes(3);
+  });
+
   it('等待 acquire 时卸载 Provider 不会在共享 QueryClient 遗留 command barrier', async () => {
     vi.spyOn(api, 'GET').mockResolvedValue(authSnapshot(admin, 'initial-csrf'));
     const request = vi.fn((_name: string, options: LockOptions) => new Promise<never>((_resolve, reject) => {

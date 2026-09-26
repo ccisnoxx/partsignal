@@ -30,7 +30,7 @@
     "contracts/openapi.yaml",
     ".trellis/spec/frontend/state-management.md"
   ],
-  "notes": "L2 fixed candidate 0cf79209 的精确分区与严格 ErrorEnvelope 修复通过全部定向检查和唯一完整门禁，但 fresh review 因 current-actor UUID 未统一规范化及 Web Lock acquire 失败未 fail-closed 而给出 BLOCKER。已创建 L3 唯一叶子；I03 保持 in_progress，I04 继续禁止。",
+  "notes": "L2 精确分区与严格 ErrorEnvelope 保持有效；L3 fixed candidate b7318ef 的完整门禁通过，但 fresh review 又确认 bulk exact success 的 stale-continuation P1。L4 为当前唯一叶子；L2/I03 保持 in_progress，I04 继续禁止。",
   "meta": {
     "stage": "fresh_review_blocked",
     "blocked_candidate_commit": "3513db0968af4dd522ae62d2a7feb385055baa3f",

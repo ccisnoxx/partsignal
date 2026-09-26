@@ -26,7 +26,7 @@ principal barrier 前抛出，使已提交或未知结果的命令可能继续�
       不把 unknown 冒充 explicit failure。
 - [x] 相关 Vitest、TypeScript、ESLint、真实栈 BrowserContext、secret scan 与资源清理通过，形成新候选。
 - [ ] 新候选在全新 detached checkout 的唯一完整门禁通过，资源归零且 fresh critical review 为
-      `NO BLOCKER`，才允许统一完成 I03。
+      `NO BLOCKER`，才允许统一完成 I03。`b7318ef` 的门禁已通过，但 fresh review 为 `BLOCKER`，因此本项未完成。
 
 ## Evidence
 
@@ -35,3 +35,16 @@ principal barrier 前抛出，使已提交或未知结果的命令可能继续�
 - fresh review audit id：`20260926T164042Z-i03-l2-fresh-fixed-candidate-critical-review-23c028b0`。
 - 候选唯一完整门禁退出 `0`；日志 SHA-256
   `c73ebad14f9689a43fb85506af12d7876f3768d80d80758d6c50388e0a323040`；该证据只属于阻断候选，不能外推。
+- L3 fixed candidate：commit `b7318ef67c40301cc2b2f745e04e7f543e40eab8`；tree
+  `4a6c789d5b2687641eeca6c2da4f1ab7e348f4db`。
+- 26/26 bind sentinel 退出 `0`；日志 SHA-256
+  `7a568218e315269abc11a5eadf1a004a6ce1297f3bb20ac6e6fdbb6696e64931`。
+- 唯一完整 `make verify` 退出 `0`；日志 `/tmp/partsignal-i03-l3-b7318ef-make-verify.log`，252,114 bytes，
+  SHA-256 `b16c14451d41f82aa577313433b5bfd521edcf5a2f3746156595cbd925642b0c`。backend unit 683、
+  Vitest 91 files / 834 tests、PostgreSQL integration 337、real-stack 21、fixture 494 passed / 44 skipped；
+  secret scan、lifecycle、deploy 与 Compose 门禁通过。
+- pre/post resource snapshot 各 2,314 bytes、逐字一致，SHA-256
+  `05009caecc2bce2c826ace5920af15a58b8aff2d5ebf29c0b5e03c6af66a5b1d`；受控资源全部为 0。
+- fresh review `BLOCKER`：`user-list-page.tsx:271-279` 的 exact current-actor success 在命令 continuation
+  stale 时跳过 post-result boundary，却仍标记 handled 并捕获新 continuation。已建立 L4 子 blocker；audit id
+  `20260926T170307Z-i03-l3-canonical-uuid-and-lock-fail-closed-9ae850cc`。

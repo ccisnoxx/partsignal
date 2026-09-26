@@ -269,14 +269,17 @@ function UserListPage({
         throw error;
       }
       const currentPrincipalChanged = result.succeeded.some((user) => user.id === currentPrincipalId);
-      if (currentPrincipalChanged && continuation.isCurrent()) {
-        await runAuthBoundary(async () => result);
+      let authBoundaryHandled = false;
+      if (currentPrincipalChanged) {
+        // bulk 的业务结果此时已经确定。即使命令前 continuation 已被较早的
+        // 跨标签页 transition 淘汰，也必须再由 Provider 从结果后的覆盖点
+        // 执行 canonical reconciliation；旧命令不得捕获新 epoch 继续回调。
+        await reconcileAuthBoundary();
+        authBoundaryHandled = true;
       }
       return {
-        authBoundaryHandled: currentPrincipalChanged,
-        continuation: currentPrincipalChanged
-          ? capturePrincipalContinuation(queryClient)
-          : continuation,
+        authBoundaryHandled,
+        continuation,
         result,
       };
     },

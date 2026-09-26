@@ -1,0 +1,3 @@
+{"file":".trellis/spec/frontend/state-management.md","reason":"实现跨标签页 transition owner、lease、epoch 推进与孤儿恢复。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"增加认证 crash/reload 与请求风暴稳定边界测试。"}
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"使用同一 BrowserContext 真实栈并保持资源与 secret artifact 清理合同。"}

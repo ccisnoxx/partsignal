@@ -42,9 +42,11 @@
 ### 认证 session binding 与跨标签页主体 epoch
 
 - `/api/v1/auth/session` 是 `user + csrf_token + session_binding` 的唯一客户端认证快照。主体 identity 必须包含 `session_binding` 以及会改变路由/权限的 user 字段；同一 binding 的普通 refresh 可更新 CSRF/user revision 而不清业务缓存，新 binding 即使公开 user 相同也必须推进 principal epoch。
-- 登录、退出和改密等 session replacement 由 `AuthProvider` 发布同源 `STARTED/SETTLED` transition。消息只允许携带协议版本、随机 event/transition ID 和 phase；禁止携带 user、CSRF、Cookie、token、密码或其他凭据。`BroadcastChannel` 是即时 transport，受控 `localStorage` marker 用于 storage/focus/visibility 恢复与 auth read generation 校验，两路按 event ID 去重。
-- 本地命令开始或其他标签页送达 `STARTED` 时，先推进 principal epoch、关闭旧 auth read/command barrier并清除非 auth QueryCache；远端标签页同时把 canonical session 暂置匿名。只有观察到对应 transition 全部 `SETTLED` 后才重读 `/api/v1/auth/session`，不得从跨标签页消息拼认证状态，也不得用 focus refetch、TTL 或 abort 单独承担一致性。
-- mutation、callback 内 `await`、retry、paused/offline resume 都捕获当前 QueryClient 的 principal continuation；跨标签页 transition 推进本地 epoch 后，旧 continuation 必须在请求、callback、cache write 和导航前失败。同一 BrowserContext 双页面测试必须实际共享 Cookie，确定性延迟并释放旧标签页真实响应，覆盖 A→B 与 A→B→A，且精确断言非幂等 phase/method/path/status/count 与 secret artifact clean。
+- 登录、退出和改密等 session replacement 由 `AuthProvider` 发布同源 `STARTED/SETTLED` transition。v2 消息只允许携带协议版本、随机 event/transition/owner ID、phase 与 lease expiry；禁止携带 user、CSRF、session binding、Cookie、token、密码或其他凭据。`BroadcastChannel` 是即时 transport，受控 `localStorage` marker 是跨页面关闭/重载的 durable transport，两路按 event ID 去重并严格拒绝旧版本、非法字段与额外字段。
+- 每个本地 session replacement 必须先取得同源全局独占 Web Lock，再持久化 `STARTED` 并持锁到 `SETTLED`；锁是 owner 是否仍存活的权威信号，定时续租仅用于持久恢复期限，不能单独证明 owner 已死亡。接收方只有在取得同一独占锁、重新核对 exact owner/transition 仍为 `STARTED` 并等待不超过一个 lease 周期后，才可幂等合成 `SETTLED` 回收孤儿；页面销毁回调、固定 timeout、BroadcastChannel 送达或本地时钟本身都不得越过活跃 owner。
+- 本地命令开始或其他标签页送达 `STARTED` 时，先推进 principal epoch、关闭旧 auth read/command barrier并清除非 auth QueryCache；远端标签页同时把 canonical session 暂置匿名，并在 barrier 存续期间禁止发起新的 canonical session read。只有观察到对应 transition 全部 `SETTLED` 或按上述 owner/lease 合同回收孤儿后，才执行唯一 canonical `/api/v1/auth/session` 收敛；不得从跨标签页消息拼认证状态，也不得用 focus refetch、TTL 或 abort 单独承担一致性。
+- mutation、callback 内 `await`、retry、paused/offline resume 都捕获当前 QueryClient 的 principal continuation；跨标签页 transition 推进本地 epoch 后，旧 continuation 必须在请求、callback、cache write 和导航前失败。同一 BrowserContext 双页面测试必须实际共享 Cookie，确定性延迟并释放旧标签页真实响应，覆盖 A→B、A→B→A、owner 在 `STARTED` 后终止的存活页恢复与全部页面关闭后的重载恢复，且精确断言非幂等 phase/method/path/status/count、唯一 canonical recovery read 与 secret artifact clean。
+- jsdom 单元测试可安装只支持当前产品所需 FIFO exclusive request 的 Web Locks substitute；真实浏览器必须使用原生 Web Locks，测试 substitute 不得进入 production bundle 或扩展出未验证的 `shared`、`ifAvailable`、`steal` 语义。
 
 ### React Hook Form 保存资格订阅
 

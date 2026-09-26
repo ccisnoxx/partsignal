@@ -1624,3 +1624,40 @@ R00 至 I01 已完成；I02 完整 make verify 曾单次通过，但完整候选
 
 - 设计并实现 session_binding 驱动的跨标签页 transition/generation/principal epoch，加入真实同 BrowserContext 双 page A→B/ABA 确定性交错测试。
 - 形成新固定 commit/tree，定向验证与资源清理后再建全新 detached checkout，只运行一次完整 make verify，再做 fresh critical review。
+
+
+## Session 228: I03 E1 F1 完整门禁通过后发现孤儿 STARTED blocker
+
+**Date**: 2026-09-26
+**Task**: I03 E1 F1 完整门禁通过后发现孤儿 STARTED blocker
+**Branch**: `codex/frontend-redevelopment-candidate`
+
+### Summary
+
+固定候选在全新 detached checkout 的唯一一次完整 make verify 退出 0 且资源清理成立；fresh critical review 发现持久 STARTED 在发送页崩溃/关闭后会永久锁死跨标签页认证收敛，因此创建 G1 blocker 并停止 I03/I04。
+
+### Main Changes
+
+- lifecycle harness 真实 owner 修复固定于 94fd8aae，30 轮 180 cases 与最终六 case 均通过。
+- 创建 G1 orphan STARTED recovery blocker，记录 owner/lease/孤儿回收与真实 BrowserContext 验收合同。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `94fd8aaecfc683b9117764a879658731e91f88e6` | (see git log) |
+
+### Testing
+
+- [OK] 完整 make verify 日志 SHA-256 d95ac8286dfee8f3131102a4ae2c7325fc89cb908e0821473940487b0fdf9421，退出 0。
+- [OK] 门禁前后资源快照 SHA-256 均为 16b58ab4bdf15f1faa16e2669a4be22f885b32a0f7137d9b95c9585924e3ae16。
+- [OK] fresh critical review audit 20260926T093221Z-i03-e1-f1-final-critical-review-591abf2a 结论 BLOCKER。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 实现 crash-safe transition owner/lease 与孤儿 STARTED 回收，补充发送页终止和全页面重载恢复测试。
+- 形成新固定候选后在全新 detached checkout 中只运行一次完整 make verify；仅在退出 0、资源清理和 fresh NO BLOCKER 后恢复 I03/I04。

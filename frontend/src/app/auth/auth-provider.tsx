@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useRef,
+  useState,
   type ReactNode,
 } from 'react';
 import { z } from 'zod';
@@ -195,6 +196,10 @@ function AuthProvider({ children }: { children: ReactNode }) {
   const activeCommandEpochRef = useRef<number | null>(null);
   const authTransitionChannelRef = useRef<AuthTransitionChannel | null>(null);
   const remoteTransitionIdsRef = useRef(new Set<string>());
+  const [authReadBlocked, setAuthReadBlocked] = useState(
+    () => readAuthTransitionMessage()?.phase === 'STARTED',
+  );
+  const [transitionError, setTransitionError] = useState<unknown>(null);
 
   const invalidateRemotePrincipal = useCallback(() => {
     transitionEpochRef.current += 1;
@@ -214,32 +219,38 @@ function AuthProvider({ children }: { children: ReactNode }) {
     const transitions = remoteTransitionIdsRef.current;
     if (message.phase === 'STARTED') {
       transitions.add(message.transitionId);
+      setAuthReadBlocked(true);
       invalidateRemotePrincipal();
       return;
     }
 
+    setTransitionError(null);
     if (!transitions.delete(message.transitionId)) {
       // 标签页恢复时可能只观察到最终 marker；仍先失效旧主体再重读权威 session。
       invalidateRemotePrincipal();
     }
     if (transitions.size === 0) {
-      void queryClient.refetchQueries({ queryKey: authSessionQueryKey, exact: true });
+      setAuthReadBlocked(false);
     }
-  }, [invalidateRemotePrincipal, queryClient]);
+  }, [invalidateRemotePrincipal]);
 
   useEffect(() => {
-    const channel = createAuthTransitionChannel(handleRemoteTransition);
+    const channel = createAuthTransitionChannel(handleRemoteTransition, (error) => {
+      invalidateRemotePrincipal();
+      setTransitionError(error);
+    });
     authTransitionChannelRef.current = channel;
     return () => {
       authTransitionChannelRef.current = null;
       channel.close();
     };
-  }, [handleRemoteTransition]);
+  }, [handleRemoteTransition, invalidateRemotePrincipal]);
 
   const beginTransition = useCallback(async (): Promise<AuthTransition> => {
     const channel = authTransitionChannelRef.current;
     if (!channel) throw new Error('认证跨标签页同步尚未就绪');
     const transitionId = globalThis.crypto.randomUUID();
+    const owner = await channel.acquire(transitionId);
     const epoch = transitionEpochRef.current + 1;
     transitionEpochRef.current = epoch;
     transitionControllerRef.current?.abort(
@@ -253,17 +264,12 @@ function AuthProvider({ children }: { children: ReactNode }) {
     // QueryClient 执行相同边界，不承载任何认证数据。
     invalidatePrincipalEpoch(queryClient, authBoundaryIdentity(getAuthSession(queryClient)));
     clearBusinessQueries(queryClient);
-    let settled = false;
-    const settle = () => {
-      if (settled) return;
-      settled = true;
-      channel.publish(transitionId, 'SETTLED');
-    };
     try {
-      channel.publish(transitionId, 'STARTED');
+      owner.start();
     } catch (error) {
       controller.abort(error);
       activeCommandEpochRef.current = null;
+      await owner.finish();
       throw error;
     }
 
@@ -279,7 +285,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       if (activeCommandEpochRef.current === epoch) activeCommandEpochRef.current = null;
       try {
-        settle();
+        await owner.finish();
       } catch {
         // 保留原始抢占/取消错误；STARTED 的发送方仍已尽力关闭远端 barrier。
       }
@@ -316,7 +322,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
       },
       finish: async () => {
         if (!committed) await closeReadBarrier(false);
-        settle();
+        await owner.finish();
       },
       signal: controller.signal,
     };
@@ -355,6 +361,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
         return next;
       });
     },
+    enabled: !authReadBlocked,
     retry: false,
   });
 
@@ -384,11 +391,12 @@ function AuthProvider({ children }: { children: ReactNode }) {
   const value: AuthContextValue = {
     user,
     csrfToken: session.data?.csrfToken ?? null,
-    isLoading: session.isLoading,
+    isLoading: authReadBlocked || session.isLoading,
     isSigningOut: logout.isPending,
-    error: session.error,
+    error: transitionError ?? session.error,
     isAdmin: user?.account_type === 'ADMIN',
     refresh: async () => {
+      setTransitionError(null);
       await session.refetch();
     },
     signOut: logout.mutateAsync,

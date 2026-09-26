@@ -19,7 +19,7 @@
 - [x] `test-e2e-run-lifecycle.sh` 为每个失败 case 提供可归因证据，且首个静默失败条件已定位并在其权威 owner 修复。
 - [x] lifecycle 定向测试通过全部六类退出/信号路径，资源和 secret artifact 清理为 0。
 - [x] 新固定候选保留 session_binding 跨标签页 epoch、同 BrowserContext 双页面 A→B/ABA 和精确流量断言。
-- [ ] 新固定候选在全新 detached checkout 的唯一一次完整 `make verify` 退出 0，门禁前后资源全部为 0。
+- [x] 新固定候选在全新 detached checkout 的唯一一次完整 `make verify` 退出 0，门禁前后资源全部为 0。
 - [ ] fresh `critical_reviewer` 对总体基线到新候选及完整门禁证据给出 `NO BLOCKER`。
 
 ## Notes
@@ -35,3 +35,6 @@
 - 修复把伪约束改为分别断言 parent/reporter 都在 scanner 之前；六类状态、cleanup 次数、secret 删除、SIGKILL escalation 和退出码断言均保留。每个 case 现在输出 begin/pass，失败输出 case、断言、期望/实际和不含 marker/secret 内容的 output/events。
 - 修复后 30 轮压力验证全部通过，共覆盖 180 个 case。summary `/tmp/partsignal-i03-e1-f1-lifecycle-fixed-stress-summary.log`：621 bytes，SHA-256 `41c04cfc871ba54bdbdfa859e8b1143d136a0f5362d1f561639b6d0c06f93f13`。
 - 最终定向日志 `/tmp/partsignal-i03-e1-f1-lifecycle-final.log`：651 bytes，SHA-256 `6b61128ba1b2ecf26d9576e49924dcc287583e388f3869fde099dc67ea58e131`；状态文件为 0，SHA-256 `9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa`。原始 TMPDIR、canonical TMPDIR 与 `/tmp` 中 lifecycle/secret 临时资源均为 0。
+- 新固定候选为 commit `94fd8aaecfc683b9117764a879658731e91f88e6`、tree `23d67ad5c778a1a7115de262626f52afad8f6546`。全新 detached checkout `/Users/sc/.codex/worktrees/frontend-i03-e1-f1-94fd.mEDvD3/partsignal` 中唯一一次完整 `make verify` 退出 0；日志 `/tmp/partsignal-i03-e1-f1-94fd-make-verify.log` 为 222907 bytes，SHA-256 `d95ac8286dfee8f3131102a4ae2c7325fc89cb908e0821473940487b0fdf9421`；状态文件 SHA-256 `9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa`。
+- 门禁前后资源日志均为 1686 bytes 且 SHA-256 同为 `16b58ab4bdf15f1faa16e2669a4be22f885b32a0f7137d9b95c9585924e3ae16`，全部受控临时资源、端口、Redis DB 14、E2E 数据库和测试容器为 0；candidate 与 validation identity 未漂移。
+- fresh `critical_reviewer` 审计 Bundle `20260926T093221Z-i03-e1-f1-final-critical-review-591abf2a` 结论为 `BLOCKER`：持久 `STARTED` 没有 crash-safe owner、租约或孤儿回收，发送页在 `SETTLED` 前崩溃/关闭会永久关闭所有标签页和重载后的 session read barrier。已建立 G1 子 blocker；I03 父链继续 `in_progress`，I04 未创建，远程写入仍为 0。

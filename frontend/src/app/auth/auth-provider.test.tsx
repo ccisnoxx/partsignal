@@ -5,7 +5,10 @@ import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { api } from '@/shared/api/client';
-import { authTransitionStorageKey } from './auth-transition-channel';
+import {
+  authTransitionStorageKey,
+  parseAuthTransitionMessage,
+} from './auth-transition-channel';
 import type { AuthUser } from './auth-provider';
 import { AuthProvider, useAuth, useAuthActions } from './auth-provider';
 import { capturePrincipalContinuation } from './principal-epoch';
@@ -35,6 +38,7 @@ const engineer: AuthUser = {
 
 const adminBinding = 'a'.repeat(64);
 const engineerBinding = 'e'.repeat(64);
+const remoteOwnerId = '00000000-0000-4000-8000-000000000009';
 
 function authSnapshot(
   user: AuthUser,
@@ -149,6 +153,23 @@ function renderRace(queryClient = new QueryClient({ defaultOptions: { queries: {
 }
 
 describe('AuthProvider', () => {
+  it.each([
+    ['旧协议版本', { version: 1 }],
+    ['非法 owner', { ownerId: 'not-an-owner' }],
+    ['非法 lease', { leaseExpiresAt: Number.NaN }],
+    ['额外字段', { unexpected: 'secret-shaped-data' }],
+  ])('拒绝 %s 的认证 transition marker', (_caseName, override) => {
+    expect(parseAuthTransitionMessage({
+      eventId: '00000000-0000-4000-8000-000000000041',
+      leaseExpiresAt: Date.now() + 60_000,
+      ownerId: remoteOwnerId,
+      phase: 'STARTED',
+      transitionId: '00000000-0000-4000-8000-000000000040',
+      version: 2,
+      ...override,
+    })).toBeNull();
+  });
+
   it('把原子 session 204 作为匿名状态', async () => {
     const get = vi.spyOn(api, 'GET').mockResolvedValue({
       response: new Response(null, { status: 204 }),
@@ -524,15 +545,19 @@ describe('AuthProvider', () => {
     const transitionId = '00000000-0000-4000-8000-000000000010';
     const started = JSON.stringify({
       eventId: '00000000-0000-4000-8000-000000000011',
+      leaseExpiresAt: Date.now() + 60_000,
+      ownerId: remoteOwnerId,
       phase: 'STARTED',
       transitionId,
-      version: 1,
+      version: 2,
     });
     const settled = JSON.stringify({
       eventId: '00000000-0000-4000-8000-000000000012',
+      leaseExpiresAt: Date.now() + 60_000,
+      ownerId: remoteOwnerId,
       phase: 'SETTLED',
       transitionId,
-      version: 1,
+      version: 2,
     });
 
     act(() => {
@@ -569,7 +594,68 @@ describe('AuthProvider', () => {
     });
   });
 
-  it('认证 transition marker 只包含版本、事件、阶段和 transition id', async () => {
+  it('孤儿 STARTED 在 owner 消失且 lease 到期后先失效旧主体再 canonical refetch', async () => {
+    const get = vi.spyOn(api, 'GET')
+      .mockResolvedValueOnce(authSnapshot(admin, 'admin-csrf', adminBinding))
+      .mockResolvedValueOnce(authSnapshot(engineer, 'engineer-csrf', engineerBinding));
+    const { queryClient } = renderRace();
+    expect(await screen.findByText('admin:false')).toBeInTheDocument();
+    const continuation = capturePrincipalContinuation(queryClient);
+    queryClient.setQueryData(['products', 'orphan-owner'], { value: '旧主体' });
+    const started = JSON.stringify({
+      eventId: '00000000-0000-4000-8000-000000000021',
+      leaseExpiresAt: Date.now() - 1,
+      ownerId: remoteOwnerId,
+      phase: 'STARTED',
+      transitionId: '00000000-0000-4000-8000-000000000020',
+      version: 2,
+    });
+
+    act(() => {
+      localStorage.setItem(authTransitionStorageKey, started);
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: authTransitionStorageKey,
+        newValue: started,
+      }));
+    });
+
+    expect(await screen.findByText('engineer:false')).toBeInTheDocument();
+    expect(continuation.isCurrent()).toBe(false);
+    expect(queryClient.getQueryData(['products', 'orphan-owner'])).toBeUndefined();
+    expect(get).toHaveBeenCalledTimes(2);
+    expect(parseAuthTransitionMessage(localStorage.getItem(authTransitionStorageKey))).toMatchObject({
+      ownerId: remoteOwnerId,
+      phase: 'SETTLED',
+      transitionId: '00000000-0000-4000-8000-000000000020',
+      version: 2,
+    });
+  });
+
+  it('页面重载从持久孤儿 STARTED 恢复且不提交被 barrier 拒绝的旧 snapshot', async () => {
+    const started = JSON.stringify({
+      eventId: '00000000-0000-4000-8000-000000000031',
+      leaseExpiresAt: Date.now() - 1,
+      ownerId: remoteOwnerId,
+      phase: 'STARTED',
+      transitionId: '00000000-0000-4000-8000-000000000030',
+      version: 2,
+    });
+    localStorage.setItem(authTransitionStorageKey, started);
+    const get = vi.spyOn(api, 'GET')
+      .mockResolvedValueOnce(authSnapshot(engineer, 'canonical-engineer-csrf', engineerBinding));
+
+    const { queryClient } = renderRace();
+
+    expect(await screen.findByText('engineer:false')).toBeInTheDocument();
+    expect(get).toHaveBeenCalledOnce();
+    expect(queryClient.getQueryData(['auth', 'session'])).toEqual({
+      user: engineer,
+      csrfToken: 'canonical-engineer-csrf',
+      sessionBinding: engineerBinding,
+    });
+  });
+
+  it('认证 transition marker 只包含版本、owner、lease、事件、阶段和 transition id', async () => {
     vi.spyOn(api, 'GET').mockResolvedValue({
       response: new Response(null, { status: 204 }),
     } as never);
@@ -580,8 +666,18 @@ describe('AuthProvider', () => {
     expect(await screen.findByText('系统管理员:true:signed-in-secret')).toBeInTheDocument();
 
     const stored = JSON.parse(localStorage.getItem(authTransitionStorageKey) ?? '{}') as Record<string, unknown>;
-    expect(Object.keys(stored).sort()).toEqual(['eventId', 'phase', 'transitionId', 'version']);
+    expect(Object.keys(stored).sort()).toEqual([
+      'eventId',
+      'leaseExpiresAt',
+      'ownerId',
+      'phase',
+      'transitionId',
+      'version',
+    ]);
     expect(stored.phase).toBe('SETTLED');
+    expect(stored.version).toBe(2);
+    expect(stored.ownerId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(stored.leaseExpiresAt).toEqual(expect.any(Number));
     expect(JSON.stringify(stored)).not.toContain('signed-in-secret');
     expect(JSON.stringify(stored)).not.toContain('password-123');
     expect(JSON.stringify(stored)).not.toContain(admin.id);

@@ -71,6 +71,7 @@ backend/.venv/bin/uvicorn app.dev_storage:app --host 127.0.0.1 --port "$PARTSIGN
 - 分别验证成功和测试失败路径都输出数据库 `status=dropped`、存储 `status=removed`、Redis `status=deleted` 与端口 `status=released`，且对应资源已不存在。
 - `npm --prefix frontend run e2e -- tests/e2e/foundation-smoke.spec.ts` 必须在 375×900 与 1440×1000 均通过，并确认 `/`、`/products` deep link/refresh、App Shell、导航和静态资源错误审计。
 - `deploy/scripts/e2e-local.sh` 必须实际运行 `tests/e2e/ai-channel-configuration-real-stack.spec.ts`、`product-facts-real-stack.spec.ts`、`content-ai-real-stack.spec.ts`、`content-review-real-stack.spec.ts`、`content-version-detail-real-stack.spec.ts`、`publication-workspace-real-stack.spec.ts`、`geo-real-stack.spec.ts`、`auth-session-real-stack.spec.ts` 与 `system-admin-real-stack.spec.ts --project=foundation-desktop`。
+- `auth-session-real-stack.spec.ts` 必须在真实浏览器原生 Web Locks 下覆盖 transition owner 于 durable `STARTED` 后终止、存活页孤儿回收和全部页面关闭后的重载回收；每条恢复路径精确断言 canonical session read 次数，且 harness cleanup 仍证明数据库、存储、Redis 与端口全部释放。
 - 真实 GEO 上传成功后检查 dev-storage 输出和 Playwright 保留产物不含 `signature=`；同时断言浏览器 PUT 的完整 URL 与 upload intent 完全相等。
 - 最后运行 `make e2e`；完整门禁运行 `make verify`。
 

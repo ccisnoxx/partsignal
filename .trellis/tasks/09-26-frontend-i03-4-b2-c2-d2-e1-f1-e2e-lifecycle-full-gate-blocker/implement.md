@@ -33,6 +33,12 @@ cleanup
 - 最终定向运行六个 case 全部通过，状态 0。
 - 原始 TMPDIR、canonical TMPDIR 与 `/tmp` 的 lifecycle/secret 临时资源均为 0。
 
+## 完整门禁与复核
+
+- 固定候选 `94fd8aaecfc683b9117764a879658731e91f88e6` / tree `23d67ad5c778a1a7115de262626f52afad8f6546` 在全新 detached checkout 中唯一一次完整 `make verify` 退出 0。
+- 日志 `/tmp/partsignal-i03-e1-f1-94fd-make-verify.log` SHA-256 为 `d95ac8286dfee8f3131102a4ae2c7325fc89cb908e0821473940487b0fdf9421`；门禁前后资源快照逐字节相同，SHA-256 均为 `16b58ab4bdf15f1faa16e2669a4be22f885b32a0f7137d9b95c9585924e3ae16`。
+- fresh critical review 审计 Bundle `20260926T093221Z-i03-e1-f1-final-critical-review-591abf2a` 拒绝候选：认证 transition 的持久 `STARTED` 缺少 crash-safe owner/租约和孤儿回收，发送页未发布 `SETTLED` 即终止时会永久锁死 session read barrier。
+
 ## 下一步
 
-检查完整 diff并形成新的固定候选；然后只在另一个全新 detached checkout 中运行一次完整 `make verify`。只有退出 0、门禁后资源为 0，才派发 fresh `critical_reviewer`。
+进入 G1 子 blocker，设计并实现不重开旧主体窗口的孤儿 `STARTED` 回收收敛；补充发送页在 `STARTED` 后关闭/崩溃、存活页恢复与全页面重载恢复的同 BrowserContext 真实栈证据。形成新候选后必须再次使用全新 detached checkout 且只运行一次完整 `make verify`，通过后再派发另一名 fresh `critical_reviewer`。

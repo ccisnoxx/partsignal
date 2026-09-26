@@ -16,6 +16,8 @@ import {
 import { registerCurrentRealStackCookies, registerRealStackLoginSecrets } from './real-stack-session';
 import { registerArtifactSecrets } from './secret-artifact';
 
+const authTransitionStorageKey = 'partsignal.auth-transition.v2';
+
 const realStackEnabled = process.env.PARTSIGNAL_E2E_REAL_STACK === '1';
 const initialPassword = process.env.PARTSIGNAL_SEED_ENGINEER_PASSWORD ?? 'partsignal-engineer-dev';
 const adminPassword = process.env.PARTSIGNAL_SEED_ADMIN_PASSWORD ?? 'partsignal-admin-dev';
@@ -54,6 +56,45 @@ async function loginAs(page: Page, username: string, password: string): Promise<
   const session = await response.json() as AuthSession;
   await registerRealStackLoginSecrets(page.context(), apiBaseUrl, session.csrf_token);
   return session;
+}
+
+async function startLoginThenLeaveOwnerPending(
+  context: BrowserContext,
+  username: string,
+  password: string,
+) {
+  const owner = await context.newPage();
+  let forceAnonymousBootstrap = true;
+  let loginAttempts = 0;
+  const loginStarted = deferred();
+  await owner.route('**/api/v1/auth/session', async (route) => {
+    if (forceAnonymousBootstrap) {
+      await route.fulfill({ body: '', status: 204 });
+      return;
+    }
+    await route.fallback();
+  });
+  await owner.route('**/api/v1/auth/login', async (route) => {
+    loginAttempts += 1;
+    expect(route.request().method()).toBe('POST');
+    expect(new URL(route.request().url()).pathname).toBe('/api/v1/auth/login');
+    loginStarted.resolve();
+    await new Promise<void>(() => undefined);
+  });
+  await owner.goto('/login');
+  await expect(owner.getByRole('heading', { level: 1, name: '登录' })).toBeVisible();
+  forceAnonymousBootstrap = false;
+  await owner.getByRole('textbox', { name: '用户名' }).fill(username);
+  await owner.getByLabel(/^密码/).fill(password);
+  await owner.getByRole('button', { name: '登录' }).click();
+  await loginStarted.promise;
+  await expect.poll(() => owner.evaluate((storageKey) => {
+    const value = localStorage.getItem(storageKey);
+    if (!value) return null;
+    const marker = JSON.parse(value) as { phase?: unknown; version?: unknown };
+    return { phase: marker.phase, version: marker.version };
+  }, authTransitionStorageKey)).toEqual({ phase: 'STARTED', version: 2 });
+  return { loginAttempts: () => loginAttempts, owner };
 }
 
 test('同一 BrowserContext 双页面以 session binding 封闭 A→B→A 的迟到 mutation', async ({
@@ -208,6 +249,118 @@ test('同一 BrowserContext 双页面以 session binding 封闭 A→B→A 的迟
     releaseProduct.resolve();
     await registerCurrentRealStackCookies(context, apiBaseUrl);
     await pageB?.close();
+  }
+});
+
+test('跨标签页 owner 终止后由 lease 回收存活页与全页面重载', async ({
+  context,
+  page: survivor,
+}) => {
+  const apiOrigin = new URL(apiBaseUrl).origin;
+  const phase = { current: 'admin-login' };
+  const runtimeAudit = createRealStackRuntimeAudit({
+    apiOrigin,
+    getPhase: () => phase.current,
+  });
+  let reloaded: Page | undefined;
+  let firstOwner: Page | undefined;
+  let secondOwner: Page | undefined;
+
+  await registerArtifactSecrets([adminPassword, initialPassword]);
+  runtimeAudit.watch(survivor);
+
+  try {
+    await survivor.goto('/login');
+    const adminSession = await loginAs(survivor, 'admin', adminPassword);
+    expect(adminSession.session_binding).toMatch(/^[0-9a-f]{64}$/);
+    await expect(survivor).toHaveURL('/');
+    await expect(survivor.getByRole('heading', { level: 1, name: '工作台' })).toBeVisible({
+      timeout: 20_000,
+    });
+
+    phase.current = 'survivor-owner-started';
+    const first = await startLoginThenLeaveOwnerPending(context, 'content_editor', initialPassword);
+    firstOwner = first.owner;
+    await expect(survivor.getByRole('heading', { level: 1, name: '工作台' })).not.toBeVisible();
+    const survivorRecoveryAttempts = runtimeAudit.attempts.length;
+    const survivorRecoveryResponses = runtimeAudit.responses.length;
+    phase.current = 'survivor-orphan-recovery';
+    await firstOwner.close({ runBeforeUnload: false });
+    firstOwner = undefined;
+
+    await expect(survivor).toHaveURL('/', { timeout: 20_000 });
+    await expect(survivor.getByRole('heading', { level: 1, name: '工作台' })).toBeVisible({
+      timeout: 20_000,
+    });
+    expect(first.loginAttempts(), '发送页终止前只能发起一次受控登录').toBe(1);
+    expect(runtimeAudit.attempts.slice(survivorRecoveryAttempts).filter((item) => (
+      item.phase === 'survivor-orphan-recovery'
+      && item.origin === apiOrigin
+      && item.method === 'GET'
+      && item.pathname === '/api/v1/auth/session'
+    ))).toHaveLength(1);
+    expect(runtimeAudit.responses.slice(survivorRecoveryResponses).filter((item) => (
+      item.phase === 'survivor-orphan-recovery'
+      && item.origin === apiOrigin
+      && item.method === 'GET'
+      && item.pathname === '/api/v1/auth/session'
+      && item.status === 200
+    ))).toHaveLength(1);
+
+    phase.current = 'reload-owner-started';
+    const second = await startLoginThenLeaveOwnerPending(context, 'content_editor', initialPassword);
+    secondOwner = second.owner;
+    await expect(survivor.getByRole('heading', { level: 1, name: '工作台' })).not.toBeVisible();
+    await survivor.close({ runBeforeUnload: false });
+    phase.current = 'reload-orphan-recovery';
+    await secondOwner.close({ runBeforeUnload: false });
+    secondOwner = undefined;
+
+    reloaded = await context.newPage();
+    runtimeAudit.watch(reloaded);
+    const reloadRecoveryAttempts = runtimeAudit.attempts.length;
+    const reloadRecoveryResponses = runtimeAudit.responses.length;
+    await reloaded.goto('/');
+    await expect(reloaded).toHaveURL('/', { timeout: 20_000 });
+    await expect(reloaded.getByRole('heading', { level: 1, name: '工作台' })).toBeVisible({
+      timeout: 20_000,
+    });
+    expect(second.loginAttempts(), '全页面关闭前只能发起一次受控登录').toBe(1);
+    expect(runtimeAudit.attempts.slice(reloadRecoveryAttempts).filter((item) => (
+      item.phase === 'reload-orphan-recovery'
+      && item.origin === apiOrigin
+      && item.method === 'GET'
+      && item.pathname === '/api/v1/auth/session'
+    ))).toHaveLength(1);
+    expect(runtimeAudit.responses.slice(reloadRecoveryResponses).filter((item) => (
+      item.phase === 'reload-orphan-recovery'
+      && item.origin === apiOrigin
+      && item.method === 'GET'
+      && item.pathname === '/api/v1/auth/session'
+      && item.status === 200
+    ))).toHaveLength(1);
+
+    const recoveredMarker = await reloaded.evaluate((storageKey) => {
+      const value = localStorage.getItem(storageKey);
+      return value ? JSON.parse(value) as Record<string, unknown> : null;
+    }, authTransitionStorageKey);
+    expect(recoveredMarker).toMatchObject({ phase: 'SETTLED', version: 2 });
+    expect(Object.keys(recoveredMarker ?? {}).sort()).toEqual([
+      'eventId',
+      'leaseExpiresAt',
+      'ownerId',
+      'phase',
+      'transitionId',
+      'version',
+    ]);
+    expect(JSON.stringify(recoveredMarker)).not.toContain(adminSession.csrf_token);
+    expect(JSON.stringify(recoveredMarker)).not.toContain(adminSession.user.id);
+    expect(runtimeAudit.errors, 'owner crash 恢复不得出现未声明错误或失败资源').toEqual([]);
+  } finally {
+    await firstOwner?.close({ runBeforeUnload: false });
+    await secondOwner?.close({ runBeforeUnload: false });
+    await registerCurrentRealStackCookies(context, apiBaseUrl);
+    await reloaded?.close();
   }
 });
 

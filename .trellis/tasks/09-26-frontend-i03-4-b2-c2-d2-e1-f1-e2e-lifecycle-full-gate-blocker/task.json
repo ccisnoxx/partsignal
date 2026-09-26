@@ -18,7 +18,9 @@
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [],
+  "children": [
+    "09-26-frontend-i03-4-b2-c2-d2-e1-f1-g1-orphan-auth-transition-started-blocker"
+  ],
   "parent": "09-26-frontend-i03-4-b2-c2-d2-e1-cross-tab-session-binding-epoch-blocker",
   "relatedFiles": [
     "deploy/scripts/test-e2e-run-lifecycle.sh",
@@ -28,13 +30,13 @@
   ],
   "notes": "",
   "meta": {
-    "candidate_commit": "c99529cf14a2d754f4d69b08ad0d29e5da9551a3",
-    "candidate_tree": "f2a6088fe73bc67fcd5a7e0f1f53d09cc40e13b7",
-    "make_verify_exit": "2",
-    "make_verify_log_sha256": "14d0c79b5dd2caf4c7338e35660b2e887025b12f4d62ab73538684b40199ea72",
-    "make_verify_status_sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3",
-    "pre_resource_log_sha256": "362f9de8dbc4f5deef59926e9f7b62e9c9a94c7304980515e8821aa6613e98d4",
-    "post_resource_log_sha256": "be61ba2817a3c4c942975e99c127af2f3eb73571201d3b00596d9d246a194b52",
+    "candidate_commit": "94fd8aaecfc683b9117764a879658731e91f88e6",
+    "candidate_tree": "23d67ad5c778a1a7115de262626f52afad8f6546",
+    "make_verify_exit": "0",
+    "make_verify_log_sha256": "d95ac8286dfee8f3131102a4ae2c7325fc89cb908e0821473940487b0fdf9421",
+    "make_verify_status_sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "pre_resource_log_sha256": "16b58ab4bdf15f1faa16e2669a4be22f885b32a0f7137d9b95c9585924e3ae16",
+    "post_resource_log_sha256": "16b58ab4bdf15f1faa16e2669a4be22f885b32a0f7137d9b95c9585924e3ae16",
     "failure_owner": "deploy/scripts/test-e2e-run-lifecycle.sh",
     "failure_class": "invalid_sibling_exit_order_assertion",
     "failure_case": "int-scan-fails",
@@ -44,8 +46,9 @@
     "targeted_stress_sha256": "41c04cfc871ba54bdbdfa859e8b1143d136a0f5362d1f561639b6d0c06f93f13",
     "targeted_final_sha256": "6b61128ba1b2ecf26d9576e49924dcc287583e388f3869fde099dc67ea58e131",
     "targeted_final_status_sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
-    "full_make_verify": "pending_new_fixed_candidate",
-    "fresh_review": "not_dispatched_gate_failed",
+    "full_make_verify": "passed_once_clean_detached_checkout",
+    "fresh_review": "BLOCKER_orphan_started_marker",
+    "review_audit_id": "20260926T093221Z-i03-e1-f1-final-critical-review-591abf2a",
     "remote_writes": "none"
   }
 }

@@ -18,7 +18,9 @@
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [],
+  "children": [
+    "09-26-frontend-i03-4-b2-c2-d2-e1-f1-g1-h1-i1-full-vitest-transition-fixture-blocker"
+  ],
   "parent": "09-26-frontend-i03-4-b2-c2-d2-e1-f1-g1-orphan-auth-transition-started-blocker",
   "relatedFiles": [
     ".trellis/spec/frontend/state-management.md",
@@ -29,7 +31,7 @@
     "frontend/src/app/auth/auth-provider.test.tsx",
     "frontend/tests/e2e/auth-session-real-stack.spec.ts"
   ],
-  "notes": "durable reconciliation、stale transition 淘汰和 invalid/legacy/unreadable fail-closed 已实现；定向 typecheck、ESLint、44 unit 和最终 4 个真实栈用例通过。待新固定候选、单次完整门禁与 fresh critical review。",
+  "notes": "durable reconciliation、stale transition 淘汰和 invalid/legacy/unreadable fail-closed 已实现；定向检查通过。固定候选 39b1d0f9 的唯一完整门禁在旧 providers.test 命令期 GET 期望处失败并建立 I1 blocker；不得重跑该候选。",
   "meta": {
     "trigger_candidate_commit": "e35c402efcce990ce3345ab6e89755f11bb008e0",
     "trigger_candidate_tree": "6f16122f37e79a956798feb9d3552c2df455e945",
@@ -49,6 +51,12 @@
     "targeted_resource_post_bytes": "2349",
     "targeted_resource_post_sha256": "acf13810d3852cabecd3b64260393666a5641871bb0c5d3a4eb372861d1816e3",
     "v1_migration_fence": "present_fail_closed",
-    "fresh_review": "pending_new_fixed_candidate_and_full_gate"
+    "fixed_candidate_commit": "39b1d0f9cc371c2055adae082ce152a255005ab3",
+    "fixed_candidate_tree": "8c2bb5098f89b5cd58cdd138b10c437f0eb48f05",
+    "fixed_candidate_make_verify_exit": "2",
+    "fixed_candidate_make_verify_log_sha256": "1b177a983fc4fd37729876713a8e9e3aa49ce851cd8b269928025fb6c6486651",
+    "fixed_candidate_resource_pre_post_sha256": "b438f95e4daf88e58848c7f8797541c0376567f008296473f5afe4d1822f61f1",
+    "validation_worktree_removed": "true",
+    "fresh_review": "not_dispatched_full_gate_failed"
   }
 }

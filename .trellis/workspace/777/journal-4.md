@@ -1699,3 +1699,42 @@ R00 至 I01 已完成；I02 完整 make verify 曾单次通过，但完整候选
 - 在 H1 中实现 durable STARTED/SETTLED 的单一权威 reconciliation，消除旧 transition Set 残留。
 - 区分 absent 与 invalid/unreadable/legacy marker，后者 fail-closed，并补齐 v1 未部署证据或 migration fence。
 - 增加 reviewer 指定的确定性交错测试；形成新固定候选后在新 detached checkout 中仅运行一次完整 make verify，再派发 fresh critical_reviewer。
+
+
+## Session 230: I03 H1 单次完整门禁发现测试合同与隔离 blocker
+
+**Date**: 2026-09-26
+**Task**: I03 H1 单次完整门禁发现测试合同与隔离 blocker
+**Branch**: `codex/frontend-redevelopment-candidate`
+
+### Summary
+
+完成 H1 durable reconciliation 实现、定向验证和固定候选；全新 detached checkout 的唯一一次 `make verify` 在 frontend Vitest 退出 2。根因是 `providers.test.tsx` 仍期待 active auth command 后发出第二次 session GET，随后未完成命令遗留 durable `STARTED` 并污染后续用例。已建立 I1 blocker，未重跑完整门禁、未派发 reviewer、未进入 I04。
+
+### Main Changes
+
+- H1 固定候选为 `39b1d0f9cc371c2055adae082ce152a255005ab3` / tree `8c2bb5098f89b5cd58cdd138b10c437f0eb48f05`。
+- 新建 I1 blocker，冻结“命令前在途读取”测试编排与 durable marker case 隔离合同。
+- detached validation checkout 已移除；本地资源门禁前后全部为 0。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `39b1d0f9cc371c2055adae082ce152a255005ab3` | `fix(auth): reconcile durable transition state` |
+
+### Testing
+
+- [OK] 定向 TypeScript、ESLint、2 files / 44 Vitest、4 个最终真实栈用例、secret scan 与资源清理此前通过。
+- [BLOCKED] 唯一一次完整 `make verify`：backend unit 683 passed；frontend Vitest 90 files passed / 1 failed，785 tests passed / 9 failed；顶层退出 2。
+- [OK] 门禁日志 SHA-256 `1b177a983fc4fd37729876713a8e9e3aa49ce851cd8b269928025fb6c6486651`；前后资源日志逐字节一致，SHA-256 `b438f95e4daf88e58848c7f8797541c0376567f008296473f5afe4d1822f61f1`。
+
+### Status
+
+[BLOCKED] **Paused at I1**
+
+### Next Steps
+
+- 重排登录、退出和改密三项测试，使旧 session GET 在命令 STARTED 前已真实在途；命令后的新读取继续保持零网络请求。
+- 增加 `providers.test.tsx` durable marker case 隔离，完成定向验证和资源清理。
+- 形成新固定候选，在另一个全新 detached checkout 中只运行一次完整 `make verify`；仅通过后派发 fresh `critical_reviewer`。

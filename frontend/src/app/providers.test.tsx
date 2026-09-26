@@ -6,6 +6,10 @@ import { queryClient } from './query-client';
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
 import { authSessionQueryKey } from './auth/auth-provider';
+import {
+  authTransitionLegacyStorageKey,
+  authTransitionStorageKey,
+} from './auth/auth-transition-channel';
 import { aiChannelKeys } from '@/domains/configuration/ai-channel.api';
 
 type AuthUser = components['schemas']['User'];
@@ -131,6 +135,8 @@ function deferred<T>() {
 describe('AppProviders', () => {
   afterEach(() => {
     queryClient.clear();
+    localStorage.removeItem(authTransitionStorageKey);
+    localStorage.removeItem(authTransitionLegacyStorageKey);
     vi.restoreAllMocks();
   });
 
@@ -285,11 +291,12 @@ describe('AppProviders', () => {
 
     await user.type(screen.getByRole('textbox', { name: '用户名' }), 'engineer');
     await user.type(screen.getByLabelText(/^密码/), 'password-123');
-    await user.click(screen.getByRole('button', { name: '登录' }));
-    await waitFor(() => expect(post).toHaveBeenCalledOnce());
     queryClient.setQueryData(['audit', 'sensitive-race'], { value: '旧审计' });
     const staleRefetch = queryClient.refetchQueries({ queryKey: authSessionQueryKey, exact: true });
     await waitFor(() => expect(authSessionCalls).toBe(2));
+
+    await user.click(screen.getByRole('button', { name: '登录' }));
+    await waitFor(() => expect(post).toHaveBeenCalledOnce());
 
     await act(async () => {
       loginResult.resolve(authSnapshot(engineer, 'canonical-login-csrf'));
@@ -333,12 +340,13 @@ describe('AppProviders', () => {
     const user = userEvent.setup();
     await screen.findByRole('heading', { name: '工作台' });
 
-    await user.click(screen.getByRole('button', { name: /系统管理员/ }));
-    await user.click(await screen.findByRole('menuitem', { name: '退出登录' }));
-    await waitFor(() => expect(post).toHaveBeenCalledOnce());
     queryClient.setQueryData(['users', 'sensitive-race'], { value: '旧用户' });
     const staleRefetch = queryClient.refetchQueries({ queryKey: authSessionQueryKey, exact: true });
     await waitFor(() => expect(authSessionCalls).toBe(2));
+
+    await user.click(screen.getByRole('button', { name: /系统管理员/ }));
+    await user.click(await screen.findByRole('menuitem', { name: '退出登录' }));
+    await waitFor(() => expect(post).toHaveBeenCalledOnce());
 
     await act(async () => {
       logoutResult.resolve({ response: new Response(null, { status: 204 }) } as never);
@@ -387,11 +395,12 @@ describe('AppProviders', () => {
 
     await user.type(screen.getByLabelText(/^当前密码/), 'password-123');
     await user.type(screen.getByLabelText(/^新密码/), 'password-456');
-    await user.click(screen.getByRole('button', { name: '确认修改' }));
-    await waitFor(() => expect(post).toHaveBeenCalledOnce());
     queryClient.setQueryData(['audit', 'must-change-race'], { value: '强改密审计' });
     const staleRefetch = queryClient.refetchQueries({ queryKey: authSessionQueryKey, exact: true });
     await waitFor(() => expect(authSessionCalls).toBe(2));
+
+    await user.click(screen.getByRole('button', { name: '确认修改' }));
+    await waitFor(() => expect(post).toHaveBeenCalledOnce());
 
     await act(async () => {
       changeResult.resolve({ response: new Response(null, { status: 204 }) } as never);

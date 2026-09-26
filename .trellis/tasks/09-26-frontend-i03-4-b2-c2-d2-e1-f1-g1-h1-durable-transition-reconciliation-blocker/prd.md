@@ -21,7 +21,7 @@
 - [x] durable `STARTED/SETTLED` 在所有初始化与恢复入口由单一权威 reconciliation 收敛，错过即时事件不会永久阻塞或重复 auth read。
 - [x] marker 缺失与无效/不可读状态被明确区分；未知、畸形和需要迁移的旧协议状态 fail-closed。
 - [x] 单元与真实 BrowserContext 测试覆盖 reviewer 的全部确定性交错和精确流量断言，secret scan 与资源清理通过。
-- [ ] 形成新固定候选，并在全新 detached checkout 中唯一一次完整 `make verify` 退出 0，门禁前后资源为 0。
+- [ ] 形成新固定候选，并在全新 detached checkout 中唯一一次完整 `make verify` 退出 0，门禁前后资源为 0；候选 `39b1d0f9` 已执行且退出 `2`，不得复用。
 - [ ] fresh `critical_reviewer` 给出 `NO BLOCKER`。
 
 ## Notes
@@ -38,3 +38,4 @@
 - v1 commit `c99529cf` 不在任何 remote-tracking branch 或 tag，且 `origin/main` 不包含它；实现仍额外检查 `partsignal.auth-transition.v1`，只要存在就 fail-closed，不依赖“未部署”假设放行。
 - 定向 TypeScript 与精确 ESLint 通过；Vitest 为 2 files / 44 tests passed。最终真实栈为 4 passed，覆盖初始化 STARTED→SETTLED、T1 terminal 丢失后 T2、未知 v2 与 legacy v1 零 auth read，以及既有 ABA、owner crash/reload 与正常 Auth 流程。
 - 最终真实栈日志 `/tmp/partsignal-i03-h1-auth-real-stack-r2.log` 为 31,373 bytes，SHA-256 `2fa4ad93af641256ba261cbf10f1cbd8d72937d5314be7fc17d3f482fcbfb615`；状态文件 SHA-256 `9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa`。secret scan clean，数据库、存储、Redis 与四端口 cleanup 成功。
+- H1 固定候选 `39b1d0f9cc371c2055adae082ce152a255005ab3` / tree `8c2bb5098f89b5cd58cdd138b10c437f0eb48f05` 的唯一一次完整门禁在 frontend Vitest 退出 `2`。首个失败是旧测试在 active login transition 后仍等待第二次 auth GET；超时遗留 durable `STARTED` 后造成 8 项测试隔离级联。已建立 I1 blocker，未派发 reviewer。

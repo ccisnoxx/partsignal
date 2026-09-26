@@ -14,8 +14,13 @@ import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
 import {
   advancePrincipalEpoch,
+  assertPrincipalCommandOpen,
+  beginPrincipalCommandBarrier,
+  capturePrincipalContinuation,
   initializePrincipalEpoch,
   invalidatePrincipalEpoch,
+  isPrincipalCommandBlocked,
+  type PrincipalCommandBarrier,
 } from './principal-epoch';
 import {
   createAuthTransitionChannel,
@@ -36,8 +41,12 @@ type AuthSession = {
   sessionBinding: string;
 };
 
+type PrincipalBoundaryOwner = {
+  assertCanSend: () => void;
+};
+
 type PrincipalBoundaryRunner = <T>(
-  command: (signal: AbortSignal) => Promise<T>,
+  command: (signal: AbortSignal, owner: PrincipalBoundaryOwner) => Promise<T>,
 ) => Promise<T>;
 
 type AuthContextValue = {
@@ -48,11 +57,13 @@ type AuthContextValue = {
   error: unknown;
   isAdmin: boolean;
   refresh: () => Promise<void>;
+  reconcileUnknownPrincipalResult: () => Promise<void>;
   runPrincipalBoundary: PrincipalBoundaryRunner;
   signOut: () => Promise<void>;
 };
 
 type AuthTransition = {
+  assertOwner: () => void;
   assertCurrent: () => void;
   commit: (apply: () => void) => Promise<void>;
   finish: () => Promise<void>;
@@ -154,7 +165,8 @@ function getAuthSession(queryClient: QueryClient): AuthSession | null {
 }
 
 function getAuthRouteUser(queryClient: QueryClient): AuthUser | null {
-  return queryClient.getQueryData<AuthSession | null>(authSessionQueryKey)?.user ?? null;
+  if (isPrincipalCommandBlocked(queryClient)) return null;
+  return getAuthSession(queryClient)?.user ?? null;
 }
 
 function requestError(action: string, result: { error?: unknown; response: Response }) {
@@ -258,8 +270,14 @@ function AuthProvider({ children }: { children: ReactNode }) {
   const transitionControllerRef = useRef<AbortController | null>(null);
   const authReadGenerationRef = useRef(0);
   const activeCommandEpochRef = useRef<number | null>(null);
+  const commandBarrierRef = useRef<PrincipalCommandBarrier | null>(null);
+  const pendingCommandBarrierReleaseRef = useRef<{
+    authReadGeneration: number;
+    eventId: string;
+  } | null>(null);
   const authTransitionChannelRef = useRef<AuthTransitionChannel | null>(null);
   const [initialTransitionState] = useState(readAuthTransitionState);
+  const [localCommandActive, setLocalCommandActive] = useState(false);
   const transitionBarrierRef = useRef<AuthTransitionBarrier>(
     createTransitionBarrier(initialTransitionState),
   );
@@ -271,6 +289,31 @@ function AuthProvider({ children }: { children: ReactNode }) {
       ? initialTransitionState.error
       : null,
   );
+
+  const enterCommandBarrier = useCallback(() => {
+    if (commandBarrierRef.current) return;
+    commandBarrierRef.current = beginPrincipalCommandBarrier(queryClient);
+  }, [queryClient]);
+
+  const releaseCommandBarrier = useCallback(() => {
+    commandBarrierRef.current?.release();
+    commandBarrierRef.current = null;
+    pendingCommandBarrierReleaseRef.current = null;
+  }, []);
+
+  const releaseCommandBarrierIfCanonical = useCallback((eventId?: string) => {
+    const pending = pendingCommandBarrierReleaseRef.current;
+    if (!pending || (eventId && pending.eventId !== eventId)) return;
+    const barrier = transitionBarrierRef.current!;
+    const sessionState = queryClient.getQueryState(authSessionQueryKey);
+    if (
+      barrier.active === null
+      && !barrier.fault
+      && authReadGenerationRef.current > pending.authReadGeneration
+      && sessionState?.fetchStatus === 'idle'
+      && sessionState?.status === 'success'
+    ) releaseCommandBarrier();
+  }, [queryClient, releaseCommandBarrier]);
 
   const invalidateRemotePrincipal = useCallback(() => {
     transitionEpochRef.current += 1;
@@ -287,6 +330,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
   }, [queryClient]);
 
   const failClosedTransition = useCallback((error: unknown) => {
+    enterCommandBarrier();
     const barrier = transitionBarrierRef.current!;
     const needsInvalidation = barrier.active !== null
       || !barrier.fault
@@ -300,7 +344,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
     }
     setAuthReadBlocked(true);
     setTransitionError(error);
-  }, [invalidateRemotePrincipal]);
+  }, [enterCommandBarrier, invalidateRemotePrincipal]);
 
   const handleRemoteTransition = useCallback((state: AuthTransitionStorageState) => {
     const barrier = transitionBarrierRef.current!;
@@ -321,6 +365,8 @@ function AuthProvider({ children }: { children: ReactNode }) {
 
     const message: AuthTransitionMessage = state.message;
     if (message.phase === 'STARTED') {
+      enterCommandBarrier();
+      pendingCommandBarrierReleaseRef.current = null;
       const sameActive = barrier.active?.transitionId === message.transitionId
         && barrier.active.ownerId === message.ownerId;
       if (!sameActive) {
@@ -358,13 +404,25 @@ function AuthProvider({ children }: { children: ReactNode }) {
     setTransitionError(null);
     setAuthReadBlocked(false);
     if (boundaryChanged) {
+      pendingCommandBarrierReleaseRef.current = {
+        authReadGeneration: authReadGenerationRef.current,
+        eventId: message.eventId,
+      };
       void queryClient.invalidateQueries({
         queryKey: authSessionQueryKey,
         exact: true,
         refetchType: 'active',
-      });
+      }).then(() => releaseCommandBarrierIfCanonical(message.eventId));
+    } else {
+      releaseCommandBarrierIfCanonical();
     }
-  }, [failClosedTransition, invalidateRemotePrincipal, queryClient]);
+  }, [
+    enterCommandBarrier,
+    failClosedTransition,
+    invalidateRemotePrincipal,
+    queryClient,
+    releaseCommandBarrierIfCanonical,
+  ]);
 
   useEffect(() => {
     const channel = createAuthTransitionChannel(handleRemoteTransition, (error) => {
@@ -380,8 +438,17 @@ function AuthProvider({ children }: { children: ReactNode }) {
   const beginTransition = useCallback(async (): Promise<AuthTransition> => {
     const channel = authTransitionChannelRef.current;
     if (!channel) throw new Error('认证跨标签页同步尚未就绪');
+    assertPrincipalCommandOpen(queryClient);
+    const acquisitionContinuation = capturePrincipalContinuation(queryClient);
     const transitionId = globalThis.crypto.randomUUID();
     const owner = await channel.acquire(transitionId);
+    try {
+      acquisitionContinuation.assertCurrent();
+      assertPrincipalCommandOpen(queryClient);
+    } catch (error) {
+      await owner.finish();
+      throw error;
+    }
     const epoch = transitionEpochRef.current + 1;
     transitionEpochRef.current = epoch;
     transitionControllerRef.current?.abort(
@@ -390,17 +457,42 @@ function AuthProvider({ children }: { children: ReactNode }) {
     const controller = new AbortController();
     transitionControllerRef.current = controller;
     activeCommandEpochRef.current = epoch;
+    setLocalCommandActive(true);
+    const previousSession = getAuthSession(queryClient);
+    enterCommandBarrier();
+    const ownerBarrier = commandBarrierRef.current;
+    if (!ownerBarrier) throw new Error('本地认证 transition 缺少命令 owner barrier');
+    pendingCommandBarrierReleaseRef.current = null;
     authReadGenerationRef.current += 1;
-    // 本标签页同样先关闭旧主体 continuation；跨标签页消息只负责让其他
-    // QueryClient 执行相同边界，不承载任何认证数据。
-    invalidatePrincipalEpoch(queryClient, authBoundaryIdentity(getAuthSession(queryClient)));
+    const barrier = transitionBarrierRef.current!;
+    barrier.active = {
+      invalidated: true,
+      ownerId: 'local-owner',
+      transitionId,
+    };
+    barrier.durableEventId = null;
+    barrier.fault = false;
+    barrier.faultInvalidated = false;
+    setTransitionError(null);
+    setAuthReadBlocked(true);
+    // owner 页必须在 durable STARTED 与业务请求之前同步关闭命令、路由、
+    // session snapshot 和旧 continuation；自身 controller 不经过远端 abort 路径。
+    invalidatePrincipalEpoch(queryClient, authBoundaryIdentity(previousSession));
     clearBusinessQueries(queryClient);
     try {
-      owner.start();
+      const started = owner.start();
+      barrier.active = {
+        invalidated: true,
+        ownerId: started.ownerId,
+        transitionId: started.transitionId,
+      };
+      barrier.durableEventId = started.eventId;
     } catch (error) {
       controller.abort(error);
       activeCommandEpochRef.current = null;
+      setLocalCommandActive(false);
       await owner.finish();
+      failClosedTransition(error);
       throw error;
     }
 
@@ -415,6 +507,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
       assertCurrent();
     } catch (error) {
       if (activeCommandEpochRef.current === epoch) activeCommandEpochRef.current = null;
+      setLocalCommandActive(false);
       try {
         await owner.finish();
       } catch {
@@ -434,12 +527,12 @@ function AuthProvider({ children }: { children: ReactNode }) {
       // 递增共同覆盖第一次 await 期间新启动的认证读取。
       authReadGenerationRef.current += 1;
       void queryClient.cancelQueries({ queryKey: authSessionQueryKey, exact: true });
-      activeCommandEpochRef.current = null;
       return true;
     };
 
     let committed = false;
     return {
+      assertOwner: ownerBarrier.assertOwner,
       assertCurrent,
       commit: async (apply) => {
         assertCurrent();
@@ -454,26 +547,79 @@ function AuthProvider({ children }: { children: ReactNode }) {
       finish: async () => {
         const requiresReconciliation = !committed;
         if (requiresReconciliation) await closeReadBarrier(false);
+        let settled: AuthTransitionMessage | null;
         try {
-          await owner.finish();
+          settled = await owner.finish();
         } catch (error) {
+          setLocalCommandActive(false);
           failClosedTransition(error);
           throw error;
         }
-        if (requiresReconciliation) channel.reconcile();
+        if (
+          !settled
+          || settled.phase !== 'SETTLED'
+          || settled.transitionId !== transitionId
+        ) {
+          const error = new Error('本地认证 transition 未形成合法 SETTLED');
+          setLocalCommandActive(false);
+          failClosedTransition(error);
+          throw error;
+        }
+        if (activeCommandEpochRef.current === epoch) activeCommandEpochRef.current = null;
+        if (transitionControllerRef.current === controller) transitionControllerRef.current = null;
+        if (requiresReconciliation) {
+          try {
+            const refreshedSession = await loadAuthSession({
+              isCurrent: () => {
+                try {
+                  assertCurrent();
+                } catch {
+                  return false;
+                }
+                const durable = readAuthTransitionState();
+                return durable.status === 'VALID'
+                  && durable.message.phase === 'SETTLED'
+                  && durable.message.eventId === settled.eventId;
+              },
+              signal: controller.signal,
+            });
+            assertCurrent();
+            commitPrincipalBoundary(queryClient, refreshedSession);
+            queryClient.setQueryData(authSessionQueryKey, refreshedSession);
+          } catch (error) {
+            setLocalCommandActive(false);
+            failClosedTransition(error);
+            throw error;
+          }
+        }
+        barrier.active = null;
+        barrier.durableEventId = settled.eventId;
+        barrier.fault = false;
+        barrier.faultInvalidated = false;
+        setTransitionError(null);
+        releaseCommandBarrier();
+        setLocalCommandActive(false);
+        setAuthReadBlocked(false);
       },
       signal: controller.signal,
     };
-  }, [failClosedTransition, queryClient]);
+  }, [
+    enterCommandBarrier,
+    failClosedTransition,
+    queryClient,
+    releaseCommandBarrier,
+  ]);
 
   useEffect(() => () => {
     transitionControllerRef.current?.abort(
       new DOMException('认证 Provider 已卸载', 'AbortError'),
     );
-  }, []);
+    releaseCommandBarrier();
+  }, [releaseCommandBarrier]);
 
   const session = useQuery({
     queryKey: authSessionQueryKey,
+    meta: { authPrincipalBoundary: true },
     queryFn: ({ signal }) => {
       const generation = authReadGenerationRef.current + 1;
       authReadGenerationRef.current = generation;
@@ -501,14 +647,26 @@ function AuthProvider({ children }: { children: ReactNode }) {
         return next;
       });
     },
-    enabled: !authReadBlocked,
+    // 本地 owner 的 Query observer 保持挂载，避免 canonical commit 后因
+    // disable→enable 产生第三次读取；其 queryFn 仍由 active command guard
+    // 在发出网络前拒绝。远端 STARTED 没有本地 owner，继续真正 disable。
+    enabled: !authReadBlocked || localCommandActive,
     retry: false,
   });
+
+  useEffect(() => {
+    releaseCommandBarrierIfCanonical();
+  }, [
+    releaseCommandBarrierIfCanonical,
+    session.dataUpdatedAt,
+    session.fetchStatus,
+    session.status,
+  ]);
 
   const runPrincipalBoundary = useCallback<PrincipalBoundaryRunner>(async (command) => {
     const transition = await beginTransition();
     try {
-      const result = await command(transition.signal);
+      const result = await command(transition.signal, { assertCanSend: transition.assertOwner });
       transition.assertCurrent();
       const refreshedSession = await loadAuthSession({
         isCurrent: () => {
@@ -532,12 +690,18 @@ function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [beginTransition, queryClient]);
 
+  const reconcileUnknownPrincipalResult = useCallback(async () => {
+    const transition = await beginTransition();
+    await transition.finish();
+  }, [beginTransition]);
+
   const logout = useMutation({
     meta: { authPrincipalBoundary: true },
     mutationFn: async () => {
       if (!session.data) throw new Error('当前没有可退出的登录会话');
       const transition = await beginTransition();
       try {
+        transition.assertOwner();
         const result = await api.POST('/api/v1/auth/logout', {
           params: { header: { 'X-CSRF-Token': session.data.csrfToken } },
           signal: transition.signal,
@@ -568,7 +732,9 @@ function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       await session.refetch();
+      releaseCommandBarrierIfCanonical();
     },
+    reconcileUnknownPrincipalResult,
     runPrincipalBoundary,
     signOut: logout.mutateAsync,
   };
@@ -596,6 +762,7 @@ function useAuthActions() {
     signIn: async (payload: LoginRequest) => {
       const transition = await transitions.begin();
       try {
+        transition.assertOwner();
         const result = await api.POST('/api/v1/auth/login', {
           body: payload,
           signal: transition.signal,
@@ -617,6 +784,7 @@ function useAuthActions() {
       if (!auth.csrfToken) throw new Error('当前没有可修改密码的登录会话');
       const transition = await transitions.begin();
       try {
+        transition.assertOwner();
         const result = await api.POST('/api/v1/auth/change-password', {
           body: payload,
           params: { header: { 'X-CSRF-Token': auth.csrfToken } },
@@ -659,4 +827,10 @@ export {
   useAuth,
   useAuthActions,
 };
-export type { AuthContextValue, AuthSession, AuthUser, PrincipalBoundaryRunner };
+export type {
+  AuthContextValue,
+  AuthSession,
+  AuthUser,
+  PrincipalBoundaryOwner,
+  PrincipalBoundaryRunner,
+};

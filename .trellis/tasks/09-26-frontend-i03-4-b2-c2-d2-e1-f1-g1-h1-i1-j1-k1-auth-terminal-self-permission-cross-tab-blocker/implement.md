@@ -61,7 +61,21 @@
 
 ## 待完成
 
-1. 形成 K1 新固定 candidate commit/tree，并保持候选、原检出区 clean。
-2. 在新的 `/Users/sc/...` detached checkout bootstrap，先执行 26/26 只读 bind sentinel。
-3. sentinel 清理和资源归零后，只运行一次完整 `make verify`。
-4. 仅在完整门禁退出 `0`、资源归零且 identity 未漂移后，派发 fresh `critical_reviewer`。
+K1 已形成 commit `57d08a5eb9bf911b1552617029885dc91be196f6`、tree
+`9fc486b23120d8278db927b9ad45092ac71a82aa`，并在全新 detached checkout 中完成 26/26 bind
+sentinel 与唯一一次完整 `make verify`。门禁日志 SHA-256 为
+`b1f7d94f15a35f0d469339f023b1d45384eb04234804804e420f3f89044d4291`，status `0`；pre/post 资源
+snapshot SHA-256 均为 `844ea854ef9bb2f2312cf9097997260020a3b3762c303b797192e3e865a2c712`，全部归零；
+validation checkout 已移除。
+
+fresh review 结论仍为 `BLOCKER`（audit id
+`20260926T134151Z-i03-k1-fixed-candidate-final-critical-review-4656ade3`）：
+
+1. 本地 transition owner 写入 `STARTED` 后未同步关闭发送页的新 command window；首请求延迟期间可启动
+   第二个管理员命令。
+2. bulk self-disable 请求发生在 principal boundary 外；服务端已提交但响应丢失时不会进入 canonical
+   unknown-result reconciliation。
+
+后续工作转入子任务
+`09-26-frontend-i03-4-b2-c2-d2-e1-f1-g1-h1-i1-j1-k1-l1-local-owner-barrier-bulk-unknown-outcome-blocker`。
+K1 保持 `in_progress`，I03/I04 与所有远程动作继续暂停。

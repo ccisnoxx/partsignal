@@ -36,9 +36,9 @@ principal boundary。I03 与 I04 在本任务完成并经新的完整候选复�
       完成失效；每页 canonical recovery read 次数精确且无请求风暴。
 - [x] self edit、single status 与 bulk status 不复制 transition 协议，统一调用 AuthProvider-owned
       auth-boundary API；后端权限、事务、session 撤销与审计合同不弱化。
-- [ ] 定向 Vitest、TypeScript/ESLint、真实栈 BrowserContext 与资源清理通过，形成新的固定
+- [x] 定向 Vitest、TypeScript/ESLint、真实栈 BrowserContext 与资源清理通过，形成新的固定
       candidate commit/tree。
-- [ ] 在 `/Users/sc/...` 下新建 detached checkout，bootstrap 后先通过 26/26 bind sentinel，随后只
+- [x] 在 `/Users/sc/...` 下新建 detached checkout，bootstrap 后先通过 26/26 bind sentinel，随后只
       运行一次完整 `make verify`；退出 0、资源归零且 identity 未漂移。
 - [ ] fresh `critical_reviewer` 对新候选给出 `NO BLOCKER` 后，才允许完成 I03、创建 I04 或发生首次
       远程写入。
@@ -52,3 +52,7 @@ principal boundary。I03 与 I04 在本任务完成并经新的完整候选复�
   lifecycle、secret、deploy harness 与 Compose 门禁通过；pre/post 资源 snapshot 逐字一致且全部为
   `0`。绿色结果未覆盖本任务的两个反例。
 - 本轮未创建 I04，未 fetch、push、SSH 或执行任何 Hostdzire 写入。
+- K1 新 fixed candidate 为 commit `57d08a5eb9bf911b1552617029885dc91be196f6`、tree
+  `9fc486b23120d8278db927b9ad45092ac71a82aa`；唯一完整门禁退出 `0` 且资源归零。
+- fresh review 仍为 `BLOCKER`：发送页本地 owner 未在 `STARTED` 后关闭新 command window；bulk
+  self-disable 响应丢失未进入 unknown-principal reconciliation。后续由子任务 L1 处理。

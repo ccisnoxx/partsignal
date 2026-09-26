@@ -1,4 +1,5 @@
 import { queryOptions } from '@tanstack/react-query';
+import { z } from 'zod';
 
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
@@ -25,6 +26,54 @@ class UserRequestError extends Error {
     this.name = 'UserRequestError';
   }
 }
+
+class UserBulkStatusUnknownOutcomeError extends Error {
+  constructor(readonly originalError: unknown) {
+    super('批量更新用户状态的服务端提交结果未知');
+    this.name = 'UserBulkStatusUnknownOutcomeError';
+  }
+}
+
+const bulkStatusResultSchema = z.strictObject({
+  failures: z.array(z.strictObject({
+    code: z.enum(['NOT_FOUND', 'REVISION_CONFLICT', 'LAST_ADMIN_REQUIRED', 'INVALID_STATE_TRANSITION']),
+    message: z.string(),
+    user_id: z.uuid(),
+  })),
+  succeeded: z.array(z.strictObject({
+    account_type: z.enum(['ADMIN', 'ENGINEER']),
+    available_actions: z.array(z.enum(['UPDATE', 'RESET_PASSWORD', 'ENABLE', 'DISABLE', 'DELETE'])),
+    created_at: z.iso.datetime({ offset: true }),
+    deletion: z.strictObject({
+      blockers: z.array(z.strictObject({
+        count: z.number().int().positive(),
+        type: z.enum([
+          'FACT_VERSION',
+          'CONTENT_TASK',
+          'GEO_OBSERVATION',
+          'CONTENT_VERSION',
+          'GENERATION_JOB',
+          'PUBLISHED_ARTICLE',
+          'PLATFORM_PROFILE',
+          'PLATFORM_ACCOUNT',
+          'PUBLICATION_WORK',
+          'PROTECTED_CONTENT_VERSION',
+          'PUBLISHED_CONTENT_ISSUE',
+          'GEO_OPTIMIZATION_SOURCE',
+          'USER_BUSINESS_HISTORY',
+        ]),
+      })),
+    }).nullable(),
+    display_name: z.string(),
+    id: z.uuid(),
+    is_active: z.boolean(),
+    must_change_password: z.boolean(),
+    primary_task: z.enum(['MANAGE_LOGIN_SECURITY', 'MANAGE_USER', 'ENABLE_USER']),
+    revision: z.number().int(),
+    username: z.string(),
+    workflow_stage: z.enum(['FIRST_PASSWORD_CHANGE', 'ACTIVE', 'DISABLED']),
+  })),
+});
 
 const userKeys = {
   lists: () => ['identity', 'users', 'list'] as const,
@@ -132,12 +181,29 @@ async function bulkUpdateUserStatus(
   status: UserStatus,
   csrfToken: string | null,
 ) {
-  const result = await api.POST('/api/v1/users/bulk-status', {
-    body: { items, status },
-    params: { header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) } },
-  });
-  if (result.data) return result.data;
-  throw userRequestError('批量更新用户状态', result);
+  const token = requireCsrfToken(csrfToken);
+  const result = await (async () => {
+    try {
+      return await api.POST('/api/v1/users/bulk-status', {
+        body: { items, status },
+        params: { header: { 'X-CSRF-Token': token } },
+      });
+    } catch (error) {
+      throw new UserBulkStatusUnknownOutcomeError(error);
+    }
+  })();
+  if (result.response.status === 200) {
+    const parsed = bulkStatusResultSchema.safeParse(result.data);
+    if (parsed.success) return parsed.data;
+    throw new UserBulkStatusUnknownOutcomeError(parsed.error);
+  }
+  if (
+    [400, 401, 403, 422].includes(result.response.status)
+    && isErrorEnvelope(result.error)
+  ) throw userRequestError('批量更新用户状态', result);
+  throw new UserBulkStatusUnknownOutcomeError(
+    new Error(`批量更新用户状态收到无法分类的 HTTP ${result.response.status}`),
+  );
 }
 
 async function exportUsers(search: UserSearch) {
@@ -200,6 +266,7 @@ function isErrorEnvelope(value: unknown): value is ErrorEnvelope {
 }
 
 export {
+  UserBulkStatusUnknownOutcomeError,
   UserRequestError,
   bulkUpdateUserStatus,
   createUser,

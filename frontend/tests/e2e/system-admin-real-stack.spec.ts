@@ -218,13 +218,31 @@ test('当前管理员自降权与自停用通过同一 BrowserContext principal 
       method: 'GET',
       pathname: '/api/v1/workbench',
       reason: 'net::ERR_ABORTED',
+    }, {
+      phase: 'bulk-self-disable-response-lost',
+      origin: apiOrigin,
+      method: 'POST',
+      pathname: '/api/v1/users/bulk-status',
+      reason: 'net::ERR_FAILED',
     }],
     allowedConsoleErrors: [{
       phase: 'self-disable',
       text: 'Failed to load resource: the server responded with a status of 401 (Unauthorized)',
+    }, {
+      phase: 'bulk-self-disable-response-lost',
+      text: 'Failed to load resource: net::ERR_FAILED',
+    }, {
+      phase: 'bulk-self-disable-response-lost',
+      text: 'Failed to load resource: the server responded with a status of 401 (Unauthorized)',
     }],
     allowedHttpErrors: [{
       phase: 'self-disable',
+      origin: apiOrigin,
+      method: 'GET',
+      pathname: '/api/v1/auth/session',
+      status: 401,
+    }, {
+      phase: 'bulk-self-disable-response-lost',
       origin: apiOrigin,
       method: 'GET',
       pathname: '/api/v1/auth/session',
@@ -352,6 +370,81 @@ test('当前管理员自降权与自停用通过同一 BrowserContext principal 
     ]);
     await expect(userRow(owner, 'admin')).toHaveCount(1);
     await expect(userRow(observer, 'admin')).toHaveCount(1);
+
+    phase.current = 'bulk-self-disable-response-lost';
+    let bulkCommittedUser: User | undefined;
+    let resolveBulkCommitted!: () => void;
+    const bulkCommitted = new Promise<void>((resolve) => {
+      resolveBulkCommitted = resolve;
+    });
+    await owner.route('**/api/v1/users/bulk-status', async (route) => {
+      const response = await route.fetch();
+      const result = await readJson<UserBulkStatusResult>(response, 200, '当前管理员批量自停用');
+      bulkCommittedUser = result.succeeded.find((user) => user.id === seedAdmin.id);
+      expect(bulkCommittedUser, '真实服务端必须已提交当前管理员批量自停用').toBeDefined();
+      resolveBulkCommitted();
+      await route.abort('failed');
+    });
+    await owner.getByRole('checkbox', { name: '选择用户 admin' }).check();
+    await owner.getByRole('button', { name: '批量停用' }).click();
+    const bulkDisableDialog = owner.getByRole('dialog', { name: '批量停用 1 个用户？' });
+    await bulkDisableDialog.getByRole('button', { name: '批量停用' }).click();
+    await bulkCommitted;
+
+    for (const target of [owner, observer]) {
+      await expect(target).toHaveURL(/\/login(?:\?|$)/, { timeout: 20_000 });
+      await expect(target.getByRole('heading', { level: 1, name: '登录' })).toBeVisible();
+      await expect(target.getByRole('heading', { level: 1, name: '用户管理' })).toHaveCount(0);
+    }
+    const bulkAttempts = runtimeAudit.attempts.filter((item) => (
+      item.phase === 'bulk-self-disable-response-lost'
+      && item.origin === apiOrigin
+      && item.method === 'POST'
+      && item.pathname === '/api/v1/users/bulk-status'
+    ));
+    const bulkResponses = runtimeAudit.responses.filter((item) => (
+      item.phase === 'bulk-self-disable-response-lost'
+      && item.origin === apiOrigin
+      && item.method === 'POST'
+      && item.pathname === '/api/v1/users/bulk-status'
+    ));
+    const bulkRecoveryAttempts = runtimeAudit.attempts.filter((item) => (
+      item.phase === 'bulk-self-disable-response-lost'
+      && item.origin === apiOrigin
+      && item.method === 'GET'
+      && item.pathname === '/api/v1/auth/session'
+    ));
+    const bulkRecoveryResponses = runtimeAudit.responses.filter((item) => (
+      item.phase === 'bulk-self-disable-response-lost'
+      && item.origin === apiOrigin
+      && item.method === 'GET'
+      && item.pathname === '/api/v1/auth/session'
+      && item.status === 401
+    ));
+    expect(bulkAttempts, 'bulk self-disable 只能提交一次').toHaveLength(1);
+    expect(bulkResponses, '丢失的 bulk 响应不得被浏览器消费').toHaveLength(0);
+    expect(bulkRecoveryAttempts, '发送页与观察页应各发出一次 canonical recovery').toHaveLength(2);
+    expect(bulkRecoveryResponses, '两页 recovery 都应确认旧 session 已撤销').toHaveLength(2);
+    expect(runtimeAudit.errors, 'bulk unknown outcome 不得产生请求风暴或未声明错误').toEqual([]);
+    await owner.unroute('**/api/v1/users/bulk-status');
+
+    const restoredAfterBulk = await updateSeedAdmin(backupContext, bulkCommittedUser!, {
+      account_type: 'ADMIN',
+      is_active: true,
+    });
+    await context.clearCookies();
+    await Promise.all([owner.goto('/login'), observer.goto('/login')]);
+    phase.current = 'seed-relogin';
+    await login(owner, context, 'admin', adminPassword, { navigate: false });
+    await expect(owner).toHaveURL('/');
+    await expect(observer).toHaveURL('/');
+    await Promise.all([
+      owner.goto('/system/users?status=ENABLED&page=1&pageSize=20'),
+      observer.goto('/system/users?status=ENABLED&page=1&pageSize=20'),
+    ]);
+    await expect(userRow(owner, 'admin')).toHaveCount(1);
+    await expect(userRow(observer, 'admin')).toHaveCount(1);
+    expect(restoredAfterBulk.is_active).toBe(true);
 
     phase.current = 'self-disable';
     await userRow(owner, 'admin').getByRole('button', { name: '更多操作：admin' }).click();

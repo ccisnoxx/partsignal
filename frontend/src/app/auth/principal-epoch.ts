@@ -3,6 +3,7 @@ import type { QueryClient } from '@tanstack/react-query';
 type PrincipalIdentity = string | null;
 
 type PrincipalEpochState = {
+  commandBarrier: symbol | null;
   epoch: number;
   identity: PrincipalIdentity;
   initialized: boolean;
@@ -11,6 +12,11 @@ type PrincipalEpochState = {
 type PrincipalContinuation = {
   assertCurrent: () => void;
   isCurrent: () => boolean;
+};
+
+type PrincipalCommandBarrier = {
+  assertOwner: () => void;
+  release: () => void;
 };
 
 const states = new WeakMap<QueryClient, PrincipalEpochState>();
@@ -22,12 +28,52 @@ class StalePrincipalContinuationError extends Error {
   }
 }
 
+class ActivePrincipalCommandError extends Error {
+  constructor() {
+    super('认证主体正在切换，已阻止新的业务命令');
+    this.name = 'ActivePrincipalCommandError';
+  }
+}
+
 function stateFor(queryClient: QueryClient) {
   const existing = states.get(queryClient);
   if (existing) return existing;
-  const created: PrincipalEpochState = { epoch: 0, identity: null, initialized: false };
+  const created: PrincipalEpochState = {
+    commandBarrier: null,
+    epoch: 0,
+    identity: null,
+    initialized: false,
+  };
   states.set(queryClient, created);
   return created;
+}
+
+function beginPrincipalCommandBarrier(queryClient: QueryClient): PrincipalCommandBarrier {
+  const state = stateFor(queryClient);
+  if (state.commandBarrier !== null) throw new ActivePrincipalCommandError();
+  const token = Symbol('principal-command-barrier');
+  state.commandBarrier = token;
+  return {
+    assertOwner: () => {
+      if (stateFor(queryClient).commandBarrier !== token) {
+        throw new ActivePrincipalCommandError();
+      }
+    },
+    release: () => {
+      const current = stateFor(queryClient);
+      if (current.commandBarrier === token) current.commandBarrier = null;
+    },
+  };
+}
+
+function assertPrincipalCommandOpen(queryClient: QueryClient) {
+  if (stateFor(queryClient).commandBarrier !== null) {
+    throw new ActivePrincipalCommandError();
+  }
+}
+
+function isPrincipalCommandBlocked(queryClient: QueryClient) {
+  return stateFor(queryClient).commandBarrier !== null;
 }
 
 function initializePrincipalEpoch(queryClient: QueryClient, identity: PrincipalIdentity) {
@@ -58,6 +104,7 @@ function invalidatePrincipalEpoch(queryClient: QueryClient, identity: PrincipalI
 }
 
 function capturePrincipalContinuation(queryClient: QueryClient): PrincipalContinuation {
+  assertPrincipalCommandOpen(queryClient);
   const state = stateFor(queryClient);
   const capturedEpoch = state.epoch;
   const capturedIdentity = state.identity;
@@ -78,10 +125,14 @@ function isStalePrincipalContinuationError(error: unknown) {
 }
 
 export {
+  ActivePrincipalCommandError,
   advancePrincipalEpoch,
+  assertPrincipalCommandOpen,
+  beginPrincipalCommandBarrier,
   capturePrincipalContinuation,
   initializePrincipalEpoch,
   invalidatePrincipalEpoch,
+  isPrincipalCommandBlocked,
   isStalePrincipalContinuationError,
 };
-export type { PrincipalContinuation, PrincipalIdentity };
+export type { PrincipalCommandBarrier, PrincipalContinuation, PrincipalIdentity };

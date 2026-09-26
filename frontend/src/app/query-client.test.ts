@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   advancePrincipalEpoch,
+  beginPrincipalCommandBarrier,
   initializePrincipalEpoch,
   isStalePrincipalContinuationError,
 } from './auth/principal-epoch';
@@ -23,6 +24,52 @@ afterEach(() => {
 });
 
 describe('principal-aware QueryClient', () => {
+  it('active principal command barrier 在网络函数前拒绝后来 mutation', async () => {
+    const queryClient = createAppQueryClient();
+    initializePrincipalEpoch(queryClient, 'admin-1');
+    const barrier = beginPrincipalCommandBarrier(queryClient);
+    const mutationFn = vi.fn(async () => ({ revision: 2 }));
+    const mutation = queryClient.getMutationCache().build(queryClient, { mutationFn });
+
+    await expect(mutation.execute(undefined)).rejects.toMatchObject({
+      name: 'ActivePrincipalCommandError',
+    });
+    expect(mutationFn).not.toHaveBeenCalled();
+
+    barrier.release();
+    await expect(mutation.execute(undefined)).resolves.toEqual({ revision: 2 });
+    expect(mutationFn).toHaveBeenCalledOnce();
+  });
+
+  it('active principal command barrier 在网络函数前拒绝后来 query，只允许认证收敛读取', async () => {
+    const queryClient = createAppQueryClient();
+    initializePrincipalEpoch(queryClient, 'admin-1');
+    const barrier = beginPrincipalCommandBarrier(queryClient);
+    const businessQuery = vi.fn(async () => ({ total: 1 }));
+    const authQuery = vi.fn(async () => ({ user: null }));
+
+    await expect(queryClient.fetchQuery({
+      queryFn: businessQuery,
+      queryKey: ['identity', 'users'],
+      retry: false,
+    })).rejects.toMatchObject({ name: 'ActivePrincipalCommandError' });
+    expect(businessQuery).not.toHaveBeenCalled();
+
+    await expect(queryClient.fetchQuery({
+      meta: { authPrincipalBoundary: true },
+      queryFn: authQuery,
+      queryKey: ['auth', 'session'],
+    })).resolves.toEqual({ user: null });
+    expect(authQuery).toHaveBeenCalledOnce();
+
+    barrier.release();
+    await expect(queryClient.fetchQuery({
+      queryFn: businessQuery,
+      queryKey: ['identity', 'users'],
+    })).resolves.toEqual({ total: 1 });
+    expect(businessQuery).toHaveBeenCalledOnce();
+  });
+
   it('主体变化后在 mutation onSuccess 之前拒绝旧 continuation', async () => {
     const queryClient = createAppQueryClient();
     initializePrincipalEpoch(queryClient, 'admin-1');

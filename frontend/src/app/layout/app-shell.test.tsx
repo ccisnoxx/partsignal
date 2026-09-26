@@ -107,7 +107,8 @@ function authValue(user: AuthUser | null): AuthContextValue {
     error: null,
     isAdmin: user?.account_type === 'ADMIN',
     refresh: vi.fn(),
-    runPrincipalBoundary: async (command) => command(new AbortController().signal),
+    reconcileUnknownPrincipalResult: async () => {},
+    runPrincipalBoundary: async (command) => command(new AbortController().signal, { assertCanSend: () => {} }),
     signOut: vi.fn(),
   };
 }

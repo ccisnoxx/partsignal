@@ -38,7 +38,8 @@ const auth: AuthContextValue = {
   error: null,
   isAdmin: false,
   refresh: vi.fn(),
-    runPrincipalBoundary: async (command) => command(new AbortController().signal),
+    reconcileUnknownPrincipalResult: async () => {},
+    runPrincipalBoundary: async (command) => command(new AbortController().signal, { assertCanSend: () => {} }),
   signOut: vi.fn(),
 };
 

@@ -33,7 +33,11 @@ const auth: AuthContextValue = {
   error: null,
   isAdmin: true,
   refresh: vi.fn(),
-  runPrincipalBoundary: vi.fn(async (command) => command(new AbortController().signal)),
+  reconcileUnknownPrincipalResult: vi.fn(async () => {}),
+  runPrincipalBoundary: vi.fn(async (command) => command(
+    new AbortController().signal,
+    { assertCanSend: () => {} },
+  )),
   signOut: vi.fn(),
 };
 
@@ -322,41 +326,6 @@ describe('UserListPage', () => {
     expect(document.body).not.toHaveTextContent('reset-secret-123');
   });
 
-  it('当前管理员重置自身密码从请求发出前进入 principal boundary', async () => {
-    const current = managedUser({
-      ...admin,
-      must_change_password: true,
-      workflow_stage: 'FIRST_PASSWORD_CHANGE',
-      primary_task: 'MANAGE_LOGIN_SECURITY',
-      available_actions: ['UPDATE', 'RESET_PASSWORD', 'DISABLE'],
-      revision: 7,
-    });
-    const saved = { ...current, revision: current.revision + 1 };
-    vi.spyOn(api, 'GET').mockResolvedValue({
-      data: result([current]),
-      response: Response.json(result([current])),
-    } as never);
-    const post = vi.spyOn(api, 'POST').mockResolvedValue({
-      data: saved,
-      response: Response.json(saved),
-    } as never);
-    const boundary = vi.mocked(auth.runPrincipalBoundary).mockClear();
-    const refresh = vi.spyOn(auth, 'refresh').mockResolvedValue(undefined).mockClear();
-    renderUsers();
-
-    await userEvent.click(await screen.findByRole('button', { name: '重置临时密码' }));
-    const dialog = await screen.findByRole('dialog', { name: /重置 admin 的临时密码/ });
-    await userEvent.type(within(dialog).getByLabelText(/临时密码/), 'self-reset-secret-123');
-    await userEvent.click(within(dialog).getByRole('button', { name: '重置临时密码' }));
-
-    await waitFor(() => expect(boundary).toHaveBeenCalledOnce());
-    expect(boundary.mock.invocationCallOrder[0]).toBeLessThan(post.mock.invocationCallOrder[0]!);
-    expect(post).toHaveBeenCalledWith('/api/v1/users/{user_id}/reset-password', expect.objectContaining({
-      signal: expect.any(AbortSignal),
-    }));
-    expect(refresh).not.toHaveBeenCalled();
-  });
-
   it('批量停用携带选择时 revision，200 partial 后清空选择并显示脱敏反馈', async () => {
     const target = managedUser();
     const list = result([target]);
@@ -416,7 +385,7 @@ describe('UserListPage', () => {
     const dialog = await screen.findByRole('dialog', { name: '批量停用 1 个用户？' });
     await userEvent.click(within(dialog).getByRole('button', { name: '批量停用' }));
 
-    expect(await within(dialog).findByRole('alert')).toHaveTextContent('请求 ID：req-user-bulk-failed');
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('服务端提交结果未知');
     await userEvent.click(within(dialog).getByRole('button', { name: '取消' }));
     expect(screen.getByRole('toolbar', { name: '批量操作' })).toHaveTextContent('已选择 1 项');
     expect(post).toHaveBeenCalledOnce();
@@ -744,6 +713,7 @@ describe('Users lifecycle boundaries', () => {
     renderUsers();
 
     await userEvent.click(await screen.findByRole('button', { name: '更多操作：admin' }));
+    expect(screen.queryByRole('menuitem', { name: '重置临时密码' })).not.toBeInTheDocument();
     await userEvent.click(await screen.findByRole('menuitem', { name: '停用用户' }));
     const dialog = await screen.findByRole('dialog', { name: '停用用户“admin”？' });
     await userEvent.click(within(dialog).getByRole('button', { name: '停用用户' }));
@@ -802,5 +772,59 @@ describe('Users lifecycle boundaries', () => {
 
     expect(await screen.findByRole('status')).toHaveTextContent('成功 0，失败 1');
     expect(boundary).not.toHaveBeenCalled();
+  });
+
+  it('批量停用包含当前主体且 transport 结果未知时执行一次 canonical principal reconciliation', async () => {
+    const current = { ...admin, available_actions: ['UPDATE', 'DISABLE'] as User['available_actions'] };
+    vi.spyOn(api, 'GET').mockResolvedValue({
+      data: result([current]),
+      response: Response.json(result([current])),
+    } as never);
+    const transportError = new TypeError('Failed to fetch');
+    const post = vi.spyOn(api, 'POST').mockRejectedValue(transportError);
+    const boundary = vi.mocked(auth.runPrincipalBoundary).mockClear();
+    const reconcile = vi.mocked(auth.reconcileUnknownPrincipalResult!).mockClear();
+    renderUsers();
+
+    await userEvent.click(await screen.findByRole('checkbox', { name: '选择用户 admin' }));
+    await userEvent.click(screen.getByRole('button', { name: '批量停用' }));
+    const dialog = await screen.findByRole('dialog', { name: '批量停用 1 个用户？' });
+    await userEvent.click(within(dialog).getByRole('button', { name: '批量停用' }));
+
+    await waitFor(() => expect(reconcile).toHaveBeenCalledOnce());
+    expect(post).toHaveBeenCalledOnce();
+    expect(boundary).not.toHaveBeenCalled();
+  });
+
+  it('批量停用当前主体收到结构化 HTTP 失败时不把结果误判为 unknown', async () => {
+    const current = { ...admin, available_actions: ['UPDATE', 'DISABLE'] as User['available_actions'] };
+    vi.spyOn(api, 'GET').mockResolvedValue({
+      data: result([current]),
+      response: Response.json(result([current])),
+    } as never);
+    const post = vi.spyOn(api, 'POST').mockResolvedValue({
+      error: {
+        error: {
+          code: 'INVALID_REQUEST',
+          message: '批量操作未提交',
+          details: {},
+          request_id: 'req-current-bulk-failed',
+        },
+      },
+      response: Response.json({}, { status: 422 }),
+    } as never);
+    const boundary = vi.mocked(auth.runPrincipalBoundary).mockClear();
+    const reconcile = vi.mocked(auth.reconcileUnknownPrincipalResult!).mockClear();
+    renderUsers();
+
+    await userEvent.click(await screen.findByRole('checkbox', { name: '选择用户 admin' }));
+    await userEvent.click(screen.getByRole('button', { name: '批量停用' }));
+    const dialog = await screen.findByRole('dialog', { name: '批量停用 1 个用户？' });
+    await userEvent.click(within(dialog).getByRole('button', { name: '批量停用' }));
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('req-current-bulk-failed');
+    expect(post).toHaveBeenCalledOnce();
+    expect(boundary).not.toHaveBeenCalled();
+    expect(reconcile).not.toHaveBeenCalled();
   });
 });

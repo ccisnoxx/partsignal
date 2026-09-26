@@ -32,7 +32,11 @@ function storyAuth(user: AuthUser | null, state?: 'loading' | 'error'): AuthCont
     error: state === 'error' ? new Error('认证服务暂时不可用') : null,
     isAdmin: user?.account_type === 'ADMIN',
     refresh: async () => undefined,
-    runPrincipalBoundary: async (command) => command(new AbortController().signal),
+    reconcileUnknownPrincipalResult: async () => {},
+    runPrincipalBoundary: async (command) => command(
+      new AbortController().signal,
+      { assertCanSend: () => {} },
+    ),
     signOut: async () => undefined,
   };
 }

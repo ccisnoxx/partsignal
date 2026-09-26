@@ -15,8 +15,8 @@ type AuthTransitionStorageState =
   | { message: AuthTransitionMessage; status: 'VALID' };
 
 type AuthTransitionOwner = {
-  finish: () => Promise<void>;
-  start: () => void;
+  finish: () => Promise<AuthTransitionMessage | null>;
+  start: () => AuthTransitionMessage;
 };
 
 type AuthTransitionChannel = {
@@ -378,23 +378,27 @@ function createAuthTransitionChannel(
             }
           }, authTransitionLeaseHeartbeatMs);
           ownedStops.add(stopHeartbeat);
+          return started;
         },
         finish: async () => {
-          if (finished) return;
+          if (finished) return null;
           finished = true;
           stopHeartbeat();
+          let settled: AuthTransitionMessage | null = null;
           try {
             if (started && !closed) {
-              publishOwned({
+              settled = {
                 ...started,
                 eventId: globalThis.crypto.randomUUID(),
                 phase: 'SETTLED',
-              });
+              };
+              publishOwned(settled);
             }
           } finally {
             release();
             await lockPromise;
           }
+          return settled;
         },
       };
     },

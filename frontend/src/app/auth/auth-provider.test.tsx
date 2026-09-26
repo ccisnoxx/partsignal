@@ -1,7 +1,12 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import {
+  QueryClient,
+  QueryClientProvider,
+  useMutation,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { api } from '@/shared/api/client';
@@ -12,8 +17,9 @@ import {
   readAuthTransitionState,
 } from './auth-transition-channel';
 import type { AuthUser } from './auth-provider';
-import { AuthProvider, useAuth, useAuthActions } from './auth-provider';
+import { AuthProvider, getAuthRouteUser, useAuth, useAuthActions } from './auth-provider';
 import { capturePrincipalContinuation } from './principal-epoch';
+import { createAppQueryClient } from '../query-client';
 
 const admin: AuthUser = {
   id: '00000000-0000-4000-8000-000000000001',
@@ -144,6 +150,48 @@ function AuthActionErrorProbe() {
   );
 }
 
+type OwnerBarrierActions = {
+  readProtectedRouteUser: () => AuthUser | null;
+  startOwnerCommand: () => Promise<void>;
+  startProtectedQuery: () => Promise<unknown>;
+  startSecondCommand: () => Promise<void>;
+};
+
+function OwnerBarrierProbe({
+  onActions,
+  ownerCommand,
+  protectedQuery,
+  secondCommand,
+}: {
+  onActions: (actions: OwnerBarrierActions) => void;
+  ownerCommand: (signal: AbortSignal) => Promise<void>;
+  protectedQuery: () => Promise<unknown>;
+  secondCommand: () => Promise<void>;
+}) {
+  const auth = useAuth();
+  const queryClient = useQueryClient();
+  const owner = useMutation({
+    meta: { authPrincipalBoundary: true },
+    mutationFn: () => auth.runPrincipalBoundary(ownerCommand),
+  });
+  const second = useMutation({ mutationFn: secondCommand });
+  useEffect(() => {
+    onActions({
+      readProtectedRouteUser: () => getAuthRouteUser(queryClient),
+      startOwnerCommand: () => owner.mutateAsync(),
+      startProtectedQuery: () => queryClient.fetchQuery({
+        queryFn: protectedQuery,
+        queryKey: ['identity', 'owner-barrier-protected-route'],
+        retry: false,
+      }),
+      startSecondCommand: () => second.mutateAsync(),
+    });
+  }, [onActions, owner, protectedQuery, queryClient, second]);
+  if (auth.isLoading) return <p>owner barrier 已关闭路由</p>;
+  if (auth.error) return <p>读取失败</p>;
+  return <p>{auth.isAdmin ? 'ADMIN 受保护路由' : '非管理员路由'}</p>;
+}
+
 function renderAuth() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const result = render(
@@ -215,7 +263,8 @@ describe('AuthProvider', () => {
   ])('%s 在 Provider 层 fail-closed 且不发 canonical session read', async (_caseName, arrange) => {
     arrange();
     const get = vi.spyOn(api, 'GET').mockResolvedValue(authSnapshot(engineer, 'must-not-load'));
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const queryClient = createAppQueryClient();
+    queryClient.setDefaultOptions({ queries: { retry: false } });
     queryClient.setQueryData(['auth', 'session'], {
       user: admin,
       csrfToken: 'stale-csrf',
@@ -437,7 +486,8 @@ describe('AuthProvider', () => {
       }
       originalSetItem.call(this, key, value);
     });
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const queryClient = createAppQueryClient();
+    queryClient.setDefaultOptions({ queries: { retry: false } });
     render(
       <QueryClientProvider client={queryClient}>
         <AuthProvider><AuthActionErrorProbe /></AuthProvider>
@@ -455,6 +505,64 @@ describe('AuthProvider', () => {
       message: { phase: 'STARTED' },
       status: 'VALID',
     });
+    const blockedNetwork = vi.fn(async () => undefined);
+    const blockedMutation = queryClient.getMutationCache().build(queryClient, {
+      mutationFn: blockedNetwork,
+    });
+    await expect(blockedMutation.execute(undefined)).rejects.toMatchObject({
+      name: 'ActivePrincipalCommandError',
+    });
+    expect(blockedNetwork).not.toHaveBeenCalled();
+  });
+
+  it('本地 owner STARTED 后关闭受保护路由并在网络前拒绝第二个业务命令', async () => {
+    const heldOwner = deferred<void>();
+    const ownerCommand = vi.fn((signal: AbortSignal) => {
+      expect(signal.aborted).toBe(false);
+      return heldOwner.promise;
+    });
+    const secondNetwork = vi.fn(async () => undefined);
+    const protectedNetwork = vi.fn(async () => ({ items: [] }));
+    const get = vi.spyOn(api, 'GET')
+      .mockResolvedValueOnce(authSnapshot(admin, 'initial-csrf'))
+      .mockResolvedValueOnce(authSnapshot(admin, 'canonical-csrf'));
+    const queryClient = createAppQueryClient();
+    queryClient.setDefaultOptions({ queries: { retry: false } });
+    let actions: OwnerBarrierActions | undefined;
+    render(
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <OwnerBarrierProbe
+            onActions={(next) => { actions = next; }}
+            ownerCommand={ownerCommand}
+            protectedQuery={protectedNetwork}
+            secondCommand={secondNetwork}
+          />
+        </AuthProvider>
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText('ADMIN 受保护路由')).toBeInTheDocument();
+    const ownerResult = actions!.startOwnerCommand();
+    await waitFor(() => expect(ownerCommand).toHaveBeenCalledOnce());
+    expect(await screen.findByText('owner barrier 已关闭路由')).toBeInTheDocument();
+    expect(screen.queryByText('ADMIN 受保护路由')).not.toBeInTheDocument();
+    await expect(actions!.startSecondCommand()).rejects.toMatchObject({
+      name: 'ActivePrincipalCommandError',
+    });
+    expect(secondNetwork).not.toHaveBeenCalled();
+    expect(actions!.readProtectedRouteUser()).toBeNull();
+    await expect(actions!.startProtectedQuery()).rejects.toMatchObject({
+      name: 'ActivePrincipalCommandError',
+    });
+    expect(protectedNetwork).not.toHaveBeenCalled();
+    expect(get).toHaveBeenCalledOnce();
+
+    await act(async () => heldOwner.resolve());
+    await expect(ownerResult).resolves.toBeUndefined();
+    expect(await screen.findByText('ADMIN 受保护路由')).toBeInTheDocument();
+    expect(get).toHaveBeenCalledTimes(2);
+    expect(ownerCommand.mock.calls[0]![0].aborted).toBe(false);
   });
 
   it('登录写入 canonical session 并清除上一身份的业务缓存', async () => {

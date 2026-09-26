@@ -107,6 +107,7 @@ function authValue(user: AuthUser | null): AuthContextValue {
     error: null,
     isAdmin: user?.account_type === 'ADMIN',
     refresh: vi.fn(),
+    runPrincipalBoundary: async (command) => command(new AbortController().signal),
     signOut: vi.fn(),
   };
 }

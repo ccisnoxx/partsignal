@@ -198,6 +198,270 @@ async function showPasswordChangedAudits(
   return body.items;
 }
 
+test('当前管理员自降权与自停用通过同一 BrowserContext principal boundary 收敛双页面', async ({
+  browser,
+  context,
+  page: owner,
+}) => {
+  const suffix = randomUUID().slice(0, 8);
+  const backupUsername = `e2e-boundary-admin-${suffix}`;
+  const backupInitialPassword = `boundary-initial-${randomUUID()}`;
+  const backupPassword = `boundary-active-${randomUUID()}`;
+  const phase: RuntimePhase = { current: 'seed-login' };
+  const apiOrigin = new URL(apiBaseUrl).origin;
+  const runtimeAudit = createRealStackRuntimeAudit({
+    apiOrigin,
+    getPhase: () => phase.current,
+    allowedCancellations: [{
+      phase: 'seed-relogin',
+      origin: apiOrigin,
+      method: 'GET',
+      pathname: '/api/v1/workbench',
+      reason: 'net::ERR_ABORTED',
+    }],
+    allowedConsoleErrors: [{
+      phase: 'self-disable',
+      text: 'Failed to load resource: the server responded with a status of 401 (Unauthorized)',
+    }],
+    allowedHttpErrors: [{
+      phase: 'self-disable',
+      origin: apiOrigin,
+      method: 'GET',
+      pathname: '/api/v1/auth/session',
+      status: 401,
+    }],
+  });
+  let observer: Page | undefined;
+  let backupContext: BrowserContext | undefined;
+  let backupPage: Page | undefined;
+  let cleanupContext: BrowserContext | undefined;
+  let backupUser: User | undefined;
+
+  await registerArtifactSecrets([adminPassword, backupInitialPassword, backupPassword]);
+  runtimeAudit.watch(owner);
+
+  async function csrfToken(target: BrowserContext, label: string) {
+    const token = await readJson<CsrfToken>(
+      await target.request.get(apiUrl('/api/v1/auth/csrf')),
+      200,
+      label,
+    );
+    await registerArtifactSecrets([token.csrf_token]);
+    return token.csrf_token;
+  }
+
+  async function updateSeedAdmin(target: BrowserContext, current: User, values: {
+    account_type: 'ADMIN' | 'ENGINEER';
+    is_active: boolean;
+  }) {
+    return readJson<User>(await target.request.patch(apiUrl(`/api/v1/users/${current.id}`), {
+      data: {
+        account_type: values.account_type,
+        display_name: current.display_name,
+        expected_revision: current.revision,
+        is_active: values.is_active,
+      },
+      headers: { 'X-CSRF-Token': await csrfToken(target, '恢复用户 CSRF') },
+    }), 200, '恢复 seed ADMIN');
+  }
+
+  try {
+    await login(owner, context, 'admin', adminPassword);
+    await expect(owner).toHaveURL('/');
+    await expect(owner.getByRole('heading', { level: 1, name: '工作台' })).toBeVisible();
+
+    const seedAdmin = await readJson<User>(
+      await context.request.get(apiUrl('/api/v1/auth/me')),
+      200,
+      'seed ADMIN',
+    );
+    backupUser = await readJson<User>(await context.request.post(apiUrl('/api/v1/users'), {
+      data: {
+        account_type: 'ADMIN',
+        display_name: `Boundary backup ${suffix}`,
+        temporary_password: backupInitialPassword,
+        username: backupUsername,
+      },
+      headers: { 'X-CSRF-Token': await csrfToken(context, '创建 backup ADMIN CSRF') },
+    }), 201, '创建 backup ADMIN');
+
+    backupContext = await browser.newContext({
+      baseURL: frontendBaseUrl,
+      viewport: { height: 900, width: 1440 },
+    });
+    backupPage = await backupContext.newPage();
+    await login(backupPage, backupContext, backupUsername, backupInitialPassword);
+    await expect(backupPage).toHaveURL('/account/security');
+    await backupPage.getByLabel(/^当前密码/).fill(backupInitialPassword);
+    await backupPage.getByLabel(/^新密码/).fill(backupPassword);
+    await backupPage.getByRole('button', { name: '确认修改' }).click();
+    await expect(backupPage).toHaveURL('/');
+
+    observer = await context.newPage();
+    runtimeAudit.watch(observer);
+    await Promise.all([
+      owner.goto('/system/users?status=ENABLED&page=1&pageSize=20'),
+      observer.goto('/system/users?status=ENABLED&page=1&pageSize=20'),
+    ]);
+    await expect(userRow(owner, 'admin')).toHaveCount(1);
+    await expect(userRow(observer, 'admin')).toHaveCount(1);
+
+    phase.current = 'self-downgrade';
+    const seedRow = userRow(owner, 'admin');
+    await seedRow.getByRole('button', { name: '管理用户' }).click();
+    const editDialog = owner.getByRole('dialog', { name: '编辑用户 admin' });
+    await editDialog.getByRole('combobox', { name: '账号类型' }).click();
+    await owner.getByRole('option', { name: 'ENGINEER' }).click();
+    const downgradeResponsePromise = owner.waitForResponse((response) => (
+      matchesResponse(response, 'PATCH', `/api/v1/users/${seedAdmin.id}`)
+    ));
+    await editDialog.getByRole('button', { name: '保存修改' }).click();
+    const downgraded = await readJson<User>(await downgradeResponsePromise, 200, '当前管理员自降权');
+    expect(downgraded.account_type).toBe('ENGINEER');
+
+    for (const target of [owner, observer]) {
+      await expect(target.getByRole('heading', { name: '无权访问系统管理' })).toBeVisible({
+        timeout: 20_000,
+      });
+      await expect(target.getByRole('heading', { level: 1, name: '用户管理' })).toHaveCount(0);
+    }
+
+    const downgradeReads = runtimeAudit.responses.filter((item) => (
+      item.phase === 'self-downgrade'
+      && item.origin === apiOrigin
+      && item.method === 'GET'
+      && item.pathname === '/api/v1/auth/session'
+      && item.status === 200
+    ));
+    expect(downgradeReads, '自降权后发送页与观察页应各做一次 canonical recovery').toHaveLength(2);
+
+    const restored = await updateSeedAdmin(backupContext, downgraded, {
+      account_type: 'ADMIN',
+      is_active: true,
+    });
+
+    await context.clearCookies();
+    await Promise.all([owner.goto('/login'), observer.goto('/login')]);
+    phase.current = 'seed-relogin';
+    await login(owner, context, 'admin', adminPassword, { navigate: false });
+    await expect(owner).toHaveURL('/');
+    await expect(observer).toHaveURL('/');
+    await Promise.all([
+      owner.goto('/system/users?status=ENABLED&page=1&pageSize=20'),
+      observer.goto('/system/users?status=ENABLED&page=1&pageSize=20'),
+    ]);
+    await expect(userRow(owner, 'admin')).toHaveCount(1);
+    await expect(userRow(observer, 'admin')).toHaveCount(1);
+
+    phase.current = 'self-disable';
+    await userRow(owner, 'admin').getByRole('button', { name: '更多操作：admin' }).click();
+    await owner.getByRole('menuitem', { name: '停用用户' }).click();
+    const disableDialog = owner.getByRole('dialog', { name: '停用用户“admin”？' });
+    const disableResponsePromise = owner.waitForResponse((response) => (
+      matchesResponse(response, 'PATCH', `/api/v1/users/${seedAdmin.id}`)
+    ));
+    await disableDialog.getByRole('button', { name: '停用用户' }).click();
+    const disabled = await readJson<User>(await disableResponsePromise, 200, '当前管理员自停用');
+    expect(disabled.is_active).toBe(false);
+
+    for (const target of [owner, observer]) {
+      await expect(target).toHaveURL(/\/login(?:\?|$)/, { timeout: 20_000 });
+      await expect(target.getByRole('heading', { level: 1, name: '登录' })).toBeVisible();
+    }
+    const disableReads = runtimeAudit.responses.filter((item) => (
+      item.phase === 'self-disable'
+      && item.origin === apiOrigin
+      && item.method === 'GET'
+      && item.pathname === '/api/v1/auth/session'
+      && item.status === 401
+    ));
+    expect(disableReads, '自停用后发送页与观察页应各做一次 canonical recovery').toHaveLength(2);
+    expect(runtimeAudit.attempts.filter((item) => (
+      item.phase === 'self-disable'
+      && item.origin === apiOrigin
+      && item.method === 'PATCH'
+      && item.pathname === `/api/v1/users/${seedAdmin.id}`
+    ))).toHaveLength(1);
+    expect(runtimeAudit.errors, '自权限边界不得出现未声明错误或请求风暴').toEqual([]);
+
+    await updateSeedAdmin(backupContext, disabled, { account_type: 'ADMIN', is_active: true });
+    cleanupContext = await browser.newContext({ baseURL: frontendBaseUrl });
+    const cleanupPage = await cleanupContext.newPage();
+    await login(cleanupPage, cleanupContext, 'admin', adminPassword);
+    const cleanupCsrf = await csrfToken(cleanupContext, '删除 backup ADMIN CSRF');
+    const cleanupUsers = await readJson<UserList>(await cleanupContext.request.get(
+      apiUrl(`/api/v1/users?q=${encodeURIComponent(backupUsername)}&page=1&page_size=20`),
+    ), 200, '删除 backup ADMIN 前读取最新 revision');
+    const latestBackup = cleanupUsers.items.find((user) => user.id === backupUser!.id);
+    expect(latestBackup, '删除前必须找到 backup ADMIN 最新 projection').toBeDefined();
+    const disabledBackup = await readJson<User>(await cleanupContext.request.patch(
+      apiUrl(`/api/v1/users/${backupUser.id}`),
+      {
+        data: {
+          account_type: latestBackup!.account_type,
+          display_name: latestBackup!.display_name,
+          expected_revision: latestBackup!.revision,
+          is_active: false,
+        },
+        headers: { 'X-CSRF-Token': cleanupCsrf },
+      },
+    ), 200, '停用 backup ADMIN');
+    expect((await cleanupContext.request.delete(
+      apiUrl(`/api/v1/users/${backupUser.id}?expected_revision=${disabledBackup.revision}`),
+      { headers: { 'X-CSRF-Token': cleanupCsrf } },
+    )).status(), 'backup ADMIN 应被精确删除').toBe(204);
+    backupUser = undefined;
+    expect(restored.account_type).toBe('ADMIN');
+  } finally {
+    if (backupUser && backupContext) {
+      const users = await readJson<UserList>(await backupContext.request.get(
+        apiUrl('/api/v1/users?page=1&page_size=20'),
+      ), 200, '恢复检查用户列表');
+      const seed = users.items.find((user) => user.username === 'admin');
+      if (seed && (seed.account_type !== 'ADMIN' || !seed.is_active)) {
+        await updateSeedAdmin(backupContext, seed, { account_type: 'ADMIN', is_active: true });
+      }
+
+      await cleanupContext?.close();
+      cleanupContext = await browser.newContext({ baseURL: frontendBaseUrl });
+      const cleanupPage = await cleanupContext.newPage();
+      await login(cleanupPage, cleanupContext, 'admin', adminPassword);
+      const latestUsers = await readJson<UserList>(await cleanupContext.request.get(
+        apiUrl(`/api/v1/users?q=${encodeURIComponent(backupUsername)}&page=1&page_size=20`),
+      ), 200, 'backup ADMIN 清理列表');
+      const latestBackup = latestUsers.items.find((user) => user.id === backupUser!.id);
+      if (latestBackup) {
+        const cleanupCsrf = await csrfToken(cleanupContext, '回收 backup ADMIN CSRF');
+        const disabledBackup = latestBackup.is_active
+          ? await readJson<User>(await cleanupContext.request.patch(
+            apiUrl(`/api/v1/users/${latestBackup.id}`),
+            {
+              data: {
+                account_type: latestBackup.account_type,
+                display_name: latestBackup.display_name,
+                expected_revision: latestBackup.revision,
+                is_active: false,
+              },
+              headers: { 'X-CSRF-Token': cleanupCsrf },
+            },
+          ), 200, '回收时停用 backup ADMIN')
+          : latestBackup;
+        expect((await cleanupContext.request.delete(
+          apiUrl(`/api/v1/users/${disabledBackup.id}?expected_revision=${disabledBackup.revision}`),
+          { headers: { 'X-CSRF-Token': cleanupCsrf } },
+        )).status(), '失败路径也必须回收 backup ADMIN').toBe(204);
+      }
+      backupUser = undefined;
+    }
+    await registerCurrentRealStackCookies(context, apiBaseUrl);
+    if (backupContext) await registerCurrentRealStackCookies(backupContext, apiBaseUrl);
+    if (cleanupContext) await registerCurrentRealStackCookies(cleanupContext, apiBaseUrl);
+    await observer?.close();
+    await backupContext?.close();
+    await cleanupContext?.close();
+  }
+});
+
 test('System Admin 真实栈完成用户、权限、会话与审计闭环', async ({
   browser,
   context,

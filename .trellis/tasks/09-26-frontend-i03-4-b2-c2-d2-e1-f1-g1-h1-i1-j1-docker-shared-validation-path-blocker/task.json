@@ -18,7 +18,9 @@
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [],
+  "children": [
+    "09-26-frontend-i03-4-b2-c2-d2-e1-f1-g1-h1-i1-j1-k1-auth-terminal-self-permission-cross-tab-blocker"
+  ],
   "parent": "09-26-frontend-i03-4-b2-c2-d2-e1-f1-g1-h1-i1-full-vitest-transition-fixture-blocker",
   "relatedFiles": [
     ".trellis/spec/infra/ci-execution.md",

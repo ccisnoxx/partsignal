@@ -44,6 +44,7 @@ function UserListRoute() {
       currentUserId={auth.user.id}
       onAuthChanged={auth.refresh}
       onSearchChange={(nextSearch) => void navigate({ search: nextSearch })}
+      runAuthBoundary={auth.runPrincipalBoundary}
       search={search}
     />
   );

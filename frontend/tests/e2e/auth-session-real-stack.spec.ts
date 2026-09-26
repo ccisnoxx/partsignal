@@ -253,6 +253,82 @@ test('同一 BrowserContext 双页面以 session binding 封闭 A→B→A 的迟
   }
 });
 
+test('退出已由服务端提交但响应丢失时发送页与同源页各自只做一次 canonical recovery', async ({
+  context,
+  page: owner,
+}) => {
+  const apiOrigin = new URL(apiBaseUrl).origin;
+  const phase = { current: 'admin-login' };
+  const runtimeAudit = createRealStackRuntimeAudit({
+    apiOrigin,
+    getPhase: () => phase.current,
+    allowedCancellations: [{
+      phase: 'logout-response-lost',
+      origin: apiOrigin,
+      method: 'POST',
+      pathname: '/api/v1/auth/logout',
+      reason: 'net::ERR_FAILED',
+    }],
+    allowedConsoleErrors: [{
+      phase: 'logout-response-lost',
+      text: 'Failed to load resource: net::ERR_FAILED',
+    }],
+  });
+  const logoutCommitted = deferred();
+  let observer: Page | undefined;
+
+  await registerArtifactSecrets([adminPassword]);
+  runtimeAudit.watch(owner);
+
+  try {
+    await owner.goto('/login');
+    await loginAs(owner, 'admin', adminPassword);
+    await expect(owner).toHaveURL('/');
+    await expect(owner.getByRole('heading', { level: 1, name: '工作台' })).toBeVisible();
+
+    observer = await context.newPage();
+    runtimeAudit.watch(observer);
+    await observer.goto('/');
+    await expect(observer.getByRole('heading', { level: 1, name: '工作台' })).toBeVisible();
+
+    await owner.route('**/api/v1/auth/logout', async (route) => {
+      const response = await route.fetch();
+      expect(response.status(), '真实服务端必须已提交退出').toBe(204);
+      logoutCommitted.resolve();
+      await route.abort('failed');
+    });
+    phase.current = 'logout-response-lost';
+    await owner.getByRole('button', { name: /系统管理员/ }).click();
+    await owner.getByRole('menuitem', { name: '退出登录' }).click();
+    await logoutCommitted.promise;
+
+    await expect(owner).toHaveURL(/\/login(?:\?|$)/, { timeout: 20_000 });
+    await expect(observer).toHaveURL(/\/login(?:\?|$)/, { timeout: 20_000 });
+    await expect(owner.getByRole('heading', { level: 1, name: '登录' })).toBeVisible();
+    await expect(observer.getByRole('heading', { level: 1, name: '登录' })).toBeVisible();
+
+    const recoveryAttempts = runtimeAudit.attempts.filter((item) => (
+      item.phase === 'logout-response-lost'
+      && item.origin === apiOrigin
+      && item.method === 'GET'
+      && item.pathname === '/api/v1/auth/session'
+    ));
+    const recoveryResponses = runtimeAudit.responses.filter((item) => (
+      item.phase === 'logout-response-lost'
+      && item.origin === apiOrigin
+      && item.method === 'GET'
+      && item.pathname === '/api/v1/auth/session'
+      && item.status === 204
+    ));
+    expect(recoveryAttempts, '发送页与观察页应各发出一次 canonical recovery').toHaveLength(2);
+    expect(recoveryResponses, '两页 canonical recovery 都应确认 Cookie 已清空').toHaveLength(2);
+    expect(runtimeAudit.errors, '响应丢失收敛不得产生未声明错误或请求风暴').toEqual([]);
+  } finally {
+    await registerCurrentRealStackCookies(context, apiBaseUrl);
+    await observer?.close();
+  }
+});
+
 test('跨标签页 owner 终止后由 lease 回收存活页与全页面重载', async ({
   context,
   page: survivor,

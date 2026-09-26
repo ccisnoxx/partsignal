@@ -67,6 +67,7 @@ const auth: AuthContextValue = {
   },
   csrfToken: 'audit-csrf', isLoading: false, isSigningOut: false, error: null, isAdmin: true,
   refresh: vi.fn(), signOut: vi.fn(),
+    runPrincipalBoundary: async (command) => command(new AbortController().signal),
 };
 
 beforeEach(() => {

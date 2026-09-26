@@ -62,6 +62,7 @@ async function updateUser(
   user: User,
   payload: UserEditFormValues,
   csrfToken: string | null,
+  signal?: AbortSignal,
 ) {
   const result = await api.PATCH('/api/v1/users/{user_id}', {
     body: { ...payload, expected_revision: user.revision },
@@ -69,6 +70,7 @@ async function updateUser(
       path: { user_id: user.id },
       header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) },
     },
+    ...(signal ? { signal } : {}),
   });
   if (result.data) return result.data;
   throw userRequestError('更新用户', result);
@@ -78,6 +80,7 @@ async function resetUserPassword(
   user: User,
   temporaryPassword: string,
   csrfToken: string | null,
+  signal?: AbortSignal,
 ) {
   const result = await api.POST('/api/v1/users/{user_id}/reset-password', {
     body: { temporary_password: temporaryPassword, expected_revision: user.revision },
@@ -85,12 +88,18 @@ async function resetUserPassword(
       path: { user_id: user.id },
       header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) },
     },
+    ...(signal ? { signal } : {}),
   });
   if (result.data) return result.data;
   throw userRequestError('重置临时密码', result);
 }
 
-async function setUserEnabled(user: User, enabled: boolean, csrfToken: string | null) {
+async function setUserEnabled(
+  user: User,
+  enabled: boolean,
+  csrfToken: string | null,
+  signal?: AbortSignal,
+) {
   return updateUser(
     user,
     {
@@ -99,6 +108,7 @@ async function setUserEnabled(user: User, enabled: boolean, csrfToken: string | 
       is_active: enabled,
     },
     csrfToken,
+    signal,
   );
 }
 

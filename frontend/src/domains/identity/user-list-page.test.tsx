@@ -33,6 +33,7 @@ const auth: AuthContextValue = {
   error: null,
   isAdmin: true,
   refresh: vi.fn(),
+  runPrincipalBoundary: vi.fn(async (command) => command(new AbortController().signal)),
   signOut: vi.fn(),
 };
 
@@ -319,6 +320,41 @@ describe('UserListPage', () => {
     await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
     expect(post).toHaveBeenCalledOnce();
     expect(document.body).not.toHaveTextContent('reset-secret-123');
+  });
+
+  it('当前管理员重置自身密码从请求发出前进入 principal boundary', async () => {
+    const current = managedUser({
+      ...admin,
+      must_change_password: true,
+      workflow_stage: 'FIRST_PASSWORD_CHANGE',
+      primary_task: 'MANAGE_LOGIN_SECURITY',
+      available_actions: ['UPDATE', 'RESET_PASSWORD', 'DISABLE'],
+      revision: 7,
+    });
+    const saved = { ...current, revision: current.revision + 1 };
+    vi.spyOn(api, 'GET').mockResolvedValue({
+      data: result([current]),
+      response: Response.json(result([current])),
+    } as never);
+    const post = vi.spyOn(api, 'POST').mockResolvedValue({
+      data: saved,
+      response: Response.json(saved),
+    } as never);
+    const boundary = vi.mocked(auth.runPrincipalBoundary).mockClear();
+    const refresh = vi.spyOn(auth, 'refresh').mockResolvedValue(undefined).mockClear();
+    renderUsers();
+
+    await userEvent.click(await screen.findByRole('button', { name: '重置临时密码' }));
+    const dialog = await screen.findByRole('dialog', { name: /重置 admin 的临时密码/ });
+    await userEvent.type(within(dialog).getByLabelText(/临时密码/), 'self-reset-secret-123');
+    await userEvent.click(within(dialog).getByRole('button', { name: '重置临时密码' }));
+
+    await waitFor(() => expect(boundary).toHaveBeenCalledOnce());
+    expect(boundary.mock.invocationCallOrder[0]).toBeLessThan(post.mock.invocationCallOrder[0]!);
+    expect(post).toHaveBeenCalledWith('/api/v1/users/{user_id}/reset-password', expect.objectContaining({
+      signal: expect.any(AbortSignal),
+    }));
+    expect(refresh).not.toHaveBeenCalled();
   });
 
   it('批量停用携带选择时 revision，200 partial 后清空选择并显示脱敏反馈', async () => {
@@ -682,6 +718,7 @@ describe('Users lifecycle boundaries', () => {
     const saved = kind === 'role' ? { ...current, account_type: 'ENGINEER', revision: current.revision + 1 } : { ...current, is_active: false, revision: current.revision + 1 };
     const patch = vi.spyOn(api, 'PATCH').mockResolvedValue({ data: saved, response: Response.json(saved) } as never);
     const refresh = vi.spyOn(auth, 'refresh').mockResolvedValue(undefined).mockClear();
+    const boundary = vi.mocked(auth.runPrincipalBoundary).mockClear();
     const { queryClient } = renderUsers();
     vi.spyOn(queryClient, 'invalidateQueries').mockImplementation(() => new Promise(() => {}));
     await userEvent.click(await screen.findByRole('button', { name: '管理用户' }));
@@ -690,6 +727,80 @@ describe('Users lifecycle boundaries', () => {
     await userEvent.click(await screen.findByRole('option', { name: kind === 'role' ? 'ENGINEER' : 'Disabled' }));
     await userEvent.click(within(dialog).getByRole('button', { name: '保存修改' }));
     await waitFor(() => expect(patch).toHaveBeenCalledOnce());
-    await waitFor(() => expect(refresh).toHaveBeenCalledOnce());
+    await waitFor(() => expect(boundary).toHaveBeenCalledOnce());
+    expect(refresh).not.toHaveBeenCalled();
+    expect(patch).toHaveBeenCalledWith('/api/v1/users/{user_id}', expect.objectContaining({
+      signal: expect.any(AbortSignal),
+    }));
+  });
+
+  it('当前管理员单次停用从请求发出前进入 principal boundary', async () => {
+    const current = { ...admin, available_actions: ['UPDATE', 'DISABLE'] as User['available_actions'] };
+    const saved = { ...current, is_active: false, revision: current.revision + 1 };
+    vi.spyOn(api, 'GET').mockResolvedValue({ data: result([current]), response: Response.json(result([current])) } as never);
+    const patch = vi.spyOn(api, 'PATCH').mockResolvedValue({ data: saved, response: Response.json(saved) } as never);
+    const boundary = vi.mocked(auth.runPrincipalBoundary).mockClear();
+    const refresh = vi.spyOn(auth, 'refresh').mockResolvedValue(undefined).mockClear();
+    renderUsers();
+
+    await userEvent.click(await screen.findByRole('button', { name: '更多操作：admin' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: '停用用户' }));
+    const dialog = await screen.findByRole('dialog', { name: '停用用户“admin”？' });
+    await userEvent.click(within(dialog).getByRole('button', { name: '停用用户' }));
+
+    await waitFor(() => expect(boundary).toHaveBeenCalledOnce());
+    expect(boundary.mock.invocationCallOrder[0]).toBeLessThan(patch.mock.invocationCallOrder[0]!);
+    expect(patch).toHaveBeenCalledWith('/api/v1/users/{user_id}', expect.objectContaining({
+      signal: expect.any(AbortSignal),
+    }));
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it('批量停用只有当前主体实际成功后才进入 principal boundary', async () => {
+    const current = { ...admin, available_actions: ['UPDATE', 'DISABLE'] as User['available_actions'] };
+    const saved = { ...current, is_active: false, revision: current.revision + 1 };
+    vi.spyOn(api, 'GET').mockResolvedValue({ data: result([current]), response: Response.json(result([current])) } as never);
+    const post = vi.spyOn(api, 'POST').mockResolvedValue({
+      data: { succeeded: [saved], failures: [] },
+      response: Response.json({}, { status: 200 }),
+    } as never);
+    const boundary = vi.mocked(auth.runPrincipalBoundary).mockClear();
+    const refresh = vi.spyOn(auth, 'refresh').mockResolvedValue(undefined).mockClear();
+    renderUsers();
+
+    await userEvent.click(await screen.findByRole('checkbox', { name: '选择用户 admin' }));
+    await userEvent.click(screen.getByRole('button', { name: '批量停用' }));
+    const dialog = await screen.findByRole('dialog', { name: '批量停用 1 个用户？' });
+    await userEvent.click(within(dialog).getByRole('button', { name: '批量停用' }));
+
+    await waitFor(() => expect(boundary).toHaveBeenCalledOnce());
+    expect(post.mock.invocationCallOrder[0]).toBeLessThan(boundary.mock.invocationCallOrder[0]!);
+    expect(refresh).not.toHaveBeenCalled();
+    expect(screen.getByRole('status')).toHaveTextContent('成功 1，失败 0');
+  });
+
+  it('批量停用当前主体失败时不进入 principal boundary', async () => {
+    const current = { ...admin, available_actions: ['UPDATE', 'DISABLE'] as User['available_actions'] };
+    vi.spyOn(api, 'GET').mockResolvedValue({
+      data: result([current]),
+      response: Response.json(result([current])),
+    } as never);
+    vi.spyOn(api, 'POST').mockResolvedValue({
+      data: {
+        succeeded: [],
+        failures: [{ user_id: current.id, code: 'REVISION_CONFLICT', message: '修订冲突' }],
+      },
+      response: Response.json({}, { status: 200 }),
+    } as never);
+    const boundary = vi.mocked(auth.runPrincipalBoundary).mockClear();
+    renderUsers();
+
+    await userEvent.click(await screen.findByRole('checkbox', { name: '选择用户 admin' }));
+    await userEvent.click(screen.getByRole('button', { name: '批量停用' }));
+    const dialog = await screen.findByRole('dialog', { name: '批量停用 1 个用户？' });
+    await userEvent.click(within(dialog).getByRole('button', { name: '批量停用' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent('成功 0，失败 1');
+    expect(boundary).not.toHaveBeenCalled();
   });
 });

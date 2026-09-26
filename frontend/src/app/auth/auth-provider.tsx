@@ -36,6 +36,10 @@ type AuthSession = {
   sessionBinding: string;
 };
 
+type PrincipalBoundaryRunner = <T>(
+  command: (signal: AbortSignal) => Promise<T>,
+) => Promise<T>;
+
 type AuthContextValue = {
   user: AuthUser | null;
   csrfToken: string | null;
@@ -44,6 +48,7 @@ type AuthContextValue = {
   error: unknown;
   isAdmin: boolean;
   refresh: () => Promise<void>;
+  runPrincipalBoundary: PrincipalBoundaryRunner;
   signOut: () => Promise<void>;
 };
 
@@ -447,12 +452,19 @@ function AuthProvider({ children }: { children: ReactNode }) {
         committed = true;
       },
       finish: async () => {
-        if (!committed) await closeReadBarrier(false);
-        await owner.finish();
+        const requiresReconciliation = !committed;
+        if (requiresReconciliation) await closeReadBarrier(false);
+        try {
+          await owner.finish();
+        } catch (error) {
+          failClosedTransition(error);
+          throw error;
+        }
+        if (requiresReconciliation) channel.reconcile();
       },
       signal: controller.signal,
     };
-  }, [queryClient]);
+  }, [failClosedTransition, queryClient]);
 
   useEffect(() => () => {
     transitionControllerRef.current?.abort(
@@ -493,6 +505,33 @@ function AuthProvider({ children }: { children: ReactNode }) {
     retry: false,
   });
 
+  const runPrincipalBoundary = useCallback<PrincipalBoundaryRunner>(async (command) => {
+    const transition = await beginTransition();
+    try {
+      const result = await command(transition.signal);
+      transition.assertCurrent();
+      const refreshedSession = await loadAuthSession({
+        isCurrent: () => {
+          try {
+            transition.assertCurrent();
+            return true;
+          } catch {
+            return false;
+          }
+        },
+        signal: transition.signal,
+      });
+      transition.assertCurrent();
+      await transition.commit(() => {
+        commitPrincipalBoundary(queryClient, refreshedSession);
+        queryClient.setQueryData(authSessionQueryKey, refreshedSession);
+      });
+      return result;
+    } finally {
+      await transition.finish();
+    }
+  }, [beginTransition, queryClient]);
+
   const logout = useMutation({
     meta: { authPrincipalBoundary: true },
     mutationFn: async () => {
@@ -530,6 +569,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
       }
       await session.refetch();
     },
+    runPrincipalBoundary,
     signOut: logout.mutateAsync,
   };
 
@@ -619,4 +659,4 @@ export {
   useAuth,
   useAuthActions,
 };
-export type { AuthContextValue, AuthSession, AuthUser };
+export type { AuthContextValue, AuthSession, AuthUser, PrincipalBoundaryRunner };

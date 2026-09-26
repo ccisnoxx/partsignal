@@ -1,0 +1,32 @@
+{
+  "id": "frontend-i03-4-b2-c2-d2-e1-f1-g1-h1-i1-j1-k1-auth-terminal-self-permission-cross-tab-blocker",
+  "name": "frontend-i03-4-b2-c2-d2-e1-f1-g1-h1-i1-j1-k1-auth-terminal-self-permission-cross-tab-blocker",
+  "title": "I03-4-B2-C2-D2-E1-F1-G1-H1-I1-J1-K1 Blocker 发起页终态收敛与自权限跨标签页边界",
+  "description": "fixed candidate d10217f 的 fresh critical review 确认两项 P1：服务端已提交但客户端响应丢失时发起页未做 canonical 终态收敛；当前主体自降权/自停用仅刷新本页，未推进其他同源标签页 principal boundary。I03/I04 必须暂停。",
+  "status": "in_progress",
+  "dev_type": "bugfix",
+  "scope": "frontend auth transition and identity self-boundary",
+  "package": null,
+  "priority": "P0",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-09-26",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "09-26-frontend-i03-4-b2-c2-d2-e1-f1-g1-h1-i1-j1-docker-shared-validation-path-blocker",
+  "relatedFiles": [],
+  "notes": "unknown terminal 与 self permission boundary 已实现并通过定向 Vitest、TypeScript、ESLint 和两项真实栈双页面验证；等待新固定候选、bind sentinel、唯一完整 make verify 与 fresh critical review。",
+  "meta": {
+    "blocked_candidate_commit": "d10217f2177f7dc47f4df6acfcaedb2c451cc3ef",
+    "blocked_candidate_tree": "3fd475c313a2b6c2e4ad515b2d6f7fade22eebf9",
+    "review_verdict": "BLOCKER",
+    "review_audit_id": "20260926T121350Z-i03-j1-fixed-candidate-final-critical-review-aa00ca69",
+    "stage": "targeted_validation_passed"
+  }
+}

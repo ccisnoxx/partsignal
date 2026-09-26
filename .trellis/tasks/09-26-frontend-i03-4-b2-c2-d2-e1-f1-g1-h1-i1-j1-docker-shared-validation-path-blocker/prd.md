@@ -15,10 +15,10 @@
 
 ## Acceptance Criteria
 
-- [ ] 新固定候选形成，候选工作区 clean，原检出区仍为 clean 的固定 main。
-- [ ] `/Users/sc/...` 下的新 detached checkout identity 精确匹配，bootstrap 只产生 ignored 内容。
-- [ ] 完整门禁前的 disposable `backend-test` sentinel 能看到 `/app/tests/integration` 和精确 tracked 文件，容器清理完成。
-- [ ] 新 checkout 中唯一一次完整 `make verify` 退出 0，门禁前后资源为 0。
+- [x] 新固定候选形成，候选工作区 clean，原检出区仍为 clean 的固定 main。
+- [x] `/Users/sc/...` 下的新 detached checkout identity 精确匹配，bootstrap 只产生 ignored 内容。
+- [x] 完整门禁前的 disposable `backend-test` sentinel 能看到 `/app/tests/integration` 和精确 tracked 文件，容器清理完成。
+- [x] 新 checkout 中唯一一次完整 `make verify` 退出 0，门禁前后资源为 0。
 - [ ] fresh `critical_reviewer` 给出 `NO BLOCKER`。
 
 ## Notes
@@ -29,3 +29,10 @@
 - 门禁日志 `/tmp/partsignal-i03-i1-3d8d-make-verify.log`：3,602 bytes，SHA-256 `b190c54b523b1191900a2fcb7dd0f62fc50f325d2184b1759a5e05aed615383d`；状态文件内容 `2`，SHA-256 `53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3`。
 - 门禁前后资源日志均为 2,314 bytes、逐字节相同，SHA-256 `9a95d8f158ff5b54732f62bc57f4a7314dccde4a1a0021d9d103b2fc1d3f2ba4`；validation checkout 已移除。
 - 未派发 reviewer；I04 未创建；未 fetch、push、SSH、连接 Hostdzire 或执行远程写入。
+- J1 恢复已形成 fixed candidate `d10217f2177f7dc47f4df6acfcaedb2c451cc3ef` / tree
+  `3fd475c313a2b6c2e4ad515b2d6f7fade22eebf9`。`/Users/sc/...` detached checkout 的 bind sentinel
+  证明 container/checkout integration 文件均为 `26`，唯一完整门禁退出 `0`，pre/post 资源逐字一致且
+  全部为 `0`，validation checkout 已移除。
+- fresh `critical_reviewer` 结论为 `BLOCKER`，确认 unknown terminal 发起页未 canonical 收敛，以及
+  当前主体自降权/自停用未推进其他同源标签页 principal boundary。后续转入子任务 K1；I03/I04
+  继续暂停，远程写入仍为 `0`。

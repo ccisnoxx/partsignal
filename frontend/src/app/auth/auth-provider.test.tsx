@@ -130,6 +130,15 @@ function AuthActionErrorProbe() {
       }}>
         捕获登录错误
       </button>
+      {auth.user && (
+        <button onClick={() => {
+          void auth.signOut()
+            .catch((error: unknown) => setActionError(error instanceof Error ? error.message : '退出失败'));
+        }}>
+          捕获退出错误
+        </button>
+      )}
+      {auth.error !== null && auth.error !== undefined && <p>认证读取失败</p>}
       {actionError && <p>{actionError}</p>}
     </div>
   );
@@ -381,6 +390,70 @@ describe('AuthProvider', () => {
     expect(post).toHaveBeenCalledWith('/api/v1/auth/logout', {
       params: { header: { 'X-CSRF-Token': 'csrf-token' } },
       signal: expect.any(AbortSignal),
+    });
+  });
+
+  it('退出已由服务端提交但响应丢失时发起页只做一次 canonical recovery', async () => {
+    const get = vi.spyOn(api, 'GET')
+      .mockResolvedValueOnce(authSnapshot(admin, 'csrf-token'))
+      .mockResolvedValueOnce({ response: new Response(null, { status: 204 }) } as never);
+    vi.spyOn(api, 'POST').mockRejectedValue(new TypeError('Failed to fetch'));
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider><AuthActionErrorProbe /></AuthProvider>
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText('admin')).toBeInTheDocument();
+    const continuation = capturePrincipalContinuation(queryClient);
+    queryClient.setQueryData(['audit', 'unknown-terminal'], { value: '旧 ADMIN 缓存' });
+
+    await userEvent.click(screen.getByRole('button', { name: '捕获退出错误' }));
+
+    expect(await screen.findByText('Failed to fetch')).toBeInTheDocument();
+    expect(await screen.findByText('匿名')).toBeInTheDocument();
+    expect(get).toHaveBeenCalledTimes(2);
+    expect(continuation.isCurrent()).toBe(false);
+    expect(queryClient.getQueryData(['audit', 'unknown-terminal'])).toBeUndefined();
+    expect(queryClient.getQueryData(['auth', 'session'])).toBeNull();
+  });
+
+  it('SETTLED marker 持久化失败时发起页保持 fail-closed', async () => {
+    const get = vi.spyOn(api, 'GET').mockResolvedValue(authSnapshot(admin, 'csrf-token'));
+    vi.spyOn(api, 'POST').mockResolvedValue({
+      response: new Response(null, { status: 204 }),
+    } as never);
+    const originalSetItem = Storage.prototype.setItem;
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function setItem(
+      this: Storage,
+      key,
+      value,
+    ) {
+      if (key === authTransitionStorageKey) {
+        const marker = JSON.parse(value) as { phase?: unknown };
+        if (marker.phase === 'SETTLED') {
+          throw new DOMException('storage denied', 'SecurityError');
+        }
+      }
+      originalSetItem.call(this, key, value);
+    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider><AuthActionErrorProbe /></AuthProvider>
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText('admin')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: '捕获退出错误' }));
+
+    expect(await screen.findByText('认证读取失败')).toBeInTheDocument();
+    expect(await screen.findByText('浏览器无法持久化跨标签页认证租约')).toBeInTheDocument();
+    expect(get).toHaveBeenCalledOnce();
+    expect(queryClient.getQueryData(['auth', 'session'])).toBeNull();
+    expect(readAuthTransitionState()).toMatchObject({
+      message: { phase: 'STARTED' },
+      status: 'VALID',
     });
   });
 

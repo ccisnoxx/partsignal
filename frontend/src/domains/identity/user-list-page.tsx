@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 
+import type { PrincipalBoundaryRunner } from '@/app/auth/auth-provider';
 import { capturePrincipalContinuation } from '@/app/auth/principal-epoch';
 import { BulkActionBar } from '@/design-system/data-table/bulk-action-bar';
 import { EmptyTable } from '@/design-system/data-table/empty-table';
@@ -90,6 +91,7 @@ type UserListPageProps = {
   csrfToken: string | null;
   currentUserId: string;
   onAuthChanged: () => Promise<void>;
+  runAuthBoundary: PrincipalBoundaryRunner;
   onSearchChange: (search: UserSearch) => Promise<void> | void;
   search: UserSearch;
 };
@@ -110,6 +112,7 @@ function UserListPage({
   csrfToken,
   currentUserId,
   onAuthChanged,
+  runAuthBoundary,
   onSearchChange,
   search,
 }: UserListPageProps) {
@@ -171,9 +174,14 @@ function UserListPage({
     });
   }
 
-  async function refreshUsers(savedUsers: readonly User[] = []) {
+  async function refreshUsers(
+    savedUsers: readonly User[] = [],
+    authBoundaryHandled = false,
+  ) {
     await Promise.all([
-      savedUsers.some((user) => user.id === currentUserId) ? onAuthChanged() : Promise.resolve(),
+      !authBoundaryHandled && savedUsers.some((user) => user.id === currentUserId)
+        ? onAuthChanged()
+        : Promise.resolve(),
       queryClient.invalidateQueries({ queryKey: userKeys.lists() }),
     ]);
   }
@@ -199,19 +207,34 @@ function UserListPage({
   const command = useMutation({
     mutationFn: async (target: CommandTarget) => {
       const continuation = capturePrincipalContinuation(queryClient);
+      const changesCurrentPrincipal = target.user.id === currentUserId;
       let saved: User;
       switch (target.command) {
-        case 'enable-user': saved = await setUserEnabled(target.user, true, csrfToken); break;
-        case 'disable-user': saved = await setUserEnabled(target.user, false, csrfToken); break;
+        case 'enable-user':
+          saved = changesCurrentPrincipal
+            ? await runAuthBoundary((signal) => setUserEnabled(target.user, true, csrfToken, signal))
+            : await setUserEnabled(target.user, true, csrfToken);
+          break;
+        case 'disable-user':
+          saved = changesCurrentPrincipal
+            ? await runAuthBoundary((signal) => setUserEnabled(target.user, false, csrfToken, signal))
+            : await setUserEnabled(target.user, false, csrfToken);
+          break;
         default: throw new Error(`用户列表收到无法执行的确认命令：${target.command}`);
       }
-      return { continuation, saved };
+      return {
+        authBoundaryHandled: changesCurrentPrincipal,
+        continuation: changesCurrentPrincipal
+          ? capturePrincipalContinuation(queryClient)
+          : continuation,
+        saved,
+      };
     },
-    onSuccess: async ({ continuation, saved }) => {
+    onSuccess: async ({ authBoundaryHandled, continuation, saved }) => {
       if (!continuation.isCurrent()) return;
       setCommandTarget(undefined);
       command.reset();
-      await refreshUsers(saved ? [saved] : []);
+      await refreshUsers(saved ? [saved] : [], authBoundaryHandled);
     },
   });
 
@@ -223,9 +246,19 @@ function UserListPage({
         status,
         csrfToken,
       );
-      return { continuation, result };
+      const currentPrincipalChanged = result.succeeded.some((user) => user.id === currentUserId);
+      if (currentPrincipalChanged && continuation.isCurrent()) {
+        await runAuthBoundary(async () => result);
+      }
+      return {
+        authBoundaryHandled: currentPrincipalChanged,
+        continuation: currentPrincipalChanged
+          ? capturePrincipalContinuation(queryClient)
+          : continuation,
+        result,
+      };
     },
-    onSuccess: async ({ continuation, result }, variables) => {
+    onSuccess: async ({ authBoundaryHandled, continuation, result }, variables) => {
       if (!continuation.isCurrent()) return;
       const names = new Map(variables.items.map((item) => [item.id, item.username]));
       setBulkFeedback({
@@ -241,7 +274,7 @@ function UserListPage({
         updateSelection({ scope, items: {} });
         setBulkDisableTarget(undefined);
       }
-      await refreshUsers(result.succeeded);
+      await refreshUsers(result.succeeded, authBoundaryHandled);
     },
   });
 
@@ -320,12 +353,9 @@ function UserListPage({
     }
     bulkWorking.current = true;
     setBulkFeedback(undefined);
-    const continuation = capturePrincipalContinuation(queryClient);
     void bulk.mutateAsync({ items, status, scope: expectedScope, selectionEpoch: selectionEpoch.current }).catch(() => {
       // 顶层错误由 mutation.error 呈现，保留原选择以便人工恢复。
-    }).finally(() => {
-      if (continuation.isCurrent()) bulkWorking.current = false;
-    });
+    }).finally(() => { bulkWorking.current = false; });
   }
 
   const allVisibleSelected = rows.length > 0 && rows.every((user) => selectedIds.has(user.id));
@@ -496,18 +526,28 @@ function UserListPage({
       {editTarget && (
         <EditUserDialog
           csrfToken={csrfToken}
+          isCurrentUser={editTarget.user.id === currentUserId}
           onClose={() => setEditTarget(undefined)}
           onReload={async () => { setEditTarget(undefined); await users.refetch(); }}
-          onSaved={async (saved) => { setEditTarget(undefined); await refreshUsers([saved]); }}
+          onSaved={async (saved, authBoundaryHandled) => {
+            setEditTarget(undefined);
+            await refreshUsers([saved], authBoundaryHandled);
+          }}
+          runAuthBoundary={runAuthBoundary}
           target={editTarget}
         />
       )}
       {resetTarget && (
         <ResetPasswordDialog
           csrfToken={csrfToken}
+          isCurrentUser={resetTarget.user.id === currentUserId}
           onClose={() => setResetTarget(undefined)}
           onReload={async () => { setResetTarget(undefined); await users.refetch(); }}
-          onSaved={async () => { setResetTarget(undefined); await refreshUsers(); }}
+          onSaved={async (saved, authBoundaryHandled) => {
+            setResetTarget(undefined);
+            await refreshUsers([saved], authBoundaryHandled);
+          }}
+          runAuthBoundary={runAuthBoundary}
           target={resetTarget}
         />
       )}
@@ -790,15 +830,19 @@ function CreateUserDialog({
 
 function EditUserDialog({
   csrfToken,
+  isCurrentUser,
   onClose,
   onReload,
   onSaved,
+  runAuthBoundary,
   target,
 }: {
   csrfToken: string | null;
+  isCurrentUser: boolean;
   onClose: () => void;
   onReload: () => Promise<void>;
-  onSaved: (user: User) => Promise<void>;
+  onSaved: (user: User, authBoundaryHandled: boolean) => Promise<void>;
+  runAuthBoundary: PrincipalBoundaryRunner;
   target: CommandTarget;
 }) {
   const queryClient = useQueryClient();
@@ -811,18 +855,36 @@ function EditUserDialog({
     },
     resolver: zodResolver(userEditFormSchema),
   });
-  const update = useMutation({ mutationFn: (values: UserEditFormValues) => updateUser(target.user, values, csrfToken) });
+  const update = useMutation({
+    mutationFn: async (values: UserEditFormValues) => {
+      const changesAuthBoundary = isCurrentUser && (
+        values.account_type !== target.user.account_type
+        || values.is_active !== target.user.is_active
+      );
+      const saved = changesAuthBoundary
+        ? await runAuthBoundary((signal) => updateUser(target.user, values, csrfToken, signal))
+        : await updateUser(target.user, values, csrfToken);
+      return { authBoundaryHandled: changesAuthBoundary, saved };
+    },
+  });
   const conflict = isRevisionConflict(error);
 
   async function submit(values: UserEditFormValues) {
     setError(undefined);
     const continuation = capturePrincipalContinuation(queryClient);
+    const changesAuthBoundary = isCurrentUser && (
+      values.account_type !== target.user.account_type
+      || values.is_active !== target.user.is_active
+    );
     try {
-      const saved = await update.mutateAsync(values);
-      if (!continuation.isCurrent()) return;
-      await onSaved(saved);
+      const { authBoundaryHandled, saved } = await update.mutateAsync(values);
+      const currentContinuation = authBoundaryHandled
+        ? capturePrincipalContinuation(queryClient)
+        : continuation;
+      if (!currentContinuation.isCurrent()) return;
+      await onSaved(saved, authBoundaryHandled);
     } catch (reason) {
-      if (!continuation.isCurrent()) return;
+      if (!continuation.isCurrent() && !changesAuthBoundary) return;
       setError(reason);
       update.reset();
     }
@@ -883,15 +945,19 @@ function EditUserDialog({
 
 function ResetPasswordDialog({
   csrfToken,
+  isCurrentUser,
   onClose,
   onReload,
   onSaved,
+  runAuthBoundary,
   target,
 }: {
   csrfToken: string | null;
+  isCurrentUser: boolean;
   onClose: () => void;
   onReload: () => Promise<void>;
-  onSaved: () => Promise<void>;
+  onSaved: (user: User, authBoundaryHandled: boolean) => Promise<void>;
+  runAuthBoundary: PrincipalBoundaryRunner;
   target: CommandTarget;
 }) {
   const queryClient = useQueryClient();
@@ -916,21 +982,31 @@ function ResetPasswordDialog({
     setError(undefined);
     const continuation = capturePrincipalContinuation(queryClient);
     try {
-      await resetUserPassword(target.user, values.temporary_password, csrfToken);
-      if (!continuation.isCurrent()) return;
+      const saved = isCurrentUser
+        ? await runAuthBoundary((signal) => resetUserPassword(
+          target.user,
+          values.temporary_password,
+          csrfToken,
+          signal,
+        ))
+        : await resetUserPassword(target.user, values.temporary_password, csrfToken);
+      const currentContinuation = isCurrentUser
+        ? capturePrincipalContinuation(queryClient)
+        : continuation;
+      if (!currentContinuation.isCurrent()) return;
       if (!mounted.current) {
         await queryClient.invalidateQueries({ queryKey: userKeys.lists() });
         return;
       }
       form.reset();
-      await onSaved();
+      await onSaved(saved, isCurrentUser);
     } catch (reason) {
-      if (!continuation.isCurrent()) return;
+      if (!continuation.isCurrent() && !isCurrentUser) return;
       if (!mounted.current) return;
       setError(reason);
       if (!isRevisionConflict(reason)) form.setValue('temporary_password', '');
     } finally {
-      if (continuation.isCurrent()) {
+      if (continuation.isCurrent() || isCurrentUser) {
         submitting.current = false;
         if (mounted.current) setPending(false);
       }

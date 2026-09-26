@@ -19,3 +19,17 @@ I1 测试 owner 修复已经提交为 `3d8d857a7c5c457f2d02056e6ebdf6377a762c52`
 - 不把 `backend-test` 路径不存在解释为候选测试删除。
 - 不修改 Compose bind mount、pytest command 或 Makefile 掩盖宿主共享问题。
 - 不复用或重跑 `3d8d857a` 的完整门禁。
+
+## 本轮结果
+
+- 新固定候选：commit `d10217f2177f7dc47f4df6acfcaedb2c451cc3ef`，tree
+  `3fd475c313a2b6c2e4ad515b2d6f7fade22eebf9`。
+- 新 detached checkout 位于 `/Users/sc/...`，bootstrap 仅产生 ignored 内容；bind sentinel 证明
+  `/app/tests/integration/test_migrations.py` 可见，container/checkout tracked integration 文件均为
+  `26`。
+- 唯一完整 `make verify` 退出 `0`；backend unit `683`、Vitest `91/794`、PostgreSQL integration
+  `337`、real-stack `19`、fixture `494 passed / 40 skipped`，其余 lifecycle、secret、deploy harness
+  与 Compose 门禁均通过。pre/post 资源 snapshot 逐字一致且全部为 `0`，validation checkout 已移除。
+- fresh `critical_reviewer` 结论为 `BLOCKER`；审计包
+  `20260926T121350Z-i03-j1-fixed-candidate-final-critical-review-aa00ca69` 已关闭并验证。两项 P1 已转入
+  K1 子任务，未完成 J1/I03，未创建 I04，未发生 fetch、push、SSH 或远程写入。

@@ -14,9 +14,9 @@
 
 ## 下一步
 
-1. 完成最终 diff、tracked/untracked、secret 与 generated drift 审计。
-2. 形成另一个固定 commit/tree，在另一个全新 detached checkout 中只运行一次完整 `make verify`。
-3. 只有该门禁退出 0、资源清理成立后，才派发 fresh `critical_reviewer`。
+1. 在 J1 中把当前暂停记录形成新固定 commit/tree；`3d8d857a` 已消耗唯一完整门禁，不得重跑。
+2. 在 `/Users/sc/...` Docker 可共享路径建立新的 detached checkout，并在完整门禁前通过 disposable bind-mount sentinel。
+3. sentinel 与资源清理成立后，只运行一次完整 `make verify`；只有退出 0 才派发 fresh `critical_reviewer`。
 
 ## 证据
 
@@ -25,3 +25,5 @@
 - `/tmp/partsignal-i03-h1-39b1-resource-pre.log` 与 `/tmp/partsignal-i03-h1-39b1-resource-post.log`：各 2,314 bytes，SHA-256 均为 `b438f95e4daf88e58848c7f8797541c0376567f008296473f5afe4d1822f61f1`。
 - I1 定向 Vitest `/tmp/partsignal-i03-i1-targeted-vitest.log`：2 files / 54 tests passed，SHA-256 `a05a929e3439eb5e1e4d9f2557e32755d3040a35bcf4f0c500f8e062ef25f814`；状态文件内容 `0`。
 - TypeScript 与精确 ESLint 通过；定向资源日志 `/tmp/partsignal-i03-i1-targeted-resource-post.log` 为 2,314 bytes，SHA-256 `b438f95e4daf88e58848c7f8797541c0376567f008296473f5afe4d1822f61f1`，全部受控资源为 0。
+- I1 固定候选 `3d8d857a7c5c457f2d02056e6ebdf6377a762c52` / tree `ac10b6ec0cb41a2e50a3192614883011edefd95f` 的唯一完整门禁已证明 backend unit `683 passed`、frontend Vitest `91 files / 794 tests passed`；随后 Docker Desktop 对 `/private/tmp` checkout 的 bind mount 近空，`backend-test` 找不到 `tests/integration`，顶层退出 `2`。
+- 该门禁日志 SHA-256 `b190c54b523b1191900a2fcb7dd0f62fc50f325d2184b1759a5e05aed615383d`；资源前后日志逐字节相同，SHA-256 `9a95d8f158ff5b54732f62bc57f4a7314dccde4a1a0021d9d103b2fc1d3f2ba4`；validation checkout 已移除，已建立 J1 blocker。

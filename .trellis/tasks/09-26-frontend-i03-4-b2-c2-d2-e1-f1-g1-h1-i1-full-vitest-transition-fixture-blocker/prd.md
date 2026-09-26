@@ -18,7 +18,7 @@
 - [x] 三项迟到 session read 测试均证明请求在命令前已在途，迟到结果不会覆盖 canonical 身份或恢复业务副作用。
 - [x] active command 期间的新 auth read 仍在网络前被拒绝，精确请求次数合同未放宽。
 - [x] durable marker 测试隔离使单个失败不能把 `STARTED` 传播到后续 case；相关定向检查与资源清理通过。
-- [ ] 新固定候选在全新 detached checkout 中唯一一次完整 `make verify` 退出 0，门禁前后资源为 0。
+- [ ] 新固定候选在全新 detached checkout 中唯一一次完整 `make verify` 退出 0，门禁前后资源为 0；候选 `3d8d857a` 因 `/private/tmp` Docker bind 不可见退出 `2`，不得重跑。
 - [ ] fresh `critical_reviewer` 给出 `NO BLOCKER`。
 
 ## Notes
@@ -32,3 +32,4 @@
 - 未派发 reviewer；I04 未创建；未 fetch、push、SSH、连接 Hostdzire 或执行远程写入。
 - I1 最小修改仅触及 `providers.test.tsx`：三项 stale refetch 移到认证命令之前，并在 `afterEach` 精确移除 v1/v2 transition key；H1 产品实现未改。
 - 定向 Vitest 为 2 files / 54 tests passed，日志 SHA-256 `a05a929e3439eb5e1e4d9f2557e32755d3040a35bcf4f0c500f8e062ef25f814`；TypeScript 与精确 ESLint 通过。定向资源日志 2,314 bytes，SHA-256 `b438f95e4daf88e58848c7f8797541c0376567f008296473f5afe4d1822f61f1`，全部计数为 0。
+- 固定候选 `3d8d857a` 的 frontend Vitest 已全绿（91 files / 794 tests），但完整门禁在 Docker Desktop 无法读取 `/private/tmp` bind mount 时退出 `2`。宿主 26 个 tracked integration 文件存在，容器 `/app/tests/integration` 不存在；已建立 J1 shared-path blocker。

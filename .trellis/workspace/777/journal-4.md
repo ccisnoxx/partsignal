@@ -1738,3 +1738,43 @@ R00 至 I01 已完成；I02 完整 make verify 曾单次通过，但完整候选
 - 重排登录、退出和改密三项测试，使旧 session GET 在命令 STARTED 前已真实在途；命令后的新读取继续保持零网络请求。
 - 增加 `providers.test.tsx` durable marker case 隔离，完成定向验证和资源清理。
 - 形成新固定候选，在另一个全新 detached checkout 中只运行一次完整 `make verify`；仅通过后派发 fresh `critical_reviewer`。
+
+
+## Session 231: I03 I1 前端全绿后发现 Docker validation 路径 blocker
+
+**Date**: 2026-09-26
+**Task**: I03 I1 前端全绿后发现 Docker validation 路径 blocker
+**Branch**: `codex/frontend-redevelopment-candidate`
+
+### Summary
+
+完成 I1 测试 owner 修复并形成固定候选；全新 detached checkout 的唯一一次完整门禁已证明 backend unit 与 frontend Vitest 全绿，但 PostgreSQL integration 因 Docker Desktop 不共享 `/private/tmp` checkout 而找不到容器内 `tests/integration`。已建立 J1 shared-path blocker，未重跑门禁、未派发 reviewer、未进入 I04。
+
+### Main Changes
+
+- 登录、退出、改密三项 stale session read 在认证命令前确定性进入 pending；active command 后的新读取仍保持零网络请求。
+- `providers.test.tsx` 每个 case 精确清理 v1/v2 durable transition marker。
+- 新建 J1，要求 `/Users/sc/...` validation 路径和门禁前 disposable bind sentinel。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `3d8d857a7c5c457f2d02056e6ebdf6377a762c52` | `test(auth): align command read barrier fixtures` |
+
+### Testing
+
+- [OK] 定向 Vitest 2 files / 54 tests、TypeScript、精确 ESLint 与资源清理通过。
+- [OK] 完整门禁前段：backend unit 683 passed；frontend Vitest 91 files / 794 tests passed。
+- [BLOCKED] `backend-test` 容器内 `/app/tests/integration` 不存在；宿主同路径有 26 个 tracked 测试。完整门禁退出 2，日志 SHA-256 `b190c54b523b1191900a2fcb7dd0f62fc50f325d2184b1759a5e05aed615383d`。
+- [OK] 门禁前后资源日志逐字节相同，SHA-256 `9a95d8f158ff5b54732f62bc57f4a7314dccde4a1a0021d9d103b2fc1d3f2ba4`；validation checkout 已移除。
+
+### Status
+
+[BLOCKED] **Paused at J1**
+
+### Next Steps
+
+- 将 J1 暂停记录纳入新的固定 commit/tree，禁止重跑 `3d8d857a`。
+- 在 `/Users/sc/...` Docker 共享路径建立新 detached checkout，bootstrap 后先执行只读 bind sentinel。
+- sentinel 和资源清理通过后只运行一次完整 `make verify`；仅退出 0 后派发 fresh `critical_reviewer`。

@@ -1,0 +1,3 @@
+{"file":".trellis/spec/infra/ci-execution.md","reason":"完整门禁、Compose integration 与环境失败判定合同。"}
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"detached checkout、临时资源和门禁前后清理合同。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"前端全量测试结果与候选复验边界。"}

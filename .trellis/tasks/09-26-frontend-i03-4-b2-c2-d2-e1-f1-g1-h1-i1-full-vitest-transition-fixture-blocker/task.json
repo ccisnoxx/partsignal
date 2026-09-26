@@ -18,7 +18,9 @@
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [],
+  "children": [
+    "09-26-frontend-i03-4-b2-c2-d2-e1-f1-g1-h1-i1-j1-docker-shared-validation-path-blocker"
+  ],
   "parent": "09-26-frontend-i03-4-b2-c2-d2-e1-f1-g1-h1-durable-transition-reconciliation-blocker",
   "relatedFiles": [
     ".trellis/spec/frontend/state-management.md",
@@ -28,7 +30,7 @@
     "frontend/src/app/auth/auth-provider.tsx",
     "frontend/src/app/auth/auth-transition-channel.ts"
   ],
-  "notes": "已仅修 providers.test：三项旧读取移到命令前在途，afterEach 精确清理 v1/v2 marker；2 files / 54 tests、TypeScript、ESLint 与资源清理通过。待新固定候选和新 checkout 单次完整门禁。",
+  "notes": "测试 owner 修复已提交为 3d8d857a 且 frontend Vitest 91 files / 794 tests 全绿；完整门禁因 Docker Desktop 不共享 /private/tmp checkout 而退出 2，已建立 J1，禁止重跑该候选。",
   "meta": {
     "trigger_candidate_commit": "39b1d0f9cc371c2055adae082ce152a255005ab3",
     "trigger_candidate_tree": "8c2bb5098f89b5cd58cdd138b10c437f0eb48f05",
@@ -42,6 +44,11 @@
     "root_cause": "providers_test_expected_post_started_auth_get_then_left_durable_started_on_timeout",
     "resource_pre_post_sha256": "b438f95e4daf88e58848c7f8797541c0376567f008296473f5afe4d1822f61f1",
     "validation_worktree_removed": "true",
+    "fixed_candidate_commit": "3d8d857a7c5c457f2d02056e6ebdf6377a762c52",
+    "fixed_candidate_tree": "ac10b6ec0cb41a2e50a3192614883011edefd95f",
+    "fixed_candidate_make_verify_exit": "2",
+    "fixed_candidate_make_verify_log_sha256": "b190c54b523b1191900a2fcb7dd0f62fc50f325d2184b1759a5e05aed615383d",
+    "fixed_candidate_resource_pre_post_sha256": "9a95d8f158ff5b54732f62bc57f4a7314dccde4a1a0021d9d103b2fc1d3f2ba4",
     "fresh_review": "not_dispatched_full_gate_failed",
     "implementation_status": "targeted_passed",
     "targeted_vitest": "2_files_54_tests_passed",

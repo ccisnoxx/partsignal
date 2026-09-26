@@ -50,6 +50,13 @@ function advancePrincipalEpoch(queryClient: QueryClient, identity: PrincipalIden
   return true;
 }
 
+function invalidatePrincipalEpoch(queryClient: QueryClient, identity: PrincipalIdentity = null) {
+  const state = stateFor(queryClient);
+  state.epoch += 1;
+  state.identity = identity;
+  state.initialized = true;
+}
+
 function capturePrincipalContinuation(queryClient: QueryClient): PrincipalContinuation {
   const state = stateFor(queryClient);
   const capturedEpoch = state.epoch;
@@ -74,6 +81,7 @@ export {
   advancePrincipalEpoch,
   capturePrincipalContinuation,
   initializePrincipalEpoch,
+  invalidatePrincipalEpoch,
   isStalePrincipalContinuationError,
 };
 export type { PrincipalContinuation, PrincipalIdentity };

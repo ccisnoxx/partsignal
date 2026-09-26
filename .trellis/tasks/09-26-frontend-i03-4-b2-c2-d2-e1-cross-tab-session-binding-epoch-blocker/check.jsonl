@@ -1,0 +1,3 @@
+{"file":".trellis/spec/frontend/state-management.md","reason":"核对 session binding、跨标签页主体 epoch、QueryCache 与 continuation 稳定合同。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"核对认证竞态、测试边界与 secret 证据要求。"}
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"核对同 BrowserContext 真实栈入口、资源 owner 与 cleanup 合同。"}

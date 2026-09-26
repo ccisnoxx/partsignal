@@ -4,6 +4,7 @@ import {
   expect,
   test,
   type BrowserContext,
+  type Page,
 } from '@playwright/test';
 
 import type { components } from '../../src/shared/api/generated/schema';
@@ -17,6 +18,7 @@ import { registerArtifactSecrets } from './secret-artifact';
 
 const realStackEnabled = process.env.PARTSIGNAL_E2E_REAL_STACK === '1';
 const initialPassword = process.env.PARTSIGNAL_SEED_ENGINEER_PASSWORD ?? 'partsignal-engineer-dev';
+const adminPassword = process.env.PARTSIGNAL_SEED_ADMIN_PASSWORD ?? 'partsignal-admin-dev';
 const apiBaseUrl = process.env.PARTSIGNAL_E2E_API_BASE_URL ?? 'http://127.0.0.1:8000';
 
 type ErrorEnvelope = components['schemas']['ErrorEnvelope'];
@@ -24,11 +26,190 @@ type AuthSession = components['schemas']['AuthSession'];
 
 test.skip(!realStackEnabled, '只由隔离真实栈入口运行');
 test.use({ trace: 'off' });
-test.setTimeout(60_000);
+test.setTimeout(90_000);
 
 function apiUrl(pathname: string) {
   return new URL(pathname, apiBaseUrl).toString();
 }
+
+function deferred() {
+  let resolve!: () => void;
+  const promise = new Promise<void>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
+async function loginAs(page: Page, username: string, password: string): Promise<AuthSession> {
+  await page.getByRole('textbox', { name: '用户名' }).fill(username);
+  await page.getByLabel(/^密码/).fill(password);
+  const responsePromise = page.waitForResponse((response) => (
+    response.request().method() === 'POST'
+    && new URL(response.url()).origin === apiBaseUrl
+    && new URL(response.url()).pathname === '/api/v1/auth/login'
+  ));
+  await page.getByRole('button', { name: '登录' }).click();
+  const response = await responsePromise;
+  expect(response.status(), `${username} 登录应成功`).toBe(200);
+  const session = await response.json() as AuthSession;
+  await registerRealStackLoginSecrets(page.context(), apiBaseUrl, session.csrf_token);
+  return session;
+}
+
+test('同一 BrowserContext 双页面以 session binding 封闭 A→B→A 的迟到 mutation', async ({
+  context,
+  page: pageA,
+}) => {
+  const apiOrigin = new URL(apiBaseUrl).origin;
+  const phase = { current: 'a-login' };
+  const runtimeAudit = createRealStackRuntimeAudit({
+    apiOrigin,
+    getPhase: () => phase.current,
+  });
+  const productAccepted = deferred();
+  const releaseProduct = deferred();
+  const productFulfilled = deferred();
+  const partNumber = `AUTH-ABA-${randomUUID()}`;
+  let createdProductId: string | undefined;
+  let pageB: Page | undefined;
+
+  await registerArtifactSecrets([adminPassword, initialPassword]);
+  runtimeAudit.watch(pageA);
+
+  try {
+    await pageA.goto('/login');
+    const initialWorkbenchResponse = pageA.waitForResponse((response) => (
+      response.request().method() === 'GET'
+      && new URL(response.url()).pathname === '/api/v1/workbench'
+    ));
+    const initialAdmin = await loginAs(pageA, 'admin', adminPassword);
+    expect(initialAdmin.session_binding).toMatch(/^[0-9a-f]{64}$/);
+    await expect(pageA).toHaveURL('/');
+    expect((await initialWorkbenchResponse).status(), '初次 admin Workbench 应完成读取').toBe(200);
+    await expect(pageA.getByRole('heading', { level: 1, name: '工作台' })).toBeVisible();
+
+    await pageA.goto('/products/new');
+    await expect(pageA.getByRole('heading', { level: 1, name: '新建产品' })).toBeVisible();
+    await pageA.route('**/api/v1/products', async (route) => {
+      if (route.request().method() !== 'POST') {
+        await route.fallback();
+        return;
+      }
+      const response = await route.fetch();
+      const body = await response.body();
+      const product = JSON.parse(body.toString()) as { id: string };
+      expect(response.status(), 'A 主体产品命令应已由真实服务端接受').toBe(201);
+      createdProductId = product.id;
+      productAccepted.resolve();
+      await releaseProduct.promise;
+      await route.fulfill({
+        body,
+        headers: response.headers(),
+        status: response.status(),
+      });
+      productFulfilled.resolve();
+    });
+    await pageA.getByLabel('产品型号').fill(partNumber);
+    await pageA.getByLabel('品牌').fill('Auth ABA');
+    await pageA.getByLabel('类别').fill('Deterministic interleaving');
+    phase.current = 'a-pending-product';
+    await pageA.getByRole('button', { name: '创建产品' }).click();
+    await productAccepted.promise;
+
+    pageB = await context.newPage();
+    runtimeAudit.watch(pageB);
+    let forceAnonymousBootstrap = true;
+    await pageB.route('**/api/v1/auth/session', async (route) => {
+      if (forceAnonymousBootstrap) {
+        await route.fulfill({ body: '', status: 204 });
+        return;
+      }
+      await route.fallback();
+    });
+
+    phase.current = 'a-to-b-bootstrap';
+    await pageB.goto('/login');
+    await expect(pageB.getByRole('heading', { level: 1, name: '登录' })).toBeVisible();
+    forceAnonymousBootstrap = false;
+    phase.current = 'a-to-b-login';
+    const engineerSession = await loginAs(pageB, 'content_editor', initialPassword);
+    expect(engineerSession.session_binding).not.toBe(initialAdmin.session_binding);
+    await expect(pageA).toHaveURL('/account/security');
+    await expect(pageA.getByText('首次登录必须修改临时密码，完成前不能进入业务页面。')).toBeVisible();
+
+    forceAnonymousBootstrap = true;
+    phase.current = 'b-to-a-bootstrap';
+    await pageB.goto('/login');
+    await expect(pageB.getByRole('heading', { level: 1, name: '登录' })).toBeVisible();
+    forceAnonymousBootstrap = false;
+    phase.current = 'b-to-a-login';
+    const replacementAdmin = await loginAs(pageB, 'admin', adminPassword);
+    expect(replacementAdmin.session_binding).not.toBe(engineerSession.session_binding);
+    expect(replacementAdmin.session_binding).not.toBe(initialAdmin.session_binding);
+    await expect(pageA).toHaveURL('/');
+    await expect(pageA.getByRole('heading', { level: 1, name: '工作台' })).toBeVisible();
+
+    const oldResponse = pageA.waitForResponse((response) => (
+      response.request().method() === 'POST'
+      && new URL(response.url()).pathname === '/api/v1/products'
+    ));
+    releaseProduct.resolve();
+    await oldResponse;
+    await productFulfilled.promise;
+    await pageA.evaluate(async () => {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    });
+    expect(createdProductId, '测试必须记录真实服务端已创建的产品').toBeDefined();
+    expect(pageA.url()).not.toContain(createdProductId!);
+    await expect(pageA).toHaveURL('/');
+    await expect(pageA.getByRole('heading', { level: 1, name: '工作台' })).toBeVisible();
+
+    expect(trafficExpectationErrors(runtimeAudit.attempts, runtimeAudit.responses, [
+      {
+        phase: 'a-login',
+        origin: apiOrigin,
+        method: 'POST',
+        pathname: '/api/v1/auth/login',
+        status: 200,
+        attempts: 1,
+        responses: 1,
+      },
+      {
+        phase: 'a-pending-product',
+        origin: apiOrigin,
+        method: 'POST',
+        pathname: '/api/v1/products',
+        status: 201,
+        attempts: 1,
+        responses: 1,
+      },
+      {
+        phase: 'a-to-b-login',
+        origin: apiOrigin,
+        method: 'POST',
+        pathname: '/api/v1/auth/login',
+        status: 200,
+        attempts: 1,
+        responses: 1,
+      },
+      {
+        phase: 'b-to-a-login',
+        origin: apiOrigin,
+        method: 'POST',
+        pathname: '/api/v1/auth/login',
+        status: 200,
+        attempts: 1,
+        responses: 1,
+      },
+    ], createAuthTrafficScope(apiOrigin)),
+    '跨标签页真实栈非幂等流量必须精确且无重复副作用').toEqual([]);
+    expect(runtimeAudit.errors, '跨标签页真实栈不得出现未声明错误或失败资源').toEqual([]);
+  } finally {
+    releaseProduct.resolve();
+    await registerCurrentRealStackCookies(context, apiBaseUrl);
+    await pageB?.close();
+  }
+});
 
 test('Auth 真实栈完成 login → forced change → admin 403 → logout', async ({
   browser,

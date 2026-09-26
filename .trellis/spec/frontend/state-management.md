@@ -39,6 +39,13 @@
 - Prompt 保存成功后用 mutation 返回值替换名称、正文基线和 revision；`REVISION_CONFLICT` 必须保留本地草稿并提供显式重载。脏草稿在切换 Prompt 标签、模板、站内路由或刷新/关闭前提示，不能通过查询失效静默覆盖。
 - Prompt 输出预览按创建响应中的 Job ID 从任务级作业列表轮询，成功后读取不可变内容版本；已有结果属于原快照，Prompt 后续保存不得把该结果改标为当前配置预览。
 
+### 认证 session binding 与跨标签页主体 epoch
+
+- `/api/v1/auth/session` 是 `user + csrf_token + session_binding` 的唯一客户端认证快照。主体 identity 必须包含 `session_binding` 以及会改变路由/权限的 user 字段；同一 binding 的普通 refresh 可更新 CSRF/user revision 而不清业务缓存，新 binding 即使公开 user 相同也必须推进 principal epoch。
+- 登录、退出和改密等 session replacement 由 `AuthProvider` 发布同源 `STARTED/SETTLED` transition。消息只允许携带协议版本、随机 event/transition ID 和 phase；禁止携带 user、CSRF、Cookie、token、密码或其他凭据。`BroadcastChannel` 是即时 transport，受控 `localStorage` marker 用于 storage/focus/visibility 恢复与 auth read generation 校验，两路按 event ID 去重。
+- 本地命令开始或其他标签页送达 `STARTED` 时，先推进 principal epoch、关闭旧 auth read/command barrier并清除非 auth QueryCache；远端标签页同时把 canonical session 暂置匿名。只有观察到对应 transition 全部 `SETTLED` 后才重读 `/api/v1/auth/session`，不得从跨标签页消息拼认证状态，也不得用 focus refetch、TTL 或 abort 单独承担一致性。
+- mutation、callback 内 `await`、retry、paused/offline resume 都捕获当前 QueryClient 的 principal continuation；跨标签页 transition 推进本地 epoch 后，旧 continuation 必须在请求、callback、cache write 和导航前失败。同一 BrowserContext 双页面测试必须实际共享 Cookie，确定性延迟并释放旧标签页真实响应，覆盖 A→B 与 A→B→A，且精确断言非幂等 phase/method/path/status/count 与 secret artifact clean。
+
 ### React Hook Form 保存资格订阅
 
 使用 React Hook Form `formState` 决定保存资格时，参与资格判断的 Proxy 字段必须在组件 render 中无条件读取，再用于布尔组合。不得把 `isValid` 的属性读取放在 `isDirty` 之后的短路表达式里；clean 首屏会跳过 getter，特定校验/render 时序下可能出现 dirty 已更新但 validity 没有推动页面重绘。

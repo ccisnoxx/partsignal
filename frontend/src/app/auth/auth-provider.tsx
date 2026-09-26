@@ -14,7 +14,14 @@ import type { components } from '@/shared/api/generated/schema';
 import {
   advancePrincipalEpoch,
   initializePrincipalEpoch,
+  invalidatePrincipalEpoch,
 } from './principal-epoch';
+import {
+  createAuthTransitionChannel,
+  readAuthTransitionMessage,
+  type AuthTransitionChannel,
+  type AuthTransitionMessage,
+} from './auth-transition-channel';
 
 type AuthUser = components['schemas']['User'];
 type AuthSessionResponse = components['schemas']['AuthSession'];
@@ -106,21 +113,26 @@ function clearBusinessQueries(queryClient: QueryClient) {
   });
 }
 
-function authBoundaryIdentity(user: AuthUser | null): string | null {
-  if (!user) return null;
+function authBoundaryIdentity(session: AuthSession | null): string | null {
+  if (!session) return null;
   return JSON.stringify([
-    user.id,
-    user.account_type,
-    user.is_active,
-    user.must_change_password,
-    user.workflow_stage,
+    session.sessionBinding,
+    session.user.id,
+    session.user.account_type,
+    session.user.is_active,
+    session.user.must_change_password,
+    session.user.workflow_stage,
   ]);
 }
 
 function commitPrincipalBoundary(queryClient: QueryClient, next: AuthSession | null) {
-  if (advancePrincipalEpoch(queryClient, authBoundaryIdentity(next?.user ?? null))) {
+  if (advancePrincipalEpoch(queryClient, authBoundaryIdentity(next))) {
     clearBusinessQueries(queryClient);
   }
+}
+
+function getAuthSession(queryClient: QueryClient): AuthSession | null {
+  return queryClient.getQueryData<AuthSession | null>(authSessionQueryKey) ?? null;
 }
 
 function getAuthRouteUser(queryClient: QueryClient): AuthUser | null {
@@ -175,14 +187,59 @@ function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   initializePrincipalEpoch(
     queryClient,
-    authBoundaryIdentity(getAuthRouteUser(queryClient)),
+    authBoundaryIdentity(getAuthSession(queryClient)),
   );
   const transitionEpochRef = useRef(0);
   const transitionControllerRef = useRef<AbortController | null>(null);
   const authReadGenerationRef = useRef(0);
   const activeCommandEpochRef = useRef<number | null>(null);
+  const authTransitionChannelRef = useRef<AuthTransitionChannel | null>(null);
+  const remoteTransitionIdsRef = useRef(new Set<string>());
+
+  const invalidateRemotePrincipal = useCallback(() => {
+    transitionEpochRef.current += 1;
+    transitionControllerRef.current?.abort(
+      new DOMException('认证状态转换已被其他标签页取代', 'AbortError'),
+    );
+    transitionControllerRef.current = null;
+    activeCommandEpochRef.current = null;
+    authReadGenerationRef.current += 1;
+    void queryClient.cancelQueries({ queryKey: authSessionQueryKey, exact: true });
+    invalidatePrincipalEpoch(queryClient);
+    clearBusinessQueries(queryClient);
+    queryClient.setQueryData<AuthSession | null>(authSessionQueryKey, null);
+  }, [queryClient]);
+
+  const handleRemoteTransition = useCallback((message: AuthTransitionMessage) => {
+    const transitions = remoteTransitionIdsRef.current;
+    if (message.phase === 'STARTED') {
+      transitions.add(message.transitionId);
+      invalidateRemotePrincipal();
+      return;
+    }
+
+    if (!transitions.delete(message.transitionId)) {
+      // 标签页恢复时可能只观察到最终 marker；仍先失效旧主体再重读权威 session。
+      invalidateRemotePrincipal();
+    }
+    if (transitions.size === 0) {
+      void queryClient.refetchQueries({ queryKey: authSessionQueryKey, exact: true });
+    }
+  }, [invalidateRemotePrincipal, queryClient]);
+
+  useEffect(() => {
+    const channel = createAuthTransitionChannel(handleRemoteTransition);
+    authTransitionChannelRef.current = channel;
+    return () => {
+      authTransitionChannelRef.current = null;
+      channel.close();
+    };
+  }, [handleRemoteTransition]);
 
   const beginTransition = useCallback(async (): Promise<AuthTransition> => {
+    const channel = authTransitionChannelRef.current;
+    if (!channel) throw new Error('认证跨标签页同步尚未就绪');
+    const transitionId = globalThis.crypto.randomUUID();
     const epoch = transitionEpochRef.current + 1;
     transitionEpochRef.current = epoch;
     transitionControllerRef.current?.abort(
@@ -192,7 +249,23 @@ function AuthProvider({ children }: { children: ReactNode }) {
     transitionControllerRef.current = controller;
     activeCommandEpochRef.current = epoch;
     authReadGenerationRef.current += 1;
-    await queryClient.cancelQueries({ queryKey: authSessionQueryKey, exact: true });
+    // 本标签页同样先关闭旧主体 continuation；跨标签页消息只负责让其他
+    // QueryClient 执行相同边界，不承载任何认证数据。
+    invalidatePrincipalEpoch(queryClient, authBoundaryIdentity(getAuthSession(queryClient)));
+    clearBusinessQueries(queryClient);
+    let settled = false;
+    const settle = () => {
+      if (settled) return;
+      settled = true;
+      channel.publish(transitionId, 'SETTLED');
+    };
+    try {
+      channel.publish(transitionId, 'STARTED');
+    } catch (error) {
+      controller.abort(error);
+      activeCommandEpochRef.current = null;
+      throw error;
+    }
 
     const assertCurrent = () => {
       controller.signal.throwIfAborted();
@@ -200,7 +273,18 @@ function AuthProvider({ children }: { children: ReactNode }) {
         throw new DOMException('认证状态转换已被更新的命令取代', 'AbortError');
       }
     };
-    assertCurrent();
+    try {
+      await queryClient.cancelQueries({ queryKey: authSessionQueryKey, exact: true });
+      assertCurrent();
+    } catch (error) {
+      if (activeCommandEpochRef.current === epoch) activeCommandEpochRef.current = null;
+      try {
+        settle();
+      } catch {
+        // 保留原始抢占/取消错误；STARTED 的发送方仍已尽力关闭远端 barrier。
+      }
+      throw error;
+    }
 
     const closeReadBarrier = async (requireCurrent: boolean) => {
       if (activeCommandEpochRef.current !== epoch) return false;
@@ -232,6 +316,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
       },
       finish: async () => {
         if (!committed) await closeReadBarrier(false);
+        settle();
       },
       signal: controller.signal,
     };
@@ -249,12 +334,18 @@ function AuthProvider({ children }: { children: ReactNode }) {
       const generation = authReadGenerationRef.current + 1;
       authReadGenerationRef.current = generation;
       const commandAtStart = activeCommandEpochRef.current;
+      const transitionAtStart = readAuthTransitionMessage();
       const guard = {
-        isCurrent: () => (
-          commandAtStart === null
-          && activeCommandEpochRef.current === null
-          && authReadGenerationRef.current === generation
-        ),
+        isCurrent: () => {
+          const currentTransition = readAuthTransitionMessage();
+          return commandAtStart === null
+            && activeCommandEpochRef.current === null
+            && remoteTransitionIdsRef.current.size === 0
+            && transitionAtStart?.phase !== 'STARTED'
+            && currentTransition?.phase !== 'STARTED'
+            && transitionAtStart?.eventId === currentTransition?.eventId
+            && authReadGenerationRef.current === generation;
+        },
         signal,
       };
       return loadAuthSession(guard).then((next) => {
@@ -384,6 +475,7 @@ export {
   AuthProvider,
   authBoundaryIdentity,
   authSessionQueryKey,
+  getAuthSession,
   getAuthRouteUser,
   useAuth,
   useAuthActions,

@@ -18,7 +18,7 @@
 - [x] 说明两个 `/api/v1/auth/session` 401 的调用 owner、时序和期望，证明不存在认证跨 snapshot、ABA、重复副作用或请求泄漏。
 - [x] `reset-invalid-session` 只允许精确预期的原子 session 401；其他真实栈 runtime error 继续失败。
 - [x] System Admin 真实栈定向用例通过，secret scan clean，固定端口、Redis DB 14、隔离数据库和临时对象存储清理为 0。
-- [ ] 新 detached clean checkout 中单次完整 `make verify` 退出 0 并覆盖全部后续门禁。
+- [x] 新 detached clean checkout 中单次完整 `make verify` 退出 0 并覆盖全部后续门禁。
 - [ ] fresh `critical_reviewer` 对更新后的完整候选与门禁证据给出 `NO BLOCKER`，随后才允许完成 D2/I03 父链并创建 I04。
 
 ## Notes
@@ -30,3 +30,5 @@
 - 诊断日志 `/tmp/partsignal-d2-auth-owner-diagnostic.log`：36463 bytes，SHA-256 `d3f179aacd368bbc80e438150450b113f11f923758b7cc97ddb2c51fd10ae585`；其退出 1 是修复前已知 runtime allowlist blocker，secret scan clean 且资源完整清理。
 - 修复后定向日志 `/tmp/partsignal-d2-system-admin-targeted.log`：34082 bytes，SHA-256 `59efaeb87bb708ae3d1aaf102c447a2b5d57dbfa602d87ad2bf667ab8be78fae`；System Admin `1/1 passed`、secret scan clean、退出 0。TypeScript、单文件 ESLint 与 runtime helper `13/13` tests 也通过；运行前后四端口、Redis DB 14 和隔离数据库均为 0。
 - 新固定候选为 commit `4e739f68f3ef87286d7b22e77ebfd353bafda6e8`、tree `425ec420f117ddf094172bd862ffd059f59cde45`。其唯一一次完整门禁确认真实栈 System Admin `16/16` 通过且该 reset phase 只有一次受控 `/api/v1/auth/session` 401，但随后 fixture Playwright 因独立的 Platform Types CSRF 期望漂移退出 2；本任务因此仍不能完成，后续由同级 blocker `09-26-frontend-i03-4-b2-c2-d2-platform-types-fixture-csrf-blocker` 恢复。
+- 后续固定候选 `d168dcd88a30e604ebdfb8f1d6e9739b2afeb32b`、tree `4bace747c00c6ad68fda9c149b4f58c77aa60803` 的全新 detached checkout 唯一一次完整 `make verify` 退出 0，真实栈 System Admin `16/16`、fixture、secret scan、全部生命周期、部署 harness 与 Compose 门禁均通过。
+- fresh `critical_reviewer` 确认本 System Admin 修复的单一 owner、精确流量断言、显式 `/auth/me` 探针、`AUTH_REQUIRED`、登录跳转与 secret scan 均成立，但在完整候选中发现独立的跨标签页 session-binding epoch P1 blocker；本任务暂不标记完成。

@@ -13,12 +13,13 @@ function createAuthenticatedTestQueryClient(auth: AuthContextValue) {
 
   const queryClient = createAppQueryClient();
   queryClient.setDefaultOptions({ queries: { retry: false } });
-  queryClient.setQueryData<AuthSession>(authSessionQueryKey, {
+  const session: AuthSession = {
     user: auth.user,
     csrfToken: auth.csrfToken,
     sessionBinding: auth.user.id.replaceAll('-', '').padEnd(64, '0'),
-  });
-  initializePrincipalEpoch(queryClient, authBoundaryIdentity(auth.user));
+  };
+  queryClient.setQueryData<AuthSession>(authSessionQueryKey, session);
+  initializePrincipalEpoch(queryClient, authBoundaryIdentity(session));
   return queryClient;
 }
 

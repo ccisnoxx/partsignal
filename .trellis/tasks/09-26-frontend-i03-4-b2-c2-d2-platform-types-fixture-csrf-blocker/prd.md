@@ -17,7 +17,7 @@
 
 - [x] Platform Types 的 POST/PATCH/DELETE 精确断言均期望 `platform-types-csrf`，同时保留 method、body、revision 与请求次数边界。
 - [x] mobile/desktop 定向 fixture Playwright 通过，secret scan clean，固定端口、Redis DB 14、隔离数据库和测试临时资源为 0。
-- [ ] 新固定候选在全新 detached clean checkout 中单次完整 `make verify` 退出 0。
+- [x] 新固定候选在全新 detached clean checkout 中单次完整 `make verify` 退出 0。
 - [ ] fresh `critical_reviewer` 对新候选与完整门禁证据给出 `NO BLOCKER`。
 
 ## Notes
@@ -30,3 +30,5 @@
 - 2026-09-26 最小修复只替换 `platform-types.spec.ts` 三项写请求的 CSRF 期望；method、body、canonical revision、请求集合和 fixture 均未改变。单文件 ESLint 退出 0。
 - 定向命令 `npm --prefix frontend run e2e -- tests/e2e/platform-types.spec.ts`：12/12 passed（mobile 6、desktop 6），`E2E_SECRET_SCAN status=clean`，退出 0。日志 `/tmp/partsignal-d2-platform-types-targeted.log`：3471 bytes，SHA-256 `6276cdc9d2b4e0bdcd0e85e87310bd1a0ac58d7459c641d539ca43f6fca3a1ba`；状态文件 SHA-256 `0e422042111170d0260c3180570f81bd6fda31bdb600c8a2d7a0f375e0f7d73e`。
 - 定向前资源快照 `/tmp/partsignal-d2-platform-types-resource-pre.log`：4378 bytes，SHA-256 `0063538b89b44cc8268a5a5ad384d5baa7f1913b1ba0e141992bd10b653e8efd`；定向后快照 `/tmp/partsignal-d2-platform-types-resource-post.log`：4379 bytes，SHA-256 `84167417af2f1f04c818bd33b05465783d5a5a08a50d08dc163c687feb88a21a`。全部受控资源为 0。
+- 新固定候选 commit `d168dcd88a30e604ebdfb8f1d6e9739b2afeb32b`、tree `4bace747c00c6ad68fda9c149b4f58c77aa60803` 的全新 detached checkout 唯一一次完整 `make verify` 退出 0；Platform Types mobile/desktop 各 6/6 通过，fixture 总计 `494 passed / 34 skipped`，后续 lifecycle/deploy/Compose 门禁全部通过。
+- fresh `critical_reviewer` 确认三处 CSRF 修复没有弱化 method、body、revision 或请求集合约束，但在完整候选中发现独立的跨标签页 session-binding epoch P1 blocker；因此本任务暂不标记完成，后续由同级 blocker `09-26-frontend-i03-4-b2-c2-d2-e1-cross-tab-session-binding-epoch-blocker` 恢复。

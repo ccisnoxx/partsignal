@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { api } from '@/shared/api/client';
+import { authTransitionStorageKey } from './auth-transition-channel';
 import type { AuthUser } from './auth-provider';
 import { AuthProvider, useAuth, useAuthActions } from './auth-provider';
 import { capturePrincipalContinuation } from './principal-epoch';
@@ -56,7 +57,10 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  localStorage.clear();
+  vi.restoreAllMocks();
+});
 
 function AuthProbe() {
   const auth = useAuth();
@@ -229,7 +233,7 @@ describe('AuthProvider', () => {
     await userEvent.click(screen.getByRole('button', { name: '捕获登录错误' }));
     expect(await screen.findByText('认证会话响应结构无效')).toBeInTheDocument();
     expect(queryClient.getQueryData(['auth', 'session'])).toBeNull();
-    expect(queryClient.getQueryData(['products', 'pre-login'])).toEqual({ value: '保留' });
+    expect(queryClient.getQueryData(['products', 'pre-login'])).toBeUndefined();
   });
 
   it('把明确 401 作为已失效会话并清除上一身份的业务缓存', async () => {
@@ -449,13 +453,13 @@ describe('AuthProvider', () => {
     });
   });
 
-  it('普通同主体 refresh 更新 canonical CSRF 与 binding 但保留业务缓存', async () => {
+  it('同一 binding 的普通 refresh 更新 canonical CSRF 并保留业务缓存', async () => {
     const get = vi.spyOn(api, 'GET')
       .mockResolvedValueOnce(authSnapshot(admin, 'initial-csrf'))
       .mockResolvedValueOnce(authSnapshot(
         { ...admin, revision: 2 },
         'refreshed-csrf',
-        'b'.repeat(64),
+        adminBinding,
       ));
     const { queryClient } = renderRace();
     expect(await screen.findByText('admin:false')).toBeInTheDocument();
@@ -470,8 +474,117 @@ describe('AuthProvider', () => {
     expect(queryClient.getQueryData(['auth', 'session'])).toEqual({
       user: { ...admin, revision: 2 },
       csrfToken: 'refreshed-csrf',
-      sessionBinding: 'b'.repeat(64),
+      sessionBinding: adminBinding,
     });
+  });
+
+  it('同一公开 user 的新 session binding 先失效 continuation 再清理业务 query', async () => {
+    const replacementBinding = 'b'.repeat(64);
+    const get = vi.spyOn(api, 'GET')
+      .mockResolvedValueOnce(authSnapshot(admin, 'initial-csrf', adminBinding))
+      .mockResolvedValueOnce(authSnapshot(
+        { ...admin, revision: 2 },
+        'replacement-csrf',
+        replacementBinding,
+      ));
+    const { queryClient } = renderRace();
+    expect(await screen.findByText('admin:false')).toBeInTheDocument();
+    const continuation = capturePrincipalContinuation(queryClient);
+    queryClient.setQueryData(['products', 'old-session'], { value: '旧 session' });
+    const removalChecks: boolean[] = [];
+    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      if (event.type === 'removed' && event.query.queryKey[0] !== 'auth') {
+        removalChecks.push(continuation.isCurrent());
+      }
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: '竞态刷新' }));
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+    unsubscribe();
+
+    expect(continuation.isCurrent()).toBe(false);
+    expect(removalChecks.length).toBeGreaterThan(0);
+    expect(removalChecks.every((wasCurrent) => !wasCurrent)).toBe(true);
+    expect(queryClient.getQueryData(['products', 'old-session'])).toBeUndefined();
+    expect(queryClient.getQueryData(['auth', 'session'])).toEqual({
+      user: { ...admin, revision: 2 },
+      csrfToken: 'replacement-csrf',
+      sessionBinding: replacementBinding,
+    });
+  });
+
+  it('跨标签页 STARTED 立即失效旧主体，SETTLED 只触发一次 canonical session 重读', async () => {
+    const get = vi.spyOn(api, 'GET')
+      .mockResolvedValueOnce(authSnapshot(admin, 'admin-csrf', adminBinding))
+      .mockResolvedValueOnce(authSnapshot(engineer, 'engineer-csrf', engineerBinding));
+    const { queryClient } = renderRace();
+    expect(await screen.findByText('admin:false')).toBeInTheDocument();
+    const continuation = capturePrincipalContinuation(queryClient);
+    queryClient.setQueryData(['products', 'cross-tab'], { value: 'A 主体缓存' });
+    const transitionId = '00000000-0000-4000-8000-000000000010';
+    const started = JSON.stringify({
+      eventId: '00000000-0000-4000-8000-000000000011',
+      phase: 'STARTED',
+      transitionId,
+      version: 1,
+    });
+    const settled = JSON.stringify({
+      eventId: '00000000-0000-4000-8000-000000000012',
+      phase: 'SETTLED',
+      transitionId,
+      version: 1,
+    });
+
+    act(() => {
+      localStorage.setItem(authTransitionStorageKey, started);
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: authTransitionStorageKey,
+        newValue: started,
+      }));
+    });
+    expect(continuation.isCurrent()).toBe(false);
+    expect(queryClient.getQueryData(['products', 'cross-tab'])).toBeUndefined();
+    expect(queryClient.getQueryData(['auth', 'session'])).toBeNull();
+    expect(get).toHaveBeenCalledOnce();
+
+    act(() => {
+      localStorage.setItem(authTransitionStorageKey, settled);
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: authTransitionStorageKey,
+        newValue: settled,
+      }));
+      // BroadcastChannel/storage/focus 重复投递同一 event 不得形成 refetch storm。
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: authTransitionStorageKey,
+        newValue: settled,
+      }));
+    });
+
+    expect(await screen.findByText('engineer:false')).toBeInTheDocument();
+    expect(get).toHaveBeenCalledTimes(2);
+    expect(queryClient.getQueryData(['auth', 'session'])).toEqual({
+      user: engineer,
+      csrfToken: 'engineer-csrf',
+      sessionBinding: engineerBinding,
+    });
+  });
+
+  it('认证 transition marker 只包含版本、事件、阶段和 transition id', async () => {
+    vi.spyOn(api, 'GET').mockResolvedValue({
+      response: new Response(null, { status: 204 }),
+    } as never);
+    vi.spyOn(api, 'POST').mockResolvedValue(authSnapshot(admin, 'signed-in-secret'));
+
+    renderAuth();
+    await userEvent.click(await screen.findByRole('button', { name: '登录' }));
+    expect(await screen.findByText('系统管理员:true:signed-in-secret')).toBeInTheDocument();
+
+    const stored = JSON.parse(localStorage.getItem(authTransitionStorageKey) ?? '{}') as Record<string, unknown>;
+    expect(Object.keys(stored).sort()).toEqual(['eventId', 'phase', 'transitionId', 'version']);
+    expect(stored.phase).toBe('SETTLED');
+    expect(JSON.stringify(stored)).not.toContain('signed-in-secret');
+    expect(JSON.stringify(stored)).not.toContain('password-123');
+    expect(JSON.stringify(stored)).not.toContain(admin.id);
   });
 
   it('ADMIN 降为同一用户 ENGINEER 时先失效 continuation 再清理业务 query', async () => {

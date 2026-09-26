@@ -20,18 +20,25 @@
   "subtasks": [],
   "children": [
     "09-26-frontend-i03-4-b2-c2-d2-system-admin-atomic-session-audit-blocker",
-    "09-26-frontend-i03-4-b2-c2-d2-platform-types-fixture-csrf-blocker"
+    "09-26-frontend-i03-4-b2-c2-d2-platform-types-fixture-csrf-blocker",
+    "09-26-frontend-i03-4-b2-c2-d2-e1-cross-tab-session-binding-epoch-blocker"
   ],
   "parent": "09-25-frontend-i03-4-b2-c2-auth-session-cross-snapshot-blocker",
   "relatedFiles": [],
   "notes": "",
   "meta": {
     "outcome": "BLOCKER",
-    "make_verify_exit": "2",
+    "make_verify_exit": "0",
     "remote_writes": "none",
-    "candidate_commit": "4e739f68f3ef87286d7b22e77ebfd353bafda6e8",
-    "candidate_tree": "425ec420f117ddf094172bd862ffd059f59cde45",
-    "make_verify_log_sha256": "d52a1a14bb86a4b892c5eecba6eef45e57184f88675a5cfd5f73ad2ec1582b21",
-    "blocker": "platform-types-fixture-csrf"
+    "candidate_commit": "d168dcd88a30e604ebdfb8f1d6e9739b2afeb32b",
+    "candidate_tree": "4bace747c00c6ad68fda9c149b4f58c77aa60803",
+    "make_verify_log_sha256": "4e4adad0f17bb82909d1716215ba5e6fdfd8bac1c4d7f551821cda33cdb4413b",
+    "blocker": "09-26-frontend-i03-4-b2-c2-d2-e1-cross-tab-session-binding-epoch-blocker",
+    "pre_resource_log_sha256": "1f1d5404dca9f20098c6288fbd1222c52d8ac145d3b607e94ab9e825773d125c",
+    "post_resource_log_sha256": "b65ae0f5e242a84a15831843a60c2133a0d2db9562e3193b242d5e65c0fed925",
+    "review_status": "BLOCKER",
+    "review_audit_id": "20260926T081303Z-i03-d2-8fa17b6f",
+    "validation_worktree_removed": "true",
+    "worktree_pruned": "true"
   }
 }

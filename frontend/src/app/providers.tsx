@@ -3,7 +3,7 @@ import { RouterProvider } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import { TooltipProvider } from '@/design-system/primitives/tooltip';
 import { AuthErrorPage, AuthLoadingPage } from '@/domains/auth/auth-page-frame';
-import { AuthProvider, authBoundaryIdentity, useAuth } from './auth/auth-provider';
+import { AuthProvider, authBoundaryIdentity, getAuthSession, useAuth } from './auth/auth-provider';
 import { queryClient } from './query-client';
 import { createAppRouter } from './router';
 
@@ -28,7 +28,7 @@ function PrincipalRouter({
 
 function AppRouter() {
   const auth = useAuth();
-  const boundaryIdentity = authBoundaryIdentity(auth.user);
+  const boundaryIdentity = authBoundaryIdentity(getAuthSession(queryClient));
 
   // 会话探测完成前不挂载 Router，避免受保护子路由 loader 提前读取业务数据。
   if (auth.isLoading) return <AuthLoadingPage />;

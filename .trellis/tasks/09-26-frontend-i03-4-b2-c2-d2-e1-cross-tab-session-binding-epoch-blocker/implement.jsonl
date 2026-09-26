@@ -1,0 +1,3 @@
+{"file":".trellis/spec/frontend/state-management.md","reason":"实现 session binding 驱动的认证主体 epoch 与跨标签页 transition owner。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"实现稳定边界的单元和真实栈确定性交错证据。"}
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"使用仓库真实栈 harness并验证精确资源清理。"}

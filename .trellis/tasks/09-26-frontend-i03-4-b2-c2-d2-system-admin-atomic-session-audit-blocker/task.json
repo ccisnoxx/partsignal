@@ -26,6 +26,10 @@
     "trigger_log_sha256": "ff58ff180b8e4455b6a1bd7ace11f270b0ab526a2057f7e213349b1d1231b7fd",
     "diagnosis": "redundant-test-navigation",
     "targeted_e2e": "passed",
-    "targeted_log_sha256": "59efaeb87bb708ae3d1aaf102c447a2b5d57dbfa602d87ad2bf667ab8be78fae"
+    "targeted_log_sha256": "59efaeb87bb708ae3d1aaf102c447a2b5d57dbfa602d87ad2bf667ab8be78fae",
+    "candidate_commit": "d168dcd88a30e604ebdfb8f1d6e9739b2afeb32b",
+    "candidate_tree": "4bace747c00c6ad68fda9c149b4f58c77aa60803",
+    "make_verify_exit": "0",
+    "review_status": "BLOCKER_OTHER_SCOPE"
   }
 }

@@ -25,6 +25,7 @@ backend/.venv/bin/uvicorn app.dev_storage:app --host 127.0.0.1 --port "$PARTSIGN
 - 每次运行另生成独立的 32 位十六进制 owner token。创建成功后以 PostgreSQL database comment 写入精确 owner marker；删除前必须从 PostgreSQL 读取并匹配该 marker。尝试创建本身不授予删除权；同名数据库预先存在或 marker 不匹配时显式拒绝删除。成功创建并标记后，即使 create 客户端随后失败，退出清理仍须验证 marker 并强制断开、删除本运行数据库。
 - 对象存储和 Celery beat 文件只写入本次 `mktemp -d` 创建的目录。
 - E2E runner 启动 Celery worker/beat 时使用顶层 `--quiet` 关闭会回显 broker 连接值的 lifecycle banner/关闭诊断；业务 `WARNING` 日志、进程退出码、PID stop/wait 与 cleanup 输出仍须保留。不得用 logfile、输出重定向、事后过滤或全局 scanner 替代 owner 修复。
+- lifecycle supervisor 向独立 process group 转发信号后，同组父进程与 reporter 的退出先后没有保证；harness 必须分别证明二者都在 secret scanner 之前完成，不能把 sibling 调度顺序当作合同。每个 case 至少输出 begin/pass，失败时输出 case、断言名、期望/实际和不含 marker/secret 内容的事件证据。
 - 退出时无论测试成功、失败或收到信号，都停止并 `wait` 本次进程；只删除枚举后符合 allowlist 的精确 Celery/Kombu 键，并证明 Redis 为空和固定端口释放，再 drop 本次数据库和删除临时目录。
 - 清理输出分别使用数据库 `status=dropped`、存储 `status=removed`、Redis `status=deleted` 与端口 `status=released`；测试成功但任一清理失败时，脚本仍以非零状态退出。禁止 `FLUSHDB`、通配删除、broad kill 或候选路径清理。
 - 根 `make e2e` 先通过 `e2e-local.sh` 在同一隔离栈运行全部 canonical 真实 flow，成功并精确清理后再运行 canonical fixture-based 页面 suite；任一阶段失败时根 target 非零。

@@ -18,7 +18,9 @@
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [],
+  "children": [
+    "09-26-frontend-i03-4-b2-c2-d2-e1-f1-e2e-lifecycle-full-gate-blocker"
+  ],
   "parent": "09-25-frontend-i03-4-b2-c2-d2-atomic-auth-final-clean-checkout-i03-closeout",
   "relatedFiles": [
     ".trellis/spec/frontend/state-management.md",
@@ -45,7 +47,11 @@
     "targeted_real_stack_log_sha256": "a2dfc68ea44972bd9889327f55e093cae9289c855f554009108444405c96bbff",
     "targeted_secret_scan": "clean",
     "targeted_resource_log_sha256": "4182f4502315615e5f1fdcc7ee71edc29b49cd3a83c6e99031abfe01cac5f25f",
-    "full_make_verify": "pending_new_fixed_candidate",
-    "fresh_review": "pending"
+    "fixed_candidate_commit": "c99529cf14a2d754f4d69b08ad0d29e5da9551a3",
+    "fixed_candidate_tree": "f2a6088fe73bc67fcd5a7e0f1f53d09cc40e13b7",
+    "full_make_verify": "failed_exit_2_e2e_lifecycle_harness",
+    "full_make_verify_log_sha256": "14d0c79b5dd2caf4c7338e35660b2e887025b12f4d62ab73538684b40199ea72",
+    "full_make_verify_post_resource_sha256": "be61ba2817a3c4c942975e99c127af2f3eb73571201d3b00596d9d246a194b52",
+    "fresh_review": "not_dispatched_gate_failed"
   }
 }

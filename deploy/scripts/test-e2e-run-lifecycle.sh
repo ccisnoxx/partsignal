@@ -90,6 +90,24 @@ line_count() {
   awk -v expected="$expected_line" '$0 == expected { count += 1 } END { print count + 0 }' "$target_file"
 }
 
+report_case_failure() {
+  failed_case=$1
+  failed_assertion=$2
+  failed_detail=$3
+  printf '%s\n' \
+    "E2E_LIFECYCLE_ASSERT case=$failed_case assertion=$failed_assertion status=failed $failed_detail" >&2
+  if test -f "$output"; then
+    printf '%s\n' "E2E_LIFECYCLE_OUTPUT case=$failed_case begin" >&2
+    sed 's/^/  /' "$output" >&2
+    printf '%s\n' "E2E_LIFECYCLE_OUTPUT case=$failed_case end" >&2
+  fi
+  if test -f "$log"; then
+    printf '%s\n' "E2E_LIFECYCLE_EVENTS case=$failed_case begin" >&2
+    sed 's/^/  /' "$log" >&2
+    printf '%s\n' "E2E_LIFECYCLE_EVENTS case=$failed_case end" >&2
+  fi
+}
+
 assert_case() {
   name=$1
   playwright_mode=$2
@@ -111,23 +129,24 @@ assert_case() {
   : >"$log"
   : >"$key"
   : >"$manifest"
+  printf '%s\n' "E2E_LIFECYCLE_CASE name=$name status=begin"
 
-  E2E_LIFECYCLE_HELPER="$root/deploy/scripts/e2e-run-lifecycle.sh" \
-  E2E_PROCESS_GROUP_HELPER="$root/deploy/scripts/e2e-process-group.py" \
-  E2E_PLAYWRIGHT_FIXTURE="$playwright_fixture" \
-  E2E_TEST_LOG="$log" \
-  E2E_PLAYWRIGHT_MODE="$playwright_mode" \
-  E2E_PLAYWRIGHT_STATUS="$playwright_status" \
-  E2E_PROCESS_GROUP_GRACE_SECONDS=0.5 \
-  E2E_PROCESS_GROUP_KILL_WAIT_SECONDS=0.5 \
-  E2E_SCAN_STATUS="$scan_status" \
-  E2E_CLEANUP_STATUS="$cleanup_status" \
-  E2E_MARKER="$marker" \
-  E2E_SECRET_KEY="$key" \
-  E2E_SECRET_MANIFEST="$manifest" \
-  E2E_SECRET_VALUE="controlled-secret-$name" \
-  E2E_REPORTER_PID_FILE="$reporter_pid_file" \
-    python3 - "$runner" "$output" "$log" "$signal_name" "$status_file" "$reporter_pid_file" <<'PY'
+  if ! E2E_LIFECYCLE_HELPER="$root/deploy/scripts/e2e-run-lifecycle.sh" \
+    E2E_PROCESS_GROUP_HELPER="$root/deploy/scripts/e2e-process-group.py" \
+    E2E_PLAYWRIGHT_FIXTURE="$playwright_fixture" \
+    E2E_TEST_LOG="$log" \
+    E2E_PLAYWRIGHT_MODE="$playwright_mode" \
+    E2E_PLAYWRIGHT_STATUS="$playwright_status" \
+    E2E_PROCESS_GROUP_GRACE_SECONDS=0.5 \
+    E2E_PROCESS_GROUP_KILL_WAIT_SECONDS=0.5 \
+    E2E_SCAN_STATUS="$scan_status" \
+    E2E_CLEANUP_STATUS="$cleanup_status" \
+    E2E_MARKER="$marker" \
+    E2E_SECRET_KEY="$key" \
+    E2E_SECRET_MANIFEST="$manifest" \
+    E2E_SECRET_VALUE="controlled-secret-$name" \
+    E2E_REPORTER_PID_FILE="$reporter_pid_file" \
+      python3 - "$runner" "$output" "$log" "$signal_name" "$status_file" "$reporter_pid_file" <<'PY'
 import os
 from pathlib import Path
 import signal
@@ -162,28 +181,64 @@ if Path(reporter_pid_file).exists():
         raise SystemExit("reporter descendant survived lifecycle completion")
 Path(status_file).write_text(str(status if status >= 0 else 128 - status))
 PY
+  then
+    report_case_failure "$name" supervisor "signal=$signal_name"
+    return 1
+  fi
   actual_status=$(cat "$status_file")
-  test "$actual_status" -eq "$expected_status" || {
-    cat "$output" >&2
-    printf '%s\n' "$name: exit=$actual_status expected=$expected_status" >&2
-    exit 1
-  }
-  grep -F "$expected_result" "$output" >/dev/null
-  test "$(line_count scanner-called "$log")" -eq 1
-  test "$(line_count cleanup "$log")" -eq 1
-  test "$(tail -n 1 "$log")" = cleanup
-  test ! -e "$key"
-  test ! -e "$manifest"
+  if ! test "$actual_status" -eq "$expected_status"; then
+    report_case_failure "$name" exit-status "actual=$actual_status expected=$expected_status"
+    return 1
+  fi
+  if ! grep -F "$expected_result" "$output" >/dev/null; then
+    report_case_failure "$name" result-line "expected=$expected_result"
+    return 1
+  fi
+  scanner_count=$(line_count scanner-called "$log")
+  if ! test "$scanner_count" -eq 1; then
+    report_case_failure "$name" scanner-count "actual=$scanner_count expected=1"
+    return 1
+  fi
+  cleanup_count=$(line_count cleanup "$log")
+  if ! test "$cleanup_count" -eq 1; then
+    report_case_failure "$name" cleanup-count "actual=$cleanup_count expected=1"
+    return 1
+  fi
+  final_event=$(tail -n 1 "$log")
+  if ! test "$final_event" = cleanup; then
+    report_case_failure "$name" final-event "actual=$final_event expected=cleanup"
+    return 1
+  fi
+  if test -e "$key"; then
+    report_case_failure "$name" secret-key-cleanup "path_still_exists=true"
+    return 1
+  fi
+  if test -e "$manifest"; then
+    report_case_failure "$name" secret-manifest-cleanup "path_still_exists=true"
+    return 1
+  fi
   if test "$playwright_mode" = wait; then
     parent_line=$(grep -n '^playwright-parent-exited$' "$log" | cut -d: -f1)
     reporter_line=$(grep -n '^reporter-finished$' "$log" | cut -d: -f1)
     scanner_line=$(grep -n '^scanner-called$' "$log" | cut -d: -f1)
-    test "$parent_line" -lt "$reporter_line"
-    test "$reporter_line" -lt "$scanner_line"
+    if ! test "$parent_line" -lt "$scanner_line"; then
+      report_case_failure "$name" parent-before-scanner \
+        "parent_line=$parent_line scanner_line=$scanner_line"
+      return 1
+    fi
+    if ! test "$reporter_line" -lt "$scanner_line"; then
+      report_case_failure "$name" reporter-before-scanner \
+        "reporter_line=$reporter_line scanner_line=$scanner_line"
+      return 1
+    fi
   fi
   if test "$playwright_mode" = stubborn; then
-    grep -F 'E2E_PROCESS_GROUP status=timeout action=SIGKILL' "$output" >/dev/null
+    if ! grep -F 'E2E_PROCESS_GROUP status=timeout action=SIGKILL' "$output" >/dev/null; then
+      report_case_failure "$name" sigkill-escalation "timeout_line_missing=true"
+      return 1
+    fi
   fi
+  printf '%s\n' "E2E_LIFECYCLE_CASE name=$name status=passed"
 }
 
 assert_case int-scan-fails wait 0 9 11 INT 130 'E2E_RESULT playwright=130 secret_scan=9'

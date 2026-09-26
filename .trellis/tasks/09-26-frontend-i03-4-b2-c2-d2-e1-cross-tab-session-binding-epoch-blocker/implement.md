@@ -28,4 +28,5 @@
 - Auth command 在 STARTED 前先失效本标签页 continuation；其他标签页收到 STARTED 后取消旧 auth barrier、置空旧 session并清业务 cache，只在所有已见 transition SETTLED 后 refetch 原子 session。抢占发生在 begin/cancel 窗口时，发送方仍配对关闭 SETTLED。
 - 单元定向：TypeScript、ESLint、`auth-provider.test.tsx + query-client.test.ts` 30/30 通过；`git diff --check` 通过。
 - 真实栈定向：`auth-session-real-stack.spec.ts` 2/2 通过；新增同 BrowserContext 双页面 ADMIN A→ENGINEER B→ADMIN A，并把旧 A 的真实产品 201 响应延迟至 ABA 后释放，未发生旧导航、重复 mutation、运行时错误或 secret artifact 泄漏。
-- 下一步：冻结定向资源证据，检查完整 diff，形成新固定 commit/tree；再创建全新 detached checkout并只运行一次完整 `make verify`。E1、D2 与 I03 父链继续保持 `in_progress`。
+- 已形成固定 commit `c99529cf14a2d754f4d69b08ad0d29e5da9551a3` / tree `f2a6088fe73bc67fcd5a7e0f1f53d09cc40e13b7`，并在全新 detached checkout 中只运行了一次完整 `make verify`。
+- 该门禁在认证 real-stack、fixture E2E、secret scan 和 frontend container harness 通过后，于 `deploy/scripts/test-e2e-run-lifecycle.sh` 静默退出 1，顶层状态为 2；已建立 F1 子 blocker。下一步必须先定位 lifecycle harness 的精确断言并形成另一个固定候选，不得复用本次门禁或派发 reviewer。

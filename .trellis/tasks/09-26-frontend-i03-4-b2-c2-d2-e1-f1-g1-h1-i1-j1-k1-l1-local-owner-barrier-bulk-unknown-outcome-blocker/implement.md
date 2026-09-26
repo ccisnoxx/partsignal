@@ -17,17 +17,43 @@
   `0e68c2aa688709476bc303d66778063abaedf343730906cda9b22d4f6caf8c0d`。运行后端口、E2E 数据库、
   Redis DB 14 与 storage 全部归零。
 
-## 待执行
+## 当前状态
 
-1. 将本实现、稳定 spec 和当前 Trellis 暂停记录收敛为新的 fixed candidate commit/tree。
-2. 在全新 `/Users/sc/...` detached checkout bootstrap，先执行 26/26 bind sentinel，清理并资源归零后
-   只运行一次完整 `make verify`。
-3. 完整门禁退出 `0`、资源归零且 identity 未漂移后，派发 fresh `critical_reviewer`。只有
-   `NO BLOCKER` 才完成 L1/K1/上游 blocker/I03，并创建 I04。
+- L1 实现已收敛为 fixed candidate `3513db0968af4dd522ae62d2a7feb385055baa3f`，tree
+  `997e4973d1927fd28dacc05c570a7ebfa71138c9`。
+- 全新 detached checkout 的 bootstrap、26/26 bind sentinel、唯一一次完整 `make verify`、资源归零和
+  identity 检查全部通过；validation checkout 已精确移除。
+- fresh `critical_reviewer` 给出 `BLOCKER`，因此 L1、K1、上游 blocker 与 I03 均保持
+  `in_progress`，I04 不存在，未 fetch/push/SSH，也没有任何 Hostdzire 写入。
 
 ## 历史固定证据
 
 ## 当前固定证据
+
+- L1 fixed candidate：commit `3513db0968af4dd522ae62d2a7feb385055baa3f`，tree
+  `997e4973d1927fd28dacc05c570a7ebfa71138c9`。
+- bind sentinel：`/app/tests/integration/test_migrations.py` 可见，container/checkout integration 文件均为
+  `26`；日志 `/tmp/partsignal-i03-l1-3513db-bind-sentinel.log`，223 bytes，SHA-256
+  `23274752095695d3916194e5893cebb4ff8f1b218da2a77513158748015e8930`，status `0`。
+- 唯一完整门禁：`/tmp/partsignal-i03-l1-3513db-make-verify.log`，251,816 bytes，SHA-256
+  `d9a148266f99a8a2d2804a8d50dac1dc7790ac3ae4769e03f987abc6f9b760b3`，status `0`。
+- pre/post resource snapshot：2,314 bytes，SHA-256
+  `d65efb68838d0510e8da8ac32c35006d2370e934fd006de17b7e226ce839294d`，逐字一致且资源归零。
+- validation identity 未漂移、tracked/non-ignored untracked 为空、`git diff --check` 通过；checkout 已移除。
+- fresh review：`BLOCKER`；audit id
+  `20260926T145246Z-i03-l1-auth-owner-barrier-implementation-cc18ecda`。
+
+## L1 fresh review 的 P1
+
+`frontend/src/domains/identity/user.api.ts` 的 bulk 200 runtime schema 只检查字段形状，没有根据原请求验证
+精确一一分区。形状合法但遗漏 current actor 的 `{"succeeded":[],"failures":[]}` 会被页面当成明确未变更，
+从而跳过 `runAuthBoundary()` 与 `reconcileAuthBoundary()`。此外 4xx `ErrorEnvelope` 没有严格要求合同字段
+`details` 并拒绝合同外结构，畸形错误也可能被误判为明确失败。若服务端实际已提交 self-disable，两个页面
+会继续保留旧 ADMIN session、route、cache 与 continuation。
+
+L2 必须在 API 边界验证：无遗漏、重复、交叉、外来 ID，成功项状态与请求一致；只有 current actor 精确
+出现在 `failures` 才是 explicit failure，其他无法证明的结果一律由 AuthProvider canonical reconciliation
+收敛，且不得重发 POST。
 
 - fixed candidate：commit `57d08a5eb9bf911b1552617029885dc91be196f6`，tree
   `9fc486b23120d8278db927b9ad45092ac71a82aa`。
@@ -55,24 +81,31 @@
 
 ## 下一次恢复顺序
 
-1. 先补发送页反例，证明本地 owner 在 `STARTED` 后、首请求仍被持有时，第二个管理员 mutation 和受保护
-   导航当前会越过屏障；再实现不自 abort 的 owned-barrier entrance。
-2. 把 auth read、业务 mutation/query、router 与旧 continuation 统一接到本地 active-command barrier；
-   精确断言被阻止的新增网络请求为 `0`。
-3. 为包含 current actor 的 bulk 命令建立成功、明确失败、unknown transport outcome 三分支；未知结果
-   只能由 AuthProvider canonical reconciliation 收敛。
-4. 增加真实同一 BrowserContext 双页面 bulk self-disable response-loss 测试，并保留 marker fault、
-   ABA、secret scan 与资源清理断言；校正不可达的 self reset-password fixture。
-5. 运行最小定向 Vitest、TypeScript/ESLint 和真实栈验证；资源清理后形成新的固定 candidate
-   commit/tree。
-6. 在另一个新的 `/Users/sc/...` detached checkout bootstrap，先运行 26/26 只读 bind sentinel；
-   sentinel 清理和资源归零后，只运行一次完整 `make verify`。
-7. 只有完整门禁退出 `0`、资源归零、identity 未漂移，才派发另一名 fresh `critical_reviewer`；只有
-   `NO BLOCKER` 才恢复 I03 收尾并创建 I04。
+1. 在 API 边界对 bulk 200 响应与原始请求执行精确一一分区和目标状态校验，并严格解析 4xx
+   `ErrorEnvelope`；不能证明 current actor 明确失败的 malformed/semantic-invalid 响应归入 unknown。
+2. 增加遗漏、重复、交叉、外来 ID、错误成功状态和缺少 `details` 的 4xx 测试；断言 POST 一次、
+   unknown 恰好一次 Provider reconciliation、精确 current-actor failure 不触发 boundary。
+3. 运行最小定向 Vitest、TypeScript/ESLint 与真实栈验证，完成资源清理后形成新 fixed candidate
+   commit/tree；本轮 Trellis 记录随候选一起收敛，不单独制造暂停提交。
+4. 在另一个新的 `/Users/sc/...` detached checkout bootstrap，先运行 26/26 bind sentinel；sentinel 清理和
+   资源归零后，只运行一次完整 `make verify`。
+5. 只有完整门禁退出 `0`、资源归零且 identity 未漂移，才派发另一名 fresh `critical_reviewer`；只有
+   `NO BLOCKER` 才依次完成 L2、L1、K1、上游 blocker 和 I03，然后创建 I04。
+
+## L2 定向修复交接
+
+- L2 已在 API 边界补齐请求 identity 前置拒绝、200 精确一一分区/目标状态校验与 strict OpenAPI
+  `ErrorEnvelope` 分类；unknown 不重发 POST，只进入一次 Provider-owned reconciliation。
+- 定向证据全部通过：Vitest `4 files / 114 tests / 0 skipped`，TypeScript、ESLint、contract/generated
+  check 均 status `0`；system-admin real stack `2 passed / 0 skipped`，secret scan clean。
+- 真实栈前后资源日志逐字一致，端口、Redis DB 14、E2E 数据库、storage/secret/lifecycle/deploy 临时目录
+  与测试容器全部为零；`git diff --check` status `0`。
+- 下一步只创建 L2 fixed candidate，然后在全新 detached checkout 执行本候选唯一一次完整门禁；此前
+  L1 `3513db09` 的成功门禁不外推到 L2。
 
 ## 禁止事项
 
-- 不重跑 `57d08a5e` 的完整门禁，也不复用已移除的 validation checkout。
+- 不重跑 `3513db09` 的完整门禁，也不复用已移除的 validation checkout。
 - 不以禁用 UI、focus refetch、事后 401/403、TTL 或页面 reload 代替发送页本地 barrier。
 - 不把 bulk transport error 一律当成功或一律当明确失败；unknown outcome 必须 canonical reconcile。
 - 不在 marker、消息、fixture、日志或响应证据中写入 session binding、CSRF、Cookie、token、密码或凭据。

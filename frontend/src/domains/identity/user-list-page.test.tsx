@@ -10,7 +10,7 @@ import { routeTree } from '@/routeTree.gen';
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
 import { createAuthenticatedTestQueryClient } from '@/test/auth-session';
-import { userKeys } from './user.api';
+import { UserRequestError, bulkUpdateUserStatus, userKeys } from './user.api';
 import { userSearchToApiParams } from './user-list.model';
 
 type User = components['schemas']['User'];
@@ -826,5 +826,129 @@ describe('Users lifecycle boundaries', () => {
     expect(post).toHaveBeenCalledOnce();
     expect(boundary).not.toHaveBeenCalled();
     expect(reconcile).not.toHaveBeenCalled();
+  });
+});
+
+describe('bulk status exact response boundary', () => {
+  const current = {
+    ...admin,
+    available_actions: ['UPDATE', 'DISABLE'] as User['available_actions'],
+  };
+  const peer = managedUser({
+    id: '00000000-0000-4000-8000-000000000007',
+    username: 'peer-user',
+  });
+  const outsider = managedUser({
+    id: '00000000-0000-4000-8000-000000000008',
+    username: 'outsider-user',
+  });
+  const currentDisabled = { ...current, is_active: false, revision: current.revision + 1 };
+  const peerDisabled = { ...peer, is_active: false, revision: peer.revision + 1 };
+  const failure = (userId: string) => ({
+    user_id: userId,
+    code: 'REVISION_CONFLICT' as const,
+    message: '修订冲突',
+  });
+  type ApiOutcome = {
+    data?: unknown;
+    error?: unknown;
+    response: Response;
+  } | Error;
+  const resolved = (data: unknown, status = 200): ApiOutcome => ({
+    data,
+    response: Response.json({}, { status }),
+  });
+  const rejected = (error: Error): ApiOutcome => error;
+
+  it.each([
+    ['200 缺少 current actor', resolved({ succeeded: [peerDisabled], failures: [] })],
+    ['200 缺少非 current actor 请求项', resolved({ succeeded: [currentDisabled], failures: [] })],
+    ['success 内重复 ID', resolved({ succeeded: [currentDisabled, currentDisabled, peerDisabled], failures: [] })],
+    ['failure 内重复 ID', resolved({ succeeded: [peerDisabled], failures: [failure(current.id), failure(current.id)] })],
+    ['success/failure 交叉 ID', resolved({ succeeded: [currentDisabled, peerDisabled], failures: [failure(current.id)] })],
+    ['响应含请求外 ID', resolved({ succeeded: [currentDisabled, peerDisabled, { ...outsider, is_active: false }], failures: [] })],
+    ['success user 状态与目标状态不一致', resolved({ succeeded: [current, peerDisabled], failures: [] })],
+    ['空 success/failure 但请求非空', resolved({ succeeded: [], failures: [] })],
+    ['畸形 200', resolved({ succeeded: 'not-an-array', failures: [] })],
+    ['4xx 缺少 details', {
+      error: { error: { code: 'INVALID_REQUEST', message: '未提交', request_id: 'req-no-details' } },
+      response: Response.json({}, { status: 422 }),
+    }],
+    ['4xx 缺少 request_id', {
+      error: { error: { code: 'INVALID_REQUEST', message: '未提交', details: {} } },
+      response: Response.json({}, { status: 422 }),
+    }],
+    ['4xx 字段类型错误', {
+      error: { error: { code: 422, message: '未提交', details: [], request_id: 'req-wrong-types' } },
+      response: Response.json({}, { status: 422 }),
+    }],
+    ['4xx 含合同禁止的额外字段', {
+      error: {
+        error: {
+          code: 'INVALID_REQUEST',
+          message: '未提交',
+          details: {},
+          request_id: 'req-extra-field',
+          submitted: false,
+        },
+      },
+      response: Response.json({}, { status: 422 }),
+    }],
+    ['transport error', rejected(new TypeError('Failed to fetch'))],
+    ['abort/response loss', rejected(new DOMException('The operation was aborted', 'AbortError'))],
+    ['畸形 JSON', rejected(new SyntaxError('Unexpected end of JSON input'))],
+    ['意外 HTTP 状态', {
+      error: {
+        error: {
+          code: 'SERVICE_UNAVAILABLE',
+          message: '服务暂不可用',
+          details: {},
+          request_id: 'req-unexpected-status',
+        },
+      },
+      response: Response.json({}, { status: 503 }),
+    }],
+  ] as const)('%s 只提交一次并执行一次 canonical reconciliation', async (_name, outcome) => {
+    vi.spyOn(api, 'GET').mockResolvedValue({
+      data: result([current, peer]),
+      response: Response.json(result([current, peer])),
+    } as never);
+    const post = vi.spyOn(api, 'POST');
+    if ('response' in outcome) post.mockResolvedValue(outcome as never);
+    else post.mockRejectedValue(outcome);
+    const boundary = vi.mocked(auth.runPrincipalBoundary).mockClear();
+    const reconcile = vi.mocked(auth.reconcileUnknownPrincipalResult!).mockClear();
+    renderUsers();
+
+    await userEvent.click(await screen.findByRole('checkbox', { name: '选择用户 admin' }));
+    await userEvent.click(screen.getByRole('checkbox', { name: '选择用户 peer-user' }));
+    await userEvent.click(screen.getByRole('button', { name: '批量停用' }));
+    const dialog = await screen.findByRole('dialog', { name: '批量停用 2 个用户？' });
+    await userEvent.click(within(dialog).getByRole('button', { name: '批量停用' }));
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('服务端提交结果未知');
+    expect(post).toHaveBeenCalledOnce();
+    expect(reconcile).toHaveBeenCalledOnce();
+    expect(boundary).not.toHaveBeenCalled();
+    expect(screen.queryByText(/批量操作完成：/)).not.toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole('button', { name: '取消' }));
+    expect(screen.getByRole('toolbar', { name: '批量操作' })).toHaveTextContent('已选择 2 项');
+  });
+
+  it.each([
+    ['重复 user_id', [
+      { user_id: admin.id, expected_revision: admin.revision },
+      { user_id: admin.id, expected_revision: admin.revision },
+    ]],
+    ['大小写不同但 identity 相同的 user_id', [
+      { user_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', expected_revision: 1 },
+      { user_id: 'AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA', expected_revision: 1 },
+    ]],
+    ['非法 user_id', [{ user_id: 'not-a-stable-user-id', expected_revision: admin.revision }]],
+  ] as const)('%s 在发送前显式拒绝', async (_name, items) => {
+    const post = vi.spyOn(api, 'POST');
+    await expect(bulkUpdateUserStatus([...items], 'DISABLED', auth.csrfToken))
+      .rejects.toBeInstanceOf(UserRequestError);
+    expect(post).not.toHaveBeenCalled();
   });
 });

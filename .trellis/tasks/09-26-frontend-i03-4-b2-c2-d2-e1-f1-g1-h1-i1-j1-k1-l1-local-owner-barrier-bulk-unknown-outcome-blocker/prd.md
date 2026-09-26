@@ -40,9 +40,9 @@
 - [x] 同一 BrowserContext 双页面 response-loss 场景通过，POST 一次、每页 canonical recovery 一次、
       无旧 principal/cache/route 恢复、无请求风暴且 secret scan clean。
 - [x] 与后端合同不一致的 self reset-password fixture 已校正，未修改或弱化服务端权限合同。
-- [ ] 定向 Vitest、TypeScript/ESLint、真实栈 BrowserContext 与完整资源清理通过，形成新的固定
+- [x] 定向 Vitest、TypeScript/ESLint、真实栈 BrowserContext 与完整资源清理通过，形成新的固定
       candidate commit/tree。
-- [ ] 在新的 `/Users/sc/...` detached checkout 中 bootstrap，先通过 26/26 只读 bind sentinel；sentinel
+- [x] 在新的 `/Users/sc/...` detached checkout 中 bootstrap，先通过 26/26 只读 bind sentinel；sentinel
       清理及资源归零后只运行一次完整 `make verify`，退出 `0`、资源归零且 identity 未漂移。
 - [ ] fresh `critical_reviewer` 对新候选给出 `NO BLOCKER` 后，才允许完成 I03、创建 I04、fetch/push、
       SSH 或任何 Hostdzire 写入。
@@ -67,3 +67,18 @@
   与隔离 storage 均已归零。
 - 独立并发审计指出并推动补齐 QueryClient query barrier、明确 owner capability、bulk runtime 分类与
   Provider-owned reconciliation；审计代理只读，未修改文件。
+- L1 fixed candidate：commit `3513db0968af4dd522ae62d2a7feb385055baa3f`，tree
+  `997e4973d1927fd28dacc05c570a7ebfa71138c9`。
+- 新 detached checkout 的 bootstrap 与 26/26 bind sentinel 通过；唯一完整 `make verify` 退出 `0`。
+  日志 `/tmp/partsignal-i03-l1-3513db-make-verify.log`，251,816 bytes，SHA-256
+  `d9a148266f99a8a2d2804a8d50dac1dc7790ac3ae4769e03f987abc6f9b760b3`。pre/post resource snapshot
+  均为 2,314 bytes，SHA-256
+  `d65efb68838d0510e8da8ac32c35006d2370e934fd006de17b7e226ce839294d`，逐字一致且全部归零；validation
+  checkout 已移除。
+- fresh `critical_reviewer` 结论为 `BLOCKER`：bulk 200 仅做字段形状校验，未验证请求 ID 在
+  `succeeded`/`failures` 中形成无遗漏、无重复、无交叉、无外来 ID 的精确一一分区，也未核对成功项
+  `is_active`；malformed 4xx `ErrorEnvelope` 也可能被误判为明确失败。已创建 L2 子任务继续收敛，I03
+  与 I04 继续暂停。
+- L2 已完成精确分区、目标状态、请求 identity 与严格错误信封修复，并通过 `4 files / 114 tests`、
+  TypeScript、ESLint、contract/generated check、system-admin 真实栈 `2 passed`、secret scan 与前后资源
+  归零；尚未创建 L2 fixed candidate，也尚未对 L2 运行新的完整门禁或 fresh review。

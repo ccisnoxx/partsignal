@@ -67,6 +67,7 @@ test-deploy-scripts: test-frontend-container
 	deploy/scripts/test-e2e-database-lifecycle.sh
 	frontend/tests/helpers/test-secret-artifact-post-run.sh
 	deploy/scripts/test-deploy-staging.sh
+	deploy/scripts/test-deploy-production-cleanup.sh
 	deploy/scripts/test-deploy-production.sh
 
 test-frontend-container: build-frontend

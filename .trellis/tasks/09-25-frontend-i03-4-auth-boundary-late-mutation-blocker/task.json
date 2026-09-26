@@ -19,10 +19,11 @@
   "pr_url": null,
   "subtasks": [],
   "children": [
-    "09-25-frontend-i03-4-b1-principal-epoch-late-mutation-guard"
+    "09-25-frontend-i03-4-b1-principal-epoch-late-mutation-guard",
+    "09-25-frontend-i03-4-b2-clean-checkout-revalidation-i03-closeout"
   ],
   "parent": "09-25-frontend-i03-4-clean-checkout-integration",
   "relatedFiles": [],
-  "notes": "I03-4-B1 已完成 principal epoch、迟到 mutation、Observer 恢复/retry 与 callback 内 await 防护，最终 fresh critical_reviewer 为 NO BLOCKER。本父任务继续保持 in_progress；下一任务固定为“基于修复 commit 的 clean-checkout 完整复验与 blocker/I03 收尾”。本会话不执行该完整复验。",
+  "notes": "I03-4-B1 已完成且独立复核为 NO BLOCKER。B2 的旧完整门禁因 production harness TMPDIR cleanup 误报而无效；C1 已完成 cleanup 修复与定向 NO BLOCKER 复核。本父任务继续保持 in_progress，等待基于修复提交重新执行 B2 clean-checkout 完整门禁、资源清理、完整候选独立复核和 I03 收尾。",
   "meta": {}
 }

@@ -23,6 +23,6 @@
   ],
   "parent": "09-25-frontend-i03-canonical-local-integration",
   "relatedFiles": [],
-  "notes": "固定 88992307/tree 209bde2d 已从 detached clean Git worktree 重建；单次 make verify 退出 0（679 backend unit、755 frontend unit、337 integration、16 real-stack、494/34 fixture），两轮 secret scan clean，frontend/backend Docker build 各一次，六项 harness、Compose 与资源清理均通过，validation tree 无漂移。但 fresh critical_reviewer 发现 P1 身份边界迟到 mutation 缓存回写阻断：旧 ADMIN 请求可在身份切换清 cache 后重新写入共享 QueryClient。已创建未启动 blocker 09-25-frontend-i03-4-auth-boundary-late-mutation-blocker；I03-4 保持 in_progress，不完成 I03/总体交付，不进入 I04。",
+  "notes": "B1 身份边界修复已独立复核为 NO BLOCKER。B2 的旧 make verify 因 production harness TMPDIR cleanup 误报而无效；C1 已完成 cleanup 修复与定向 NO BLOCKER 复核，但尚未执行新的 clean-checkout 完整复验。I03-4 保持 in_progress，不完成 I03/总体交付，不进入 I04。",
   "meta": {}
 }

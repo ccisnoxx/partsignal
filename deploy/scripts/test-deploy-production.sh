@@ -2,17 +2,85 @@
 set -eu
 
 root=$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)
-test_dir=$(mktemp -d "${TMPDIR:-/tmp}/partsignal-production-test.XXXXXX")
-test_dir=$(python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$test_dir")
+temporary_root=
+test_dir=
+
+cleanup() {
+  if test -z "$test_dir"; then
+    return 0
+  fi
+  cleanup_target=$test_dir
+  if test -n "${PARTSIGNAL_PRODUCTION_HARNESS_TEST_MODE:-}"; then
+    cleanup_target=${PARTSIGNAL_PRODUCTION_HARNESS_TEST_CLEANUP_TARGET:-$test_dir}
+  fi
+
+  cleanup_parent=$(dirname "$cleanup_target")
+  cleanup_name=$(basename "$cleanup_target")
+  if test "$cleanup_target" != "$test_dir" || \
+      test "$cleanup_parent" != "$temporary_root"; then
+    printf '%s\n' "拒绝清理不属于 Production harness 的目录：$cleanup_target" >&2
+    return 1
+  fi
+  case "$cleanup_name" in
+    partsignal-production-test.*) ;;
+    *)
+      printf '%s\n' "拒绝清理不符合 Production harness owner 约束的目录：$cleanup_target" >&2
+      return 1
+      ;;
+  esac
+
+  if ! rm -rf "$cleanup_target"; then
+    printf '%s\n' "清理 Production harness 临时目录失败：$cleanup_target" >&2
+    return 1
+  fi
+  if test -e "$cleanup_target" || test -L "$cleanup_target"; then
+    printf '%s\n' "Production harness 临时目录删除后仍然存在：$cleanup_target" >&2
+    return 1
+  fi
+}
+
+handle_exit() {
+  main_status=$?
+  trap - 0 INT TERM
+  cleanup_status=0
+  cleanup || cleanup_status=$?
+  if test "$main_status" -ne 0; then
+    exit "$main_status"
+  fi
+  exit "$cleanup_status"
+}
+
+handle_signal() {
+  exit "$1"
+}
+trap handle_exit 0
+trap 'handle_signal 130' INT
+trap 'handle_signal 143' TERM
+
+temporary_root=$(python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "${TMPDIR:-/tmp}")
+if ! test -d "$temporary_root"; then
+  printf '%s\n' "Production harness 临时根不存在：$temporary_root" >&2
+  exit 2
+fi
+test_dir=$(mktemp -d "$temporary_root/partsignal-production-test.XXXXXX")
 candidate_release=production-20260829-120000-0123456789ab
 next_release=production-20260829-130000-fedcba987654
 
-cleanup() {
-  case "$test_dir" in
-    "${TMPDIR:-/tmp}"/partsignal-production-test.*) rm -rf "$test_dir" ;;
-  esac
-}
-trap cleanup 0 INT TERM
+case "${PARTSIGNAL_PRODUCTION_HARNESS_TEST_MODE:-}" in
+  "") ;;
+  success) exit 0 ;;
+  failure) exit "${PARTSIGNAL_PRODUCTION_HARNESS_TEST_FAILURE_STATUS:-23}" ;;
+  initialization-failure) exit 24 ;;
+  wait-for-signal)
+    while :; do
+      sleep 1
+    done
+    ;;
+  *)
+    printf '%s\n' "未知的 Production harness lifecycle 回归模式" >&2
+    exit 2
+    ;;
+esac
 
 node "$root/deploy/scripts/check-nginx-security.mjs"
 mkdir -p "$test_dir/live/postgres" "$test_dir/live/redis" "$test_dir/live/objects"

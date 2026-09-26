@@ -1,0 +1,38 @@
+{
+  "id": "frontend-i03-4-b2-clean-checkout-revalidation-i03-closeout",
+  "name": "frontend-i03-4-b2-clean-checkout-revalidation-i03-closeout",
+  "title": "I03-4-B2 修复候选 clean-checkout 完整复验与 I03 收尾",
+  "description": "从固定修复提交执行 detached clean-checkout 完整仓库门禁、资源清理和独立高风险复核，并在全部条件满足后完成 blocker、I03-4、I03 与本地交付收尾。",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P0",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-09-25",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "09-25-frontend-i03-4-b2-production-harness-tmpdir-cleanup-blocker"
+  ],
+  "parent": "09-25-frontend-i03-4-auth-boundary-late-mutation-blocker",
+  "relatedFiles": [],
+  "notes": "固定 bcd98525/tree 486a17b1 的旧单次 make verify 测试层退出 0，但 TMPDIR cleanup 误报使资源验收无效。C1 已修复 production harness cleanup 并通过定向高风险复核；本 B2 仍保持 in_progress，旧门禁证据仍无效。下一任务固定为：基于 TMPDIR cleanup 修复提交重新执行 I03-4-B2 clean-checkout 完整门禁、资源清理、完整候选独立复核和 I03 收尾。",
+  "meta": {
+    "recovery_commit": "bcd985251fabc15d02a4f3be9bde721f2fdd459f",
+    "recovery_tree": "486a17b1105c156121bf6399d07437db1c671794",
+    "verify_log": "/tmp/partsignal-i03-4-b2-clean-verify.log",
+    "verify_log_sha256": "83a437c3fea20ae009278dc6c9d0d1f7170c71c6073ea04bc7fffad753364e96",
+    "verify_log_bytes": 247711,
+    "verify_exit": 0,
+    "blocker": "09-25-frontend-i03-4-b2-production-harness-tmpdir-cleanup-blocker",
+    "review_status": "not_dispatched_due_to_cleanup_blocker",
+    "validation_worktree_removed": true
+  }
+}

@@ -1,0 +1,2 @@
+{"file":".trellis/spec/infra/production-image-delivery.md","reason":"核对 Production deploy harness 必须保持的候选交付与维护隔离合同"}
+{"file":".trellis/spec/infra/ci-execution.md","reason":"核对 deploy-script 检查在本地完整门禁中的入口与失败传播合同"}

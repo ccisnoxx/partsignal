@@ -1,0 +1,2 @@
+{"file":".trellis/spec/infra/production-image-delivery.md","reason":"复核修复未改变 Production 部署合同并保留既有自检覆盖"}
+{"file":".trellis/spec/infra/ci-execution.md","reason":"复核新回归检查接入既有 deploy-script 门禁且失败不被吞掉"}

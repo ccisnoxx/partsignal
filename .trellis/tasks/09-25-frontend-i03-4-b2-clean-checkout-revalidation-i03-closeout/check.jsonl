@@ -1,0 +1,4 @@
+{"file":".trellis/spec/infra/ci-execution.md","reason":"复核 make verify、Docker build、Compose 与 CI 入口的完整性"}
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"复核数据库生命周期、资源所有权、secret scan 和清理证据"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"为最终高风险复核提供 QueryCache、canonical response 与 principal continuation 合同"}
+{"file":".trellis/tasks/09-25-frontend-i03-4-b1-principal-epoch-late-mutation-guard/research.md","reason":"复核 B1 修复覆盖范围和重点并发交错"}

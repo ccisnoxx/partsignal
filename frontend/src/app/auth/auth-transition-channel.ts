@@ -9,6 +9,11 @@ type AuthTransitionMessage = {
   version: 2;
 };
 
+type AuthTransitionStorageState =
+  | { status: 'ABSENT' }
+  | { error: Error; reason: 'INVALID' | 'LEGACY' | 'UNREADABLE'; status: 'INVALID' }
+  | { message: AuthTransitionMessage; status: 'VALID' };
+
 type AuthTransitionOwner = {
   finish: () => Promise<void>;
   start: () => void;
@@ -17,10 +22,12 @@ type AuthTransitionOwner = {
 type AuthTransitionChannel = {
   acquire: (transitionId: string) => Promise<AuthTransitionOwner>;
   close: () => void;
+  reconcile: () => void;
 };
 
 const authTransitionBroadcastName = 'partsignal.auth-transition.v2';
 const authTransitionStorageKey = 'partsignal.auth-transition.v2';
+const authTransitionLegacyStorageKey = 'partsignal.auth-transition.v1';
 const authTransitionOwnerLockName = 'partsignal.auth-transition.owner.v2';
 const authTransitionLeaseDurationMs = 10_000;
 const authTransitionLeaseHeartbeatMs = 2_000;
@@ -70,11 +77,40 @@ function parseAuthTransitionMessage(value: unknown): AuthTransitionMessage | nul
   };
 }
 
-function readAuthTransitionMessage(): AuthTransitionMessage | null {
+function readAuthTransitionState(): AuthTransitionStorageState {
   try {
-    return parseAuthTransitionMessage(globalThis.localStorage?.getItem(authTransitionStorageKey));
-  } catch {
-    return null;
+    const storage = globalThis.localStorage;
+    if (!storage) {
+      return {
+        error: new Error('浏览器无法读取跨标签页认证状态'),
+        reason: 'UNREADABLE',
+        status: 'INVALID',
+      };
+    }
+    if (storage.getItem(authTransitionLegacyStorageKey) !== null) {
+      return {
+        error: new Error('检测到无法安全协调的旧版认证 transition'),
+        reason: 'LEGACY',
+        status: 'INVALID',
+      };
+    }
+    const raw = storage.getItem(authTransitionStorageKey);
+    if (raw === null) return { status: 'ABSENT' };
+    const message = parseAuthTransitionMessage(raw);
+    if (!message) {
+      return {
+        error: new Error('跨标签页认证状态格式无效'),
+        reason: 'INVALID',
+        status: 'INVALID',
+      };
+    }
+    return { message, status: 'VALID' };
+  } catch (cause) {
+    return {
+      error: new Error('浏览器无法读取跨标签页认证状态', { cause }),
+      reason: 'UNREADABLE',
+      status: 'INVALID',
+    };
   }
 }
 
@@ -104,17 +140,33 @@ function requireLockManager(): LockManager {
   return lockManager;
 }
 
+function storageStateToken(state: AuthTransitionStorageState) {
+  if (state.status === 'VALID') return `VALID:${state.message.eventId}`;
+  if (state.status === 'INVALID') return `INVALID:${state.reason}`;
+  return 'ABSENT';
+}
+
+function isMatchingStarted(
+  state: AuthTransitionStorageState,
+  expected: AuthTransitionMessage,
+): state is { message: AuthTransitionMessage; status: 'VALID' } {
+  return state.status === 'VALID'
+    && state.message.phase === 'STARTED'
+    && state.message.transitionId === expected.transitionId
+    && state.message.ownerId === expected.ownerId;
+}
+
 function createAuthTransitionChannel(
-  onMessage: (message: AuthTransitionMessage) => void,
+  onState: (state: AuthTransitionStorageState) => void,
   onError: (error: unknown) => void,
 ): AuthTransitionChannel {
   const ownerId = globalThis.crypto.randomUUID();
-  const seenEventIds = new Set<string>();
-  const recoveryControllers = new Map<string, AbortController>();
   const pendingOwnerRequests = new Set<AbortController>();
   const ownedReleases = new Set<() => void>();
   const ownedStops = new Set<() => void>();
   let closed = false;
+  let recoveryController: AbortController | null = null;
+  let lastStateToken: string | null = null;
   let broadcast: BroadcastChannel | null = null;
   try {
     if (typeof globalThis.BroadcastChannel === 'function') {
@@ -124,12 +176,6 @@ function createAuthTransitionChannel(
     broadcast = null;
   }
 
-  const remember = (eventId: string) => {
-    seenEventIds.add(eventId);
-    if (seenEventIds.size <= 64) return;
-    const oldest = seenEventIds.values().next().value as string | undefined;
-    if (oldest) seenEventIds.delete(oldest);
-  };
   const persist = (message: AuthTransitionMessage) => {
     try {
       globalThis.localStorage?.setItem(authTransitionStorageKey, JSON.stringify(message));
@@ -138,22 +184,11 @@ function createAuthTransitionChannel(
       throw new Error('浏览器无法持久化跨标签页认证租约', { cause: error });
     }
   };
-  const publish = (message: AuthTransitionMessage, deliverLocally: boolean) => {
-    persist(message);
-    remember(message.eventId);
-    try {
-      broadcast?.postMessage(message);
-    } catch {
-      // durable localStorage marker 仍可通过 storage/focus/visibility 收敛。
-    }
-    if (deliverLocally) onMessage(message);
-  };
 
-  const cancelRecovery = (transitionId: string) => {
-    const controller = recoveryControllers.get(transitionId);
-    if (!controller) return;
-    recoveryControllers.delete(transitionId);
-    controller.abort(abortError());
+  const cancelRecovery = () => {
+    const controller = recoveryController;
+    recoveryController = null;
+    controller?.abort(abortError());
   };
 
   const recoverOrphan = async (started: AuthTransitionMessage, signal: AbortSignal) => {
@@ -163,73 +198,86 @@ function createAuthTransitionChannel(
       { mode: 'exclusive', signal },
       async (lock) => {
         if (!lock || closed) return;
-        const current = readAuthTransitionMessage();
-        if (
-          current?.phase !== 'STARTED'
-          || current.transitionId !== started.transitionId
-          || current.ownerId !== started.ownerId
-        ) return;
+        const current = readAuthTransitionState();
+        if (!isMatchingStarted(current, started)) {
+          acceptState(current);
+          return;
+        }
         // Web Lock 已证明 owner 不再存活；lease 只为已离开页面的网络栈保留
         // 收敛窗口。上限避免系统时钟回拨或损坏 marker 造成新的永久锁死。
         await waitUntil(Math.min(
-          current.leaseExpiresAt,
+          current.message.leaseExpiresAt,
           Date.now() + authTransitionLeaseDurationMs,
         ), signal);
-        const expired = readAuthTransitionMessage();
-        if (
-          expired?.phase !== 'STARTED'
-          || expired.transitionId !== started.transitionId
-          || expired.ownerId !== started.ownerId
-        ) return;
-        publish({
-          ...expired,
+        const expired = readAuthTransitionState();
+        if (!isMatchingStarted(expired, started)) {
+          acceptState(expired);
+          return;
+        }
+        const settled: AuthTransitionMessage = {
+          ...expired.message,
           eventId: globalThis.crypto.randomUUID(),
           phase: 'SETTLED',
-        }, true);
+        };
+        persist(settled);
+        try {
+          broadcast?.postMessage(settled);
+        } catch {
+          // durable marker 已提交；当前页面仍会立即执行权威 reconciliation。
+        }
+        acceptState({ message: settled, status: 'VALID' }, true);
       },
     );
   };
 
   const scheduleRecovery = (message: AuthTransitionMessage) => {
-    cancelRecovery(message.transitionId);
+    cancelRecovery();
     const controller = new AbortController();
-    recoveryControllers.set(message.transitionId, controller);
+    recoveryController = controller;
     void recoverOrphan(message, controller.signal)
       .catch((error: unknown) => {
         if (controller.signal.aborted || closed) return;
         onError(error);
       })
       .finally(() => {
-        if (recoveryControllers.get(message.transitionId) === controller) {
-          recoveryControllers.delete(message.transitionId);
-        }
+        if (recoveryController === controller) recoveryController = null;
       });
   };
 
-  const accept = (value: unknown) => {
-    const message = parseAuthTransitionMessage(value);
-    if (!message || seenEventIds.has(message.eventId)) return;
-    remember(message.eventId);
-    if (message.phase === 'STARTED') scheduleRecovery(message);
-    else cancelRecovery(message.transitionId);
-    onMessage(message);
+  function acceptState(state: AuthTransitionStorageState, force = false) {
+    if (closed) return;
+    const token = storageStateToken(state);
+    if (!force && token === lastStateToken) return;
+    lastStateToken = token;
+    if (state.status === 'VALID' && state.message.phase === 'STARTED') {
+      scheduleRecovery(state.message);
+    } else {
+      cancelRecovery();
+    }
+    onState(state);
+  }
+
+  const reconcileStoredState = (force = false) => {
+    acceptState(readAuthTransitionState(), force);
   };
-  const onBroadcast = (event: MessageEvent<unknown>) => accept(event.data);
+  const onBroadcast = () => reconcileStoredState();
   const onStorage = (event: StorageEvent) => {
-    if (event.key === authTransitionStorageKey) accept(event.newValue);
+    if (
+      event.key === authTransitionStorageKey
+      || event.key === authTransitionLegacyStorageKey
+      || event.key === null
+    ) reconcileStoredState();
   };
-  const reconcileStoredMessage = () => accept(readAuthTransitionMessage());
+  const focusListener = () => reconcileStoredState();
   const onVisibilityChange = () => {
-    if (document.visibilityState === 'visible') reconcileStoredMessage();
+    if (document.visibilityState === 'visible') reconcileStoredState();
   };
 
   broadcast?.addEventListener('message', onBroadcast);
   globalThis.addEventListener('storage', onStorage);
-  globalThis.addEventListener('focus', reconcileStoredMessage);
+  globalThis.addEventListener('focus', focusListener);
   document.addEventListener('visibilitychange', onVisibilityChange);
-  const baseline = readAuthTransitionMessage();
-  if (baseline?.phase === 'STARTED') accept(baseline);
-  else if (baseline) remember(baseline.eventId);
+  reconcileStoredState(true);
 
   return {
     acquire: async (transitionId) => {
@@ -281,6 +329,15 @@ function createAuthTransitionChannel(
         heartbeat = null;
         ownedStops.delete(stopHeartbeat);
       };
+      const publishOwned = (message: AuthTransitionMessage) => {
+        persist(message);
+        lastStateToken = storageStateToken({ message, status: 'VALID' });
+        try {
+          broadcast?.postMessage(message);
+        } catch {
+          // durable localStorage marker 仍可通过 storage/focus/visibility 收敛。
+        }
+      };
       return {
         start: () => {
           if (started || finished || closed) throw new Error('认证 transition owner 状态无效');
@@ -293,7 +350,7 @@ function createAuthTransitionChannel(
             version: 2,
           };
           try {
-            publish(started, false);
+            publishOwned(started);
           } catch (error) {
             finished = true;
             release();
@@ -301,13 +358,14 @@ function createAuthTransitionChannel(
           }
           heartbeat = globalThis.setInterval(() => {
             if (!started || finished || closed) return;
-            const current = readAuthTransitionMessage();
-            if (
-              current?.phase !== 'STARTED'
-              || current.eventId !== started.eventId
-              || current.ownerId !== ownerId
-              || current.transitionId !== transitionId
-            ) return;
+            const current = readAuthTransitionState();
+            if (!isMatchingStarted(current, started)) {
+              stopHeartbeat();
+              onError(current.status === 'INVALID'
+                ? current.error
+                : new Error('跨标签页认证 owner marker 已漂移'));
+              return;
+            }
             started = {
               ...started,
               leaseExpiresAt: Date.now() + authTransitionLeaseDurationMs,
@@ -315,6 +373,7 @@ function createAuthTransitionChannel(
             try {
               persist(started);
             } catch (error) {
+              stopHeartbeat();
               onError(error);
             }
           }, authTransitionLeaseHeartbeatMs);
@@ -326,11 +385,11 @@ function createAuthTransitionChannel(
           stopHeartbeat();
           try {
             if (started && !closed) {
-              publish({
+              publishOwned({
                 ...started,
                 eventId: globalThis.crypto.randomUUID(),
                 phase: 'SETTLED',
-              }, false);
+              });
             }
           } finally {
             release();
@@ -342,8 +401,7 @@ function createAuthTransitionChannel(
     close: () => {
       if (closed) return;
       closed = true;
-      for (const controller of recoveryControllers.values()) controller.abort(abortError());
-      recoveryControllers.clear();
+      cancelRecovery();
       for (const controller of pendingOwnerRequests) controller.abort(abortError());
       pendingOwnerRequests.clear();
       for (const stop of Array.from(ownedStops)) stop();
@@ -351,21 +409,24 @@ function createAuthTransitionChannel(
       broadcast?.removeEventListener('message', onBroadcast);
       broadcast?.close();
       globalThis.removeEventListener('storage', onStorage);
-      globalThis.removeEventListener('focus', reconcileStoredMessage);
+      globalThis.removeEventListener('focus', focusListener);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     },
+    reconcile: () => reconcileStoredState(true),
   };
 }
 
 export {
+  authTransitionLegacyStorageKey,
   authTransitionStorageKey,
   createAuthTransitionChannel,
   parseAuthTransitionMessage,
-  readAuthTransitionMessage,
+  readAuthTransitionState,
 };
 export type {
   AuthTransitionChannel,
   AuthTransitionMessage,
   AuthTransitionOwner,
   AuthTransitionPhase,
+  AuthTransitionStorageState,
 };

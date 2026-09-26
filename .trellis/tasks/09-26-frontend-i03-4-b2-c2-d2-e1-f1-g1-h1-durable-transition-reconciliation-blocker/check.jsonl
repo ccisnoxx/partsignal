@@ -1,0 +1,3 @@
+{"file":".trellis/spec/frontend/state-management.md","reason":"核对 durable marker、Web Lock owner、principal epoch 和 canonical session 收敛不变量。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"核对 reviewer 反例的确定性覆盖与请求次数。"}
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"核对真实浏览器隔离、secret artifact 和资源归零。"}

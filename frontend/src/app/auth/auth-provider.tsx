@@ -19,9 +19,10 @@ import {
 } from './principal-epoch';
 import {
   createAuthTransitionChannel,
-  readAuthTransitionMessage,
+  readAuthTransitionState,
   type AuthTransitionChannel,
   type AuthTransitionMessage,
+  type AuthTransitionStorageState,
 } from './auth-transition-channel';
 
 type AuthUser = components['schemas']['User'];
@@ -60,6 +61,17 @@ type AuthTransitionContextValue = {
 type SessionLoadGuard = {
   isCurrent: () => boolean;
   signal: AbortSignal;
+};
+
+type AuthTransitionBarrier = {
+  active: {
+    invalidated: boolean;
+    ownerId: string;
+    transitionId: string;
+  } | null;
+  durableEventId: string | null;
+  fault: boolean;
+  faultInvalidated: boolean;
 };
 
 const authSessionQueryKey = ['auth', 'session'] as const;
@@ -160,7 +172,9 @@ function assertSessionLoadCurrent(guard: SessionLoadGuard) {
 async function loadAuthSession(
   guard: SessionLoadGuard,
 ): Promise<AuthSession | null> {
-  guard.signal.throwIfAborted();
+  // 在发出网络请求前先证明当前 durable transition 已开放读取；不能只在
+  // 响应回来后丢弃，因为 active STARTED 期间连 canonical GET 都不应启动。
+  assertSessionLoadCurrent(guard);
   const snapshot = await api.GET('/api/v1/auth/session', { signal: guard.signal });
   assertSessionLoadCurrent(guard);
   if (snapshot.response.status === 204 || isAuthRequired(snapshot)) {
@@ -184,6 +198,51 @@ function authSessionFromResponse(snapshot: AuthSessionResponse): AuthSession {
   };
 }
 
+function createTransitionBarrier(state: AuthTransitionStorageState): AuthTransitionBarrier {
+  if (state.status === 'INVALID') {
+    return {
+      active: null,
+      durableEventId: null,
+      fault: true,
+      faultInvalidated: false,
+    };
+  }
+  if (state.status === 'VALID' && state.message.phase === 'STARTED') {
+    return {
+      active: {
+        invalidated: false,
+        ownerId: state.message.ownerId,
+        transitionId: state.message.transitionId,
+      },
+      durableEventId: state.message.eventId,
+      fault: false,
+      faultInvalidated: false,
+    };
+  }
+  return {
+    active: null,
+    durableEventId: state.status === 'VALID' ? state.message.eventId : null,
+    fault: false,
+    faultInvalidated: false,
+  };
+}
+
+function authTransitionReadIsOpen(state: AuthTransitionStorageState) {
+  return state.status === 'ABSENT'
+    || (state.status === 'VALID' && state.message.phase === 'SETTLED');
+}
+
+function authTransitionReadMatches(
+  before: AuthTransitionStorageState,
+  after: AuthTransitionStorageState,
+) {
+  if (before.status === 'ABSENT' || after.status === 'ABSENT') {
+    return before.status === after.status;
+  }
+  if (before.status !== 'VALID' || after.status !== 'VALID') return false;
+  return before.message.eventId === after.message.eventId;
+}
+
 function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   initializePrincipalEpoch(
@@ -195,11 +254,18 @@ function AuthProvider({ children }: { children: ReactNode }) {
   const authReadGenerationRef = useRef(0);
   const activeCommandEpochRef = useRef<number | null>(null);
   const authTransitionChannelRef = useRef<AuthTransitionChannel | null>(null);
-  const remoteTransitionIdsRef = useRef(new Set<string>());
-  const [authReadBlocked, setAuthReadBlocked] = useState(
-    () => readAuthTransitionMessage()?.phase === 'STARTED',
+  const [initialTransitionState] = useState(readAuthTransitionState);
+  const transitionBarrierRef = useRef<AuthTransitionBarrier>(
+    createTransitionBarrier(initialTransitionState),
   );
-  const [transitionError, setTransitionError] = useState<unknown>(null);
+  const [authReadBlocked, setAuthReadBlocked] = useState(
+    () => !authTransitionReadIsOpen(initialTransitionState),
+  );
+  const [transitionError, setTransitionError] = useState<unknown>(
+    () => initialTransitionState.status === 'INVALID'
+      ? initialTransitionState.error
+      : null,
+  );
 
   const invalidateRemotePrincipal = useCallback(() => {
     transitionEpochRef.current += 1;
@@ -215,36 +281,96 @@ function AuthProvider({ children }: { children: ReactNode }) {
     queryClient.setQueryData<AuthSession | null>(authSessionQueryKey, null);
   }, [queryClient]);
 
-  const handleRemoteTransition = useCallback((message: AuthTransitionMessage) => {
-    const transitions = remoteTransitionIdsRef.current;
-    if (message.phase === 'STARTED') {
-      transitions.add(message.transitionId);
-      setAuthReadBlocked(true);
+  const failClosedTransition = useCallback((error: unknown) => {
+    const barrier = transitionBarrierRef.current!;
+    const needsInvalidation = barrier.active !== null
+      || !barrier.fault
+      || !barrier.faultInvalidated;
+    barrier.active = null;
+    barrier.durableEventId = null;
+    barrier.fault = true;
+    if (needsInvalidation) {
       invalidateRemotePrincipal();
+      barrier.faultInvalidated = true;
+    }
+    setAuthReadBlocked(true);
+    setTransitionError(error);
+  }, [invalidateRemotePrincipal]);
+
+  const handleRemoteTransition = useCallback((state: AuthTransitionStorageState) => {
+    const barrier = transitionBarrierRef.current!;
+    if (state.status === 'INVALID') {
+      failClosedTransition(state.error);
+      return;
+    }
+    if (state.status === 'ABSENT') {
+      if (barrier.active !== null || barrier.fault) {
+        failClosedTransition(new Error('跨标签页认证状态在收敛前消失'));
+        return;
+      }
+      barrier.durableEventId = null;
+      setTransitionError(null);
+      setAuthReadBlocked(false);
       return;
     }
 
+    const message: AuthTransitionMessage = state.message;
+    if (message.phase === 'STARTED') {
+      const sameActive = barrier.active?.transitionId === message.transitionId
+        && barrier.active.ownerId === message.ownerId;
+      if (!sameActive) {
+        barrier.active = {
+          invalidated: false,
+          ownerId: message.ownerId,
+          transitionId: message.transitionId,
+        };
+      }
+      barrier.durableEventId = message.eventId;
+      barrier.fault = false;
+      barrier.faultInvalidated = false;
+      setAuthReadBlocked(true);
+      setTransitionError(null);
+      if (!barrier.active!.invalidated) {
+        invalidateRemotePrincipal();
+        barrier.active!.invalidated = true;
+      }
+      return;
+    }
+
+    const boundaryChanged = barrier.active !== null
+      || barrier.fault
+      || barrier.durableEventId !== message.eventId;
+    const needsInvalidation = barrier.active !== null
+      ? !barrier.active.invalidated
+      : barrier.fault
+        ? !barrier.faultInvalidated
+        : barrier.durableEventId !== message.eventId;
+    if (needsInvalidation) invalidateRemotePrincipal();
+    barrier.active = null;
+    barrier.durableEventId = message.eventId;
+    barrier.fault = false;
+    barrier.faultInvalidated = false;
     setTransitionError(null);
-    if (!transitions.delete(message.transitionId)) {
-      // 标签页恢复时可能只观察到最终 marker；仍先失效旧主体再重读权威 session。
-      invalidateRemotePrincipal();
+    setAuthReadBlocked(false);
+    if (boundaryChanged) {
+      void queryClient.invalidateQueries({
+        queryKey: authSessionQueryKey,
+        exact: true,
+        refetchType: 'active',
+      });
     }
-    if (transitions.size === 0) {
-      setAuthReadBlocked(false);
-    }
-  }, [invalidateRemotePrincipal]);
+  }, [failClosedTransition, invalidateRemotePrincipal, queryClient]);
 
   useEffect(() => {
     const channel = createAuthTransitionChannel(handleRemoteTransition, (error) => {
-      invalidateRemotePrincipal();
-      setTransitionError(error);
+      failClosedTransition(error);
     });
     authTransitionChannelRef.current = channel;
     return () => {
       authTransitionChannelRef.current = null;
       channel.close();
     };
-  }, [handleRemoteTransition, invalidateRemotePrincipal]);
+  }, [failClosedTransition, handleRemoteTransition]);
 
   const beginTransition = useCallback(async (): Promise<AuthTransition> => {
     const channel = authTransitionChannelRef.current;
@@ -340,16 +466,18 @@ function AuthProvider({ children }: { children: ReactNode }) {
       const generation = authReadGenerationRef.current + 1;
       authReadGenerationRef.current = generation;
       const commandAtStart = activeCommandEpochRef.current;
-      const transitionAtStart = readAuthTransitionMessage();
+      const transitionAtStart = readAuthTransitionState();
       const guard = {
         isCurrent: () => {
-          const currentTransition = readAuthTransitionMessage();
+          const currentTransition = readAuthTransitionState();
+          const barrier = transitionBarrierRef.current!;
           return commandAtStart === null
             && activeCommandEpochRef.current === null
-            && remoteTransitionIdsRef.current.size === 0
-            && transitionAtStart?.phase !== 'STARTED'
-            && currentTransition?.phase !== 'STARTED'
-            && transitionAtStart?.eventId === currentTransition?.eventId
+            && barrier.active === null
+            && !barrier.fault
+            && authTransitionReadIsOpen(transitionAtStart)
+            && authTransitionReadIsOpen(currentTransition)
+            && authTransitionReadMatches(transitionAtStart, currentTransition)
             && authReadGenerationRef.current === generation;
         },
         signal,
@@ -391,12 +519,15 @@ function AuthProvider({ children }: { children: ReactNode }) {
   const value: AuthContextValue = {
     user,
     csrfToken: session.data?.csrfToken ?? null,
-    isLoading: authReadBlocked || session.isLoading,
+    isLoading: transitionError === null && (authReadBlocked || session.isLoading),
     isSigningOut: logout.isPending,
     error: transitionError ?? session.error,
     isAdmin: user?.account_type === 'ADMIN',
     refresh: async () => {
-      setTransitionError(null);
+      if (authReadBlocked || transitionError !== null) {
+        authTransitionChannelRef.current?.reconcile();
+        return;
+      }
       await session.refetch();
     },
     signOut: logout.mutateAsync,

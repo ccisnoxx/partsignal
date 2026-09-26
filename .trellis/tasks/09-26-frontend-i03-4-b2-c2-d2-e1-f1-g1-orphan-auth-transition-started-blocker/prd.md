@@ -20,8 +20,8 @@
 - [x] orphan `STARTED` 的 owner、租约、回收和 canonical refetch 由单一明确 owner 实现，且不能重开旧主体窗口。
 - [x] 单元测试覆盖 marker 版本/有效期、active lease、孤儿回收、去重和无秘密 payload。
 - [x] 同一 BrowserContext 真实栈覆盖发送页在 `STARTED` 后终止、存活页恢复及全页面重载恢复，并证明无旧主体恢复、无请求风暴和 secret artifact。
-- [ ] 定向验证与完整资源清理通过，并形成新的固定 commit/tree。
-- [ ] 全新 detached checkout 中唯一一次完整 `make verify` 退出 0，门禁前后资源全部为 0。
+- [x] 定向验证与完整资源清理通过，并形成新的固定 commit/tree。
+- [x] 全新 detached checkout 中唯一一次完整 `make verify` 退出 0，门禁前后资源全部为 0。
 - [ ] fresh `critical_reviewer` 给出 `NO BLOCKER`。
 
 ## Notes
@@ -35,3 +35,6 @@
 - 定向验证后资源日志 `/tmp/partsignal-i03-g1-targeted-resource-post.log` 为 1,686 bytes，SHA-256 `16b58ab4bdf15f1faa16e2669a4be22f885b32a0f7137d9b95c9585924e3ae16`；原始 TMPDIR、canonical TMPDIR、`/tmp`、四端口、Redis DB 14、E2E 数据库和 frontend test containers 全部为 0。
 - 前两轮非绿色结果均保留：第一轮暴露重载在 unresolved `STARTED` 下提前 auth read 的真实 owner 缺口；第二轮暴露测试等待落在默认 5 秒而实现 lease 为 10 秒。分别修复 owner barrier 与精确等待后才运行第三轮；未无诊断重复门禁。
 - I04 未创建；未 fetch、push、SSH、连接 Hostdzire 或执行任何远程写入。
+- G1 固定候选为 commit `e35c402efcce990ce3345ab6e89755f11bb008e0`、tree `6f16122f37e79a956798feb9d3552c2df455e945`。全新 detached checkout 的唯一一次完整 `make verify` 退出 0；日志 `/tmp/partsignal-i03-g1-e35c-make-verify.log` 为 244,408 bytes，SHA-256 `f510170ee5fc69ef6e7d6e4cc054a4417abd91eb18b406815518a9be8efe25e5`；状态文件 SHA-256 `9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa`。
+- 门禁前后资源日志均为 1,686 bytes 且 SHA-256 同为 `e2b7931e1626fef71eb9d0535608b799230d4a372a32c94fb5665afb0aaf67a9`；全部受控临时资源、四端口、Redis DB 14、E2E 数据库和测试容器为 0；validation worktree 已移除。
+- fresh critical review 审计 Bundle `20260926T102735Z-i03-g1-final-critical-review-09a780fd` 结论为 `BLOCKER`：durable `SETTLED` 未作为权威状态重放、错过终态可使 transition ID 永久残留，且畸形/未知/不可读 marker 被折叠为“无 marker”而 fail-open。已建立 H1 子 blocker；本次绿色门禁不得复用于 H1 修改后的候选。

@@ -18,7 +18,9 @@
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [],
+  "children": [
+    "09-26-frontend-i03-4-b2-c2-d2-e1-f1-g1-h1-durable-transition-reconciliation-blocker"
+  ],
   "parent": "09-26-frontend-i03-4-b2-c2-d2-e1-f1-e2e-lifecycle-full-gate-blocker",
   "relatedFiles": [
     ".trellis/spec/frontend/state-management.md",
@@ -30,22 +32,24 @@
     "frontend/src/app/auth/auth-provider.test.tsx",
     "frontend/tests/e2e/auth-session-real-stack.spec.ts"
   ],
-  "notes": "v2 owner/lease 与 Web Lock 存活证明已实现；定向 typecheck、ESLint、36 unit 和 3 个真实栈用例通过。待新固定候选、单次完整门禁和 fresh critical review。",
+  "notes": "v2 owner/lease 与 Web Lock 存活证明已实现；定向验证、固定候选 e35c402e、全新 detached checkout 唯一一次完整门禁和资源清理均通过。fresh critical review 仍发现 durable SETTLED 未权威重放、旧 transition Set 残留和畸形/旧 marker fail-open，已建立 H1 子 blocker。",
   "meta": {
-    "candidate_commit": "94fd8aaecfc683b9117764a879658731e91f88e6",
-    "candidate_tree": "23d67ad5c778a1a7115de262626f52afad8f6546",
+    "candidate_commit": "e35c402efcce990ce3345ab6e89755f11bb008e0",
+    "candidate_tree": "6f16122f37e79a956798feb9d3552c2df455e945",
     "review_status": "BLOCKER",
-    "review_audit_id": "20260926T093221Z-i03-e1-f1-final-critical-review-591abf2a",
+    "review_audit_id": "20260926T102735Z-i03-g1-final-critical-review-09a780fd",
     "remote_writes": "none",
     "full_make_verify": "passed_once_clean_detached_checkout",
-    "make_verify_log_sha256": "d95ac8286dfee8f3131102a4ae2c7325fc89cb908e0821473940487b0fdf9421",
-    "resource_pre_post_sha256": "16b58ab4bdf15f1faa16e2669a4be22f885b32a0f7137d9b95c9585924e3ae16",
+    "make_verify_log_sha256": "f510170ee5fc69ef6e7d6e4cc054a4417abd91eb18b406815518a9be8efe25e5",
+    "make_verify_status_sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "resource_pre_post_sha256": "e2b7931e1626fef71eb9d0535608b799230d4a372a32c94fb5665afb0aaf67a9",
     "validation_worktree_removed": "true",
     "g1_targeted_status": "passed",
     "g1_targeted_unit": "2_files_36_tests",
     "g1_real_stack": "3_passed_secret_scan_clean_resources_released",
     "g1_real_stack_log_sha256": "d7bd64ffa4bfc9cf0ecd3f0168d2efa67d6cffdec4e9e677e2f5e96db0ec613a",
     "g1_real_stack_status_sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
-    "g1_targeted_resource_post_sha256": "16b58ab4bdf15f1faa16e2669a4be22f885b32a0f7137d9b95c9585924e3ae16"
+    "g1_targeted_resource_post_sha256": "16b58ab4bdf15f1faa16e2669a4be22f885b32a0f7137d9b95c9585924e3ae16",
+    "review_blockers": "durable_settled_not_reconciled;stale_transition_set;invalid_or_legacy_marker_fail_open"
   }
 }

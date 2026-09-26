@@ -17,6 +17,7 @@ import { registerCurrentRealStackCookies, registerRealStackLoginSecrets } from '
 import { registerArtifactSecrets } from './secret-artifact';
 
 const authTransitionStorageKey = 'partsignal.auth-transition.v2';
+const authTransitionLegacyStorageKey = 'partsignal.auth-transition.v1';
 
 const realStackEnabled = process.env.PARTSIGNAL_E2E_REAL_STACK === '1';
 const initialPassword = process.env.PARTSIGNAL_SEED_ENGINEER_PASSWORD ?? 'partsignal-engineer-dev';
@@ -361,6 +362,185 @@ test('跨标签页 owner 终止后由 lease 回收存活页与全页面重载', 
     await secondOwner?.close({ runBeforeUnload: false });
     await registerCurrentRealStackCookies(context, apiBaseUrl);
     await reloaded?.close();
+  }
+});
+
+test('durable terminal reconciliation 与异常协议 marker 保持 fail-closed', async ({
+  context,
+  page,
+}) => {
+  const apiOrigin = new URL(apiBaseUrl).origin;
+  const phase = { current: 'bootstrap-admin' };
+  const runtimeAudit = createRealStackRuntimeAudit({
+    apiOrigin,
+    getPhase: () => phase.current,
+  });
+  let racePage: Page | undefined;
+  let invalidPage: Page | undefined;
+  let legacyPage: Page | undefined;
+
+  await registerArtifactSecrets([adminPassword]);
+
+  const sessionReads = (targetPhase: string) => ({
+    attempts: runtimeAudit.attempts.filter((item) => (
+      item.phase === targetPhase
+      && item.origin === apiOrigin
+      && item.method === 'GET'
+      && item.pathname === '/api/v1/auth/session'
+    )),
+    responses: runtimeAudit.responses.filter((item) => (
+      item.phase === targetPhase
+      && item.origin === apiOrigin
+      && item.method === 'GET'
+      && item.pathname === '/api/v1/auth/session'
+    )),
+  });
+
+  try {
+    await page.goto('/login');
+    await loginAs(page, 'admin', adminPassword);
+    await expect(page).toHaveURL('/');
+    await expect(page.getByRole('heading', { level: 1, name: '工作台' })).toBeVisible();
+    // 后续只保留被审计页面；Cookie 仍由 BrowserContext 共享，避免另一个未纳入
+    // 流量断言的观察者也执行合法 canonical reconciliation。
+    await page.close();
+
+    const transitionId = randomUUID();
+    const ownerId = randomUUID();
+    const started = JSON.stringify({
+      eventId: randomUUID(),
+      leaseExpiresAt: Date.now() + 60_000,
+      ownerId,
+      phase: 'STARTED',
+      transitionId,
+      version: 2,
+    });
+    const settled = JSON.stringify({
+      eventId: randomUUID(),
+      leaseExpiresAt: Date.now() + 60_000,
+      ownerId,
+      phase: 'SETTLED',
+      transitionId,
+      version: 2,
+    });
+
+    phase.current = 'render-started-effect-settled';
+    racePage = await context.newPage();
+    runtimeAudit.watch(racePage);
+    await racePage.addInitScript(({ markerKey, settledMarker, startedMarker }) => {
+      localStorage.setItem(markerKey, startedMarker);
+      const originalGetItem = Storage.prototype.getItem;
+      const originalSetItem = Storage.prototype.setItem;
+      let firstMarkerRead = true;
+      Storage.prototype.getItem = function getItem(key) {
+        const value = originalGetItem.call(this, key);
+        if (firstMarkerRead && key === markerKey) {
+          firstMarkerRead = false;
+          originalSetItem.call(this, markerKey, settledMarker);
+        }
+        return value;
+      };
+    }, {
+      markerKey: authTransitionStorageKey,
+      settledMarker: settled,
+      startedMarker: started,
+    });
+    await racePage.goto('/');
+    await expect(racePage.getByRole('heading', { level: 1, name: '工作台' })).toBeVisible({
+      timeout: 20_000,
+    });
+    const baselineReads = sessionReads('render-started-effect-settled');
+    expect(baselineReads.attempts, 'STARTED→SETTLED 初始化竞态只能发出一次 session read').toHaveLength(1);
+    expect(baselineReads.responses.filter((item) => item.status === 200)).toHaveLength(1);
+
+    phase.current = 'lost-t1-terminal-then-t2';
+    const t1 = randomUUID();
+    const t2 = randomUUID();
+    const transitionMarker = (transition: string, markerPhase: 'STARTED' | 'SETTLED') => JSON.stringify({
+      eventId: randomUUID(),
+      leaseExpiresAt: Date.now() + 60_000,
+      ownerId,
+      phase: markerPhase,
+      transitionId: transition,
+      version: 2,
+    });
+    const t1Started = transitionMarker(t1, 'STARTED');
+    const t1Settled = transitionMarker(t1, 'SETTLED');
+    const t2Started = transitionMarker(t2, 'STARTED');
+    const t2Settled = transitionMarker(t2, 'SETTLED');
+    await racePage.evaluate(({ markerKey, marker }) => {
+      localStorage.setItem(markerKey, marker);
+      window.dispatchEvent(new StorageEvent('storage', { key: markerKey, newValue: marker }));
+    }, { marker: t1Started, markerKey: authTransitionStorageKey });
+    await expect(racePage.getByRole('heading', { level: 1, name: '工作台' })).not.toBeVisible();
+    await racePage.evaluate(({ markerKey, marker }) => {
+      // 故意不投递 T1 SETTLED，模拟后台页丢失即时 terminal 通知。
+      localStorage.setItem(markerKey, marker);
+    }, { marker: t1Settled, markerKey: authTransitionStorageKey });
+    await racePage.evaluate(({ markerKey, marker }) => {
+      localStorage.setItem(markerKey, marker);
+      window.dispatchEvent(new StorageEvent('storage', { key: markerKey, newValue: marker }));
+    }, { marker: t2Started, markerKey: authTransitionStorageKey });
+    await expect(racePage.getByRole('heading', { level: 1, name: '工作台' })).not.toBeVisible();
+    await racePage.evaluate(({ markerKey, marker }) => {
+      localStorage.setItem(markerKey, marker);
+      window.dispatchEvent(new StorageEvent('storage', { key: markerKey, newValue: marker }));
+    }, { marker: t2Settled, markerKey: authTransitionStorageKey });
+    await expect(racePage.getByRole('heading', { level: 1, name: '工作台' })).toBeVisible({
+      timeout: 20_000,
+    });
+    const t2Reads = sessionReads('lost-t1-terminal-then-t2');
+    expect(t2Reads.attempts, 'T1 terminal 丢失后 T2 收敛只能发出一次 session read').toHaveLength(1);
+    expect(t2Reads.responses.filter((item) => item.status === 200)).toHaveLength(1);
+
+    phase.current = 'invalid-v2-marker';
+    invalidPage = await context.newPage();
+    runtimeAudit.watch(invalidPage);
+    await invalidPage.addInitScript(({ legacyKey, markerKey }) => {
+      localStorage.removeItem(legacyKey);
+      localStorage.setItem(markerKey, JSON.stringify({ phase: 'STARTED', version: 3 }));
+    }, {
+      legacyKey: authTransitionLegacyStorageKey,
+      markerKey: authTransitionStorageKey,
+    });
+    await invalidPage.goto('/');
+    await expect(invalidPage.getByRole('heading', { level: 1, name: '无法验证登录状态' })).toBeVisible();
+    expect(sessionReads('invalid-v2-marker').attempts).toHaveLength(0);
+    expect(sessionReads('invalid-v2-marker').responses).toHaveLength(0);
+
+    phase.current = 'legacy-v1-marker';
+    legacyPage = await context.newPage();
+    runtimeAudit.watch(legacyPage);
+    await legacyPage.addInitScript(({ legacyKey, markerKey }) => {
+      localStorage.removeItem(markerKey);
+      localStorage.setItem(legacyKey, JSON.stringify({
+        eventId: '00000000-0000-4000-8000-000000000091',
+        phase: 'STARTED',
+        transitionId: '00000000-0000-4000-8000-000000000090',
+        version: 1,
+      }));
+    }, {
+      legacyKey: authTransitionLegacyStorageKey,
+      markerKey: authTransitionStorageKey,
+    });
+    await legacyPage.goto('/');
+    await expect(legacyPage.getByRole('heading', { level: 1, name: '无法验证登录状态' })).toBeVisible();
+    expect(sessionReads('legacy-v1-marker').attempts).toHaveLength(0);
+    expect(sessionReads('legacy-v1-marker').responses).toHaveLength(0);
+    expect(runtimeAudit.errors, 'durable reconciliation 不得出现未声明错误或失败资源').toEqual([]);
+  } finally {
+    const cleanupPage = legacyPage ?? invalidPage ?? racePage;
+    await cleanupPage?.evaluate(({ legacyKey, markerKey }) => {
+      localStorage.removeItem(legacyKey);
+      localStorage.removeItem(markerKey);
+    }, {
+      legacyKey: authTransitionLegacyStorageKey,
+      markerKey: authTransitionStorageKey,
+    }).catch(() => undefined);
+    await registerCurrentRealStackCookies(context, apiBaseUrl);
+    await racePage?.close();
+    await invalidPage?.close();
+    await legacyPage?.close();
   }
 });
 

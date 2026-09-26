@@ -6,8 +6,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { api } from '@/shared/api/client';
 import {
+  authTransitionLegacyStorageKey,
   authTransitionStorageKey,
   parseAuthTransitionMessage,
+  readAuthTransitionState,
 } from './auth-transition-channel';
 import type { AuthUser } from './auth-provider';
 import { AuthProvider, useAuth, useAuthActions } from './auth-provider';
@@ -168,6 +170,89 @@ describe('AuthProvider', () => {
       version: 2,
       ...override,
     })).toBeNull();
+  });
+
+  it('区分 marker 缺失、无效、旧协议和不可读状态', () => {
+    expect(readAuthTransitionState()).toEqual({ status: 'ABSENT' });
+
+    localStorage.setItem(authTransitionStorageKey, '{broken');
+    expect(readAuthTransitionState()).toMatchObject({ reason: 'INVALID', status: 'INVALID' });
+
+    localStorage.removeItem(authTransitionStorageKey);
+    localStorage.setItem(authTransitionLegacyStorageKey, JSON.stringify({
+      eventId: '00000000-0000-4000-8000-000000000001',
+      phase: 'STARTED',
+      transitionId: '00000000-0000-4000-8000-000000000002',
+      version: 1,
+    }));
+    expect(readAuthTransitionState()).toMatchObject({ reason: 'LEGACY', status: 'INVALID' });
+
+    localStorage.removeItem(authTransitionLegacyStorageKey);
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('storage denied', 'SecurityError');
+    });
+    expect(readAuthTransitionState()).toMatchObject({ reason: 'UNREADABLE', status: 'INVALID' });
+  });
+
+  it.each([
+    ['损坏 v2 marker', () => localStorage.setItem(authTransitionStorageKey, '{broken')],
+    ['未知 v2 marker', () => localStorage.setItem(authTransitionStorageKey, JSON.stringify({ version: 3 }))],
+    ['遗留 v1 marker', () => localStorage.setItem(authTransitionLegacyStorageKey, JSON.stringify({
+      eventId: '00000000-0000-4000-8000-000000000003',
+      phase: 'STARTED',
+      transitionId: '00000000-0000-4000-8000-000000000004',
+      version: 1,
+    }))],
+  ])('%s 在 Provider 层 fail-closed 且不发 canonical session read', async (_caseName, arrange) => {
+    arrange();
+    const get = vi.spyOn(api, 'GET').mockResolvedValue(authSnapshot(engineer, 'must-not-load'));
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    queryClient.setQueryData(['auth', 'session'], {
+      user: admin,
+      csrfToken: 'stale-csrf',
+      sessionBinding: adminBinding,
+    });
+    queryClient.setQueryData(['products', 'invalid-transition'], { value: '旧主体' });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider><AuthProbe /></AuthProvider>
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText('读取失败')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(queryClient.getQueryData(['products', 'invalid-transition'])).toBeUndefined();
+      expect(queryClient.getQueryData(['auth', 'session'])).toBeNull();
+    });
+    expect(get).not.toHaveBeenCalled();
+  });
+
+  it('localStorage 不可读时 Provider fail-closed 且不发 canonical session read', async () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('storage denied', 'SecurityError');
+    });
+    const get = vi.spyOn(api, 'GET').mockResolvedValue(authSnapshot(engineer, 'must-not-load'));
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    queryClient.setQueryData(['auth', 'session'], {
+      user: admin,
+      csrfToken: 'stale-csrf',
+      sessionBinding: adminBinding,
+    });
+    queryClient.setQueryData(['products', 'unreadable-transition'], { value: '旧主体' });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider><AuthProbe /></AuthProvider>
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText('读取失败')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(queryClient.getQueryData(['products', 'unreadable-transition'])).toBeUndefined();
+      expect(queryClient.getQueryData(['auth', 'session'])).toBeNull();
+    });
+    expect(get).not.toHaveBeenCalled();
   });
 
   it('把原子 session 204 作为匿名状态', async () => {
@@ -440,12 +525,11 @@ describe('AuthProvider', () => {
     });
   });
 
-  it('登录期间新启动的读取不能在 canonical login 提交后覆盖会话', async () => {
+  it('登录期间 refresh 在网络请求前被 barrier 拒绝且不能覆盖会话', async () => {
     const loginResult = deferred<never>();
-    const lateAnonymous = deferred<never>();
-    const get = vi.spyOn(api, 'GET')
-      .mockResolvedValueOnce({ response: new Response(null, { status: 204 }) } as never)
-      .mockImplementationOnce(() => lateAnonymous.promise);
+    const get = vi.spyOn(api, 'GET').mockResolvedValueOnce({
+      response: new Response(null, { status: 204 }),
+    } as never);
     const post = vi.spyOn(api, 'POST').mockImplementation(() => loginResult.promise);
     const { queryClient } = renderRace();
     expect(await screen.findByText('匿名')).toBeInTheDocument();
@@ -454,7 +538,7 @@ describe('AuthProvider', () => {
     await waitFor(() => expect(post).toHaveBeenCalledOnce());
     queryClient.setQueryData(['audit', 'sensitive'], { value: '旧身份审计' });
     await userEvent.click(screen.getByRole('button', { name: '竞态刷新' }));
-    await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+    expect(get).toHaveBeenCalledOnce();
 
     await act(async () => {
       loginResult.resolve(authSnapshot(engineer, 'canonical-login-csrf'));
@@ -462,10 +546,6 @@ describe('AuthProvider', () => {
     expect(await screen.findByText('engineer:false')).toBeInTheDocument();
     expect(queryClient.getQueryData(['audit', 'sensitive'])).toBeUndefined();
 
-    await act(async () => {
-      lateAnonymous.resolve({ response: new Response(null, { status: 204 }) } as never);
-      await Promise.resolve();
-    });
     expect(screen.getByText('engineer:false')).toBeInTheDocument();
     expect(queryClient.getQueryData(['auth', 'session'])).toEqual({
       user: engineer,
@@ -532,6 +612,166 @@ describe('AuthProvider', () => {
       csrfToken: 'replacement-csrf',
       sessionBinding: replacementBinding,
     });
+  });
+
+  it('render 读到 STARTED 而 effect 只看到 durable SETTLED 时只执行一次 canonical read', async () => {
+    const transitionId = '00000000-0000-4000-8000-000000000071';
+    const started = JSON.stringify({
+      eventId: '00000000-0000-4000-8000-000000000072',
+      leaseExpiresAt: Date.now() + 60_000,
+      ownerId: remoteOwnerId,
+      phase: 'STARTED',
+      transitionId,
+      version: 2,
+    });
+    const settled = JSON.stringify({
+      eventId: '00000000-0000-4000-8000-000000000073',
+      leaseExpiresAt: Date.now() + 60_000,
+      ownerId: remoteOwnerId,
+      phase: 'SETTLED',
+      transitionId,
+      version: 2,
+    });
+    localStorage.setItem(authTransitionStorageKey, started);
+    const originalGetItem = Storage.prototype.getItem;
+    const originalSetItem = Storage.prototype.setItem;
+    let v2Reads = 0;
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(function getItem(
+      this: Storage,
+      key,
+    ) {
+      const value = originalGetItem.call(this, key);
+      if (key === authTransitionStorageKey && v2Reads === 0) {
+        v2Reads += 1;
+        originalSetItem.call(this, authTransitionStorageKey, settled);
+      }
+      return value;
+    });
+    const get = vi.spyOn(api, 'GET').mockResolvedValue(
+      authSnapshot(engineer, 'canonical-engineer-csrf', engineerBinding),
+    );
+
+    const { queryClient } = renderRace();
+
+    expect(await screen.findByText('engineer:false')).toBeInTheDocument();
+    expect(get).toHaveBeenCalledOnce();
+    expect(queryClient.getQueryData(['auth', 'session'])).toEqual({
+      user: engineer,
+      csrfToken: 'canonical-engineer-csrf',
+      sessionBinding: engineerBinding,
+    });
+  });
+
+  it('错过即时 SETTLED 后仅靠 durable reconciliation 收敛且不重复读取', async () => {
+    const get = vi.spyOn(api, 'GET')
+      .mockResolvedValueOnce(authSnapshot(admin, 'admin-csrf', adminBinding))
+      .mockResolvedValueOnce(authSnapshot(engineer, 'engineer-csrf', engineerBinding));
+    renderRace();
+    expect(await screen.findByText('admin:false')).toBeInTheDocument();
+    const transitionId = '00000000-0000-4000-8000-000000000074';
+    const started = JSON.stringify({
+      eventId: '00000000-0000-4000-8000-000000000075',
+      leaseExpiresAt: Date.now() + 60_000,
+      ownerId: remoteOwnerId,
+      phase: 'STARTED',
+      transitionId,
+      version: 2,
+    });
+    const settled = JSON.stringify({
+      eventId: '00000000-0000-4000-8000-000000000076',
+      leaseExpiresAt: Date.now() + 60_000,
+      ownerId: remoteOwnerId,
+      phase: 'SETTLED',
+      transitionId,
+      version: 2,
+    });
+
+    act(() => {
+      localStorage.setItem(authTransitionStorageKey, started);
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: authTransitionStorageKey,
+        newValue: started,
+      }));
+    });
+    expect(get).toHaveBeenCalledOnce();
+
+    act(() => {
+      // 模拟后台页错过即时 terminal 事件，只留下 durable SETTLED。
+      localStorage.setItem(authTransitionStorageKey, settled);
+      window.dispatchEvent(new Event('focus'));
+    });
+
+    expect(await screen.findByText('engineer:false')).toBeInTheDocument();
+    expect(get).toHaveBeenCalledTimes(2);
+    act(() => window.dispatchEvent(new Event('focus')));
+    expect(get).toHaveBeenCalledTimes(2);
+  });
+
+  it('T1 terminal 丢失后由 T2 durable 状态淘汰旧 barrier', async () => {
+    const get = vi.spyOn(api, 'GET')
+      .mockResolvedValueOnce(authSnapshot(admin, 'admin-csrf', adminBinding))
+      .mockResolvedValueOnce(authSnapshot(engineer, 'engineer-csrf', engineerBinding));
+    renderRace();
+    expect(await screen.findByText('admin:false')).toBeInTheDocument();
+    const marker = (
+      eventId: string,
+      phase: 'STARTED' | 'SETTLED',
+      transitionId: string,
+    ) => JSON.stringify({
+      eventId,
+      leaseExpiresAt: Date.now() + 60_000,
+      ownerId: remoteOwnerId,
+      phase,
+      transitionId,
+      version: 2,
+    });
+    const t1Started = marker(
+      '00000000-0000-4000-8000-000000000081',
+      'STARTED',
+      '00000000-0000-4000-8000-000000000080',
+    );
+    const t1Settled = marker(
+      '00000000-0000-4000-8000-000000000082',
+      'SETTLED',
+      '00000000-0000-4000-8000-000000000080',
+    );
+    const t2Started = marker(
+      '00000000-0000-4000-8000-000000000084',
+      'STARTED',
+      '00000000-0000-4000-8000-000000000083',
+    );
+    const t2Settled = marker(
+      '00000000-0000-4000-8000-000000000085',
+      'SETTLED',
+      '00000000-0000-4000-8000-000000000083',
+    );
+
+    act(() => {
+      localStorage.setItem(authTransitionStorageKey, t1Started);
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: authTransitionStorageKey,
+        newValue: t1Started,
+      }));
+      localStorage.setItem(authTransitionStorageKey, t1Settled);
+      // T1 SETTLED 不投递；权威 durable slot 直接进入 T2。
+      localStorage.setItem(authTransitionStorageKey, t2Started);
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: authTransitionStorageKey,
+        newValue: t2Started,
+      }));
+    });
+    expect(get).toHaveBeenCalledOnce();
+
+    act(() => {
+      localStorage.setItem(authTransitionStorageKey, t2Settled);
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: authTransitionStorageKey,
+        newValue: t2Settled,
+      }));
+    });
+
+    expect(await screen.findByText('engineer:false')).toBeInTheDocument();
+    expect(get).toHaveBeenCalledTimes(2);
   });
 
   it('跨标签页 STARTED 立即失效旧主体，SETTLED 只触发一次 canonical session 重读', async () => {

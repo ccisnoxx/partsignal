@@ -1661,3 +1661,41 @@ R00 至 I01 已完成；I02 完整 make verify 曾单次通过，但完整候选
 
 - 实现 crash-safe transition owner/lease 与孤儿 STARTED 回收，补充发送页终止和全页面重载恢复测试。
 - 形成新固定候选后在全新 detached checkout 中只运行一次完整 make verify；仅在退出 0、资源清理和 fresh NO BLOCKER 后恢复 I03/I04。
+
+
+## Session 229: I03 G1 完整门禁通过但独立复核阻断
+
+**Date**: 2026-09-26
+**Task**: I03 G1 完整门禁通过但独立复核阻断
+**Branch**: `codex/frontend-redevelopment-candidate`
+
+### Summary
+
+完成 crash-safe owner/lease、定向真实栈与唯一一次 clean-checkout 全仓门禁；fresh critical review 确认 durable terminal reconciliation、stale transition 淘汰与 invalid/legacy marker fail-closed 仍为发布阻断，已建立 H1 恢复任务。
+
+### Main Changes
+
+- 固定候选 e35c402e / tree 6f16122f 已形成，G1 owner/lease 与孤儿恢复实现和测试已提交。
+- 完整门禁退出 0，门禁前后资源快照一致，validation worktree 已移除。
+- 独立审计 Bundle 20260926T102735Z-i03-g1-final-critical-review-09a780fd 已闭合并验证，结论 BLOCKER。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e35c402efcce990ce3345ab6e89755f11bb008e0` | (see git log) |
+
+### Testing
+
+- [OK] 定向 TypeScript、ESLint、2 files / 36 Vitest、3 个真实栈用例通过；secret scan clean，资源归零。
+- [OK] 全新 detached checkout 中唯一一次 make verify 退出 0；日志 SHA-256 f510170ee5fc69ef6e7d6e4cc054a4417abd91eb18b406815518a9be8efe25e5；前后资源 SHA-256 e2b7931e1626fef71eb9d0535608b799230d4a372a32c94fb5665afb0aaf67a9。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 在 H1 中实现 durable STARTED/SETTLED 的单一权威 reconciliation，消除旧 transition Set 残留。
+- 区分 absent 与 invalid/unreadable/legacy marker，后者 fail-closed，并补齐 v1 未部署证据或 migration fence。
+- 增加 reviewer 指定的确定性交错测试；形成新固定候选后在新 detached checkout 中仅运行一次完整 make verify，再派发 fresh critical_reviewer。

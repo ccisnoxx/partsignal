@@ -16,7 +16,13 @@ from app.config import DEVELOPMENT_SESSION_SECRET, Settings
 from app.errors import AppError
 from app.models.geo_files import FileRecord
 from app.schemas.configuration import QueryTopicCreate
-from app.security import generate_token, hash_password, hash_token, verify_password
+from app.security import (
+    generate_token,
+    hash_password,
+    hash_token,
+    public_session_binding,
+    verify_password,
+)
 from app.services.file_records import verified_files
 from app.services.publication import domain_allowed
 from app.services.publication_queries import (
@@ -46,6 +52,20 @@ def test_password_and_token_are_not_stored_as_plaintext() -> None:
     assert verify_password(password_hash, password)
     assert not verify_password(password_hash, "wrong-password")
     assert hash_token(token) != token
+
+
+def test_public_session_binding_is_stable_opaque_and_session_specific() -> None:
+    first_session_id = uuid.uuid4()
+    second_session_id = uuid.uuid4()
+
+    first_binding = public_session_binding(first_session_id)
+
+    assert first_binding == public_session_binding(first_session_id)
+    assert first_binding != public_session_binding(second_session_id)
+    assert len(first_binding) == 64
+    assert all(character in "0123456789abcdef" for character in first_binding)
+    assert str(first_session_id) not in first_binding
+    assert hash_token(first_binding) != hash_token(str(first_session_id))
 
 
 def test_contract_unique_items_are_enforced_at_request_boundary() -> None:

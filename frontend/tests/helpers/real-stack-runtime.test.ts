@@ -52,7 +52,7 @@ describe('真实栈 runtime 审计', () => {
     ]));
   });
 
-  it('非预期 401 直接失败，只有声明的 reset /auth/me 401 可通过', () => {
+  it('非预期 401 直接失败，只有声明的 reset /auth/session 401 可通过', () => {
     const audit = createRealStackRuntimeAudit({
       apiOrigin,
       getPhase: () => 'reset',
@@ -60,18 +60,18 @@ describe('真实栈 runtime 审计', () => {
         phase: 'reset',
         origin: apiOrigin,
         method: 'GET',
-        pathname: '/api/v1/auth/me',
+        pathname: '/api/v1/auth/session',
         status: 401,
       }],
     });
     audit.observeResponse({
-      phase: 'reset', origin: apiOrigin, method: 'GET', pathname: '/api/v1/auth/me', status: 401,
+      phase: 'reset', origin: apiOrigin, method: 'GET', pathname: '/api/v1/auth/session', status: 401,
     });
     audit.observeResponse({
-      phase: 'reset', origin: apiOrigin, method: 'GET', pathname: '/api/v1/auth/csrf', status: 401,
+      phase: 'reset', origin: apiOrigin, method: 'GET', pathname: '/api/v1/auth/me', status: 401,
     });
     expect(audit.errors).toEqual([
-      `response: reset: 401 GET ${apiOrigin}/api/v1/auth/csrf`,
+      `response: reset: 401 GET ${apiOrigin}/api/v1/auth/me`,
     ]);
   });
 

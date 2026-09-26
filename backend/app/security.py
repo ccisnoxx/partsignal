@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import secrets
+import uuid
 
 from argon2 import PasswordHasher
 from argon2.exceptions import VerificationError
@@ -36,4 +37,12 @@ def hash_token(token: str) -> str:
     """使用部署密钥生成令牌摘要，数据库不保存可直接使用的明文。"""
     return hmac.new(
         settings.session_secret.encode("utf-8"), token.encode("utf-8"), hashlib.sha256
+    ).hexdigest()
+
+
+def public_session_binding(session_id: uuid.UUID) -> str:
+    """单向推导可公开的会话绑定，不暴露内部 ID 或任何可重放凭据。"""
+    message = f"partsignal-session-binding-v1:{session_id}".encode()
+    return hmac.new(
+        settings.session_secret.encode("utf-8"), message, hashlib.sha256
     ).hexdigest()

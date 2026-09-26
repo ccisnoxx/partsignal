@@ -114,7 +114,11 @@ function authValue(user: AuthUser | null): AuthContextValue {
 function renderRoute(path: string, auth = authValue(engineer)) {
   const queryClient = new QueryClient();
   queryClient.setQueryData(['auth', 'session'], auth.user
-    ? { user: auth.user, csrfToken: auth.csrfToken }
+    ? {
+        user: auth.user,
+        csrfToken: auth.csrfToken,
+        sessionBinding: auth.user.id.replaceAll('-', '').padEnd(64, '0'),
+      }
     : null);
   const router = createRouter({
     routeTree,

@@ -19,11 +19,12 @@
   "pr_url": null,
   "subtasks": [],
   "children": [
-    "09-25-frontend-i03-4-b2-c1-production-harness-tmpdir-cleanup-fix"
+    "09-25-frontend-i03-4-b2-c1-production-harness-tmpdir-cleanup-fix",
+    "09-25-frontend-i03-4-b2-c2-clean-checkout-revalidation-i03-closeout"
   ],
   "parent": "09-25-frontend-i03-4-b2-clean-checkout-revalidation-i03-closeout",
   "relatedFiles": [],
-  "notes": "C1 已完成 production harness canonical TMPDIR owner、strict cleanup allowlist、失败传播和文件系统回归修复，最终 fresh critical_reviewer 为 NO BLOCKER。本父 blocker 保持 in_progress；仍需基于本修复提交重新执行 B2 clean-checkout 完整门禁、资源清理、完整候选独立复核和 I03 收尾。",
+  "notes": "C1 cleanup 修复保持有效；固定 6aaf05a5/tree 8a07b055 的旧门禁证据不能外推到后续变更。D1 原子认证 snapshot 修复的定向检查与独立复核已为 NO BLOCKER。本父任务保持 in_progress，等待基于 D1 修复提交的全新 clean-checkout make verify、资源清理、完整候选独立复核和 I03 总体收尾。",
   "meta": {
     "recovery_commit": "bcd985251fabc15d02a4f3be9bde721f2fdd459f",
     "recovery_tree": "486a17b1105c156121bf6399d07437db1c671794",
@@ -31,6 +32,11 @@
     "verify_log_sha256": "83a437c3fea20ae009278dc6c9d0d1f7170c71c6073ea04bc7fffad753364e96",
     "verify_exit": 0,
     "leak_evidence": "/tmp/partsignal-i03-4-b2-production-temp-leak.txt",
-    "leak_evidence_sha256": "06c22eff1f85352905b92b3c70ca0931381d1e52f850b41eebc72d8c7c6e0db7"
+    "leak_evidence_sha256": "06c22eff1f85352905b92b3c70ca0931381d1e52f850b41eebc72d8c7c6e0db7",
+    "c2_verify_commit": "6aaf05a5ad5371493bb20c95b5cbdb5908a27cf9",
+    "c2_verify_tree": "8a07b055bcb9f8d2b4038f7e31ac5fab71c815e1",
+    "c2_verify_log_sha256": "9f6c68bc57ec8bf8e9ac48bd6b231a238a4634fc88c57efe74984fc6990c9ca6",
+    "c2_verify_exit": 0,
+    "next_blocker": "09-25-frontend-i03-4-b2-c2-auth-session-cross-snapshot-blocker"
   }
 }

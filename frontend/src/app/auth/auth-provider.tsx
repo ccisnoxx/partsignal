@@ -7,6 +7,7 @@ import {
   useRef,
   type ReactNode,
 } from 'react';
+import { z } from 'zod';
 
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
@@ -16,12 +17,14 @@ import {
 } from './principal-epoch';
 
 type AuthUser = components['schemas']['User'];
+type AuthSessionResponse = components['schemas']['AuthSession'];
 type LoginRequest = components['schemas']['LoginRequest'];
 type ChangePasswordRequest = components['schemas']['ChangePasswordRequest'];
 
 type AuthSession = {
   user: AuthUser;
   csrfToken: string;
+  sessionBinding: string;
 };
 
 type AuthContextValue = {
@@ -54,6 +57,48 @@ type SessionLoadGuard = {
 const authSessionQueryKey = ['auth', 'session'] as const;
 const AuthContext = createContext<AuthContextValue | null>(null);
 const AuthTransitionContext = createContext<AuthTransitionContextValue | null>(null);
+
+const deletionBlockerTypes = [
+  'FACT_VERSION',
+  'CONTENT_TASK',
+  'GEO_OBSERVATION',
+  'CONTENT_VERSION',
+  'GENERATION_JOB',
+  'PUBLISHED_ARTICLE',
+  'PLATFORM_PROFILE',
+  'PLATFORM_ACCOUNT',
+  'PUBLICATION_WORK',
+  'PROTECTED_CONTENT_VERSION',
+  'PUBLISHED_CONTENT_ISSUE',
+  'GEO_OPTIMIZATION_SOURCE',
+  'USER_BUSINESS_HISTORY',
+] as const;
+
+const authUserSchema = z.strictObject({
+  id: z.uuid(),
+  username: z.string(),
+  display_name: z.string(),
+  account_type: z.enum(['ADMIN', 'ENGINEER']),
+  is_active: z.boolean(),
+  must_change_password: z.boolean(),
+  workflow_stage: z.enum(['FIRST_PASSWORD_CHANGE', 'ACTIVE', 'DISABLED']),
+  primary_task: z.enum(['MANAGE_LOGIN_SECURITY', 'MANAGE_USER', 'ENABLE_USER']),
+  available_actions: z.array(z.enum(['UPDATE', 'RESET_PASSWORD', 'ENABLE', 'DISABLE', 'DELETE'])),
+  deletion: z.strictObject({
+    blockers: z.array(z.strictObject({
+      type: z.enum(deletionBlockerTypes),
+      count: z.number().int().positive(),
+    })),
+  }).nullable(),
+  revision: z.number().int(),
+  created_at: z.iso.datetime({ offset: true }),
+});
+
+const authSessionResponseSchema = z.strictObject({
+  user: authUserSchema,
+  csrf_token: z.string().min(1).max(256),
+  session_binding: z.string().regex(/^[0-9a-f]{64}$/),
+});
 
 function clearBusinessQueries(queryClient: QueryClient) {
   queryClient.removeQueries({
@@ -103,24 +148,27 @@ async function loadAuthSession(
   guard: SessionLoadGuard,
 ): Promise<AuthSession | null> {
   guard.signal.throwIfAborted();
-  const currentUser = await api.GET('/api/v1/auth/me', { signal: guard.signal });
+  const snapshot = await api.GET('/api/v1/auth/session', { signal: guard.signal });
   assertSessionLoadCurrent(guard);
-  if (currentUser.response.status === 204 || isAuthRequired(currentUser)) {
+  if (snapshot.response.status === 204 || isAuthRequired(snapshot)) {
     // Chromium 需要显式消费空响应，否则开发工具可能把已完成请求显示为中止。
-    if (currentUser.response.status === 204) await currentUser.response.text();
+    if (snapshot.response.status === 204) await snapshot.response.text();
     assertSessionLoadCurrent(guard);
     return null;
   }
-  if (!currentUser.data) throw requestError('读取当前会话', currentUser);
+  if (!snapshot.data) throw requestError('读取当前会话', snapshot);
 
-  const csrf = await api.GET('/api/v1/auth/csrf', { signal: guard.signal });
-  assertSessionLoadCurrent(guard);
-  if (isAuthRequired(csrf)) {
-    return null;
-  }
-  if (!csrf.data) throw requestError('读取会话安全令牌', csrf);
+  return authSessionFromResponse(snapshot.data);
+}
 
-  return { user: currentUser.data, csrfToken: csrf.data.csrf_token };
+function authSessionFromResponse(snapshot: AuthSessionResponse): AuthSession {
+  const parsed = authSessionResponseSchema.safeParse(snapshot);
+  if (!parsed.success) throw new Error('认证会话响应结构无效');
+  return {
+    user: parsed.data.user,
+    csrfToken: parsed.data.csrf_token,
+    sessionBinding: parsed.data.session_binding,
+  };
 }
 
 function AuthProvider({ children }: { children: ReactNode }) {
@@ -198,7 +246,8 @@ function AuthProvider({ children }: { children: ReactNode }) {
   const session = useQuery({
     queryKey: authSessionQueryKey,
     queryFn: ({ signal }) => {
-      const generation = authReadGenerationRef.current;
+      const generation = authReadGenerationRef.current + 1;
+      authReadGenerationRef.current = generation;
       const commandAtStart = activeCommandEpochRef.current;
       const guard = {
         isCurrent: () => (
@@ -284,10 +333,7 @@ function useAuthActions() {
         transition.assertCurrent();
         if (!result.data) throw requestError('登录', result);
 
-        const next = {
-          user: result.data.user,
-          csrfToken: result.data.csrf_token,
-        };
+        const next = authSessionFromResponse(result.data);
         await transition.commit(() => {
           commitPrincipalBoundary(queryClient, next);
           queryClient.setQueryData<AuthSession>(authSessionQueryKey, next);

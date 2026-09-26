@@ -1,0 +1,43 @@
+{
+  "id": "frontend-i03-4-b2-c2-clean-checkout-revalidation-i03-closeout",
+  "name": "frontend-i03-4-b2-c2-clean-checkout-revalidation-i03-closeout",
+  "title": "I03-4-B2-C2 修复候选 clean-checkout 完整复验与 I03 收尾",
+  "description": "基于固定 cleanup 修复提交执行 detached clean-checkout 完整仓库门禁、资源清理、完整候选独立高风险复核，并在全部条件满足后完成 I03 与总体本地交付收尾。",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P0",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-09-25",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "09-25-frontend-i03-4-b2-c2-auth-session-cross-snapshot-blocker"
+  ],
+  "parent": "09-25-frontend-i03-4-b2-production-harness-tmpdir-cleanup-blocker",
+  "relatedFiles": [],
+  "notes": "固定 6aaf05a5/tree 8a07b055 的旧 clean-checkout 门禁证据成立但不能外推；D1 已完成原子认证 snapshot 修复、定向检查和 NO BLOCKER 独立复核。本任务及父链保持 in_progress，等待基于 D1 修复提交执行全新 clean-checkout make verify、资源清理、完整候选独立复核和 I03 总体收尾；不进入 I04。",
+  "meta": {
+    "recovery_commit": "6aaf05a5ad5371493bb20c95b5cbdb5908a27cf9",
+    "recovery_tree": "8a07b055bcb9f8d2b4038f7e31ac5fab71c815e1",
+    "verify_log": "/tmp/partsignal-i03-4-b2-c2-clean-verify.log",
+    "verify_log_sha256": "9f6c68bc57ec8bf8e9ac48bd6b231a238a4634fc88c57efe74984fc6990c9ca6",
+    "verify_log_bytes": 227525,
+    "verify_exit": 0,
+    "pre_resource_log_sha256": "62583eafd542f97be32296b69ca60ce56473ec23cc9e10a63b0ff42fbf03f270",
+    "post_resource_log_sha256": "229f4aa8d836d45070fb34df9b155c7e359600f97f9311c9daba772638bc835d",
+    "validation_worktree_removed": true,
+    "worktree_pruned": true,
+    "review_status": "D1_NO_BLOCKER_PENDING_CLEAN_CHECKOUT",
+    "review_audit_id": "20260926T055735Z-i03-4-b2-c2-d1-23f1a8df",
+    "blocker": "09-25-frontend-i03-4-b2-c2-auth-session-cross-snapshot-blocker",
+    "next_task": "基于原子认证快照修复提交执行全新 clean-checkout make verify、资源清理、完整候选独立复核和 I03 总体收尾。"
+  }
+}

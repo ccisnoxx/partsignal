@@ -295,7 +295,7 @@ const test = base.extend<NewGeoFixtures>({
         return;
       }
 
-      if (['/api/v1/auth/me', '/api/v1/auth/csrf', '/api/v1/geo-observations/list-items'].includes(url.pathname)) {
+      if (['/api/v1/auth/session', '/api/v1/geo-observations/list-items'].includes(url.pathname)) {
         await route.fallback();
         return;
       }

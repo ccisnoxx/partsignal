@@ -77,6 +77,18 @@ function success<T>(data: T) {
   return { data, response: Response.json(data) } as never;
 }
 
+function sessionBinding(user: AuthUser) {
+  return user.id.replaceAll('-', '').padEnd(64, '0');
+}
+
+function authSnapshot(user: AuthUser, csrfToken: string) {
+  return success({
+    user,
+    csrf_token: csrfToken,
+    session_binding: sessionBinding(user),
+  });
+}
+
 async function flushDeferredContinuation() {
   await Promise.resolve();
   await new Promise<void>((resolve) => { setTimeout(resolve, 0); });
@@ -137,9 +149,11 @@ describe('AppProviders', () => {
   });
 
   it('有效会话才渲染根业务页面', async () => {
-    vi.spyOn(api, 'GET')
-      .mockResolvedValueOnce({ data: admin, response: Response.json(admin) } as never)
-      .mockResolvedValueOnce({ data: { csrf_token: 'admin-csrf' }, response: Response.json({ csrf_token: 'admin-csrf' }) } as never);
+    vi.spyOn(api, 'GET').mockImplementation((path) => (
+      path === '/api/v1/auth/session'
+        ? Promise.resolve(authSnapshot(admin, 'admin-csrf'))
+        : Promise.resolve(success(emptyWorkbenchAggregate))
+    ));
     window.history.replaceState(null, '', '/');
 
     render(<AppProviders />);
@@ -151,9 +165,7 @@ describe('AppProviders', () => {
 
   it('must-change 会话进入独立安全页且不渲染 App Shell', async () => {
     const mustChangeAdmin = { ...admin, must_change_password: true, workflow_stage: 'FIRST_PASSWORD_CHANGE' as const };
-    vi.spyOn(api, 'GET')
-      .mockResolvedValueOnce({ data: mustChangeAdmin, response: Response.json(mustChangeAdmin) } as never)
-      .mockResolvedValueOnce({ data: { csrf_token: 'admin-csrf' }, response: Response.json({ csrf_token: 'admin-csrf' }) } as never);
+    vi.spyOn(api, 'GET').mockResolvedValue(authSnapshot(mustChangeAdmin, 'admin-csrf'));
     window.history.replaceState(null, '', '/');
 
     render(<AppProviders />);
@@ -182,7 +194,11 @@ describe('AppProviders', () => {
       error: { error: { code: 'AUTH_REQUIRED', message: '登录会话无效或已过期' } },
       response: Response.json({}, { status: 401 }),
     } as never);
-    queryClient.setQueryData(['auth', 'session'], { user: admin, csrfToken: 'stale-csrf' });
+    queryClient.setQueryData(['auth', 'session'], {
+      user: admin,
+      csrfToken: 'stale-csrf',
+      sessionBinding: sessionBinding(admin),
+    });
     queryClient.setQueryData(['products', 'list'], { items: ['旧身份数据'] });
     window.history.replaceState(null, '', '/');
 
@@ -197,17 +213,8 @@ describe('AppProviders', () => {
   it('ADMIN 变为 ENGINEER 时清除 Users/Audit 缓存并重新裁决当前 System 路由', async () => {
     let currentUser = admin;
     vi.spyOn(api, 'GET').mockImplementation((path) => {
-      if (path === '/api/v1/auth/me') {
-        return Promise.resolve({
-          data: currentUser,
-          response: Response.json(currentUser),
-        } as never);
-      }
-      if (path === '/api/v1/auth/csrf') {
-        return Promise.resolve({
-          data: { csrf_token: `${currentUser.username}-csrf` },
-          response: Response.json({ csrf_token: `${currentUser.username}-csrf` }),
-        } as never);
+      if (path === '/api/v1/auth/session') {
+        return Promise.resolve(authSnapshot(currentUser, `${currentUser.username}-csrf`));
       }
       if (path === '/api/v1/users') {
         return Promise.resolve({
@@ -248,21 +255,22 @@ describe('AppProviders', () => {
     expect(queryClient.getQueryData(authSessionQueryKey)).toEqual({
       user: engineer,
       csrfToken: 'engineer-csrf',
+      sessionBinding: sessionBinding(engineer),
     });
   });
 
   it('登录期间启动的旧读取迟到后仍保留 canonical 身份、缓存清理和路由', async () => {
     const loginResult = deferred<never>();
     const lateAnonymous = deferred<never>();
-    let authMeCalls = 0;
+    let authSessionCalls = 0;
     vi.spyOn(api, 'GET').mockImplementation((path) => {
       if (path === '/api/v1/workbench') return Promise.resolve({
         data: emptyWorkbenchAggregate,
         response: Response.json(emptyWorkbenchAggregate),
       } as never);
-      if (path === '/api/v1/auth/me') {
-        authMeCalls += 1;
-        if (authMeCalls === 1) return Promise.resolve({
+      if (path === '/api/v1/auth/session') {
+        authSessionCalls += 1;
+        if (authSessionCalls === 1) return Promise.resolve({
           response: new Response(null, { status: 204 }),
         } as never);
         return lateAnonymous.promise;
@@ -281,13 +289,10 @@ describe('AppProviders', () => {
     await waitFor(() => expect(post).toHaveBeenCalledOnce());
     queryClient.setQueryData(['audit', 'sensitive-race'], { value: '旧审计' });
     const staleRefetch = queryClient.refetchQueries({ queryKey: authSessionQueryKey, exact: true });
-    await waitFor(() => expect(authMeCalls).toBe(2));
+    await waitFor(() => expect(authSessionCalls).toBe(2));
 
     await act(async () => {
-      loginResult.resolve({
-        data: { user: engineer, csrf_token: 'canonical-login-csrf' },
-        response: Response.json({ user: engineer, csrf_token: 'canonical-login-csrf' }),
-      } as never);
+      loginResult.resolve(authSnapshot(engineer, 'canonical-login-csrf'));
     });
     expect(await screen.findByRole('heading', { name: '工作台' })).toBeInTheDocument();
     expect(window.location.pathname).toBe('/');
@@ -301,28 +306,25 @@ describe('AppProviders', () => {
     expect(queryClient.getQueryData(authSessionQueryKey)).toEqual({
       user: engineer,
       csrfToken: 'canonical-login-csrf',
+      sessionBinding: sessionBinding(engineer),
     });
   });
 
   it('退出期间启动的旧读取迟到后仍保留匿名身份、缓存清理和登录路由', async () => {
     const logoutResult = deferred<never>();
     const lateAdmin = deferred<never>();
-    let authMeCalls = 0;
+    let authSessionCalls = 0;
     vi.spyOn(api, 'GET').mockImplementation((path) => {
       if (path === '/api/v1/workbench') return Promise.resolve({
         data: emptyWorkbenchAggregate,
         response: Response.json(emptyWorkbenchAggregate),
       } as never);
-      if (path === '/api/v1/auth/me') {
-        authMeCalls += 1;
-        return authMeCalls === 1
-          ? Promise.resolve({ data: admin, response: Response.json(admin) } as never)
+      if (path === '/api/v1/auth/session') {
+        authSessionCalls += 1;
+        return authSessionCalls === 1
+          ? Promise.resolve(authSnapshot(admin, 'admin-csrf'))
           : lateAdmin.promise;
       }
-      if (path === '/api/v1/auth/csrf') return Promise.resolve({
-        data: { csrf_token: 'admin-csrf' },
-        response: Response.json({ csrf_token: 'admin-csrf' }),
-      } as never);
       throw new Error(`测试收到未声明的 GET：${path}`);
     });
     const post = vi.spyOn(api, 'POST').mockImplementation(() => logoutResult.promise);
@@ -336,7 +338,7 @@ describe('AppProviders', () => {
     await waitFor(() => expect(post).toHaveBeenCalledOnce());
     queryClient.setQueryData(['users', 'sensitive-race'], { value: '旧用户' });
     const staleRefetch = queryClient.refetchQueries({ queryKey: authSessionQueryKey, exact: true });
-    await waitFor(() => expect(authMeCalls).toBe(2));
+    await waitFor(() => expect(authSessionCalls).toBe(2));
 
     await act(async () => {
       logoutResult.resolve({ response: new Response(null, { status: 204 }) } as never);
@@ -346,7 +348,7 @@ describe('AppProviders', () => {
     expect(queryClient.getQueryData(['users', 'sensitive-race'])).toBeUndefined();
 
     await act(async () => {
-      lateAdmin.resolve({ data: admin, response: Response.json(admin) } as never);
+      lateAdmin.resolve(authSnapshot(admin, 'admin-csrf'));
       await staleRefetch;
     });
     expect(window.location.pathname).toBe('/login');
@@ -361,29 +363,19 @@ describe('AppProviders', () => {
     };
     const changeResult = deferred<never>();
     const lateMustChange = deferred<never>();
-    let authMeCalls = 0;
-    let csrfCalls = 0;
+    let authSessionCalls = 0;
     vi.spyOn(api, 'GET').mockImplementation((path) => {
       if (path === '/api/v1/workbench') return Promise.resolve({
         data: emptyWorkbenchAggregate,
         response: Response.json(emptyWorkbenchAggregate),
       } as never);
-      if (path === '/api/v1/auth/me') {
-        authMeCalls += 1;
-        if (authMeCalls === 1) return Promise.resolve({
-          data: mustChangeAdmin,
-          response: Response.json(mustChangeAdmin),
-        } as never);
-        if (authMeCalls === 2) return lateMustChange.promise;
-        return Promise.resolve({ data: admin, response: Response.json(admin) } as never);
-      }
-      if (path === '/api/v1/auth/csrf') {
-        csrfCalls += 1;
-        const csrfToken = csrfCalls === 1 ? 'must-change-csrf' : 'canonical-change-csrf';
-        return Promise.resolve({
-          data: { csrf_token: csrfToken },
-          response: Response.json({ csrf_token: csrfToken }),
-        } as never);
+      if (path === '/api/v1/auth/session') {
+        authSessionCalls += 1;
+        if (authSessionCalls === 1) {
+          return Promise.resolve(authSnapshot(mustChangeAdmin, 'must-change-csrf'));
+        }
+        if (authSessionCalls === 2) return lateMustChange.promise;
+        return Promise.resolve(authSnapshot(admin, 'canonical-change-csrf'));
       }
       throw new Error(`测试收到未声明的 GET：${path}`);
     });
@@ -399,7 +391,7 @@ describe('AppProviders', () => {
     await waitFor(() => expect(post).toHaveBeenCalledOnce());
     queryClient.setQueryData(['audit', 'must-change-race'], { value: '强改密审计' });
     const staleRefetch = queryClient.refetchQueries({ queryKey: authSessionQueryKey, exact: true });
-    await waitFor(() => expect(authMeCalls).toBe(2));
+    await waitFor(() => expect(authSessionCalls).toBe(2));
 
     await act(async () => {
       changeResult.resolve({ response: new Response(null, { status: 204 }) } as never);
@@ -409,16 +401,14 @@ describe('AppProviders', () => {
     expect(queryClient.getQueryData(['audit', 'must-change-race'])).toBeUndefined();
 
     await act(async () => {
-      lateMustChange.resolve({
-        data: mustChangeAdmin,
-        response: Response.json(mustChangeAdmin),
-      } as never);
+      lateMustChange.resolve(authSnapshot(mustChangeAdmin, 'must-change-csrf'));
       await staleRefetch;
     });
     expect(window.location.pathname).toBe('/');
     expect(queryClient.getQueryData(authSessionQueryKey)).toEqual({
       user: admin,
       csrfToken: 'canonical-change-csrf',
+      sessionBinding: sessionBinding(admin),
     });
   });
 
@@ -432,13 +422,10 @@ describe('AppProviders', () => {
       let currentUser: AuthUser | null = admin;
       const putResult = deferred<never>();
       vi.spyOn(api, 'GET').mockImplementation((path) => {
-        if (path === '/api/v1/auth/me') {
+        if (path === '/api/v1/auth/session') {
           return Promise.resolve(currentUser
-            ? success(currentUser)
+            ? authSnapshot(currentUser, `${currentUser.username}-csrf`)
             : { response: new Response(null, { status: 204 }) } as never);
-        }
-        if (path === '/api/v1/auth/csrf') {
-          return Promise.resolve(success({ csrf_token: `${currentUser?.username ?? 'anonymous'}-csrf` }));
         }
         if (path === '/api/v1/ai-channels/{channel_id}') {
           return Promise.resolve(success(aiChannel()));
@@ -489,13 +476,10 @@ describe('AppProviders', () => {
       let currentUser: AuthUser | null = admin;
       const patchResult = deferred<never>();
       vi.spyOn(api, 'GET').mockImplementation((path) => {
-        if (path === '/api/v1/auth/me') {
+        if (path === '/api/v1/auth/session') {
           return Promise.resolve(currentUser
-            ? success(currentUser)
+            ? authSnapshot(currentUser, `${currentUser.username}-csrf`)
             : { response: new Response(null, { status: 204 }) } as never);
-        }
-        if (path === '/api/v1/auth/csrf') {
-          return Promise.resolve(success({ csrf_token: `${currentUser?.username ?? 'anonymous'}-csrf` }));
         }
         if (path === '/api/v1/ai-channels/{channel_id}') {
           return Promise.resolve(success(aiChannel()));
@@ -544,8 +528,9 @@ describe('AppProviders', () => {
       let csrfToken = 'initial-csrf';
       const mutationResult = deferred<never>();
       vi.spyOn(api, 'GET').mockImplementation((path) => {
-        if (path === '/api/v1/auth/me') return Promise.resolve(success(currentUser));
-        if (path === '/api/v1/auth/csrf') return Promise.resolve(success({ csrf_token: csrfToken }));
+        if (path === '/api/v1/auth/session') {
+          return Promise.resolve(authSnapshot(currentUser, csrfToken));
+        }
         if (path === '/api/v1/ai-channels/{channel_id}') return Promise.resolve(success(aiChannel()));
         throw new Error(`测试收到未声明的 GET：${path}`);
       });
@@ -573,7 +558,11 @@ describe('AppProviders', () => {
       currentUser = { ...admin, revision: 2 };
       csrfToken = 'refreshed-csrf';
       await queryClient.refetchQueries({ exact: true, queryKey: authSessionQueryKey });
-      expect(queryClient.getQueryData(authSessionQueryKey)).toEqual({ user: currentUser, csrfToken });
+      expect(queryClient.getQueryData(authSessionQueryKey)).toEqual({
+        user: currentUser,
+        csrfToken,
+        sessionBinding: sessionBinding(currentUser),
+      });
 
       await act(async () => {
         mutationResult.resolve(success(aiChannel({

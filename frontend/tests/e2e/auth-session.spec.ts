@@ -50,14 +50,10 @@ const test = base.extend<AuthFixture>({
       const pathname = new URL(request.url()).pathname;
       const method = request.method();
 
-      if (method === 'GET' && pathname === '/api/v1/auth/me') {
+      if (method === 'GET' && pathname === '/api/v1/auth/session') {
         await route.fulfill(currentUser
-          ? { status: 200, json: currentUser }
+          ? { status: 200, json: { user: currentUser, csrf_token: csrfToken, session_binding: 'a'.repeat(64) } }
           : { status: 204, body: '' });
-        return;
-      }
-      if (method === 'GET' && pathname === '/api/v1/auth/csrf' && currentUser) {
-        await route.fulfill({ status: 200, json: { csrf_token: csrfToken } });
         return;
       }
       if (method === 'GET' && pathname === '/api/v1/workbench') {
@@ -74,7 +70,7 @@ const test = base.extend<AuthFixture>({
           return;
         }
         currentUser = { ...engineer, must_change_password: currentPassword === initialPassword };
-        await route.fulfill({ status: 200, json: { user: currentUser, csrf_token: csrfToken } });
+        await route.fulfill({ status: 200, json: { user: currentUser, csrf_token: csrfToken, session_binding: 'a'.repeat(64) } });
         return;
       }
       if (method === 'POST' && pathname === '/api/v1/auth/change-password' && currentUser) {

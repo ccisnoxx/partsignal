@@ -4,13 +4,14 @@ from datetime import UTC, datetime
 from http.cookies import SimpleCookie
 from types import SimpleNamespace
 from unittest.mock import Mock
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from fastapi import Response
 
 from app.config import settings
 from app.main import app
 from app.routers import identity as identity_router
+from app.security import public_session_binding
 
 
 def _set_cookie_values(response: Response) -> list[str]:
@@ -67,14 +68,23 @@ def test_login_keeps_two_independent_cookie_occurrences_and_security_attributes(
 ) -> None:
     session_token = "session-token"
     csrf_token = "csrf-token"
+    user = _fake_user()
+    session_record = SimpleNamespace(
+        id=UUID("00000000-0000-4000-8000-000000000123"),
+        user=user,
+    )
     monkeypatch.setattr(
         identity_router,
         "login_command",
-        lambda db, payload: (_fake_user(), session_token, csrf_token),
+        lambda db, payload: (user, session_record, session_token, csrf_token),
     )
     response = Response()
 
-    identity_router.login(payload=Mock(), response=response, db=Mock())
+    auth_session = identity_router.login(payload=Mock(), response=response, db=Mock())
+
+    assert auth_session.user.id == user.id
+    assert auth_session.csrf_token == csrf_token
+    assert auth_session.session_binding == public_session_binding(session_record.id)
 
     values = _set_cookie_values(response)
     assert len(values) == 2

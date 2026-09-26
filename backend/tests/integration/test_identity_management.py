@@ -44,7 +44,7 @@ from app.schemas.common import (
     UserCreate,
     UserStatus,
 )
-from app.security import hash_token
+from app.security import hash_token, public_session_binding
 
 
 def _psycopg_url(value: str) -> str:
@@ -109,8 +109,8 @@ def _wait_for_postgresql_lock(
 
 
 @pytest.mark.integration
-def test_auth_session_probe_distinguishes_anonymous_and_invalid_sessions() -> None:
-    """会话探测只把完全无 Cookie 视为匿名，其他认证失败继续返回 401。"""
+def test_auth_session_snapshot_is_atomic_current_and_secret_free() -> None:
+    """原子快照只把无 Cookie 视为匿名，并从同一 SessionRecord 投影公开字段。"""
     with temporary_database() as database_url:
         engine = create_engine(database_url)
         session_factory = sessionmaker(bind=engine, expire_on_commit=False)
@@ -129,16 +129,23 @@ def test_auth_session_probe_distinguishes_anonymous_and_invalid_sessions() -> No
                 account_type="ENGINEER",
                 is_active=False,
             )
-            db.add_all([active_user, disabled_user])
+            deleted_user = User(
+                username="session-deleted",
+                display_name="已删除会话账号",
+                password_hash="not-used",
+                account_type="ENGINEER",
+            )
+            db.add_all([active_user, disabled_user, deleted_user])
             db.flush()
+            valid_session = SessionRecord(
+                token_hash=hash_token("valid-session"),
+                csrf_hash=hash_token("valid-csrf"),
+                user_id=active_user.id,
+                expires_at=now + timedelta(hours=1),
+            )
             db.add_all(
                 [
-                    SessionRecord(
-                        token_hash=hash_token("valid-session"),
-                        csrf_hash=hash_token("valid-csrf"),
-                        user_id=active_user.id,
-                        expires_at=now + timedelta(hours=1),
-                    ),
+                    valid_session,
                     SessionRecord(
                         token_hash=hash_token("revoked-session"),
                         csrf_hash=hash_token("revoked-csrf"),
@@ -158,8 +165,17 @@ def test_auth_session_probe_distinguishes_anonymous_and_invalid_sessions() -> No
                         user_id=disabled_user.id,
                         expires_at=now + timedelta(hours=1),
                     ),
+                    SessionRecord(
+                        token_hash=hash_token("deleted-session"),
+                        csrf_hash=hash_token("deleted-csrf"),
+                        user_id=deleted_user.id,
+                        expires_at=now + timedelta(hours=1),
+                    ),
                 ]
             )
+            db.flush()
+            valid_session_id = valid_session.id
+            db.delete(deleted_user)
             db.commit()
             active_user_id = active_user.id
 
@@ -170,25 +186,59 @@ def test_auth_session_probe_distinguishes_anonymous_and_invalid_sessions() -> No
         app.dependency_overrides[get_db] = override_db
         client = TestClient(app)
         try:
-            anonymous = client.get("/api/v1/auth/me")
+            anonymous = client.get("/api/v1/auth/session")
             assert anonymous.status_code == 204
             assert anonymous.content == b""
             assert client.get("/api/v1/users").status_code == 401
 
             client.cookies.set(settings.session_cookie_name, "valid-session")
-            valid = client.get("/api/v1/auth/me")
+            client.cookies.set(settings.csrf_cookie_name, "valid-csrf")
+            valid = client.get("/api/v1/auth/session")
             assert valid.status_code == 200
-            assert valid.json()["id"] == str(active_user_id)
-            assert valid.json()["available_actions"] == []
+            snapshot = valid.json()
+            assert set(snapshot) == {"user", "csrf_token", "session_binding"}
+            assert snapshot["user"]["id"] == str(active_user_id)
+            assert snapshot["user"]["available_actions"] == []
+            assert snapshot["csrf_token"] == "valid-csrf"
+            assert snapshot["session_binding"] == public_session_binding(valid_session_id)
+            assert len(snapshot["session_binding"]) == 64
+            serialized_snapshot = valid.text
+            for secret in (
+                "valid-session",
+                hash_token("valid-session"),
+                hash_token("valid-csrf"),
+                str(valid_session_id),
+            ):
+                assert secret not in serialized_snapshot
 
-            for token in (
-                "unknown-session",
-                "revoked-session",
-                "expired-session",
-                "disabled-session",
+            client.cookies.set(settings.csrf_cookie_name, "wrong-csrf")
+            csrf_rejected = client.get("/api/v1/auth/session")
+            assert csrf_rejected.status_code == 403
+            assert csrf_rejected.json()["error"]["code"] == "CSRF_INVALID"
+
+            with session_factory() as db:
+                current_user = db.get(User, active_user_id)
+                assert current_user is not None
+                current_user.account_type = "ADMIN"
+                current_user.revision += 1
+                db.commit()
+            client.cookies.set(settings.csrf_cookie_name, "valid-csrf")
+            updated = client.get("/api/v1/auth/session")
+            assert updated.status_code == 200
+            assert updated.json()["user"]["account_type"] == "ADMIN"
+            assert updated.json()["user"]["revision"] == 1
+            assert updated.json()["session_binding"] == snapshot["session_binding"]
+
+            for token, csrf_token in (
+                ("unknown-session", "unknown-csrf"),
+                ("revoked-session", "revoked-csrf"),
+                ("expired-session", "expired-csrf"),
+                ("disabled-session", "disabled-csrf"),
+                ("deleted-session", "deleted-csrf"),
             ):
                 client.cookies.set(settings.session_cookie_name, token)
-                rejected = client.get("/api/v1/auth/me")
+                client.cookies.set(settings.csrf_cookie_name, csrf_token)
+                rejected = client.get("/api/v1/auth/session")
                 assert rejected.status_code == 401
                 assert rejected.json()["error"]["code"] == "AUTH_REQUIRED"
         finally:

@@ -1040,12 +1040,15 @@ const test = base.extend<ContentFixtures>({
       const url = new URL(request.url());
       const method = request.method();
 
-      if (method === 'GET' && url.pathname === '/api/v1/auth/me') {
-        await route.fulfill({ status: 200, json: user });
-        return;
-      }
-      if (method === 'GET' && url.pathname === '/api/v1/auth/csrf') {
-        await route.fulfill({ status: 200, json: { csrf_token: 'content-e2e-csrf' } satisfies components['schemas']['CsrfToken'] });
+      if (method === 'GET' && url.pathname === '/api/v1/auth/session') {
+        await route.fulfill({
+          status: 200,
+          json: {
+            user,
+            csrf_token: 'content-e2e-csrf',
+            session_binding: 'a'.repeat(64),
+          } satisfies components['schemas']['AuthSession'],
+        });
         return;
       }
       const productDetailMatch = url.pathname.match(/^\/api\/v1\/products\/([^/]+)\/detail$/);

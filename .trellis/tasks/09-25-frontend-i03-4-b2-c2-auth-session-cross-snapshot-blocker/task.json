@@ -1,0 +1,40 @@
+{
+  "id": "frontend-i03-4-b2-c2-auth-session-cross-snapshot-blocker",
+  "name": "frontend-i03-4-b2-c2-auth-session-cross-snapshot-blocker",
+  "title": "I03-4-B2-C2 Blocker 认证刷新跨快照拼接",
+  "description": "修复认证刷新把不同权限或不同账号时刻的 /auth/me 与 /auth/csrf 响应拼接为 AuthSession，导致 principal epoch 未推进、旧敏感缓存与迟到 continuation 继续存活的权限边界缺陷。",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P1",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-09-25",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "09-25-frontend-i03-4-b2-c2-d1-atomic-auth-session-snapshot"
+  ],
+  "parent": "09-25-frontend-i03-4-b2-c2-clean-checkout-revalidation-i03-closeout",
+  "relatedFiles": [],
+  "notes": "D1 已完成原子 GET /api/v1/auth/session、公开 binding、AuthProvider generation/transition 防护、确定性交错与定向真实栈验证，最终 fresh critical_reviewer 为 NO BLOCKER。本 blocker 保持 in_progress，等待基于修复提交的全新 clean-checkout 完整门禁、资源清理、完整候选复核和 I03 总体收尾。",
+  "meta": {
+    "recovery_commit": "6aaf05a5ad5371493bb20c95b5cbdb5908a27cf9",
+    "recovery_tree": "8a07b055bcb9f8d2b4038f7e31ac5fab71c815e1",
+    "baseline_commit": "9100774b0e124d1d834f8c726cf85f2c0e171e5e",
+    "verify_log": "/tmp/partsignal-i03-4-b2-c2-clean-verify.log",
+    "verify_log_sha256": "9f6c68bc57ec8bf8e9ac48bd6b231a238a4634fc88c57efe74984fc6990c9ca6",
+    "verify_log_bytes": 227525,
+    "verify_exit": 0,
+    "review_status": "D1_NO_BLOCKER_PENDING_CLEAN_CHECKOUT",
+    "review_audit_id": "20260926T055735Z-i03-4-b2-c2-d1-23f1a8df",
+    "d1_task": "09-25-frontend-i03-4-b2-c2-d1-atomic-auth-session-snapshot",
+    "next_task": "基于原子认证快照修复提交执行全新 clean-checkout make verify、资源清理、完整候选独立复核和 I03 总体收尾。"
+  }
+}

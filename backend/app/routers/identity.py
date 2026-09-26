@@ -21,7 +21,7 @@ from app.deps import (
     assert_account_types,
 )
 from app.errors import AppError, error_responses
-from app.models.identity import User
+from app.models.identity import SessionRecord, User
 from app.schemas.common import (
     AccountType,
     AuditLogDetail,
@@ -40,7 +40,7 @@ from app.schemas.common import (
     UserStatus,
     UserUpdate,
 )
-from app.security import hash_token
+from app.security import hash_token, public_session_binding
 from app.services.audit_logs import audit_log_filter_options
 from app.services.audit_logs import get_audit_log as get_audit_log_query
 from app.services.audit_logs import list_audit_logs as list_audit_logs_query
@@ -100,6 +100,23 @@ def present_user(user: User) -> UserOut:
     )
 
 
+def present_auth_session(current: SessionRecord, csrf_token: str) -> AuthSession:
+    """从一个已解析的服务端 SessionRecord 形成完整公开认证快照。"""
+    return AuthSession(
+        user=present_user(current.user),
+        csrf_token=csrf_token,
+        session_binding=public_session_binding(current.id),
+    )
+
+
+def csrf_token_for_session(current: SessionRecord, request: Request) -> str:
+    """只接受与当前 SessionRecord 绑定的浏览器 CSRF Cookie。"""
+    csrf_token = request.cookies.get(settings.csrf_cookie_name)
+    if not csrf_token or not hmac.compare_digest(current.csrf_hash, hash_token(csrf_token)):
+        raise AppError("CSRF_INVALID", "CSRF Cookie 无效", 403)
+    return csrf_token
+
+
 @router.post(
     "/auth/login",
     response_model=AuthSession,
@@ -107,7 +124,7 @@ def present_user(user: User) -> UserOut:
     operation_id="login",
 )
 def login(payload: LoginRequest, response: Response, db: DbSession) -> AuthSession:
-    user, session_token, csrf_token = login_command(db, payload)
+    _user, session, session_token, csrf_token = login_command(db, payload)
     response.set_cookie(
         settings.session_cookie_name,
         session_token,
@@ -126,7 +143,7 @@ def login(payload: LoginRequest, response: Response, db: DbSession) -> AuthSessi
         samesite="strict",
         path="/",
     )
-    return AuthSession(user=present_user(user), csrf_token=csrf_token)
+    return present_auth_session(session, csrf_token)
 
 
 @router.post(
@@ -163,6 +180,26 @@ def get_current_user(current: OptionalCurrentSession) -> UserOut | Response:
 
 
 @router.get(
+    "/auth/session",
+    response_model=AuthSession,
+    openapi_extra={"security": [{}]},
+    responses={
+        **error_responses(401, 403),
+        status.HTTP_204_NO_CONTENT: {"description": "当前无会话"},
+    },
+    operation_id="getAuthSession",
+)
+def get_auth_session(
+    current: OptionalCurrentSession,
+    request: Request,
+) -> AuthSession | Response:
+    """原子返回同一次 SessionRecord 解析绑定的认证快照。"""
+    if current is None:
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+    return present_auth_session(current, csrf_token_for_session(current, request))
+
+
+@router.get(
     "/auth/csrf",
     response_model=CsrfToken,
     responses=error_responses(401, 403),
@@ -170,10 +207,7 @@ def get_current_user(current: OptionalCurrentSession) -> UserOut | Response:
 )
 def get_csrf_token(current: CurrentSession, request: Request) -> CsrfToken:
     """返回 Strict Cookie 中与当前会话绑定的稳定 CSRF 令牌。"""
-    csrf_token = request.cookies.get(settings.csrf_cookie_name)
-    if not csrf_token or not hmac.compare_digest(current.csrf_hash, hash_token(csrf_token)):
-        raise AppError("CSRF_INVALID", "CSRF Cookie 无效", 403)
-    return CsrfToken(csrf_token=csrf_token)
+    return CsrfToken(csrf_token=csrf_token_for_session(current, request))
 
 
 @router.post(

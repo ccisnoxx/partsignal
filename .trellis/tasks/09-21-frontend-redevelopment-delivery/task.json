@@ -79,6 +79,13 @@
   ],
   "parent": null,
   "relatedFiles": [],
-  "notes": "R00 至 I02 及 I03-1～I03-3 已完成；B1 身份边界修复与 C1 production harness TMPDIR cleanup 修复均已定向独立复核为 NO BLOCKER。总体本地交付仍保持 in_progress，等待基于 cleanup 修复提交执行 B2 clean-checkout 完整门禁、资源清理、完整候选独立复核和 I03 收尾；I04 未创建、未执行。",
-  "meta": {}
+  "notes": "R00 至 I02、I03-1～I03-3、B1/C1 与原子认证 snapshot 子任务 D1 已完成；D1 定向检查和独立复核为 NO BLOCKER。总体本地交付保持 in_progress，下一任务是基于 D1 修复提交执行全新 clean-checkout make verify、资源清理、完整候选独立复核和 I03 总体收尾；未执行远端 CI、真实部署或发布，I04 未创建、未实施。",
+  "meta": {
+    "latest_valid_verify_commit": "6aaf05a5ad5371493bb20c95b5cbdb5908a27cf9",
+    "latest_valid_verify_tree": "8a07b055bcb9f8d2b4038f7e31ac5fab71c815e1",
+    "latest_review_status": "D1_NO_BLOCKER_PENDING_CLEAN_CHECKOUT",
+    "next_blocker": "09-25-frontend-i03-4-b2-c2-auth-session-cross-snapshot-blocker",
+    "next_task": "基于原子认证快照修复提交执行全新 clean-checkout make verify、资源清理、完整候选独立复核和 I03 总体收尾。",
+    "i04_status": "not_created_not_implemented"
+  }
 }

@@ -83,9 +83,9 @@ test('Logo 手工上传只接受图片并通过 PLATFORM_LOGO 生命周期，移
   page,
   platformWorkspaceApi,
 }) => {
-  const csrf = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/v1/auth/csrf');
+  const session = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/v1/auth/session');
   await page.goto(`/settings/platforms/${platformId}?tab=overview`);
-  await csrf;
+  await session;
   await page.getByLabel('上传平台 Logo').setInputFiles({
     name: 'workspace-logo.png',
     mimeType: 'image/png',

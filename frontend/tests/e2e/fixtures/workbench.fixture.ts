@@ -105,8 +105,10 @@ const test = base.extend<{ workbenchApi: WorkbenchController }>({
       const request = route.request();
       const url = new URL(request.url());
       const method = request.method();
-      if (method === 'GET' && url.pathname === '/api/v1/auth/me') return route.fulfill({ status: 200, json: user });
-      if (method === 'GET' && url.pathname === '/api/v1/auth/csrf') return route.fulfill({ status: 200, json: { csrf_token: 'workbench-csrf' } satisfies components['schemas']['CsrfToken'] });
+      if (method === 'GET' && url.pathname === '/api/v1/auth/session') return route.fulfill({
+        status: 200,
+        json: { user, csrf_token: 'workbench-csrf', session_binding: 'a'.repeat(64) } satisfies components['schemas']['AuthSession'],
+      });
       if (method === 'GET' && url.pathname === '/api/v1/workbench') {
         requests.push(url);
         if (mode === 'loading') await new Promise<void>((resolve) => { releaseWorkbench = resolve; });

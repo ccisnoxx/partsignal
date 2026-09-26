@@ -33,12 +33,11 @@ const test = base.extend<FoundationFixtures>({
       const request = route.request();
       const pathname = new URL(request.url()).pathname;
 
-      if (request.method() === 'GET' && pathname === '/api/v1/auth/me') {
-        await route.fulfill({ status: 200, json: admin });
-        return;
-      }
-      if (request.method() === 'GET' && pathname === '/api/v1/auth/csrf') {
-        await route.fulfill({ status: 200, json: { csrf_token: 'foundation-csrf' } });
+      if (request.method() === 'GET' && pathname === '/api/v1/auth/session') {
+        await route.fulfill({
+          status: 200,
+          json: { user: admin, csrf_token: 'foundation-csrf', session_binding: 'a'.repeat(64) },
+        });
         return;
       }
 

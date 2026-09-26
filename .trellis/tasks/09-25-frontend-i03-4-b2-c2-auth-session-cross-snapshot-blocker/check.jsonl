@@ -1,0 +1,4 @@
+{"file":".trellis/spec/frontend/state-management.md","reason":"复核主体变化、缓存清理与 continuation 失效顺序"}
+{"file":"docs/frontend-v2/05-business-actions-state-and-api-contract.md","reason":"复核原子认证 snapshot、CSRF 与服务端权限边界"}
+{"file":"docs/frontend-v2/08-testing-quality-and-acceptance.md","reason":"复核交错反例、同主体正向行为与完整门禁"}
+{"file":".trellis/spec/infra/ci-execution.md","reason":"修复后重新证明顶层完整门禁"}

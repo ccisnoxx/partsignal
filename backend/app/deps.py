@@ -46,6 +46,7 @@ def _resolve_current_session(
         raise AppError("AUTH_REQUIRED", "账号已停用", 401)
     allowed_while_changing_password = {
         ("GET", "/api/v1/auth/me"),
+        ("GET", "/api/v1/auth/session"),
         ("GET", "/api/v1/auth/csrf"),
         ("POST", "/api/v1/auth/change-password"),
         ("POST", "/api/v1/auth/logout"),

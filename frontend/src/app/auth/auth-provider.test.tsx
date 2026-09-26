@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { api } from '@/shared/api/client';
@@ -30,6 +31,22 @@ const engineer: AuthUser = {
   display_name: '内容工程师',
   account_type: 'ENGINEER',
 };
+
+const adminBinding = 'a'.repeat(64);
+const engineerBinding = 'e'.repeat(64);
+
+function authSnapshot(
+  user: AuthUser,
+  csrfToken: string,
+  sessionBinding = user.id === admin.id ? adminBinding : engineerBinding,
+) {
+  const data = {
+    user,
+    csrf_token: csrfToken,
+    session_binding: sessionBinding,
+  };
+  return { data, response: Response.json(data) } as never;
+}
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -89,6 +106,25 @@ function AuthRaceProbe() {
   );
 }
 
+function AuthActionErrorProbe() {
+  const auth = useAuth();
+  const actions = useAuthActions();
+  const [actionError, setActionError] = useState('');
+  if (auth.isLoading) return <p>读取中</p>;
+  return (
+    <div>
+      <p>{auth.user ? auth.user.username : '匿名'}</p>
+      <button onClick={() => {
+        void actions.signIn({ username: 'admin', password: 'password-123' })
+          .catch((error: unknown) => setActionError(error instanceof Error ? error.message : '登录失败'));
+      }}>
+        捕获登录错误
+      </button>
+      {actionError && <p>{actionError}</p>}
+    </div>
+  );
+}
+
 function renderAuth() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const result = render(
@@ -109,7 +145,7 @@ function renderRace(queryClient = new QueryClient({ defaultOptions: { queries: {
 }
 
 describe('AuthProvider', () => {
-  it('把 204 会话作为匿名状态且不请求 CSRF', async () => {
+  it('把原子 session 204 作为匿名状态', async () => {
     const get = vi.spyOn(api, 'GET').mockResolvedValue({
       response: new Response(null, { status: 204 }),
     } as never);
@@ -118,20 +154,19 @@ describe('AuthProvider', () => {
 
     expect(await screen.findByText('匿名')).toBeInTheDocument();
     expect(get).toHaveBeenCalledOnce();
-    expect(get).toHaveBeenCalledWith('/api/v1/auth/me', {
+    expect(get).toHaveBeenCalledWith('/api/v1/auth/session', {
       signal: expect.any(AbortSignal),
     });
   });
 
-  it('把 /auth/me 成功后的 CSRF AUTH_REQUIRED 收敛为匿名并清除业务缓存', async () => {
-    vi.spyOn(api, 'GET')
-      .mockResolvedValueOnce({ data: admin, response: Response.json(admin) } as never)
-      .mockResolvedValueOnce({
-        error: { error: { code: 'AUTH_REQUIRED', message: '登录会话无效或已过期' } },
-        response: Response.json({}, { status: 401 }),
-      } as never);
+  it('原子 session 的 CSRF_INVALID 显式失败且不提交混合认证状态', async () => {
+    vi.spyOn(api, 'GET').mockResolvedValue({
+      error: { error: { code: 'CSRF_INVALID', message: 'CSRF Cookie 无效' } },
+      response: Response.json({}, { status: 403 }),
+    } as never);
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    queryClient.setQueryData(['auth', 'session'], { user: admin, csrfToken: 'stale-csrf' });
+    const previous = { user: admin, csrfToken: 'stale-csrf', sessionBinding: adminBinding };
+    queryClient.setQueryData(['auth', 'session'], previous);
     queryClient.setQueryData(['users', 'list'], { items: ['上一身份的用户'] });
     queryClient.setQueryData(['audit', 'list'], { items: ['上一身份的审计'] });
 
@@ -141,11 +176,60 @@ describe('AuthProvider', () => {
       </QueryClientProvider>,
     );
 
+    expect(await screen.findByText('读取失败')).toBeInTheDocument();
+    expect(queryClient.getQueryData(['users', 'list'])).toEqual({ items: ['上一身份的用户'] });
+    expect(queryClient.getQueryData(['audit', 'list'])).toEqual({ items: ['上一身份的审计'] });
+    expect(queryClient.getQueryData(['auth', 'session'])).toEqual(previous);
+  });
+
+  it.each([
+    ['缺少 CSRF', { user: admin, session_binding: adminBinding }],
+    ['binding 非法', { user: admin, csrf_token: 'csrf-token', session_binding: 'not-a-binding' }],
+    ['缺少权限字段', {
+      user: { ...admin, account_type: undefined },
+      csrf_token: 'csrf-token',
+      session_binding: adminBinding,
+    }],
+  ])('200 %s 时显式失败且不替换既有 canonical session', async (_caseName, data) => {
+    vi.spyOn(api, 'GET').mockResolvedValue({ data, response: Response.json(data) } as never);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const previous = { user: admin, csrfToken: 'previous-csrf', sessionBinding: adminBinding };
+    queryClient.setQueryData(['auth', 'session'], previous);
+    queryClient.setQueryData(['audit', 'sensitive'], { value: '旧主体审计' });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider><AuthProbe /></AuthProvider>
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText('读取失败')).toBeInTheDocument();
+    expect(queryClient.getQueryData(['auth', 'session'])).toEqual(previous);
+    expect(queryClient.getQueryData(['audit', 'sensitive'])).toEqual({ value: '旧主体审计' });
+  });
+
+  it('malformed 登录 200 显式失败且不得提交部分 session', async () => {
+    vi.spyOn(api, 'GET').mockResolvedValue({
+      response: new Response(null, { status: 204 }),
+    } as never);
+    vi.spyOn(api, 'POST').mockResolvedValue({
+      data: { user: admin, session_binding: adminBinding },
+      response: Response.json({ user: admin, session_binding: adminBinding }),
+    } as never);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    queryClient.setQueryData(['products', 'pre-login'], { value: '保留' });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider><AuthActionErrorProbe /></AuthProvider>
+      </QueryClientProvider>,
+    );
+
     expect(await screen.findByText('匿名')).toBeInTheDocument();
-    expect(screen.queryByText('读取失败')).not.toBeInTheDocument();
-    expect(queryClient.getQueryData(['users', 'list'])).toBeUndefined();
-    expect(queryClient.getQueryData(['audit', 'list'])).toBeUndefined();
+    await userEvent.click(screen.getByRole('button', { name: '捕获登录错误' }));
+    expect(await screen.findByText('认证会话响应结构无效')).toBeInTheDocument();
     expect(queryClient.getQueryData(['auth', 'session'])).toBeNull();
+    expect(queryClient.getQueryData(['products', 'pre-login'])).toEqual({ value: '保留' });
   });
 
   it('把明确 401 作为已失效会话并清除上一身份的业务缓存', async () => {
@@ -155,7 +239,11 @@ describe('AuthProvider', () => {
     } as never);
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     queryClient.setQueryData(['products', 'list'], { items: ['上一身份的数据'] });
-    queryClient.setQueryData(['auth', 'session'], { user: admin, csrfToken: 'stale-csrf' });
+    queryClient.setQueryData(['auth', 'session'], {
+      user: admin,
+      csrfToken: 'stale-csrf',
+      sessionBinding: adminBinding,
+    });
 
     render(
       <QueryClientProvider client={queryClient}>
@@ -169,12 +257,7 @@ describe('AuthProvider', () => {
   });
 
   it('使用真实会话身份和 CSRF header 退出', async () => {
-    vi.spyOn(api, 'GET')
-      .mockResolvedValueOnce({ data: admin, response: Response.json(admin) } as never)
-      .mockResolvedValueOnce({
-        data: { csrf_token: 'csrf-token' },
-        response: Response.json({ csrf_token: 'csrf-token' }),
-      } as never);
+    vi.spyOn(api, 'GET').mockResolvedValue(authSnapshot(admin, 'csrf-token'));
     const post = vi.spyOn(api, 'POST').mockResolvedValue({
       response: new Response(null, { status: 204 }),
     } as never);
@@ -195,10 +278,9 @@ describe('AuthProvider', () => {
     vi.spyOn(api, 'GET').mockResolvedValue({
       response: new Response(null, { status: 204 }),
     } as never);
-    const post = vi.spyOn(api, 'POST').mockResolvedValue({
-      data: { user: admin, csrf_token: 'signed-in-csrf' },
-      response: Response.json({ user: admin, csrf_token: 'signed-in-csrf' }),
-    } as never);
+    const post = vi.spyOn(api, 'POST').mockResolvedValue(
+      authSnapshot(admin, 'signed-in-csrf'),
+    );
     const { queryClient } = renderAuth();
     queryClient.setQueryData(['products', 'list'], { items: ['上一身份的数据'] });
 
@@ -213,16 +295,15 @@ describe('AuthProvider', () => {
     expect(queryClient.getQueryData(['auth', 'session'])).toEqual({
       user: admin,
       csrfToken: 'signed-in-csrf',
+      sessionBinding: adminBinding,
     });
   });
 
   it('修改密码使用 canonical CSRF 并以服务端刷新结果解除 must-change', async () => {
     const mustChangeAdmin = { ...admin, must_change_password: true, workflow_stage: 'FIRST_PASSWORD_CHANGE' as const };
     const get = vi.spyOn(api, 'GET')
-      .mockResolvedValueOnce({ data: mustChangeAdmin, response: Response.json(mustChangeAdmin) } as never)
-      .mockResolvedValueOnce({ data: { csrf_token: 'change-csrf' }, response: Response.json({ csrf_token: 'change-csrf' }) } as never)
-      .mockResolvedValueOnce({ data: admin, response: Response.json(admin) } as never)
-      .mockResolvedValueOnce({ data: { csrf_token: 'refreshed-csrf' }, response: Response.json({ csrf_token: 'refreshed-csrf' }) } as never);
+      .mockResolvedValueOnce(authSnapshot(mustChangeAdmin, 'change-csrf'))
+      .mockResolvedValueOnce(authSnapshot(admin, 'refreshed-csrf'));
     const post = vi.spyOn(api, 'POST').mockResolvedValue({
       response: new Response(null, { status: 204 }),
     } as never);
@@ -237,10 +318,11 @@ describe('AuthProvider', () => {
       params: { header: { 'X-CSRF-Token': 'change-csrf' } },
       signal: expect.any(AbortSignal),
     });
-    expect(get).toHaveBeenCalledTimes(4);
+    expect(get).toHaveBeenCalledTimes(2);
     expect(queryClient.getQueryData(['auth', 'session'])).toEqual({
       user: admin,
       csrfToken: 'refreshed-csrf',
+      sessionBinding: adminBinding,
     });
   });
 
@@ -251,10 +333,7 @@ describe('AuthProvider', () => {
       expect(requestOptions?.signal).toBeInstanceOf(AbortSignal);
       return lateAnonymous.promise;
     });
-    vi.spyOn(api, 'POST').mockResolvedValue({
-      data: { user: engineer, csrf_token: 'engineer-csrf' },
-      response: Response.json({ user: engineer, csrf_token: 'engineer-csrf' }),
-    } as never);
+    vi.spyOn(api, 'POST').mockResolvedValue(authSnapshot(engineer, 'engineer-csrf'));
     const { queryClient } = renderRace();
 
     await waitFor(() => expect(get).toHaveBeenCalledOnce());
@@ -273,118 +352,66 @@ describe('AuthProvider', () => {
     expect(queryClient.getQueryData(['auth', 'session'])).toEqual({
       user: engineer,
       csrfToken: 'engineer-csrf',
+      sessionBinding: engineerBinding,
     });
   });
 
-  it('登录命令胜过 /auth/me 后迟到的 CSRF 401，不清除新身份', async () => {
-    const lateCsrf = deferred<never>();
+  it('退出命令胜过迟到的旧 session snapshot', async () => {
+    const lateSnapshot = deferred<never>();
     const get = vi.spyOn(api, 'GET')
-      .mockResolvedValueOnce({ data: admin, response: Response.json(admin) } as never)
-      .mockImplementationOnce((_path, options) => {
-        const requestOptions = options as unknown as { signal?: AbortSignal } | undefined;
-        expect(requestOptions?.signal).toBeInstanceOf(AbortSignal);
-        return lateCsrf.promise;
-      });
-    vi.spyOn(api, 'POST').mockResolvedValue({
-      data: { user: engineer, csrf_token: 'engineer-csrf' },
-      response: Response.json({ user: engineer, csrf_token: 'engineer-csrf' }),
-    } as never);
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    queryClient.setQueryData(['auth', 'session'], { user: admin, csrfToken: 'old-csrf' });
-    renderRace(queryClient);
-
-    await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
-    await userEvent.click(screen.getByRole('button', { name: '竞态登录' }));
-    expect(await screen.findByText('engineer:false')).toBeInTheDocument();
-
-    await act(async () => {
-      lateCsrf.resolve({
-        error: { error: { code: 'AUTH_REQUIRED', message: '旧会话已失效' } },
-        response: Response.json({}, { status: 401 }),
-      } as never);
-      await Promise.resolve();
-    });
-    expect(screen.getByText('engineer:false')).toBeInTheDocument();
-    expect(queryClient.getQueryData(['auth', 'session'])).toEqual({
-      user: engineer,
-      csrfToken: 'engineer-csrf',
-    });
-  });
-
-  it('退出命令胜过迟到的旧 session 与 CSRF', async () => {
-    const lateCsrf = deferred<never>();
-    const get = vi.spyOn(api, 'GET')
-      .mockResolvedValueOnce({ data: admin, response: Response.json(admin) } as never)
-      .mockImplementationOnce(() => lateCsrf.promise);
+      .mockResolvedValueOnce(authSnapshot(admin, 'old-csrf'))
+      .mockImplementationOnce(() => lateSnapshot.promise);
     vi.spyOn(api, 'POST').mockResolvedValue({
       response: new Response(null, { status: 204 }),
     } as never);
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    queryClient.setQueryData(['auth', 'session'], { user: admin, csrfToken: 'old-csrf' });
-    renderRace(queryClient);
+    const { queryClient } = renderRace();
 
+    expect(await screen.findByText('admin:false')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '竞态刷新' }));
     await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
     await userEvent.click(screen.getByRole('button', { name: '竞态退出' }));
     expect(await screen.findByText('匿名')).toBeInTheDocument();
 
     await act(async () => {
-      lateCsrf.resolve({
-        data: { csrf_token: 'late-old-csrf' },
-        response: Response.json({ csrf_token: 'late-old-csrf' }),
-      } as never);
+      lateSnapshot.resolve(authSnapshot(admin, 'late-old-csrf'));
       await Promise.resolve();
     });
     expect(screen.getByText('匿名')).toBeInTheDocument();
     expect(queryClient.getQueryData(['auth', 'session'])).toBeNull();
   });
 
-  it('改密命令胜过迟到的 must-change session，并只采用命令后的服务端刷新', async () => {
+  it('改密后的原子 snapshot 胜过改密前迟到响应', async () => {
     const mustChangeAdmin = {
       ...admin,
       must_change_password: true,
       workflow_stage: 'FIRST_PASSWORD_CHANGE' as const,
     };
-    const lateOldCsrf = deferred<never>();
-    let getCall = 0;
-    const get = vi.spyOn(api, 'GET').mockImplementation((path) => {
-      getCall += 1;
-      if (getCall === 1) return Promise.resolve({
-        data: mustChangeAdmin,
-        response: Response.json(mustChangeAdmin),
-      } as never);
-      if (getCall === 2) return lateOldCsrf.promise;
-      if (getCall === 3 && path === '/api/v1/auth/me') return Promise.resolve({
-        data: admin,
-        response: Response.json(admin),
-      } as never);
-      return Promise.resolve({
-        data: { csrf_token: 'canonical-csrf' },
-        response: Response.json({ csrf_token: 'canonical-csrf' }),
-      } as never);
-    });
+    const lateOldSnapshot = deferred<never>();
+    const get = vi.spyOn(api, 'GET')
+      .mockResolvedValueOnce(authSnapshot(mustChangeAdmin, 'old-csrf'))
+      .mockImplementationOnce(() => lateOldSnapshot.promise)
+      .mockResolvedValueOnce(authSnapshot(admin, 'canonical-csrf', 'c'.repeat(64)));
     vi.spyOn(api, 'POST').mockResolvedValue({
       response: new Response(null, { status: 204 }),
     } as never);
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    queryClient.setQueryData(['auth', 'session'], { user: mustChangeAdmin, csrfToken: 'old-csrf' });
-    renderRace(queryClient);
+    const { queryClient } = renderRace();
 
+    expect(await screen.findByText('admin:true')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '竞态刷新' }));
     await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
     await userEvent.click(screen.getByRole('button', { name: '竞态改密' }));
     expect(await screen.findByText('admin:false')).toBeInTheDocument();
-    expect(get).toHaveBeenCalledTimes(4);
+    expect(get).toHaveBeenCalledTimes(3);
 
     await act(async () => {
-      lateOldCsrf.resolve({
-        data: { csrf_token: 'late-old-csrf' },
-        response: Response.json({ csrf_token: 'late-old-csrf' }),
-      } as never);
+      lateOldSnapshot.resolve(authSnapshot(mustChangeAdmin, 'late-old-csrf'));
       await Promise.resolve();
     });
     expect(screen.getByText('admin:false')).toBeInTheDocument();
     expect(queryClient.getQueryData(['auth', 'session'])).toEqual({
       user: admin,
       csrfToken: 'canonical-csrf',
+      sessionBinding: 'c'.repeat(64),
     });
   });
 
@@ -405,10 +432,7 @@ describe('AuthProvider', () => {
     await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
 
     await act(async () => {
-      loginResult.resolve({
-        data: { user: engineer, csrf_token: 'canonical-login-csrf' },
-        response: Response.json({ user: engineer, csrf_token: 'canonical-login-csrf' }),
-      } as never);
+      loginResult.resolve(authSnapshot(engineer, 'canonical-login-csrf'));
     });
     expect(await screen.findByText('engineer:false')).toBeInTheDocument();
     expect(queryClient.getQueryData(['audit', 'sensitive'])).toBeUndefined();
@@ -421,148 +445,40 @@ describe('AuthProvider', () => {
     expect(queryClient.getQueryData(['auth', 'session'])).toEqual({
       user: engineer,
       csrfToken: 'canonical-login-csrf',
+      sessionBinding: engineerBinding,
     });
   });
 
-  it('退出期间新启动的旧 session 读取不能在 canonical logout 提交后恢复身份', async () => {
-    const logoutResult = deferred<never>();
-    const lateOldSession = deferred<never>();
+  it('普通同主体 refresh 更新 canonical CSRF 与 binding 但保留业务缓存', async () => {
     const get = vi.spyOn(api, 'GET')
-      .mockResolvedValueOnce({ data: admin, response: Response.json(admin) } as never)
-      .mockResolvedValueOnce({
-        data: { csrf_token: 'admin-csrf' },
-        response: Response.json({ csrf_token: 'admin-csrf' }),
-      } as never)
-      .mockImplementationOnce(() => lateOldSession.promise);
-    const post = vi.spyOn(api, 'POST').mockImplementation(() => logoutResult.promise);
-    const { queryClient } = renderRace();
-    expect(await screen.findByText('admin:false')).toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole('button', { name: '竞态退出' }));
-    await waitFor(() => expect(post).toHaveBeenCalledOnce());
-    queryClient.setQueryData(['users', 'sensitive'], { value: '旧身份用户' });
-    await userEvent.click(screen.getByRole('button', { name: '竞态刷新' }));
-    await waitFor(() => expect(get).toHaveBeenCalledTimes(3));
-
-    await act(async () => {
-      logoutResult.resolve({ response: new Response(null, { status: 204 }) } as never);
-    });
-    expect(await screen.findByText('匿名')).toBeInTheDocument();
-    expect(queryClient.getQueryData(['users', 'sensitive'])).toBeUndefined();
-
-    await act(async () => {
-      lateOldSession.resolve({ data: admin, response: Response.json(admin) } as never);
-      await Promise.resolve();
-    });
-    expect(screen.getByText('匿名')).toBeInTheDocument();
-    expect(queryClient.getQueryData(['auth', 'session'])).toBeNull();
-  });
-
-  it('改密期间新启动的 must-change 读取不能在 canonical refresh 提交后回退', async () => {
-    const mustChangeAdmin = {
-      ...admin,
-      must_change_password: true,
-      workflow_stage: 'FIRST_PASSWORD_CHANGE' as const,
-    };
-    const changeResult = deferred<never>();
-    const lateMustChange = deferred<never>();
-    let getCall = 0;
-    const get = vi.spyOn(api, 'GET').mockImplementation((path) => {
-      getCall += 1;
-      if (getCall === 1) return Promise.resolve({
-        data: mustChangeAdmin,
-        response: Response.json(mustChangeAdmin),
-      } as never);
-      if (getCall === 2) return Promise.resolve({
-        data: { csrf_token: 'must-change-csrf' },
-        response: Response.json({ csrf_token: 'must-change-csrf' }),
-      } as never);
-      if (getCall === 3) return lateMustChange.promise;
-      if (path === '/api/v1/auth/me') return Promise.resolve({
-        data: admin,
-        response: Response.json(admin),
-      } as never);
-      return Promise.resolve({
-        data: { csrf_token: 'canonical-change-csrf' },
-        response: Response.json({ csrf_token: 'canonical-change-csrf' }),
-      } as never);
-    });
-    const post = vi.spyOn(api, 'POST').mockImplementation(() => changeResult.promise);
-    const { queryClient } = renderRace();
-    expect(await screen.findByText('admin:true')).toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole('button', { name: '竞态改密' }));
-    await waitFor(() => expect(post).toHaveBeenCalledOnce());
-    queryClient.setQueryData(['users', 'sensitive'], { value: '强改密身份数据' });
-    await userEvent.click(screen.getByRole('button', { name: '竞态刷新' }));
-    await waitFor(() => expect(get).toHaveBeenCalledTimes(3));
-
-    await act(async () => {
-      changeResult.resolve({ response: new Response(null, { status: 204 }) } as never);
-    });
-    expect(await screen.findByText('admin:false')).toBeInTheDocument();
-    expect(queryClient.getQueryData(['users', 'sensitive'])).toBeUndefined();
-    expect(get).toHaveBeenCalledTimes(5);
-
-    await act(async () => {
-      lateMustChange.resolve({
-        data: mustChangeAdmin,
-        response: Response.json(mustChangeAdmin),
-      } as never);
-      await Promise.resolve();
-    });
-    expect(screen.getByText('admin:false')).toBeInTheDocument();
-    expect(queryClient.getQueryData(['auth', 'session'])).toEqual({
-      user: admin,
-      csrfToken: 'canonical-change-csrf',
-    });
-  });
-
-  it('普通同身份 refresh 更新 canonical CSRF 但保留业务缓存', async () => {
-    const get = vi.spyOn(api, 'GET')
-      .mockResolvedValueOnce({ data: admin, response: Response.json(admin) } as never)
-      .mockResolvedValueOnce({
-        data: { csrf_token: 'initial-csrf' },
-        response: Response.json({ csrf_token: 'initial-csrf' }),
-      } as never)
-      .mockResolvedValueOnce({
-        data: { ...admin, revision: 2 },
-        response: Response.json({ ...admin, revision: 2 }),
-      } as never)
-      .mockResolvedValueOnce({
-        data: { csrf_token: 'refreshed-csrf' },
-        response: Response.json({ csrf_token: 'refreshed-csrf' }),
-      } as never);
+      .mockResolvedValueOnce(authSnapshot(admin, 'initial-csrf'))
+      .mockResolvedValueOnce(authSnapshot(
+        { ...admin, revision: 2 },
+        'refreshed-csrf',
+        'b'.repeat(64),
+      ));
     const { queryClient } = renderRace();
     expect(await screen.findByText('admin:false')).toBeInTheDocument();
     const continuation = capturePrincipalContinuation(queryClient);
     queryClient.setQueryData(['products', 'same-principal'], { value: '保留' });
 
     await userEvent.click(screen.getByRole('button', { name: '竞态刷新' }));
-    await waitFor(() => expect(get).toHaveBeenCalledTimes(4));
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
 
     expect(queryClient.getQueryData(['products', 'same-principal'])).toEqual({ value: '保留' });
     expect(continuation.isCurrent()).toBe(true);
     expect(queryClient.getQueryData(['auth', 'session'])).toEqual({
       user: { ...admin, revision: 2 },
       csrfToken: 'refreshed-csrf',
+      sessionBinding: 'b'.repeat(64),
     });
   });
 
-  it('主体变化先失效 principal continuation，再清理全部业务 query', async () => {
-    let currentUser = admin;
-    vi.spyOn(api, 'GET').mockImplementation((path) => {
-      if (path === '/api/v1/auth/me') {
-        return Promise.resolve({
-          data: currentUser,
-          response: Response.json(currentUser),
-        } as never);
-      }
-      return Promise.resolve({
-        data: { csrf_token: `${currentUser.username}-csrf` },
-        response: Response.json({ csrf_token: `${currentUser.username}-csrf` }),
-      } as never);
-    });
+  it('ADMIN 降为同一用户 ENGINEER 时先失效 continuation 再清理业务 query', async () => {
+    const downgraded = { ...admin, account_type: 'ENGINEER' as const, revision: 2 };
+    vi.spyOn(api, 'GET')
+      .mockResolvedValueOnce(authSnapshot(admin, 'admin-csrf'))
+      .mockResolvedValueOnce(authSnapshot(downgraded, 'engineer-csrf'));
     const { queryClient } = renderRace();
     expect(await screen.findByText('admin:false')).toBeInTheDocument();
     queryClient.setQueryData(['products', 'principal-order'], { value: '旧主体' });
@@ -575,9 +491,8 @@ describe('AuthProvider', () => {
       }
     });
 
-    currentUser = engineer;
     await userEvent.click(screen.getByRole('button', { name: '竞态刷新' }));
-    expect(await screen.findByText('engineer:false')).toBeInTheDocument();
+    expect(await screen.findByText('admin:false')).toBeInTheDocument();
     unsubscribe();
 
     expect(continuation.isCurrent()).toBe(false);
@@ -585,6 +500,58 @@ describe('AuthProvider', () => {
     expect(removalChecks.every((wasCurrent) => !wasCurrent)).toBe(true);
     expect(queryClient.getQueryData(['products', 'principal-order'])).toBeUndefined();
     expect(queryClient.getQueryData(['audit', 'principal-order'])).toBeUndefined();
+    expect(queryClient.getQueryData(['auth', 'session'])).toEqual({
+      user: downgraded,
+      csrfToken: 'engineer-csrf',
+      sessionBinding: adminBinding,
+    });
+  });
+
+  it('A→B snapshot 不会产生 user A 与 csrf B 的跨 session 组合', async () => {
+    vi.spyOn(api, 'GET')
+      .mockResolvedValueOnce(authSnapshot(admin, 'admin-csrf', adminBinding))
+      .mockResolvedValueOnce(authSnapshot(engineer, 'engineer-csrf', engineerBinding));
+    const { queryClient } = renderRace();
+    expect(await screen.findByText('admin:false')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: '竞态刷新' }));
+    expect(await screen.findByText('engineer:false')).toBeInTheDocument();
+    expect(queryClient.getQueryData(['auth', 'session'])).toEqual({
+      user: engineer,
+      csrfToken: 'engineer-csrf',
+      sessionBinding: engineerBinding,
+    });
+  });
+
+  it('A→B→A 中迟到的旧 B response 不能覆盖较新的 A snapshot', async () => {
+    const lateB = deferred<never>();
+    const latestABinding = 'c'.repeat(64);
+    const get = vi.spyOn(api, 'GET')
+      .mockResolvedValueOnce(authSnapshot(admin, 'a-initial', adminBinding))
+      .mockImplementationOnce(() => lateB.promise)
+      .mockResolvedValueOnce(authSnapshot(admin, 'a-latest', latestABinding));
+    const { queryClient } = renderRace();
+    expect(await screen.findByText('admin:false')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: '竞态刷新' }));
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+    await userEvent.click(screen.getByRole('button', { name: '竞态刷新' }));
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(3));
+    expect(queryClient.getQueryData(['auth', 'session'])).toEqual({
+      user: admin,
+      csrfToken: 'a-latest',
+      sessionBinding: latestABinding,
+    });
+
+    await act(async () => {
+      lateB.resolve(authSnapshot(engineer, 'b-stale', engineerBinding));
+      await Promise.resolve();
+    });
+    expect(queryClient.getQueryData(['auth', 'session'])).toEqual({
+      user: admin,
+      csrfToken: 'a-latest',
+      sessionBinding: latestABinding,
+    });
   });
 
   it('显式暴露认证错误', async () => {

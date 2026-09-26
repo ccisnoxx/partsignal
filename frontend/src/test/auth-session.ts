@@ -16,6 +16,7 @@ function createAuthenticatedTestQueryClient(auth: AuthContextValue) {
   queryClient.setQueryData<AuthSession>(authSessionQueryKey, {
     user: auth.user,
     csrfToken: auth.csrfToken,
+    sessionBinding: auth.user.id.replaceAll('-', '').padEnd(64, '0'),
   });
   initializePrincipalEpoch(queryClient, authBoundaryIdentity(auth.user));
   return queryClient;

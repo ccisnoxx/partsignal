@@ -1,0 +1,4 @@
+{"file":".trellis/spec/backend/database-guidelines.md","reason":"身份状态、会话撤销与 PostgreSQL owner"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"TanStack Query 与客户端状态 owner"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"Auth/Foundation fixture 与定向浏览器验证"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"OpenAPI 到后端、generated types 与前端的数据边界"}

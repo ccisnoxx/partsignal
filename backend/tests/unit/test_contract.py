@@ -39,14 +39,23 @@ def test_runtime_openapi_matches_frozen_operations() -> None:
     assert check(contract) == []
 
 
+def test_auth_session_contract_allows_anonymous_bootstrap_or_session_cookie() -> None:
+    contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+    document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+    expected_security = [{"sessionCookie": []}, {}]
+
+    assert document["paths"]["/api/v1/auth/session"]["get"]["security"] == expected_security
+    assert app.openapi()["paths"]["/api/v1/auth/session"]["get"]["security"] == expected_security
+
+
 def test_static_request_context_metadata_covers_all_operations_and_responses() -> None:
     """静态合同逐操作声明 request ID、400 信封和全部 response Header。"""
     contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
     document = yaml.safe_load(contract.read_text(encoding="utf-8"))
     operations = operation_map(document)
-    assert len(operations) == 162
-    assert len({operation["operationId"] for operation in operations.values()}) == 162
-    assert sum(len(operation["responses"]) for operation in operations.values()) == 1024
+    assert len(operations) == 163
+    assert len({operation["operationId"] for operation in operations.values()}) == 163
+    assert sum(len(operation["responses"]) for operation in operations.values()) == 1029
 
     expected_parameter = {
         "name": "X-Request-ID",
@@ -116,7 +125,10 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
             "getDashboardSummary",
         ),
         ("200", "401", "422"): ("login",),
-        ("200", "204", "401", "403"): ("getContentHumanizationPrompt",),
+        ("200", "204", "401", "403"): (
+            "getAuthSession",
+            "getContentHumanizationPrompt",
+        ),
         ("200", "401", "403", "409"): ("getWorkbench",),
         ("200", "401", "403", "422"): (
             "listUsers",
@@ -302,7 +314,7 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
         if isinstance(operation, dict) and "operationId" in operation
     }
 
-    assert len(expected) == 162
+    assert len(expected) == 163
     assert set(operations) == set(expected)
     for operation_id, operation in operations.items():
         responses = operation["responses"]
@@ -318,6 +330,7 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
         "getReadyHealth",
         "getAuditLogFilterOptions",
         "getCsrfToken",
+        "getAuthSession",
         "getCurrentUser",
         "getContentHumanizationPrompt",
         "getDashboardSummary",
@@ -328,7 +341,7 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
         "listQueryTopics",
         "getWorkbench",
     }
-    assert len(validation_free) == 13
+    assert len(validation_free) == 14
     assert sum("422" in statuses for statuses in expected.values()) == 149
     assert {
         operation_id for operation_id, statuses in expected.items() if "422" not in statuses

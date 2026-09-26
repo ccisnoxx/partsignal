@@ -100,11 +100,12 @@ class LoginRequest(ContractModel):
 
 class AuthSession(ContractModel):
     user: UserOut
-    csrf_token: str
+    csrf_token: str = Field(min_length=1, max_length=256)
+    session_binding: str = Field(min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$")
 
 
 class CsrfToken(ContractModel):
-    csrf_token: str
+    csrf_token: str = Field(min_length=1, max_length=256)
 
 
 class SignedUrl(ContractModel):

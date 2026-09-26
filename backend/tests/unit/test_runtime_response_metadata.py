@@ -28,6 +28,7 @@ WAVE_1_OPERATION_IDS = (
     "getReadyHealth",
     "login",
     "logout",
+    "getAuthSession",
     "getCurrentUser",
     "getCsrfToken",
     "changePassword",
@@ -133,6 +134,7 @@ WAVE_1_GROUPS = {
     "identity": {
         "login",
         "logout",
+        "getAuthSession",
         "getCurrentUser",
         "getCsrfToken",
         "changePassword",
@@ -623,12 +625,12 @@ def test_wave_1_inventory_is_complete(
     wave_operations: tuple[dict[str, Any], dict[str, Any]]
 ) -> None:
     contract, runtime = wave_operations
-    assert len(WAVE_1_OPERATION_IDS) == 61
-    assert len(set(WAVE_1_OPERATION_IDS)) == 61
+    assert len(WAVE_1_OPERATION_IDS) == 62
+    assert len(set(WAVE_1_OPERATION_IDS)) == 62
     assert {name: len(ids) for name, ids in WAVE_1_GROUPS.items()} == {
         "foundation": 2,
         "configuration": 39,
-        "identity": 15,
+        "identity": 16,
         "files": 5,
     }
     assert set().union(*WAVE_1_GROUPS.values()) == set(WAVE_1_OPERATION_IDS)
@@ -640,9 +642,9 @@ def test_runtime_request_context_covers_all_operations_and_responses() -> None:
     runtime = app.openapi()
     operations = _operation_map(runtime)
 
-    assert len(operations) == 162
-    assert len(set(operations)) == 162
-    assert sum(len(operation["responses"]) for operation in operations.values()) == 1024
+    assert len(operations) == 163
+    assert len(set(operations)) == 163
+    assert sum(len(operation["responses"]) for operation in operations.values()) == 1029
     parameter_ref = {"$ref": "#/components/parameters/RequestIdHeader"}
     header_ref = {"$ref": "#/components/headers/RequestIdResponseHeader"}
     parameter_schema = {
@@ -687,10 +689,10 @@ def test_runtime_request_context_merge_does_not_change_route_metadata() -> None:
     augmented = app.openapi()
     stripped = _strip_request_context_metadata(augmented)
 
-    assert sum(len(operation["responses"]) for operation in _operation_map(raw).values()) == 862
+    assert sum(len(operation["responses"]) for operation in _operation_map(raw).values()) == 866
     assert sum(
         len(operation["responses"]) for operation in _operation_map(stripped).values()
-    ) == 862
+    ) == 866
     assert compare_response_contracts(raw, stripped) == []
     assert _operation_map(raw) == _operation_map(stripped)
 
@@ -749,7 +751,7 @@ def test_wave_3_inventory_is_complete_and_disjoint(
     all_wave_ids = (
         set(WAVE_1_OPERATION_IDS) | set(WAVE_2_OPERATION_IDS) | set(WAVE_3_OPERATION_IDS)
     )
-    assert len(all_wave_ids) == 162
+    assert len(all_wave_ids) == 163
     assert not set(WAVE_1_OPERATION_IDS) & set(WAVE_2_OPERATION_IDS)
     assert not set(WAVE_1_OPERATION_IDS) & set(WAVE_3_OPERATION_IDS)
     assert not set(WAVE_2_OPERATION_IDS) & set(WAVE_3_OPERATION_IDS)

@@ -23,6 +23,12 @@
   ],
   "parent": "09-25-frontend-i03-canonical-local-integration",
   "relatedFiles": [],
-  "notes": "B1 身份边界修复已独立复核为 NO BLOCKER。B2 的旧 make verify 因 production harness TMPDIR cleanup 误报而无效；C1 已完成 cleanup 修复与定向 NO BLOCKER 复核，但尚未执行新的 clean-checkout 完整复验。I03-4 保持 in_progress，不完成 I03/总体交付，不进入 I04。",
-  "meta": {}
+  "notes": "C2 在固定 6aaf05a5/tree 8a07b055 上的旧完整门禁证据有效但不能外推；D1 原子认证 snapshot 修复的定向检查和独立复核已为 NO BLOCKER。I03-4 保持 in_progress，等待基于 D1 修复提交的全新 clean-checkout make verify、资源清理、完整候选复核与 I03 总体收尾；不进入 I04。",
+  "meta": {
+    "latest_valid_verify_commit": "6aaf05a5ad5371493bb20c95b5cbdb5908a27cf9",
+    "latest_valid_verify_tree": "8a07b055bcb9f8d2b4038f7e31ac5fab71c815e1",
+    "latest_review_status": "D1_NO_BLOCKER_PENDING_CLEAN_CHECKOUT",
+    "next_blocker": "09-25-frontend-i03-4-b2-c2-auth-session-cross-snapshot-blocker",
+    "next_task": "基于原子认证快照修复提交执行全新 clean-checkout make verify、资源清理、完整候选独立复核和 I03 总体收尾。"
+  }
 }

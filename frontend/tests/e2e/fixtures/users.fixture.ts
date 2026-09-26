@@ -142,14 +142,13 @@ const test = base.extend<UserFixtures>({
     await page.route('**/api/v1/**', async (route) => {
       const request = route.request();
       const url = new URL(request.url());
-      if (request.method() === 'GET' && url.pathname === '/api/v1/auth/me') {
+      if (request.method() === 'GET' && url.pathname === '/api/v1/auth/session') {
         const body = { ...adminUser, account_type: accountType } satisfies User;
         responsePayloads.push(JSON.stringify(body));
-        await route.fulfill({ status: 200, json: body });
-        return;
-      }
-      if (request.method() === 'GET' && url.pathname === '/api/v1/auth/csrf') {
-        await route.fulfill({ status: 200, json: { csrf_token: 'users-e2e-csrf' } satisfies components['schemas']['CsrfToken'] });
+        await route.fulfill({
+          status: 200,
+          json: { user: body, csrf_token: 'users-e2e-csrf', session_binding: 'a'.repeat(64) } satisfies components['schemas']['AuthSession'],
+        });
         return;
       }
       if (!url.pathname.startsWith('/api/v1/users')) {

@@ -1,4 +1,4 @@
-/** 通过 V2 页面验证真实 cookie、CSRF、首次改密、权限边界与退出。 */
+/** 通过 V2 页面验证原子认证快照、真实 cookie、首次改密、权限边界与退出。 */
 import { randomUUID } from 'node:crypto';
 import {
   expect,
@@ -82,6 +82,7 @@ test('Auth 真实栈完成 login → forced change → admin 403 → logout', as
     const loginResponse = await loginResponsePromise;
     expect(loginResponse.status(), '登录应成功').toBe(200);
     const loginSession = await loginResponse.json() as AuthSession;
+    expect(loginSession.session_binding).toMatch(/^[0-9a-f]{64}$/);
     await registerRealStackLoginSecrets(context, apiBaseUrl, loginSession.csrf_token);
 
     await expect(page).toHaveURL('/account/security');
@@ -116,19 +117,28 @@ test('Auth 真实栈完成 login → forced change → admin 403 → logout', as
     expect(Boolean(oldSessionCookie), '退出前应存在 session Cookie').toBe(true);
     await registerArtifactSecrets(authCookies.map((cookie) => cookie.value));
 
+    const canonicalSnapshot = await context.request.get(apiUrl('/api/v1/auth/session'));
+    expect(canonicalSnapshot.status(), '退出前原子认证快照应可读取').toBe(200);
+    const canonicalSession = await canonicalSnapshot.json() as AuthSession;
+    expect(canonicalSession.user.username).toBe('content_editor');
+    expect(canonicalSession.user.must_change_password).toBe(false);
+    expect(canonicalSession.csrf_token).toBe(loginSession.csrf_token);
+    expect(canonicalSession.session_binding).toBe(loginSession.session_binding);
+    expect(JSON.stringify(canonicalSession)).not.toContain(oldSessionCookie!.value);
+
     await page.getByRole('button', { name: /内容运营/ }).click();
     phase.current = 'logout';
     await page.getByRole('menuitem', { name: '退出登录' }).click();
     await expect(page).toHaveURL(/\/login(?:\?|$)/);
     phase.current = 'logged-out';
 
-    const anonymousProbe = await context.request.get(apiUrl('/api/v1/auth/me'));
+    const anonymousProbe = await context.request.get(apiUrl('/api/v1/auth/session'));
     expect(anonymousProbe.status(), '退出后无 Cookie 探测应为匿名').toBe(204);
     expect((await anonymousProbe.body()).byteLength, '匿名探测应为空响应').toBe(0);
 
     replayContext = await browser.newContext();
     await replayContext.addCookies([oldSessionCookie!]);
-    const replayProbe = await replayContext.request.get(apiUrl('/api/v1/auth/me'));
+    const replayProbe = await replayContext.request.get(apiUrl('/api/v1/auth/session'));
     expect(replayProbe.status(), '退出后重放旧 Cookie 必须被服务端拒绝').toBe(401);
     const replayBody = await replayProbe.json() as ErrorEnvelope;
     expect(replayBody.error.code).toBe('AUTH_REQUIRED');

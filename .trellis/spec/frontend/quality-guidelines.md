@@ -96,7 +96,7 @@ npm --prefix frontend run e2e -- [Playwright arguments...]
 
 - 根 `bootstrap`、`contract-check`、`lint`、`typecheck`、`test-unit`、`build` 和 `e2e` 只运行 canonical `frontend/`；任一命令非零时 target 失败，不得恢复 V1 或第二套前端入口。
 - Playwright 由 `frontend/playwright.config.ts` 管理，`webServer` 必须先执行 `npm run build` 再运行 `vite preview`；不得以 Vite dev server 代替 production artifact。
-- Foundation smoke 通过显式 `foundationApi` fixture 提供 active ADMIN 的 `GET /api/v1/auth/me` 与 `GET /api/v1/auth/csrf`，只负责 `/` 的 App Shell 与导航入口；匿名、首次改密、自助改密和退出由独立 `auth-session.spec.ts` 负责。其他 API、页面异常、失败请求或失败静态资源均使测试失败。
+- Foundation smoke 通过显式 `foundationApi` fixture 提供 active ADMIN 的原子 `GET /api/v1/auth/session` snapshot，只负责 `/` 的 App Shell 与导航入口；匿名、首次改密、自助改密和退出由独立 `auth-session.spec.ts` 负责。其他 API、页面异常、失败请求或失败静态资源均使测试失败。
 - 已落地的业务 route 从 Foundation smoke 迁移到独立 production-artifact spec。Products 使用 `products.fixture.ts` 中 generated `ProductListItem`/`ProductCreate`/`Product`/`ProductDetail`/`ProductUpdate` 约束的显式 API projection 与 mutation；未声明 API 必须失败，fixture 不得进入运行时代码，也不得宣称为完整后端业务 E2E。
 - Product Detail 只允许 `GET /api/v1/products/{id}/detail` 获取页面 server state。fixture 返回已经定义的 read-model 数据，不复制 backend 选择、join 或 Activity 排序逻辑；浏览器发起 Facts/Content/Publication/GEO/Audit 请求必须作为未声明 API 失败。
 - `frontend/vite.config.ts` 必须在保留 Vitest 默认 exclude 的基础上排除 `tests/e2e/**`，避免 Playwright spec 被 Vitest 当成 unit suite。

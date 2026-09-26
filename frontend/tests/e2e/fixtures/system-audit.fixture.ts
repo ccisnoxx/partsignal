@@ -108,16 +108,15 @@ const test = base.extend<AuditFixtures>({
     await page.route('**/api/v1/**', async (route) => {
       const request = route.request();
       const url = new URL(request.url());
-      if (request.method() === 'GET' && url.pathname === '/api/v1/auth/me') {
-        await route.fulfill({ status: 200, json: {
+      if (request.method() === 'GET' && url.pathname === '/api/v1/auth/session') {
+        const user = {
           id: actorId, username: 'admin', display_name: '系统管理员', account_type: accountType,
           is_active: true, must_change_password: false, workflow_stage: 'ACTIVE', primary_task: 'MANAGE_USER',
           available_actions: [], deletion: null, revision: 1, created_at: '2026-08-15T00:00:00Z',
-        } satisfies components['schemas']['User'] });
-        return;
-      }
-      if (request.method() === 'GET' && url.pathname === '/api/v1/auth/csrf') {
-        await route.fulfill({ status: 200, json: { csrf_token: 'audit-fixture-csrf' } });
+        } satisfies components['schemas']['User'];
+        await route.fulfill({ status: 200, json: {
+          user, csrf_token: 'audit-fixture-csrf', session_binding: 'a'.repeat(64),
+        } satisfies components['schemas']['AuthSession'] });
         return;
       }
       const approved = request.method() === 'GET' && (

@@ -1,0 +1,4 @@
+{"file":".trellis/spec/backend/error-handling.md","reason":"OpenAPI/runtime response metadata 与错误语义"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"后端 TestClient 定向验证入口"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"前端 auth fixture、typecheck 与定向 Playwright"}
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"真实栈数据库、Redis、端口和临时资源清理"}

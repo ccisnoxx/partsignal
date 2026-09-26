@@ -86,10 +86,14 @@ const test = base.extend<PlatformTypeFixtures>({
 
     await page.route('**/api/v1/**', async (route, request) => {
       const url = new URL(request.url());
-      if (request.method() === 'GET' && url.pathname === '/api/v1/auth/me') {
+      if (request.method() === 'GET' && url.pathname === '/api/v1/auth/session') {
         await route.fulfill({
           status: 200,
-          json: engineer ? { ...admin, account_type: 'ENGINEER' } : admin,
+          json: {
+            user: engineer ? { ...admin, account_type: 'ENGINEER' } : admin,
+            csrf_token: 'platform-types-csrf',
+            session_binding: 'a'.repeat(64),
+          } satisfies components['schemas']['AuthSession'],
         });
         return;
       }

@@ -1,0 +1,4 @@
+{"file":".trellis/spec/infra/ci-execution.md","reason":"核对顶层完整门禁、CI、Docker/Compose 与失败传播合同"}
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"核对 PostgreSQL、Redis、端口、对象存储、secret artifact 与 E2E 清理合同"}
+{"file":".trellis/spec/infra/production-image-delivery.md","reason":"核对 production harness 与部署脚本候选交付合同"}
+{"file":".trellis/tasks/09-25-frontend-i03-4-b2-c1-production-harness-tmpdir-cleanup-fix/implement.md","reason":"核对 C1 canonical TMPDIR owner、cleanup 回归与剩余验收边界"}

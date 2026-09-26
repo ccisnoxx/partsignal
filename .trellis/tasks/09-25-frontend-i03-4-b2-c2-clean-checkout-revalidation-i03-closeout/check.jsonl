@@ -1,0 +1,4 @@
+{"file":".trellis/spec/infra/ci-execution.md","reason":"复核 make verify、Docker build、Compose 与 CI 入口的完整性"}
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"复核数据库生命周期、资源所有权、secret scan 与清理证据"}
+{"file":".trellis/spec/infra/production-image-delivery.md","reason":"复核 production harness、部署脚本与 C1 cleanup regression"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"为完整候选高风险复核提供 principal continuation 与 QueryCache 合同"}

@@ -137,8 +137,10 @@ const test = base.extend<{ insightsApi: InsightsController }>({
     });
     await page.route('**/api/v1/**', async (route) => {
       const request = route.request(); const url = new URL(request.url()); const method = request.method();
-      if (method === 'GET' && url.pathname === '/api/v1/auth/me') return route.fulfill({ status: 200, json: user });
-      if (method === 'GET' && url.pathname === '/api/v1/auth/csrf') return route.fulfill({ status: 200, json: { csrf_token: 'geo-insights-csrf' } satisfies components['schemas']['CsrfToken'] });
+      if (method === 'GET' && url.pathname === '/api/v1/auth/session') return route.fulfill({
+        status: 200,
+        json: { user, csrf_token: 'geo-insights-csrf', session_binding: 'a'.repeat(64) } satisfies components['schemas']['AuthSession'],
+      });
       if (method === 'GET' && url.pathname === '/api/v1/geo-insights') {
         insightRequests.push(url);
         if (insightsMode === 'loading') await new Promise<void>((resolve) => { releaseInsights = resolve; });

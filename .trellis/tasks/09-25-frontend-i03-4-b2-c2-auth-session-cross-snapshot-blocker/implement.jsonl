@@ -1,0 +1,4 @@
+{"file":".trellis/spec/frontend/state-management.md","reason":"核对 AuthProvider、QueryCache 与 principal continuation owner"}
+{"file":"docs/frontend-v2/05-business-actions-state-and-api-contract.md","reason":"核对认证、权限、CSRF、错误与服务端裁决合同"}
+{"file":"docs/frontend-v2/08-testing-quality-and-acceptance.md","reason":"选择确定性跨请求/跨标签页交错与完整复验"}
+{"file":".trellis/tasks/09-25-frontend-i03-4-b1-principal-epoch-late-mutation-guard/research.md","reason":"复用 principal epoch 与迟到 continuation 覆盖清单"}

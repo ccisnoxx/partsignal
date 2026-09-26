@@ -24,6 +24,8 @@ Product Activity 的权威记录依次来自 `product.created/product.updated` �
 
 This historical revision created six fixed roles. Revision `0009` migrates them to the current two-account-type model and removes `roles` and `user_roles`.
 
+当前认证 snapshot 不增加数据库字段：`sessions.id` 是服务端内部稳定 session identity，`GET /api/v1/auth/session` 以同一次 `SessionRecord` + joined `User` 读取返回 user projection、该 record 验证后的 CSRF Token，以及用部署 `SESSION_SECRET` 对 `partsignal-session-binding-v1:<session UUID>` 做 HMAC-SHA256 得到的公开不透明 `session_binding`。binding 只用于客户端区分 session snapshot，不能用于认证、CSRF、数据库查找或凭据重放；Session UUID、session token、token hash 与 CSRF hash 均不进入响应、日志或审计。
+
 ### 0002 Product Facts
 
 `products`, `reference_parts`, `part_parameters`, `replacement_relations`, `evidences`, `parameter_evidence_links`, `replacement_evidence_links`, `fact_claims`, `claim_evidence_links`, `fact_versions`, `fact_review_records`.

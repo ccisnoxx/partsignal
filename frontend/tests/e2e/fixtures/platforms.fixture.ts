@@ -172,14 +172,10 @@ const test = base.extend<PlatformFixtures>({
     await page.route('**/api/v1/**', async (route) => {
       const request = route.request();
       const url = new URL(request.url());
-      if (request.method() === 'GET' && url.pathname === '/api/v1/auth/me') {
-        await route.fulfill({ status: 200, json: user });
-        return;
-      }
-      if (request.method() === 'GET' && url.pathname === '/api/v1/auth/csrf') {
+      if (request.method() === 'GET' && url.pathname === '/api/v1/auth/session') {
         await route.fulfill({
           status: 200,
-          json: { csrf_token: 'platforms-e2e-csrf' } satisfies components['schemas']['CsrfToken'],
+          json: { user, csrf_token: 'platforms-e2e-csrf', session_binding: 'a'.repeat(64) } satisfies components['schemas']['AuthSession'],
         });
         return;
       }

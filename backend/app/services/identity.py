@@ -328,7 +328,7 @@ def export_users(
     return csv_bytes
 
 
-def login(db: Session, payload: LoginRequest) -> tuple[User, str, str]:
+def login(db: Session, payload: LoginRequest) -> tuple[User, SessionRecord, str, str]:
     """校验内部账号并创建可撤销的 PostgreSQL 会话。"""
     user = db.scalar(select(User).where(User.username == payload.username.strip().lower()))
     if (
@@ -339,16 +339,15 @@ def login(db: Session, payload: LoginRequest) -> tuple[User, str, str]:
         raise AppError("AUTH_REQUIRED", "用户名或密码错误", 401)
     session_token = generate_token()
     csrf_token = generate_token()
-    db.add(
-        SessionRecord(
-            token_hash=hash_token(session_token),
-            csrf_hash=hash_token(csrf_token),
-            user_id=user.id,
-            expires_at=datetime.now(UTC) + timedelta(seconds=settings.session_ttl_seconds),
-        )
+    session = SessionRecord(
+        token_hash=hash_token(session_token),
+        csrf_hash=hash_token(csrf_token),
+        user=user,
+        expires_at=datetime.now(UTC) + timedelta(seconds=settings.session_ttl_seconds),
     )
+    db.add(session)
     db.commit()
-    return user, session_token, csrf_token
+    return user, session, session_token, csrf_token
 
 
 def logout(db: Session, current: SessionRecord) -> None:

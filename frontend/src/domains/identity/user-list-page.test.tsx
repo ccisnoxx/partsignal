@@ -75,17 +75,20 @@ function result(items: User[], total = items.length): UserList {
   };
 }
 
-function renderUsers(entry = '/system/users?status=ENABLED&page=1&pageSize=20') {
-  const queryClient = createAuthenticatedTestQueryClient(auth);
+function renderUsers(
+  entry = '/system/users?status=ENABLED&page=1&pageSize=20',
+  authContext: AuthContextValue = auth,
+) {
+  const queryClient = createAuthenticatedTestQueryClient(authContext);
   const router = createRouter({
     routeTree,
     history: createMemoryHistory({ initialEntries: [entry] }),
-    context: { queryClient, auth },
+    context: { queryClient, auth: authContext },
   });
   const view = render(
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <RouterProvider router={router} context={{ queryClient, auth }} />
+        <RouterProvider router={router} context={{ queryClient, auth: authContext }} />
       </TooltipProvider>
     </QueryClientProvider>,
   );
@@ -826,6 +829,122 @@ describe('Users lifecycle boundaries', () => {
     expect(post).toHaveBeenCalledOnce();
     expect(boundary).not.toHaveBeenCalled();
     expect(reconcile).not.toHaveBeenCalled();
+  });
+
+  describe('canonical current actor UUID', () => {
+    const currentId = 'abcdefab-cdef-4abc-8def-abcdefabcdef';
+    const current = managedUser({
+      ...admin,
+      id: currentId,
+      available_actions: ['UPDATE', 'DISABLE'],
+    });
+    const uppercaseAuth: AuthContextValue = {
+      ...auth,
+      user: { ...admin, id: currentId.toUpperCase() },
+    };
+
+    it('uppercase actor 的 exact success 使用 canonical request/response 并进入 boundary', async () => {
+      vi.spyOn(api, 'GET').mockResolvedValue({
+        data: result([current]),
+        response: Response.json(result([current])),
+      } as never);
+      const post = vi.spyOn(api, 'POST').mockResolvedValue({
+        data: {
+          succeeded: [{ ...current, id: currentId.toUpperCase(), is_active: false }],
+          failures: [],
+        },
+        response: Response.json({}, { status: 200 }),
+      } as never);
+      const boundary = vi.mocked(auth.runPrincipalBoundary).mockClear();
+      renderUsers(undefined, uppercaseAuth);
+
+      await userEvent.click(await screen.findByRole('checkbox', { name: '选择用户 admin' }));
+      await userEvent.click(screen.getByRole('button', { name: '批量停用' }));
+      await userEvent.click(within(await screen.findByRole('dialog', { name: '批量停用 1 个用户？' }))
+        .getByRole('button', { name: '批量停用' }));
+
+      await waitFor(() => expect(boundary).toHaveBeenCalledOnce());
+      expect(post).toHaveBeenCalledWith('/api/v1/users/bulk-status', expect.objectContaining({
+        body: {
+          items: [{ expected_revision: current.revision, user_id: currentId }],
+          status: 'DISABLED',
+        },
+      }));
+    });
+
+    it('uppercase actor 的 explicit failure 不进入 boundary 或 unknown reconciliation', async () => {
+      vi.spyOn(api, 'GET').mockResolvedValue({
+        data: result([current]),
+        response: Response.json(result([current])),
+      } as never);
+      vi.spyOn(api, 'POST').mockResolvedValue({
+        data: {
+          succeeded: [],
+          failures: [{
+            user_id: currentId.toUpperCase(),
+            code: 'REVISION_CONFLICT',
+            message: '修订冲突',
+          }],
+        },
+        response: Response.json({}, { status: 200 }),
+      } as never);
+      const boundary = vi.mocked(auth.runPrincipalBoundary).mockClear();
+      const reconcile = vi.mocked(auth.reconcileUnknownPrincipalResult).mockClear();
+      renderUsers(undefined, uppercaseAuth);
+
+      await userEvent.click(await screen.findByRole('checkbox', { name: '选择用户 admin' }));
+      await userEvent.click(screen.getByRole('button', { name: '批量停用' }));
+      await userEvent.click(within(await screen.findByRole('dialog', { name: '批量停用 1 个用户？' }))
+        .getByRole('button', { name: '批量停用' }));
+
+      expect(await screen.findByRole('status')).toHaveTextContent('成功 0，失败 1');
+      expect(boundary).not.toHaveBeenCalled();
+      expect(reconcile).not.toHaveBeenCalled();
+    });
+
+    it('uppercase actor 的 unknown 只提交一次并执行一次 canonical reconciliation', async () => {
+      vi.spyOn(api, 'GET').mockResolvedValue({
+        data: result([current]),
+        response: Response.json(result([current])),
+      } as never);
+      const post = vi.spyOn(api, 'POST').mockRejectedValue(new TypeError('Failed to fetch'));
+      const reconcile = vi.mocked(auth.reconcileUnknownPrincipalResult).mockClear();
+      renderUsers(undefined, uppercaseAuth);
+
+      await userEvent.click(await screen.findByRole('checkbox', { name: '选择用户 admin' }));
+      await userEvent.click(screen.getByRole('button', { name: '批量停用' }));
+      await userEvent.click(within(await screen.findByRole('dialog', { name: '批量停用 1 个用户？' }))
+        .getByRole('button', { name: '批量停用' }));
+
+      await waitFor(() => expect(reconcile).toHaveBeenCalledOnce());
+      expect(post).toHaveBeenCalledOnce();
+    });
+
+    it('uppercase actor 的 self-edit 在请求前进入 boundary 并使用 canonical path', async () => {
+      vi.spyOn(api, 'GET').mockResolvedValue({
+        data: result([current]),
+        response: Response.json(result([current])),
+      } as never);
+      const saved = { ...current, id: currentId.toUpperCase(), account_type: 'ENGINEER' as const };
+      const patch = vi.spyOn(api, 'PATCH').mockResolvedValue({
+        data: saved,
+        response: Response.json(saved),
+      } as never);
+      const boundary = vi.mocked(auth.runPrincipalBoundary).mockClear();
+      renderUsers(undefined, uppercaseAuth);
+
+      await userEvent.click(await screen.findByRole('button', { name: '管理用户' }));
+      const dialog = await screen.findByRole('dialog', { name: '编辑用户 admin' });
+      await userEvent.click(within(dialog).getByRole('combobox', { name: '账号类型' }));
+      await userEvent.click(await screen.findByRole('option', { name: 'ENGINEER' }));
+      await userEvent.click(within(dialog).getByRole('button', { name: '保存修改' }));
+
+      await waitFor(() => expect(boundary).toHaveBeenCalledOnce());
+      expect(boundary.mock.invocationCallOrder[0]).toBeLessThan(patch.mock.invocationCallOrder[0]!);
+      expect(patch).toHaveBeenCalledWith('/api/v1/users/{user_id}', expect.objectContaining({
+        params: expect.objectContaining({ path: { user_id: currentId } }),
+      }));
+    });
   });
 });
 

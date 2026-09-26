@@ -303,18 +303,19 @@ function createAuthTransitionChannel(
         ownedReleases.delete(release);
         releaseResolve();
       };
-      const lockPromise = lockManager.request(
-        authTransitionOwnerLockName,
-        { mode: 'exclusive', signal: requestController.signal },
-        async (lock) => {
-          if (!lock || closed) throw new Error('无法取得跨标签页认证 owner');
-          ownedReleases.add(release);
-          acquiredResolve();
-          await released;
-        },
-      );
-      lockPromise.catch(acquiredReject);
+      let lockPromise: Promise<unknown>;
       try {
+        lockPromise = lockManager.request(
+          authTransitionOwnerLockName,
+          { mode: 'exclusive', signal: requestController.signal },
+          async (lock) => {
+            if (!lock || closed) throw new Error('无法取得跨标签页认证 owner');
+            ownedReleases.add(release);
+            acquiredResolve();
+            await released;
+          },
+        );
+        void lockPromise.catch(acquiredReject);
         await acquired;
       } finally {
         pendingOwnerRequests.delete(requestController);

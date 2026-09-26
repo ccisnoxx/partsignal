@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "复核 principal identity、owner capability 与 fail-closed 状态合同"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "选择稳定边界测试与定向质量检查"}

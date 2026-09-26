@@ -110,3 +110,18 @@ L2 必须在 API 边界验证：无遗漏、重复、交叉、外来 ID，成功
 - 不把 bulk transport error 一律当成功或一律当明确失败；unknown outcome 必须 canonical reconcile。
 - 不在 marker、消息、fixture、日志或响应证据中写入 session binding、CSRF、Cookie、token、密码或凭据。
 - reviewer `NO BLOCKER` 前不完成 I03、不创建 I04、不 fetch/push/SSH、不连接 Hostdzire、不执行远程写入。
+
+## L2 fixed candidate fresh review 交接
+
+- fixed candidate：commit `0cf79209607a7504f6f0f0019d11ee2d682d5b3d`；tree
+  `35d51a49b39912d7bc45c5b4f6bc00743acfc028`。
+- 唯一完整门禁退出 `0`；日志 `/tmp/partsignal-i03-l2-0cf79209-make-verify.log`，251,941 bytes，SHA-256
+  `c73ebad14f9689a43fb85506af12d7876f3768d80d80758d6c50388e0a323040`。bind sentinel `26/26`，前后资源
+  snapshot 逐字一致且全部归零。
+- fresh review 结论 `BLOCKER`，audit id
+  `20260926T164042Z-i03-l2-fresh-fixed-candidate-critical-review-23c028b0`。两个 P1 是 current-actor UUID
+  大小写 identity 漂移，以及 Web Lock acquire 失败发生在 fail-closed barrier 之前。
+- review audit bundle 已 finalize 且 verify `passed`；validation checkout 已安全移除并 prune，最终资源快照
+  与门禁 pre/post 相同且全部为零。
+- 已创建 L3 唯一叶子。下一会话先修复并定向验证 L3，再形成新候选；不能外推或重跑本次
+  `0cf79209` 完整门禁。

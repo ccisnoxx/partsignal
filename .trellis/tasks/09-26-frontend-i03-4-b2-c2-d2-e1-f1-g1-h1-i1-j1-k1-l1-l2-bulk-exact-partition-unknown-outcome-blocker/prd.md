@@ -25,9 +25,9 @@
 - [x] 缺少 `details` 或含合同外结构的 malformed 4xx 不会被误判为 explicit failure。
 - [x] 回归测试证明 bulk POST 恰好一次，current-actor unknown 恰好一次调用 Provider reconciliation，
       每页 canonical session recovery 次数保持合同值，无请求风暴和旧 ADMIN route/cache/continuation 恢复。
-- [ ] 定向 Vitest、TypeScript、ESLint、真实栈 BrowserContext 与资源清理通过，形成新的 fixed candidate
+- [x] 定向 Vitest、TypeScript、ESLint、真实栈 BrowserContext 与资源清理通过，形成新的 fixed candidate
       commit/tree。
-- [ ] 在新的 `/Users/sc/...` detached checkout 中 bootstrap，通过 26/26 bind sentinel，清理并确认资源
+- [x] 在新的 `/Users/sc/...` detached checkout 中 bootstrap，通过 26/26 bind sentinel，清理并确认资源
       归零后只运行一次完整 `make verify`；退出 `0`、identity/工作区不漂移、资源再次归零。
 - [ ] fresh `critical_reviewer` 给出 `NO BLOCKER`；否则继续在首次远程写入前停止。
 
@@ -44,3 +44,12 @@
 - I03 与全部上游任务保持 `in_progress`；I04 未创建；没有 fetch、push、SSH 或 Hostdzire 写入。
 - L2 定向实现已通过 `4 files / 114 tests` Vitest、TypeScript、ESLint、contract/generated check 与
   `system-admin-real-stack.spec.ts` `2 passed`；真实栈 secret scan clean，运行前后资源快照逐字一致且全部为零。
+- L2 fixed candidate 为 commit `0cf79209607a7504f6f0f0019d11ee2d682d5b3d`、tree
+  `35d51a49b39912d7bc45c5b4f6bc00743acfc028`。全新 detached checkout 的 bootstrap、26/26 bind
+  sentinel 和唯一完整 `make verify` 均退出 `0`；完整门禁日志 SHA-256
+  `c73ebad14f9689a43fb85506af12d7876f3768d80d80758d6c50388e0a323040`，前后资源日志逐字一致且全部归零。
+- fresh reviewer 对 L2 精确分区和严格信封未发现遗漏，但确认两个新的 P1：页面用大小写敏感原始 UUID 判断
+  current actor，而 API 已把 UUID 规范化为小写；Web Lock 不可用或取得失败时，`beginTransition()` 在建立
+  fail-closed barrier 前抛出。audit id：
+  `20260926T164042Z-i03-l2-fresh-fixed-candidate-critical-review-23c028b0`。已建立 L3 唯一叶子继续收敛；
+  I03 不完成，I04 不创建。

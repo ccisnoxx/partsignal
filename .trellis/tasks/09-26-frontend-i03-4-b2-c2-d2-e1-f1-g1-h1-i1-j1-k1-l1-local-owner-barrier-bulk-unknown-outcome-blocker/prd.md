@@ -81,4 +81,7 @@
   与 I04 继续暂停。
 - L2 已完成精确分区、目标状态、请求 identity 与严格错误信封修复，并通过 `4 files / 114 tests`、
   TypeScript、ESLint、contract/generated check、system-admin 真实栈 `2 passed`、secret scan 与前后资源
-  归零；尚未创建 L2 fixed candidate，也尚未对 L2 运行新的完整门禁或 fresh review。
+  归零。L2 fixed candidate `0cf79209607a7504f6f0f0019d11ee2d682d5b3d` / tree
+  `35d51a49b39912d7bc45c5b4f6bc00743acfc028` 的全新 clean-checkout 唯一完整门禁也通过。
+- L2 fresh review 仍为 `BLOCKER`：current-actor UUID 比较未与 API canonical lowercase identity 对齐；Web
+  Lock 缺失或 acquire 拒绝会在本地 barrier 建立前抛出。L3 唯一叶子负责这两项 P1；I03/I04 继续暂停。

@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { api } from '@/shared/api/client';
+import { bulkUpdateUserStatus } from '@/domains/identity/user.api';
 import {
   authTransitionLegacyStorageKey,
   authTransitionStorageKey,
@@ -20,6 +21,7 @@ import type { AuthUser } from './auth-provider';
 import { AuthProvider, getAuthRouteUser, useAuth, useAuthActions } from './auth-provider';
 import { capturePrincipalContinuation } from './principal-epoch';
 import { createAppQueryClient } from '../query-client';
+import { createTestLockManager } from '../../test/web-locks';
 
 const admin: AuthUser = {
   id: '00000000-0000-4000-8000-000000000001',
@@ -71,6 +73,10 @@ function deferred<T>() {
 
 afterEach(() => {
   localStorage.clear();
+  Object.defineProperty(navigator, 'locks', {
+    configurable: true,
+    value: createTestLockManager(),
+  });
   vi.restoreAllMocks();
 });
 
@@ -190,6 +196,31 @@ function OwnerBarrierProbe({
   if (auth.isLoading) return <p>owner barrier 已关闭路由</p>;
   if (auth.error) return <p>读取失败</p>;
   return <p>{auth.isAdmin ? 'ADMIN 受保护路由' : '非管理员路由'}</p>;
+}
+
+type UnknownReconciliationActions = {
+  readProtectedRouteUser: () => AuthUser | null;
+  reconcile: () => Promise<void>;
+  refresh: () => Promise<void>;
+};
+
+function UnknownReconciliationProbe({
+  onActions,
+}: {
+  onActions: (actions: UnknownReconciliationActions) => void;
+}) {
+  const auth = useAuth();
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    onActions({
+      readProtectedRouteUser: () => getAuthRouteUser(queryClient),
+      reconcile: auth.reconcileUnknownPrincipalResult,
+      refresh: auth.refresh,
+    });
+  }, [auth.reconcileUnknownPrincipalResult, auth.refresh, onActions, queryClient]);
+  if (auth.isLoading) return <p>unknown reconciliation 读取中</p>;
+  if (auth.error) return <p>unknown reconciliation fail-closed</p>;
+  return <p>{auth.isAdmin ? 'unknown reconciliation ADMIN' : 'unknown reconciliation 非管理员'}</p>;
 }
 
 function renderAuth() {
@@ -374,6 +405,167 @@ describe('AuthProvider', () => {
     expect(await screen.findByText('读取失败')).toBeInTheDocument();
     expect(queryClient.getQueryData(['auth', 'session'])).toEqual(previous);
     expect(queryClient.getQueryData(['audit', 'sensitive'])).toEqual({ value: '旧主体审计' });
+  });
+
+  it('认证快照把 uppercase UUID 收敛为 canonical session identity', async () => {
+    const canonicalId = 'abcdefab-cdef-4abc-8def-abcdefabcdef';
+    const uppercaseAdmin = { ...admin, id: canonicalId.toUpperCase() };
+    vi.spyOn(api, 'GET').mockResolvedValue(authSnapshot(
+      uppercaseAdmin,
+      'uppercase-csrf',
+      adminBinding,
+    ));
+    const { queryClient } = renderAuth();
+
+    expect(await screen.findByText('系统管理员:true:uppercase-csrf')).toBeInTheDocument();
+    expect(queryClient.getQueryData<{ user: AuthUser }>(['auth', 'session'])?.user.id)
+      .toBe(canonicalId);
+  });
+
+  it.each([
+    ['navigator.locks 缺失', (): LockManager | undefined => undefined],
+    ['locks.request 同步抛出', (): LockManager => ({
+      query: vi.fn(),
+      request: vi.fn(() => { throw new Error('lock sync failure'); }),
+    } as unknown as LockManager)],
+    ['locks.request 异步拒绝', (): LockManager => ({
+      query: vi.fn(),
+      request: vi.fn(() => Promise.reject(new Error('lock async failure'))),
+    } as unknown as LockManager)],
+  ] as const)('%s 时未执行 owner command，并关闭旧 principal', async (_name, lockManager) => {
+    const get = vi.spyOn(api, 'GET').mockResolvedValue(authSnapshot(admin, 'initial-csrf'));
+    const ownerCommand = vi.fn(async () => undefined);
+    const secondNetwork = vi.fn(async () => undefined);
+    const protectedNetwork = vi.fn(async () => ({ items: [] }));
+    const queryClient = createAppQueryClient();
+    queryClient.setDefaultOptions({ queries: { retry: false } });
+    let actions: OwnerBarrierActions | undefined;
+    render(
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <OwnerBarrierProbe
+            onActions={(next) => { actions = next; }}
+            ownerCommand={ownerCommand}
+            protectedQuery={protectedNetwork}
+            secondCommand={secondNetwork}
+          />
+        </AuthProvider>
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText('ADMIN 受保护路由')).toBeInTheDocument();
+    queryClient.setQueryData(['audit', 'lock-acquire-failure'], { value: '旧 ADMIN 缓存' });
+    const continuation = capturePrincipalContinuation(queryClient);
+    Object.defineProperty(navigator, 'locks', {
+      configurable: true,
+      value: lockManager(),
+    });
+
+    await expect(actions!.startOwnerCommand()).rejects.toThrow();
+
+    expect(await screen.findByText('读取失败')).toBeInTheDocument();
+    expect(ownerCommand).not.toHaveBeenCalled();
+    expect(actions!.readProtectedRouteUser()).toBeNull();
+    expect(continuation.isCurrent()).toBe(false);
+    expect(queryClient.getQueryData(['audit', 'lock-acquire-failure'])).toBeUndefined();
+    expect(queryClient.getQueryData(['auth', 'session'])).toBeNull();
+    expect(get).toHaveBeenCalledOnce();
+    expect(readAuthTransitionState()).toEqual({ status: 'ABSENT' });
+    await expect(actions!.startSecondCommand()).rejects.toMatchObject({
+      name: 'ActivePrincipalCommandError',
+    });
+    await expect(actions!.startProtectedQuery()).rejects.toMatchObject({
+      name: 'ActivePrincipalCommandError',
+    });
+    expect(secondNetwork).not.toHaveBeenCalled();
+    expect(protectedNetwork).not.toHaveBeenCalled();
+  });
+
+  it('bulk response-loss 后 reconciliation 无法 acquire lock 时不重放 POST 并保持 fail-closed', async () => {
+    const get = vi.spyOn(api, 'GET').mockResolvedValue(authSnapshot(admin, 'initial-csrf'));
+    const post = vi.spyOn(api, 'POST').mockRejectedValue(new TypeError('Failed to fetch'));
+    const queryClient = createAppQueryClient();
+    queryClient.setDefaultOptions({ queries: { retry: false } });
+    let actions: UnknownReconciliationActions | undefined;
+    render(
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <UnknownReconciliationProbe onActions={(next) => { actions = next; }} />
+        </AuthProvider>
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText('unknown reconciliation ADMIN')).toBeInTheDocument();
+    queryClient.setQueryData(['audit', 'bulk-response-loss'], { value: '旧 ADMIN 缓存' });
+    const continuation = capturePrincipalContinuation(queryClient);
+
+    await expect(bulkUpdateUserStatus([
+      { user_id: admin.id, expected_revision: admin.revision },
+    ], 'DISABLED', 'initial-csrf')).rejects.toMatchObject({
+      name: 'UserBulkStatusUnknownOutcomeError',
+    });
+    expect(post).toHaveBeenCalledOnce();
+    Object.defineProperty(navigator, 'locks', {
+      configurable: true,
+      value: {
+        query: vi.fn(),
+        request: vi.fn(() => Promise.reject(new Error('lock rejected after response loss'))),
+      } as unknown as LockManager,
+    });
+    const reconcile = vi.fn(() => actions!.reconcile());
+
+    await expect(reconcile()).rejects.toThrow('lock rejected after response loss');
+
+    expect(reconcile).toHaveBeenCalledOnce();
+    expect(post).toHaveBeenCalledOnce();
+    expect(get).toHaveBeenCalledOnce();
+    expect(await screen.findByText('unknown reconciliation fail-closed')).toBeInTheDocument();
+    expect(actions!.readProtectedRouteUser()).toBeNull();
+    expect(continuation.isCurrent()).toBe(false);
+    expect(queryClient.getQueryData(['audit', 'bulk-response-loss'])).toBeUndefined();
+    expect(queryClient.getQueryData(['auth', 'session'])).toBeNull();
+    expect(readAuthTransitionState()).toEqual({ status: 'ABSENT' });
+
+    window.dispatchEvent(new Event('focus'));
+    await actions!.refresh();
+    expect(get).toHaveBeenCalledOnce();
+    expect(post).toHaveBeenCalledOnce();
+    expect(readAuthTransitionState()).toEqual({ status: 'ABSENT' });
+  });
+
+  it('等待 acquire 时卸载 Provider 不会在共享 QueryClient 遗留 command barrier', async () => {
+    vi.spyOn(api, 'GET').mockResolvedValue(authSnapshot(admin, 'initial-csrf'));
+    const request = vi.fn((_name: string, options: LockOptions) => new Promise<never>((_resolve, reject) => {
+      options.signal?.addEventListener('abort', () => reject(options.signal?.reason), { once: true });
+    }));
+    const queryClient = createAppQueryClient();
+    queryClient.setDefaultOptions({ queries: { retry: false } });
+    let actions: OwnerBarrierActions | undefined;
+    const view = render(
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <OwnerBarrierProbe
+            onActions={(next) => { actions = next; }}
+            ownerCommand={vi.fn(async () => undefined)}
+            protectedQuery={vi.fn(async () => undefined)}
+            secondCommand={vi.fn(async () => undefined)}
+          />
+        </AuthProvider>
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText('ADMIN 受保护路由')).toBeInTheDocument();
+    Object.defineProperty(navigator, 'locks', {
+      configurable: true,
+      value: { query: vi.fn(), request } as unknown as LockManager,
+    });
+
+    const pendingOwner = actions!.startOwnerCommand();
+    await waitFor(() => expect(request).toHaveBeenCalledOnce());
+    view.unmount();
+    await expect(pendingOwner).rejects.toMatchObject({ name: 'AbortError' });
+
+    const network = vi.fn(async () => 'ok');
+    const mutation = queryClient.getMutationCache().build(queryClient, { mutationFn: network });
+    await expect(mutation.execute(undefined)).resolves.toBe('ok');
+    expect(network).toHaveBeenCalledOnce();
   });
 
   it('malformed 登录 200 显式失败且不得提交部分 session', async () => {
@@ -735,11 +927,13 @@ describe('AuthProvider', () => {
     });
   });
 
-  it('同一 binding 的普通 refresh 更新 canonical CSRF 并保留业务缓存', async () => {
+  it('同一 binding 的 UUID 仅大小写变化时更新 canonical CSRF 并保留业务缓存', async () => {
+    const canonicalId = 'abcdefab-cdef-4abc-8def-abcdefabcdef';
+    const samePrincipalAdmin = { ...admin, id: canonicalId };
     const get = vi.spyOn(api, 'GET')
-      .mockResolvedValueOnce(authSnapshot(admin, 'initial-csrf'))
+      .mockResolvedValueOnce(authSnapshot(samePrincipalAdmin, 'initial-csrf', adminBinding))
       .mockResolvedValueOnce(authSnapshot(
-        { ...admin, revision: 2 },
+        { ...samePrincipalAdmin, id: canonicalId.toUpperCase(), revision: 2 },
         'refreshed-csrf',
         adminBinding,
       ));
@@ -754,7 +948,7 @@ describe('AuthProvider', () => {
     expect(queryClient.getQueryData(['products', 'same-principal'])).toEqual({ value: '保留' });
     expect(continuation.isCurrent()).toBe(true);
     expect(queryClient.getQueryData(['auth', 'session'])).toEqual({
-      user: { ...admin, revision: 2 },
+      user: { ...samePrincipalAdmin, revision: 2 },
       csrfToken: 'refreshed-csrf',
       sessionBinding: adminBinding,
     });

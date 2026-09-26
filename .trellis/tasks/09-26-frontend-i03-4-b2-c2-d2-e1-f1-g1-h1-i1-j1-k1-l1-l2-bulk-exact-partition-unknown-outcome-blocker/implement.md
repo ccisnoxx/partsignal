@@ -46,8 +46,40 @@
   8000/9001/4174/19009、Redis DB 14、`partsignal_e2e_%` 数据库、storage/secret/lifecycle/deploy 临时目录
   与 test containers 全部为 `0`。`git diff --check` status `0`。
 
-## 下一步
+## 固定候选与唯一完整门禁
 
-精确审查并创建一个包含 L1/L2 Trellis 记录、L2 生产/测试代码和稳定状态规范的本地修复提交。然后只在
-新的 `/Users/sc/...` detached checkout 执行 bind sentinel、资源前置核对和唯一一次完整 `make verify`；
-完整门禁成功且 identity/资源不漂移后才安排 fresh 独立高风险复核。
+- 本地修复提交：`0cf79209607a7504f6f0f0019d11ee2d682d5b3d`；parent
+  `3513db0968af4dd522ae62d2a7feb385055baa3f`；tree
+  `35d51a49b39912d7bc45c5b4f6bc00743acfc028`。
+- bootstrap：`/tmp/partsignal-i03-l2-0cf79209-bootstrap.log`，3,205 bytes，SHA-256
+  `e6d5439611f12faf754b4d111af867bfa0adb279bb81403c0adb47fb4c81f4f5`，status `0`。
+- bind sentinel：host/container integration 文件均为 `26`，container 内
+  `/app/tests/integration/test_migrations.py` 可见；日志
+  `/tmp/partsignal-i03-l2-0cf79209-bind-sentinel.log`，223 bytes，SHA-256
+  `0380004e017135737aee8bad6473cc53755745251a6744ffb5e857981a269d17`，status `0`。
+- 唯一完整 `make verify`：`/tmp/partsignal-i03-l2-0cf79209-make-verify.log`，251,941 bytes，SHA-256
+  `c73ebad14f9689a43fb85506af12d7876f3768d80d80758d6c50388e0a323040`，status `0`。backend unit
+  `683`、Vitest `91 files / 824 tests`、PostgreSQL integration `337`、real-stack Playwright
+  `21 passed`、fixture Playwright `494 passed / 44 skipped`，其余 contract/types、lint/typecheck、构建、
+  lifecycle、两次 secret scan、deploy harness、TMPDIR cleanup 与 Compose 门禁全部通过。
+- pre/post resource snapshot 均为 2,314 bytes、SHA-256
+  `170a5696b088b17beb9451f0715309d5305aa39776bb8b0371b00b784c465d0a`，逐字一致；受控资源全部为 `0`。
+- 门禁后 HEAD/tree 未漂移，tracked/non-ignored untracked 为空，`git diff --check` 通过。
+- fresh review 后 validation checkout 已用 `git worktree remove` 安全移除并执行 `git worktree prune`；最终
+  资源日志 `/tmp/partsignal-i03-l2-0cf79209-resource-final.log` 为 2,314 bytes、SHA-256
+  `170a5696b088b17beb9451f0715309d5305aa39776bb8b0371b00b784c465d0a`，与门禁 pre/post 快照一致且全部为零。
+
+## Fresh review 阻断与恢复顺序
+
+fresh `critical_reviewer` 结论为 `BLOCKER`，audit id
+`20260926T164042Z-i03-l2-fresh-fixed-candidate-critical-review-23c028b0`：
+
+1. `user-list-page.tsx` 使用大小写敏感的原始 UUID 比较 current actor，而 `user.api.ts` 已把请求和响应 UUID
+   规范化为小写；合法 uppercase UUID 可使 actor success/unknown/self-edit 跳过正确边界。
+2. `beginTransition()` 在 `channel.acquire()` 成功后才建立本地 barrier；浏览器没有 Web Lock 或
+   `locks.request()` 拒绝时会在 fail-closed 前抛出。对已发出的 bulk unknown reconciliation，这会留下旧
+   ADMIN route/cache/continuation。
+
+L3 必须统一 current-actor canonical identity，并保证 owner lock acquisition 失败也立即、持久地
+fail-closed；补 uppercase actor 与 Web Lock 缺失/拒绝的确定性测试后重新形成候选。不得在本会话修改实现、
+重跑完整门禁、完成 I03 或创建 I04。

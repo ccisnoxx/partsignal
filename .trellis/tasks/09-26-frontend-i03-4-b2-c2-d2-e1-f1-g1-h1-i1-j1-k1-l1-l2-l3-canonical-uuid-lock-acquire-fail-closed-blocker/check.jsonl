@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "复核 auth boundary、durable transition 与 canonical recovery 不变量"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "复核单元、真实栈和完整门禁证据"}
+{"file": ".trellis/spec/infra/e2e-isolation.md", "reason": "复核真实栈 BrowserContext 与资源隔离"}
+{"file": ".trellis/spec/infra/ci-execution.md", "reason": "复核新 fixed candidate 的 clean-checkout 唯一完整门禁"}

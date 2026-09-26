@@ -12,6 +12,7 @@ import { z } from 'zod';
 
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
+import { canonicalUuidSchema } from '@/shared/lib/canonical-uuid';
 import {
   advancePrincipalEpoch,
   assertPrincipalCommandOpen,
@@ -27,6 +28,7 @@ import {
   readAuthTransitionState,
   type AuthTransitionChannel,
   type AuthTransitionMessage,
+  type AuthTransitionOwner,
   type AuthTransitionStorageState,
 } from './auth-transition-channel';
 
@@ -111,7 +113,7 @@ const deletionBlockerTypes = [
 ] as const;
 
 const authUserSchema = z.strictObject({
-  id: z.uuid(),
+  id: canonicalUuidSchema,
   username: z.string(),
   display_name: z.string(),
   account_type: z.enum(['ADMIN', 'ENGINEER']),
@@ -441,7 +443,13 @@ function AuthProvider({ children }: { children: ReactNode }) {
     assertPrincipalCommandOpen(queryClient);
     const acquisitionContinuation = capturePrincipalContinuation(queryClient);
     const transitionId = globalThis.crypto.randomUUID();
-    const owner = await channel.acquire(transitionId);
+    let owner: AuthTransitionOwner;
+    try {
+      owner = await channel.acquire(transitionId);
+    } catch (error) {
+      if (authTransitionChannelRef.current === channel) failClosedTransition(error);
+      throw error;
+    }
     try {
       acquisitionContinuation.assertCurrent();
       assertPrincipalCommandOpen(queryClient);
@@ -775,7 +783,7 @@ function useAuthActions() {
           commitPrincipalBoundary(queryClient, next);
           queryClient.setQueryData<AuthSession>(authSessionQueryKey, next);
         });
-        return result.data.user;
+        return next.user;
       } finally {
         await transition.finish();
       }

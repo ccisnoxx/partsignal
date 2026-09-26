@@ -43,6 +43,7 @@ import {
   SelectValue,
 } from '@/design-system/primitives/select';
 import type { components } from '@/shared/api/generated/schema';
+import { canonicalUuid } from '@/shared/lib/canonical-uuid';
 import {
   UserBulkStatusUnknownOutcomeError,
   UserRequestError,
@@ -120,6 +121,7 @@ function UserListPage({
   search,
 }: UserListPageProps) {
   const queryClient = useQueryClient();
+  const currentPrincipalId = canonicalUuid(currentUserId);
   const users = useQuery(userListQueryOptions(search));
   const activeListKey = JSON.stringify(userSearchToApiParams(search));
   const previousListKey = useRef(activeListKey);
@@ -182,7 +184,7 @@ function UserListPage({
     authBoundaryHandled = false,
   ) {
     await Promise.all([
-      !authBoundaryHandled && savedUsers.some((user) => user.id === currentUserId)
+      !authBoundaryHandled && savedUsers.some((user) => user.id === currentPrincipalId)
         ? onAuthChanged()
         : Promise.resolve(),
       queryClient.invalidateQueries({ queryKey: userKeys.lists() }),
@@ -211,7 +213,7 @@ function UserListPage({
     meta: { authPrincipalBoundary: true },
     mutationFn: async (target: CommandTarget) => {
       const continuation = capturePrincipalContinuation(queryClient);
-      const changesCurrentPrincipal = target.user.id === currentUserId;
+      const changesCurrentPrincipal = target.user.id === currentPrincipalId;
       let saved: User;
       switch (target.command) {
         case 'enable-user':
@@ -252,7 +254,7 @@ function UserListPage({
     meta: { authPrincipalBoundary: true },
     mutationFn: async ({ items, status }: { items: SelectedUser[]; status: UserStatus; scope: string; selectionEpoch: number }) => {
       const continuation = capturePrincipalContinuation(queryClient);
-      const includesCurrentPrincipal = items.some((item) => item.id === currentUserId);
+      const includesCurrentPrincipal = items.some((item) => item.id === currentPrincipalId);
       let result: Awaited<ReturnType<typeof bulkUpdateUserStatus>>;
       try {
         result = await bulkUpdateUserStatus(
@@ -266,7 +268,7 @@ function UserListPage({
         }
         throw error;
       }
-      const currentPrincipalChanged = result.succeeded.some((user) => user.id === currentUserId);
+      const currentPrincipalChanged = result.succeeded.some((user) => user.id === currentPrincipalId);
       if (currentPrincipalChanged && continuation.isCurrent()) {
         await runAuthBoundary(async () => result);
       }
@@ -546,7 +548,7 @@ function UserListPage({
       {editTarget && (
         <EditUserDialog
           csrfToken={csrfToken}
-          isCurrentUser={editTarget.user.id === currentUserId}
+          isCurrentUser={editTarget.user.id === currentPrincipalId}
           onClose={() => setEditTarget(undefined)}
           onReload={async () => { setEditTarget(undefined); await users.refetch(); }}
           onSaved={async (saved, authBoundaryHandled) => {

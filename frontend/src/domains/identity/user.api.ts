@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
+import { canonicalUuid, canonicalUuidSchema } from '@/shared/lib/canonical-uuid';
 import {
   userSearchToApiParams,
   type User,
@@ -38,7 +39,7 @@ const bulkStatusResultSchema = z.strictObject({
   failures: z.array(z.strictObject({
     code: z.enum(['NOT_FOUND', 'REVISION_CONFLICT', 'LAST_ADMIN_REQUIRED', 'INVALID_STATE_TRANSITION']),
     message: z.string(),
-    user_id: z.uuid().transform((value) => value.toLowerCase()),
+    user_id: canonicalUuidSchema,
   })),
   succeeded: z.array(z.strictObject({
     account_type: z.enum(['ADMIN', 'ENGINEER']),
@@ -65,7 +66,7 @@ const bulkStatusResultSchema = z.strictObject({
       })),
     }).nullable(),
     display_name: z.string(),
-    id: z.uuid().transform((value) => value.toLowerCase()),
+    id: canonicalUuidSchema,
     is_active: z.boolean(),
     must_change_password: z.boolean(),
     primary_task: z.enum(['MANAGE_LOGIN_SECURITY', 'MANAGE_USER', 'ENABLE_USER']),
@@ -78,7 +79,7 @@ const bulkStatusResultSchema = z.strictObject({
 const bulkStatusRequestSchema = z.strictObject({
   items: z.array(z.strictObject({
     expected_revision: z.number().int().nonnegative(),
-    user_id: z.uuid().transform((value) => value.toLowerCase()),
+    user_id: canonicalUuidSchema,
   })).min(1).max(100),
   status: z.enum(['ENABLED', 'DISABLED']),
 }).superRefine(({ items }, context) => {
@@ -118,7 +119,10 @@ function userListQueryOptions(search: UserSearch) {
     queryFn: async () => {
       const result = await api.GET('/api/v1/users', { params: { query: params } });
       if (!result.data) throw userRequestError('读取用户列表', result);
-      return result.data;
+      return {
+        ...result.data,
+        items: result.data.items.map(canonicalUser),
+      };
     },
     refetchOnWindowFocus: 'always',
     retry: false,
@@ -132,7 +136,7 @@ async function createUser(payload: UserCreateFormValues, csrfToken: string | nul
     body: payload,
     params: { header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) } },
   });
-  if (result.data) return result.data;
+  if (result.data) return canonicalUser(result.data);
   throw userRequestError('创建用户', result);
 }
 
@@ -145,12 +149,12 @@ async function updateUser(
   const result = await api.PATCH('/api/v1/users/{user_id}', {
     body: { ...payload, expected_revision: user.revision },
     params: {
-      path: { user_id: user.id },
+      path: { user_id: canonicalUuid(user.id) },
       header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) },
     },
     ...(signal ? { signal } : {}),
   });
-  if (result.data) return result.data;
+  if (result.data) return canonicalUser(result.data);
   throw userRequestError('更新用户', result);
 }
 
@@ -163,12 +167,12 @@ async function resetUserPassword(
   const result = await api.POST('/api/v1/users/{user_id}/reset-password', {
     body: { temporary_password: temporaryPassword, expected_revision: user.revision },
     params: {
-      path: { user_id: user.id },
+      path: { user_id: canonicalUuid(user.id) },
       header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) },
     },
     ...(signal ? { signal } : {}),
   });
-  if (result.data) return result.data;
+  if (result.data) return canonicalUser(result.data);
   throw userRequestError('重置临时密码', result);
 }
 
@@ -196,7 +200,7 @@ async function deleteUser(
 ) {
   const result = await api.DELETE('/api/v1/users/{user_id}', {
     params: {
-      path: { user_id: id },
+      path: { user_id: canonicalUuid(id) },
       query: { expected_revision: expectedRevision },
       header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) },
     },
@@ -313,6 +317,10 @@ async function exportUsers(search: UserSearch) {
 function requireCsrfToken(csrfToken: string | null) {
   if (csrfToken) return csrfToken;
   throw new UserRequestError('缺少会话安全令牌，无法管理用户');
+}
+
+function canonicalUser(user: User): User {
+  return { ...user, id: canonicalUuid(user.id) };
 }
 
 function userRequestError(

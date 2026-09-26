@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { capturePrincipalContinuation } from '@/app/auth/principal-epoch';
 import { MarkdownPreview } from '@/design-system/editor/markdown-editor';
 import { Badge } from '@/design-system/primitives/badge';
 import { Button } from '@/design-system/primitives/button';
@@ -147,18 +148,24 @@ function PromptPreview({
     ),
   });
 
-  const refreshConsumers = useCallback((taskId: string, jobId: string, includeJobs: boolean) => {
+  const refreshConsumers = useCallback((
+    taskId: string,
+    jobId: string,
+    includeJobs: boolean,
+    continuation = capturePrincipalContinuation(queryClient),
+  ) => {
+    if (!continuation.isCurrent()) return;
     const attempt = consumerRefreshAttempt.current + 1;
     consumerRefreshAttempt.current = attempt;
     setConsumerRefresh({ isPending: true, jobId });
     void invalidatePreviewConsumers(queryClient, taskId, includeJobs).then(
       () => {
-        if (consumerRefreshAttempt.current === attempt) {
+        if (continuation.isCurrent() && consumerRefreshAttempt.current === attempt) {
           setConsumerRefresh({ isPending: false, jobId });
         }
       },
       (caught: unknown) => {
-        if (consumerRefreshAttempt.current === attempt) {
+        if (continuation.isCurrent() && consumerRefreshAttempt.current === attempt) {
           setConsumerRefresh({
             error: errorMessage(caught),
             isPending: false,
@@ -210,6 +217,7 @@ function PromptPreview({
       optionPrompt.id,
       optionPrompt.revision,
     ].join(':');
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
       const job = await create.mutateAsync({
         context: selectedContext,
@@ -217,6 +225,7 @@ function PromptPreview({
         prompt: optionPrompt,
         signature,
       });
+      if (!continuation.isCurrent()) return;
       const next = { context: selectedContext, job, prompt: optionPrompt };
       setSubmitted(next);
       setConfirmationIdentity(undefined);
@@ -228,17 +237,19 @@ function PromptPreview({
         }),
       );
       pending.current = false;
-      refreshConsumers(selectedContext.content_task_id, job.id, true);
+      refreshConsumers(selectedContext.content_task_id, job.id, true, continuation);
     } catch (caught) {
+      if (!continuation.isCurrent()) return;
       if (isErrorCode(caught, 'IDEMPOTENCY_CONFLICT')) commandKey.current = undefined;
       if (isErrorCode(caught, 'PLATFORM_PROMPT_CHANGED')) {
         commandKey.current = undefined;
         setSelection({ identity: selectionIdentity });
         await options.refetch();
+        if (!continuation.isCurrent()) return;
       }
       setError(errorMessage(caught));
     } finally {
-      pending.current = false;
+      if (continuation.isCurrent()) pending.current = false;
     }
   }
 

@@ -91,7 +91,10 @@ describe('PublishedArticleDetailPage', () => {
         path: { article_id: articleIds.article },
       },
     });
-    expect(onIssueOpened).toHaveBeenCalledWith(issue);
+    expect(onIssueOpened).toHaveBeenCalledWith(
+      issue,
+      expect.objectContaining({ isCurrent: expect.any(Function) }),
+    );
   });
 
   it('OPEN_ISSUE 409 保留输入且不重放，显式重载后只消费最新 Article 投影', async () => {

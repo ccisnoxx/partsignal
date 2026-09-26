@@ -1,6 +1,10 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState, type FormEvent } from 'react';
 
+import {
+  capturePrincipalContinuation,
+  type PrincipalContinuation,
+} from '@/app/auth/principal-epoch';
 import { ErrorSummary, type ErrorSummaryItem } from '@/design-system/forms/form-layout';
 import { Button } from '@/design-system/primitives/button';
 import {
@@ -29,8 +33,8 @@ import type { PublicationReadyItem, PublicationWork } from './publication-work.m
 type StartPublicationDialogProps = {
   csrfToken: string | null;
   item: PublicationReadyItem;
-  onConflict: (taskId: string) => Promise<void>;
-  onCreated: (work: PublicationWork) => Promise<void>;
+  onConflict: (taskId: string, continuation: PrincipalContinuation) => Promise<void>;
+  onCreated: (work: PublicationWork, continuation: PrincipalContinuation) => Promise<void>;
 };
 
 function StartPublicationDialog({
@@ -39,6 +43,7 @@ function StartPublicationDialog({
   onConflict,
   onCreated,
 }: StartPublicationDialogProps) {
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [accountId, setAccountId] = useState('');
   const [fieldError, setFieldError] = useState<string>();
@@ -99,18 +104,22 @@ function StartPublicationDialog({
       : crypto.randomUUID();
     idempotency.current = { signature, key };
     submitting.current = true;
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
       const work = await create.mutateAsync({ key });
+      if (!continuation.isCurrent()) return;
       idempotency.current = undefined;
-      await onCreated(work);
+      await onCreated(work, continuation);
+      if (!continuation.isCurrent()) return;
       setOpen(false);
     } catch (error) {
+      if (!continuation.isCurrent()) return;
       const mapped = mapPublicationError(error);
       setServerError(mapped);
       if (mapped.code === 'IDEMPOTENCY_CONFLICT') idempotency.current = undefined;
-      if (mapped.status === 409) await onConflict(item.task_id);
+      if (mapped.status === 409) await onConflict(item.task_id, continuation);
     } finally {
-      submitting.current = false;
+      if (continuation.isCurrent()) submitting.current = false;
     }
   }
 

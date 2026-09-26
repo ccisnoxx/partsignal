@@ -3,6 +3,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { FormProvider, useForm, useWatch } from 'react-hook-form';
 
+import {
+  capturePrincipalContinuation,
+  type PrincipalContinuation,
+} from '@/app/auth/principal-epoch';
 import { DirtyGuard } from '@/design-system/forms/dirty-guard';
 import { FormField } from '@/design-system/forms/form-field';
 import {
@@ -77,7 +81,10 @@ function NewContentTaskPage({
   const options = useQuery(contentTaskCreationOptionsQueryOptions(requestedProductId));
   const currentOptions = options.isPlaceholderData ? undefined : options.data;
   const [requestId, setRequestId] = useState<string>();
-  const [createdTaskId, setCreatedTaskId] = useState<string>();
+  const [createdTask, setCreatedTask] = useState<{
+    id: string;
+    continuation: PrincipalContinuation;
+  }>();
   const initialized = useRef(false);
   const idempotency = useRef<{ signature: string; key: string } | undefined>(undefined);
   const submitting = useRef(false);
@@ -93,6 +100,11 @@ function NewContentTaskPage({
   });
   const isDirty = form.formState.isDirty;
   const selectedProductId = useWatch({ control: form.control, name: 'product_id' });
+
+  useEffect(() => {
+    if (!createdTask || isDirty || !createdTask.continuation.isCurrent()) return;
+    onCreated(createdTask.id);
+  }, [createdTask, isDirty, onCreated]);
 
   useEffect(() => {
     if (!currentOptions) return;
@@ -116,11 +128,6 @@ function NewContentTaskPage({
       form.clearErrors('fact_version_id');
     }
   }, [currentOptions, form, handoff]);
-
-  useEffect(() => {
-    if (!createdTaskId || isDirty) return;
-    onCreated(createdTaskId);
-  }, [createdTaskId, isDirty, onCreated]);
 
   const selectedProduct = currentOptions?.products.find(
     (product) => product.id === selectedProductId,
@@ -148,13 +155,17 @@ function NewContentTaskPage({
       ? idempotency.current.key
       : crypto.randomUUID();
     idempotency.current = { signature, key };
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
       const task = await create.mutateAsync({ body, key });
+      if (!continuation.isCurrent()) return;
       idempotency.current = undefined;
       form.reset(values);
       await queryClient.invalidateQueries({ queryKey: contentKeys.lists() });
-      setCreatedTaskId(task.id);
+      if (!continuation.isCurrent()) return;
+      setCreatedTask({ id: task.id, continuation });
     } catch (error) {
+      if (!continuation.isCurrent()) return;
       const mapped = mapContentTaskCreateError(error);
       for (const [field, message] of Object.entries(mapped.fields)) {
         form.setError(field as NewContentTaskField, { type: 'server', message });

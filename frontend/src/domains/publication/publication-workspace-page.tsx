@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSyncExternalStore, useState, useRef, useEffect } from 'react';
 
+import type { PrincipalContinuation } from '@/app/auth/principal-epoch';
 import { MarkdownPreview } from '@/design-system/editor/markdown-editor';
 import { Badge } from '@/design-system/primitives/badge';
 import { Button } from '@/design-system/primitives/button';
@@ -28,7 +29,10 @@ import {
 
 type PublicationWorkspacePageProps = {
   csrfToken: string | null;
-  onContentProjectionChange: (taskId: string) => Promise<void>;
+  onContentProjectionChange: (
+    taskId: string,
+    continuation: PrincipalContinuation,
+  ) => Promise<void>;
   onSectionChange: (section: PublicationWorkspaceSection) => Promise<void> | void;
   workId: string;
 };
@@ -159,25 +163,34 @@ function PublicationWorkspacePage({
     }
   }
 
-  async function reloadContext() {
+  async function reloadContext(continuation?: PrincipalContinuation) {
     const refreshed = await query.refetch();
+    if (continuation && !continuation.isCurrent()) {
+      throw new Error('认证主体已经变化，已丢弃旧主体的客户端 continuation');
+    }
     if (refreshed.error) throw refreshed.error;
     if (!refreshed.data) throw new Error('重载发布工作台后未返回 Context');
     setSyncRequired(false);
     return refreshed.data;
   }
 
-  async function acceptCanonicalWork(canonicalWork: typeof work) {
+  async function acceptCanonicalWork(
+    canonicalWork: typeof work,
+    continuation: PrincipalContinuation,
+  ) {
+    if (!continuation.isCurrent()) return;
     // 命令响应只含 work；正文与候选必须等待完整 Context，禁止拼接快照。
     submittedWork.current = canonicalWork;
     setSyncRequired(true);
     await queryClient.cancelQueries({ queryKey: options.queryKey });
+    if (!continuation.isCurrent()) return;
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: publicationKeys.workLists() }),
       queryClient.invalidateQueries({ queryKey: publicationKeys.summary() }),
-      onContentProjectionChange(work.task_id),
+      onContentProjectionChange(work.task_id, continuation),
     ]);
-    await reloadContext();
+    if (!continuation.isCurrent()) return;
+    await reloadContext(continuation);
   }
 
   const contextPane = (

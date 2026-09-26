@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSyncExternalStore, type ReactNode } from 'react';
 
+import type { PrincipalContinuation } from '@/app/auth/principal-epoch';
 import { MarkdownPreview } from '@/design-system/editor/markdown-editor';
 import { Badge } from '@/design-system/primitives/badge';
 import { Button } from '@/design-system/primitives/button';
@@ -27,7 +28,10 @@ import { formatPublicationTime } from './publication-work.model';
 type PublishedContentIssueWorkspacePageProps = {
   csrfToken: string | null;
   issueId: string;
-  onContentProjectionChange: (taskId: string) => Promise<void>;
+  onContentProjectionChange: (
+    taskId: string,
+    continuation: PrincipalContinuation,
+  ) => Promise<void>;
   onSectionChange: (section: PublishedContentIssueWorkspaceSection) => Promise<void> | void;
 };
 
@@ -119,8 +123,12 @@ function PublishedContentIssueWorkspacePage({
     })),
   ];
 
-  async function refreshCanonicalContext(repairTaskId?: string) {
+  async function refreshCanonicalContext(
+    continuation: PrincipalContinuation,
+    repairTaskId?: string,
+  ) {
     const refreshed = await query.refetch();
+    if (!continuation.isCurrent()) return undefined;
     if (refreshed.error) throw refreshed.error;
     if (!refreshed.data) throw new Error('命令提交后未返回最新内容问题工作区');
     if (!matchesIssueWorkspaceIdentity(refreshed.data, issueId)) {
@@ -132,8 +140,9 @@ function PublishedContentIssueWorkspacePage({
       queryClient.invalidateQueries({ queryKey: publicationKeys.articleLists() }),
       queryClient.invalidateQueries({ queryKey: publicationKeys.summary() }),
       queryClient.invalidateQueries({ queryKey: publicationKeys.issueRepairContexts() }),
-      ...(repairTaskId ? [onContentProjectionChange(repairTaskId)] : []),
+      ...(repairTaskId ? [onContentProjectionChange(repairTaskId, continuation)] : []),
     ]);
+    if (!continuation.isCurrent()) return undefined;
     return refreshed.data;
   }
 

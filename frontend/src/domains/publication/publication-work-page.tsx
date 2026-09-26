@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import { useState } from 'react';
 
+import type { PrincipalContinuation } from '@/app/auth/principal-epoch';
 import { EmptyTable } from '@/design-system/data-table/empty-table';
 import { RowActions } from '@/design-system/data-table/row-actions';
 import { TablePagination } from '@/design-system/data-table/table-pagination';
@@ -43,8 +44,14 @@ import { StartPublicationDialog } from './start-publication-dialog';
 
 type PublicationWorkPageProps = {
   csrfToken: string | null;
-  onContentProjectionChange: (taskId: string) => Promise<void>;
-  onSearchChange: (search: PublicationWorkSearch) => Promise<void> | void;
+  onContentProjectionChange: (
+    taskId: string,
+    continuation: PrincipalContinuation,
+  ) => Promise<void>;
+  onSearchChange: (
+    search: PublicationWorkSearch,
+    continuation?: PrincipalContinuation,
+  ) => Promise<void> | void;
   search: PublicationWorkSearch;
 };
 
@@ -71,35 +78,44 @@ function PublicationWorkPage({
   const total = works.data?.total ?? 0;
   const pageCount = Math.ceil(total / search.pageSize);
 
-  function changeSearch(changes: Partial<PublicationWorkSearch>, resetPage = true) {
-    return onSearchChange({
+  function changeSearch(
+    changes: Partial<PublicationWorkSearch>,
+    resetPage = true,
+    continuation?: PrincipalContinuation,
+  ) {
+    const next = {
       ...search,
       ...changes,
       page: resetPage ? 1 : changes.page ?? search.page,
-    });
+    };
+    return continuation ? onSearchChange(next, continuation) : onSearchChange(next);
   }
 
-  async function refreshProjections(taskId: string) {
+  async function refreshProjections(taskId: string, continuation: PrincipalContinuation) {
+    if (!continuation.isCurrent()) return;
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: publicationKeys.summary() }),
       queryClient.invalidateQueries({ queryKey: publicationKeys.readyItems() }),
       queryClient.invalidateQueries({ queryKey: publicationKeys.workLists() }),
-      onContentProjectionChange(taskId),
+      onContentProjectionChange(taskId, continuation),
     ]);
   }
 
-  async function handleCreated(work: PublicationWork) {
+  async function handleCreated(work: PublicationWork, continuation: PrincipalContinuation) {
+    if (!continuation.isCurrent()) return;
     setCreatedWorkId(work.id);
-    await changeSearch({ page: 1, status: undefined }, false);
-    await refreshProjections(work.task_id);
+    await changeSearch({ page: 1, status: undefined }, false, continuation);
+    if (!continuation.isCurrent()) return;
+    await refreshProjections(work.task_id, continuation);
   }
 
-  async function handleConflict(taskId: string) {
+  async function handleConflict(taskId: string, continuation: PrincipalContinuation) {
+    if (!continuation.isCurrent()) return;
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: publicationKeys.summary() }),
       queryClient.invalidateQueries({ queryKey: publicationKeys.readyItems(), refetchType: 'none' }),
       queryClient.invalidateQueries({ queryKey: publicationKeys.workLists() }),
-      onContentProjectionChange(taskId),
+      onContentProjectionChange(taskId, continuation),
     ]);
   }
 
@@ -208,8 +224,8 @@ function ReadyQueue({
   query,
 }: {
   csrfToken: string | null;
-  onConflict: (taskId: string) => Promise<void>;
-  onCreated: (work: PublicationWork) => Promise<void>;
+  onConflict: (taskId: string, continuation: PrincipalContinuation) => Promise<void>;
+  onCreated: (work: PublicationWork, continuation: PrincipalContinuation) => Promise<void>;
   query: ReadyQuery;
 }) {
   return (
@@ -267,8 +283,8 @@ function ReadyQueueItem({
 }: {
   csrfToken: string | null;
   item: PublicationReadyItem;
-  onConflict: (taskId: string) => Promise<void>;
-  onCreated: (work: PublicationWork) => Promise<void>;
+  onConflict: (taskId: string, continuation: PrincipalContinuation) => Promise<void>;
+  onCreated: (work: PublicationWork, continuation: PrincipalContinuation) => Promise<void>;
 }) {
   const canStart = item.available_actions.includes('START');
   return (

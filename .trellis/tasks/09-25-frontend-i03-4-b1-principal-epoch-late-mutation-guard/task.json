@@ -1,0 +1,29 @@
+{
+  "id": "frontend-i03-4-b1-principal-epoch-late-mutation-guard",
+  "name": "frontend-i03-4-b1-principal-epoch-late-mutation-guard",
+  "title": "I03-4-B1 身份主体 epoch 与迟到 mutation 防护",
+  "description": "在认证主体边界建立单调 epoch，并拒绝身份切换后迟到的业务 mutation 客户端副作用。",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P1",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-09-25",
+  "completedAt": "2026-09-25",
+  "branch": "codex/frontend-redevelopment-candidate",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "09-25-frontend-i03-4-auth-boundary-late-mutation-blocker",
+  "relatedFiles": [],
+  "notes": "I03-4-B1 已完成 principal epoch、MutationObserver/离线恢复/retry 最终调用边界、callback 内 await 与直接 API/upload continuation 防护；32 个直接测试文件 380 tests、全部修改 lint、frontend typecheck、diff check 通过，最终 fresh critical_reviewer 为 NO BLOCKER。下一任务为“基于修复 commit 的 clean-checkout 完整复验与 blocker/I03 收尾”；本任务不启动该复验。",
+  "meta": {
+    "audit_id": "20260926T001236Z-i03-4-b1-principal-epoch-independent-critical-re-e7f6f521",
+    "final_review": "NO BLOCKER"
+  }
+}

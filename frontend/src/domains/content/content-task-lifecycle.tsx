@@ -1,6 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useRef, useState, type ReactNode } from 'react';
 
+import {
+  capturePrincipalContinuation,
+  type PrincipalContinuation,
+} from '@/app/auth/principal-epoch';
 import { Button } from '@/design-system/primitives/button';
 import {
   Dialog,
@@ -42,6 +46,10 @@ type LifecycleVariables =
       confirmationText: string;
     };
 
+type GuardedLifecycleVariables = LifecycleVariables & {
+  continuation: PrincipalContinuation;
+};
+
 type UseContentTaskLifecycleOptions = {
   csrfToken: string | null;
   onDeleted?: (taskId: string) => Promise<void> | void;
@@ -61,7 +69,7 @@ function useContentTaskLifecycle({
   const focusReturnRef = useRef<HTMLElement | null>(null);
   const lifecycle = useMutation({
     retry: false,
-    mutationFn: async (variables: LifecycleVariables) => {
+    mutationFn: async (variables: GuardedLifecycleVariables) => {
       switch (variables.action) {
         case 'CANCEL':
           return cancelContentTask(variables.task, variables.comment, csrfToken);
@@ -83,6 +91,7 @@ function useContentTaskLifecycle({
       }
     },
     onSuccess: async (_, variables) => {
+      if (!variables.continuation.isCurrent()) return;
       setNotice(lifecycleSuccessMessage(variables.action));
       if (variables.action === 'CANCEL') setCancelTargetId(undefined);
       if (variables.action === 'PERMANENT_DELETE') setPermanentTargetId(undefined);
@@ -98,9 +107,11 @@ function useContentTaskLifecycle({
           refetchType: 'none',
         }),
       ]);
+      if (!variables.continuation.isCurrent()) return;
       if (deleted) await onDeleted?.(variables.task.id);
     },
     onError: async (error, variables) => {
+      if (!variables.continuation.isCurrent()) return;
       if (error instanceof ContentRequestError && (error.status === 404 || error.status === 409)) {
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: contentKeys.detail(variables.task.id) }),
@@ -113,6 +124,12 @@ function useContentTaskLifecycle({
     },
   });
   const { mutate, reset } = lifecycle;
+  const runLifecycle = useCallback((variables: LifecycleVariables) => {
+    mutate({
+      ...variables,
+      continuation: capturePrincipalContinuation(queryClient),
+    });
+  }, [mutate, queryClient]);
 
   const handleCommand = useCallback((
     command: string,
@@ -127,13 +144,13 @@ function useContentTaskLifecycle({
         setCancelTargetId(task.id);
         return;
       case 'delete-content-task':
-        mutate({ action: 'DELETE', task });
+        runLifecycle({ action: 'DELETE', task });
         return;
       case 'archive-content-task':
-        mutate({ action: 'ARCHIVE', task });
+        runLifecycle({ action: 'ARCHIVE', task });
         return;
       case 'restore-content-task':
-        mutate({ action: 'RESTORE', task });
+        runLifecycle({ action: 'RESTORE', task });
         return;
       case 'permanently-delete-content-task':
         focusReturnRef.current = focusReturn ?? null;
@@ -146,7 +163,7 @@ function useContentTaskLifecycle({
       default:
         throw new Error(`Content Tasks 收到未知页面命令：${command}`);
     }
-  }, [mutate, reset]);
+  }, [reset, runLifecycle]);
 
   const pendingAction = lifecycle.isPending ? lifecycle.variables?.action : undefined;
   const cancelTarget = cancelTargetId ? resolveTask(cancelTargetId) : undefined;
@@ -159,7 +176,7 @@ function useContentTaskLifecycle({
         finalFocus={() => resolveFocusReturn(focusReturnRef)}
         onClose={() => setCancelTargetId(undefined)}
         onSubmit={(comment) => {
-          if (cancelTarget) lifecycle.mutate({ action: 'CANCEL', task: cancelTarget, comment });
+          if (cancelTarget) runLifecycle({ action: 'CANCEL', task: cancelTarget, comment });
         }}
         open={Boolean(cancelTarget)}
         pending={lifecycle.isPending && lifecycle.variables?.action === 'CANCEL'}
@@ -181,7 +198,7 @@ function useContentTaskLifecycle({
         onClose={() => setPermanentTargetId(undefined)}
         onSubmit={(preview, confirmationText) => {
           if (permanentTarget) {
-            lifecycle.mutate({
+            runLifecycle({
               action: 'PERMANENT_DELETE',
               task: permanentTarget,
               preview,

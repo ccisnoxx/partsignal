@@ -44,13 +44,15 @@ function PublicationWorkspaceRoute() {
     <PublicationWorkspacePage
       csrfToken={auth.csrfToken}
       key={workId}
-      onContentProjectionChange={async (taskId) => {
+      onContentProjectionChange={async (taskId, continuation) => {
+        if (!continuation.isCurrent()) return;
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: contentKeys.lists(), refetchType: 'none' }),
           queryClient.invalidateQueries({ queryKey: contentKeys.detail(taskId) }),
           queryClient.invalidateQueries({ queryKey: contentKeys.editorContext(taskId) }),
           queryClient.invalidateQueries({ queryKey: contentKeys.reviewContext(taskId) }),
         ]);
+        if (!continuation.isCurrent()) return;
       }}
       onSectionChange={(section: PublicationWorkspaceSection) => navigate({ hash: section })}
       workId={workId}

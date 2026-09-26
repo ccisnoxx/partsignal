@@ -2,6 +2,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/design-system/primitives/dialog';
 
+import {
+  capturePrincipalContinuation,
+  type PrincipalContinuation,
+} from '@/app/auth/principal-epoch';
 import { RowActions } from '@/design-system/data-table/row-actions';
 import { Badge } from '@/design-system/primitives/badge';
 import { Button } from '@/design-system/primitives/button';
@@ -66,15 +70,20 @@ function GeoObservationDetailSession({ csrfToken, observationId, onDeleted }: Ge
       ? 'always' : false),
   });
   const remove = useMutation({
-    mutationFn: (target: { id: string; detailIds: string[]; productId: string }) => (
+    mutationFn: ({ target }: {
+      continuation: PrincipalContinuation;
+      target: { id: string; detailIds: string[]; productId: string };
+    }) => (
       deleteGeoObservation(target.id, csrfToken)
     ),
-    onSuccess: async (_, target) => {
+    onSuccess: async (_, { continuation, target }) => {
+      if (!continuation.isCurrent()) return;
       if (mounted.current) { setDeleted(true); setDeleteIntent(null); }
       // 提交时固定链身份；卸载后仍清理原链，不能使用新路由的 Product 或节点。
       await Promise.all(target.detailIds.map((id) => queryClient.cancelQueries({
         queryKey: geoKeys.detail(id), exact: true,
       })));
+      if (!continuation.isCurrent()) return;
       void Promise.allSettled([
         ...target.detailIds.map((id) => queryClient.invalidateQueries({
           queryKey: geoKeys.detail(id), refetchType: 'none',
@@ -85,9 +94,13 @@ function GeoObservationDetailSession({ csrfToken, observationId, onDeleted }: Ge
         queryClient.invalidateQueries({ queryKey: geoKeys.topicLists() }),
         queryClient.invalidateQueries({ queryKey: productsKeys.detail(target.productId) }),
       ]);
-      if (!mounted.current) return;
-      try { await onDeleted(); }
-      catch (error) { if (mounted.current) setNavigationError(errorMessage(error)); }
+      if (!continuation.isCurrent() || !mounted.current) return;
+      try {
+        await onDeleted();
+        if (!continuation.isCurrent()) return;
+      } catch (error) {
+        if (continuation.isCurrent() && mounted.current) setNavigationError(errorMessage(error));
+      }
     },
   });
 
@@ -107,21 +120,27 @@ function GeoObservationDetailSession({ csrfToken, observationId, onDeleted }: Ge
       || state?.status !== 'success' || state.fetchStatus !== 'idle' || !state.data) return;
     const current = detailView(state.data);
     if (current.actionTargetId !== deleteIntent || !current.actions.some((action) => action === 'DELETE')) return;
+    const continuation = capturePrincipalContinuation(queryClient);
     commandPending.current = true;
     try {
       await remove.mutateAsync({
-        id: deleteIntent,
-        productId: state.data.product.id,
-        detailIds: state.data.observation_kind === 'MANUAL_ARTICLE_SEARCH'
-          ? state.data.correction_history.map((item) => item.observation.id)
-          : [state.data.observation.id],
+        continuation,
+        target: {
+          id: deleteIntent,
+          productId: state.data.product.id,
+          detailIds: state.data.observation_kind === 'MANUAL_ARTICLE_SEARCH'
+            ? state.data.correction_history.map((item) => item.observation.id)
+            : [state.data.observation.id],
+        },
       });
     } catch (error) {
-      if (mounted.current && error instanceof GeoRequestError && error.status === 409) {
+      if (continuation.isCurrent() && mounted.current && error instanceof GeoRequestError && error.status === 409) {
         setConflict(true);
         setDeleteIntent(null);
       }
-    } finally { commandPending.current = false; }
+    } finally {
+      if (continuation.isCurrent()) commandPending.current = false;
+    }
   }
 
   if (deleted) return (

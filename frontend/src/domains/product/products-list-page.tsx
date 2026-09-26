@@ -13,6 +13,10 @@ import {
 } from '@tanstack/react-table';
 import { useMemo, useState, type ReactNode } from 'react';
 
+import {
+  capturePrincipalContinuation,
+  type PrincipalContinuation,
+} from '@/app/auth/principal-epoch';
 import { ColumnHeader } from '@/design-system/data-table/column-header';
 import { EmptyTable } from '@/design-system/data-table/empty-table';
 import { FilterBar } from '@/design-system/data-table/filter-bar';
@@ -75,11 +79,16 @@ function ProductsListPage({ csrfToken, onSearchChange, search }: ProductsListPag
   const products = useQuery(productsListQueryOptions(search));
   const [conditionsProductId, setConditionsProductId] = useState<string | null>(null);
   const remove = useMutation({
-    mutationFn: (product: ProductListItem) => deleteProduct(product, csrfToken),
-    onSuccess: async () => {
+    mutationFn: ({ product }: {
+      product: ProductListItem;
+      continuation: PrincipalContinuation;
+    }) => deleteProduct(product, csrfToken),
+    onSuccess: async (_data, { continuation }) => {
+      if (!continuation.isCurrent()) return;
       await queryClient.invalidateQueries({ queryKey: productsKeys.lists() });
     },
-    onError: async () => {
+    onError: async (_error, { continuation }) => {
+      if (!continuation.isCurrent()) return;
       await queryClient.invalidateQueries({ queryKey: productsKeys.lists() });
     },
   });
@@ -108,14 +117,17 @@ function ProductsListPage({ csrfToken, onSearchChange, search }: ProductsListPag
       return;
     }
     if (command === 'delete-product') {
-      remove.mutate(product);
+      remove.mutate({
+        product,
+        continuation: capturePrincipalContinuation(queryClient),
+      });
       return;
     }
     throw new Error(`Products 收到未知页面命令：${command}`);
   }
 
   const columns = useProductColumns({
-    deletingProductId: remove.isPending ? remove.variables?.id : undefined,
+    deletingProductId: remove.isPending ? remove.variables?.product.id : undefined,
     onCommand: handleCommand,
   });
   const table = useTable({

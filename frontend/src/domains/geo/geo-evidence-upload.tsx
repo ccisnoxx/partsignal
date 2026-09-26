@@ -1,5 +1,10 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 
+import {
+  capturePrincipalContinuation,
+  type PrincipalContinuation,
+} from '@/app/auth/principal-epoch';
 import { Button } from '@/design-system/primitives/button';
 import { Input } from '@/design-system/primitives/input';
 import type { components } from '@/shared/api/generated/schema';
@@ -26,6 +31,7 @@ function useGeoEvidenceUpload({
   onUploaded,
   onBlockingChange,
 }: GeoEvidenceUploadProps) {
+  const queryClient = useQueryClient();
   const [phase, setPhase] = useState<'idle' | 'uploading' | 'completing' | 'aborting' | 'failed'>('idle');
   const [error, setError] = useState<string>();
   const [pendingIntent, setPendingIntent] = useState<UploadIntent>();
@@ -34,39 +40,46 @@ function useGeoEvidenceUpload({
   useEffect(() => { callbacks.current = { onUploaded, onBlockingChange }; }, [onUploaded, onBlockingChange]);
   const working = useRef(false);
 
-  async function complete(intent: UploadIntent) {
+  async function complete(intent: UploadIntent, continuation: PrincipalContinuation) {
+    if (!continuation.isCurrent()) return;
     setPhase('completing');
     setError(undefined);
     try {
       const verified = await completeGeoFileUpload(intent.file.id, csrfToken);
+      if (!continuation.isCurrent()) return;
       setPendingIntent(undefined);
       setPhase('idle');
       callbacks.current.onUploaded(verified);
       callbacks.current.onBlockingChange?.(false);
     } catch (reason) {
+      if (!continuation.isCurrent()) return;
       setPendingIntent(intent);
       setPhase('failed');
       setError(errorMessage(reason, '确认 GEO 证据上传失败'));
     }
   }
 
-  async function upload(file: File) {
+  async function upload(file: File, continuation: PrincipalContinuation) {
     callbacks.current.onBlockingChange?.(true);
     setPhase('uploading');
     setError(undefined);
     setPendingIntent(undefined);
+    const digest = await sha256File(file);
+    if (!continuation.isCurrent()) return;
     const intent = await createGeoFileUploadIntent({
       access_level: 'INTERNAL',
       category: 'OPERATION_SCREENSHOT',
       content_type: file.type || 'application/octet-stream',
       original_filename: file.name,
-      sha256: await sha256File(file),
+      sha256: digest,
       size: file.size,
     }, csrfToken);
+    if (!continuation.isCurrent()) return;
 
     try {
       await transferFile(file, intent);
     } catch (reason) {
+      if (!continuation.isCurrent()) return;
       try {
         await abortGeoFileUpload(intent.file.id, csrfToken);
       } catch {
@@ -74,20 +87,24 @@ function useGeoEvidenceUpload({
       }
       throw reason;
     }
-    await complete(intent);
+    if (!continuation.isCurrent()) return;
+    await complete(intent, continuation);
   }
 
   async function abandon(intent: UploadIntent) {
     if (working.current) return;
+    const continuation = capturePrincipalContinuation(queryClient);
     working.current = true;
     setPhase('aborting');
     try {
       await abortGeoFileUpload(intent.file.id, csrfToken);
+      if (!continuation.isCurrent()) return;
       setPendingIntent(undefined);
       setError(undefined);
       setPhase('idle');
       callbacks.current.onBlockingChange?.(false);
     } catch (reason) {
+      if (!continuation.isCurrent()) return;
       setPhase('failed');
       setError(errorMessage(reason, '放弃 GEO 证据上传失败'));
     } finally {
@@ -97,8 +114,10 @@ function useGeoEvidenceUpload({
 
   function startUpload(file: File) {
     if (working.current || disabled || pendingIntent) return;
+    const continuation = capturePrincipalContinuation(queryClient);
     working.current = true;
-    void upload(file).catch((reason: unknown) => {
+    void upload(file, continuation).catch((reason: unknown) => {
+      if (!continuation.isCurrent()) return;
       setPhase('failed');
       setError(errorMessage(reason, '上传 GEO 证据失败'));
       callbacks.current.onBlockingChange?.(false);
@@ -107,8 +126,9 @@ function useGeoEvidenceUpload({
 
   function retryComplete() {
     if (working.current || disabled || !pendingIntent) return;
+    const continuation = capturePrincipalContinuation(queryClient);
     working.current = true;
-    void complete(pendingIntent).finally(() => { working.current = false; });
+    void complete(pendingIntent, continuation).finally(() => { working.current = false; });
   }
 
   const busy = phase === 'uploading' || phase === 'completing' || phase === 'aborting';

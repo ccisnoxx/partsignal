@@ -34,13 +34,15 @@ function PublishedArticleRoute() {
     <PublishedArticleDetailPage
       articleId={articleId}
       csrfToken={auth.csrfToken}
-      onIssueOpened={async (issue) => {
+      onIssueOpened={async (issue, continuation) => {
+        if (!continuation.isCurrent()) return;
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: publicationKeys.article(articleId) }),
           queryClient.invalidateQueries({ queryKey: publicationKeys.articleLists() }),
           queryClient.invalidateQueries({ queryKey: publicationKeys.issueLists() }),
           queryClient.invalidateQueries({ queryKey: publicationKeys.summary() }),
         ]);
+        if (!continuation.isCurrent()) return;
         await navigate({
           to: '/publishing/issues/$issueId',
           params: { issueId: issue.id },

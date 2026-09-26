@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AppProviders } from './providers';
@@ -6,9 +6,11 @@ import { queryClient } from './query-client';
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
 import { authSessionQueryKey } from './auth/auth-provider';
+import { aiChannelKeys } from '@/domains/configuration/ai-channel.api';
 
 type AuthUser = components['schemas']['User'];
 type WorkbenchAggregate = components['schemas']['WorkbenchAggregate'];
+type AIChannel = components['schemas']['AIChannel'];
 
 const admin: AuthUser = {
   id: '00000000-0000-4000-8000-000000000001',
@@ -32,6 +34,54 @@ const engineer: AuthUser = {
   display_name: '内容工程师',
   account_type: 'ENGINEER',
 };
+
+const otherAdmin: AuthUser = {
+  ...admin,
+  id: '00000000-0000-4000-8000-000000000003',
+  username: 'other-admin',
+  display_name: '另一管理员',
+  must_change_password: true,
+  workflow_stage: 'FIRST_PASSWORD_CHANGE',
+};
+
+const channelId = '00000000-0000-4000-8000-000000000010';
+
+function aiChannel(overrides: Partial<AIChannel> = {}): AIChannel {
+  return {
+    id: channelId,
+    name: '生产 OpenAI',
+    description: '内容生成主渠道',
+    protocol_type: 'openai-compatible-chat-completions',
+    provider_brand: 'OPENAI',
+    base_url: 'https://api.example.com/v1',
+    timeout_seconds: 60,
+    is_enabled: false,
+    api_key_configured: true,
+    api_key_updated_at: '2026-08-14T08:00:00Z',
+    headers: [],
+    enabled_models: [],
+    latest_test_status: 'UNTESTED',
+    last_tested_at: null,
+    workflow_stage: 'UNVERIFIED',
+    primary_task: 'TEST_MODEL',
+    available_actions: ['UPDATE', 'REPLACE_API_KEY', 'ENABLE', 'DELETE', 'CREATE_HEADER'],
+    revision: 4,
+    created_by: admin.id,
+    created_at: '2026-08-14T08:00:00Z',
+    updated_at: '2026-08-14T08:00:00Z',
+    ...overrides,
+  };
+}
+
+function success<T>(data: T) {
+  return { data, response: Response.json(data) } as never;
+}
+
+async function flushDeferredContinuation() {
+  await Promise.resolve();
+  await new Promise<void>((resolve) => { setTimeout(resolve, 0); });
+  await Promise.resolve();
+}
 
 const emptyWorkbenchAggregate = {
   generated_at: '2026-08-23T08:00:00Z',
@@ -371,4 +421,173 @@ describe('AppProviders', () => {
       csrfToken: 'canonical-change-csrf',
     });
   });
+
+  it.each([
+    ['ENGINEER', engineer, '无权访问系统管理'],
+    ['匿名', null, '登录'],
+    ['另一用户', otherAdmin, '修改密码'],
+  ] as const)(
+    '旧 ADMIN pending API Key 在切换为%s后不得恢复业务客户端副作用',
+    async (_label, nextUser, expectedHeading) => {
+      let currentUser: AuthUser | null = admin;
+      const putResult = deferred<never>();
+      vi.spyOn(api, 'GET').mockImplementation((path) => {
+        if (path === '/api/v1/auth/me') {
+          return Promise.resolve(currentUser
+            ? success(currentUser)
+            : { response: new Response(null, { status: 204 }) } as never);
+        }
+        if (path === '/api/v1/auth/csrf') {
+          return Promise.resolve(success({ csrf_token: `${currentUser?.username ?? 'anonymous'}-csrf` }));
+        }
+        if (path === '/api/v1/ai-channels/{channel_id}') {
+          return Promise.resolve(success(aiChannel()));
+        }
+        throw new Error(`测试收到未声明的 GET：${path}`);
+      });
+      const put = vi.spyOn(api, 'PUT').mockImplementation(() => putResult.promise);
+      window.history.replaceState(null, '', `/settings/ai/${channelId}?tab=request`);
+      render(<AppProviders />);
+
+      await userEvent.click(await screen.findByRole('button', { name: '重新配置' }));
+      const dialog = await screen.findByRole('dialog', { name: '重新配置 API Key' });
+      await userEvent.type(dialog.querySelector('input[type="password"]') as HTMLInputElement, 'old-admin-key');
+      await userEvent.click(within(dialog).getByRole('button', { name: '保存新密钥' }));
+      await waitFor(() => expect(put).toHaveBeenCalledOnce());
+      queryClient.setQueryData(['configuration', 'old-admin'], { revision: 4 });
+
+      currentUser = nextUser;
+      await queryClient.refetchQueries({ exact: true, queryKey: authSessionQueryKey });
+      expect(await screen.findByRole('heading', { name: expectedHeading })).toBeInTheDocument();
+      expect(queryClient.getQueryCache().getAll().filter((query) => query.queryKey[0] !== 'auth')).toHaveLength(0);
+      const locationAfterTransition = window.location.href;
+      const setQueryData = vi.spyOn(queryClient, 'setQueryData');
+      const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+      setQueryData.mockClear();
+      invalidateQueries.mockClear();
+
+      await act(async () => {
+        putResult.resolve(success(aiChannel({ revision: 5 })));
+        await flushDeferredContinuation();
+      });
+
+      expect(queryClient.getQueryCache().getAll().filter((query) => query.queryKey[0] !== 'auth')).toHaveLength(0);
+      expect(setQueryData).not.toHaveBeenCalled();
+      expect(invalidateQueries).not.toHaveBeenCalled();
+      expect(window.location.href).toBe(locationAfterTransition);
+      expect(document.body).not.toHaveTextContent('渠道配置已保存');
+    },
+  );
+
+  it.each([
+    ['ENGINEER', engineer, '无权访问系统管理'],
+    ['匿名', null, '登录'],
+    ['另一用户', otherAdmin, '修改密码'],
+  ] as const)(
+    '旧 ADMIN pending 配置 PATCH 在切换为%s后不得恢复业务客户端副作用',
+    async (_label, nextUser, expectedHeading) => {
+      let currentUser: AuthUser | null = admin;
+      const patchResult = deferred<never>();
+      vi.spyOn(api, 'GET').mockImplementation((path) => {
+        if (path === '/api/v1/auth/me') {
+          return Promise.resolve(currentUser
+            ? success(currentUser)
+            : { response: new Response(null, { status: 204 }) } as never);
+        }
+        if (path === '/api/v1/auth/csrf') {
+          return Promise.resolve(success({ csrf_token: `${currentUser?.username ?? 'anonymous'}-csrf` }));
+        }
+        if (path === '/api/v1/ai-channels/{channel_id}') {
+          return Promise.resolve(success(aiChannel()));
+        }
+        throw new Error(`测试收到未声明的 GET：${path}`);
+      });
+      const patch = vi.spyOn(api, 'PATCH').mockImplementation(() => patchResult.promise);
+      window.history.replaceState(null, '', `/settings/ai/${channelId}?tab=basic`);
+      render(<AppProviders />);
+
+      const name = await screen.findByRole('textbox', { name: '渠道名称' });
+      await userEvent.clear(name);
+      await userEvent.type(name, '旧 ADMIN 修改');
+      await userEvent.click(screen.getByRole('button', { name: '保存配置' }));
+      await waitFor(() => expect(patch).toHaveBeenCalledOnce());
+      queryClient.setQueryData(['configuration', 'old-admin'], { revision: 4 });
+
+      currentUser = nextUser;
+      await queryClient.refetchQueries({ exact: true, queryKey: authSessionQueryKey });
+      expect(await screen.findByRole('heading', { name: expectedHeading })).toBeInTheDocument();
+      expect(queryClient.getQueryCache().getAll().filter((query) => query.queryKey[0] !== 'auth')).toHaveLength(0);
+      const locationAfterTransition = window.location.href;
+      const setQueryData = vi.spyOn(queryClient, 'setQueryData');
+      const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+      setQueryData.mockClear();
+      invalidateQueries.mockClear();
+
+      await act(async () => {
+        patchResult.resolve(success(aiChannel({ name: '旧 ADMIN 修改', revision: 5 })));
+        await flushDeferredContinuation();
+      });
+      await waitFor(() => expect(queryClient.isMutating()).toBe(0));
+
+      expect(queryClient.getQueryCache().getAll().filter((query) => query.queryKey[0] !== 'auth')).toHaveLength(0);
+      expect(setQueryData).not.toHaveBeenCalled();
+      expect(invalidateQueries).not.toHaveBeenCalled();
+      expect(window.location.href).toBe(locationAfterTransition);
+      expect(document.body).not.toHaveTextContent('渠道配置已保存');
+    },
+  );
+
+  it.each(['api-key', 'configuration'] as const)(
+    '同一主体 session/CSRF refresh 后仍采用合法 %s mutation canonical response',
+    async (kind) => {
+      let currentUser: AuthUser = admin;
+      let csrfToken = 'initial-csrf';
+      const mutationResult = deferred<never>();
+      vi.spyOn(api, 'GET').mockImplementation((path) => {
+        if (path === '/api/v1/auth/me') return Promise.resolve(success(currentUser));
+        if (path === '/api/v1/auth/csrf') return Promise.resolve(success({ csrf_token: csrfToken }));
+        if (path === '/api/v1/ai-channels/{channel_id}') return Promise.resolve(success(aiChannel()));
+        throw new Error(`测试收到未声明的 GET：${path}`);
+      });
+      if (kind === 'api-key') vi.spyOn(api, 'PUT').mockImplementation(() => mutationResult.promise);
+      else vi.spyOn(api, 'PATCH').mockImplementation(() => mutationResult.promise);
+      window.history.replaceState(
+        null,
+        '',
+        `/settings/ai/${channelId}?tab=${kind === 'api-key' ? 'request' : 'basic'}`,
+      );
+      render(<AppProviders />);
+
+      if (kind === 'api-key') {
+        await userEvent.click(await screen.findByRole('button', { name: '重新配置' }));
+        const dialog = await screen.findByRole('dialog', { name: '重新配置 API Key' });
+        await userEvent.type(dialog.querySelector('input[type="password"]') as HTMLInputElement, 'same-admin-key');
+        await userEvent.click(within(dialog).getByRole('button', { name: '保存新密钥' }));
+      } else {
+        const name = await screen.findByRole('textbox', { name: '渠道名称' });
+        await userEvent.clear(name);
+        await userEvent.type(name, '同主体修改');
+        await userEvent.click(screen.getByRole('button', { name: '保存配置' }));
+      }
+
+      currentUser = { ...admin, revision: 2 };
+      csrfToken = 'refreshed-csrf';
+      await queryClient.refetchQueries({ exact: true, queryKey: authSessionQueryKey });
+      expect(queryClient.getQueryData(authSessionQueryKey)).toEqual({ user: currentUser, csrfToken });
+
+      await act(async () => {
+        mutationResult.resolve(success(aiChannel({
+          name: kind === 'configuration' ? '同主体修改' : '生产 OpenAI',
+          revision: 5,
+        })));
+      });
+
+      await waitFor(() => expect(queryClient.getQueryData<AIChannel>(aiChannelKeys.detail(channelId))?.revision).toBe(5));
+      if (kind === 'configuration') {
+        expect(await screen.findByText('渠道配置已保存')).toBeInTheDocument();
+      } else {
+        await waitFor(() => expect(screen.queryByRole('dialog', { name: '重新配置 API Key' })).not.toBeInTheDocument());
+      }
+    },
+  );
 });

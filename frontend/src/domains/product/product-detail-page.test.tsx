@@ -1,15 +1,17 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { AuthContextValue, AuthUser } from '@/app/auth/auth-provider';
+import { advancePrincipalEpoch } from '@/app/auth/principal-epoch';
 import { TooltipProvider } from '@/design-system/primitives/tooltip';
 import { routeTree } from '@/routeTree.gen';
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
 import { createAuthenticatedTestQueryClient } from '@/test/auth-session';
+import { ProductDetailPage } from './product-detail-page';
 
 type ProductDetail = components['schemas']['ProductDetail'];
 
@@ -140,6 +142,22 @@ function renderDetail(entry = `/products/${productId}`) {
 
 function detailResponse(value: ProductDetail) {
   return { data: value, response: Response.json(value) } as never;
+}
+
+function renderDetailComponent(onDeleted: () => Promise<void>) {
+  const queryClient = createAuthenticatedTestQueryClient(auth);
+  render(
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <ProductDetailPage
+          csrfToken={auth.csrfToken}
+          onDeleted={onDeleted}
+          productId={productId}
+        />
+      </TooltipProvider>
+    </QueryClientProvider>,
+  );
+  return queryClient;
 }
 
 afterEach(() => vi.restoreAllMocks());
@@ -318,5 +336,33 @@ describe('ProductDetailPage', () => {
     });
     const detailCalls = get.mock.calls as unknown as Array<[string]>;
     expect(detailCalls.filter(([path]) => path === '/api/v1/products/{product_id}/detail')).toHaveLength(2);
+  });
+
+  it('DELETE 成功 callback 首个 await 阻塞期间切换主体后不继续失效缓存', async () => {
+    vi.spyOn(api, 'GET').mockResolvedValue(detailResponse(detail));
+    vi.spyOn(api, 'DELETE').mockResolvedValue({
+      response: new Response(null, { status: 204 }),
+    } as never);
+    let releaseDeleted!: () => void;
+    const deleted = new Promise<void>((resolve) => { releaseDeleted = resolve; });
+    const onDeleted = vi.fn(() => deleted);
+    const queryClient = renderDetailComponent(onDeleted);
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+
+    await userEvent.click(await screen.findByRole('button', { name: '更多操作：PS-001' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: '删除产品' }));
+    const confirm = await screen.findByRole('dialog', { name: '确认删除产品“PS-001”' });
+    await userEvent.click(within(confirm).getByRole('button', { name: '确认删除' }));
+
+    await waitFor(() => expect(onDeleted).toHaveBeenCalledOnce());
+    expect(invalidate).not.toHaveBeenCalled();
+    advancePrincipalEpoch(queryClient, 'engineer-after-delete');
+    await act(async () => {
+      releaseDeleted();
+      await deleted;
+      await Promise.resolve();
+    });
+
+    expect(invalidate).not.toHaveBeenCalled();
   });
 });

@@ -192,7 +192,10 @@ describe('PublicationWorkPage', () => {
     expect(within(dialog).getByText('请求 ID：req-start-409')).toBeInTheDocument();
     expect(within(dialog).getByRole('combobox', { name: '发布账号' })).toHaveTextContent(account.label);
     expect(post).toHaveBeenCalledOnce();
-    expect(onContentProjectionChange).toHaveBeenCalledWith(publicationIds.task);
+    expect(onContentProjectionChange).toHaveBeenCalledWith(
+      publicationIds.task,
+      expect.objectContaining({ isCurrent: expect.any(Function) }),
+    );
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: ['publication', 'ready-items'],
       refetchType: 'none',
@@ -212,7 +215,10 @@ describe('PublicationWorkPage', () => {
       'Idempotency-Key': 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     });
     expect(second.params.header['Idempotency-Key']).toBe(first.params.header['Idempotency-Key']);
-    expect(onSearchChange).toHaveBeenCalledWith({ page: 1, pageSize: 20, status: undefined });
+    expect(onSearchChange).toHaveBeenCalledWith(
+      { page: 1, pageSize: 20, status: undefined },
+      expect.objectContaining({ isCurrent: expect.any(Function) }),
+    );
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['publication', 'summary'] });
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['publication', 'ready-items'] });
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['publication', 'works', 'list'] });

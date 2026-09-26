@@ -3,6 +3,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState, type ReactNode } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 
+import {
+  capturePrincipalContinuation,
+  type PrincipalContinuation,
+} from '@/app/auth/principal-epoch';
 import { MarkdownPreview } from '@/design-system/editor/markdown-editor';
 import { FormField } from '@/design-system/forms/form-field';
 import { ErrorSummary, type ErrorSummaryItem } from '@/design-system/forms/form-layout';
@@ -120,7 +124,8 @@ function ContentReviewWorkspace({
     ),
   });
 
-  async function refreshRelated(canonical: ContentVersion) {
+  async function refreshRelated(canonical: ContentVersion, continuation: PrincipalContinuation) {
+    if (!continuation.isCurrent()) return;
     queryClient.setQueryData<ContentReviewContext>(
       contentKeys.reviewContext(taskId),
       (current) => current ? replaceCanonicalContentVersion(current, canonical) : current,
@@ -133,43 +138,58 @@ function ContentReviewWorkspace({
     ]);
   }
 
-  async function acceptCanonical(canonical: ContentVersion, message: string) {
+  async function acceptCanonical(
+    canonical: ContentVersion,
+    message: string,
+    continuation: PrincipalContinuation,
+  ) {
+    if (!continuation.isCurrent()) return;
     setCommandError(undefined);
     setRequestId(undefined);
     onContextStale();
-    await refreshRelated(canonical);
+    await refreshRelated(canonical, continuation);
+    if (!continuation.isCurrent()) return;
     setAnnouncement(message);
     await onRefresh();
   }
 
-  async function handleCommandError(error: unknown) {
+  async function handleCommandError(error: unknown, continuation: PrincipalContinuation) {
+    if (!continuation.isCurrent()) return undefined;
     const mapped = mapContentReviewCommandError(error);
     setCommandError(mapped.formMessage);
     setRequestId(mapped.requestId);
     if (error instanceof ContentRequestError && error.status === 409) {
       onContextStale();
       await onRefresh();
+      if (!continuation.isCurrent()) return undefined;
     }
     return mapped;
   }
 
   async function approveTarget() {
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
       const canonical = await approve.mutateAsync();
-      await acceptCanonical(canonical, `内容版本 v${canonical.version} 已批准`);
+      if (!continuation.isCurrent()) return;
+      await acceptCanonical(canonical, `内容版本 v${canonical.version} 已批准`, continuation);
     } catch (error) {
-      await handleCommandError(error);
+      await handleCommandError(error, continuation);
     }
   }
 
   async function requestTargetChanges(values: RequestChangesValues) {
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
       const canonical = await requestChanges.mutateAsync(values);
-      await acceptCanonical(canonical, `内容版本 v${canonical.version} 已退回修改`);
+      if (!continuation.isCurrent()) return undefined;
+      await acceptCanonical(canonical, `内容版本 v${canonical.version} 已退回修改`, continuation);
+      if (!continuation.isCurrent()) return undefined;
       closeRequestDialog();
       return canonical;
     } catch (error) {
-      await handleCommandError(error);
+      if (!continuation.isCurrent()) return undefined;
+      await handleCommandError(error, continuation);
+      if (!continuation.isCurrent()) return undefined;
       throw error;
     }
   }
@@ -421,7 +441,7 @@ function RequestChangesDialog({
   version,
 }: {
   onClose: () => void;
-  onSubmit: (values: RequestChangesValues) => Promise<ContentVersion>;
+  onSubmit: (values: RequestChangesValues) => Promise<ContentVersion | undefined>;
   submitting: boolean;
   version: number;
 }) {
@@ -435,7 +455,8 @@ function RequestChangesDialog({
     form.clearErrors();
     setRequestId(undefined);
     try {
-      await onSubmit(values);
+      const canonical = await onSubmit(values);
+      if (!canonical) return;
       form.reset();
     } catch (error) {
       const mapped = mapContentReviewCommandError(error);

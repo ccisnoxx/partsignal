@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 
+import { capturePrincipalContinuation } from '@/app/auth/principal-epoch';
 import { BulkActionBar } from '@/design-system/data-table/bulk-action-bar';
 import { EmptyTable } from '@/design-system/data-table/empty-table';
 import { FilterBar } from '@/design-system/data-table/filter-bar';
@@ -197,13 +198,17 @@ function UserListPage({
 
   const command = useMutation({
     mutationFn: async (target: CommandTarget) => {
+      const continuation = capturePrincipalContinuation(queryClient);
+      let saved: User;
       switch (target.command) {
-        case 'enable-user': return setUserEnabled(target.user, true, csrfToken);
-        case 'disable-user': return setUserEnabled(target.user, false, csrfToken);
+        case 'enable-user': saved = await setUserEnabled(target.user, true, csrfToken); break;
+        case 'disable-user': saved = await setUserEnabled(target.user, false, csrfToken); break;
         default: throw new Error(`用户列表收到无法执行的确认命令：${target.command}`);
       }
+      return { continuation, saved };
     },
-    onSuccess: async (saved) => {
+    onSuccess: async ({ continuation, saved }) => {
+      if (!continuation.isCurrent()) return;
       setCommandTarget(undefined);
       command.reset();
       await refreshUsers(saved ? [saved] : []);
@@ -211,14 +216,17 @@ function UserListPage({
   });
 
   const bulk = useMutation({
-    mutationFn: ({ items, status }: { items: SelectedUser[]; status: UserStatus; scope: string; selectionEpoch: number }) => (
-      bulkUpdateUserStatus(
+    mutationFn: async ({ items, status }: { items: SelectedUser[]; status: UserStatus; scope: string; selectionEpoch: number }) => {
+      const continuation = capturePrincipalContinuation(queryClient);
+      const result = await bulkUpdateUserStatus(
         items.map((item) => ({ user_id: item.id, expected_revision: item.revision })),
         status,
         csrfToken,
-      )
-    ),
-    onSuccess: async (result, variables) => {
+      );
+      return { continuation, result };
+    },
+    onSuccess: async ({ continuation, result }, variables) => {
+      if (!continuation.isCurrent()) return;
       const names = new Map(variables.items.map((item) => [item.id, item.username]));
       setBulkFeedback({
         scope: variables.scope,
@@ -312,9 +320,12 @@ function UserListPage({
     }
     bulkWorking.current = true;
     setBulkFeedback(undefined);
+    const continuation = capturePrincipalContinuation(queryClient);
     void bulk.mutateAsync({ items, status, scope: expectedScope, selectionEpoch: selectionEpoch.current }).catch(() => {
       // 顶层错误由 mutation.error 呈现，保留原选择以便人工恢复。
-    }).finally(() => { bulkWorking.current = false; });
+    }).finally(() => {
+      if (continuation.isCurrent()) bulkWorking.current = false;
+    });
   }
 
   const allVisibleSelected = rows.length > 0 && rows.every((user) => selectedIds.has(user.id));
@@ -687,9 +698,11 @@ function CreateUserDialog({
     setPending(true);
     setError(undefined);
     form.clearErrors();
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
       // 密码只交给当前请求，不进入共享 MutationCache 的 variables。
       const created = await createUser(values, csrfToken);
+      if (!continuation.isCurrent()) return;
       if (!mounted.current) {
         await queryClient.invalidateQueries({ queryKey: userKeys.lists() });
         return;
@@ -698,6 +711,7 @@ function CreateUserDialog({
       onClose();
       await onCreated(created);
     } catch (reason) {
+      if (!continuation.isCurrent()) return;
       if (!mounted.current) return;
       const detail = reason instanceof UserRequestError ? reason.detail : undefined;
       const mapped = detail
@@ -708,8 +722,10 @@ function CreateUserDialog({
       form.setValue('temporary_password', '');
       if (mapped.kind === 'username') form.setFocus('username');
     } finally {
-      submitting.current = false;
-      if (mounted.current) setPending(false);
+      if (continuation.isCurrent()) {
+        submitting.current = false;
+        if (mounted.current) setPending(false);
+      }
     }
   }
 
@@ -785,6 +801,7 @@ function EditUserDialog({
   onSaved: (user: User) => Promise<void>;
   target: CommandTarget;
 }) {
+  const queryClient = useQueryClient();
   const [error, setError] = useState<unknown>();
   const form = useForm<UserEditFormValues>({
     defaultValues: {
@@ -799,9 +816,13 @@ function EditUserDialog({
 
   async function submit(values: UserEditFormValues) {
     setError(undefined);
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
-      await onSaved(await update.mutateAsync(values));
+      const saved = await update.mutateAsync(values);
+      if (!continuation.isCurrent()) return;
+      await onSaved(saved);
     } catch (reason) {
+      if (!continuation.isCurrent()) return;
       setError(reason);
       update.reset();
     }
@@ -893,8 +914,10 @@ function ResetPasswordDialog({
     submitting.current = true;
     setPending(true);
     setError(undefined);
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
       await resetUserPassword(target.user, values.temporary_password, csrfToken);
+      if (!continuation.isCurrent()) return;
       if (!mounted.current) {
         await queryClient.invalidateQueries({ queryKey: userKeys.lists() });
         return;
@@ -902,12 +925,15 @@ function ResetPasswordDialog({
       form.reset();
       await onSaved();
     } catch (reason) {
+      if (!continuation.isCurrent()) return;
       if (!mounted.current) return;
       setError(reason);
       if (!isRevisionConflict(reason)) form.setValue('temporary_password', '');
     } finally {
-      submitting.current = false;
-      if (mounted.current) setPending(false);
+      if (continuation.isCurrent()) {
+        submitting.current = false;
+        if (mounted.current) setPending(false);
+      }
     }
   }
 
@@ -1034,10 +1060,13 @@ function UserDeletionDialog({
     if (!latest || queryFetching || queryError) return;
     resolveUserActions(latest, false);
     if (latest.deletion === null || !latest.available_actions.includes('DELETE') || latest.deletion.blockers.length > 0) return;
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
       await remove.mutateAsync({ id: latest.id, expectedRevision: latest.revision });
+      if (!continuation.isCurrent()) return;
       await onDeleted();
     } catch (error) {
+      if (!continuation.isCurrent()) return;
       if (error instanceof UserRequestError && error.status === 409) onConflict(activeIntent.id, error);
     }
   }

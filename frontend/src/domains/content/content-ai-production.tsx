@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 
+import { capturePrincipalContinuation } from '@/app/auth/principal-epoch';
 import { MarkdownPreview } from '@/design-system/editor/markdown-editor';
 import { Badge } from '@/design-system/primitives/badge';
 import { Button } from '@/design-system/primitives/button';
@@ -180,18 +181,22 @@ function ContentAiProduction({ blocked = false, context, csrfToken, taskId }: Co
     const signature = mode === 'generate'
       ? ['GENERATE', taskId, selectedModelId, prompt.id, prompt.revision].join(':')
       : ['HUMANIZE', sourceId, selectedModelId].join(':');
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
       const job = mode === 'generate'
         ? await create.mutateAsync({ modelId: selectedModelId, signature })
         : await humanize.mutateAsync({ modelId: selectedModelId, signature });
+      if (!continuation.isCurrent()) return;
       setSubmission({ job, previousLatestId: context.latest_generation?.id ?? null });
       setMode(null);
       setSelectedModelId(undefined);
     } catch (caught) {
+      if (!continuation.isCurrent()) return;
       if (isErrorCode(caught, 'IDEMPOTENCY_CONFLICT')) commandKeys.current.delete(signature);
       if (isErrorCode(caught, 'PLATFORM_PROMPT_CHANGED')) {
         setSelectedModelId(undefined);
         await options.refetch();
+        if (!continuation.isCurrent()) return;
       }
       setError(errorMessage(caught));
     }
@@ -201,11 +206,14 @@ function ContentAiProduction({ blocked = false, context, csrfToken, taskId }: Co
     if (blocked || !summaryJob?.available_actions.includes('RETRY')) return;
     setError(undefined);
     const signature = `RETRY:${summaryJob.id}`;
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
       const job = await retry.mutateAsync({ jobId: summaryJob.id, signature });
+      if (!continuation.isCurrent()) return;
       setSubmission({ job, previousLatestId: context.latest_generation?.id ?? null });
       setRetryOpen(false);
     } catch (caught) {
+      if (!continuation.isCurrent()) return;
       if (isErrorCode(caught, 'IDEMPOTENCY_CONFLICT')) commandKeys.current.delete(signature);
       setError(errorMessage(caught));
     }

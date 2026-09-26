@@ -1,6 +1,10 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState, type FormEvent } from 'react';
 
+import {
+  capturePrincipalContinuation,
+  type PrincipalContinuation,
+} from '@/app/auth/principal-epoch';
 import { ErrorSummary, type ErrorSummaryItem } from '@/design-system/forms/form-layout';
 import { Button } from '@/design-system/primitives/button';
 import {
@@ -41,7 +45,10 @@ type AcceptedCommand =
 type PublishedContentIssueWorkspaceActionsProps = {
   context: PublishedContentIssueWorkspaceContext;
   csrfToken: string | null;
-  onCanonicalChange: (repairTaskId?: string) => Promise<PublishedContentIssueWorkspaceContext>;
+  onCanonicalChange: (
+    continuation: PrincipalContinuation,
+    repairTaskId?: string,
+  ) => Promise<PublishedContentIssueWorkspaceContext | undefined>;
   onReload: () => Promise<PublishedContentIssueWorkspaceContext>;
 };
 
@@ -51,6 +58,7 @@ function PublishedContentIssueWorkspaceActions({
   onCanonicalChange,
   onReload,
 }: PublishedContentIssueWorkspaceActionsProps) {
+  const queryClient = useQueryClient();
   const [openAction, setOpenAction] = useState<IssueCommand>();
   const [factVersionId, setFactVersionId] = useState('');
   const [outcome, setOutcome] = useState<'RESTORED' | 'RETIRED'>('RESTORED');
@@ -150,25 +158,31 @@ function PublishedContentIssueWorkspaceActions({
     operationInFlightRef.current = true;
     setOperationPending(true);
     let commandAccepted = false;
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
       const task = await mutation.mutateAsync({
         action: 'CREATE_REPAIR_TASK',
         factVersionId: parsed.data.factVersionId,
         revision: context.issue.revision,
       });
+      if (!continuation.isCurrent()) return;
       commandAccepted = true;
       const accepted: AcceptedCommand = { action: 'CREATE_REPAIR_TASK', taskId: task.id };
       setAcceptedCommand(accepted);
-      await syncAcceptedCommand(accepted, task.id);
+      await syncAcceptedCommand(accepted, continuation, task.id);
+      if (!continuation.isCurrent()) return;
       setOpenAction(undefined);
       setFactVersionId('');
       setDraftAction(undefined);
       setDraftSnapshot(undefined);
     } catch (error) {
+      if (!continuation.isCurrent()) return;
       if (!commandAccepted) handleError(error);
     } finally {
-      operationInFlightRef.current = false;
-      setOperationPending(false);
+      if (continuation.isCurrent()) {
+        operationInFlightRef.current = false;
+        setOperationPending(false);
+      }
     }
   }
 
@@ -184,32 +198,44 @@ function PublishedContentIssueWorkspaceActions({
     operationInFlightRef.current = true;
     setOperationPending(true);
     let commandAccepted = false;
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
       await mutation.mutateAsync({ action: 'RESOLVE', ...parsed.data, revision: context.issue.revision });
+      if (!continuation.isCurrent()) return;
       commandAccepted = true;
       const accepted: AcceptedCommand = { action: 'RESOLVE', outcome: parsed.data.outcome };
       setAcceptedCommand(accepted);
-      await syncAcceptedCommand(accepted, context.repair_task?.id);
+      await syncAcceptedCommand(accepted, continuation, context.repair_task?.id);
+      if (!continuation.isCurrent()) return;
       setOpenAction(undefined);
       setComment('');
       setDraftAction(undefined);
       setDraftSnapshot(undefined);
     } catch (error) {
+      if (!continuation.isCurrent()) return;
       if (!commandAccepted) handleError(error);
     } finally {
-      operationInFlightRef.current = false;
-      setOperationPending(false);
+      if (continuation.isCurrent()) {
+        operationInFlightRef.current = false;
+        setOperationPending(false);
+      }
     }
   }
 
-  async function syncAcceptedCommand(accepted: AcceptedCommand, repairTaskId?: string) {
+  async function syncAcceptedCommand(
+    accepted: AcceptedCommand,
+    continuation: PrincipalContinuation,
+    repairTaskId?: string,
+  ) {
     try {
-      const latest = await onCanonicalChange(repairTaskId);
+      const latest = await onCanonicalChange(continuation, repairTaskId);
+      if (!continuation.isCurrent() || !latest) return;
       assertAcceptedCommand(latest, accepted);
       setAcceptedCommand(undefined);
       setContextStale(false);
       setServerError(undefined);
     } catch (error) {
+      if (!continuation.isCurrent()) return;
       const mapped = mapPublicationError(error);
       setServerError({
         ...mapped,

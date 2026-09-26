@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 
+import { capturePrincipalContinuation } from '@/app/auth/principal-epoch';
 import { EmptyTable } from '@/design-system/data-table/empty-table';
 import { FilterBar } from '@/design-system/data-table/filter-bar';
 import { RowActions } from '@/design-system/data-table/row-actions';
@@ -147,13 +148,17 @@ function PlatformListPage({
 
   const mutation = useMutation({
     mutationFn: async (variables: CommandVariables) => {
+      const continuation = capturePrincipalContinuation(queryClient);
       if (variables.command === 'delete-platform') {
         await deletePlatformProfile(variables, csrfToken);
-        return;
+      } else {
+        await runPlatformCommand(variables.command, variables.platform, csrfToken);
       }
-      await runPlatformCommand(variables.command, variables.platform, csrfToken);
+      continuation.assertCurrent();
+      return { continuation };
     },
-    onSuccess: (_result, variables) => {
+    onSuccess: ({ continuation }, variables) => {
+      if (!continuation.isCurrent()) return;
       const id = 'platform' in variables ? variables.platform.id : variables.id;
       const returnToPreviousPage = variables.command === 'delete-platform' && rows.length === 1 && search.page > 1;
       const resumeSearch = returnToPreviousPage ? { ...search, page: search.page - 1 } : search;
@@ -168,7 +173,9 @@ function PlatformListPage({
       setCommandReloadError(undefined);
       void Promise.allSettled([
         queryClient.cancelQueries({ queryKey: platformKeys.lists() })
-          .then(() => queryClient.invalidateQueries({ queryKey: platformKeys.lists() })),
+          .then(() => continuation.isCurrent()
+            ? queryClient.invalidateQueries({ queryKey: platformKeys.lists() })
+            : undefined),
         queryClient.invalidateQueries({ queryKey: platformKeys.detail(id) }),
         queryClient.invalidateQueries({ queryKey: platformKeys.accounts(id) }),
         onPlatformChanged(variables.command === 'delete-platform' ? 'delete' : 'status', id),
@@ -196,8 +203,10 @@ function PlatformListPage({
     if (commandPendingRef.current || commandHoldRef.current || platforms.isFetching || platforms.isError) return false;
     commandPendingRef.current = true;
     setCommandPending(true);
+    const continuation = capturePrincipalContinuation(queryClient);
     mutation.mutate(variables, {
       onSettled: () => {
+        if (!continuation.isCurrent()) return;
         commandPendingRef.current = false;
         setCommandPending(false);
       },

@@ -3,6 +3,10 @@ import { useMutation, useQuery, useQueryClient, type UseQueryResult } from '@tan
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { FormProvider, useForm, useWatch, type FieldPath } from 'react-hook-form';
 
+import {
+  capturePrincipalContinuation,
+  type PrincipalContinuation,
+} from '@/app/auth/principal-epoch';
 import { DirtyGuard } from '@/design-system/forms/dirty-guard';
 import { FormField } from '@/design-system/forms/form-field';
 import { ErrorSummary, type ErrorSummaryItem } from '@/design-system/forms/form-layout';
@@ -76,7 +80,10 @@ function NewGeoObservationPage({
   const [requestId, setRequestId] = useState<string>();
   const [candidateStale, setCandidateStale] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<FileRecord[]>([]);
-  const [createdId, setCreatedId] = useState<string>();
+  const [created, setCreated] = useState<{
+    continuation: PrincipalContinuation;
+    id: string;
+  }>();
   const acceptedId = useRef<string | undefined>(undefined);
   const [uploadBlocking, setUploadBlocking] = useState(false);
   const uploadBlockingRef = useRef(false);
@@ -104,13 +111,16 @@ function NewGeoObservationPage({
   const topics = useQuery(queryTopicsQueryOptions());
   const candidates = useQuery(geoPublicationCandidatesQueryOptions(selectedProductId));
   const create = useMutation({
-    mutationFn: (values: NewGeoObservationFormValues) => (
+    mutationFn: ({ values }: {
+      continuation: PrincipalContinuation;
+      values: NewGeoObservationFormValues;
+    }) => (
       createGeoObservation(toGeoObservationCreate(values), csrfToken)
     ),
   });
   const upload = useGeoEvidenceUpload({
     csrfToken,
-    disabled: create.isPending || Boolean(createdId),
+    disabled: create.isPending || Boolean(created),
     onBlockingChange: updateUploadBlocking,
     onUploaded: (file) => {
       if (acceptedId.current) return;
@@ -180,8 +190,8 @@ function NewGeoObservationPage({
   }, [candidates.data, candidates.isSuccess, candidates.isFetching, form, isDirty]);
 
   useEffect(() => {
-    if (createdId && !isDirty) onCreated(createdId);
-  }, [createdId, isDirty, onCreated]);
+    if (created && !isDirty && created.continuation.isCurrent()) onCreated(created.id);
+  }, [created, isDirty, onCreated]);
 
   function submissionBlocked() {
     const productId = form.getValues('product_id');
@@ -196,14 +206,16 @@ function NewGeoObservationPage({
     const currentCandidates = queryClient.getQueryData<GeoPublicationCandidateList>(geoKeys.publicationCandidates(values.product_id));
     if (!currentCandidates || currentCandidates.items.length !== values.article_results.length
       || currentCandidates.items.some((item, index) => item.published_article_id !== values.article_results[index]?.published_article_id)) return;
+    const continuation = capturePrincipalContinuation(queryClient);
     form.clearErrors();
     setRequestId(undefined);
     create.reset();
     try {
-      const observation = await create.mutateAsync(values);
+      const observation = await create.mutateAsync({ continuation, values });
+      if (!continuation.isCurrent()) return;
       acceptedId.current = observation.id;
       form.reset(values);
-      setCreatedId(observation.id);
+      setCreated({ continuation, id: observation.id });
       void Promise.allSettled([
         queryClient.invalidateQueries({ queryKey: geoKeys.lists() }),
         queryClient.invalidateQueries({ queryKey: geoKeys.insights() }),
@@ -211,6 +223,7 @@ function NewGeoObservationPage({
         queryClient.invalidateQueries({ queryKey: productsKeys.detail(values.product_id) }),
       ]);
     } catch (error) {
+      if (!continuation.isCurrent()) return;
       const mapped = mapGeoObservationCreateError(error);
       for (const [field, message] of Object.entries(mapped.fields)) {
         form.setError(field as FieldPath<NewGeoObservationFormValues>, {
@@ -259,7 +272,7 @@ function NewGeoObservationPage({
   const formMessage = form.formState.errors.root?.server?.message;
   if (formMessage) summaryErrors.push({ id: 'form', message: formMessage });
   if (requestId) summaryErrors.push({ id: 'request-id', message: `请求 ID：${requestId}` });
-  const locked = create.isPending || Boolean(createdId);
+  const locked = create.isPending || Boolean(created);
   const blocked = locked
     || uploadBlocking
     || candidates.isFetching
@@ -370,7 +383,7 @@ function NewGeoObservationPage({
           />
           <StickyActionBar
             actions={actions}
-            status={<span aria-live="polite">{createdId ? '已创建，正在打开详情…' : create.isPending ? '正在提交并由服务端校验候选…' : '尚未创建'}</span>}
+            status={<span aria-live="polite">{created ? '已创建，正在打开详情…' : create.isPending ? '正在提交并由服务端校验候选…' : '尚未创建'}</span>}
           />
         </form>
       </FormProvider>

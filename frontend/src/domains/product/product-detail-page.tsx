@@ -3,6 +3,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 
+import {
+  capturePrincipalContinuation,
+  type PrincipalContinuation,
+} from '@/app/auth/principal-epoch';
 import { RowActions } from '@/design-system/data-table/row-actions';
 import { FormField } from '@/design-system/forms/form-field';
 import { ErrorSummary, FormActions, type ErrorSummaryItem } from '@/design-system/forms/form-layout';
@@ -74,8 +78,11 @@ function ProductDetailPage({ csrfToken, onDeleted, productId }: ProductDetailPag
   const [updateOpen, setUpdateOpen] = useState(false);
   const [conditionsOpen, setConditionsOpen] = useState(false);
   const remove = useMutation({
-    mutationFn: (product: Product) => deleteProduct(product, csrfToken),
-    onSuccess: async (_data, product) => {
+    mutationFn: ({ product }: { product: Product; continuation: PrincipalContinuation }) => (
+      deleteProduct(product, csrfToken)
+    ),
+    onSuccess: async (_data, { continuation, product }) => {
+      if (!continuation.isCurrent()) return;
       queryClient.setQueriesData<ProductList>({ queryKey: productsKeys.lists() }, (current) => (
         current
           ? {
@@ -86,12 +93,14 @@ function ProductDetailPage({ csrfToken, onDeleted, productId }: ProductDetailPag
           : current
       ));
       await onDeleted();
+      if (!continuation.isCurrent()) return;
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: productsKeys.detail(product.id), refetchType: 'none' }),
         queryClient.invalidateQueries({ queryKey: productsKeys.lists() }),
       ]);
     },
-    onError: async () => {
+    onError: async (_error, { continuation }) => {
+      if (!continuation.isCurrent()) return;
       await detail.refetch();
     },
   });
@@ -123,7 +132,10 @@ function ProductDetailPage({ csrfToken, onDeleted, productId }: ProductDetailPag
       return;
     }
     if (command === 'delete-product') {
-      remove.mutate(product);
+      remove.mutate({
+        product,
+        continuation: capturePrincipalContinuation(queryClient),
+      });
       return;
     }
     throw new Error(`Product Detail 收到未知页面命令：${command}`);
@@ -288,7 +300,8 @@ function ProductDetailPage({ csrfToken, onDeleted, productId }: ProductDetailPag
           detail={detail.data}
           onClose={() => setUpdateOpen(false)}
           onRefresh={async () => (await detail.refetch()).data}
-          onUpdated={async (canonical) => {
+          onUpdated={async (canonical, continuation) => {
+            if (!continuation.isCurrent()) return;
             queryClient.setQueryData<ProductDetail>(productsKeys.detail(product.id), (current) => (
               current ? { ...current, product: canonical } : current
             ));
@@ -363,8 +376,9 @@ function ProductUpdateDialog({
   detail: ProductDetail;
   onClose: () => void;
   onRefresh: () => Promise<ProductDetail | undefined>;
-  onUpdated: (product: Product) => Promise<void>;
+  onUpdated: (product: Product, continuation: PrincipalContinuation) => Promise<void>;
 }) {
+  const queryClient = useQueryClient();
   const [requestId, setRequestId] = useState<string>();
   const form = useForm<ProductUpdateFormValues>({
     defaultValues: productToUpdateValues(detail.product),
@@ -381,15 +395,20 @@ function ProductUpdateDialog({
   async function submit(values: ProductUpdateFormValues) {
     form.clearErrors();
     setRequestId(undefined);
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
       const product = await update.mutateAsync(values);
-      await onUpdated(product);
+      if (!continuation.isCurrent()) return;
+      await onUpdated(product, continuation);
+      if (!continuation.isCurrent()) return;
       form.reset(productToUpdateValues(product));
       onClose();
     } catch (error) {
+      if (!continuation.isCurrent()) return;
       const mapped = mapProductUpdateError(error);
       if (mapped.refreshCanonical) {
         const canonical = await onRefresh() ?? detail;
+        if (!continuation.isCurrent()) return;
         form.reset(productToUpdateValues(canonical.product));
       }
       for (const [field, message] of Object.entries(mapped.fields)) {

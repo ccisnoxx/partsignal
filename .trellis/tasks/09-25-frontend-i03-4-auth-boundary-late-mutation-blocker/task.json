@@ -3,7 +3,7 @@
   "name": "frontend-i03-4-auth-boundary-late-mutation-blocker",
   "title": "I03-4 Blocker 身份边界迟到 mutation 缓存回写",
   "description": "修复旧身份下已发出的业务 mutation 在身份切换后迟到成功并重新写回共享 QueryCache 的权限边界并发缺口。",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -12,15 +12,17 @@
   "assignee": "777",
   "createdAt": "2026-09-25",
   "completedAt": null,
-  "branch": null,
+  "branch": "codex/frontend-redevelopment-candidate",
   "base_branch": "main",
   "worktree_path": null,
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [],
+  "children": [
+    "09-25-frontend-i03-4-b1-principal-epoch-late-mutation-guard"
+  ],
   "parent": "09-25-frontend-i03-4-clean-checkout-integration",
   "relatedFiles": [],
-  "notes": "P1 发布阻断：身份切换当前只清空已有业务 QueryCache，旧 ADMIN 发起的 pending mutation 在迟到成功后仍可通过 onCanonical/adoptCanonical 重新 setQueryData 并 invalidate 消费者。现有 unmount 测试 resolve 后未等待异步 continuation，也未断言业务缓存仍为空。修复须建立 principal epoch，并覆盖所有手工 canonical 写回路径及 ADMIN→ENGINEER/匿名/另一用户交错；完成后必须用新 commit 重跑 clean-checkout 完整门禁和 fresh 高风险复核。本任务仅记录，未启动、未实施。",
+  "notes": "I03-4-B1 已完成 principal epoch、迟到 mutation、Observer 恢复/retry 与 callback 内 await 防护，最终 fresh critical_reviewer 为 NO BLOCKER。本父任务继续保持 in_progress；下一任务固定为“基于修复 commit 的 clean-checkout 完整复验与 blocker/I03 收尾”。本会话不执行该完整复验。",
   "meta": {}
 }

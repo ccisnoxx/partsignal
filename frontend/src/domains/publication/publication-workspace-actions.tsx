@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 import {
   Controller,
@@ -10,6 +10,10 @@ import {
 } from 'react-hook-form';
 import { z } from 'zod';
 
+import {
+  capturePrincipalContinuation,
+  type PrincipalContinuation,
+} from '@/app/auth/principal-epoch';
 import { DirtyGuard } from '@/design-system/forms/dirty-guard';
 import { ErrorSummary, type ErrorSummaryItem } from '@/design-system/forms/form-layout';
 import {
@@ -73,7 +77,7 @@ type PublicationWorkspaceActionsProps = {
   csrfToken: string | null;
   busy: boolean;
   onBusyChange: (busy: boolean) => void;
-  onCanonicalWork: (work: PublicationWork) => Promise<void>;
+  onCanonicalWork: (work: PublicationWork, continuation: PrincipalContinuation) => Promise<void>;
   onReload: () => Promise<PublicationWorkspaceContext>;
 };
 
@@ -100,6 +104,7 @@ function PublicationWorkspaceActions({
   onCanonicalWork,
   onReload,
 }: PublicationWorkspaceActionsProps) {
+  const queryClient = useQueryClient();
   const [openAction, setOpenAction] = useState<PublicationWorkspaceAction>();
   const [serverError, setServerError] = useState<PublicationStartErrorMapping>();
   const [submittedAwaitingContext, setSubmittedAwaitingContext] = useState(false);
@@ -222,11 +227,14 @@ function PublicationWorkspaceActions({
     onBusyChange(true);
     setServerError(undefined);
     let submitted = false;
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
       const work = await mutation.mutateAsync(command);
+      if (!continuation.isCurrent()) return;
       submitted = true;
       setSubmittedAwaitingContext(true);
-      await onCanonicalWork(work);
+      await onCanonicalWork(work, continuation);
+      if (!continuation.isCurrent()) return;
       setSubmittedAwaitingContext(false);
       if (command.action === 'UPDATE_PREPARATION') {
         preparation.reset({ platformAccountId: work.platform_account_id ?? '', comment: '' });
@@ -252,6 +260,7 @@ function PublicationWorkspaceActions({
       }
       setOpenAction(undefined);
     } catch (error) {
+      if (!continuation.isCurrent()) return;
       const mapped = mapPublicationError(error);
       setServerError(submitted ? {
         ...mapped,
@@ -259,8 +268,10 @@ function PublicationWorkspaceActions({
       } : mapped);
       if (submitted || mapped.status === 409) setContextStale(true);
     } finally {
-      operationRef.current = false;
-      onBusyChange(false);
+      if (continuation.isCurrent()) {
+        operationRef.current = false;
+        onBusyChange(false);
+      }
     }
   }
 

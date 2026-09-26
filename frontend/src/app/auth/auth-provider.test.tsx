@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { api } from '@/shared/api/client';
 import type { AuthUser } from './auth-provider';
 import { AuthProvider, useAuth, useAuthActions } from './auth-provider';
+import { capturePrincipalContinuation } from './principal-epoch';
 
 const admin: AuthUser = {
   id: '00000000-0000-4000-8000-000000000001',
@@ -534,16 +535,56 @@ describe('AuthProvider', () => {
       } as never);
     const { queryClient } = renderRace();
     expect(await screen.findByText('admin:false')).toBeInTheDocument();
+    const continuation = capturePrincipalContinuation(queryClient);
     queryClient.setQueryData(['products', 'same-principal'], { value: '保留' });
 
     await userEvent.click(screen.getByRole('button', { name: '竞态刷新' }));
     await waitFor(() => expect(get).toHaveBeenCalledTimes(4));
 
     expect(queryClient.getQueryData(['products', 'same-principal'])).toEqual({ value: '保留' });
+    expect(continuation.isCurrent()).toBe(true);
     expect(queryClient.getQueryData(['auth', 'session'])).toEqual({
       user: { ...admin, revision: 2 },
       csrfToken: 'refreshed-csrf',
     });
+  });
+
+  it('主体变化先失效 principal continuation，再清理全部业务 query', async () => {
+    let currentUser = admin;
+    vi.spyOn(api, 'GET').mockImplementation((path) => {
+      if (path === '/api/v1/auth/me') {
+        return Promise.resolve({
+          data: currentUser,
+          response: Response.json(currentUser),
+        } as never);
+      }
+      return Promise.resolve({
+        data: { csrf_token: `${currentUser.username}-csrf` },
+        response: Response.json({ csrf_token: `${currentUser.username}-csrf` }),
+      } as never);
+    });
+    const { queryClient } = renderRace();
+    expect(await screen.findByText('admin:false')).toBeInTheDocument();
+    queryClient.setQueryData(['products', 'principal-order'], { value: '旧主体' });
+    queryClient.setQueryData(['audit', 'principal-order'], { value: '旧主体' });
+    const continuation = capturePrincipalContinuation(queryClient);
+    const removalChecks: boolean[] = [];
+    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      if (event.type === 'removed' && event.query.queryKey[0] !== 'auth') {
+        removalChecks.push(continuation.isCurrent());
+      }
+    });
+
+    currentUser = engineer;
+    await userEvent.click(screen.getByRole('button', { name: '竞态刷新' }));
+    expect(await screen.findByText('engineer:false')).toBeInTheDocument();
+    unsubscribe();
+
+    expect(continuation.isCurrent()).toBe(false);
+    expect(removalChecks.length).toBeGreaterThan(0);
+    expect(removalChecks.every((wasCurrent) => !wasCurrent)).toBe(true);
+    expect(queryClient.getQueryData(['products', 'principal-order'])).toBeUndefined();
+    expect(queryClient.getQueryData(['audit', 'principal-order'])).toBeUndefined();
   });
 
   it('显式暴露认证错误', async () => {

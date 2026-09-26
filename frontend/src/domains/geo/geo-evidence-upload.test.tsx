@@ -1,7 +1,9 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import { QueryClientProvider } from '@tanstack/react-query';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { createAppQueryClient } from '@/app/query-client';
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
 import { GeoEvidenceUpload } from './geo-evidence-upload';
@@ -32,6 +34,15 @@ const intent = {
   },
 } satisfies UploadIntent;
 
+function renderUpload(onUploaded: (file: FileRecord) => void, onBlockingChange: (blocking: boolean) => void) {
+  const queryClient = createAppQueryClient();
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <GeoEvidenceUpload csrfToken="csrf" onUploaded={onUploaded} onBlockingChange={onBlockingChange} />
+    </QueryClientProvider>,
+  );
+}
+
 afterEach(() => vi.restoreAllMocks());
 
 describe('GeoEvidenceUpload', () => {
@@ -49,7 +60,7 @@ describe('GeoEvidenceUpload', () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 200 }));
     const onUploaded = vi.fn();
     const onBlockingChange = vi.fn();
-    render(<GeoEvidenceUpload csrfToken="csrf" onUploaded={onUploaded} onBlockingChange={onBlockingChange} />);
+    renderUpload(onUploaded, onBlockingChange);
 
     await userEvent.upload(
       screen.getByLabelText('上传 GEO 证据截图'),
@@ -77,7 +88,7 @@ describe('GeoEvidenceUpload', () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 200 }));
     const onBlockingChange = vi.fn();
     const onUploaded = vi.fn();
-    render(<GeoEvidenceUpload csrfToken="csrf" onUploaded={onUploaded} onBlockingChange={onBlockingChange} />);
+    renderUpload(onUploaded, onBlockingChange);
     await userEvent.upload(screen.getByLabelText('上传 GEO 证据截图'), new File(['evidence'], 'proof.png', { type: 'image/png' }));
     await userEvent.click(await screen.findByRole('button', { name: '放弃上传' }));
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('HTTP 500'));

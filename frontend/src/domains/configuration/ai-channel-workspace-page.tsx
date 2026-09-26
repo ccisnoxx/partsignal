@@ -4,6 +4,10 @@ import { Link } from '@tanstack/react-router';
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 
+import {
+  capturePrincipalContinuation,
+  type PrincipalContinuation,
+} from '@/app/auth/principal-epoch';
 import { RowActions } from '@/design-system/data-table/row-actions';
 import { TableShell } from '@/design-system/data-table/table-shell';
 import { DirtyGuard } from '@/design-system/forms/dirty-guard';
@@ -181,7 +185,9 @@ function LoadedAIChannelWorkspace({
   async function refreshCanonicalConsumers(
     kind: Exclude<AIChannelMutationKind, 'delete'>,
     epoch: number,
+    continuation: PrincipalContinuation,
   ) {
+    if (!continuation.isCurrent()) return;
     try {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: aiChannelKeys.lists() }),
@@ -189,10 +195,12 @@ function LoadedAIChannelWorkspace({
         queryClient.invalidateQueries({ queryKey: aiChannelKeys.logsRoot(channelId) }),
         onConsumersChanged(kind),
       ]);
+      if (!continuation.isCurrent()) return;
       setCanonicalHandoffFailure((current) => (
         canonicalEpoch.current === epoch && current?.epoch === epoch ? undefined : current
       ));
     } catch (error) {
+      if (!continuation.isCurrent()) return;
       setCanonicalHandoffFailure((current) => canonicalEpoch.current === epoch
         ? { epoch, error, kind }
         : current);
@@ -204,35 +212,45 @@ function LoadedAIChannelWorkspace({
     canonical: AIChannel,
     kind: Exclude<AIChannelMutationKind, 'delete'>,
     preserveDraft: boolean,
+    continuation: PrincipalContinuation,
   ) {
+    if (!continuation.isCurrent()) return;
     const epoch = adoptCanonical(canonical, preserveDraft);
-    await refreshCanonicalConsumers(kind, epoch);
+    await refreshCanonicalConsumers(kind, epoch, continuation);
   }
 
   async function reloadCanonical() {
+    const continuation = capturePrincipalContinuation(queryClient);
     const fresh = await onReload();
+    if (!continuation.isCurrent()) return;
     if (!fresh) throw new Error('该 AI 渠道已不存在');
     adoptCanonical(fresh, false);
     setStatus(`已加载 revision ${fresh.revision}`);
     return fresh;
   }
 
-  async function handoffCanonical(canonical: AIChannel, kind: Exclude<AIChannelMutationKind, 'delete'>) {
+  async function handoffCanonical(
+    canonical: AIChannel,
+    kind: Exclude<AIChannelMutationKind, 'delete'>,
+    continuation: PrincipalContinuation,
+  ) {
+    if (!continuation.isCurrent()) return;
     const epoch = adoptCanonical(canonical, true);
     try {
-      await refreshCanonicalConsumers(kind, epoch);
+      await refreshCanonicalConsumers(kind, epoch, continuation);
     } catch {
       // 写入与 canonical 采用已经成功；页面级 Notice 只负责重试消费者刷新。
     }
   }
 
   async function retryCanonicalHandoff() {
+    const continuation = capturePrincipalContinuation(queryClient);
     const failure = canonicalHandoffFailure;
     if (!failure || canonicalEpoch.current !== failure.epoch) {
       return;
     }
     try {
-      await refreshCanonicalConsumers(failure.kind, failure.epoch);
+      await refreshCanonicalConsumers(failure.kind, failure.epoch, continuation);
     } catch {
       // 当前 epoch 的失败由 refreshCanonicalConsumers 保留在页面级 Notice。
     }
@@ -244,10 +262,13 @@ function LoadedAIChannelWorkspace({
     ),
   });
   const lifecycle = useMutation({
-    mutationFn: (command: 'enable-channel' | 'disable-channel' | 'delete-channel') => (
-      runAIChannelCommand(command, baseline, csrfToken)
-    ),
-    onSuccess: async (_result, command) => {
+    mutationFn: async (command: 'enable-channel' | 'disable-channel' | 'delete-channel') => {
+      const continuation = capturePrincipalContinuation(queryClient);
+      const result = await runAIChannelCommand(command, baseline, csrfToken);
+      return { continuation, result };
+    },
+    onSuccess: async ({ continuation }, command) => {
+      if (!continuation.isCurrent()) return;
       if (command === 'delete-channel') {
         queryClient.removeQueries({ queryKey: aiChannelKeys.detail(channelId) });
         queryClient.removeQueries({ queryKey: aiChannelKeys.models(channelId) });
@@ -257,28 +278,39 @@ function LoadedAIChannelWorkspace({
           queryClient.invalidateQueries({ queryKey: aiChannelKeys.lists() }),
           onConsumersChanged('delete'),
         ]);
+        if (!continuation.isCurrent()) return;
         await onDeleted();
         return;
       }
       const fresh = await onReload();
+      if (!continuation.isCurrent()) return;
       if (!fresh) throw new Error('状态变更后无法读取 AI 渠道');
-      await publishCanonical(fresh, 'status', true);
+      await publishCanonical(fresh, 'status', true, continuation);
     },
   });
   const removeHeader = useMutation({
-    mutationFn: (header: AIChannelHeader) => deleteAIChannelHeader(baseline, header.id, csrfToken),
-    onSuccess: async () => {
+    mutationFn: async (header: AIChannelHeader) => {
+      const continuation = capturePrincipalContinuation(queryClient);
+      const result = await deleteAIChannelHeader(baseline, header.id, csrfToken);
+      return { continuation, result };
+    },
+    onSuccess: async ({ continuation }) => {
+      if (!continuation.isCurrent()) return;
       const fresh = await onReload();
+      if (!continuation.isCurrent()) return;
       if (!fresh) throw new Error('Header 删除后无法读取 AI 渠道');
-      await publishCanonical(fresh, 'connection', true);
+      await publishCanonical(fresh, 'connection', true, continuation);
     },
   });
 
   async function submit(values: AIChannelConfigurationFormValues) {
     setStatus('');
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
       const canonical = await save.mutateAsync(values);
-      await publishCanonical(canonical, 'identity', false);
+      if (!continuation.isCurrent()) return;
+      await publishCanonical(canonical, 'identity', false, continuation);
+      if (!continuation.isCurrent()) return;
       setStatus('渠道配置已保存');
     } catch {
       // mutation.error 统一展示；409 保留非敏感草稿并冻结旧 revision。
@@ -405,7 +437,7 @@ function LoadedAIChannelWorkspace({
         channel={baseline}
         csrfToken={csrfToken}
         finalFocus={keyTrigger}
-        onCanonical={(canonical) => handoffCanonical(canonical, 'connection')}
+        onCanonical={(canonical, continuation) => handoffCanonical(canonical, 'connection', continuation)}
         onClose={() => setKeyOpen(false)}
         onReload={onReload}
         open={keyOpen}
@@ -416,7 +448,7 @@ function LoadedAIChannelWorkspace({
           csrfToken={csrfToken}
           finalFocus={() => headerTarget.focusReturn}
           header={headerTarget.header}
-          onCanonical={(canonical) => handoffCanonical(canonical, 'connection')}
+          onCanonical={(canonical, continuation) => handoffCanonical(canonical, 'connection', continuation)}
           onClose={() => setHeaderTarget(undefined)}
           onReload={onReload}
         />
@@ -443,10 +475,13 @@ function LoadedAIChannelModelsWorkspace({
 }) {
   const queryClient = useQueryClient();
   const lifecycle = useMutation({
-    mutationFn: (command: 'enable-channel' | 'disable-channel' | 'delete-channel') => (
-      runAIChannelCommand(command, channel, csrfToken)
-    ),
-    onSuccess: async (_result, command) => {
+    mutationFn: async (command: 'enable-channel' | 'disable-channel' | 'delete-channel') => {
+      const continuation = capturePrincipalContinuation(queryClient);
+      const result = await runAIChannelCommand(command, channel, csrfToken);
+      return { continuation, result };
+    },
+    onSuccess: async ({ continuation }, command) => {
+      if (!continuation.isCurrent()) return;
       if (command === 'delete-channel') {
         queryClient.removeQueries({ queryKey: aiChannelKeys.detail(channelId) });
         queryClient.removeQueries({ queryKey: aiChannelKeys.models(channelId) });
@@ -456,10 +491,12 @@ function LoadedAIChannelModelsWorkspace({
           queryClient.invalidateQueries({ queryKey: aiChannelKeys.lists() }),
           onConsumersChanged('delete'),
         ]);
+        if (!continuation.isCurrent()) return;
         await onDeleted();
         return;
       }
       const fresh = await onReload();
+      if (!continuation.isCurrent()) return;
       if (!fresh) throw new Error('状态变更后无法读取 AI 渠道');
       queryClient.setQueryData(aiChannelKeys.detail(channelId), fresh);
       await Promise.all([
@@ -708,11 +745,12 @@ function AIChannelApiKeyDialog({
   channel: AIChannel;
   csrfToken: string | null;
   finalFocus: RefObject<HTMLElement | null>;
-  onCanonical: (channel: AIChannel) => Promise<void>;
+  onCanonical: (channel: AIChannel, continuation: PrincipalContinuation) => Promise<void>;
   onClose: () => void;
   onReload: () => Promise<AIChannel | undefined>;
   open: boolean;
 }) {
+  const queryClient = useQueryClient();
   const [error, setError] = useState<string>();
   const [conflict, setConflict] = useState(false);
   const [pending, setPending] = useState(false);
@@ -721,14 +759,18 @@ function AIChannelApiKeyDialog({
   function close() { reset(); onClose(); }
   async function submit(values: AIChannelApiKeyFormValues) {
     setError(undefined);
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
       setPending(true);
       const canonical = await replaceAIChannelApiKey(channel, values.apiKey, csrfToken);
+      if (!continuation.isCurrent()) return;
       reset();
       onClose();
-      await onCanonical(canonical);
+      await onCanonical(canonical, continuation);
+      if (!continuation.isCurrent()) return;
       setPending(false);
     } catch (reason) {
+      if (!continuation.isCurrent()) return;
       setError(errorMessage(reason));
       setConflict(isAIChannelRevisionConflict(reason));
       form.reset({ apiKey: '' });
@@ -736,12 +778,15 @@ function AIChannelApiKeyDialog({
     }
   }
   async function reload() {
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
       const fresh = await onReload();
+      if (!continuation.isCurrent()) return;
       if (!fresh) { setError('该 AI 渠道已不存在'); return; }
-      await onCanonical(fresh);
+      await onCanonical(fresh, continuation);
       reset();
     } catch (reason) {
+      if (!continuation.isCurrent()) return;
       setError(errorMessage(reason));
     }
   }
@@ -773,10 +818,11 @@ function AIChannelHeaderDialog({
   csrfToken: string | null;
   finalFocus: () => HTMLElement | null;
   header?: AIChannelHeader;
-  onCanonical: (channel: AIChannel) => Promise<void>;
+  onCanonical: (channel: AIChannel, continuation: PrincipalContinuation) => Promise<void>;
   onClose: () => void;
   onReload: () => Promise<AIChannel | undefined>;
 }) {
+  const queryClient = useQueryClient();
   const [header, setHeader] = useState(initialHeader);
   const [error, setError] = useState<string>();
   const [requestId, setRequestId] = useState<string>();
@@ -794,16 +840,20 @@ function AIChannelHeaderDialog({
     setError(undefined);
     setRequestId(undefined);
     form.clearErrors();
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
       setPending(true);
       const canonical = await (header
         ? updateAIChannelHeader(channel, header.id, toAIChannelHeaderInput(values), csrfToken)
         : createAIChannelHeader(channel, toAIChannelHeaderInput(values), csrfToken));
+      if (!continuation.isCurrent()) return;
       reset();
       onClose();
-      await onCanonical(canonical);
+      await onCanonical(canonical, continuation);
+      if (!continuation.isCurrent()) return;
       setPending(false);
     } catch (reason) {
+      if (!continuation.isCurrent()) return;
       // 失败时也清除本次提交的 Header 值，避免敏感草稿留在表单或 mutation 状态中。
       form.reset({ ...values, value: '' });
       const mapped = mapAIChannelHeaderFormError(reason);
@@ -815,8 +865,10 @@ function AIChannelHeaderDialog({
     }
   }
   async function reload() {
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
       const fresh = await onReload();
+      if (!continuation.isCurrent()) return;
       if (!fresh) { setError('该 AI 渠道已不存在'); return; }
       const freshHeader = header ? fresh.headers.find((item) => item.id === header.id) : undefined;
       if (header && !freshHeader) { setError('该 Header 已不存在'); return; }
@@ -825,8 +877,9 @@ function AIChannelHeaderDialog({
       setError(undefined);
       setRequestId(undefined);
       setConflict(false);
-      await onCanonical(fresh);
+      await onCanonical(fresh, continuation);
     } catch (reason) {
+      if (!continuation.isCurrent()) return;
       setError(errorMessage(reason));
     }
   }

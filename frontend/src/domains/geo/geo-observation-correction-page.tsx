@@ -15,6 +15,10 @@ import {
 } from 'react';
 import { FormProvider, useForm, useWatch, type FieldPath } from 'react-hook-form';
 
+import {
+  capturePrincipalContinuation,
+  type PrincipalContinuation,
+} from '@/app/auth/principal-epoch';
 import { DirtyGuard } from '@/design-system/forms/dirty-guard';
 import { FormField } from '@/design-system/forms/form-field';
 import { ErrorSummary, type ErrorSummaryItem } from '@/design-system/forms/form-layout';
@@ -149,7 +153,10 @@ function CorrectionFormPage({
   const [context, setContext] = useState(initialContext);
   const [requestId, setRequestId] = useState<string>();
   const [uploadedFiles, setUploadedFiles] = useState<FileRecord[]>([]);
-  const [createdId, setCreatedId] = useState<string>();
+  const [created, setCreated] = useState<{
+    continuation: PrincipalContinuation;
+    id: string;
+  }>();
   const acceptedId = useRef<string | undefined>(undefined);
   const mounted = useRef(true);
   const [navigationError, setNavigationError] = useState<string>();
@@ -173,6 +180,7 @@ function CorrectionFormPage({
       submissionContext,
       values,
     }: {
+      continuation: PrincipalContinuation;
       submissionContext: GeoObservationCorrectionContext;
       values: GeoObservationCorrectionFormValues;
     }) => createGeoObservation(
@@ -182,7 +190,7 @@ function CorrectionFormPage({
   });
   const upload = useGeoEvidenceUpload({
     csrfToken,
-    disabled: create.isPending || Boolean(createdId) || contextStale,
+    disabled: create.isPending || Boolean(created) || contextStale,
     onBlockingChange: updateUploadBlocking,
     onUploaded: (file) => {
       if (!mounted.current || acceptedId.current || uploadedFilesRef.current.some((item) => item.id === file.id)) return;
@@ -203,22 +211,24 @@ function CorrectionFormPage({
     if (!acceptedId.current && (contextQuery.isError || contextChanged)) setContextStale(true);
   }, [contextQuery.isError, contextChanged, setContextStale]);
 
-  const openCreated = useCallback(async (id: string) => {
+  const openCreated = useCallback(async (id: string, continuation: PrincipalContinuation) => {
+    if (!continuation.isCurrent()) return;
     setNavigationError(undefined);
     try {
       await onCreated(id);
+      if (!continuation.isCurrent()) return;
     } catch (error) {
-      if (mounted.current) setNavigationError(errorMessage(error));
+      if (continuation.isCurrent() && mounted.current) setNavigationError(errorMessage(error));
     }
   }, [onCreated]);
   const handoffStarted = useRef(false);
 
   useEffect(() => {
-    if (createdId && !isDirty && !handoffStarted.current) {
+    if (created && !isDirty && !handoffStarted.current && created.continuation.isCurrent()) {
       handoffStarted.current = true;
-      void openCreated(createdId);
+      void openCreated(created.id, created.continuation);
     }
-  }, [createdId, isDirty, openCreated]);
+  }, [created, isDirty, openCreated]);
 
   function submissionBlocked() {
     const current = queryClient.getQueryState<GeoObservationCorrectionContext>(geoKeys.correctionContext(observationId));
@@ -230,18 +240,21 @@ function CorrectionFormPage({
   async function submit(values: GeoObservationCorrectionFormValues) {
     if (submissionBlocked()) return;
     const submissionContext = context;
+    const continuation = capturePrincipalContinuation(queryClient);
     form.clearErrors();
     setRequestId(undefined);
     create.reset();
     try {
       const observation = await create.mutateAsync({
+        continuation,
         submissionContext,
         values,
       });
+      if (!continuation.isCurrent()) return;
       acceptedId.current = observation.id;
       if (mounted.current) {
         form.reset(values);
-        setCreatedId(observation.id);
+        setCreated({ continuation, id: observation.id });
         setContextStale(true);
       }
       void Promise.allSettled([
@@ -256,7 +269,7 @@ function CorrectionFormPage({
         }),
       ]);
     } catch (error) {
-      if (!mounted.current) return;
+      if (!continuation.isCurrent() || !mounted.current) return;
       const mapped = mapGeoObservationCorrectionError(error);
       for (const [field, message] of Object.entries(mapped.fields)) {
         form.setError(field as FieldPath<GeoObservationCorrectionFormValues>, {
@@ -327,7 +340,7 @@ function CorrectionFormPage({
   if (formMessage) summaryErrors.push({ id: 'form', message: formMessage });
   if (requestId) summaryErrors.push({ id: 'request-id', message: `请求 ID：${requestId}` });
   const topicUnavailable = tail.query_topic === null && context.query_topic_options.length === 0;
-  const locked = create.isPending || Boolean(createdId);
+  const locked = create.isPending || Boolean(created);
   const blocked = locked
     || reloading
     || uploadBlocking
@@ -353,7 +366,7 @@ function CorrectionFormPage({
       label: create.isPending ? '提交中…' : '追加 Correction',
       intent: 'primary',
       enabled: !blocked,
-      disabledReason: createdId ? '更正已创建' : uploadBlocking ? '请先完成或放弃证据上传' : contextQuery.isFetching ? '正在读取最新上下文' : correctionDisabledReason({
+      disabledReason: created ? '更正已创建' : uploadBlocking ? '请先完成或放弃证据上传' : contextQuery.isFetching ? '正在读取最新上下文' : correctionDisabledReason({
         contextStale,
         createPending: create.isPending,
         hasArticles: context.correction_article_results.length > 0,
@@ -381,20 +394,20 @@ function CorrectionFormPage({
           <div ref={summaryContainer}>
             <ErrorSummary errors={summaryErrors} title="GEO Correction 尚未提交" />
           </div>
-          {createdId && (
+          {created && (
             <div role="status" className="space-y-2 rounded-lg border border-border-subtle p-3">
-              <p>更正已创建：{createdId}</p>
+              <p>更正已创建：{created.id}</p>
               {navigationError && <p role="alert">打开新观测失败：{navigationError}</p>}
-              <Button onClick={() => void openCreated(createdId)} type="button" variant="outline">打开新观测</Button>
+              <Button onClick={() => void openCreated(created.id, capturePrincipalContinuation(queryClient))} type="button" variant="outline">打开新观测</Button>
             </div>
           )}
-          {!createdId && contextQuery.error && (
+          {!created && contextQuery.error && (
             <InlineProblem
               message={`后台刷新失败，已保留当前上下文与草稿：${errorMessage(contextQuery.error)}`}
               onRetry={() => void reloadContext()}
             />
           )}
-          {!createdId && (contextStale || contextChanged) && (
+          {!created && (contextStale || contextChanged) && (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warning/30 bg-warning/10 p-3" role="alert">
               <span>更正链尾或 Published Article 候选已经变化。草稿与本次上传仍保留，系统不会自动重放提交。</span>
               <Button disabled={reloading} onClick={() => void reloadContext()} type="button" variant="outline">
@@ -443,7 +456,7 @@ function CorrectionFormPage({
             actions={actions}
             status={(
               <span aria-live="polite">
-                {createdId
+                {created
                   ? '更正已创建，可打开新观测'
                   : create.isPending
                     ? '正在由服务端复核当前链尾、文章集合与证据…'
@@ -457,7 +470,7 @@ function CorrectionFormPage({
       </FormProvider>
       <DirtyGuard
         description="离开后，本次更正事实、原因和已上传证据选择将会丢失。"
-        when={!createdId && (isDirty || uploadBlocking || create.isPending)}
+        when={!created && (isDirty || uploadBlocking || create.isPending)}
       />
     </section>
   );

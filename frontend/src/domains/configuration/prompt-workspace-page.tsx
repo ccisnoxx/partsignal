@@ -4,6 +4,10 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type RefO
 import { flushSync } from 'react-dom';
 import { FormProvider, useForm, useWatch, type FieldPath } from 'react-hook-form';
 
+import {
+  capturePrincipalContinuation,
+  type PrincipalContinuation,
+} from '@/app/auth/principal-epoch';
 import { MarkdownEditor } from '@/design-system/editor/markdown-editor';
 import { DirtyGuard } from '@/design-system/forms/dirty-guard';
 import { FormField } from '@/design-system/forms/form-field';
@@ -158,13 +162,16 @@ function PromptWorkspacePage({
   async function confirmDelete() {
     if (!deleteTarget || deleteInFlight.current) return;
     deleteInFlight.current = true;
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
       await remove.mutateAsync(deleteTarget.prompt);
     } catch {
+      if (!continuation.isCurrent()) return;
       // 保留确认上下文和服务端错误；revision 冲突只能显式重新加载后再确认。
       deleteInFlight.current = false;
       return;
     }
+    if (!continuation.isCurrent()) return;
     const deletedId = deleteTarget.prompt.id;
     flushSync(() => {
       setDiscardedPromptId(deletedId);
@@ -177,6 +184,7 @@ function PromptWorkspacePage({
     const nextSearch = search.q ? { q: search.q } : {};
     startFollowUp(async () => {
       await onSearchChange(nextSearch, true);
+      if (!continuation.isCurrent()) return;
       setDiscardedPromptId(undefined);
       startFollowUp(() => refreshAfterMutation('delete', deletedId));
     });
@@ -456,7 +464,10 @@ function PromptEditor({
   const queryClient = useQueryClient();
   const [baseRevision, setBaseRevision] = useState(prompt?.revision);
   // 一次保存 intent 跨越 preflight、影响确认和 mutation；确认不能再取得第二把锁。
-  const saveAttempt = useRef<{ submitted: boolean } | undefined>(undefined);
+  const saveAttempt = useRef<{
+    continuation: PrincipalContinuation;
+    submitted: boolean;
+  } | undefined>(undefined);
   const [preparing, setPreparing] = useState(false);
   const [reloadError, setReloadError] = useState<string>();
   const reloadInFlight = useRef(false);
@@ -500,9 +511,9 @@ function PromptEditor({
     onDirtyChange(isDirty);
   }, [isDirty, onDirtyChange]);
 
-  async function submit(values: PromptFormValues) {
+  async function submit(values: PromptFormValues, continuation: PrincipalContinuation) {
     const attempt = saveAttempt.current;
-    if (!attempt || attempt.submitted || created) return;
+    if (!attempt || attempt.continuation !== continuation || attempt.submitted || created) return;
     attempt.submitted = true;
     setPreparing(true);
     form.clearErrors();
@@ -512,9 +523,11 @@ function PromptEditor({
     try {
       if (prompt) {
         await queryClient.cancelQueries({ exact: true, queryKey: promptKeys.detail(prompt.id) });
+        if (!continuation.isCurrent()) return;
       }
       canonical = await save.mutateAsync(values);
     } catch (error) {
+      if (!continuation.isCurrent()) return;
       saveAttempt.current = undefined;
       setPreparing(false);
       const mapped = mapPromptFormError(error);
@@ -530,6 +543,7 @@ function PromptEditor({
       }
       return;
     }
+    if (!continuation.isCurrent()) return;
     queryClient.setQueryData(promptKeys.detail(canonical.id), canonical);
     flushSync(() => {
       form.reset(promptFormValues(canonical));
@@ -544,14 +558,16 @@ function PromptEditor({
 
   async function requestSave(values: PromptFormValues) {
     if (saveAttempt.current || created || !canSave) return;
-    saveAttempt.current = { submitted: false };
+    const continuation = capturePrincipalContinuation(queryClient);
+    saveAttempt.current = { continuation, submitted: false };
     setPreparing(true);
     try {
       if (!prompt || !onReload) {
-        await submit(values);
+        await submit(values, continuation);
         return;
       }
       const result = await onReload();
+      if (!continuation.isCurrent()) return;
       if (result.revision !== baseRevision) {
         const message = `服务端已更新到 Revision ${result.revision}，当前草稿仍基于 Revision ${baseRevision}。`;
         setConflict(message);
@@ -567,8 +583,9 @@ function PromptEditor({
         });
         return;
       }
-      await submit(values);
+      await submit(values, continuation);
     } catch (error) {
+      if (!continuation.isCurrent()) return;
       saveAttempt.current = undefined;
       form.setError('root.server', {
         type: 'server',
@@ -719,8 +736,9 @@ function PromptEditor({
               disabled={save.isPending}
               onClick={() => {
                 const values = impact?.values;
+                const continuation = saveAttempt.current?.continuation;
                 setImpact(undefined);
-                if (values) void submit(values);
+                if (values && continuation) void submit(values, continuation);
               }}
               type="button"
             >

@@ -1,0 +1,4 @@
+{"file":".trellis/spec/frontend/state-management.md","reason":"复核 canonical response、业务 QueryCache 与 AI Channel owner 边界"}
+{"file":"docs/frontend-v2/05-business-actions-state-and-api-contract.md","reason":"复核服务端权限、revision、secret 与客户端 continuation 合同"}
+{"file":"docs/frontend-v2/08-testing-quality-and-acceptance.md","reason":"复核 deferred 交错、定向测试和验收覆盖"}
+{"file":".trellis/tasks/09-25-frontend-i03-4-auth-boundary-late-mutation-blocker/prd.md","reason":"复核原 P1 阻断是否完整关闭"}

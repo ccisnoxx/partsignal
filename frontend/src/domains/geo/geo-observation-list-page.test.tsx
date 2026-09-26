@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { AuthContextValue, AuthUser } from '@/app/auth/auth-provider';
+import { advancePrincipalEpoch } from '@/app/auth/principal-epoch';
 import { TooltipProvider } from '@/design-system/primitives/tooltip';
 import { productsKeys } from '@/domains/product/product.api';
 import { routeTree } from '@/routeTree.gen';
@@ -15,6 +16,14 @@ import { geoKeys } from './geo.api';
 
 type GeoObservationListItem = components['schemas']['GeoObservationListItem'];
 type GeoObservationListPage = components['schemas']['GeoObservationListPage'];
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
 
 const admin: AuthUser = {
   id: '00000000-0000-4000-8000-000000000099',
@@ -233,6 +242,37 @@ describe('GeoObservationListPage', () => {
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: productsKeys.detail(observation.product.id),
     });
+  });
+
+  it('DELETE 成功进入 deferred cancelQueries 后切换主体，不再投影或失效新主体缓存', async () => {
+    const data = page([observation]);
+    vi.spyOn(api, 'GET').mockResolvedValue({ data, response: Response.json(data) } as never);
+    const remove = vi.spyOn(api, 'DELETE').mockResolvedValue({
+      response: new Response(null, { status: 204 }),
+    } as never);
+    const { queryClient } = renderGeo();
+    const cancel = deferred<void>();
+
+    await userEvent.click(await screen.findByRole('button', { name: `更多操作：${observation.query_text}` }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: '删除' }));
+    const dialog = await screen.findByRole('dialog', { name: '删除 GEO 观测' });
+    const cancelQueries = vi.spyOn(queryClient, 'cancelQueries').mockReturnValue(cancel.promise);
+    const setQueriesData = vi.spyOn(queryClient, 'setQueriesData');
+    const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+
+    await userEvent.click(within(dialog).getByRole('button', { name: '确认删除' }));
+    await waitFor(() => expect(remove).toHaveBeenCalledOnce());
+    await waitFor(() => expect(cancelQueries).toHaveBeenCalledWith({ queryKey: geoKeys.lists() }));
+
+    advancePrincipalEpoch(queryClient, 'engineer-after-delete');
+    await act(async () => {
+      cancel.resolve();
+      await cancel.promise;
+    });
+
+    expect(setQueriesData).not.toHaveBeenCalled();
+    expect(invalidateQueries).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog', { name: '删除 GEO 观测' })).toBeInTheDocument();
   });
 
   it.each(['撤销动作', '移除记录'])('背景刷新%s时保留确认框、阻止删除并恢复焦点', async (change) => {

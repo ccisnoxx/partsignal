@@ -14,6 +14,10 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FormProvider, useFieldArray, useForm, type FieldPath } from 'react-hook-form';
 
+import {
+  capturePrincipalContinuation,
+  type PrincipalContinuation,
+} from '@/app/auth/principal-epoch';
 import { ColumnHeader } from '@/design-system/data-table/column-header';
 import { EmptyTable } from '@/design-system/data-table/empty-table';
 import { FilterBar } from '@/design-system/data-table/filter-bar';
@@ -158,7 +162,8 @@ function QueryTopicListPage({
     });
   }
 
-  async function invalidateConsumers() {
+  async function invalidateConsumers(continuation: PrincipalContinuation) {
+    if (!continuation.isCurrent()) return;
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: geoKeys.topics() }),
       queryClient.invalidateQueries({ queryKey: geoKeys.lists() }),
@@ -168,6 +173,7 @@ function QueryTopicListPage({
       queryClient.invalidateQueries({ queryKey: contentKeys.details() }),
       queryClient.invalidateQueries({ queryKey: contentKeys.editorContexts() }),
     ]);
+    if (!continuation.isCurrent()) return;
   }
 
   const handleCommand = useCallback((
@@ -337,9 +343,10 @@ function QueryTopicListPage({
           csrfToken={csrfToken}
           finalFocus={editor.focusReturn}
           onClose={() => setEditor(undefined)}
-          onSaved={async () => {
+          onSaved={async (continuation) => {
+            if (!continuation.isCurrent()) return;
             setEditor(undefined);
-            await invalidateConsumers();
+            await invalidateConsumers(continuation);
           }}
           queryClient={queryClient}
           topic={editor.topic}
@@ -356,9 +363,11 @@ function QueryTopicListPage({
         <QueryTopicDeleteDialog
           csrfToken={csrfToken}
           onClose={() => setDeleteTarget(undefined)}
-          onDeleted={async () => {
+          onDeleted={async (continuation) => {
+            if (!continuation.isCurrent()) return;
             setDeleteTarget(undefined);
-            await invalidateConsumers();
+            await invalidateConsumers(continuation);
+            if (!continuation.isCurrent()) return;
             if (rows.length === 1 && search.page > 1) changeSearch({ page: search.page - 1 }, false);
           }}
           queryClient={queryClient}
@@ -520,7 +529,7 @@ function QueryTopicEditorDialog({
   csrfToken: string | null;
   finalFocus: HTMLElement | null;
   onClose: () => void;
-  onSaved: () => Promise<void>;
+  onSaved: (continuation: PrincipalContinuation) => Promise<void>;
   queryClient: ReturnType<typeof useQueryClient>;
   topic?: QueryTopicListItem;
 }) {
@@ -533,19 +542,26 @@ function QueryTopicEditorDialog({
   });
   const variants = useFieldArray({ control: form.control, name: 'variants' });
   const save = useMutation({
-    mutationFn: (values: QueryTopicFormValues) => topic
+    mutationFn: ({ values }: {
+      continuation: PrincipalContinuation;
+      values: QueryTopicFormValues;
+    }) => topic
       ? updateQueryTopic(topic.id, toQueryTopicUpdate(values, revision), csrfToken)
       : createQueryTopic(toQueryTopicCreate(values), csrfToken),
   });
 
   async function submit(values: QueryTopicFormValues) {
+    const continuation = capturePrincipalContinuation(queryClient);
     form.clearErrors();
     setRequestId(undefined);
     save.reset();
     try {
-      await save.mutateAsync(values);
-      await onSaved();
+      await save.mutateAsync({ continuation, values });
+      if (!continuation.isCurrent()) return;
+      await onSaved(continuation);
+      if (!continuation.isCurrent()) return;
     } catch (error) {
+      if (!continuation.isCurrent()) return;
       const mapped = mapTopicMutationError(error);
       for (const [field, message] of Object.entries(mapped.fields)) {
         form.setError(field as FieldPath<QueryTopicFormValues>, { type: 'server', message });
@@ -726,7 +742,7 @@ function QueryTopicDeleteDialog({
 }: {
   csrfToken: string | null;
   onClose: () => void;
-  onDeleted: () => Promise<void>;
+  onDeleted: (continuation: PrincipalContinuation) => Promise<void>;
   queryClient: ReturnType<typeof useQueryClient>;
   queryError: unknown;
   queryFetching: boolean;
@@ -738,7 +754,11 @@ function QueryTopicDeleteDialog({
   const [reloadMessage, setReloadMessage] = useState<string>();
   const exactKey = queryTopicListQueryOptions(search).queryKey;
   const remove = useMutation({
-    mutationFn: (variables: { id: string; expectedRevision: number }) => (
+    mutationFn: (variables: {
+      continuation: PrincipalContinuation;
+      expectedRevision: number;
+      id: string;
+    }) => (
       deleteQueryTopic(variables.id, variables.expectedRevision, csrfToken)
     ),
   });
@@ -765,10 +785,18 @@ function QueryTopicDeleteDialog({
       || !latest.available_actions.includes('DELETE')
       || latest.deletion.blockers.length > 0
     ) return;
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
-      await remove.mutateAsync({ id: latest.id, expectedRevision: latest.revision });
-      await onDeleted();
+      await remove.mutateAsync({
+        continuation,
+        id: latest.id,
+        expectedRevision: latest.revision,
+      });
+      if (!continuation.isCurrent()) return;
+      await onDeleted(continuation);
+      if (!continuation.isCurrent()) return;
     } catch {
+      if (!continuation.isCurrent()) return;
       // 删除冲突保留当前确认上下文，只有显式重新加载才解除冻结。
     }
   }

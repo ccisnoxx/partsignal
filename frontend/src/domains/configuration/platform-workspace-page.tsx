@@ -3,6 +3,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { FormProvider, useForm, useWatch, type FieldPath } from 'react-hook-form';
 
+import {
+  capturePrincipalContinuation,
+  type PrincipalContinuation,
+} from '@/app/auth/principal-epoch';
 import { RowActions } from '@/design-system/data-table/row-actions';
 import { TableShell } from '@/design-system/data-table/table-shell';
 import { DirtyGuard } from '@/design-system/forms/dirty-guard';
@@ -123,12 +127,18 @@ function PlatformWorkspacePage({
   const [blockerTarget, setBlockerTarget] = useState<HTMLElement | null>();
   const [enableTarget, setEnableTarget] = useState<HTMLElement | null>();
 
-  async function invalidatePlatform(kind: PlatformMutationKind, profile?: PlatformProfile) {
+  async function invalidatePlatform(
+    kind: PlatformMutationKind,
+    continuation: PrincipalContinuation,
+    profile?: PlatformProfile,
+  ) {
+    if (!continuation.isCurrent()) return;
     if (kind === 'delete') {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: platformKeys.lists() }),
         onConsumersChanged(kind),
       ]);
+      if (!continuation.isCurrent()) return;
       queryClient.removeQueries({ queryKey: platformKeys.detail(platformId) });
       queryClient.removeQueries({ queryKey: platformKeys.accounts(platformId) });
       return;
@@ -156,6 +166,7 @@ function PlatformWorkspacePage({
   }
 
   const lifecycle = useMutation({
+    onMutate: () => capturePrincipalContinuation(queryClient),
     mutationFn: async ({ command, platform }: { command: PlatformCommand; platform: PlatformProfile }) => {
       if (command === 'delete-platform') {
         await deletePlatformProfile({ id: platform.id, expectedRevision: platform.revision }, csrfToken);
@@ -163,19 +174,23 @@ function PlatformWorkspacePage({
       }
       return runPlatformCommand(command, platform, csrfToken);
     },
-    onSuccess: async (profile, variables) => {
+    onSuccess: async (profile, variables, continuation) => {
+      if (!continuation.isCurrent()) return;
       if (variables.command === 'delete-platform') {
-        await invalidatePlatform('delete');
+        await invalidatePlatform('delete', continuation);
+        if (!continuation.isCurrent()) return;
         await onDeleted();
         return;
       }
-      await invalidatePlatform('status', profile);
+      await invalidatePlatform('status', continuation, profile);
     },
-    onError: async () => {
+    onError: async (_error, _variables, continuation) => {
+      if (!continuation?.isCurrent()) return;
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: platformKeys.lists() }),
         queryClient.invalidateQueries({ queryKey: platformKeys.detail(platformId) }),
       ]);
+      if (!continuation.isCurrent()) return;
     },
   });
 
@@ -267,7 +282,7 @@ function PlatformWorkspacePage({
             detail={detail.data}
             onDirtyChange={setOverviewDirty}
             onReload={reloadDetail}
-            onUpdated={(canonical) => invalidatePlatform('identity', canonical)}
+            onUpdated={(canonical, continuation) => invalidatePlatform('identity', continuation, canonical)}
           />}
         </TabsContent>
         <TabsContent className="pt-3" value="accounts">
@@ -287,7 +302,7 @@ function PlatformWorkspacePage({
             detail={detail.data}
             onDirtyChange={setGenerationDirty}
             onReload={reloadDetail}
-            onUpdated={(canonical) => invalidatePlatform('generation', canonical)}
+            onUpdated={(canonical, continuation) => invalidatePlatform('generation', continuation, canonical)}
           />}
         </TabsContent>
       </Tabs>
@@ -389,8 +404,9 @@ function PlatformOverviewSection({
   readBlocked: boolean;
   onDirtyChange: (dirty: boolean) => void;
   onReload: () => Promise<PlatformProfileDetail>;
-  onUpdated: (profile: PlatformProfile) => Promise<void>;
+  onUpdated: (profile: PlatformProfile, continuation: PrincipalContinuation) => Promise<void>;
 }) {
+  const queryClient = useQueryClient();
   // 草稿与完整 PATCH 的隐藏字段共同绑定此 revision，后台刷新不能单独推进它。
   const baseline = useRef(detail.profile);
   const submitting = useRef(false);
@@ -463,15 +479,20 @@ function PlatformOverviewSection({
   async function submit(values: PlatformOverviewFormValues) {
     if (submitting.current || readBlocked || conflict || reloading || !canUpdate || logoBusyRef.current || candidate) return;
     submitting.current = true;
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
       const canonical = await update.mutateAsync(values);
+      if (!continuation.isCurrent()) return;
       reset(canonical, true);
       // PATCH 已成功；消费者刷新不能延长命令锁，刷新失败单独展示。
-      void onUpdated(canonical).catch(setReloadError);
+      void onUpdated(canonical, continuation).catch((reason: unknown) => {
+        if (continuation.isCurrent()) setReloadError(reason);
+      });
     } catch {
+      if (!continuation.isCurrent()) return;
       // mutation.error 统一展示；revision 冲突必须保留当前表单和 Logo 选择。
     } finally {
-      submitting.current = false;
+      if (continuation.isCurrent()) submitting.current = false;
     }
   }
 
@@ -620,6 +641,7 @@ function PlatformLogoField({
   profile: PlatformProfile;
   websiteUrl: string;
 }) {
+  const queryClient = useQueryClient();
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
@@ -628,7 +650,7 @@ function PlatformLogoField({
   const [phase, setPhase] = useState<'idle' | 'uploading' | 'candidate'>('idle');
   const [error, setError] = useState<string>();
 
-  async function upload(file: File) {
+  async function upload(file: File, continuation: PrincipalContinuation) {
     if (file.type === 'image/svg+xml' || file.name.toLocaleLowerCase().endsWith('.svg')) {
       throw new Error('Logo 不接受 SVG，请使用 PNG、JPEG、WebP 或 ICO');
     }
@@ -638,18 +660,23 @@ function PlatformLogoField({
     onBusyChange(true);
     setPhase('uploading');
     setError(undefined);
+    const digest = await sha256File(file);
+    if (!continuation.isCurrent()) return;
     const intent = await createPlatformLogoUploadIntent({
       access_level: 'PUBLIC',
       category: 'PLATFORM_LOGO',
       content_type: file.type || 'application/octet-stream',
       original_filename: file.name,
-      sha256: await sha256File(file),
+      sha256: digest,
       size: file.size,
     }, csrfToken);
+    if (!continuation.isCurrent()) return;
     try {
       await transferFile(file, intent);
+      if (!continuation.isCurrent()) return;
       await completePlatformLogoUpload(intent.file.id, csrfToken);
     } catch (reason) {
+      if (!continuation.isCurrent()) return;
       try {
         await abortPlatformLogoUpload(intent.file.id, csrfToken);
       } catch {
@@ -657,6 +684,7 @@ function PlatformLogoField({
       }
       throw reason;
     }
+    if (!continuation.isCurrent()) return;
     if (!mounted.current) return;
     onCandidate(undefined);
     onChange({ source: 'UPLOAD', file_id: intent.file.id }, URL.createObjectURL(file));
@@ -672,13 +700,14 @@ function PlatformLogoField({
     onBusyChange(true);
     setPhase('candidate');
     setError(undefined);
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
       const nextCandidate = await createPlatformLogoCandidate(websiteUrl.trim(), csrfToken);
-      if (mounted.current) onCandidate(nextCandidate);
+      if (continuation.isCurrent() && mounted.current) onCandidate(nextCandidate);
     } catch (reason) {
-      if (mounted.current) setError(errorMessage(reason));
+      if (continuation.isCurrent() && mounted.current) setError(errorMessage(reason));
     } finally {
-      if (mounted.current) { setPhase('idle'); onBusyChange(false); }
+      if (continuation.isCurrent() && mounted.current) { setPhase('idle'); onBusyChange(false); }
     }
   }
 
@@ -698,8 +727,9 @@ function PlatformLogoField({
             const file = event.currentTarget.files?.[0];
             event.currentTarget.value = '';
             if (!file) return;
-            void upload(file).catch((reason: unknown) => {
-              if (!mounted.current) return;
+            const continuation = capturePrincipalContinuation(queryClient);
+            void upload(file, continuation).catch((reason: unknown) => {
+              if (!continuation.isCurrent() || !mounted.current) return;
               onBusyChange(false);
               setPhase('idle');
               setError(errorMessage(reason));
@@ -1000,6 +1030,7 @@ function PlatformAccountEditorDialog({
   platformId: string;
   target: AccountEditorTarget;
 }) {
+  const queryClient = useQueryClient();
   const [account, setAccount] = useState(target.account);
   const [requestId, setRequestId] = useState<string>();
   const [reloadError, setReloadError] = useState<string>();
@@ -1017,10 +1048,13 @@ function PlatformAccountEditorDialog({
     form.clearErrors();
     setRequestId(undefined);
     save.reset();
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
       await save.mutateAsync(values);
+      if (!continuation.isCurrent()) return;
       await onSaved(account ? 'update' : 'create');
     } catch (error) {
+      if (!continuation.isCurrent()) return;
       const mapped = mapPlatformAccountFormError(error);
       for (const [field, message] of Object.entries(mapped.fields)) {
         form.setError(field as FieldPath<PlatformAccountFormValues>, { type: 'server', message });
@@ -1124,6 +1158,7 @@ function PlatformAccountCommandDialog({
   onSaved: (kind: 'status' | 'delete') => Promise<void>;
   target: AccountCommandTarget;
 }) {
+  const queryClient = useQueryClient();
   const [account, setAccount] = useState(target.account);
   const [reloadMessage, setReloadMessage] = useState<string>();
   const mutation = useMutation({
@@ -1135,10 +1170,13 @@ function PlatformAccountCommandDialog({
   });
 
   async function confirm() {
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
       await mutation.mutateAsync();
+      if (!continuation.isCurrent()) return;
       await onSaved('status');
     } catch {
+      if (!continuation.isCurrent()) return;
       // mutation.error 统一展示；409 保持 Dialog 和本次确认上下文。
     }
   }
@@ -1249,10 +1287,13 @@ function PlatformAccountDeletionDialog({
     if (!latest || queryFetching || queryError) return;
     resolvePlatformAccountOverflowActions(latest);
     if (latest.deletion === null || !latest.available_actions.includes('DELETE') || latest.deletion.blockers.length > 0) return;
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
       await remove.mutateAsync({ id: latest.id, expectedRevision: latest.revision });
+      if (!continuation.isCurrent()) return;
       onDeleted(activeIntent.id);
     } catch (error) {
+      if (!continuation.isCurrent()) return;
       if (error instanceof PlatformRequestError && error.status === 409) onConflict(activeIntent.id);
       // 删除冲突保留在当前 Dialog，必须由用户显式重新加载后才能再次确认。
     }
@@ -1326,8 +1367,9 @@ function PlatformGenerationSection({
   readBlocked: boolean;
   onDirtyChange: (dirty: boolean) => void;
   onReload: () => Promise<PlatformProfileDetail>;
-  onUpdated: (profile: PlatformProfile) => Promise<void>;
+  onUpdated: (profile: PlatformProfile, continuation: PrincipalContinuation) => Promise<void>;
 }) {
+  const queryClient = useQueryClient();
   // 草稿与完整 PATCH 的隐藏字段共同绑定此 revision，后台刷新不能单独推进它。
   const baseline = useRef(detail.profile);
   const submitting = useRef(false);
@@ -1381,15 +1423,20 @@ function PlatformGenerationSection({
   async function submit(values: PlatformGenerationFormValues) {
     if (submitting.current || readBlocked || conflict || reloading || !canUpdate || prompts.isError || prompts.isFetching) return;
     submitting.current = true;
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
       const canonical = await update.mutateAsync(values);
+      if (!continuation.isCurrent()) return;
       reset(canonical, true);
       // PATCH 已成功；消费者刷新不能延长命令锁，刷新失败单独展示。
-      void onUpdated(canonical).catch(setReloadError);
+      void onUpdated(canonical, continuation).catch((reason: unknown) => {
+        if (continuation.isCurrent()) setReloadError(reason);
+      });
     } catch {
+      if (!continuation.isCurrent()) return;
       // 409 与其他服务端错误均保留用户选择，由错误区提供显式恢复动作。
     } finally {
-      submitting.current = false;
+      if (continuation.isCurrent()) submitting.current = false;
     }
   }
 

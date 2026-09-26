@@ -12,6 +12,10 @@ import {
 } from '@tanstack/react-table';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
+import {
+  capturePrincipalContinuation,
+  type PrincipalContinuation,
+} from '@/app/auth/principal-epoch';
 import { ColumnHeader } from '@/design-system/data-table/column-header';
 import { EmptyTable } from '@/design-system/data-table/empty-table';
 import { FilterBar } from '@/design-system/data-table/filter-bar';
@@ -81,12 +85,17 @@ function GeoObservationListPage({
   const conflictRef = useRef(false);
   const [commandError, setCommandError] = useState<string | null>(null);
   const remove = useMutation({
-    mutationFn: (observation: GeoObservationListItem) => (
+    mutationFn: ({ observation }: {
+      continuation: PrincipalContinuation;
+      observation: GeoObservationListItem;
+    }) => (
       deleteGeoObservation(observation.id, csrfToken)
     ),
-    onSuccess: async (_data, observation) => {
+    onSuccess: async (_data, { continuation, observation }) => {
+      if (!continuation.isCurrent()) return;
       // 先取消旧读请求并移除已删除记录，重读失败也不能恢复旧动作。
       await queryClient.cancelQueries({ queryKey: geoKeys.lists() });
+      if (!continuation.isCurrent()) return;
       queryClient.setQueriesData<components['schemas']['GeoObservationListPage']>(
         { queryKey: geoKeys.lists() },
         (data) => data && ({
@@ -109,6 +118,7 @@ function GeoObservationListPage({
           queryKey: productsKeys.detail(observation.product.id),
         }),
       ]);
+      if (!continuation.isCurrent()) return;
     },
   });
   const rows = observations.data?.items ?? [];
@@ -152,18 +162,21 @@ function GeoObservationListPage({
       setCommandError('列表正在刷新、读取失败或该记录已不可删除，请重载列表后确认。');
       return;
     }
+    const continuation = capturePrincipalContinuation(queryClient);
     commandPending.current = true;
     setCommandError(null);
     try {
-      await remove.mutateAsync(observation);
+      await remove.mutateAsync({ continuation, observation });
+      if (!continuation.isCurrent()) return;
     } catch (error) {
+      if (!continuation.isCurrent()) return;
       setCommandError(errorMessage(error));
       if (error instanceof GeoRequestError && error.status === 409) {
         conflictRef.current = true;
         setConflict(true);
       }
     } finally {
-      commandPending.current = false;
+      if (continuation.isCurrent()) commandPending.current = false;
     }
   }
 
@@ -172,7 +185,7 @@ function GeoObservationListPage({
     || !intentRow?.available_actions.includes('DELETE');
 
   const columns = useGeoObservationColumns({
-    deletingId: remove.isPending ? remove.variables.id : undefined,
+    deletingId: remove.isPending ? remove.variables.observation.id : undefined,
     unavailable: Boolean(observations.error) || observations.isFetching,
     onCommand: handleCommand,
   });

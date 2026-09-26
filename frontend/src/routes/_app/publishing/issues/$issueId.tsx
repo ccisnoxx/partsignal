@@ -45,13 +45,15 @@ function PublishedContentIssueRoute() {
       csrfToken={auth.csrfToken}
       issueId={issueId}
       key={issueId}
-      onContentProjectionChange={async (taskId) => {
+      onContentProjectionChange={async (taskId, continuation) => {
+        if (!continuation.isCurrent()) return;
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: contentKeys.lists(), refetchType: 'none' }),
           queryClient.invalidateQueries({ queryKey: contentKeys.detail(taskId) }),
           queryClient.invalidateQueries({ queryKey: contentKeys.editorContext(taskId) }),
           queryClient.invalidateQueries({ queryKey: contentKeys.reviewContext(taskId) }),
         ]);
+        if (!continuation.isCurrent()) return;
       }}
       onSectionChange={(section: PublishedContentIssueWorkspaceSection) => navigate({ hash: section })}
     />

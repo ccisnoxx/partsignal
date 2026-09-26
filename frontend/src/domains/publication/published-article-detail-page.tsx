@@ -1,6 +1,10 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState, type FormEvent, type ReactNode } from 'react';
 
+import {
+  capturePrincipalContinuation,
+  type PrincipalContinuation,
+} from '@/app/auth/principal-epoch';
 import { MarkdownPreview } from '@/design-system/editor/markdown-editor';
 import { ErrorSummary, type ErrorSummaryItem } from '@/design-system/forms/form-layout';
 import { Badge } from '@/design-system/primitives/badge';
@@ -49,7 +53,10 @@ import {
 type PublishedArticleDetailPageProps = {
   articleId: string;
   csrfToken: string | null;
-  onIssueOpened: (issue: PublishedContentIssue) => Promise<void> | void;
+  onIssueOpened: (
+    issue: PublishedContentIssue,
+    continuation: PrincipalContinuation,
+  ) => Promise<void> | void;
 };
 type LineageStep = components['schemas']['ContentVersionLineageStep'];
 
@@ -101,7 +108,10 @@ function matchesArticleIdentity(article: PublishedArticle, articleId: string) {
 function PublishedArticleDetailView({ article, csrfToken, onIssueOpened, onReload }: {
   article: PublishedArticle;
   csrfToken: string | null;
-  onIssueOpened: (issue: PublishedContentIssue) => Promise<void> | void;
+  onIssueOpened: (
+    issue: PublishedContentIssue,
+    continuation: PrincipalContinuation,
+  ) => Promise<void> | void;
   onReload: () => Promise<void>;
 }) {
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -250,9 +260,13 @@ function OpenIssueDialog({ article, csrfToken, focusFallback, onIssueOpened, onR
   article: PublishedArticle;
   csrfToken: string | null;
   focusFallback: () => HTMLElement | null;
-  onIssueOpened: (issue: PublishedContentIssue) => Promise<void> | void;
+  onIssueOpened: (
+    issue: PublishedContentIssue,
+    continuation: PrincipalContinuation,
+  ) => Promise<void> | void;
   onReload: () => Promise<void>;
 }) {
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<'PAGE_UNAVAILABLE' | 'CONTENT_CHANGED' | 'OTHER'>('PAGE_UNAVAILABLE');
   const [description, setDescription] = useState('');
@@ -287,11 +301,15 @@ function OpenIssueDialog({ article, csrfToken, focusFallback, onIssueOpened, onR
       setFieldError(parsed.error.issues[0]?.message ?? '请检查问题描述');
       return;
     }
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
       const issue = await mutation.mutateAsync(parsed.data);
-      await onIssueOpened(issue);
+      if (!continuation.isCurrent()) return;
+      await onIssueOpened(issue, continuation);
+      if (!continuation.isCurrent()) return;
       setOpen(false);
     } catch (error) {
+      if (!continuation.isCurrent()) return;
       const mapped = mapPublicationError(error);
       setServerError(mapped);
       if (mapped.status === 409) setContextStale(true);

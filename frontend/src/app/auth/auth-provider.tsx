@@ -10,6 +10,10 @@ import {
 
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
+import {
+  advancePrincipalEpoch,
+  initializePrincipalEpoch,
+} from './principal-epoch';
 
 type AuthUser = components['schemas']['User'];
 type LoginRequest = components['schemas']['LoginRequest'];
@@ -68,9 +72,8 @@ function authBoundaryIdentity(user: AuthUser | null): string | null {
   ]);
 }
 
-function clearChangedPrincipalQueries(queryClient: QueryClient, next: AuthSession | null) {
-  const previous = queryClient.getQueryData<AuthSession | null>(authSessionQueryKey) ?? null;
-  if (authBoundaryIdentity(previous?.user ?? null) !== authBoundaryIdentity(next?.user ?? null)) {
+function commitPrincipalBoundary(queryClient: QueryClient, next: AuthSession | null) {
+  if (advancePrincipalEpoch(queryClient, authBoundaryIdentity(next?.user ?? null))) {
     clearBusinessQueries(queryClient);
   }
 }
@@ -122,6 +125,10 @@ async function loadAuthSession(
 
 function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
+  initializePrincipalEpoch(
+    queryClient,
+    authBoundaryIdentity(getAuthRouteUser(queryClient)),
+  );
   const transitionEpochRef = useRef(0);
   const transitionControllerRef = useRef<AbortController | null>(null);
   const authReadGenerationRef = useRef(0);
@@ -203,7 +210,8 @@ function AuthProvider({ children }: { children: ReactNode }) {
       };
       return loadAuthSession(guard).then((next) => {
         assertSessionLoadCurrent(guard);
-        clearChangedPrincipalQueries(queryClient, next);
+        // 主体 epoch 必须先失效，再清理旧身份业务缓存，最后才允许 Query 写入新会话。
+        commitPrincipalBoundary(queryClient, next);
         return next;
       });
     },
@@ -211,6 +219,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   const logout = useMutation({
+    meta: { authPrincipalBoundary: true },
     mutationFn: async () => {
       if (!session.data) throw new Error('当前没有可退出的登录会话');
       const transition = await beginTransition();
@@ -222,7 +231,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
         transition.assertCurrent();
         if (!result.response.ok) throw requestError('退出登录', result);
         await transition.commit(() => {
-          clearBusinessQueries(queryClient);
+          commitPrincipalBoundary(queryClient, null);
           queryClient.setQueryData(authSessionQueryKey, null);
         });
       } finally {
@@ -280,7 +289,7 @@ function useAuthActions() {
           csrfToken: result.data.csrf_token,
         };
         await transition.commit(() => {
-          clearBusinessQueries(queryClient);
+          commitPrincipalBoundary(queryClient, next);
           queryClient.setQueryData<AuthSession>(authSessionQueryKey, next);
         });
         return result.data.user;
@@ -315,7 +324,7 @@ function useAuthActions() {
         transition.assertCurrent();
         if (!refreshedSession) throw new Error('修改密码后登录会话已失效');
         await transition.commit(() => {
-          clearChangedPrincipalQueries(queryClient, refreshedSession);
+          commitPrincipalBoundary(queryClient, refreshedSession);
           queryClient.setQueryData(authSessionQueryKey, refreshedSession);
         });
       } finally {

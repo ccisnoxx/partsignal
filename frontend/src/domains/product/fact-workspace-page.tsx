@@ -3,6 +3,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { FormProvider, useForm, useWatch } from 'react-hook-form';
 
+import {
+  capturePrincipalContinuation,
+  type PrincipalContinuation,
+} from '@/app/auth/principal-epoch';
 import { MarkdownEditor } from '@/design-system/editor/markdown-editor';
 import { DirtyGuard } from '@/design-system/forms/dirty-guard';
 import { FormField } from '@/design-system/forms/form-field';
@@ -128,8 +132,12 @@ function FactWorkspaceEditor({
     resolver: zodResolver(factWorkspaceFormSchema),
   });
   const save = useMutation({
-    mutationFn: async (values: FactWorkspaceFormValues) => {
+    mutationFn: async ({ continuation, values }: {
+      continuation: PrincipalContinuation;
+      values: FactWorkspaceFormValues;
+    }) => {
       await queryClient.cancelQueries({ exact: true, queryKey: productsKeys.fact(productId) });
+      continuation.assertCurrent();
       return replaceProductFacts(
         productId,
         toFactWorkspaceUpdate(values, baseRevision),
@@ -138,8 +146,12 @@ function FactWorkspaceEditor({
     },
   });
   const submit = useMutation({
-    mutationFn: async (values: FactReviewSubmissionValues) => {
+    mutationFn: async ({ continuation, values }: {
+      continuation: PrincipalContinuation;
+      values: FactReviewSubmissionValues;
+    }) => {
       await queryClient.cancelQueries({ exact: true, queryKey: productsKeys.fact(productId) });
+      continuation.assertCurrent();
       return submitProductFactReview(
         productId,
         toFactReviewSubmission(values, baseRevision),
@@ -168,7 +180,11 @@ function FactWorkspaceEditor({
     setSaved(false);
   }, [baseRevision, form, isDirty, workspace]);
 
-  async function refreshRelatedQueries(canonical: FactWorkspace) {
+  async function refreshRelatedQueries(
+    canonical: FactWorkspace,
+    continuation: PrincipalContinuation,
+  ) {
+    if (!continuation.isCurrent()) return;
     queryClient.setQueryData(productsKeys.fact(productId), canonical);
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: productsKeys.lists(), refetchType: 'none' }),
@@ -181,14 +197,18 @@ function FactWorkspaceEditor({
     setConflict(undefined);
     setRequestId(undefined);
     setSaved(false);
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
-      const canonical = await save.mutateAsync(values);
-      await refreshRelatedQueries(canonical);
+      const canonical = await save.mutateAsync({ continuation, values });
+      if (!continuation.isCurrent()) return;
+      await refreshRelatedQueries(canonical, continuation);
+      if (!continuation.isCurrent()) return;
       form.reset(factWorkspaceValues(canonical));
       setBaseRevision(canonical.revision);
       setSaved(true);
       setAnnouncement(`事实工作区已保存，Revision ${canonical.revision}`);
     } catch (error) {
+      if (!continuation.isCurrent()) return;
       const mapped = mapFactWorkspaceError(error);
       for (const [field, message] of Object.entries(mapped.fields)) {
         form.setError(field as FactWorkspaceField, { type: 'server', message });
@@ -200,21 +220,26 @@ function FactWorkspaceEditor({
     }
   }
 
-  async function submitReview(values: FactReviewSubmissionValues): Promise<FactVersion> {
+  async function submitReview(values: FactReviewSubmissionValues): Promise<FactVersion | undefined> {
     if (pendingBlocker) {
       throw new Error('该产品已有待审核事实版本');
     }
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
-      const version = await submit.mutateAsync(values);
+      const version = await submit.mutateAsync({ continuation, values });
+      if (!continuation.isCurrent()) return undefined;
       setAnnouncement(`事实版本 v${version.version} 已提交审核`);
       setSubmitOpen(false);
       await queryClient.invalidateQueries({ queryKey: productsKeys.fact(productId) });
+      if (!continuation.isCurrent()) return undefined;
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: productsKeys.lists(), refetchType: 'none' }),
         queryClient.invalidateQueries({ queryKey: productsKeys.details(), refetchType: 'none' }),
       ]);
+      if (!continuation.isCurrent()) return undefined;
       return version;
     } catch (error) {
+      if (!continuation.isCurrent()) return undefined;
       const mapped = mapFactReviewError(error);
       if (mapped.recovery === 'REVISION_CONFLICT') {
         setConflict(mapped.formMessage ?? '服务端已有更新。');
@@ -227,6 +252,7 @@ function FactWorkspaceEditor({
         });
         setRequestId(mapped.requestId);
         const canonical = await onReload();
+        if (!continuation.isCurrent()) return undefined;
         if (canonical) {
           // GET 期间用户仍可编辑；成功的 canonical 只更新基线和服务端动作，不能覆盖新草稿。
           const hasLocalChanges = form.formState.isDirty;
@@ -241,6 +267,7 @@ function FactWorkspaceEditor({
       }
       if (mapped.recovery === 'INVALID_STATE_TRANSITION') {
         await onReload();
+        if (!continuation.isCurrent()) return undefined;
       }
       throw error;
     }
@@ -467,7 +494,7 @@ function SubmitReviewDialog({
   submitting,
 }: {
   onClose: () => void;
-  onSubmit: (values: FactReviewSubmissionValues) => Promise<FactVersion>;
+  onSubmit: (values: FactReviewSubmissionValues) => Promise<FactVersion | undefined>;
   pendingBlocker?: PendingBlocker;
   submitting: boolean;
 }) {
@@ -481,7 +508,8 @@ function SubmitReviewDialog({
     form.clearErrors();
     setRequestId(undefined);
     try {
-      await onSubmit(values);
+      const version = await onSubmit(values);
+      if (!version) return;
       form.reset();
     } catch (error) {
       const mapped = mapFactReviewError(error);

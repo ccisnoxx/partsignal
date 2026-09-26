@@ -3,6 +3,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState, type FormEvent, type RefObject } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 
+import {
+  capturePrincipalContinuation,
+  type PrincipalContinuation,
+} from '@/app/auth/principal-epoch';
 import { EmptyTable } from '@/design-system/data-table/empty-table';
 import { FilterBar } from '@/design-system/data-table/filter-bar';
 import { RowActions } from '@/design-system/data-table/row-actions';
@@ -70,8 +74,12 @@ const columnRoles = [
 
 type AIChannelListPageProps = {
   csrfToken: string | null;
-  onChannelChanged: (kind: 'status' | 'delete', channelId: string) => Promise<void>;
-  onCreated: (channel: AIChannel) => Promise<void> | void;
+  onChannelChanged: (
+    kind: 'status' | 'delete',
+    channelId: string,
+    continuation: PrincipalContinuation,
+  ) => Promise<void>;
+  onCreated: (channel: AIChannel, continuation: PrincipalContinuation) => Promise<void> | void;
   onSearchChange: (search: AIChannelSearch) => Promise<void> | void;
   search: AIChannelSearch;
 };
@@ -156,31 +164,39 @@ function AIChannelListPage({
     setRefreshError(undefined);
     setIntent(undefined);
     const command = intent.command;
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
       await mutation.mutateAsync({ command, channel: { id: target.id, revision: target.revision } });
     } catch {
+      if (!continuation.isCurrent()) return;
       working.current = false;
       setProcessing(false);
       return;
     }
+    if (!continuation.isCurrent()) return;
     try {
       if (command === 'delete-channel') {
         // 先结束旧读取并投影已确认删除，再让服务端刷新集合。
         await queryClient.cancelQueries({ queryKey: aiChannelKeys.lists() });
+        if (!continuation.isCurrent()) return;
         queryClient.setQueriesData<AIChannelList>({ queryKey: aiChannelKeys.lists() }, (current) => {
           if (!current?.items.some((row) => row.id === target.id)) return current;
           return { ...current, items: current.items.filter((row) => row.id !== target.id), total: current.total - 1 };
         });
       }
-      await onChannelChanged(command === 'delete-channel' ? 'delete' : 'status', target.id);
+      await onChannelChanged(command === 'delete-channel' ? 'delete' : 'status', target.id, continuation);
+      if (!continuation.isCurrent()) return;
       if (command === 'delete-channel' && rows.length === 1 && search.page > 1 && mounted.current && activeScope.current === scope) {
         changeSearch({ page: search.page - 1 }, false);
       }
     } catch (error) {
+      if (!continuation.isCurrent()) return;
       setRefreshError(`命令已成功，刷新相关数据失败：${errorMessage(error)}`);
     } finally {
-      working.current = false;
-      setProcessing(false);
+      if (continuation.isCurrent()) {
+        working.current = false;
+        setProcessing(false);
+      }
     }
   }
 
@@ -356,7 +372,7 @@ function AIChannelCreateDialog({
   csrfToken: string | null;
   finalFocus: RefObject<HTMLElement | null>;
   onClose: () => void;
-  onCreated: (channel: AIChannel) => Promise<void> | void;
+  onCreated: (channel: AIChannel, continuation: PrincipalContinuation) => Promise<void> | void;
   open: boolean;
 }) {
   const queryClient = useQueryClient();
@@ -385,18 +401,23 @@ function AIChannelCreateDialog({
     onClose();
   }
 
-  async function openCreatedChannel(channel: AIChannel) {
+  async function openCreatedChannel(
+    channel: AIChannel,
+    continuation = capturePrincipalContinuation(queryClient),
+  ) {
     if (opening.current) return;
     opening.current = true;
     setIsOpening(true);
     try {
-      await onCreated(channel);
-      if (mounted.current) setHandoff(undefined);
+      await onCreated(channel, continuation);
+      if (continuation.isCurrent() && mounted.current) setHandoff(undefined);
     } catch (reason) {
-      if (mounted.current) setHandoff({ channel, error: errorMessage(reason) });
+      if (continuation.isCurrent() && mounted.current) {
+        setHandoff({ channel, error: errorMessage(reason) });
+      }
     } finally {
       opening.current = false;
-      if (mounted.current) setIsOpening(false);
+      if (continuation.isCurrent() && mounted.current) setIsOpening(false);
     }
   }
 
@@ -405,25 +426,27 @@ function AIChannelCreateDialog({
     creating.current = true;
     setIsCreating(true);
     setError(undefined);
+    const continuation = capturePrincipalContinuation(queryClient);
     let channel: AIChannel;
     try {
       channel = await createAIChannel(toAIChannelCreate(values), csrfToken);
     } catch (reason) {
-      if (mounted.current) {
+      if (continuation.isCurrent() && mounted.current) {
         setError(errorMessage(reason));
         form.setValue('apiKey', '');
       }
       return;
     } finally {
       creating.current = false;
-      if (mounted.current) setIsCreating(false);
+      if (continuation.isCurrent() && mounted.current) setIsCreating(false);
     }
+    if (!continuation.isCurrent()) return;
     if (!mounted.current) {
       await queryClient.invalidateQueries({ queryKey: aiChannelKeys.lists() });
       return;
     }
     close();
-    await openCreatedChannel(channel);
+    await openCreatedChannel(channel, continuation);
   }
 
   function handleFormSubmit(event: FormEvent<HTMLFormElement>) {

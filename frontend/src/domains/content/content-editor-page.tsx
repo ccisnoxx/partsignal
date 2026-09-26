@@ -4,6 +4,10 @@ import { Link } from '@tanstack/react-router';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { FormProvider, useForm, useWatch } from 'react-hook-form';
 
+import {
+  capturePrincipalContinuation,
+  type PrincipalContinuation,
+} from '@/app/auth/principal-epoch';
 import { MarkdownEditor, MarkdownPreview } from '@/design-system/editor/markdown-editor';
 import { DirtyGuard } from '@/design-system/forms/dirty-guard';
 import { FormField } from '@/design-system/forms/form-field';
@@ -254,10 +258,12 @@ function ContentEditorWorkspace({
     setSaved(false);
   }, [serverConflict, contextChanged, preserveWorkspace, adoptContext, incomingContext, onConflict]);
 
-  async function refreshRelated() {
+  async function refreshRelated(continuation: PrincipalContinuation) {
+    if (!continuation.isCurrent()) return;
     setRefreshingCommand(true);
     try {
       const canonical = await onReload();
+      if (!continuation.isCurrent()) return;
       adoptContext(canonical);
       onClearConflict();
       await Promise.all([
@@ -265,13 +271,14 @@ function ContentEditorWorkspace({
         queryClient.invalidateQueries({ queryKey: contentKeys.lists(), refetchType: 'none' }),
       ]);
     } catch (error) {
+      if (!continuation.isCurrent()) return;
       onConflict({
         blockerKind: 'context-changed',
         message: '操作已完成，但未能读取最新内容。请重新加载最新版本后继续。',
       });
       throw error;
     } finally {
-      setRefreshingCommand(false);
+      if (continuation.isCurrent()) setRefreshingCommand(false);
     }
   }
 
@@ -313,14 +320,17 @@ function ContentEditorWorkspace({
   async function createVersion(values: ContentEditorFormValues) {
     if (conflict || pending) return;
     resetErrors();
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
       const version = mode === 'manual'
         ? await createManual.mutateAsync(values)
         : await createRevision.mutateAsync(values);
+      if (!continuation.isCurrent()) return;
       form.reset(editorFormValues(version));
       setAnnouncement(`内容版本 v${version.version} 已创建`);
-      await refreshRelated();
+      await refreshRelated(continuation);
     } catch (error) {
+      if (!continuation.isCurrent()) return;
       applyMutationError(error);
     }
   }
@@ -328,26 +338,33 @@ function ContentEditorWorkspace({
   async function saveDraft(values: ContentEditorFormValues) {
     if (conflict || pending) return;
     resetErrors();
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
       const canonical = await save.mutateAsync(values);
+      if (!continuation.isCurrent()) return;
       form.reset(editorFormValues(canonical));
       setBaseRevision(canonical.revision);
       setAnnouncement(`内容草稿已保存，Revision ${canonical.revision}`);
-      await refreshRelated();
+      await refreshRelated(continuation);
+      if (!continuation.isCurrent()) return;
       setSaved(true);
     } catch (error) {
+      if (!continuation.isCurrent()) return;
       applyMutationError(error);
     }
   }
 
   async function submitReview(comment: string) {
     if (conflict || pending) return;
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
       const canonical = await submit.mutateAsync(comment);
+      if (!continuation.isCurrent()) return;
       setSubmitOpen(false);
       setAnnouncement(`内容版本 v${canonical.version} 已提交审核`);
-      await refreshRelated();
+      await refreshRelated(continuation);
     } catch (error) {
+      if (!continuation.isCurrent()) return;
       const mapped = mapContentEditorError(error);
       if (!mapped.blockerKind) throw error;
       applyMappedMutationError(mapped);
@@ -357,12 +374,15 @@ function ContentEditorWorkspace({
   async function runDestructive(action: 'DELETE' | 'ABANDON') {
     if (conflict || pending) return;
     resetErrors();
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
       if (action === 'DELETE') await remove.mutateAsync();
       else await abandon.mutateAsync();
+      if (!continuation.isCurrent()) return;
       setAnnouncement(action === 'DELETE' ? '内容草稿已删除' : '内容版本已放弃');
-      await refreshRelated();
+      await refreshRelated(continuation);
     } catch (error) {
+      if (!continuation.isCurrent()) return;
       applyMutationError(error);
     }
   }

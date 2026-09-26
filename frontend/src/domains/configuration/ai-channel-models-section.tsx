@@ -3,6 +3,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 
+import {
+  capturePrincipalContinuation,
+  type PrincipalContinuation,
+} from '@/app/auth/principal-epoch';
 import { RowActions } from '@/design-system/data-table/row-actions';
 import { TableShell } from '@/design-system/data-table/table-shell';
 import { FormField } from '@/design-system/forms/form-field';
@@ -201,7 +205,12 @@ function AIChannelModelsSection({
     });
   }
 
-  async function refreshModelConsumers(includeConsumers: boolean, includeLogs: boolean) {
+  async function refreshModelConsumers(
+    includeConsumers: boolean,
+    includeLogs: boolean,
+    continuation = capturePrincipalContinuation(queryClient),
+  ) {
+    if (!continuation.isCurrent()) return;
     const epoch = consumerRefreshEpoch.current + 1;
     consumerRefreshEpoch.current = epoch;
     setConsumerRefreshFailure(undefined);
@@ -215,6 +224,7 @@ function AIChannelModelsSection({
       includeConsumers ? onConsumersChanged() : Promise.resolve(),
     ] as const;
     const results = await Promise.allSettled(tasks);
+    if (!continuation.isCurrent()) return;
     const modelsResult = results[0];
     const failure = modelsResult.status === 'fulfilled' && modelsResult.value.error
       ? modelsResult.value.error
@@ -230,10 +240,12 @@ function AIChannelModelsSection({
     message: string,
     includeConsumers: boolean,
     includeLogs: boolean,
+    continuation: PrincipalContinuation,
   ) {
+    if (!continuation.isCurrent()) return;
     upsertCanonicalModel(canonical);
     setStatus(message);
-    void refreshModelConsumers(includeConsumers, includeLogs);
+    void refreshModelConsumers(includeConsumers, includeLogs, continuation);
   }
 
   async function reloadModelsForHold(
@@ -241,8 +253,10 @@ function AIChannelModelsSection({
     command: ModelCommand,
     canReleaseHold: () => boolean = () => true,
   ) {
+    const continuation = capturePrincipalContinuation(queryClient);
     const key = modelCommandKey(modelId, command);
     const result = await models.refetch({ cancelRefetch: true });
+    if (!continuation.isCurrent()) return false;
     if (!canReleaseHold()) return false;
     if (result.error || !result.data) {
       const error = result.error ?? new Error('重新加载模型列表未返回数据');
@@ -275,44 +289,56 @@ function AIChannelModelsSection({
   }
 
   async function reloadDiscoveryChannel() {
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
       await queryClient.cancelQueries({ exact: true, queryKey: aiChannelKeys.detail(channel.id) });
       const fresh = await queryClient.fetchQuery({
         ...aiChannelDetailQueryOptions(channel.id),
         staleTime: 0,
       });
+      if (!continuation.isCurrent()) return;
       setReloadedDiscoveryChannel(fresh);
       setDiscoveryHold(undefined);
       discovery.reset();
       setDiscovered([]);
       setDiscoveryOpen(false);
     } catch (error) {
+      if (!continuation.isCurrent()) return;
       setDiscoveryHold((current) => current ? { ...current, reloadError: error } : current);
     }
   }
 
   const discovery = useMutation({
     mutationFn: async () => {
+      const continuation = capturePrincipalContinuation(queryClient);
       const result = await discoverAIChannelModels(discoveryChannel, csrfToken);
       validateDiscoveredModels(result.items);
-      return result;
+      return { continuation, result };
     },
-    onSuccess: (result) => setDiscovered(result.items),
+    onSuccess: ({ continuation, result }) => {
+      if (!continuation.isCurrent()) return;
+      setDiscovered(result.items);
+    },
     onError: (error) => {
       if (isAIChannelRevisionConflict(error)) setDiscoveryHold({ error });
     },
   });
   const test = useMutation({
-    mutationFn: ({ model }: { focusReturn: HTMLElement | null; intentId: number; model: AIModel }) => (
-      testAIModel(model, csrfToken)
-    ),
-    onSuccess: (tested, variables) => {
+    mutationFn: async ({ model }: { focusReturn: HTMLElement | null; intentId: number; model: AIModel }) => {
+      const continuation = capturePrincipalContinuation(queryClient);
+      const tested = await testAIModel(model, csrfToken);
+      return { continuation, tested };
+    },
+    onSuccess: ({ continuation, tested }, variables) => {
+      if (!continuation.isCurrent()) return;
       publishCanonicalModel(tested, tested.test_status === 'PASSED'
         ? '连接测试通过；模型仍保持停用，请按需手动启用。'
-        : `连接测试失败：${tested.last_test_error_summary ?? '未返回失败摘要'}`, false, false);
+        : `连接测试失败：${tested.last_test_error_summary ?? '未返回失败摘要'}`, false, false, continuation);
       if (closeTestDialog(variables.intentId)) {
         setTestIntentError(undefined);
-        queueMicrotask(() => variables.focusReturn?.focus());
+        queueMicrotask(() => {
+          if (continuation.isCurrent()) variables.focusReturn?.focus();
+        });
       }
     },
     onError: (error, variables) => {
@@ -320,11 +346,14 @@ function AIChannelModelsSection({
     },
   });
   const toggle = useMutation({
-    mutationFn: ({ enabled, model }: { enabled: boolean; model: AIModel }) => (
-      setAIModelEnabled(model, enabled, csrfToken)
-    ),
-    onSuccess: (updated) => {
-      publishCanonicalModel(updated, updated.is_enabled ? '模型已启用' : '模型已停用', true, true);
+    mutationFn: async ({ enabled, model }: { enabled: boolean; model: AIModel }) => {
+      const continuation = capturePrincipalContinuation(queryClient);
+      const updated = await setAIModelEnabled(model, enabled, csrfToken);
+      return { continuation, updated };
+    },
+    onSuccess: ({ continuation, updated }) => {
+      if (!continuation.isCurrent()) return;
+      publishCanonicalModel(updated, updated.is_enabled ? '模型已启用' : '模型已停用', true, true, continuation);
     },
     onError: (error, variables) => {
       if (isAIChannelRevisionConflict(error)) {
@@ -333,11 +362,16 @@ function AIChannelModelsSection({
     },
   });
   const remove = useMutation({
-    mutationFn: (model: AIModel) => deleteAIModel(model, csrfToken),
-    onSuccess: (_, model) => {
+    mutationFn: async (model: AIModel) => {
+      const continuation = capturePrincipalContinuation(queryClient);
+      const result = await deleteAIModel(model, csrfToken);
+      return { continuation, result };
+    },
+    onSuccess: ({ continuation }, model) => {
+      if (!continuation.isCurrent()) return;
       removeCanonicalModel(model.id);
       setStatus('模型已删除');
-      void refreshModelConsumers(true, true);
+      void refreshModelConsumers(true, true, continuation);
     },
     onError: (error, model) => {
       if (isAIChannelRevisionConflict(error)) holdCommand(model.id, 'delete-model', error);
@@ -512,12 +546,13 @@ function AIChannelModelsSection({
               closeModelDialog(dialogTarget.intentId);
             }
           }}
-          onSaved={(canonical, kind) => {
+          onSaved={(canonical, kind, continuation) => {
             publishCanonicalModel(
               canonical,
               kind === 'create' ? '模型已创建' : '模型配置已保存',
               kind === 'update',
               true,
+              continuation,
             );
             closeModelDialog(dialogTarget.intentId);
           }}
@@ -593,8 +628,13 @@ function AIModelDialog({
   onClose: () => void;
   onConflict: (modelId: string, error: unknown) => void;
   onReload: () => Promise<void>;
-  onSaved: (canonical: AIModel, kind: 'create' | 'update') => void;
+  onSaved: (
+    canonical: AIModel,
+    kind: 'create' | 'update',
+    continuation: PrincipalContinuation,
+  ) => void;
 }) {
+  const queryClient = useQueryClient();
   const form = useForm<AIModelFormValues>({ defaultValues: initialValues, resolver: zodResolver(aiModelFormSchema) });
   const save = useMutation({
     mutationFn: (values: AIModelFormValues) => model
@@ -606,10 +646,13 @@ function AIModelDialog({
   const errorProjection = projectedError ? mapAIModelFormError(projectedError) : { fields: {} };
   async function submit(values: AIModelFormValues) {
     form.clearErrors();
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
       const canonical = await save.mutateAsync(values);
-      onSaved(canonical, model ? 'update' : 'create');
+      if (!continuation.isCurrent()) return;
+      onSaved(canonical, model ? 'update' : 'create', continuation);
     } catch (error) {
+      if (!continuation.isCurrent()) return;
       if (model && isAIChannelRevisionConflict(error)) onConflict(model.id, error);
       const mapped = mapAIModelFormError(error);
       if (mapped.fields.modelId) {

@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { AuthContextValue, AuthUser } from '@/app/auth/auth-provider';
+import { advancePrincipalEpoch } from '@/app/auth/principal-epoch';
 import { TooltipProvider } from '@/design-system/primitives/tooltip';
 import { routeTree } from '@/routeTree.gen';
 import { api } from '@/shared/api/client';
@@ -435,6 +436,46 @@ describe('PlatformListPage', () => {
     expect(await screen.findByRole('link', { name: '查看运营' })).toBeInTheDocument();
     expect(within(firstRow).queryByRole('button', { name: '重新启用' })).not.toBeInTheDocument();
     expect(post).toHaveBeenCalledOnce();
+  });
+
+  it('主体切换后丢弃 pending 命令的 per-call settled 与列表刷新', async () => {
+    const disabled = platform({
+      name: '旧主体平台',
+      is_active: false,
+      workflow_stage: 'DISABLED',
+      primary_task: 'ENABLE_PLATFORM',
+      available_actions: ['UPDATE', 'ENABLE', 'DELETE'],
+      deletion: { blockers: [] },
+    });
+    const other = platform({
+      ...disabled,
+      id: '00000000-0000-4000-8000-000000000005',
+      name: '当前锁定平台',
+    });
+    vi.spyOn(api, 'GET').mockResolvedValue({
+      data: result([disabled, other]),
+      response: Response.json(result([disabled, other])),
+    } as never);
+    let finishEnable: ((response: unknown) => void) | undefined;
+    const post = vi.spyOn(api, 'POST').mockImplementation(() => new Promise((resolve) => {
+      finishEnable = resolve;
+    }) as never);
+    const { queryClient } = renderPlatforms();
+
+    const firstRow = await screen.findByRole('row', { name: /^旧主体平台 / });
+    const otherRow = screen.getByRole('row', { name: /^当前锁定平台 / });
+    await userEvent.click(within(firstRow).getByRole('button', { name: '重新启用' }));
+    await userEvent.click(await screen.findByRole('button', { name: '启用平台' }));
+    await waitFor(() => expect(post).toHaveBeenCalledOnce());
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+
+    advancePrincipalEpoch(queryClient, '00000000-0000-4000-8000-000000000088');
+    finishEnable?.({ data: { ...disabled, is_active: true }, response: Response.json(disabled) });
+    await waitFor(() => expect(queryClient.isMutating()).toBe(0));
+
+    expect(invalidate).not.toHaveBeenCalled();
+    expect(within(otherRow).getByRole('button', { name: '重新启用' }))
+      .toHaveAttribute('aria-disabled', 'true');
   });
 
   it('删除末页唯一行后自动返回上一页，新列表读取成功便恢复写入口', async () => {

@@ -1,0 +1,5 @@
+{"file":".trellis/spec/frontend/state-management.md","reason":"实现 AI Channel canonical state、QueryCache 与 mutation continuation 边界"}
+{"file":"docs/frontend-v2/01-technical-architecture.md","reason":"保持 TanStack Query server-state 与 Provider owner 架构"}
+{"file":"docs/frontend-v2/05-business-actions-state-and-api-contract.md","reason":"保持 canonical response、服务端权限与 AI Channel secret/revision 合同"}
+{"file":"docs/frontend-v2/08-testing-quality-and-acceptance.md","reason":"选择 deferred component/auth 测试和定向质量门禁"}
+{"file":".trellis/tasks/09-25-frontend-i03-4-auth-boundary-late-mutation-blocker/prd.md","reason":"继承 P1 blocker 的权限并发验收"}

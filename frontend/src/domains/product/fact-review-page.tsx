@@ -3,6 +3,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState, type ReactNode } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 
+import {
+  capturePrincipalContinuation,
+  type PrincipalContinuation,
+} from '@/app/auth/principal-epoch';
 import { MarkdownPreview } from '@/design-system/editor/markdown-editor';
 import { FormField } from '@/design-system/forms/form-field';
 import { ErrorSummary, type ErrorSummaryItem } from '@/design-system/forms/form-layout';
@@ -131,7 +135,8 @@ function FactReviewWorkspaceView({
     ),
   });
 
-  async function refreshRelated(canonical: FactVersion) {
+  async function refreshRelated(canonical: FactVersion, continuation: PrincipalContinuation) {
+    if (!continuation.isCurrent()) return;
     queryClient.setQueryData<FactReviewWorkspace>(
       productsKeys.factReview(productId),
       (current) => current ? replaceCanonicalFactVersion(current, canonical) : current,
@@ -143,43 +148,58 @@ function FactReviewWorkspaceView({
     ]);
   }
 
-  async function acceptCanonical(canonical: FactVersion, message: string) {
+  async function acceptCanonical(
+    canonical: FactVersion,
+    message: string,
+    continuation: PrincipalContinuation,
+  ) {
+    if (!continuation.isCurrent()) return;
     setCommandError(undefined);
     setRequestId(undefined);
     onContextStale();
-    await refreshRelated(canonical);
+    await refreshRelated(canonical, continuation);
+    if (!continuation.isCurrent()) return;
     setAnnouncement(message);
     await onRefresh();
   }
 
-  async function handleCommandError(error: unknown) {
+  async function handleCommandError(error: unknown, continuation: PrincipalContinuation) {
+    if (!continuation.isCurrent()) return undefined;
     const mapped = mapFactReviewCommandError(error);
     setCommandError(mapped.formMessage);
     setRequestId(mapped.requestId);
     if (mapped.code === 'REVISION_CONFLICT' || mapped.code === 'INVALID_STATE_TRANSITION') {
       onContextStale();
       await onRefresh();
+      if (!continuation.isCurrent()) return undefined;
     }
     return mapped;
   }
 
   async function approveTarget() {
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
       const canonical = await approve.mutateAsync();
-      await acceptCanonical(canonical, `事实版本 v${canonical.version} 已批准`);
+      if (!continuation.isCurrent()) return;
+      await acceptCanonical(canonical, `事实版本 v${canonical.version} 已批准`, continuation);
     } catch (error) {
-      await handleCommandError(error);
+      await handleCommandError(error, continuation);
     }
   }
 
   async function requestTargetChanges(values: RequestChangesValues) {
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
       const canonical = await requestChanges.mutateAsync(values);
-      await acceptCanonical(canonical, `事实版本 v${canonical.version} 已退回修改`);
+      if (!continuation.isCurrent()) return undefined;
+      await acceptCanonical(canonical, `事实版本 v${canonical.version} 已退回修改`, continuation);
+      if (!continuation.isCurrent()) return undefined;
       closeRequestDialog();
       return canonical;
     } catch (error) {
-      await handleCommandError(error);
+      if (!continuation.isCurrent()) return undefined;
+      await handleCommandError(error, continuation);
+      if (!continuation.isCurrent()) return undefined;
       throw error;
     }
   }
@@ -358,7 +378,7 @@ function RequestChangesDialog({
   version,
 }: {
   onClose: () => void;
-  onSubmit: (values: RequestChangesValues) => Promise<FactVersion>;
+  onSubmit: (values: RequestChangesValues) => Promise<FactVersion | undefined>;
   submitting: boolean;
   version: number;
 }) {
@@ -372,7 +392,8 @@ function RequestChangesDialog({
     form.clearErrors();
     setRequestId(undefined);
     try {
-      await onSubmit(values);
+      const canonical = await onSubmit(values);
+      if (!canonical) return;
       form.reset();
     } catch (error) {
       const mapped = mapFactReviewCommandError(error);

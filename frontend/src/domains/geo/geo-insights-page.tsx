@@ -3,6 +3,10 @@ import { useMutation, useQuery, useQueryClient, type UseQueryResult } from '@tan
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 
+import {
+  capturePrincipalContinuation,
+  type PrincipalContinuation,
+} from '@/app/auth/principal-epoch';
 import { Button, buttonVariants } from '@/design-system/primitives/button';
 import {
   Dialog,
@@ -227,7 +231,13 @@ function OptimizationDialog({ context, commands, csrfToken, insights, search, on
   const submitting = useRef(false);
   const mounted = useRef(true);
   const accepted = useRef<string | undefined>(undefined);
-  const create = useMutation({ mutationFn: ({ body, key }: { body: ReturnType<typeof toGeoOptimizationCreate>; key: string }) => createGeoOptimizationContentTask(body, csrfToken, key) });
+  const create = useMutation({
+    mutationFn: ({ body, key }: {
+      body: ReturnType<typeof toGeoOptimizationCreate>;
+      continuation: PrincipalContinuation;
+      key: string;
+    }) => createGeoOptimizationContentTask(body, csrfToken, key),
+  });
 
   useEffect(() => {
     mounted.current = true;
@@ -254,13 +264,17 @@ function OptimizationDialog({ context, commands, csrfToken, insights, search, on
   const blocked = locked || reloading || stale || insights.isFetching || options.isFetching
     || insights.isError || options.isError || !sourceAvailable || targetRevoked;
 
-  async function openAccepted(id: string) {
-    if (!mounted.current) return;
+  async function openAccepted(
+    id: string,
+    continuation = capturePrincipalContinuation(queryClient),
+  ) {
+    if (!continuation.isCurrent() || !mounted.current) return;
     setNavigationError(undefined);
     try {
       await onCreated(id);
+      if (!continuation.isCurrent()) return;
     } catch (error) {
-      if (mounted.current) setNavigationError(errorMessage(error));
+      if (continuation.isCurrent() && mounted.current) setNavigationError(errorMessage(error));
     }
   }
 
@@ -284,17 +298,20 @@ function OptimizationDialog({ context, commands, csrfToken, insights, search, on
       return;
     }
     if (command.acceptedId) {
+      const continuation = capturePrincipalContinuation(queryClient);
       accepted.current = command.acceptedId;
       setAcceptedId(command.acceptedId);
-      await openAccepted(command.acceptedId);
+      await openAccepted(command.acceptedId, continuation);
       return;
     }
+    const continuation = capturePrincipalContinuation(queryClient);
     form.clearErrors(); setRequestId(undefined); create.reset();
     command.pending = true;
     let task: components['schemas']['ContentTask'];
     try {
-      task = await create.mutateAsync({ body, key: command.key });
+      task = await create.mutateAsync({ body, continuation, key: command.key });
     } catch (error) {
+      if (!continuation.isCurrent()) return;
       const mapped = mapGeoOptimizationError(error);
       if (mapped.code === 'IDEMPOTENCY_CONFLICT') commands.delete(signature);
       if (mounted.current) {
@@ -305,8 +322,9 @@ function OptimizationDialog({ context, commands, csrfToken, insights, search, on
       }
       return;
     } finally {
-      command.pending = false;
+      if (continuation.isCurrent()) command.pending = false;
     }
+    if (!continuation.isCurrent()) return;
     command.acceptedId = task.id;
     if (mounted.current) {
       accepted.current = task.id;
@@ -318,7 +336,7 @@ function OptimizationDialog({ context, commands, csrfToken, insights, search, on
       queryClient.invalidateQueries({ queryKey: productsKeys.detail(values.product_id) }),
       ...(context.action.query_topic_id ? [queryClient.invalidateQueries({ queryKey: geoKeys.topicLists() })] : []),
     ]);
-    await openAccepted(task.id);
+    await openAccepted(task.id, continuation);
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {

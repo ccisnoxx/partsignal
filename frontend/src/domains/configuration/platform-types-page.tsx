@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { FormProvider, useForm, type FieldPath } from 'react-hook-form';
 
+import { capturePrincipalContinuation } from '@/app/auth/principal-epoch';
 import { EmptyTable } from '@/design-system/data-table/empty-table';
 import { RowActions } from '@/design-system/data-table/row-actions';
 import { TableShell } from '@/design-system/data-table/table-shell';
@@ -356,6 +357,7 @@ function PlatformTypeEditorDialog({
   onSaved: (saved: PlatformType) => void;
   target: EditorTarget;
 }) {
+  const queryClient = useQueryClient();
   const [revision, setRevision] = useState(target.platformType?.revision ?? 0);
   const [requestId, setRequestId] = useState<string>();
   const [reloadError, setReloadError] = useState<string>();
@@ -377,10 +379,13 @@ function PlatformTypeEditorDialog({
     form.clearErrors();
     save.reset();
     setRequestId(undefined);
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
       const saved = await save.mutateAsync(values);
+      if (!continuation.isCurrent()) return;
       onSaved(saved);
     } catch (error) {
+      if (!continuation.isCurrent()) return;
       const mapped = mapPlatformTypeFormError(error);
       for (const [field, message] of Object.entries(mapped.fields)) {
         form.setError(field as FieldPath<PlatformTypeFormValues>, { type: 'server', message });
@@ -535,10 +540,13 @@ function PlatformTypeDeletionDialog({
     if (!latest || queryFetching || queryError) return;
     platformTypeOverflowActions(latest);
     if (latest.deletion === null || !latest.available_actions.includes('DELETE') || latest.deletion.blockers.length > 0) return;
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
       await remove.mutateAsync({ id: latest.id, expectedRevision: latest.revision });
+      if (!continuation.isCurrent()) return;
       onDeleted(latest.id);
     } catch (error) {
+      if (!continuation.isCurrent()) return;
       if (error instanceof PlatformRequestError && error.status === 409) {
         onHold(activeIntent.id, error);
       }

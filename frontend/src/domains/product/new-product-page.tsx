@@ -3,6 +3,10 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 
+import {
+  capturePrincipalContinuation,
+  type PrincipalContinuation,
+} from '@/app/auth/principal-epoch';
 import { DirtyGuard } from '@/design-system/forms/dirty-guard';
 import { FormField } from '@/design-system/forms/form-field';
 import {
@@ -37,7 +41,10 @@ const fieldIds: Record<NewProductField, string> = {
 function NewProductPage({ csrfToken, onCancel, onCreated }: NewProductPageProps) {
   const queryClient = useQueryClient();
   const [requestId, setRequestId] = useState<string>();
-  const [createdProductId, setCreatedProductId] = useState<string>();
+  const [createdProduct, setCreatedProduct] = useState<{
+    id: string;
+    continuation: PrincipalContinuation;
+  }>();
   const form = useForm<NewProductFormValues>({
     defaultValues: { part_number: '', brand: '', category: '' },
     resolver: zodResolver(newProductFormSchema),
@@ -46,20 +53,24 @@ function NewProductPage({ csrfToken, onCancel, onCreated }: NewProductPageProps)
   const isDirty = form.formState.isDirty;
 
   useEffect(() => {
-    if (!createdProductId || isDirty) return;
-    onCreated(createdProductId);
-  }, [createdProductId, isDirty, onCreated]);
+    if (!createdProduct || isDirty || !createdProduct.continuation.isCurrent()) return;
+    onCreated(createdProduct.id);
+  }, [createdProduct, isDirty, onCreated]);
 
   async function submit(values: NewProductFormValues) {
     form.clearErrors();
     setRequestId(undefined);
     create.reset();
+    const continuation = capturePrincipalContinuation(queryClient);
     try {
       const product = await create.mutateAsync(values);
+      if (!continuation.isCurrent()) return;
       form.reset(values);
       await queryClient.invalidateQueries({ queryKey: productsKeys.lists() });
-      setCreatedProductId(product.id);
+      if (!continuation.isCurrent()) return;
+      setCreatedProduct({ id: product.id, continuation });
     } catch (error) {
+      if (!continuation.isCurrent()) return;
       const mapped = mapProductCreateError(error);
       for (const [field, message] of Object.entries(mapped.fields)) {
         form.setError(field as NewProductField, { type: 'server', message });

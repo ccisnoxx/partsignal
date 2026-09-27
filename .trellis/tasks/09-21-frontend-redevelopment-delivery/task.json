@@ -80,7 +80,7 @@
   ],
   "parent": null,
   "relatedFiles": [],
-  "notes": "R00 至 I03 已完成。I03 L8 fixed candidate 387b802d 的唯一完整 make verify、资源归零与 fresh high-risk review NO BLOCKER 已闭合，完整 I03 blocker chain 统一完成。总体前端重新开发交付保持 in_progress，下一阶段为 I04 发布准备与实际部署；I04 未创建、未实施，未执行远端 CI、真实部署或发布。",
+  "notes": "R00 至 I03 已完成。I04 已创建；Git 收口与 Repository Release Gate 已通过，但 Hostdzire 只读预检发现固定 Production env 缺失，触发 stop condition。I04 未生成 release/manifest、未执行远端写入或维护切换，I04 与总体任务保持 in_progress。",
   "meta": {
     "latest_valid_verify_commit": "387b802d28b539baabfce7229097f333bad26b6b",
     "latest_valid_verify_tree": "83309710b1a82ee365084c3e9fd501689c7af37c",
@@ -92,7 +92,9 @@
     "latest_make_verify_counts": "backend unit 683; frontend Vitest 91 files/848 tests; PostgreSQL integration 337; real-stack 21 passed; fixture E2E 494 passed/44 skipped",
     "latest_resources": "pre/post byte-identical and all controlled resources zero",
     "next_blocker": null,
-    "next_task": "I04 发布准备与实际部署；尚未创建或实施，需另行授权。",
-    "i04_status": "not_created_not_implemented"
+    "next_task": "恢复 I04：由凭据 owner 受控创建安全的 /root/partsignal/shared/.env.production 并固定上一份已验证 V2 rollback frontend identity，然后从只读预检重新开始。",
+    "i04_status": "blocked_remote_precheck",
+    "i04_blocker": "PRODUCTION_ENV_MISSING",
+    "i04_git_commit": "f91b98b52c1fd7e90b4767979c13915af423914b"
   }
 }

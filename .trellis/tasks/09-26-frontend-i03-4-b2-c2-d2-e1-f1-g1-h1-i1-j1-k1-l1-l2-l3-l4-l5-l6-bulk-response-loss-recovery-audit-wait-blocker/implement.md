@@ -1,13 +1,16 @@
-# L6 下一恢复点
+# L6 当前恢复点
 
-1. 从 `70add985a05844d650c220da279d9ddf1a2644fa` 恢复，不修改 L5 AuthProvider 实现。
-2. 在 `frontend/tests/e2e/system-admin-real-stack.spec.ts:664-717` 为 owner 与 observer 预先安装各自的 canonical
-   recovery 401 completion gate；触发 bulk response loss 后，等待两个 response 真正 settle，再读取 runtime audit。
-3. 保留 route/login/cache、POST once、attempt/response、durable marker、no-storm 与 secret 断言；不得用 sleep、轮询、
-   重复 POST 或放宽计数。
-4. 定向运行 system-admin real-stack、相关 runtime audit unit、secret scan、diff check，并确认资源归零。
-5. 形成新 fixed candidate；在新的 `/Users/sc/...` detached checkout 中先通过 26/26 bind sentinel，再执行唯一一次
-   `make verify`。不得重跑 `70add985` 的门禁。
-6. 只有新门禁绿色、资源归零、代码冻结后才派发 fresh `critical_reviewer`；NO BLOCKER 后再关闭全部 I03 阻断链。
+1. L6 response completion gate 已实现并固定为 candidate
+   `d0f985cf09b663f928e5e0566b1ca84401248de9`，tree
+   `5f918935441eff622ce31c8539d689584c2090a3`；L5 AuthProvider/UserListPage 未修改。
+2. 定向 runtime audit `13/13`、System Admin `2/2`、secret scan、diff check 与资源归零均通过；完整门禁中的
+   System Admin 两项也通过，证明 L6 修复本身未复现旧 response 入账竞态。
+3. 该候选唯一完整 `make verify` 在既有 auth-session A→B→A 用例阻塞：服务端已接受产品 POST 201，但
+   `click()` 与受控 route response release 形成等待环，90 秒后超时；cleanup 随后访问已关闭 context 产生二次错误。
+4. 已建立唯一子 blocker
+   `09-26-frontend-i03-4-b2-c2-d2-e1-f1-g1-h1-i1-j1-k1-l1-l2-l3-l4-l5-l6-l7-auth-session-product-route-release-deadlock-blocker`。
+5. 下一会话只实施 L7 测试编排修复，形成新候选并在新 detached checkout 中执行下一次单次完整门禁；不得重跑
+   `d0f985cf`，不得修改 L6/L5 产品范围。
+6. 新门禁绿色、资源归零且代码冻结后才允许 fresh `critical_reviewer`；NO BLOCKER 后再关闭全部 I03 阻断链。
 
-本会话因单次完整门禁失败到此停止，不实施上述修复，不创建 I04。
+本会话因新的单次完整门禁失败到此停止，不实施 L7 修复，不创建 I04。

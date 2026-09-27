@@ -44,3 +44,28 @@
   `acb1a66beca8a47798de1b8b2a198ad21562e87cd015e7ddcc5078874c527524`；四端口、Redis DB 14、
   `partsignal_e2e_%`、临时资源与测试容器均为 0，detached checkout 已移除并 prune。
 - 本会话不修改或重跑完整门禁，不安排 fresh review，不创建 I04。
+
+## L6 implementation and new gate evidence
+
+- L6 只修改 `frontend/tests/e2e/system-admin-real-stack.spec.ts`：在触发 bulk response loss 前，owner 与
+  observer 分别注册 phase + origin + GET + exact pathname + 401 的 `waitForResponse`；bulk 服务端提交后先
+  `Promise.all` 等两页 response，再读取 runtime audit。AuthProvider、UserListPage 与 backend 无 diff。
+- 定向 runtime audit：`1 file / 13 tests`；日志 `/tmp/partsignal-i03-l6-runtime-audit-unit.log`，346 bytes，
+  SHA-256 `a81c7b0410dc68d821bf734061d4255f1f0bf3cf1472c780dc30bef9810a4a3d`。
+- 定向 System Admin：`2 passed`、secret scan clean；日志
+  `/tmp/partsignal-i03-l6-system-admin-targeted.log`，40,278 bytes，SHA-256
+  `6e6db4640eb1dc4d74e4f4ea25070d4ba9bc47d54963c585ab804f3f466e0959`；资源归零，`git diff --check` 通过。
+- fixed candidate `d0f985cf09b663f928e5e0566b1ca84401248de9`，tree
+  `5f918935441eff622ce31c8539d689584c2090a3`。新 detached checkout bootstrap 成功，有效 bind sentinel
+  `26/26`；首次 sentinel wrapper 因内联 Python 引号转义在断言前 SyntaxError，修正 wrapper 后才得到有效
+  26/26 证据，两份日志均保留。
+- 该候选唯一完整 `make verify` status `2`：backend unit `683`、Vitest `91 files / 841 tests`、
+  PostgreSQL integration `337`、production frontend/backend build 均通过；real-stack `20 passed / 1 failed`，
+  secret scan clean。System Admin 两项均通过，失败转移到既有 auth-session A→B→A 用例的 product response
+  release 编排死锁，已建立 L7。
+- 完整门禁日志 `/tmp/partsignal-i03-l6-d0f985cf-make-verify.log`，160,770 bytes，SHA-256
+  `ca8610d8e04b2c1ab326e720a5d13434ea2a77f4f9eced8cd8aa14517a5d2047`。pre/post resource snapshot
+  各 4,140 bytes、逐字一致，SHA-256 `31af6c044228e3086e0456129f5c7b05930535dee107c34e46430e9db3ca45d8`；
+  validation checkout 已移除并 prune，原检出区仍为 baseline 且 clean。
+- L6 产品范围没有扩展，但因完整门禁仍红，L6/L5 和全部 I03 父链继续 `in_progress`；fresh review 未派发，
+  I04 未创建。

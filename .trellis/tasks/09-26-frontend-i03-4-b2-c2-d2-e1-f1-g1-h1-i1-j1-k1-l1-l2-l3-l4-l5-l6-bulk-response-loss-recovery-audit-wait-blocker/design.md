@@ -20,3 +20,10 @@ response-loss 子场景在 bulk POST 已由服务端提交但浏览器响应被 
 - response completion gate 必须在触发 bulk 之前安装，避免再次引入监听窗口。
 - 不改 AuthProvider/UserListPage、后端权限、业务 cache 或状态机；L5 candidate 行为保持冻结。
 - 门禁失败后只形成新候选再运行新的单次完整门禁，不重跑 `70add985`。
+
+## 新门禁结论
+
+L6 response completion 所有权已按上述设计实现，定向 System Admin 与完整门禁中的 System Admin 两项均通过。
+新的唯一完整门禁被另一个既有 auth-session 真实栈用例阻断：产品 POST response 由 route gate 持有，而测试先
+`await click()`，导致无法推进到后续 `releaseProduct`。该问题不属于 L6 response audit 或 L5 产品合同，已由
+L7 只读恢复记录承接；L6 实现保持冻结。

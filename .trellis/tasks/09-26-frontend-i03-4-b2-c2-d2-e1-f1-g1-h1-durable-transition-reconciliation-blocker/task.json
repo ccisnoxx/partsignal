@@ -3,7 +3,7 @@
   "name": "frontend-i03-4-b2-c2-d2-e1-f1-g1-h1-durable-transition-reconciliation-blocker",
   "title": "I03-4-B2-C2-D2-E1-F1-G1-H1 Blocker 持久 transition 收敛与协议 fail-closed",
   "description": "固定候选 e35c402e 的唯一一次完整 make verify 与资源清理通过，但 fresh critical review 发现 durable SETTLED 未权威重放、错过终态会留下永久 transition barrier，且畸形或旧 marker 被当成不存在而 fail-open。",
-  "status": "in_progress",
+  "status": "completed",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -11,11 +11,11 @@
   "creator": "777",
   "assignee": "777",
   "createdAt": "2026-09-26",
-  "completedAt": null,
+  "completedAt": "2026-09-26",
   "branch": null,
   "base_branch": "main",
   "worktree_path": null,
-  "commit": null,
+  "commit": "387b802d28b539baabfce7229097f333bad26b6b",
   "pr_url": null,
   "subtasks": [],
   "children": [
@@ -31,7 +31,7 @@
     "frontend/src/app/auth/auth-provider.test.tsx",
     "frontend/tests/e2e/auth-session-real-stack.spec.ts"
   ],
-  "notes": "durable reconciliation、stale transition 淘汰和 invalid/legacy/unreadable fail-closed 已实现；定向检查通过。固定候选 39b1d0f9 的唯一完整门禁在旧 providers.test 命令期 GET 期望处失败并建立 I1 blocker；不得重跑该候选。",
+  "notes": "历史记录（已被最终收尾取代）：durable reconciliation、stale transition 淘汰和 invalid/legacy/unreadable fail-closed 已实现；定向检查通过。固定候选 39b1d0f9 的唯一完整门禁在旧 providers.test 命令期 GET 期望处失败并建立 I1 blocker；不得重跑该候选。 最终收尾：L8 fixed candidate 387b802d 的唯一完整门禁、资源归零与 fresh high-risk review NO BLOCKER 已闭合；本节点随完整 I03 blocker chain 统一完成。I04 未创建、未实施。",
   "meta": {
     "trigger_candidate_commit": "e35c402efcce990ce3345ab6e89755f11bb008e0",
     "trigger_candidate_tree": "6f16122f37e79a956798feb9d3552c2df455e945",
@@ -57,6 +57,18 @@
     "fixed_candidate_make_verify_log_sha256": "1b177a983fc4fd37729876713a8e9e3aa49ce851cd8b269928025fb6c6486651",
     "fixed_candidate_resource_pre_post_sha256": "b438f95e4daf88e58848c7f8797541c0376567f008296473f5afe4d1822f61f1",
     "validation_worktree_removed": "true",
-    "fresh_review": "not_dispatched_full_gate_failed"
+    "fresh_review": "not_dispatched_full_gate_failed",
+    "completion_candidate_commit": "387b802d28b539baabfce7229097f333bad26b6b",
+    "completion_candidate_tree": "83309710b1a82ee365084c3e9fd501689c7af37c",
+    "completion_make_verify_status": 0,
+    "completion_make_verify_log": "/tmp/partsignal-i03-l8-387b802d-make-verify.log",
+    "completion_make_verify_bytes": 253318,
+    "completion_make_verify_sha256": "f7ad5f9a1100bd5fa611f59b1caf4e5935f77deb9c920332e1e95b2d88cc6794",
+    "completion_make_verify_counts": "backend unit 683; frontend Vitest 91 files/848 tests; PostgreSQL integration 337; real-stack 21 passed; fixture E2E 494 passed/44 skipped",
+    "completion_resource_snapshot": "pre/post 379 bytes, SHA-256 27617fd52e056b0faa66bfa1c8231d3e3529eda78ec93cc5df15e04c8a35655e, byte-identical, all controlled resources zero",
+    "completion_review_verdict": "NO BLOCKER",
+    "completion_review_audit_id": "20260927T054941Z-i03-l8-fixed-candidate-fresh-high-risk-review-45c03229",
+    "completion_parent_child_check": "passed; declared parent/children exist, reverse links match, relationships unchanged",
+    "completion_i04": "not_created_not_implemented"
   }
 }

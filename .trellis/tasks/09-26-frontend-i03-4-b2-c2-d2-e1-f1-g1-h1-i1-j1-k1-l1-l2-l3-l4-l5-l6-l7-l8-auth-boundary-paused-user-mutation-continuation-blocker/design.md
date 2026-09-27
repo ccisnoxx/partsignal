@@ -34,3 +34,11 @@ TanStack Query 会先调用全局 `MutationCache.onMutate`，再启动 retryer�
    enqueue/pre-send continuation。页面仍以 Provider 返回的 canonical continuation 守卫成功后副作用。
 4. MutationCache 保持发起 continuation 的唯一 pre-send 所有权；Users mutationFn/submit 中的
    continuation 只防护 response 后 callback，不能在 offline resume 时重新授权旧命令。
+
+## 最终复核结论
+
+fresh high-risk reviewer 对 fixed candidate `387b802d` 相对总体基线的完整差异给出 `NO BLOCKER`。
+复核确认三类 meta 在 production 中没有交叉滥用，`MutationCache.onMutate` 在 pause/retry 前捕获页面命令
+continuation，`PrincipalMutation` 对每次 options 写入和实际 mutationFn 执行保持同一 pre-send fence；
+principal epoch 比 identity ABA 更严格，恢复后的 ADMIN 不会重新授权旧命令。L5/L6/L7、Web Lock、durable
+marker/lease、跨标签页收敛与后端权限语义均未回退。

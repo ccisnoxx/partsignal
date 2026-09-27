@@ -27,7 +27,7 @@ epoch 变化后恢复并真正发出旧管理员写请求。
 - [x] 单行、bulk、edit 命令在 principal epoch/角色 ABA 后恢复时均在发网前显式拒绝，API 调用为零。
 - [x] AuthProvider 内部跨 epoch canonical reconciliation 仍可完成，且 meta 所有权不再与页面命令混用。
 - [x] L5/L6/L7 定向回归、类型/静态检查、secret scan 与资源清理通过。
-- [ ] 新候选唯一完整门禁通过且 fresh 高风险复核为 `NO BLOCKER`；之后才允许关闭 I03 阻断链。
+- [x] 新候选唯一完整门禁通过且 fresh 高风险复核为 `NO BLOCKER`；I03 阻断链已统一关闭。
 
 ## Trigger evidence
 
@@ -65,3 +65,37 @@ epoch 变化后恢复并真正发出旧管理员写请求。
 - 实施前后资源快照各 4,028 bytes、逐字一致，SHA-256
   `a693567498b7f23396c373fb90461afdb0fd9c140dbee7e9d02a35bbd413d8c2`；四端口、Redis DB 14、
   `partsignal_e2e_%`、受控临时资源与测试容器全部为 `0`。
+
+## L8 fixed candidate 完整门禁
+
+- fixed candidate：commit `387b802d28b539baabfce7229097f333bad26b6b`，tree
+  `83309710b1a82ee365084c3e9fd501689c7af37c`。全新 `/Users/sc/...` detached validation checkout
+  的 bind sentinel 为 `26/26`，日志 `/tmp/partsignal-i03-l8-387b802d-bind-sentinel.log`，246 bytes，
+  SHA-256 `a65c5cd1e6e25fb4e3da26cd5716f96ba654ecf7cf1e2529bacf35b9acc799f3`。
+- 唯一一次顶层 `make verify` 退出 `0`；日志
+  `/tmp/partsignal-i03-l8-387b802d-make-verify.log`，253,318 bytes，SHA-256
+  `f7ad5f9a1100bd5fa611f59b1caf4e5935f77deb9c920332e1e95b2d88cc6794`。实际结果为 backend unit
+  `683`、frontend Vitest `91 files / 848 tests`、PostgreSQL integration `337`、real-stack `21`、
+  fixture E2E `494 passed / 44 skipped`；两次 secret scan、production build、Docker/Compose、
+  lifecycle 与部署脚本均通过。
+- 门禁 pre/post resource snapshot 均为 379 bytes、SHA-256
+  `27617fd52e056b0faa66bfa1c8231d3e3529eda78ec93cc5df15e04c8a35655e` 且逐字一致；四个端口、
+  Redis DB 14、`partsignal_e2e_%`、临时 E2E 资源和测试容器全部为 `0`。validation checkout 已归档
+  并 prune，原检出区仍为 clean 的总体基线。
+- fresh high-risk review 审计包
+  `20260927T054941Z-i03-l8-fixed-candidate-fresh-high-risk-review-45c03229` 已关闭并验证，明确结论为
+  `NO BLOCKER`。复核确认 AuthProvider 内部 owner 与页面 principal command owner 分离、offline pause 前
+  continuation 捕获、retry/`MutationObserver.setOptions`、same-session ABA 的 API-zero，以及 L5/L6/L7
+  不变量均成立。
+
+## 非阻断警告与覆盖缺口
+
+- Users L8 组件反例覆盖非当前主体 operator；current-admin self-edit 的 role/status 离线 ABA 未另设组件反例。
+  pre-send guard 位于 mutationFn 外且先于 `changesAuthBoundary`，因此 API-zero 不依赖目标用户身份；可作为后续
+  覆盖增强，但不构成本次发布阻断。
+- stale mutation 会进入 TanStack error state并显示 fail-closed 丢弃错误，但不会发 API、invalidate cache、
+  清 selection、进入 unknown reconciliation 或导航。若未来产品要求静默丢弃，应另行增加错误 surface 断言。
+- L7 timeout 后 BrowserContext 已关闭时，cookie secret 注册二次错误仍可能覆盖首个测试诊断；当前没有无条件
+  吞错，成功门禁未触发该风险。
+- `e2e-process-group.py` 仍未消费 process-group disappearance 的布尔结果。normal path、secret scan 与资源快照
+  未显示污染；该测试基础设施诊断质量问题不混入 L8 产品修复。

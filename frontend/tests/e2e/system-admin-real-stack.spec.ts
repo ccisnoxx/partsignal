@@ -667,6 +667,20 @@ test('当前管理员自降权与自停用通过同一 BrowserContext principal 
     const bulkCommitted = new Promise<void>((resolve) => {
       resolveBulkCommitted = resolve;
     });
+    const ownerBulkRecoveryResponse = owner.waitForResponse((response) => (
+      phase.current === 'bulk-self-disable-response-lost'
+      && response.request().method() === 'GET'
+      && new URL(response.url()).origin === apiOrigin
+      && new URL(response.url()).pathname === '/api/v1/auth/session'
+      && response.status() === 401
+    ));
+    const observerBulkRecoveryResponse = observer.waitForResponse((response) => (
+      phase.current === 'bulk-self-disable-response-lost'
+      && response.request().method() === 'GET'
+      && new URL(response.url()).origin === apiOrigin
+      && new URL(response.url()).pathname === '/api/v1/auth/session'
+      && response.status() === 401
+    ));
     await owner.route('**/api/v1/users/bulk-status', async (route) => {
       const response = await route.fetch();
       const result = await readJson<UserBulkStatusResult>(response, 200, '当前管理员批量自停用');
@@ -680,6 +694,7 @@ test('当前管理员自降权与自停用通过同一 BrowserContext principal 
     const bulkDisableDialog = owner.getByRole('dialog', { name: '批量停用 1 个用户？' });
     await bulkDisableDialog.getByRole('button', { name: '批量停用' }).click();
     await bulkCommitted;
+    await Promise.all([ownerBulkRecoveryResponse, observerBulkRecoveryResponse]);
 
     for (const target of [owner, observer]) {
       await expect(target).toHaveURL(/\/login(?:\?|$)/, { timeout: 20_000 });

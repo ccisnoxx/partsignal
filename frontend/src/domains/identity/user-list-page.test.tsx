@@ -1,10 +1,11 @@
-import { QueryClientProvider } from '@tanstack/react-query';
+import { onlineManager, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  authBoundaryIdentity,
   authSessionQueryKey,
   type AuthContextValue,
   type AuthSession,
@@ -103,7 +104,16 @@ function renderUsers(
   return { queryClient, router, view };
 }
 
-afterEach(() => vi.restoreAllMocks());
+function authSessionIdentity(queryClient: ReturnType<typeof createAuthenticatedTestQueryClient>) {
+  const session = queryClient.getQueryData<AuthSession>(authSessionQueryKey);
+  if (!session) throw new Error('测试需要 canonical auth session');
+  return authBoundaryIdentity(session);
+}
+
+afterEach(() => {
+  onlineManager.setOnline(true);
+  vi.restoreAllMocks();
+});
 
 describe('UserListPage', () => {
   it('单次 GET 绘制统计、固定列和合同动作', async () => {
@@ -362,6 +372,98 @@ describe('UserListPage', () => {
       body: { items: [{ user_id: target.id, expected_revision: 4 }], status: 'DISABLED' },
       params: { header: { 'X-CSRF-Token': auth.csrfToken } },
     });
+  });
+
+  it('单行命令离线暂停后经历角色 ABA 会在 API 前失效', async () => {
+    const target = managedUser();
+    const list = result([target]);
+    vi.spyOn(api, 'GET').mockResolvedValue({ data: list, response: Response.json(list) } as never);
+    const patch = vi.spyOn(api, 'PATCH');
+    const { queryClient } = renderUsers();
+
+    await userEvent.click(await screen.findByRole('button', { name: '更多操作：operator' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: '停用用户' }));
+    const dialog = await screen.findByRole('dialog', { name: '停用用户“operator”？' });
+    onlineManager.setOnline(false);
+    await userEvent.click(within(dialog).getByRole('button', { name: '停用用户' }));
+    await waitFor(() => expect(queryClient.getMutationCache().getAll()
+      .some((mutation) => mutation.state.isPaused)).toBe(true));
+    expect(patch).not.toHaveBeenCalled();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+
+    const originalIdentity = authSessionIdentity(queryClient);
+    advancePrincipalEpoch(queryClient, `${originalIdentity}:ENGINEER`);
+    advancePrincipalEpoch(queryClient, originalIdentity);
+    onlineManager.setOnline(true);
+    await queryClient.resumePausedMutations();
+
+    await waitFor(() => expect(queryClient.isMutating()).toBe(0));
+    expect(patch).not.toHaveBeenCalled();
+    expect(invalidate).not.toHaveBeenCalledWith({ queryKey: userKeys.lists() });
+    expect(screen.getByRole('dialog', { name: '停用用户“operator”？' })).toBeInTheDocument();
+  });
+
+  it('批量命令离线暂停后经历角色 ABA 不发 POST 也不进入 unknown reconciliation', async () => {
+    const target = managedUser();
+    const list = result([target]);
+    vi.spyOn(api, 'GET').mockResolvedValue({ data: list, response: Response.json(list) } as never);
+    const post = vi.spyOn(api, 'POST');
+    const reconcile = vi.mocked(auth.reconcileUnknownPrincipalResult).mockClear();
+    const { queryClient } = renderUsers();
+
+    await userEvent.click(await screen.findByRole('checkbox', { name: '选择用户 operator' }));
+    await userEvent.click(screen.getByRole('button', { name: '批量停用' }));
+    const dialog = await screen.findByRole('dialog', { name: '批量停用 1 个用户？' });
+    onlineManager.setOnline(false);
+    await userEvent.click(within(dialog).getByRole('button', { name: '批量停用' }));
+    await waitFor(() => expect(queryClient.getMutationCache().getAll()
+      .some((mutation) => mutation.state.isPaused)).toBe(true));
+    expect(post).not.toHaveBeenCalled();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+
+    const originalIdentity = authSessionIdentity(queryClient);
+    advancePrincipalEpoch(queryClient, `${originalIdentity}:ENGINEER`);
+    advancePrincipalEpoch(queryClient, originalIdentity);
+    onlineManager.setOnline(true);
+    await queryClient.resumePausedMutations();
+
+    await waitFor(() => expect(queryClient.isMutating()).toBe(0));
+    expect(post).not.toHaveBeenCalled();
+    expect(reconcile).not.toHaveBeenCalled();
+    expect(invalidate).not.toHaveBeenCalledWith({ queryKey: userKeys.lists() });
+    expect(document.querySelector('[role="toolbar"]')).toHaveTextContent('已选择 1 项');
+    expect(screen.getByRole('dialog', { name: '批量停用 1 个用户？' })).toBeInTheDocument();
+  });
+
+  it('编辑命令离线暂停后经历角色 ABA 会在 update API 前失效', async () => {
+    const target = managedUser();
+    const list = result([target]);
+    vi.spyOn(api, 'GET').mockResolvedValue({ data: list, response: Response.json(list) } as never);
+    const patch = vi.spyOn(api, 'PATCH');
+    const { queryClient } = renderUsers();
+
+    await userEvent.click(await screen.findByRole('button', { name: '管理用户' }));
+    const dialog = await screen.findByRole('dialog', { name: '编辑用户 operator' });
+    const displayName = within(dialog).getByRole('textbox', { name: '显示名称' });
+    await userEvent.clear(displayName);
+    await userEvent.type(displayName, '更新名称');
+    onlineManager.setOnline(false);
+    await userEvent.click(within(dialog).getByRole('button', { name: '保存修改' }));
+    await waitFor(() => expect(queryClient.getMutationCache().getAll()
+      .some((mutation) => mutation.state.isPaused)).toBe(true));
+    expect(patch).not.toHaveBeenCalled();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+
+    const originalIdentity = authSessionIdentity(queryClient);
+    advancePrincipalEpoch(queryClient, `${originalIdentity}:ENGINEER`);
+    advancePrincipalEpoch(queryClient, originalIdentity);
+    onlineManager.setOnline(true);
+    await queryClient.resumePausedMutations();
+
+    await waitFor(() => expect(queryClient.isMutating()).toBe(0));
+    expect(patch).not.toHaveBeenCalled();
+    expect(invalidate).not.toHaveBeenCalledWith({ queryKey: userKeys.lists() });
+    expect(screen.getByRole('dialog', { name: '编辑用户 operator' })).toBeInTheDocument();
   });
 
   it('后台刷新发现已选用户 revision 变化时清空整组选择', async () => {

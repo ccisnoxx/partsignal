@@ -36,7 +36,7 @@ class PrincipalQuery<
     if (
       typeof queryFn !== 'function'
       || installedQueryFns.get(this) === queryFn
-      || options?.meta?.authPrincipalBoundary === true
+      || options?.meta?.authSessionReconciliation === true
     ) {
       super.setOptions(options);
       return;
@@ -96,9 +96,9 @@ class PrincipalMutation<
     // Mutation.options。由 Mutation 自身同步包装每一次 options 写入，确保
     // canRun 与 retryer 动态读取 mutationFn 之间也不存在原函数窗口。
     const guardedMutationFn: typeof mutationFn = (variables, context) => {
-      // AuthProvider 在 owner 命令真正进入 mutationFn 后才建立 barrier，因此
-      // owner 自身已经获得发送许可；STARTED 之后新建、恢复或 retry 的命令
-      // 都会在调用网络函数前于此处被拒绝。
+      // 页面命令的 continuation 在 MutationCache.onMutate 中、进入
+      // retryer/offline pause 之前绑定。MutationObserver 后续覆盖 options 时，
+      // 每一次实际执行仍必须使用同一个发起主体 fence。
       assertPrincipalCommandOpen(context.client);
       mutationContinuations.get(this)?.assertCurrent();
       return mutationFn(variables, context);
@@ -151,12 +151,18 @@ class PrincipalMutationCache extends MutationCache {
 function createAppQueryClient() {
   const mutationCache = new PrincipalMutationCache({
     onMutate: (_variables, mutation, context) => {
-      if (mutation.meta?.authPrincipalBoundary === true) return;
+      // 仅 AuthProvider 内部 terminal/canonical reconciliation owner 可以
+      // 跨越自己提交的 principal epoch。页面权限命令不得使用此豁免。
+      if (mutation.meta?.authProviderReconciliationOwner === true) return;
       const continuation = capturePrincipalContinuation(context.client);
       mutationContinuations.set(mutation, continuation);
       mutation.setOptions(mutation.options);
     },
     onSuccess: (_data, _variables, _onMutateResult, mutation) => {
+      // principal command 可能由 AuthProvider 合法提交新 epoch；它们的
+      // 成功 continuation 由页面使用 Provider 返回的 canonical 结果守卫。
+      // 这不影响 mutationFn 前的全局发起 continuation fence。
+      if (mutation.meta?.authPrincipalCommand === true) return;
       discardStaleMutationCallbacks(mutation);
       mutationContinuations.get(mutation)?.assertCurrent();
     },
@@ -164,7 +170,9 @@ function createAppQueryClient() {
       discardStaleMutationCallbacks(mutation);
     },
     onSettled: (_data, error, _variables, _onMutateResult, mutation) => {
-      if (!error) mutationContinuations.get(mutation)?.assertCurrent();
+      if (!error && mutation.meta?.authPrincipalCommand !== true) {
+        mutationContinuations.get(mutation)?.assertCurrent();
+      }
     },
   });
   return new QueryClient({ mutationCache, queryCache: new PrincipalQueryCache() });

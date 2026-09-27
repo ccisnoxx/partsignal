@@ -17,7 +17,7 @@
 - [x] A→B→A 用例不再让 `page.click()` 与 route `releaseProduct` 形成循环等待。
 - [x] 产品 POST attempt/response 仍精确为 1/1，真实服务端 201 被证明，旧 continuation 不执行导航。
 - [x] L6 system-admin response-loss 与 stale exact-success 场景继续通过，L5 产品代码保持冻结。
-- [ ] 新候选唯一完整 `make verify` 通过，secret scan clean，pre/post resource snapshot 逐字一致。
+- [x] 新候选唯一完整 `make verify` 通过，secret scan clean，pre/post resource snapshot 逐字一致。
 - [ ] 新门禁绿色、资源归零、代码冻结后才允许 fresh `critical_reviewer`；只有 `NO BLOCKER` 才关闭 L7/L6/L5 与 I03 阻断链。
 
 ## Confirmed gate evidence
@@ -63,3 +63,23 @@
   `partsignal_e2e_%`、临时目录与测试容器均为 0。`git diff --check` 通过。
 - 时间顺序修复后 finally 的 cookie secret 登记正常完成；不再有关闭 context 上的
   `Storage.getCookies` 二次错误。没有证据支持修改 secret 注册或吞掉 cleanup 错误，因此 helper 保持不变。
+
+## Fixed candidate full gate and fresh review
+
+- L7 fixed candidate 为 commit `731cc728df3611d34357de3a189319aaf116e679`、tree
+  `30565e93b0c70ea4e74a9301feb20a228cff701a`。全新 `/Users/sc/...` detached validation checkout
+  bootstrap 与 26/26 bind sentinel 通过，随后唯一一次 `make verify` 退出 `0`。
+- 完整日志 `/tmp/partsignal-i03-l7-731cc728-make-verify.log`：253,113 bytes，SHA-256
+  `5ad14c045cb1baf733ac825931b7054520db6093ee402ccd216ffb5661506801`。实际覆盖 backend unit
+  `683`、Vitest `91 files / 841 tests`、PostgreSQL integration `337`、real-stack `21/21`、fixture
+  E2E `494 passed / 44 skipped`、两轮 secret scan、前后端 production Docker build、lifecycle、
+  database lifecycle `5` scenarios、post-run secret、staging/production deploy harness 与 dev/prod Compose。
+- pre/post resource snapshot 各 4,140 bytes、逐字一致，SHA-256
+  `353c7f5e73c01e9242ab0a240ba49088754638597bf00ef52f6a90a394ae9fad`；四端口、Redis DB 14、
+  `partsignal_e2e_%`、受控临时目录与测试容器均为 `0`。validation checkout 已归档并 prune，
+  候选与原检出区 identity/cleanliness 未漂移。
+- fresh `critical_reviewer` 审计
+  `20260927T044820Z-i03-l7-fixed-candidate-fresh-high-risk-review-a92785f6` 结论为 `BLOCKER`。
+  L7 promise 编排、L6 response-completion gate 与 L5 fence 均获确认；新发布阻断位于完整候选的
+  `authPrincipalBoundary` 离线 mutation principal continuation 所有权，已建立 L8 子任务。L7、L6、
+  L5 与全部 I03 父链保持 `in_progress`，I04 未创建。

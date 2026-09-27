@@ -26,3 +26,18 @@
    L5 产品逻辑、AuthProvider、UserListPage、后端权限、session helper 与 runtime audit 均未修改。
 5. 下一步是形成新 fixed candidate，再从该 commit 创建全新 `/Users/sc/...` detached checkout；
    先执行 26/26 bind sentinel，再且仅一次执行 `make verify`。
+
+## 完整门禁与 fresh review 停止点
+
+- fixed candidate `731cc728df3611d34357de3a189319aaf116e679` / tree
+  `30565e93b0c70ea4e74a9301feb20a228cff701a` 的唯一完整 `make verify` 已退出 `0`；完整日志、
+  分层测试数量、secret/build/lifecycle/deploy/Compose 结果与逐字一致的资源快照均已固化。
+- validation checkout 已归档并 prune；候选保持 frozen/clean，原检出区仍为 clean 的
+  `9100774b0e124d1d834f8c726cf85f2c0e171e5e`。
+- fresh reviewer 确认 L7 等待环已解除、L6 无 L7 diff、L5 fence 保持冻结，但在完整候选发现新的 P1：
+  `MutationCache.onMutate` 对 `meta.authPrincipalBoundary` 直接跳过 principal continuation 捕获，Users
+  单行、批量和编辑 mutation 可在 offline pause/retry 与角色 ABA 后跨 epoch 发出旧命令。
+- 复核同时记录两个非阻断警告：L7 超时后关闭 BrowserContext 仍可能让 cookie secret 注册二次错误
+  覆盖主体异常；SIGKILL 后 process-group disappearance 的布尔结果未被消费。两者不改变本次
+  `BLOCKER` 的主因，也不在本会话扩展修复。
+- 后续只从 L8 子任务恢复；本会话不得修复该问题、重跑完整门禁或关闭任何 I03 父节点。

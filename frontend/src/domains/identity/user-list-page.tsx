@@ -210,8 +210,10 @@ function UserListPage({
   }, [rows, scope, selection, users.data, updateSelection]);
 
   const command = useMutation({
-    meta: { authPrincipalBoundary: true },
+    meta: { authPrincipalCommand: true },
     mutationFn: async (target: CommandTarget) => {
+      // pre-send continuation 由 MutationCache 在离线 pause 前持有；
+      // 此 continuation 只守卫 response 后的页面副作用。
       const continuation = capturePrincipalContinuation(queryClient);
       const changesCurrentPrincipal = target.user.id === currentPrincipalId;
       let saved: User;
@@ -251,8 +253,10 @@ function UserListPage({
   });
 
   const bulk = useMutation({
-    meta: { authPrincipalBoundary: true },
+    meta: { authPrincipalCommand: true },
     mutationFn: async ({ items, status }: { items: SelectedUser[]; status: UserStatus; scope: string; selectionEpoch: number }) => {
+      // pre-send continuation 由 MutationCache 在离线 pause 前持有；
+      // 此 continuation 只守卫 response 后的页面副作用。
       const continuation = capturePrincipalContinuation(queryClient);
       const includesCurrentPrincipal = items.some((item) => item.id === currentPrincipalId);
       let result: Awaited<ReturnType<typeof bulkUpdateUserStatus>>;
@@ -891,7 +895,7 @@ function EditUserDialog({
     resolver: zodResolver(userEditFormSchema),
   });
   const update = useMutation({
-    meta: { authPrincipalBoundary: true },
+    meta: { authPrincipalCommand: true },
     mutationFn: async (values: UserEditFormValues) => {
       const changesAuthBoundary = isCurrentUser && (
         values.account_type !== target.user.account_type
@@ -910,6 +914,8 @@ function EditUserDialog({
 
   async function submit(values: UserEditFormValues) {
     setError(undefined);
+    // MutationCache 另行拥有 enqueue 时的 pre-send continuation；
+    // 此处仅守卫 mutateAsync 完成后的 Dialog 与 cache 副作用。
     const continuation = capturePrincipalContinuation(queryClient);
     const changesAuthBoundary = isCurrentUser && (
       values.account_type !== target.user.account_type

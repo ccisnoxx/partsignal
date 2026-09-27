@@ -684,7 +684,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
 
   const session = useQuery({
     queryKey: authSessionQueryKey,
-    meta: { authPrincipalBoundary: true },
+    meta: { authSessionReconciliation: true },
     queryFn: ({ signal }) => {
       const generation = authReadGenerationRef.current + 1;
       authReadGenerationRef.current = generation;
@@ -786,7 +786,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
   }, [beginTransition, enterCommandBarrier, queryClient, releaseCommandBarrier]);
 
   const logout = useMutation({
-    meta: { authPrincipalBoundary: true },
+    meta: { authProviderReconciliationOwner: true },
     mutationFn: async () => {
       if (!session.data) throw new Error('当前没有可退出的登录会话');
       const transition = await beginTransition();

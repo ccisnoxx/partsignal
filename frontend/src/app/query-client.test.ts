@@ -56,7 +56,7 @@ describe('principal-aware QueryClient', () => {
     expect(businessQuery).not.toHaveBeenCalled();
 
     await expect(queryClient.fetchQuery({
-      meta: { authPrincipalBoundary: true },
+      meta: { authSessionReconciliation: true },
       queryFn: authQuery,
       queryKey: ['auth', 'session'],
     })).resolves.toEqual({ user: null });
@@ -172,6 +172,37 @@ describe('principal-aware QueryClient', () => {
     expect(onSuccess).not.toHaveBeenCalled();
   });
 
+  it('页面 principal command 在离线入队时绑定 ABA continuation', async () => {
+    onlineManager.setOnline(false);
+    const queryClient = createAppQueryClient();
+    initializePrincipalEpoch(queryClient, 'admin-1');
+    const mutationFn = vi.fn(async () => ({ revision: 2 }));
+    const onError = vi.fn();
+    const onSettled = vi.fn();
+    const onSuccess = vi.fn();
+    const observer = new MutationObserver(queryClient, {
+      meta: { authPrincipalCommand: true },
+      mutationFn,
+      onError,
+      onSettled,
+      onSuccess,
+    });
+    const result = observer.mutate(undefined);
+    await vi.waitFor(() => expect(observer.getCurrentResult().isPaused).toBe(true));
+    expect(mutationFn).not.toHaveBeenCalled();
+
+    advancePrincipalEpoch(queryClient, 'engineer-1');
+    advancePrincipalEpoch(queryClient, 'admin-1');
+    onlineManager.setOnline(true);
+    await queryClient.resumePausedMutations();
+
+    await expect(result).rejects.toSatisfy(isStalePrincipalContinuationError);
+    expect(mutationFn).not.toHaveBeenCalled();
+    expect(onError).not.toHaveBeenCalled();
+    expect(onSettled).not.toHaveBeenCalled();
+    expect(onSuccess).not.toHaveBeenCalled();
+  });
+
   it('首次失败后主体变化会在 retry 发请求前拒绝旧命令', async () => {
     const queryClient = createAppQueryClient();
     initializePrincipalEpoch(queryClient, 'admin-1');
@@ -187,6 +218,61 @@ describe('principal-aware QueryClient', () => {
 
     await expect(mutation.execute(undefined)).rejects.toSatisfy(isStalePrincipalContinuationError);
     expect(mutationFn).toHaveBeenCalledOnce();
+  });
+
+  it('页面 principal command 不得在 ABA 后借 retry 再次发网', async () => {
+    const queryClient = createAppQueryClient();
+    initializePrincipalEpoch(queryClient, 'admin-1');
+    const mutationFn = vi.fn(async () => {
+      advancePrincipalEpoch(queryClient, 'engineer-1');
+      advancePrincipalEpoch(queryClient, 'admin-1');
+      throw new Error('首次请求失败');
+    });
+    const mutation = queryClient.getMutationCache().build(queryClient, {
+      meta: { authPrincipalCommand: true },
+      mutationFn,
+      retry: 1,
+      retryDelay: 0,
+    });
+
+    await expect(mutation.execute(undefined)).rejects.toSatisfy(isStalePrincipalContinuationError);
+    expect(mutationFn).toHaveBeenCalledOnce();
+  });
+
+  it('AuthProvider 内部 reconciliation owner 可在窄合同内提交新 epoch', async () => {
+    const queryClient = createAppQueryClient();
+    initializePrincipalEpoch(queryClient, 'admin-1');
+    const onSuccess = vi.fn();
+    const mutationFn = vi.fn(async () => {
+      advancePrincipalEpoch(queryClient, 'signed-out');
+      return { committed: true };
+    });
+    const mutation = queryClient.getMutationCache().build(queryClient, {
+      meta: { authProviderReconciliationOwner: true },
+      mutationFn,
+      onSuccess,
+    });
+
+    await expect(mutation.execute(undefined)).resolves.toEqual({ committed: true });
+    expect(mutationFn).toHaveBeenCalledOnce();
+    expect(onSuccess).toHaveBeenCalledOnce();
+  });
+
+  it('页面 principal command 的成功 continuation 可由 canonical owner 接管', async () => {
+    const queryClient = createAppQueryClient();
+    initializePrincipalEpoch(queryClient, 'admin-1');
+    const onSuccess = vi.fn();
+    const mutation = queryClient.getMutationCache().build(queryClient, {
+      meta: { authPrincipalCommand: true },
+      mutationFn: async () => {
+        advancePrincipalEpoch(queryClient, 'engineer-1');
+        return { committed: true };
+      },
+      onSuccess,
+    });
+
+    await expect(mutation.execute(undefined)).resolves.toEqual({ committed: true });
+    expect(onSuccess).toHaveBeenCalledOnce();
   });
 
   it('retry pause 的 continue 更新覆盖 options 后仍不发出旧命令', async () => {

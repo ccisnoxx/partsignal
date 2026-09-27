@@ -177,7 +177,7 @@ function OwnerBarrierProbe({
   const auth = useAuth();
   const queryClient = useQueryClient();
   const owner = useMutation({
-    meta: { authPrincipalBoundary: true },
+    meta: { authPrincipalCommand: true },
     mutationFn: () => auth.runPrincipalBoundary(ownerCommand),
   });
   const second = useMutation({ mutationFn: secondCommand });

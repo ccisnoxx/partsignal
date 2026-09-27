@@ -471,6 +471,54 @@ test('当前管理员自降权与自停用通过同一 BrowserContext principal 
 
     phase.current = 'bulk-self-disable-stale-exact';
     exactBulkTableLock = await holdUsersTableLock();
+    const exactInterleaving: string[] = [];
+    let resolveOldCanonicalServerRead!: (session: AuthSession) => void;
+    const oldCanonicalServerRead = new Promise<AuthSession>((resolve) => {
+      resolveOldCanonicalServerRead = resolve;
+    });
+    let releaseOldCanonicalResponse!: () => void;
+    const oldCanonicalResponseGate = new Promise<void>((resolve) => {
+      releaseOldCanonicalResponse = resolve;
+    });
+    let resolvePostResultServerRead!: () => void;
+    const postResultServerRead = new Promise<void>((resolve) => {
+      resolvePostResultServerRead = resolve;
+    });
+    let releasePostResultResponse!: () => void;
+    const postResultResponseGate = new Promise<void>((resolve) => {
+      releasePostResultResponse = resolve;
+    });
+    let gatedCanonicalReads = 0;
+    await owner.route('**/api/v1/auth/session', async (route) => {
+      gatedCanonicalReads += 1;
+      if (gatedCanonicalReads === 1) {
+        exactInterleaving.push('old-canonical-start');
+        const response = await route.fetch();
+        const session = await readJson<AuthSession>(
+          response,
+          200,
+          'bulk 提交前已在服务端读取的新 binding canonical session',
+        );
+        exactInterleaving.push('old-canonical-server-read-enabled-admin');
+        resolveOldCanonicalServerRead(session);
+        await oldCanonicalResponseGate;
+        exactInterleaving.push('old-canonical-client-response-settle');
+        await route.fulfill({ response });
+        return;
+      }
+      if (gatedCanonicalReads === 2) {
+        exactInterleaving.push('post-result-canonical-start');
+        const response = await route.fetch();
+        expect(response.status(), '结果后 canonical read 应在服务端观察到 session 已撤销')
+          .toBe(401);
+        exactInterleaving.push('post-result-canonical-server-read-401');
+        resolvePostResultServerRead();
+        await postResultResponseGate;
+        await route.fulfill({ response });
+        return;
+      }
+      await route.continue();
+    });
     await owner.getByRole('checkbox', { name: '选择用户 admin' }).check();
     await owner.getByRole('button', { name: '批量停用' }).click();
     const staleExactDialog = owner.getByRole('dialog', { name: '批量停用 1 个用户？' });
@@ -522,14 +570,10 @@ test('当前管理员自降权与自停用通过同一 BrowserContext principal 
       key,
       newValue: value,
     })), { key: 'partsignal.auth-transition.v2', value: settledMarker });
-    const earlierCanonical = await readJson<AuthSession>(
-      await earlierCanonicalPromise,
-      200,
-      'bulk 提交前的新 binding canonical session',
-    );
+    const earlierCanonical = await oldCanonicalServerRead;
     expect(earlierCanonical.user).toMatchObject({ id: seedAdmin.id, is_active: true });
     expect(earlierCanonical.session_binding).toBe(replacementSession.session_binding);
-    await expect(owner.getByRole('heading', { level: 1, name: '用户管理' })).toBeVisible();
+    await expect(owner.getByRole('heading', { level: 1, name: '用户管理' })).toHaveCount(0);
 
     const exactBulkResponsePromise = owner.waitForResponse((response) => (
       matchesResponse(response, 'POST', '/api/v1/users/bulk-status')
@@ -544,6 +588,31 @@ test('当前管理员自降权与自停用通过同一 BrowserContext principal 
     );
     const exactDisabled = exactBulkResult.succeeded.find((user) => user.id === seedAdmin.id);
     expect(exactDisabled, 'bulk exact success 必须包含当前管理员').toBeDefined();
+    exactInterleaving.push('bulk-exact-result-known');
+    expect(exactInterleaving).toEqual([
+      'old-canonical-start',
+      'old-canonical-server-read-enabled-admin',
+      'bulk-exact-result-known',
+    ]);
+    await expect(owner.getByRole('heading', { level: 1, name: '用户管理' })).toHaveCount(0);
+
+    releaseOldCanonicalResponse();
+    await readJson<AuthSession>(
+      await earlierCanonicalPromise,
+      200,
+      'bulk exact result 后才向客户端 settle 的旧 canonical session',
+    );
+    await postResultServerRead;
+    expect(exactInterleaving).toEqual([
+      'old-canonical-start',
+      'old-canonical-server-read-enabled-admin',
+      'bulk-exact-result-known',
+      'old-canonical-client-response-settle',
+      'post-result-canonical-start',
+      'post-result-canonical-server-read-401',
+    ]);
+    await expect(owner.getByRole('heading', { level: 1, name: '用户管理' })).toHaveCount(0);
+    releasePostResultResponse();
 
     for (const target of [owner, observer]) {
       await expect(target).toHaveURL(/\/login(?:\?|$)/, { timeout: 20_000 });
@@ -571,7 +640,9 @@ test('当前管理员自降权与自停用通过同一 BrowserContext principal 
     expect(JSON.parse(durableMarker ?? '{}')).toMatchObject({ phase: 'SETTLED', version: 2 });
     expect(durableMarker).not.toContain(replacementSession.csrf_token);
     expect(durableMarker).not.toContain(replacementSession.session_binding);
+    expect(gatedCanonicalReads, '旧读取与结果后读取必须各一次').toBe(2);
     expect(runtimeAudit.errors, 'stale exact success 不得恢复旧 route/cache 或形成请求风暴').toEqual([]);
+    await owner.unroute('**/api/v1/auth/session');
 
     await updateSeedAdmin(backupContext, exactDisabled!, {
       account_type: 'ADMIN',

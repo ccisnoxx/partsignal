@@ -264,7 +264,13 @@ function UserListPage({
         );
       } catch (error) {
         if (includesCurrentPrincipal && error instanceof UserBulkStatusUnknownOutcomeError) {
-          await reconcileAuthBoundary();
+          try {
+            await reconcileAuthBoundary();
+          } catch {
+            // Provider 已在返回 Promise 前原子登记 fence 并进入 fail-closed。
+            // 收敛失败不能覆盖原始 unknown outcome，也不能由页面
+            // 另行 refresh、重放 POST 或获取新 continuation。
+          }
         }
         throw error;
       }
@@ -274,8 +280,14 @@ function UserListPage({
         // bulk 的业务结果此时已经确定。即使命令前 continuation 已被较早的
         // 跨标签页 transition 淘汰，也必须再由 Provider 从结果后的覆盖点
         // 执行 canonical reconciliation；旧命令不得捕获新 epoch 继续回调。
-        await reconcileAuthBoundary();
-        authBoundaryHandled = true;
+        try {
+          await reconcileAuthBoundary();
+          authBoundaryHandled = true;
+        } catch {
+          // exact success 仍是 exact success。Provider 保留 fail-closed 并暴露
+          // 认证错误；旧命令 continuation 已由 fence 失效，因此不会
+          // 进入下方 onSuccess 的缓存、选择或导航副作用。
+        }
       }
       return {
         authBoundaryHandled,

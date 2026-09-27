@@ -50,3 +50,10 @@ durable marker；不能只断言提示文本。
   feedback、navigation 和其他 callback 均不能借用新 epoch。
 - POST 不进入 reconciliation callback，也不重发；explicit failure 不执行 reconciliation，unknown 仍保留原始
   unknown error 与一次 Provider recovery。
+
+## fresh review 发现的未覆盖边界
+
+当前方案只覆盖“较早 canonical GET 已完成并释放 barrier”后再发起 post-result reconciliation。若较早 GET 已从
+服务端读取提交前 ADMIN、但响应仍在途，Provider 的 command barrier 仍关闭；结果后调用会在进入 lock/fail-closed
+逻辑前被 `assertPrincipalCommandOpen()` 拒绝。该旧 GET 随后仍可能提交旧 snapshot，因此需要由 L5 在 Provider
+内部登记晚于业务结果的 reconciliation fence，并在较早读取结束后串行完成新的 canonical reconciliation。

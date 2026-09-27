@@ -76,6 +76,8 @@ type AuthTransitionContextValue = {
   begin: () => Promise<AuthTransition>;
 };
 
+type AuthTransitionMode = 'command' | 'result-reconciliation';
+
 type SessionLoadGuard = {
   isCurrent: () => boolean;
   signal: AbortSignal;
@@ -271,8 +273,11 @@ function AuthProvider({ children }: { children: ReactNode }) {
   const transitionEpochRef = useRef(0);
   const transitionControllerRef = useRef<AbortController | null>(null);
   const authReadGenerationRef = useRef(0);
+  const activeAuthReadsRef = useRef(new Set<Promise<AuthSession | null>>());
   const activeCommandEpochRef = useRef<number | null>(null);
   const commandBarrierRef = useRef<PrincipalCommandBarrier | null>(null);
+  const pendingResultReconciliationsRef = useRef(0);
+  const resultReconciliationTailRef = useRef<Promise<void>>(Promise.resolve());
   const pendingCommandBarrierReleaseRef = useRef<{
     authReadGeneration: number;
     eventId: string;
@@ -297,13 +302,15 @@ function AuthProvider({ children }: { children: ReactNode }) {
     commandBarrierRef.current = beginPrincipalCommandBarrier(queryClient);
   }, [queryClient]);
 
-  const releaseCommandBarrier = useCallback(() => {
+  const releaseCommandBarrier = useCallback((force = false) => {
+    if (!force && pendingResultReconciliationsRef.current > 0) return;
     commandBarrierRef.current?.release();
     commandBarrierRef.current = null;
     pendingCommandBarrierReleaseRef.current = null;
   }, []);
 
   const releaseCommandBarrierIfCanonical = useCallback((eventId?: string) => {
+    if (pendingResultReconciliationsRef.current > 0) return;
     const pending = pendingCommandBarrierReleaseRef.current;
     if (!pending || (eventId && pending.eventId !== eventId)) return;
     const barrier = transitionBarrierRef.current!;
@@ -347,6 +354,37 @@ function AuthProvider({ children }: { children: ReactNode }) {
     setAuthReadBlocked(true);
     setTransitionError(error);
   }, [enterCommandBarrier, invalidateRemotePrincipal]);
+
+  const trackAuthRead = useCallback((guard: SessionLoadGuard) => {
+    const read = loadAuthSession(guard);
+    activeAuthReadsRef.current.add(read);
+    void read.then(
+      () => activeAuthReadsRef.current.delete(read),
+      () => activeAuthReadsRef.current.delete(read),
+    );
+    return read;
+  }, []);
+
+  const waitForActiveAuthReads = useCallback(async (signal: AbortSignal) => {
+    while (activeAuthReadsRef.current.size > 0) {
+      const reads = Array.from(activeAuthReadsRef.current);
+      await new Promise<void>((resolve, reject) => {
+        const onAbort = () => {
+          signal.removeEventListener('abort', onAbort);
+          reject(signal.reason ?? new DOMException('认证状态转换观察已取消', 'AbortError'));
+        };
+        if (signal.aborted) {
+          onAbort();
+          return;
+        }
+        signal.addEventListener('abort', onAbort, { once: true });
+        void Promise.allSettled(reads).then(() => {
+          signal.removeEventListener('abort', onAbort);
+          resolve();
+        });
+      });
+    }
+  }, []);
 
   const handleRemoteTransition = useCallback((state: AuthTransitionStorageState) => {
     const barrier = transitionBarrierRef.current!;
@@ -437,11 +475,14 @@ function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [failClosedTransition, handleRemoteTransition]);
 
-  const beginTransition = useCallback(async (): Promise<AuthTransition> => {
+  const beginTransition = useCallback(async (
+    mode: AuthTransitionMode = 'command',
+  ): Promise<AuthTransition> => {
     const channel = authTransitionChannelRef.current;
     if (!channel) throw new Error('认证跨标签页同步尚未就绪');
-    assertPrincipalCommandOpen(queryClient);
-    const acquisitionContinuation = capturePrincipalContinuation(queryClient);
+    const acquisitionContinuation = mode === 'command'
+      ? (assertPrincipalCommandOpen(queryClient), capturePrincipalContinuation(queryClient))
+      : null;
     const transitionId = globalThis.crypto.randomUUID();
     let owner: AuthTransitionOwner;
     try {
@@ -451,8 +492,12 @@ function AuthProvider({ children }: { children: ReactNode }) {
       throw error;
     }
     try {
-      acquisitionContinuation.assertCurrent();
-      assertPrincipalCommandOpen(queryClient);
+      if (acquisitionContinuation) {
+        acquisitionContinuation.assertCurrent();
+        assertPrincipalCommandOpen(queryClient);
+      } else if (!commandBarrierRef.current) {
+        throw new Error('结果已知的认证收敛缺少 principal fence');
+      }
     } catch (error) {
       await owner.finish();
       throw error;
@@ -511,7 +556,14 @@ function AuthProvider({ children }: { children: ReactNode }) {
       }
     };
     try {
-      await queryClient.cancelQueries({ queryKey: authSessionQueryKey, exact: true });
+      if (mode === 'result-reconciliation') {
+        // fence 先于本 transition 登记并关闭了旧主体。已在服务端
+        // 读取的旧 canonical GET 必须真正 settle，再从新 owner 内发起
+        // 结果后读取；不能把 Query 取消状态当成网络读取已收敛。
+        await waitForActiveAuthReads(controller.signal);
+      } else {
+        await queryClient.cancelQueries({ queryKey: authSessionQueryKey, exact: true });
+      }
       assertCurrent();
     } catch (error) {
       if (activeCommandEpochRef.current === epoch) activeCommandEpochRef.current = null;
@@ -605,9 +657,13 @@ function AuthProvider({ children }: { children: ReactNode }) {
         barrier.fault = false;
         barrier.faultInvalidated = false;
         setTransitionError(null);
-        releaseCommandBarrier();
         setLocalCommandActive(false);
-        setAuthReadBlocked(false);
+        if (pendingResultReconciliationsRef.current === 0) {
+          releaseCommandBarrier();
+          setAuthReadBlocked(false);
+        } else {
+          setAuthReadBlocked(true);
+        }
       },
       signal: controller.signal,
     };
@@ -616,13 +672,14 @@ function AuthProvider({ children }: { children: ReactNode }) {
     failClosedTransition,
     queryClient,
     releaseCommandBarrier,
+    waitForActiveAuthReads,
   ]);
 
   useEffect(() => () => {
     transitionControllerRef.current?.abort(
       new DOMException('认证 Provider 已卸载', 'AbortError'),
     );
-    releaseCommandBarrier();
+    releaseCommandBarrier(true);
   }, [releaseCommandBarrier]);
 
   const session = useQuery({
@@ -648,7 +705,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
         },
         signal,
       };
-      return loadAuthSession(guard).then((next) => {
+      return trackAuthRead(guard).then((next) => {
         assertSessionLoadCurrent(guard);
         // 主体 epoch 必须先失效，再清理旧身份业务缓存，最后才允许 Query 写入新会话。
         commitPrincipalBoundary(queryClient, next);
@@ -698,10 +755,35 @@ function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [beginTransition, queryClient]);
 
-  const reconcileUnknownPrincipalResult = useCallback(async () => {
-    const transition = await beginTransition();
-    await transition.finish();
-  }, [beginTransition]);
+  const reconcileUnknownPrincipalResult = useCallback(() => {
+    // 调用时即为业务结果的最早可知点。在读取任何旧 barrier
+    // 之前同步登记 fence，使较早启动、较晚返回的 canonical GET
+    // 无法重开 route/cache。队列中每个请求都完成自己的结果后读取，
+    // 不将它合并进无法证明读取点更晚的在途 reconciliation。
+    pendingResultReconciliationsRef.current += 1;
+    enterCommandBarrier();
+    authReadGenerationRef.current += 1;
+    invalidatePrincipalEpoch(queryClient);
+    clearBusinessQueries(queryClient);
+    queryClient.setQueryData<AuthSession | null>(authSessionQueryKey, null);
+    setAuthReadBlocked(true);
+
+    const previous = resultReconciliationTailRef.current;
+    let completed = false;
+    const reconciliation = previous.catch(() => undefined).then(async () => {
+      const transition = await beginTransition('result-reconciliation');
+      await transition.finish();
+      completed = true;
+    }).finally(() => {
+      pendingResultReconciliationsRef.current -= 1;
+      if (completed && pendingResultReconciliationsRef.current === 0) {
+        releaseCommandBarrier();
+        setAuthReadBlocked(false);
+      }
+    });
+    resultReconciliationTailRef.current = reconciliation.catch(() => undefined);
+    return reconciliation;
+  }, [beginTransition, enterCommandBarrier, queryClient, releaseCommandBarrier]);
 
   const logout = useMutation({
     meta: { authPrincipalBoundary: true },

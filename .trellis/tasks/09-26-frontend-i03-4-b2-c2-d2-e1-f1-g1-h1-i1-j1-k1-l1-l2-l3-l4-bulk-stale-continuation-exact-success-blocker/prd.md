@@ -31,7 +31,7 @@ AuthProvider-owned principal boundary，却仍被标记为 handled 并捕获新 
 - [x] 确定性交错测试：hold bulk POST，完成另一标签页同用户新 binding 及其首次 canonical GET，再释放 self-disable exact success。
 - [x] bulk POST 恰好一次；结果返回后再次权威收敛为匿名/401，ADMIN route/cache 不恢复。
 - [x] 旧命令不能借新 continuation 执行 onSuccess/navigation/callback；explicit failure 与 unknown 三态不回归。
-- [ ] 定向检查、真实栈、资源清理、新 fixed candidate、全新 checkout 单次完整门禁均通过。
+- [x] 定向检查、真实栈、资源清理、新 fixed candidate、全新 checkout 单次完整门禁均通过。
 - [ ] fresh critical review 对完整候选给出 `NO BLOCKER` 后，才允许关闭 L4/L3 与 I03 父链。
 
 ## Evidence
@@ -68,3 +68,23 @@ AuthProvider-owned principal boundary，却仍被标记为 handled 并捕获新 
   `partsignal_e2e_%`、临时目录和测试容器均为 0。
 
 本任务只记录恢复点；当前会话不继续修复、不重跑完整门禁、不创建 I04、不执行远程动作。
+
+## L4 fixed candidate 与 fresh blocker
+
+- fixed candidate：commit `c85e282ab89fca0f2c8a5af3094f2202b9ead214`；tree
+  `6aa82a5271edd8d62be11cd2cdec225a7f2ac206`。
+- 26/26 bind sentinel 退出 `0`；日志 223 bytes，SHA-256
+  `3f46388e2ea69ee0ec8ee38ae21bba33851adf9699b4ba8c3dc81d6de03b3f34`。
+- 唯一一次完整 `make verify` 退出 `0`；日志
+  `/tmp/partsignal-i03-l4-c85e282-make-verify.log`，253,479 bytes，SHA-256
+  `80207f1ca200ed40ac41ac4f6d433cee6a8f11cef693659fa07f84f25c034d08`。实际通过：backend unit
+  683、Vitest 91 files / 836 tests、PostgreSQL integration 337、real-stack 21、fixture 494 passed /
+  44 skipped，以及 secret scan、production build、Docker、Compose、lifecycle 和部署脚本检查。
+- 门禁 pre/post resource snapshot 各 2,456 bytes、逐字一致，SHA-256
+  `08c2180dc0f2a47b5ff2f70525e86dce666de9db48c3ac87e72971eae3d91524`；四端口、Redis DB 14、
+  `partsignal_e2e_%` 数据库、临时资源与测试容器均为 0。validation checkout 已归档并 prune；原检出区
+  `9100774` 与候选工作树均干净。
+- fresh critical review 结论为 `BLOCKER`；audit id
+  `20260926T183412Z-i03-l4-fixed-candidate-final-critical-review-d33ad16c`。新 P1 是结果前 canonical GET 已读到
+  旧 ADMIN、但响应仍在途并持有 command barrier 时，结果后的 reconciliation 会在
+  `assertPrincipalCommandOpen()` 被拒绝；较早 GET 随后仍可提交旧快照。已建立 L5 子任务作为唯一恢复点。

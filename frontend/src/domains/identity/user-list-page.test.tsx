@@ -762,6 +762,48 @@ describe('Users lifecycle boundaries', () => {
     expect(screen.getByRole('status')).toHaveTextContent('成功 1，失败 0');
   });
 
+  it('exact current-actor success 不因 Provider fence 失败变成普通 mutation error', async () => {
+    const current = { ...admin, available_actions: ['UPDATE', 'DISABLE'] as User['available_actions'] };
+    const saved = { ...current, is_active: false, revision: current.revision + 1 };
+    vi.spyOn(api, 'GET').mockResolvedValue({
+      data: result([current]),
+      response: Response.json(result([current])),
+    } as never);
+    const post = vi.spyOn(api, 'POST').mockResolvedValue({
+      data: { succeeded: [saved], failures: [] },
+      response: Response.json({}, { status: 200 }),
+    } as never);
+    const clientRef: { current?: ReturnType<typeof createAuthenticatedTestQueryClient> } = {};
+    const reconcile = vi.fn(async () => {
+      const queryClient = clientRef.current!;
+      advancePrincipalEpoch(queryClient, null);
+      queryClient.removeQueries({
+        predicate: (query) => query.queryKey[0] !== authSessionQueryKey[0],
+      });
+      queryClient.setQueryData<AuthSession | null>(authSessionQueryKey, null);
+      throw new Error('result fence canonical read failed');
+    });
+    const authContext: AuthContextValue = {
+      ...auth,
+      reconcileUnknownPrincipalResult: reconcile,
+    };
+    const { queryClient } = renderUsers(undefined, authContext);
+    clientRef.current = queryClient;
+
+    await userEvent.click(await screen.findByRole('checkbox', { name: '选择用户 admin' }));
+    await userEvent.click(screen.getByRole('button', { name: '批量停用' }));
+    const dialog = await screen.findByRole('dialog', { name: '批量停用 1 个用户？' });
+    const submit = within(dialog).getByRole('button', { name: '批量停用' });
+    await userEvent.click(submit);
+
+    await waitFor(() => expect(reconcile).toHaveBeenCalledOnce());
+    await act(async () => Promise.resolve());
+    expect(post).toHaveBeenCalledOnce();
+    expect(screen.queryByText('result fence canonical read failed')).not.toBeInTheDocument();
+    expect(screen.queryByText('批量操作完成：成功 1，失败 0')).not.toBeInTheDocument();
+    expect(queryClient.getQueryData(authSessionQueryKey)).toBeNull();
+  });
+
   it('较早 binding reconciliation 不能替代 bulk exact success 后的 canonical boundary', async () => {
     const current = { ...admin, available_actions: ['UPDATE', 'DISABLE'] as User['available_actions'] };
     const saved = { ...current, is_active: false, revision: current.revision + 1 };
@@ -888,6 +930,41 @@ describe('Users lifecycle boundaries', () => {
     await waitFor(() => expect(reconcile).toHaveBeenCalledOnce());
     expect(post).toHaveBeenCalledOnce();
     expect(boundary).not.toHaveBeenCalled();
+  });
+
+  it('unknown outcome 的 Provider fence 失败不覆盖原始结果分类', async () => {
+    const current = { ...admin, available_actions: ['UPDATE', 'DISABLE'] as User['available_actions'] };
+    vi.spyOn(api, 'GET').mockResolvedValue({
+      data: result([current]),
+      response: Response.json(result([current])),
+    } as never);
+    const transportError = new TypeError('bulk transport outcome unknown');
+    const post = vi.spyOn(api, 'POST').mockRejectedValue(transportError);
+    const clientRef: { current?: ReturnType<typeof createAuthenticatedTestQueryClient> } = {};
+    const reconcile = vi.fn(async () => {
+      const queryClient = clientRef.current!;
+      advancePrincipalEpoch(queryClient, null);
+      queryClient.setQueryData<AuthSession | null>(authSessionQueryKey, null);
+      throw new Error('result fence lock rejected');
+    });
+    const authContext: AuthContextValue = {
+      ...auth,
+      reconcileUnknownPrincipalResult: reconcile,
+    };
+    const { queryClient } = renderUsers(undefined, authContext);
+    clientRef.current = queryClient;
+
+    await userEvent.click(await screen.findByRole('checkbox', { name: '选择用户 admin' }));
+    await userEvent.click(screen.getByRole('button', { name: '批量停用' }));
+    const dialog = await screen.findByRole('dialog', { name: '批量停用 1 个用户？' });
+    await userEvent.click(within(dialog).getByRole('button', { name: '批量停用' }));
+
+    expect(await within(dialog).findByRole('alert'))
+      .toHaveTextContent('批量更新用户状态的服务端提交结果未知');
+    expect(within(dialog).queryByText('result fence lock rejected')).not.toBeInTheDocument();
+    expect(reconcile).toHaveBeenCalledOnce();
+    expect(post).toHaveBeenCalledOnce();
+    expect(queryClient.getQueryData(authSessionQueryKey)).toBeNull();
   });
 
   it('批量停用当前主体收到结构化 HTTP 失败时不把结果误判为 unknown', async () => {

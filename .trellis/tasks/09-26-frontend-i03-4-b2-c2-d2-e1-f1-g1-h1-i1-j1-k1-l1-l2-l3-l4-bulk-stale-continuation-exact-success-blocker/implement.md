@@ -30,3 +30,16 @@ fetch/push/SSH/部署或 Hostdzire 写入。
 
 下一步只形成新的 fixed candidate，在全新 `/Users/sc/...` detached checkout 中先做 26/26 bind sentinel，再且仅一次
 执行 `make verify`。若绿色且资源归零，才派发 fresh `critical_reviewer`；I04 继续禁止创建。
+
+## fixed candidate、完整门禁与停止点
+
+- fixed candidate `c85e282ab89fca0f2c8a5af3094f2202b9ead214` / tree
+  `6aa82a5271edd8d62be11cd2cdec225a7f2ac206` 已形成，候选工作树干净。
+- 全新 `/Users/sc/...` detached checkout 先通过 26/26 bind sentinel，随后唯一一次 `make verify` 退出 `0`；
+  日志 `/tmp/partsignal-i03-l4-c85e282-make-verify.log`，253,479 bytes，SHA-256
+  `80207f1ca200ed40ac41ac4f6d433cee6a8f11cef693659fa07f84f25c034d08`。
+- pre/post resource snapshot 逐字一致，所有受控资源为 0；validation checkout 已归档并 prune，原检出区未变。
+- fresh 只读高风险复核 audit
+  `20260926T183412Z-i03-l4-fixed-candidate-final-critical-review-d33ad16c` 给出 `BLOCKER`：较早 canonical GET
+  已读旧 ADMIN 但仍在途时，结果后的 reconciliation 被 command barrier 拒绝，旧 GET 仍可提交旧 snapshot。
+- 按收尾规则已建立 L5 子任务；本会话不继续实现、不再次运行完整门禁、不关闭任何父阻断链，也不创建 I04。

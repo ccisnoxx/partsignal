@@ -611,6 +611,223 @@ describe('AuthProvider', () => {
     expect(get).toHaveBeenCalledTimes(3);
   });
 
+  it('结果已知 fence 等待已读取旧 ADMIN 的 canonical GET 响应收敛后再串行重读', async () => {
+    const oldCanonicalResponse = deferred<never>();
+    const oldCanonicalServerRead = deferred<void>();
+    const order: string[] = [];
+    const get = vi.spyOn(api, 'GET')
+      .mockResolvedValueOnce(authSnapshot(admin, 'initial-csrf', adminBinding))
+      .mockImplementationOnce(() => {
+        order.push('old-canonical-start', 'old-canonical-server-read-enabled-admin');
+        oldCanonicalServerRead.resolve();
+        return oldCanonicalResponse.promise;
+      })
+      .mockImplementationOnce(() => {
+        order.push('post-result-canonical-start');
+        return Promise.resolve({
+          error: { error: { code: 'AUTH_REQUIRED', message: '登录会话无效或已过期' } },
+          response: Response.json({}, { status: 401 }),
+        } as never);
+      });
+    const queryClient = createAppQueryClient();
+    queryClient.setDefaultOptions({ queries: { retry: false } });
+    let actions: UnknownReconciliationActions | undefined;
+    render(
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <UnknownReconciliationProbe onActions={(next) => { actions = next; }} />
+        </AuthProvider>
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText('unknown reconciliation ADMIN')).toBeInTheDocument();
+    const commandContinuation = capturePrincipalContinuation(queryClient);
+    queryClient.setQueryData(['audit', 'overlapping-result-fence'], { value: '旧 ADMIN 业务缓存' });
+    const transitionId = '00000000-0000-4000-8000-000000000094';
+    const started = JSON.stringify({
+      eventId: '00000000-0000-4000-8000-000000000095',
+      leaseExpiresAt: Date.now() + 60_000,
+      ownerId: remoteOwnerId,
+      phase: 'STARTED',
+      transitionId,
+      version: 2,
+    });
+    const settled = JSON.stringify({
+      eventId: '00000000-0000-4000-8000-000000000096',
+      leaseExpiresAt: Date.now() + 60_000,
+      ownerId: remoteOwnerId,
+      phase: 'SETTLED',
+      transitionId,
+      version: 2,
+    });
+
+    act(() => {
+      localStorage.setItem(authTransitionStorageKey, started);
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: authTransitionStorageKey,
+        newValue: started,
+      }));
+      localStorage.setItem(authTransitionStorageKey, settled);
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: authTransitionStorageKey,
+        newValue: settled,
+      }));
+    });
+    await oldCanonicalServerRead.promise;
+    order.push('bulk-commit', 'bulk-exact-result', 'result-fence-registered');
+
+    const reconciliation = actions!.reconcile();
+    await act(async () => Promise.resolve());
+    expect(actions!.readProtectedRouteUser()).toBeNull();
+    expect(commandContinuation.isCurrent()).toBe(false);
+    expect(queryClient.getQueryData(['audit', 'overlapping-result-fence'])).toBeUndefined();
+    expect(get).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      order.push('old-canonical-response-settle');
+      oldCanonicalResponse.resolve(authSnapshot(
+        { ...admin, revision: 2 },
+        'pre-result-csrf',
+        'b'.repeat(64),
+      ));
+      await Promise.resolve();
+    });
+    await expect(reconciliation).resolves.toBeUndefined();
+
+    expect(order).toEqual([
+      'old-canonical-start',
+      'old-canonical-server-read-enabled-admin',
+      'bulk-commit',
+      'bulk-exact-result',
+      'result-fence-registered',
+      'old-canonical-response-settle',
+      'post-result-canonical-start',
+    ]);
+    expect(get).toHaveBeenCalledTimes(3);
+    expect(await screen.findByText('unknown reconciliation 非管理员')).toBeInTheDocument();
+    expect(actions!.readProtectedRouteUser()).toBeNull();
+    expect(queryClient.getQueryData(['auth', 'session'])).toBeNull();
+    expect(readAuthTransitionState()).toMatchObject({
+      message: { phase: 'SETTLED' },
+      status: 'VALID',
+    });
+
+    window.dispatchEvent(new Event('focus'));
+    document.dispatchEvent(new Event('visibilitychange'));
+    await act(async () => Promise.resolve());
+    expect(get).toHaveBeenCalledTimes(3);
+  });
+
+  it('并发结果 fence 无法证明在途读取点更晚时串行各自的 canonical reconciliation', async () => {
+    const canonical401 = {
+      error: { error: { code: 'AUTH_REQUIRED', message: '登录会话无效或已过期' } },
+      response: Response.json({}, { status: 401 }),
+    } as never;
+    const get = vi.spyOn(api, 'GET')
+      .mockResolvedValueOnce(authSnapshot(admin, 'initial-csrf', adminBinding))
+      .mockResolvedValueOnce(canonical401)
+      .mockResolvedValueOnce(canonical401);
+    const queryClient = createAppQueryClient();
+    queryClient.setDefaultOptions({ queries: { retry: false } });
+    let actions: UnknownReconciliationActions | undefined;
+    render(
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <UnknownReconciliationProbe onActions={(next) => { actions = next; }} />
+        </AuthProvider>
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText('unknown reconciliation ADMIN')).toBeInTheDocument();
+
+    const first = actions!.reconcile();
+    const second = actions!.reconcile();
+    await Promise.all([first, second]);
+
+    expect(await screen.findByText('unknown reconciliation 非管理员')).toBeInTheDocument();
+    expect(get).toHaveBeenCalledTimes(3);
+    expect(actions!.readProtectedRouteUser()).toBeNull();
+    expect(queryClient.getQueryData(['auth', 'session'])).toBeNull();
+    window.dispatchEvent(new Event('focus'));
+    document.dispatchEvent(new Event('visibilitychange'));
+    await act(async () => Promise.resolve());
+    expect(get).toHaveBeenCalledTimes(3);
+  });
+
+  it('结果 fence 等待旧 canonical response 时卸载 Provider 保留 durable fail-closed 且旧快照不回写', async () => {
+    const oldCanonicalResponse = deferred<never>();
+    const oldCanonicalStarted = deferred<void>();
+    vi.spyOn(api, 'GET')
+      .mockResolvedValueOnce(authSnapshot(admin, 'initial-csrf', adminBinding))
+      .mockImplementationOnce(() => {
+        oldCanonicalStarted.resolve();
+        return oldCanonicalResponse.promise;
+      });
+    const queryClient = createAppQueryClient();
+    queryClient.setDefaultOptions({ queries: { retry: false } });
+    let actions: UnknownReconciliationActions | undefined;
+    const view = render(
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <UnknownReconciliationProbe onActions={(next) => { actions = next; }} />
+        </AuthProvider>
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText('unknown reconciliation ADMIN')).toBeInTheDocument();
+    queryClient.setQueryData(['audit', 'result-fence-unmount'], { value: '旧 ADMIN 缓存' });
+    const transitionId = '00000000-0000-4000-8000-000000000097';
+    const started = JSON.stringify({
+      eventId: '00000000-0000-4000-8000-000000000098',
+      leaseExpiresAt: Date.now() + 60_000,
+      ownerId: remoteOwnerId,
+      phase: 'STARTED',
+      transitionId,
+      version: 2,
+    });
+    const settled = JSON.stringify({
+      eventId: '00000000-0000-4000-8000-000000000099',
+      leaseExpiresAt: Date.now() + 60_000,
+      ownerId: remoteOwnerId,
+      phase: 'SETTLED',
+      transitionId,
+      version: 2,
+    });
+    act(() => {
+      localStorage.setItem(authTransitionStorageKey, started);
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: authTransitionStorageKey,
+        newValue: started,
+      }));
+      localStorage.setItem(authTransitionStorageKey, settled);
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: authTransitionStorageKey,
+        newValue: settled,
+      }));
+    });
+    await oldCanonicalStarted.promise;
+
+    const reconciliation = actions!.reconcile();
+    await waitFor(() => expect(readAuthTransitionState()).toMatchObject({
+      message: { phase: 'STARTED' },
+      status: 'VALID',
+    }));
+    view.unmount();
+    await expect(reconciliation).rejects.toMatchObject({ name: 'AbortError' });
+    await act(async () => {
+      oldCanonicalResponse.resolve(authSnapshot(
+        { ...admin, revision: 2 },
+        'pre-result-csrf',
+        'b'.repeat(64),
+      ));
+      await Promise.resolve();
+    });
+
+    expect(queryClient.getQueryData(['auth', 'session'])).toBeNull();
+    expect(queryClient.getQueryData(['audit', 'result-fence-unmount'])).toBeUndefined();
+    expect(readAuthTransitionState()).toMatchObject({
+      message: { phase: 'STARTED' },
+      status: 'VALID',
+    });
+  });
+
   it('等待 acquire 时卸载 Provider 不会在共享 QueryClient 遗留 command barrier', async () => {
     vi.spyOn(api, 'GET').mockResolvedValue(authSnapshot(admin, 'initial-csrf'));
     const request = vi.fn((_name: string, options: LockOptions) => new Promise<never>((_resolve, reject) => {

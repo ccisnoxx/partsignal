@@ -25,9 +25,9 @@
     "frontend/tests/e2e/real-stack-session.ts",
     "frontend/tests/e2e/real-stack-runtime.ts"
   ],
-  "notes": "L6 fixed candidate d0f985cf 的定向验证与 system-admin 完整门禁覆盖均通过，但唯一 make verify 在既有 auth-session A→B→A 用例的 product POST response release 编排中超时。资源已归零；本会话不修复、不重跑门禁、不派发 fresh review、不创建 I04。",
+  "notes": "L7 只重排 auth-session A→B→A 真实栈的 click/productAccepted/releaseProduct promise 所有权。runtime audit 13/13、A→B→A 定向 1 passed、L6 System Admin 定向 1 passed，两次 secret scan clean，前后资源快照逐字一致且归零。待形成新 fixed candidate 并在全新 detached checkout 执行下一次唯一完整门禁；I04 未创建。",
   "meta": {
-    "stage": "recovery_recorded",
+    "stage": "targeted_validated_pending_candidate",
     "baseline_commit": "9100774b0e124d1d834f8c726cf85f2c0e171e5e",
     "blocked_candidate_commit": "d0f985cf09b663f928e5e0566b1ca84401248de9",
     "blocked_candidate_tree": "5f918935441eff622ce31c8539d689584c2090a3",
@@ -84,6 +84,26 @@
     "original_checkout": "9100774b0e124d1d834f8c726cf85f2c0e171e5e clean",
     "remote_writes": "none",
     "i04_created": "false",
-    "next_recovery": "implement only L7 deterministic product trigger/response release orchestration; form a new candidate; use a fresh detached checkout for the next single full gate"
+    "l7_implementation": "save the product click promise; await server acceptance, B login, replacement A login, controlled response release, then await the original response and click settlement",
+    "l7_targeted_runtime_unit": "1 file / 13 tests / status 0",
+    "l7_targeted_runtime_unit_log": "/tmp/partsignal-i03-l7-runtime-audit-unit.log",
+    "l7_targeted_runtime_unit_bytes": 353,
+    "l7_targeted_runtime_unit_sha256": "2635a94f4d1ab25f382904db4e8510900c8e79febbbe1b85b48fc5f9f9643678",
+    "l7_targeted_auth_session": "1 passed; product POST 201 and exact attempt/response 1/1; secret scan clean",
+    "l7_targeted_auth_session_log": "/tmp/partsignal-i03-l7-auth-session-targeted.log",
+    "l7_targeted_auth_session_bytes": 28861,
+    "l7_targeted_auth_session_sha256": "ee8aa97eeb0bb61b09027e93d5efb274e3a0be40f29c1b7c61fa7298351f0cac",
+    "l7_targeted_system_admin": "1 passed; response-loss and stale exact-success covered; secret scan clean",
+    "l7_targeted_system_admin_log": "/tmp/partsignal-i03-l7-system-admin-targeted.log",
+    "l7_targeted_system_admin_bytes": 33941,
+    "l7_targeted_system_admin_sha256": "7e27b209f9cd6b400b8e913ad4587782944c98acdc91a0774409319c17d62870",
+    "l7_targeted_resource_pre": "/tmp/partsignal-i03-l7-targeted-resource-pre.log",
+    "l7_targeted_resource_post": "/tmp/partsignal-i03-l7-targeted-resource-post.log",
+    "l7_targeted_resource_snapshot_bytes": 4140,
+    "l7_targeted_resource_snapshot_sha256": "7970731c9d53c924dcc869108491b7e5836d2206234443fc4bd85723a8e35799",
+    "l7_targeted_resources": "pre/post byte-identical; ports, Redis DB14, partsignal_e2e databases, temporary resources and test containers zero",
+    "l7_git_diff_check": 0,
+    "l7_cleanup_observation": "normal cookie secret registration completes after the deadlock fix; no helper change is warranted and cleanup errors remain observable",
+    "next_recovery": "form the L7 fixed candidate, create a fresh detached checkout, run the 26/26 bind sentinel, then execute the candidate single full make verify"
   }
 }

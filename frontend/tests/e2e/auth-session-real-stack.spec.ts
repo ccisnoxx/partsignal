@@ -155,7 +155,7 @@ test('同一 BrowserContext 双页面以 session binding 封闭 A→B→A 的迟
     await pageA.getByLabel('品牌').fill('Auth ABA');
     await pageA.getByLabel('类别').fill('Deterministic interleaving');
     phase.current = 'a-pending-product';
-    await pageA.getByRole('button', { name: '创建产品' }).click();
+    const pendingProductClick = pageA.getByRole('button', { name: '创建产品' }).click();
     await productAccepted.promise;
 
     pageB = await context.newPage();
@@ -198,6 +198,7 @@ test('同一 BrowserContext 双页面以 session binding 封闭 A→B→A 的迟
     releaseProduct.resolve();
     await oldResponse;
     await productFulfilled.promise;
+    await pendingProductClick;
     await pageA.evaluate(async () => {
       await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
     });

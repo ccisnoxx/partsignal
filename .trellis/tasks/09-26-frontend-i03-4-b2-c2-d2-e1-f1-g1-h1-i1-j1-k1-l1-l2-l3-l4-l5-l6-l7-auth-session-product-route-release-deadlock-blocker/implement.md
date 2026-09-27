@@ -12,3 +12,17 @@
 7. 只有新门禁绿色、资源归零、代码冻结后才派发 fresh `critical_reviewer`；NO BLOCKER 后再关闭全部 I03 阻断链。
 
 本会话因新的唯一完整门禁失败到此停止，不实施 L7 修复，不创建 I04。
+
+## 本会话实施与定向验证
+
+1. 产品创建 `click()` 不再在 `productAccepted` 前被 await；测试保存 `pendingProductClick`，
+   依次等待真实服务端接受、B 登录、A replacement 登录，然后释放 product response 并
+   等待 old response、route fulfill 与 click settle。
+2. A→B→A 定向真实栈 `1 passed`；真实产品 POST `201` 且 attempt/response `1/1`，
+   三个 session binding 仍互不相同，旧 continuation 不导航，runtime error 与 secret artifact 为零。
+3. 冻结的 L6 System Admin 定向用例 `1 passed`，runtime audit `13/13`，两次真实栈 secret scan 均 clean；
+   定向前后资源快照逐字一致且所有受控资源为 0。
+4. L7 diff 只有 `auth-session-real-stack.spec.ts` 的 promise 编排与本任务记录；L6 gate、
+   L5 产品逻辑、AuthProvider、UserListPage、后端权限、session helper 与 runtime audit 均未修改。
+5. 下一步是形成新 fixed candidate，再从该 commit 创建全新 `/Users/sc/...` detached checkout；
+   先执行 26/26 bind sentinel，再且仅一次执行 `make verify`。

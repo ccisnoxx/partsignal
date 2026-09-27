@@ -75,7 +75,8 @@
     "09-25-frontend-w01-workbench",
     "09-25-frontend-i01-legacy-routing",
     "09-25-frontend-i02-full-candidate",
-    "09-25-frontend-i03-canonical-local-integration"
+    "09-25-frontend-i03-canonical-local-integration",
+    "09-27-frontend-i04-release-deployment"
   ],
   "parent": null,
   "relatedFiles": [],

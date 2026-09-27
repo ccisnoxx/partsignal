@@ -51,10 +51,12 @@
   observer 分别注册 phase + origin + GET + exact pathname + 401 的 `waitForResponse`；bulk 服务端提交后先
   `Promise.all` 等两页 response，再读取 runtime audit。AuthProvider、UserListPage 与 backend 无 diff。
 - 定向 runtime audit：`1 file / 13 tests`；日志 `/tmp/partsignal-i03-l6-runtime-audit-unit.log`，346 bytes，
-  SHA-256 `a81c7b0410dc68d821bf734061d4255f1f0bf3cf1472c780dc30bef9810a4a3d`。
+  SHA-256 `a81c7b0410dc68d821bf734061d4255f1f0bf3cf1472c780dc30bef9810a4a3d`。Vitest 输出明确通过；其后外层
+  zsh 证据包装器因误用只读变量 `status` 以 status `1` 退出，因此没有把该包装器状态误记为测试失败，也未无依据重跑。
 - 定向 System Admin：`2 passed`、secret scan clean；日志
   `/tmp/partsignal-i03-l6-system-admin-targeted.log`，40,278 bytes，SHA-256
-  `6e6db4640eb1dc4d74e4f4ea25070d4ba9bc47d54963c585ab804f3f466e0959`；资源归零，`git diff --check` 通过。
+  `6e6db4640eb1dc4d74e4f4ea25070d4ba9bc47d54963c585ab804f3f466e0959`；测试 status `0`，其后包装器仅因
+  hash 输出转义错误退出，哈希已用独立只读命令计算；资源归零，`git diff --check` 通过，未重跑测试。
 - fixed candidate `d0f985cf09b663f928e5e0566b1ca84401248de9`，tree
   `5f918935441eff622ce31c8539d689584c2090a3`。新 detached checkout bootstrap 成功，有效 bind sentinel
   `26/26`；首次 sentinel wrapper 因内联 Python 引号转义在断言前 SyntaxError，修正 wrapper 后才得到有效

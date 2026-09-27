@@ -34,5 +34,14 @@ L4 绿色门禁只是 blocked candidate 的历史证据：日志 `/tmp/partsigna
 7. 定向资源 pre/post 快照逐字一致：2,472 bytes，SHA-256
    `e1017f63c6d97a24e35484753f7fe4d98a5c5d129e334f45969983eccb6df031`；所有受控资源为 0。
 
-下一步：检查完整 diff 并形成 L5 fixed candidate，然后仅在全新 `/Users/sc/...` detached validation
-checkout 中执行 26/26 sentinel 和单次 `make verify`。
+## 单次完整门禁结果
+
+- fixed candidate `70add985a05844d650c220da279d9ddf1a2644fa` / tree
+  `83944d4a574aab3a345fe05bdf095f6d56bc83db` 已形成，candidate worktree clean。
+- 26/26 bind sentinel 通过。唯一一次 `make verify` 的合同、lint/typecheck、backend unit 683、frontend
+  91 files/841 tests、PostgreSQL integration 337 与 production build 均通过。
+- real-stack 20/21；失败为 response-loss 双页 recovery 的第二个 Playwright response 事件尚未写入
+  `runtimeAudit.responses`，而 attempts=2、服务端 401=2。secret scan clean，E2E 自动清理成功。
+- 门禁日志 status `2`，160,620 bytes，SHA-256
+  `0e5d124af9ab31bd33ab2572b45377b14a22d5469418f4def104407b55abca6c`；资源 pre/post 逐字一致且归零。
+- 已创建 L6 精确恢复点；本会话不修改候选、不重跑完整门禁、不派发 fresh review、不创建 I04。

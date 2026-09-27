@@ -37,3 +37,9 @@ principal 或回调；失败语义必须与 exact 业务结果分类分离。
 - 页面对 reconciliation 失败只保留 Provider 已建立的 fail-closed：exact success 继续作为 exact
   success，unknown 继续抛原始 unknown error。页面不发起第二次 auth refresh，不捕获新 continuation，
   也不执行 selection/cache/navigation callback。
+
+## 门禁阻断
+
+L5 candidate `70add985` 的实现与定向证据保持冻结。完整门禁失败发生在同一 system-admin 测试的既有
+response-loss 子场景：两页已经各发 GET、服务端各回 401，但测试把“已导航登录”误作两个 Playwright
+response handler 都已入账的同步点。该观测等待缺口由 L6 独立处理，不回改 result-known fence 设计。

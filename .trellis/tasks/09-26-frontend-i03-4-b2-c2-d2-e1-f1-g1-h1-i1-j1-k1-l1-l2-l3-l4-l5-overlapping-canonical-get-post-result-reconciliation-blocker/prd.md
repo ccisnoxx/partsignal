@@ -34,7 +34,8 @@ durable-marker guard 提交旧 snapshot，恢复 ADMIN route/cache。
 - [x] 不抛 `ActivePrincipalCommandError`；结果后必须再有 canonical 401/anonymous，route/cache 从不重开。
 - [x] POST 一次；GET 顺序、barrier/epoch、marker/lease、callback/navigation、retry/offline resume 均有断言。
 - [x] lock acquire failure、Provider unmount、uppercase UUID、exact/explicit/unknown 三态与无请求风暴不回归。
-- [ ] 形成新候选后按独立会话规则执行新 checkout 的单次完整门禁、资源归零与 fresh 高风险复核。
+- [ ] 新 fixed candidate `70add985` 的单次完整门禁在既有 response-loss 双页 recovery 审计等待点失败；
+  已建立 L6，新的候选门禁与 fresh 高风险复核尚未完成。
 
 ## L5 implemented evidence
 
@@ -70,4 +71,21 @@ durable-marker guard 提交旧 snapshot，恢复 ADMIN route/cache。
 - finding locations：`frontend/src/domains/identity/user-list-page.tsx:277`；
   `frontend/src/app/auth/auth-provider.tsx:306-317,408-417,443`。
 
-本任务仅建立恢复点；当前会话禁止继续修复、再次运行完整门禁或创建 I04。
+## L5 candidate gate result
+
+- fixed candidate `70add985a05844d650c220da279d9ddf1a2644fa`；tree
+  `83944d4a574aab3a345fe05bdf095f6d56bc83db`。
+- 26/26 bind sentinel status `0`；日志 `/tmp/partsignal-i03-l5-70add985-bind-sentinel.log`，223 bytes，
+  SHA-256 `0183c2d5582c091d9fb0df05b0886ec414f69fa71380bc88488bbd55b2c02452`。
+- 唯一完整门禁 status `2`；日志 `/tmp/partsignal-i03-l5-70add985-make-verify.log`，160,620 bytes，
+  SHA-256 `0e5d124af9ab31bd33ab2572b45377b14a22d5469418f4def104407b55abca6c`。
+- backend unit `683`、frontend Vitest `91/841`、PostgreSQL integration `337`、build 均通过；real-stack
+  `20 passed / 1 failed`，secret scan clean。失败为 response-loss 子场景两次 GET attempt、服务端两次 401，
+  但测试在第二个 Playwright response 事件入账前读取审计数组，位置
+  `frontend/tests/e2e/system-admin-real-stack.spec.ts:684-717`。
+- pre/post resource snapshot 各 2,472 bytes、逐字一致，SHA-256
+  `acb1a66beca8a47798de1b8b2a198ad21562e87cd015e7ddcc5078874c527524`；全部受控资源归零，
+  detached checkout 已移除并 prune，原检出区仍为 clean baseline。
+- fresh 高风险复核未派发；L6
+  `09-26-frontend-i03-4-b2-c2-d2-e1-f1-g1-h1-i1-j1-k1-l1-l2-l3-l4-l5-l6-bulk-response-loss-recovery-audit-wait-blocker`
+  是唯一新叶子。本会话不继续修复、不重跑门禁、不创建 I04。

@@ -68,6 +68,7 @@ next_release=production-20260829-130000-fedcba987654
 
 case "${PARTSIGNAL_PRODUCTION_HARNESS_TEST_MODE:-}" in
   "") ;;
+  network-identity | network-compatibility) ;;
   success) exit 0 ;;
   failure) exit "${PARTSIGNAL_PRODUCTION_HARNESS_TEST_FAILURE_STATUS:-23}" ;;
   initialization-failure) exit 24 ;;
@@ -104,7 +105,9 @@ PARTSIGNAL_DATA_ROOT="$test_dir/live" \
   -f "$root/deploy/compose.prod.yaml" \
   config --no-env-resolution --format json >"$test_dir/compose-async.json"
 
-python3 - "$test_dir/compose.json" "$test_dir/live" "$root/.env.example" <<'PY'
+if test "${PARTSIGNAL_PRODUCTION_HARNESS_TEST_MODE:-}" != network-compatibility; then
+python3 - "$test_dir/compose.json" "$test_dir/live" "$root/.env.example" \
+  "$test_dir/compose-async.json" "$root/deploy/compose.prod.yaml" <<'PY'
 import json
 import sys
 
@@ -128,11 +131,162 @@ assert frontend["ports"] == [{
 assert services["postgres"]["volumes"][0]["source"] == f"{sys.argv[2]}/postgres"
 assert services["redis"]["volumes"][0]["source"] == f"{sys.argv[2]}/redis"
 assert services["api"]["env_file"] == [{"path": sys.argv[3]}]
-assert services["frontend"]["networks"] == {"partsignal-edge": None}
+assert services["frontend"]["networks"] == {"partsignal-staging-edge": None}
 assert "worker" not in services
 assert "scheduler" not in services
-assert config["networks"]["partsignal-edge"]["name"] == "partsignal-staging-edge"
+with open(sys.argv[4], encoding="utf-8") as config_file:
+    async_config = json.load(config_file)
+expected_networks = {"partsignal-staging-" + suffix for suffix in ("internal", "egress", "edge")}
+assert set(config["networks"]) == set(async_config["networks"]) == expected_networks
+for key, network in async_config["networks"].items():
+    assert network["name"] == key
+    assert network.get("external", False) is False
+    assert network.get("internal", False) is (key == "partsignal-staging-internal")
+backend_networks = {"partsignal-staging-internal", "partsignal-staging-egress"}
+expected_services = {
+    "migrate": backend_networks, "api": backend_networks,
+    "worker": backend_networks, "scheduler": backend_networks,
+    "postgres": {"partsignal-staging-internal"},
+    "redis": {"partsignal-staging-internal"},
+    "frontend": {"partsignal-staging-edge"},
+}
+assert set(async_config["services"]) == set(expected_services)
+assert set(services) == set(expected_services) - {"worker", "scheduler"}
+for name, networks in expected_services.items():
+    assert set(async_config["services"][name]["networks"]) == networks, name
+    if name in services:
+        assert set(services[name]["networks"]) == networks, name
+for name in ("postgres", "redis"):
+    assert not async_config["services"][name].get("ports"), name
+with open(sys.argv[5], encoding="utf-8") as source:
+    text = source.read()
+assert all("partsignal-" + suffix not in text for suffix in ("internal", "egress", "edge"))
+assert "19001" not in text and "/object-storage/" not in text
+print("Production network identity static: 3 networks / 7 services passed")
 PY
+fi
+
+if test "${PARTSIGNAL_PRODUCTION_HARNESS_TEST_MODE:-}" = network-identity; then
+  exit 0
+fi
+
+# 真实本地 Engine，直接使用权威 Production Compose；禁止复用未知网络或运行项目。
+python3 - "$root" "$test_dir" <<'PY'
+import json
+import os
+from pathlib import Path
+import signal
+import subprocess
+import sys
+import uuid
+
+root, test_dir = map(Path, sys.argv[1:])
+owner = "production-network-compat-" + uuid.uuid4().hex
+owner_key = "com.partsignal.test-owner"
+owner_filter = "label=" + owner_key + "=" + owner
+project = "partsignal-staging"
+keys = [project + "-" + suffix for suffix in ("internal", "egress", "edge")]
+environment = {
+    **os.environ,
+    "COMPOSE_PROJECT_NAME": project,
+    "PARTSIGNAL_BACKEND_IMAGE": "partsignal-backend",
+    "PARTSIGNAL_FRONTEND_IMAGE": "partsignal-frontend-v2",
+    "PARTSIGNAL_VERSION": "test",
+    "PARTSIGNAL_FRONTEND_VERSION": "test",
+    "PARTSIGNAL_RUNTIME_ENV_FILE": str(root / ".env.example"),
+    "PARTSIGNAL_DATA_ROOT": str(test_dir / "engine-data"),
+}
+
+def docker(*args, check=True):
+    return subprocess.run(["docker", *args], env=environment, text=True,
+                          capture_output=True, check=check)
+
+context = os.environ.get("DOCKER_CONTEXT")
+endpoint = (docker("context", "inspect", context, "--format",
+                   '{{(index .Endpoints "docker").Host}}').stdout.strip() if context
+            else os.environ.get("DOCKER_HOST") or docker(
+                "context", "inspect", "--format", '{{(index .Endpoints "docker").Host}}'
+            ).stdout.strip())
+assert endpoint.startswith("unix://"), "network 回归只允许本地 Unix socket Engine"
+docker("info", "--format", "{{.ID}}")
+assert not docker("ps", "-aq", "--filter", "label=com.docker.compose.project=" + project).stdout.strip(), "固定项目已被占用"
+existing = set(docker("network", "ls", "--format", "{{.Name}}").stdout.splitlines())
+assert not existing.intersection(keys), "固定测试网络已被占用，拒绝接管"
+config = json.loads((test_dir / "compose-async.json").read_text())
+for service in config["services"].values():
+    docker("image", "inspect", service["image"], "--format", "{{.Id}}")
+for leaf in ("postgres", "redis"):
+    (test_dir / "engine-data" / leaf).mkdir(parents=True)
+compose = ["compose", "--profile", "production-async", "--env-file",
+           str(root / ".env.example"), "-f", str(root / "deploy/compose.prod.yaml")]
+
+def owned_ids(kind):
+    command = ("ps", "-aq", "--no-trunc") if kind == "container" else ("network", "ls", "-q", "--no-trunc")
+    return docker(*command, "--filter", owner_filter).stdout.split()
+
+def cleanup():
+    for kind in ("container", "network"):
+        for identifier in owned_ids(kind):
+            metadata = json.loads(docker(kind, "inspect", identifier).stdout)[0]
+            labels = metadata["Config"]["Labels"] if kind == "container" else metadata["Labels"]
+            assert labels[owner_key] == owner, "cleanup ownership 不匹配"
+            docker(kind, "rm", *( ["-f", "-v"] if kind == "container" else []), identifier)
+    assert not owned_ids("container") and not owned_ids("network"), "Engine 回归资源未归零"
+
+def create_networks(wrong_key=None):
+    for key in keys:
+        logical = key.replace("partsignal-staging-", "partsignal-") if key == wrong_key else key
+        args = ["network", "create", "--label", owner_key + "=" + owner,
+                "--label", "com.docker.compose.project=" + project,
+                "--label", "com.docker.compose.network=" + logical]
+        if key.endswith("-internal"):
+            args.append("--internal")
+        docker(*args, key)
+        network = json.loads(docker("network", "inspect", key).stdout)[0]
+        assert network["Name"] == key and network["Labels"]["com.docker.compose.network"] == logical
+        assert network["Internal"] is key.endswith("-internal")
+
+def probe(service):
+    return docker(*compose, "run", "--rm", "--pull", "never", "--no-deps",
+                  "--name", owner + "-" + service, "--label", owner_key + "=" + owner,
+                  "--entrypoint", "/bin/sh", service, "-c", "printf '%s\\n' network-compatible",
+                  check=False)
+
+def interrupted(signum, frame):
+    raise KeyboardInterrupt("Engine 回归被 signal 中断")
+
+signal.signal(signal.SIGTERM, interrupted)
+try:
+    create_networks()
+    before = {key: docker("network", "inspect", "--format", "{{.Id}}", key).stdout.strip() for key in keys}
+    for service in ("api", "migrate", "postgres", "redis", "worker", "scheduler", "frontend"):
+        result = probe(service)
+        assert result.returncode == 0, (service, result.returncode, result.stdout, result.stderr)
+        assert result.stdout.strip() == "network-compatible", result.stdout
+        assert not owned_ids("container"), "run --rm 未清理 one-off"
+        print("Engine existing-label reuse: " + service + " passed", flush=True)
+    after = {key: docker("network", "inspect", "--format", "{{.Id}}", key).stdout.strip() for key in keys}
+    assert before == after, "Compose 不得重建已存在网络"
+    cleanup()
+    for key in keys:
+        create_networks(wrong_key=key)
+        result = probe("frontend" if key.endswith("-edge") else "api")
+        expected_label = key.replace("partsignal-staging-", "partsignal-")
+        assert result.returncode != 0
+        assert 'incorrect label com.docker.compose.network' in result.stderr, result.stderr
+        assert key in result.stderr and '"' + expected_label + '"' in result.stderr, result.stderr
+        assert '(expected: "' + key + '")' in result.stderr, result.stderr
+        assert not owned_ids("container"), "label mismatch 不应创建容器"
+        print("Engine old-label rejection: " + key + " passed", flush=True)
+        cleanup()
+finally:
+    cleanup()
+print("Production Engine network compatibility: 7 positive / 3 negative; containers=0 networks=0")
+PY
+
+if test "${PARTSIGNAL_PRODUCTION_HARNESS_TEST_MODE:-}" = network-compatibility; then
+  exit 0
+fi
 
 python3 - "$test_dir/compose-async.json" <<'PY'
 import json
@@ -182,7 +336,9 @@ printf '%s\n' \
   '  "ps -q --filter label=com.docker.compose.project="*) printf "%s\n" "${DOCKER_PROJECT_IDS:-}" ;;' \
   '  "ps -q") printf "%s\n" "${DOCKER_RUNNING_IDS:-}" ;;' \
   '  "inspect "*) printf "%s\n" "${DOCKER_INSPECT_JSON:-[]}" ;;' \
-  '  *) printf "docker %s\n" "$*" >>"${COMMAND_LOG:-/dev/null}" ;;' \
+  '  *)' \
+  '    if test "$1" = compose; then test "${COMPOSE_PROJECT_NAME:-}" = partsignal-staging || exit 92; fi' \
+  '    printf "docker %s\n" "$*" >>"${COMMAND_LOG:-/dev/null}" ;;' \
   'esac' \
   >"$test_dir/bin/docker"
 printf '%s\n' \
@@ -1843,6 +1999,40 @@ grep -q 'up -d --no-deps --no-build --pull never --force-recreate --wait fronten
   "$test_dir/rollback.log"
 ! grep -Eq 'up .*api|up .*worker|up .*scheduler|up .*postgres|up .*redis' \
   "$test_dir/rollback.log"
+
+python3 - "$root" "$test_dir" <<'PY'
+from pathlib import Path
+import shlex
+import sys
+
+root, test_dir = map(Path, sys.argv[1:])
+expected_compose = (root / "deploy/compose.prod.yaml").resolve()
+counts = {"local": 6, "activate": 1, "rollback": 1}
+for path_name, expected_count in counts.items():
+    lines = (test_dir / (path_name + ".log")).read_text().splitlines()
+    verifies = [index for index, line in enumerate(lines) if line.startswith("docker image inspect ")]
+    operations = []
+    for index, line in enumerate(lines):
+        args = shlex.split(line)
+        if args[:2] != ["docker", "compose"]:
+            continue
+        assert Path(args[args.index("-f") + 1]).resolve() == expected_compose
+        if "run" not in args and "up" not in args:
+            continue
+        operations.append(index)
+        assert args[args.index("--pull") + 1] == "never", (path_name, args)
+        if path_name == "rollback":
+            assert "--no-deps" in args and "--no-build" in args
+            assert args[-1] == "frontend"
+    assert len(operations) == expected_count, (path_name, len(operations))
+    assert verifies and max(verifies) < min(operations), path_name
+appendix = (root / "docs/Hostdzire部署附录.md").read_text()
+preflight = appendix.split("## 3. Production env 预检", 1)[1].split("## 4.", 1)[0]
+assert 'verify-candidate-images "$manifest_path"' in preflight
+assert "run --rm --pull never --no-deps api" in preflight
+assert preflight.index("verify-candidate-images") < preflight.index("run --rm")
+print("deploy/activate/rollback identity: 3 paths / 8 local operations / manifest-first passed")
+PY
 
 python3 - "$test_dir/live/.partsignal-production-cutover.json" <<'PY'
 import json

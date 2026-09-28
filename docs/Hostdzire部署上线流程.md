@@ -11,6 +11,7 @@
 | 公网入口 | DMIT 只做四层 SNI/端口转发和 `proxy_protocol` |
 | 应用主机 | Hostdzire，TLS 终止、站点 Nginx 与全部应用容器的唯一写入目标 |
 | Compose project | `partsignal-staging`；仅为原地转换保留的历史 runtime identifier，不代表环境语义 |
+| Compose networks | logical key、physical `name:` 与既有 network label 均为 `partsignal-staging-internal/egress/edge`；internal 保持 `internal: true` |
 | Production env | `/root/partsignal/shared/.env.production`，权限 `0600`，不与 `.env.staging` 共享 |
 | 活动数据 | `/root/partsignal-data/postgres`、`/root/partsignal-data/redis` |
 | 旧环境隔离 | `/root/partsignal-data-quarantine/<run-id>`，不得被 Production mount |
@@ -31,6 +32,7 @@ Production 不使用 `/var/www/partsignal-frontend/current`，`/root/partsignal/
 
 - 本地不是干净的 `main`，候选提交与 `origin/main` 不一致，或 release/image/manifest 可覆盖。
 - SSH 主机密钥冲突、目标身份或只读 inventory 与授权包不一致。
+- 现存网络的 `com.docker.compose.project` 或 `com.docker.compose.network` 与固定 project/logical key 不一致；物理 `name:` 一致仍不足以通过 Engine ownership 校验。
 - Production env 引用 `.env.staging`，或配置为 `deterministic`、development storage、fake OSS、非安全 Cookie、`AI_ALLOW_LOCAL_HTTP=true`。
 - 三个旧数据目录、同文件系统 quarantine、恢复命令或上一份已验证 V2 镜像不明确。
 - migration、完整性、账号初始化、Compose health、`nginx -t`、live/ready、缓存/CSP/source-map 或浏览器验收失败。
@@ -57,6 +59,8 @@ Production 镜像交付模式由 `PARTSIGNAL_IMAGE_DELIVERY_MODE` 显式控制�
 `/root/partsignal/shared/.env.production` 只能在 Hostdzire 受控创建或更新，权限必须为 `0600`。至少满足 `APP_ENV=production`、安全 Cookie、`CONTENT_GENERATOR=openai-compatible`、`AI_ALLOW_LOCAL_HTTP=false`、`OBJECT_STORAGE_BACKEND=aliyun_oss`，并使用独立 session/encryption/database/account secrets 和完整低权限 OSS 配置。
 
 只允许通过 `python -m app.cli preflight-production-config` 输出固定枚举与 `*_configured` 状态；不得输出 URL、bucket、AccessKey 或 secret 值。结构预检不能替代真实 AI/OSS 的权限、连通性、超时、CORS、上传/HEAD/读取验证。
+
+附录的 pre-cutover probe 必须先用同一 release 的 manifest consumer 验证 tracked files 和实际镜像 ID/RepoDigest，再以 `run --rm --pull never --no-deps api` 执行；直接 probe 属于 one-off 容器创建授权。出现 network label mismatch 时停止并修复仓库合同，重建 Repository Release Gate；旧冻结 archive/images/manifest 仅为不可覆盖的历史失败证据，新 release 不得复用这些身份。网络修复不得通过手工 relabel/recreate、external、override 或更换 project 绕过 Compose ownership。
 
 ## 5. 原地转换
 

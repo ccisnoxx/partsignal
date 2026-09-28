@@ -40,12 +40,20 @@ python3 deploy/scripts/create-release-manifest.py \
 
 共享文件固定为 `/root/partsignal/shared/.env.production`，权限 `0600`。转换前只输出键名或状态，不能输出值：
 
+在已核验的候选 release 目录执行；`release_id`、两个 image repository 与绝对 `manifest_path` 必须属于同一新冻结候选。先由 manifest consumer 复算 tracked deployment files 并验证本地 image ID/RepoDigest，再执行直接 Compose probe；此 probe 会创建并删除一个 one-off 容器，须有对应授权。本地镜像交付固定 `--pull never --no-deps`，不拉取镜像、不启动或重建依赖服务。任何 identity 或现存 network label 不匹配都停止，不进入维护。
+
 ```sh
 set -eu
 ps_env=/root/partsignal/shared/.env.production
 test -f "$ps_env"
 test ! -L "$ps_env"
 test "$(stat -c '%a' "$ps_env")" = 600
+
+PARTSIGNAL_VERSION="$release_id" \
+PARTSIGNAL_BACKEND_IMAGE="$backend_repository" \
+PARTSIGNAL_FRONTEND_IMAGE="$frontend_v2_repository" \
+python3 ./deploy/scripts/prepare-production-data.py \
+  verify-candidate-images "$manifest_path"
 
 COMPOSE_PROJECT_NAME=partsignal-staging \
 PARTSIGNAL_VERSION="$release_id" \
@@ -61,7 +69,8 @@ PARTSIGNAL_BACKEND_IMAGE="$backend_repository" \
 PARTSIGNAL_FRONTEND_IMAGE="$frontend_v2_repository" \
 PARTSIGNAL_RUNTIME_ENV_FILE=$ps_env \
 PARTSIGNAL_DATA_ROOT=/root/partsignal-data \
-docker compose --env-file "$ps_env" -f deploy/compose.prod.yaml run --rm api \
+docker compose --env-file "$ps_env" -f deploy/compose.prod.yaml \
+  run --rm --pull never --no-deps api \
   python -m app.cli preflight-production-config
 ```
 
@@ -72,6 +81,16 @@ docker compose --env-file "$ps_env" -f deploy/compose.prod.yaml run --rm api \
 远端写授权前重新核验 hostname/时间/资源，精确 Compose project/service/container/image/health/restart，`19000/19001/19080` listener，DB revision、migrate container 集合、Nginx enabled target/checksum/`nginx -t`，TLS 有效期与续期 owner，current/release/manifest，以及三个数据目录的类型、device、owner、mode 和 size。
 
 任何值与授权包不一致都停止并重新评审。只读 inventory 不查看表内容、对象内容、环境变量值或 container secret。
+
+Production project 固定为 `partsignal-staging`。三个网络的 physical name、Compose logical key 与 `com.docker.compose.network` label 必须分别精确等于 `partsignal-staging-internal`、`partsignal-staging-egress`、`partsignal-staging-edge`；三者的 `com.docker.compose.project` 必须为 `partsignal-staging`，只有 internal 网络为 `internal: true`。`name:` 相同不能代替 logical label 一致性，Compose 在 Engine 操作时会检查 ownership。只读核对示例：
+
+```sh
+docker network inspect \
+  --format '{{.Name}}|{{index .Labels "com.docker.compose.project"}}|{{index .Labels "com.docker.compose.network"}}|{{.Internal}}' \
+  partsignal-staging-internal partsignal-staging-egress partsignal-staging-edge
+```
+
+不匹配时退回仓库修复和完整 Repository Release Gate，不手工 relabel、删除或重建现存网络，不使用 external network、临时 override、其他 project 或手工容器绕过 ownership。manifest tracked Compose 变化后，旧 release/archive/images/manifest 仅保留为历史失败证据；新 release 必须使用新的 commit、release ID、run ID、archive、image tags 和 manifest，不覆盖、retag、删除或复用旧身份。
 
 ## 5. 数据隔离合同
 

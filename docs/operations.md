@@ -20,6 +20,7 @@
 
 - PostgreSQL 是业务状态唯一来源；Redis 只用于 Celery Broker，不能用 Redis 状态替代、修复或推断业务事实。
 - 外部输入在系统边界校验。PostgreSQL 与 Redis 不暴露公网端口，也不因应用需要外部 API 就获得无关出站能力。
+- Hostdzire Production 保留固定 Compose project `partsignal-staging`；三个 network logical key、physical name 和既有 `com.docker.compose.network` label 精确相同，为 `partsignal-staging-internal/egress/edge`。internal 网络继续隔离 PostgreSQL/Redis，backend 只连接 internal/egress，frontend 只连接 edge；不能用 external、override、relabel/recreate 或另一 project 隐藏 ownership mismatch。
 - 迁移前的只读 `preflight-integrity` 必须使用待部署后端实现；任何记录都阻断迁移，必须通过明确业务处置修复，不能自动改绑、删除历史、回退状态或维护隐藏 allowlist。
 - 数据库默认不执行 Alembic downgrade。有损迁移必须具备迁移前完整备份、隔离恢复验证、明确维护窗口和数据取舍。
 

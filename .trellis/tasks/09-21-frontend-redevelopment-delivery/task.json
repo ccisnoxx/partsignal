@@ -102,8 +102,11 @@
     "i04_1_critical_review_audit_id": "20260927T141144Z-i04-1r-bootstrap-provenance-9918acde",
     "i04_2_child": "09-27-frontend-i04-2-release-freeze-clean-init-cutover",
     "i04_2_status": "in_progress_blocked_pre_cutover",
-    "repository_release_gate": "MET",
+    "repository_release_gate": "STALE_COMPOSE_INPUT_CHANGED_NOT_RERUN",
     "external_services_gate": "NOT_RUN",
-    "i04_2_release_source_commit": "649641cec3bdd62fa612021f0841970f99d31dfb"
+    "i04_2_release_source_commit": "649641cec3bdd62fa612021f0841970f99d31dfb",
+    "historical_repository_release_gate": "MET",
+    "i04_2a_child": "09-28-frontend-i04-2a-compose-network-identity-remediation",
+    "i04_2a_status": "in_progress"
   }
 }

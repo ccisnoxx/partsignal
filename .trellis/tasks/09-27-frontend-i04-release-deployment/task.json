@@ -56,7 +56,7 @@
     "git_push": "local main == origin/main; fast-forward only; non-force",
     "release_source_commit": "649641cec3bdd62fa612021f0841970f99d31dfb",
     "release_source_tree": "90886aece059f12d072c327148911de7d528740d",
-    "repository_release_gate": "MET",
+    "repository_release_gate": "STALE_COMPOSE_INPUT_CHANGED_NOT_RERUN",
     "repository_release_gate_review": "NO_BLOCKER",
     "repository_release_gate_review_audit_id": "20260928T013736Z-i04-git-closure-and-repository-release-gate-0cca1364",
     "repository_release_gate_make_verify_status": 0,
@@ -98,6 +98,9 @@
     "maintenance_started": false,
     "external_services_gate": "NOT_RUN",
     "working_tree_state": "release source 649641ce was clean and pushed when artifacts were frozen; current changes are blocker/evidence Trellis records only",
-    "next_action": "record and push the blocker, then separately authorize a deployment-contract remediation child; after remediation rerun full Gate and create a new release without overwriting current evidence"
+    "next_action": "record and push the blocker, then separately authorize a deployment-contract remediation child; after remediation rerun full Gate and create a new release without overwriting current evidence",
+    "historical_repository_release_gate": "MET",
+    "i04_2a_child": "09-28-frontend-i04-2a-compose-network-identity-remediation",
+    "i04_2a_status": "in_progress"
   }
 }

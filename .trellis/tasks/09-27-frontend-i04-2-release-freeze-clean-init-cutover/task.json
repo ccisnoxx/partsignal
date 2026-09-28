@@ -18,7 +18,9 @@
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [],
+  "children": [
+    "09-28-frontend-i04-2a-compose-network-identity-remediation"
+  ],
   "parent": "09-27-frontend-i04-release-deployment",
   "relatedFiles": [
     "docs/Hostdzire部署上线流程.md",
@@ -37,7 +39,7 @@
     "parent_stage": "i04_2_release_freeze",
     "product_candidate_commit": "e53b655b75b6d3418a96307d28f305c6bdb8245a",
     "product_candidate_tree": "363c1e49f70c3595f44e5fe8568147ee09620200",
-    "repository_release_gate": "MET",
+    "repository_release_gate": "STALE_COMPOSE_INPUT_CHANGED_NOT_RERUN",
     "repository_release_gate_review": "NO_BLOCKER",
     "repository_release_gate_review_audit_id": "20260928T013736Z-i04-git-closure-and-repository-release-gate-0cca1364",
     "repository_release_gate_make_verify_sha256": "6f9fc122b1ac763f7e740c934cb04f40437fefa6e70cc2bb3752c1020a36395a",
@@ -67,6 +69,9 @@
     "external_services_gate": "NOT_RUN",
     "activation_gate": "NOT_RUN",
     "observation_gate": "NOT_RUN",
-    "next_action": "create a remediation child to align Production Compose logical network identity and preflight runbook/tests; rerun full Repository Release Gate and freeze a new non-overwriting release before reconsidering cutover"
+    "next_action": "create a remediation child to align Production Compose logical network identity and preflight runbook/tests; rerun full Repository Release Gate and freeze a new non-overwriting release before reconsidering cutover",
+    "historical_repository_release_gate": "MET",
+    "i04_2a_child": "09-28-frontend-i04-2a-compose-network-identity-remediation",
+    "i04_2a_status": "in_progress"
   }
 }

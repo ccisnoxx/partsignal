@@ -18,6 +18,8 @@
 
 - `registry` 保持 `pull -> verify-candidate-images -> run/up`。
 - `local` 不 pull；候选镜像必须已存在，manifest image ID/RepoDigest 校验必须早于第一个 Compose `run/up`，相关 `run/up` 必须使用 `--pull never`。
+- Production Compose project 固定 `partsignal-staging`，network logical key、physical name 与既有 network label 精确相等，均为 `partsignal-staging-internal/egress/edge`。internal=true；migrate/API/worker/scheduler 只连接 internal+egress，PostgreSQL/Redis 只连接 internal，frontend 只连接 edge。不使用 external/override 或更换 project 绕过 ownership。
+- runbook 的直接 local preflight 必须先通过同一 release manifest 的 tracked-file/image identity 校验，再使用 `run --rm --pull never --no-deps`；不能让 probe 隐式 pull 或启动依赖服务。
 - backend、frontend、rollback frontend 的 repository 末段以 `backend-v1` 或 `frontend-v1` 结尾时，producer 和 consumer 都必须拒绝；deploy/activate 还应在状态转换前拒绝对应环境变量。
 - V1 不能进入 manifest、Production Compose 操作或 frontend rollback；V2-only 不依赖 UI 隐藏或人工约定。
 - `bootstrap-ai` 在同一维护锁内验证 run ID、manifest/candidate、phase 和正在运行 API 容器的 project/service/image/running/mount identity；不得读取 `.Config.Env`，不得启动 one-off service 或执行 `run/up/pull`。
@@ -54,6 +56,7 @@
 - 空/非法 mode 的具体错误；
 - backend/frontend V1、producer V1 和 consumer 的 tampered rollback V1 都被拒绝；
 - 负向用例检查具体错误原因，不能只检查非零退出码。
+- 实际 Compose config 精确断言三组 logical/name identity、全部 service network 集合与 internal/安全拓扑；本地真实 Engine 对已存在且 label 匹配的网络运行七个 service probe，并对三个旧 label 分别断言具体 mismatch。测试直接使用权威 Production Compose，仅在本地 Unix socket 且固定 project/network 未被占用时创建 owned 资源，退出后 container/network/temp 归零；不能 skip Engine 或使用 sleep 等待。
 - `bootstrap-ai` 的 TTY/no-echo、fallback/non-TTY/EOF/SIGINT、wrong run/manifest/candidate/phase/container identity、attempt 重入与 unknown result；断言 secret 不进入命令、state、stdout/stderr 或 Docker inspect 请求。
 - `verify-prepared` 和 activation 对 `STARTED/FAILED` fail closed，对无 attempt 的既有 upgrade 兼容路径保持原行为。
 

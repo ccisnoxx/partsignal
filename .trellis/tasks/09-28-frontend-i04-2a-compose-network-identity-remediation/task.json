@@ -1,0 +1,195 @@
+{
+  "id": "frontend-i04-2a-compose-network-identity-remediation",
+  "name": "frontend-i04-2a-compose-network-identity-remediation",
+  "title": "I04-2A Production Compose network identity 修复",
+  "description": "统一 Production Compose 与 Hostdzire 既有 logical network label，补真实 Engine 回归、修正 runbook 并重建 Repository Release Gate；不创建 release 或执行 cutover。",
+  "status": "in_progress",
+  "dev_type": "infra",
+  "scope": "local Production Compose identity remediation, regression, runbook and Repository Release Gate only",
+  "package": null,
+  "priority": "P0",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-09-28",
+  "completedAt": null,
+  "branch": "codex/frontend-redevelopment-candidate",
+  "base_branch": "main",
+  "worktree_path": "/Users/sc/.codex/worktrees/frontend-redevelopment/partsignal",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "09-27-frontend-i04-2-release-freeze-clean-init-cutover",
+  "relatedFiles": [
+    "deploy/compose.prod.yaml",
+    "deploy/scripts/test-deploy-production.sh",
+    "docs/Hostdzire部署上线流程.md",
+    "docs/Hostdzire部署附录.md",
+    "docs/operations.md",
+    ".trellis/spec/infra/production-image-delivery.md"
+  ],
+  "notes": "",
+  "meta": {
+    "baseline_commit": "8651ca1ef4620285301ae3c5e9b474bbe6014ff2",
+    "baseline_tree": "f5fbb3630bc5f6e3c83551c361e587abba979ae3",
+    "stage": "implementation_review_no_blocker_git_closure",
+    "repository_release_gate": "STALE_INPUT_CHANGED_NOT_RERUN",
+    "external_services_gate": "NOT_RUN",
+    "remote_writes": "none",
+    "evidence_root": "/Users/sc/.codex/audits/i04-2a-20260928",
+    "targeted_checks": {
+      "fixed-engine": {
+        "command": [
+          "env",
+          "PARTSIGNAL_PRODUCTION_HARNESS_TEST_MODE=network-compatibility",
+          "deploy/scripts/test-deploy-production.sh"
+        ],
+        "exit_code": 0,
+        "bytes": 657,
+        "sha256": "cb8446206a7ac01a5653c7060feec8a54dc54c3a1dfdb011c4032f37a3575cf6",
+        "duration_seconds": 3.684
+      },
+      "fixed-static": {
+        "command": [
+          "env",
+          "PARTSIGNAL_PRODUCTION_HARNESS_TEST_MODE=network-identity",
+          "deploy/scripts/test-deploy-production.sh"
+        ],
+        "exit_code": 0,
+        "bytes": 146,
+        "sha256": "a41d874eb66d8b14ba0694ca839ebc39b26f320e80354cd96219a4d853108abb",
+        "duration_seconds": 1.066
+      },
+      "hostdzire-readonly": {
+        "exit_code": 0,
+        "bytes": 1607,
+        "sha256": "08c7fd7ddeb0ab42ba5645f2ecc045681104d9d747a1becb84f4a35148e9d70d",
+        "duration_seconds": 2.427
+      },
+      "old-engine": {
+        "command": [
+          "env",
+          "PARTSIGNAL_PRODUCTION_HARNESS_TEST_MODE=network-compatibility",
+          "deploy/scripts/test-deploy-production.sh"
+        ],
+        "exit_code": 1,
+        "bytes": 351,
+        "sha256": "94fb502a82fde6d25eb28b4caae61fa04e453943d83cce7ab59a0b85fa977612",
+        "duration_seconds": 0.986
+      },
+      "old-static": {
+        "command": [
+          "env",
+          "PARTSIGNAL_PRODUCTION_HARNESS_TEST_MODE=network-identity",
+          "deploy/scripts/test-deploy-production.sh"
+        ],
+        "exit_code": 1,
+        "bytes": 168,
+        "sha256": "3ca6802833ce544d2db19c01560ba3cc661f04111a4b44fa77527e49ed0169ec",
+        "duration_seconds": 1.319
+      },
+      "targeted-cleanup": {
+        "command": [
+          "deploy/scripts/test-deploy-production-cleanup.sh"
+        ],
+        "exit_code": 0,
+        "bytes": 79,
+        "sha256": "22d94cd0bddc580d9aa2112e89f28b8b3c40b2af6ef89b69e5dde64422fdd48b",
+        "duration_seconds": 2.774
+      },
+      "targeted-compose": {
+        "command": [
+          "env",
+          "PARTSIGNAL_BACKEND_IMAGE=partsignal-backend",
+          "PARTSIGNAL_FRONTEND_IMAGE=partsignal-frontend-v2",
+          "PARTSIGNAL_VERSION=test",
+          "PARTSIGNAL_RUNTIME_ENV_FILE=/Users/sc/.codex/worktrees/frontend-redevelopment/partsignal/.env.example",
+          "PARTSIGNAL_DATA_ROOT=/tmp/partsignal-i04-2a-config",
+          "docker",
+          "compose",
+          "--env-file",
+          ".env.example",
+          "-f",
+          "deploy/compose.prod.yaml",
+          "config",
+          "--quiet"
+        ],
+        "exit_code": 0,
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "duration_seconds": 0.033
+      },
+      "targeted-diff": {
+        "command": [
+          "git",
+          "diff",
+          "--check"
+        ],
+        "exit_code": 0,
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "duration_seconds": 0.008
+      },
+      "targeted-nginx": {
+        "command": [
+          "node",
+          "deploy/scripts/check-nginx-security.mjs"
+        ],
+        "exit_code": 0,
+        "bytes": 79,
+        "sha256": "17f63aff5334365b1891fde48a58f034158e44fbcd8f03382cd5ce49b589f99c",
+        "duration_seconds": 0.252
+      },
+      "targeted-production": {
+        "command": [
+          "deploy/scripts/test-deploy-production.sh"
+        ],
+        "exit_code": 0,
+        "bytes": 911,
+        "sha256": "4eca7e688c7840c2a8a2e536a52fb3c25b45b9509ed5669cf29c6d4cf9f36a6a",
+        "duration_seconds": 11.047
+      },
+      "targeted-resources": {
+        "command": [
+          "python3",
+          "/Users/sc/.codex/audits/i04-2a-20260928/resources.py"
+        ],
+        "exit_code": 0,
+        "bytes": 229,
+        "sha256": "d39293836a52589e43625eb546a2298f26597aecad9cfd52aa765c92e60180b2",
+        "duration_seconds": 0.208
+      },
+      "targeted-secret": {
+        "command": [
+          "python3",
+          "/Users/sc/.codex/audits/i04-2a-20260928/secret-scan.py"
+        ],
+        "exit_code": 0,
+        "bytes": 47,
+        "sha256": "8fb2adaf5aa797af24a56b9561e2529f879aa0afb35010d463f81608706cd344",
+        "duration_seconds": 0.697
+      },
+      "targeted-staging": {
+        "command": [
+          "deploy/scripts/test-deploy-staging.sh"
+        ],
+        "exit_code": 0,
+        "bytes": 152,
+        "sha256": "fd574621f03c8142222f748dfdb6f828574f70f8b1956da2a2726498e3cf9c51",
+        "duration_seconds": 1.246
+      },
+      "targeted-syntax": {
+        "command": [
+          "python3",
+          "/Users/sc/.codex/audits/i04-2a-20260928/syntax-check.py"
+        ],
+        "exit_code": 0,
+        "bytes": 35,
+        "sha256": "db11cb54c373b641eb026f613b62520bb8af95ed783cccf029cf70c99f74da47",
+        "duration_seconds": 0.07
+      }
+    },
+    "critical_review": "NO BLOCKER",
+    "critical_review_audit_id": "20260928T035743Z-i04-2a-compose-network-identity-cec3f231"
+  }
+}

@@ -52,3 +52,7 @@
 NO BLOCKER，reviewer=`/root/i04_2a_implementation_review`，audit=`20260928T035743Z-i04-2a-compose-network-identity-cec3f231/01-implementation-critical-review`；实际 diff 与29686-byte冻结证据 SHA-256=`70fb66f9202c44e4c1361c9cf4821513d0f65623548df0469aab16365b40b17c`一致，2446份文件摘要匹配。复核核对network identity/topology、真实Engine正负向、cleanup、deploy/activate/rollback、manifest-bound preflight和全部定向日志。未执行测试、文件/Git或远端写入。
 
 覆盖缺口：完整Repository Gate未运行；本地shell probe只证明network ownership，不代表应用启动或远端修复后的Engine版本兼容性；Engine signal/daemon中断未做故障注入，finally/owner限制已审查且无确认blocker。真实AI/OSS/metadata/TTY owner仍留给后续。首次结论只允许本地Git收口和新的完整门禁，不允许发布。
+
+## Git 收口
+
+修复 commit=`b28d72f790bac891f3abf87cff95011923745062`，tree=`73ea23d7681d5ec31d65d151311708ce9b48aa6e`；已 main fast-forward/non-force push。首次自动收口脚本在最后 clean 断言 exit=1：Trellis create 同时 seed 的 implement/check.jsonl 未包含在显式 add 清单；提交与推送本身成功。已把两份索引补为真实 infra spec 引用并作 Trellis-only 收口，未修改已审查的 exported source；make verify 尚未开始。原始 git-closure.log 2700 bytes，SHA-256=`29e7b7235eb33496c12c3d4d4150a68ab3a712c7897387e56580cf3d43d76889`，保留真实 exit=1，不改写为成功。

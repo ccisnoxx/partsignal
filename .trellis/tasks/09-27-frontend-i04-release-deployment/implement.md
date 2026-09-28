@@ -117,3 +117,26 @@ I03 `make verify` 复用仍成立：`387b802d` 到 `f91b98b5` 的产品代码、
 - 两项原 blocker 已关闭，I04-1 与 I04-1R 均 completed；I04 进入 `in_progress / configuration_ready`。
 - Repository Release Gate 因代码、runbook 与任务记录输入已变化仍为 `STALE_INPUT_CHANGED_NOT_RERUN`。下一步先完成 Git 收口，并在最终 clean main 上重新建立 Gate；随后才创建 I04-2、冻结 release/manifest 并执行实际 clean-init cutover。
 - 本轮没有创建 release/manifest，没有进入 maintenance，没有停止或重建容器，没有修改 Nginx/数据库/活动数据，没有运行真实 provider 或 External Services Gate。
+
+## 2026-09-28 final local closure and Repository Release Gate
+
+### Git closure
+
+- I04-1/I04-1R 产品代码、部署脚本、规范和 Trellis 记录收口为 `3de9d10ca7d52eb97a95ee29fd01994009f626fa`，并以 non-force fast-forward 推送 `main`。
+- byte-exact creator/validator/secret-scan evidence 触发 `blank-at-eof` 范围检查后，使用三条路径精确的 `.gitattributes` 规则保留原始 blob；最终候选为 `e53b655b75b6d3418a96307d28f305c6bdb8245a`，tree `363c1e49f70c3595f44e5fe8568147ee09620200`。
+- `main == origin/main == candidate HEAD`，两个工作树 clean；`git diff --check d20ecffa..e53b655b` 退出 `0`。identity/diff 日志 `171` bytes，SHA-256=`c6b32886b42ae4aa9e71df3fe0bafeb7ed428aecdbdd99ac5aa8e218ee83e1a8`。
+
+### Fresh Repository Release Gate
+
+- 同一最终候选完整 `make verify` 退出 `0`：backend unit `691 passed`、frontend Vitest `91 files / 848 tests`、PostgreSQL integration `344 passed`、real-stack `21 passed`、fixture E2E `494 passed / 44 skipped`，backend/frontend production build、container/lifecycle、DB lifecycle、post-run secret、staging/production deploy 与 dev/prod Compose config 全部通过。
+- 完整日志 `/tmp/partsignal-i04-final-make-verify-4.log`，`231858` bytes，SHA-256=`6f9fc122b1ac763f7e740c934cb04f40437fefa6e70cc2bb3752c1020a36395a`。
+- 先前一次 real-stack A→B→A 用例 90 秒超时后，定向复验 `5 passed`、secret clean、cleanup 完整；日志 SHA-256=`2d672bd267ac4477ea3fc4a42cdd480190865a3a7fe54486ed2b6d4defb1df97`。随后完整 `make verify` 在未变更候选上通过；更早两次失败分别来自缺少本地 DB/Redis 调用环境和错误注入整份 development env，均未被作为成功证据。
+- final tracked secret scan：`2434` tracked files，通用高信号与本机真实 OSS endpoint/AccessKey exact match 均为 `0`；日志 `205` bytes，SHA-256=`234b9058cfbdf889c4af0373d81d1c2ed3c0459f3fc48d6d0b32e661de9ac323`。
+- fresh independent high-risk review audit `20260928T013736Z-i04-git-closure-and-repository-release-gate-0cca1364` 结论为 `NO BLOCKER`。Repository Release Gate 更新为 `MET`。
+- 该 Gate 不代表 Remote Preparation、真实 provider、release/archive/manifest、maintenance、clean-init、External Services、activation、生产验收或 Observation 已运行；这些仍为 `NOT_RUN`。
+
+### I04-2 handoff
+
+- 已建立 child `.trellis/tasks/09-27-frontend-i04-2-release-freeze-clean-init-cutover/`，I04 与总体前端任务继续 `in_progress`。
+- I04-2 先完成本批 Trellis-only 记录的 commit/push 与最终 clean identity/diff/secret scan；完整 `make verify` 仅在变更严格限于 `.trellis` 且 release archive 继续受 `export-ignore` 排除时复用。
+- 在 release/archive/image/manifest identity、远端只读 precheck、credential-owner TTY 路径与逐条命令冻结并通过 fresh pre-cutover critical review 前，不进入 maintenance，不停止容器，不 quarantine 或 clean-init。

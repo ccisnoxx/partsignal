@@ -104,6 +104,6 @@
     "i04_2_status": "in_progress_blocked_pre_cutover",
     "repository_release_gate": "MET",
     "external_services_gate": "NOT_RUN",
-    "i04_git_commit": "e53b655b75b6d3418a96307d28f305c6bdb8245a"
+    "i04_2_release_source_commit": "649641cec3bdd62fa612021f0841970f99d31dfb"
   }
 }

@@ -37,7 +37,7 @@
     "deploy/nginx/partsignal-maintenance.conf.template",
     "deploy/nginx/partsignal.conf.template"
   ],
-  "notes": "I04-1 and I04-1R completed with conclusive NO BLOCKER. Local code/Trellis closure was fast-forward pushed, the final product candidate passed a fresh Repository Release Gate and independent high-risk review, and I04-2 is established. No release/manifest/maintenance/cutover has yet been executed.",
+  "notes": "I04-1/I04-1R completed and Repository Release Gate passed. I04-2 froze a release/archive/images/manifest, then stopped before maintenance when live Docker network labels contradicted the Production Compose logical network contract. I04 remains in_progress / blocked_pre_cutover; no cutover mutation occurred.",
   "meta": {
     "baseline_commit": "9100774b0e124d1d834f8c726cf85f2c0e171e5e",
     "candidate_start_commit": "a4c15a535f21621188a61f076cf7856c14509d42",
@@ -74,7 +74,7 @@
     "blocker_code": null,
     "blocker_detail": null,
     "rollback_image_gap": null,
-    "stage": "i04_2_release_freeze",
+    "stage": "blocked_i04_2_pre_cutover",
     "i04_1_child": "09-26-frontend-i04-1-production-config-rollback-identity",
     "i04_1r_child": "09-27-frontend-i04-1r-bootstrap-provenance",
     "i04_1r_status": "completed",
@@ -90,10 +90,14 @@
     "rollback_frontend_source_commit": "a663bcce9fd49da9c5aea7f257372fc318447234",
     "remote_writes": "created /root/partsignal/shared/.env.production only",
     "i04_2_child": "09-27-frontend-i04-2-release-freeze-clean-init-cutover",
-    "i04_2_status": "in_progress",
+    "i04_2_status": "in_progress_blocked_pre_cutover",
+    "i04_2_release_id": "mvp-20260928-023635-649641cec3bd",
+    "i04_2_manifest_sha256": "d9fc3543d2dd73523c0b436d956e22a3f94e61bae19b005aeb2fbecbe55e1ad9",
+    "i04_2_blocker_code": "COMPOSE_NETWORK_LABEL_IDENTITY_MISMATCH",
+    "i04_2_pre_cutover_review": "BLOCKER",
     "maintenance_started": false,
     "external_services_gate": "NOT_RUN",
-    "working_tree_state": "product candidate e53b655b and both worktrees were clean when the fresh Repository Release Gate and independent review passed; current changes are I04/I04-2 Trellis records pending record-only closure",
-    "next_action": "commit and fast-forward push the I04/I04-2 record-only closure, re-establish final clean identity/diff/secret scan, then freeze I04-2 release inputs and obtain a fresh pre-cutover high-risk review before any maintenance write"
+    "working_tree_state": "release source 649641ce was clean and pushed when artifacts were frozen; current changes are blocker/evidence Trellis records only",
+    "next_action": "record and push the blocker, then separately authorize a deployment-contract remediation child; after remediation rerun full Gate and create a new release without overwriting current evidence"
   }
 }

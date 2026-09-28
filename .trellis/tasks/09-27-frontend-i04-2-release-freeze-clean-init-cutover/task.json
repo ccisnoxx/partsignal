@@ -32,7 +32,7 @@
     "deploy/nginx/partsignal-maintenance.conf.template",
     "deploy/nginx/partsignal.conf.template"
   ],
-  "notes": "Created only after the final product candidate passed a fresh Repository Release Gate and independent NO BLOCKER review. No release, manifest, maintenance, cutover, external-service gate or remote write has yet run under I04-2.",
+  "notes": "Release checkout/archive/backend/frontend/0600 manifest were frozen, but the first Engine-backed Production Compose preflight exposed a live network-label contract mismatch. Fresh critical review returned BLOCKER. Maintenance/cutover did not start; frozen artifacts are retained as non-overwritable evidence and must not be reused after remediation.",
   "meta": {
     "parent_stage": "i04_2_release_freeze",
     "product_candidate_commit": "e53b655b75b6d3418a96307d28f305c6bdb8245a",
@@ -45,13 +45,28 @@
     "rollback_frontend_image_id": "sha256:c0826f2a31e30d160252c1385e6b2b14d3fcfc58ec49692b0202cb45533dca1e",
     "rollback_frontend_repo_digest": "partsignal-frontend@sha256:c0826f2a31e30d160252c1385e6b2b14d3fcfc58ec49692b0202cb45533dca1e",
     "rollback_frontend_platform": "linux/amd64",
-    "remote_precheck": "NOT_RUN",
-    "release_freeze": "NOT_RUN",
-    "pre_cutover_review": "NOT_RUN",
+    "final_local_commit": "649641cec3bdd62fa612021f0841970f99d31dfb",
+    "final_local_tree": "90886aece059f12d072c327148911de7d528740d",
+    "release_id": "mvp-20260928-023635-649641cec3bd",
+    "cutover_run_id_reserved": "prr_20260928_023635",
+    "source_archive_sha256": "d51eb7ad0b703931a417f8233444a0d2ceafa39055656a5f46c95c6277dce250",
+    "backend_image_id": "sha256:095b31d1065db7da74cde93b9cde52e491895fc39033d64c873f91a55ac111a5",
+    "backend_repo_digest": "partsignal-backend@sha256:095b31d1065db7da74cde93b9cde52e491895fc39033d64c873f91a55ac111a5",
+    "frontend_image_id": "sha256:c39f66dfb58568e471480dde019e78cd2c93dfbee00cb38f3895e64905569b42",
+    "frontend_repo_digest": "partsignal-frontend@sha256:c39f66dfb58568e471480dde019e78cd2c93dfbee00cb38f3895e64905569b42",
+    "manifest_path": "/root/partsignal/releases/mvp-20260928-023635-649641cec3bd.manifest.json",
+    "manifest_sha256": "d9fc3543d2dd73523c0b436d956e22a3f94e61bae19b005aeb2fbecbe55e1ad9",
+    "remote_precheck": "PASSED_FOR_RELEASE_FREEZE",
+    "release_freeze": "ARTIFACTS_FROZEN_CONFIG_PREFLIGHT_BLOCKED",
+    "pre_cutover_review": "BLOCKER",
+    "pre_cutover_reviewer": "/root/i04_2_network_pre_cutover_review",
+    "blocker_code": "COMPOSE_NETWORK_LABEL_IDENTITY_MISMATCH",
+    "blocker_detail": "Production logical network keys partsignal-internal/egress/edge do not match existing Docker Compose network labels partsignal-staging-internal/egress/edge; clean-init, activation and frontend rollback cannot safely run.",
+    "secondary_blocker": "AI_PROVIDER_METADATA_AND_CREDENTIAL_OWNER_TTY_HANDOFF_MISSING",
     "maintenance_started": false,
     "external_services_gate": "NOT_RUN",
     "activation_gate": "NOT_RUN",
     "observation_gate": "NOT_RUN",
-    "next_action": "commit and push this Trellis-only closure, then re-establish final Git identity/diff/secret scan before any remote operation"
+    "next_action": "create a remediation child to align Production Compose logical network identity and preflight runbook/tests; rerun full Repository Release Gate and freeze a new non-overwriting release before reconsidering cutover"
   }
 }

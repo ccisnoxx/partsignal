@@ -1,0 +1,8 @@
+{"file":".trellis/spec/backend/ai-configuration-guidelines.md","reason":"复核 credential、加密、真实 provider、测试与启用合同未被旁路"}
+{"file":".trellis/spec/backend/database-guidelines.md","reason":"复核事务、部分失败和 clean-init 数据边界"}
+{"file":".trellis/spec/infra/domain-security-operations.md","reason":"复核 maintenance 状态下的 operator 安全边界"}
+{"file":".trellis/spec/infra/production-image-delivery.md","reason":"复核 candidate/manifest/phase 绑定和 release gate"}
+{"file":".trellis/tasks/09-26-frontend-i04-1-production-config-rollback-identity/implement.md","reason":"复核两项 blocker 是否由真实证据关闭"}
+{"file":".trellis/tasks/09-27-frontend-i04-1r-bootstrap-provenance/prd.md","reason":"复核本 child 的完整验收与 non-goals"}
+{"file":".trellis/tasks/09-27-frontend-i04-1r-bootstrap-provenance/design.md","reason":"复核状态/secret/事务所有权设计"}
+{"file":".trellis/tasks/09-27-frontend-i04-1r-bootstrap-provenance/evidence/provenance.md","reason":"复核恢复证据身份、hash 与 secret exclusion"}

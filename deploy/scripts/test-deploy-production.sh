@@ -191,6 +191,1093 @@ printf '%s\n' \
   >"$test_dir/bin/curl"
 chmod +x "$test_dir/bin/docker" "$test_dir/bin/curl"
 
+python3 - "$root/deploy/scripts/prepare-production-data.py" <<'PY'
+import getpass
+import importlib.util
+import io
+import json
+import os
+import pty
+import select
+import subprocess
+import sys
+import tempfile
+import time
+import warnings
+from contextlib import redirect_stdout
+from pathlib import Path
+from types import SimpleNamespace
+
+
+script_path = sys.argv[1]
+spec = importlib.util.spec_from_file_location("prepare_production_data", script_path)
+assert spec is not None and spec.loader is not None
+module = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = module
+spec.loader.exec_module(module)
+
+
+class TTY:
+    def __init__(self, enabled=True):
+        self.enabled = enabled
+
+    def isatty(self):
+        return self.enabled
+
+
+def expect_data_error(callback):
+    try:
+        callback()
+    except module.DataStateError:
+        return
+    raise AssertionError("expected DataStateError")
+
+
+tty = TTY()
+assert module.read_bootstrap_credential(
+    reader=lambda prompt: "injected-secret", stdin=tty, stderr=tty
+) == "injected-secret"
+expect_data_error(
+    lambda: module.read_bootstrap_credential(
+        reader=lambda prompt: "must-not-be-read", stdin=TTY(False), stderr=tty
+    )
+)
+
+
+def fallback_reader(_prompt):
+    warnings.warn("echo fallback", getpass.GetPassWarning)
+    return "fallback-secret"
+
+
+expect_data_error(
+    lambda: module.read_bootstrap_credential(
+        reader=fallback_reader, stdin=tty, stderr=tty
+    )
+)
+for failure in (EOFError, KeyboardInterrupt, OSError):
+    def failed_reader(_prompt, error_type=failure):
+        raise error_type()
+
+    expect_data_error(
+        lambda reader=failed_reader: module.read_bootstrap_credential(
+            reader=reader, stdin=tty, stderr=tty
+        )
+    )
+
+# 真实 PTY 回归：正常 getpass 路径不得把输入回显到控制终端。
+pid, descriptor = pty.fork()
+if pid == 0:
+    try:
+        assert module.read_bootstrap_credential() == "pty-secret-must-not-echo"
+        print("PTY_BOOTSTRAP_OK", flush=True)
+    except BaseException:
+        os._exit(1)
+    os._exit(0)
+
+transcript = b""
+sent = False
+deadline = time.monotonic() + 5
+child_status = None
+while time.monotonic() < deadline:
+    readable, _, _ = select.select([descriptor], [], [], 0.1)
+    if readable:
+        try:
+            transcript += os.read(descriptor, 4096)
+        except OSError:
+            pass
+    if b"AI API Key:" in transcript and not sent:
+        os.write(descriptor, b"pty-secret-must-not-echo\n")
+        sent = True
+    waited_pid, status = os.waitpid(pid, os.WNOHANG)
+    if waited_pid == pid:
+        child_status = status
+        break
+if child_status is None:
+    os.kill(pid, 9)
+    _, child_status = os.waitpid(pid, 0)
+os.close(descriptor)
+assert os.waitstatus_to_exitcode(child_status) == 0, transcript
+assert b"PTY_BOOTSTRAP_OK" in transcript
+assert b"pty-secret-must-not-echo" not in transcript
+
+container_id = "b" * 64
+candidate = {"backend_image_id": "sha256:" + "a" * 64}
+
+
+def container_runner(*, ids=container_id, metadata=None):
+    calls = []
+    if metadata is None:
+        metadata = "|".join(
+            (
+                container_id,
+                candidate["backend_image_id"],
+                "running",
+                "true",
+                "partsignal-staging",
+                "api",
+                "[]",
+            )
+        )
+
+    def run(command, **kwargs):
+        calls.append((command, kwargs))
+        if command[1] == "ps":
+            return subprocess.CompletedProcess(command, 0, stdout=ids + "\n")
+        return subprocess.CompletedProcess(command, 0, stdout=metadata + "\n")
+
+    return run, calls
+
+
+runner, docker_calls = container_runner()
+assert module.running_api_container_id(candidate, runner=runner) == container_id
+assert len(docker_calls) == 2
+assert ".Config.Env" not in " ".join(docker_calls[1][0])
+for ids, metadata in (
+    ("", None),
+    (container_id + "\n" + "c" * 64, None),
+    (
+        container_id,
+        "|".join(
+            (
+                container_id,
+                candidate["backend_image_id"],
+                "running",
+                "true",
+                "wrong-project",
+                "api",
+                "[]",
+            )
+        ),
+    ),
+    (
+        container_id,
+        "|".join(
+            (
+                container_id,
+                "sha256:" + "c" * 64,
+                "running",
+                "true",
+                "partsignal-staging",
+                "api",
+                "[]",
+            )
+        ),
+    ),
+    (
+        container_id,
+        "|".join(
+            (
+                container_id,
+                candidate["backend_image_id"],
+                "exited",
+                "false",
+                "partsignal-staging",
+                "api",
+                "[]",
+            )
+        ),
+    ),
+    (
+        container_id,
+        "|".join(
+            (
+                container_id,
+                candidate["backend_image_id"],
+                "running",
+                "true",
+                "partsignal-staging",
+                "api",
+                json.dumps([{"Type": "bind", "Destination": "/app/app"}]),
+            )
+        ),
+    ),
+):
+    rejected_runner, _ = container_runner(ids=ids, metadata=metadata)
+    expect_data_error(
+        lambda current=rejected_runner: module.running_api_container_id(
+            candidate, runner=current
+        )
+    )
+
+request_id = "production-bootstrap-123e4567-e89b-42d3-a456-426614174000"
+full_result = {
+    "status": "SUCCEEDED",
+    "request_id": request_id,
+    "channel_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    "channel_revision": 1,
+    "channel_enabled": True,
+    "channel_configured": True,
+    "model_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    "model_revision": 2,
+    "model_test_status": "PASSED",
+    "model_enabled": True,
+    "model_configured": True,
+}
+envelope = {"request_id": request_id, "credential": "pipe-secret"}
+
+
+def backend_runner(returncode, result):
+    calls = []
+
+    def run(command, **kwargs):
+        calls.append((command, kwargs))
+        raw = result if isinstance(result, bytes) else json.dumps(result).encode()
+        return subprocess.CompletedProcess(command, returncode, stdout=raw)
+
+    return run, calls
+
+
+runner, exec_calls = backend_runner(0, full_result)
+assert module._backend_bootstrap_result(
+    container_id=container_id,
+    envelope=envelope,
+    request_id=request_id,
+    runner=runner,
+)["status"] == "SUCCEEDED"
+command, options = exec_calls[0]
+assert command[:3] == ["docker", "exec", "-i"]
+assert "pipe-secret" not in " ".join(command)
+assert options["shell"] is False
+assert options["stderr"] is subprocess.DEVNULL
+
+full_failed = {
+    **full_result,
+    "status": "FAILED",
+    "channel_enabled": False,
+    "model_enabled": False,
+    "model_test_status": "FAILED",
+}
+accepted_runner, _ = backend_runner(1, full_failed)
+assert module._backend_bootstrap_result(
+    container_id=container_id,
+    envelope=envelope,
+    request_id=request_id,
+    runner=accepted_runner,
+)["status"] == "FAILED"
+
+for returncode, result in (
+    (1, full_result),
+    (0, full_failed),
+    (0, {"status": "FAILED", "request_id": request_id}),
+    (0, {"status": "REJECTED", "request_id": request_id}),
+    (2, {"status": "UNKNOWN", "request_id": request_id}),
+    (2, {"status": "FAILED", "request_id": request_id}),
+    (2, {"status": "REJECTED", "request_id": request_id}),
+    (1, {**full_failed, "model_test_status": "UNTESTED"}),
+    (1, {**full_failed, "model_configured": False}),
+    (0, b""),
+    (0, json.dumps(full_result).encode() + b" trailing"),
+):
+    unknown_runner, _ = backend_runner(returncode, result)
+    try:
+        module._backend_bootstrap_result(
+            container_id=container_id,
+            envelope=envelope,
+            request_id=request_id,
+            runner=unknown_runner,
+        )
+    except module.BootstrapResultUnknown:
+        pass
+    else:
+        raise AssertionError("contradictory or incomplete backend result was accepted")
+
+assert module._attempt_status({}) is None
+malformed_attempts = (
+    None,
+    [],
+    {},
+    {"request_id": request_id},
+    {"status": "SUCCEEDED"},
+    {"request_id": request_id, "status": []},
+    {"request_id": request_id, "status": "UNKNOWN"},
+    {
+        "request_id": "not-a-production-bootstrap-request-id",
+        "status": "SUCCEEDED",
+    },
+    {"request_id": request_id, "status": "SUCCEEDED", "unexpected": True},
+)
+for malformed_attempt in malformed_attempts:
+    rejected_state = {"ai_bootstrap_attempt": malformed_attempt}
+    expect_data_error(lambda current=rejected_state: module._attempt_status(current))
+    expect_data_error(
+        lambda current=rejected_state: module.require_activation_safe_bootstrap_attempt(
+            current
+        )
+    )
+expect_data_error(lambda: module.require_activation_safe_bootstrap_attempt({}))
+for status_value in ("STARTED", "FAILED", "SUCCEEDED"):
+    valid_state = {
+        "ai_bootstrap_attempt": {"request_id": request_id, "status": status_value}
+    }
+    assert module._attempt_status(valid_state) == status_value
+    if status_value == "SUCCEEDED":
+        module.require_activation_safe_bootstrap_attempt(valid_state)
+    else:
+        expect_data_error(
+            lambda current=valid_state: module.require_activation_safe_bootstrap_attempt(
+                current
+            )
+        )
+
+candidate_identity = {
+    "manifest_sha256": "d" * 64,
+    "release_id": "production-20260829-120000-0123456789ab",
+    "commit": "e" * 40,
+    "schema_head": "0043_geo_platform_identity",
+    "backend_reference": "partsignal-backend:production",
+    "backend_image_id": candidate["backend_image_id"],
+    "backend_repo_digests": ["example@sha256:" + "f" * 64],
+    "frontend_reference": "partsignal-frontend-v2:production",
+    "frontend_image_id": "sha256:" + "1" * 64,
+    "frontend_repo_digests": ["example@sha256:" + "2" * 64],
+    "rollback_frontend_reference": "partsignal-frontend-v2:previous",
+    "rollback_frontend_image_id": "sha256:" + "3" * 64,
+    "rollback_frontend_repo_digests": ["example@sha256:" + "4" * 64],
+}
+bootstrap_args = SimpleNamespace(
+    run_id="prr_20260829_120000",
+    manifest="/unused/test-manifest.json",
+    channel_name="Production channel",
+    channel_description="Production bootstrap",
+    protocol_type="openai-compatible-chat-completions",
+    provider_brand="CUSTOM",
+    base_url="https://provider.example/v1",
+    timeout_seconds=30,
+    model_display_name="Production model",
+    model_id="exact-model-id",
+    request_parameters_json='{"temperature":0}',
+)
+
+
+def dynamic_backend_runner(returncode, result_factory):
+    def run(command, **kwargs):
+        envelope_value = json.loads(kwargs["input"])
+        result = result_factory(envelope_value["request_id"])
+        raw = result if isinstance(result, bytes) else json.dumps(result).encode()
+        return subprocess.CompletedProcess(command, returncode, stdout=raw)
+
+    return run
+
+
+def exercise_dynamic_attempt(returncode, result_factory, *, assert_reentry=False):
+    with tempfile.TemporaryDirectory() as directory:
+        data_root = Path(directory)
+        quarantine_root = data_root / "quarantine"
+        quarantine_root.mkdir()
+        module.atomic_write_state(
+            data_root,
+            {
+                "schema_version": 1,
+                "phase": "PRODUCTION_PREPARED",
+                "run_id": bootstrap_args.run_id,
+                "data_root": str(data_root),
+                "quarantine_target": str(quarantine_root / bootstrap_args.run_id),
+                "candidate": candidate_identity,
+            },
+        )
+        module.configured_roots = lambda: (data_root, quarantine_root)
+        module.candidate_from_manifest = lambda _value: candidate_identity
+
+        def verify_phase(_run_id, allowed):
+            current = module.read_state(data_root)
+            assert current["phase"] in allowed
+            return current
+
+        module.verify_phase = verify_phase
+        module.running_api_container_id = lambda _candidate, runner: container_id
+        output = io.StringIO()
+        error = None
+        try:
+            with redirect_stdout(output):
+                module.bootstrap_ai(
+                    bootstrap_args,
+                    credential_reader=lambda _prompt: "attempt-secret",
+                    runner=dynamic_backend_runner(returncode, result_factory),
+                    stdin=tty,
+                    stderr=tty,
+                )
+        except module.DataStateError as caught:
+            error = caught
+        persisted = module.read_state(data_root)
+        assert "attempt-secret" not in json.dumps(persisted)
+        assert "attempt-secret" not in output.getvalue()
+        if assert_reentry:
+            expect_data_error(
+                lambda: module.bootstrap_ai(
+                    bootstrap_args,
+                    credential_reader=lambda _prompt: (_ for _ in ()).throw(
+                        AssertionError("reentry reached credential reader")
+                    ),
+                    runner=lambda *_args, **_kwargs: (_ for _ in ()).throw(
+                        AssertionError("reentry reached docker")
+                    ),
+                    stdin=tty,
+                    stderr=tty,
+                )
+            )
+        return persisted, output.getvalue(), error
+
+
+persisted, output, error = exercise_dynamic_attempt(
+    0,
+    lambda current_request_id: {
+        **full_result,
+        "request_id": current_request_id,
+    },
+)
+assert error is None
+assert persisted["ai_bootstrap_attempt"]["status"] == "SUCCEEDED"
+assert json.loads(output)["status"] == "SUCCEEDED"
+
+persisted, _, error = exercise_dynamic_attempt(
+    1,
+    lambda current_request_id: {
+        **full_failed,
+        "request_id": current_request_id,
+    },
+    assert_reentry=True,
+)
+assert isinstance(error, module.DataStateError)
+assert persisted["ai_bootstrap_attempt"]["status"] == "FAILED"
+
+persisted, _, error = exercise_dynamic_attempt(
+    0,
+    lambda _current_request_id: b"",
+    assert_reentry=True,
+)
+assert isinstance(error, module.BootstrapResultUnknown)
+assert persisted["ai_bootstrap_attempt"]["status"] == "STARTED"
+PY
+
+# 从真实 parser/main 进入 host bootstrap；只用临时状态、候选和 fake Docker I/O，
+# 不替换 maintenance lock、candidate/phase owner、credential reader 或 attempt owner。
+python3 - "$root" "$test_dir" <<'PY'
+from __future__ import annotations
+
+import fcntl
+import hashlib
+import json
+import os
+import pty
+import select
+import subprocess
+import sys
+import termios
+import time
+from pathlib import Path
+
+
+root = Path(sys.argv[1]).resolve()
+suite_root = Path(sys.argv[2]).resolve() / "bootstrap-cli-subprocess"
+suite_root.mkdir()
+script = root / "deploy/scripts/prepare-production-data.py"
+fake_bin = suite_root / "bin"
+fake_bin.mkdir()
+docker_log = suite_root / "docker.jsonl"
+container_id = "b" * 64
+backend_image_id = "sha256:" + "a" * 64
+release_id = "production-20260829-120000-0123456789ab"
+backend_image = "registry.example/partsignal-backend"
+frontend_image = "registry.example/partsignal-frontend-v2"
+run_id = "prr_20260829_120000"
+credential = "pty-bootstrap-secret-must-not-echo"
+
+
+def sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as source:
+        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+tracked_names = {
+    "deploy/compose.prod.yaml",
+    "deploy/nginx/partsignal-maintenance.conf.template",
+    "deploy/nginx/partsignal-security-headers.conf",
+    "deploy/nginx/partsignal.conf.template",
+    "deploy/scripts/activate-production.sh",
+    "deploy/scripts/deploy.sh",
+    "deploy/scripts/prepare-production-data.py",
+    "deploy/scripts/rollback-production-frontend.sh",
+}
+manifest = suite_root / "release-manifest.json"
+manifest_payload = {
+    "release_id": release_id,
+    "commit": "e" * 40,
+    "schema_head": "0043_geo_platform_identity",
+    "images": {
+        "backend": {
+            "reference": f"{backend_image}:{release_id}",
+            "image_id": backend_image_id,
+            "repo_digests": ["registry.example/backend@sha256:" + "1" * 64],
+        },
+        "frontend": {
+            "reference": f"{frontend_image}:{release_id}",
+            "image_id": "sha256:" + "2" * 64,
+            "repo_digests": ["registry.example/frontend@sha256:" + "3" * 64],
+        },
+        "rollback_frontend": {
+            "reference": f"{frontend_image}:previous",
+            "image_id": "sha256:" + "4" * 64,
+            "repo_digests": ["registry.example/frontend@sha256:" + "5" * 64],
+        },
+    },
+    "tracked_files": {name: sha256(root / name) for name in sorted(tracked_names)},
+}
+manifest.write_text(json.dumps(manifest_payload, sort_keys=True), encoding="utf-8")
+candidate = {
+    "manifest_sha256": sha256(manifest),
+    "release_id": release_id,
+    "commit": "e" * 40,
+    "schema_head": "0043_geo_platform_identity",
+    "backend_reference": f"{backend_image}:{release_id}",
+    "backend_image_id": backend_image_id,
+    "backend_repo_digests": ["registry.example/backend@sha256:" + "1" * 64],
+    "frontend_reference": f"{frontend_image}:{release_id}",
+    "frontend_image_id": "sha256:" + "2" * 64,
+    "frontend_repo_digests": ["registry.example/frontend@sha256:" + "3" * 64],
+    "rollback_frontend_reference": f"{frontend_image}:previous",
+    "rollback_frontend_image_id": "sha256:" + "4" * 64,
+    "rollback_frontend_repo_digests": [
+        "registry.example/frontend@sha256:" + "5" * 64
+    ],
+}
+
+docker_script = fake_bin / "docker"
+docker_script.write_text(
+    r'''#!/usr/bin/env python3
+import json
+import os
+import sys
+import time
+from pathlib import Path
+
+args = sys.argv[1:]
+with Path(os.environ["FAKE_DOCKER_LOG"]).open("a", encoding="utf-8") as output:
+    output.write(json.dumps(args) + "\n")
+
+container_id = "b" * 64
+backend_image_id = "sha256:" + "a" * 64
+if args and args[0] == "ps":
+    print(container_id)
+    raise SystemExit(0)
+if args and args[0] == "inspect":
+    print(
+        "|".join(
+            (
+                container_id,
+                backend_image_id,
+                "running",
+                "true",
+                "partsignal-staging",
+                "api",
+                "[]",
+            )
+        )
+    )
+    raise SystemExit(0)
+if args and args[0] == "exec":
+    envelope = json.loads(sys.stdin.buffer.read())
+    mode = os.environ.get("FAKE_BACKEND_MODE", "success")
+    marker = os.environ.get("FAKE_BACKEND_MARKER")
+    if marker:
+        Path(marker).write_text("backend-entered\n", encoding="utf-8")
+    if mode == "hold":
+        release = Path(os.environ["FAKE_BACKEND_RELEASE"])
+        deadline = time.monotonic() + 10
+        while not release.exists():
+            if time.monotonic() >= deadline:
+                raise SystemExit(91)
+            time.sleep(0.02)
+    if mode == "unknown-after-commit":
+        Path(os.environ["FAKE_COMMIT_MARKER"]).write_text(
+            "database-commit-observed\n", encoding="utf-8"
+        )
+        raise SystemExit(0)
+    status = "FAILED" if mode == "provider-failed" else "SUCCEEDED"
+    failed = status == "FAILED"
+    result = {
+        "status": status,
+        "request_id": envelope["request_id"],
+        "channel_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "channel_revision": 1,
+        "channel_enabled": not failed,
+        "channel_configured": True,
+        "model_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "model_revision": 2,
+        "model_test_status": "FAILED" if failed else "PASSED",
+        "model_enabled": not failed,
+        "model_configured": True,
+    }
+    print(json.dumps(result, sort_keys=True))
+    raise SystemExit(1 if failed else 0)
+raise SystemExit(92)
+''',
+    encoding="utf-8",
+)
+docker_script.chmod(0o755)
+
+pty_wrapper = suite_root / "pty-wrapper.py"
+pty_wrapper.write_text(
+    r'''#!/usr/bin/env python3
+import signal
+import subprocess
+import sys
+import termios
+
+
+signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+
+def restore_sigint() -> None:
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+
+
+completed = subprocess.run(sys.argv[1:], check=False, preexec_fn=restore_sigint)
+if not termios.tcgetattr(0)[3] & termios.ECHO:
+    print("PTY_ECHO_RESTORED=0", flush=True)
+    raise SystemExit(97)
+print("PTY_ECHO_RESTORED=1", flush=True)
+raise SystemExit(completed.returncode)
+''',
+    encoding="utf-8",
+)
+pty_wrapper.chmod(0o755)
+
+
+def make_state(
+    label: str,
+    *,
+    phase: str = "PRODUCTION_PREPARED",
+    state_run_id: str = run_id,
+    state_candidate: dict[str, object] | None = None,
+) -> tuple[Path, dict[str, str]]:
+    case_root = suite_root / label
+    data_root = case_root / "data"
+    quarantine_root = case_root / "quarantine"
+    target = quarantine_root / state_run_id
+    data_root.mkdir(parents=True)
+    target.mkdir(parents=True)
+    state = {
+        "schema_version": 1,
+        "phase": phase,
+        "run_id": state_run_id,
+        "data_root": str(data_root),
+        "quarantine_target": str(target),
+        "device": data_root.stat().st_dev,
+        "candidate": candidate if state_candidate is None else state_candidate,
+    }
+    (data_root / ".partsignal-production-cutover.json").write_text(
+        json.dumps(state, sort_keys=True), encoding="utf-8"
+    )
+    environment = {
+        **os.environ,
+        "PATH": f"{fake_bin}{os.pathsep}{os.environ['PATH']}",
+        "PARTSIGNAL_ALLOW_NONSTANDARD_DATA_ROOT_FOR_TESTS": "1",
+        "PARTSIGNAL_DATA_ROOT": str(data_root),
+        "PARTSIGNAL_QUARANTINE_ROOT": str(quarantine_root),
+        "PARTSIGNAL_MAINTENANCE_LOCK_FILE": str(case_root / "maintenance.lock"),
+        "PARTSIGNAL_VERSION": release_id,
+        "PARTSIGNAL_BACKEND_IMAGE": backend_image,
+        "PARTSIGNAL_FRONTEND_IMAGE": frontend_image,
+        "FAKE_DOCKER_LOG": str(docker_log),
+        "FAKE_BACKEND_MODE": "success",
+    }
+    return data_root, environment
+
+
+bootstrap_options = [
+    "--channel-name",
+    "Production channel",
+    "--channel-description",
+    "Production bootstrap",
+    "--protocol-type",
+    "openai-compatible-chat-completions",
+    "--provider-brand",
+    "CUSTOM",
+    "--base-url",
+    "https://provider.example/v1",
+    "--timeout-seconds",
+    "30",
+    "--model-display-name",
+    "Production model",
+    "--model-id",
+    "exact-model-id",
+    "--request-parameters-json",
+    '{"temperature":0}',
+]
+
+
+def bootstrap_command(
+    *, command_run_id: str = run_id, manifest_value: str | None = None
+) -> list[str]:
+    return [
+        sys.executable,
+        str(script),
+        "bootstrap-ai",
+        command_run_id,
+        str(manifest) if manifest_value is None else manifest_value,
+        *bootstrap_options,
+    ]
+
+
+def verify_command() -> list[str]:
+    return [sys.executable, str(script), "verify-prepared", run_id, str(manifest)]
+
+
+def mark_initialized_command() -> list[str]:
+    return [sys.executable, str(script), "mark-initialized", run_id, str(manifest)]
+
+
+def read_state(data_root: Path) -> dict[str, object]:
+    return json.loads(
+        (data_root / ".partsignal-production-cutover.json").read_text(encoding="utf-8")
+    )
+
+
+def docker_calls() -> list[list[str]]:
+    if not docker_log.exists():
+        return []
+    return [json.loads(line) for line in docker_log.read_text(encoding="utf-8").splitlines()]
+
+
+def reset_docker_log() -> None:
+    docker_log.unlink(missing_ok=True)
+
+
+def assert_early_rejection(
+    *,
+    label: str,
+    command: list[str],
+    environment: dict[str, str],
+    expected: str,
+) -> None:
+    reset_docker_log()
+    completed = subprocess.run(
+        command,
+        input=b"early-secret-must-not-be-read\n",
+        capture_output=True,
+        check=False,
+        env=environment,
+        cwd=manifest.parent,
+    )
+    combined = completed.stdout + completed.stderr
+    assert completed.returncode == 2, (label, completed.returncode, combined)
+    assert expected.encode() in combined, (label, combined)
+    assert b"AI API Key:" not in combined
+    assert b"early-secret-must-not-be-read" not in combined
+    assert not any(call and call[0] == "exec" for call in docker_calls())
+
+
+# run/manifest/candidate/phase 都必须在 credential reader 与 backend 前拒绝。
+_, wrong_run_env = make_state("wrong-run")
+assert_early_rejection(
+    label="wrong run",
+    command=bootstrap_command(command_run_id="prr_20260829_120001"),
+    environment=wrong_run_env,
+    expected="run ID 或隔离目标与状态文件不一致",
+)
+_, relative_manifest_env = make_state("relative-manifest")
+assert_early_rejection(
+    label="relative manifest",
+    command=bootstrap_command(manifest_value=manifest.name),
+    environment=relative_manifest_env,
+    expected="Production 候选清单必须是绝对普通文件",
+)
+mismatched_candidate = dict(candidate)
+mismatched_candidate["backend_image_id"] = "sha256:" + "9" * 64
+_, mismatch_env = make_state(
+    "candidate-mismatch", state_candidate=mismatched_candidate
+)
+assert_early_rejection(
+    label="candidate mismatch",
+    command=bootstrap_command(),
+    environment=mismatch_env,
+    expected="当前候选与 Production 数据状态绑定的候选不一致",
+)
+_, phase_env = make_state("phase-mismatch", phase="CLEAN_INIT_DEPLOYING")
+assert_early_rejection(
+    label="phase mismatch",
+    command=bootstrap_command(),
+    environment=phase_env,
+    expected="当前数据阶段不允许该操作",
+)
+
+
+# attempt 键一旦存在就必须结构合法；畸形值不得触发容器查询、credential 或写回。
+attempt_request_id = "production-bootstrap-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+malformed_attempt_cases = (
+    ("null", None),
+    ("non-object", []),
+    ("empty-object", {}),
+    ("missing-status", {"request_id": attempt_request_id}),
+    ("missing-request-id", {"status": "SUCCEEDED"}),
+    ("extra-field", {"request_id": attempt_request_id, "status": "SUCCEEDED", "extra": True}),
+    ("invalid-request-id", {"request_id": "invalid", "status": "SUCCEEDED"}),
+    ("invalid-status", {"request_id": attempt_request_id, "status": []}),
+)
+for label, attempt in malformed_attempt_cases:
+    malformed_root, malformed_env = make_state(f"attempt-{label}")
+    malformed_path = malformed_root / ".partsignal-production-cutover.json"
+    malformed_state = read_state(malformed_root)
+    malformed_state["ai_bootstrap_attempt"] = attempt
+    malformed_path.write_text(
+        json.dumps(malformed_state, sort_keys=True), encoding="utf-8"
+    )
+    original_state = malformed_path.read_bytes()
+    assert_early_rejection(
+        label=f"malformed attempt {label}",
+        command=bootstrap_command(),
+        environment=malformed_env,
+        expected="Production AI bootstrap attempt 状态无效",
+    )
+    assert docker_calls() == [], (label, docker_calls())
+    assert malformed_path.read_bytes() == original_state, label
+
+
+# 三种合法状态同样都表示 attempt 已存在，必须在外部 I/O 前拒绝重入。
+for status_value in ("STARTED", "FAILED", "SUCCEEDED"):
+    reentry_root, reentry_env = make_state(f"attempt-reentry-{status_value.lower()}")
+    reentry_path = reentry_root / ".partsignal-production-cutover.json"
+    reentry_state = read_state(reentry_root)
+    reentry_state["ai_bootstrap_attempt"] = {
+        "request_id": attempt_request_id,
+        "status": status_value,
+    }
+    reentry_path.write_text(json.dumps(reentry_state, sort_keys=True), encoding="utf-8")
+    original_state = reentry_path.read_bytes()
+    assert_early_rejection(
+        label=f"attempt reentry {status_value}",
+        command=bootstrap_command(),
+        environment=reentry_env,
+        expected="Production AI bootstrap attempt 已存在，拒绝重入",
+    )
+    assert docker_calls() == [], (status_value, docker_calls())
+    assert reentry_path.read_bytes() == original_state, status_value
+
+
+# 真实 maintenance lock 竞争必须在 parser/main 的 credential/backend 路径之前结束。
+_, locked_env = make_state("lock-contention-early")
+lock_path = Path(locked_env["PARTSIGNAL_MAINTENANCE_LOCK_FILE"])
+lock_path.parent.mkdir(parents=True, exist_ok=True)
+with lock_path.open("w", encoding="utf-8") as lock_stream:
+    fcntl.flock(lock_stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    assert_early_rejection(
+        label="maintenance lock contention",
+        command=bootstrap_command(),
+        environment=locked_env,
+        expected="已有 PartSignal Production 维护操作持有排他锁",
+    )
+
+
+class PTYProcess:
+    def __init__(self, command: list[str], environment: dict[str, str]) -> None:
+        self.master, self.slave = pty.openpty()
+
+        def claim_controlling_terminal() -> None:
+            os.setsid()
+            fcntl.ioctl(0, termios.TIOCSCTTY, 0)
+
+        self.process = subprocess.Popen(
+            [sys.executable, str(pty_wrapper), *command],
+            stdin=self.slave,
+            stdout=self.slave,
+            stderr=self.slave,
+            env=environment,
+            close_fds=True,
+            preexec_fn=claim_controlling_terminal,
+        )
+        self.transcript = b""
+
+    def read_until(self, needle: bytes, timeout: float = 8) -> None:
+        deadline = time.monotonic() + timeout
+        while needle not in self.transcript:
+            assert time.monotonic() < deadline, self.transcript
+            readable, _, _ = select.select([self.master], [], [], 0.05)
+            if readable:
+                try:
+                    chunk = os.read(self.master, 4096)
+                except OSError:
+                    pass
+                else:
+                    self.transcript += chunk
+            assert self.process.poll() is None, self.transcript
+
+    def send_credential(self, value: bytes) -> None:
+        self.read_until(b"AI API Key:")
+        assert termios.tcgetattr(self.slave)[3] & termios.ECHO == 0
+        os.write(self.master, value)
+
+    def finish(self, timeout: float = 10) -> int:
+        deadline = time.monotonic() + timeout
+        while self.process.poll() is None:
+            assert time.monotonic() < deadline, self.transcript
+            readable, _, _ = select.select([self.master], [], [], 0.05)
+            if readable:
+                try:
+                    chunk = os.read(self.master, 4096)
+                except OSError:
+                    pass
+                else:
+                    self.transcript += chunk
+        while True:
+            readable, _, _ = select.select([self.master], [], [], 0)
+            if not readable:
+                break
+            try:
+                chunk = os.read(self.master, 4096)
+            except OSError:
+                break
+            if not chunk:
+                break
+            self.transcript += chunk
+        return_code = self.process.wait()
+        assert b"PTY_ECHO_RESTORED=1" in self.transcript, self.transcript
+        return return_code
+
+    def close(self) -> None:
+        os.close(self.master)
+        os.close(self.slave)
+
+
+# 真 PTY 正常路径：no-echo；backend 未完成前 maintenance lock 不释放。
+reset_docker_log()
+hold_data_root, hold_env = make_state("hold-lock-until-backend-completes")
+backend_marker = suite_root / "backend-entered"
+backend_release = suite_root / "backend-release"
+hold_env.update(
+    {
+        "FAKE_BACKEND_MODE": "hold",
+        "FAKE_BACKEND_MARKER": str(backend_marker),
+        "FAKE_BACKEND_RELEASE": str(backend_release),
+    }
+)
+session = PTYProcess(bootstrap_command(), hold_env)
+try:
+    session.send_credential((credential + "\n").encode())
+    deadline = time.monotonic() + 8
+    while not backend_marker.exists():
+        assert time.monotonic() < deadline, session.transcript
+        time.sleep(0.02)
+    assert read_state(hold_data_root)["ai_bootstrap_attempt"]["status"] == "STARTED"
+    contender = subprocess.run(
+        bootstrap_command(),
+        input=b"contender-secret-must-not-be-read\n",
+        capture_output=True,
+        check=False,
+        env=hold_env,
+    )
+    assert contender.returncode == 2
+    assert "已有 PartSignal Production 维护操作持有排他锁" in contender.stderr.decode()
+    assert b"AI API Key:" not in contender.stderr
+    assert sum(call[0] == "exec" for call in docker_calls()) == 1
+    backend_release.write_text("continue\n", encoding="utf-8")
+    assert session.finish() == 0, session.transcript
+    assert credential.encode() not in session.transcript
+    assert read_state(hold_data_root)["ai_bootstrap_attempt"]["status"] == "SUCCEEDED"
+finally:
+    if session.process.poll() is None:
+        session.process.kill()
+        session.process.wait()
+    session.close()
+
+verified = subprocess.run(
+    verify_command(), capture_output=True, check=False, env=hold_env
+)
+assert verified.returncode == 0, verified.stderr
+
+
+# 真 PTY SIGINT：getpass 期间 ECHO 关闭，退出后必须恢复，且不得创建 attempt。
+reset_docker_log()
+sigint_data_root, sigint_env = make_state("sigint-echo-restore")
+session = PTYProcess(bootstrap_command(), sigint_env)
+try:
+    session.send_credential(b"\x03")
+    assert session.finish() == 2, session.transcript
+    assert b"Production AI credential" in session.transcript
+    assert "ai_bootstrap_attempt" not in read_state(sigint_data_root)
+    assert not any(call and call[0] == "exec" for call in docker_calls())
+finally:
+    if session.process.poll() is None:
+        session.process.kill()
+        session.process.wait()
+    session.close()
+
+for command in (verify_command(), mark_initialized_command()):
+    missing_attempt = subprocess.run(
+        command, capture_output=True, check=False, env=sigint_env
+    )
+    assert missing_attempt.returncode == 2
+    assert "尚未取得可激活的成功结果" in missing_attempt.stderr.decode()
+assert read_state(sigint_data_root)["phase"] == "PRODUCTION_PREPARED"
+
+
+# 等价于 T3 已提交但 stdout 丢失：host 保留 STARTED，verify-prepared fail closed。
+reset_docker_log()
+unknown_data_root, unknown_env = make_state("unknown-after-commit")
+commit_marker = suite_root / "database-commit-observed"
+unknown_env.update(
+    {
+        "FAKE_BACKEND_MODE": "unknown-after-commit",
+        "FAKE_COMMIT_MARKER": str(commit_marker),
+    }
+)
+session = PTYProcess(bootstrap_command(), unknown_env)
+try:
+    session.send_credential((credential + "\n").encode())
+    assert session.finish() == 2, session.transcript
+    assert commit_marker.is_file()
+    assert credential.encode() not in session.transcript
+finally:
+    if session.process.poll() is None:
+        session.process.kill()
+        session.process.wait()
+    session.close()
+assert read_state(unknown_data_root)["ai_bootstrap_attempt"]["status"] == "STARTED"
+verify_unknown = subprocess.run(
+    verify_command(), capture_output=True, check=False, env=unknown_env
+)
+assert verify_unknown.returncode == 2
+assert "尚未取得可激活的成功结果" in verify_unknown.stderr.decode()
+mark_unknown = subprocess.run(
+    mark_initialized_command(), capture_output=True, check=False, env=unknown_env
+)
+assert mark_unknown.returncode == 2
+assert "尚未取得可激活的成功结果" in mark_unknown.stderr.decode()
+assert read_state(unknown_data_root)["phase"] == "PRODUCTION_PREPARED"
+assert credential not in docker_log.read_text(encoding="utf-8")
+assert credential not in json.dumps(read_state(unknown_data_root), sort_keys=True)
+
+
+# 只有完整 provider FAILED envelope 可把 durable attempt 写成 FAILED。
+reset_docker_log()
+failed_data_root, failed_env = make_state("explicit-provider-failed")
+failed_env["FAKE_BACKEND_MODE"] = "provider-failed"
+session = PTYProcess(bootstrap_command(), failed_env)
+try:
+    session.send_credential((credential + "\n").encode())
+    assert session.finish() == 2, session.transcript
+    assert credential.encode() not in session.transcript
+finally:
+    if session.process.poll() is None:
+        session.process.kill()
+        session.process.wait()
+    session.close()
+assert read_state(failed_data_root)["ai_bootstrap_attempt"]["status"] == "FAILED"
+verify_failed = subprocess.run(
+    verify_command(), capture_output=True, check=False, env=failed_env
+)
+assert verify_failed.returncode == 2
+assert "尚未取得可激活的成功结果" in verify_failed.stderr.decode()
+mark_failed = subprocess.run(
+    mark_initialized_command(), capture_output=True, check=False, env=failed_env
+)
+assert mark_failed.returncode == 2
+assert "尚未取得可激活的成功结果" in mark_failed.stderr.decode()
+assert read_state(failed_data_root)["phase"] == "PRODUCTION_PREPARED"
+PY
+
 printf '%s\n' source >"$test_dir/source.tar.gz"
 set +e
 PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/manifest.log" \
@@ -662,6 +1749,46 @@ test "$v1_activation_status" -eq 2
 test ! -s "$test_dir/v1-activation.log"
 grep -q 'V1 镜像仓库' "$test_dir/v1-activation.err"
 
+: >"$test_dir/missing-bootstrap-activation.log"
+set +e
+PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/missing-bootstrap-activation.log" \
+  PARTSIGNAL_VERSION="$candidate_release" PARTSIGNAL_BACKEND_IMAGE=partsignal-backend \
+  PARTSIGNAL_FRONTEND_IMAGE=partsignal-frontend-v2 \
+  PARTSIGNAL_IMAGE_DELIVERY_MODE=local \
+  PARTSIGNAL_DATA_ROOT="$test_dir/live" \
+  PARTSIGNAL_QUARANTINE_ROOT="$test_dir/quarantine" \
+  PARTSIGNAL_MAINTENANCE_LOCK_FILE="$test_dir/maintenance.lock" \
+  PARTSIGNAL_ALLOW_NONSTANDARD_DATA_ROOT_FOR_TESTS=1 \
+  PARTSIGNAL_DEPLOY_MODE=clean-init PARTSIGNAL_CUTOVER_RUN_ID=prr_20260829_120000 \
+  PARTSIGNAL_EXTERNAL_SERVICES_GATE=MET \
+  PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
+  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+  "$root/deploy/scripts/activate-production.sh" \
+  >"$test_dir/missing-bootstrap-activation.out" \
+  2>"$test_dir/missing-bootstrap-activation.err"
+missing_bootstrap_activation_status=$?
+set -e
+test "$missing_bootstrap_activation_status" -eq 2
+test ! -s "$test_dir/missing-bootstrap-activation.log"
+grep -q 'Production AI bootstrap 尚未取得可激活的成功结果' \
+  "$test_dir/missing-bootstrap-activation.err"
+python3 - "$test_dir/live/.partsignal-production-cutover.json" <<'PY'
+import json
+import sys
+
+state_path = sys.argv[1]
+with open(state_path, encoding="utf-8") as state_file:
+    state = json.load(state_file)
+assert state["phase"] == "PRODUCTION_PREPARED"
+assert "ai_bootstrap_attempt" not in state
+state["ai_bootstrap_attempt"] = {
+    "request_id": "production-bootstrap-123e4567-e89b-42d3-a456-426614174000",
+    "status": "SUCCEEDED",
+}
+with open(state_path, "w", encoding="utf-8") as state_file:
+    json.dump(state, state_file, sort_keys=True)
+PY
+
 : >"$test_dir/activate.log"
 PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/activate.log" \
   PARTSIGNAL_VERSION="$candidate_release" PARTSIGNAL_BACKEND_IMAGE=partsignal-backend \
@@ -716,6 +1843,20 @@ grep -q 'up -d --no-deps --no-build --pull never --force-recreate --wait fronten
   "$test_dir/rollback.log"
 ! grep -Eq 'up .*api|up .*worker|up .*scheduler|up .*postgres|up .*redis' \
   "$test_dir/rollback.log"
+
+python3 - "$test_dir/live/.partsignal-production-cutover.json" <<'PY'
+import json
+import sys
+
+state_path = sys.argv[1]
+with open(state_path, encoding="utf-8") as state_file:
+    state = json.load(state_file)
+assert state["phase"] == "PRODUCTION_INITIALIZED"
+assert state["ai_bootstrap_attempt"]["status"] == "SUCCEEDED"
+del state["ai_bootstrap_attempt"]
+with open(state_path, "w", encoding="utf-8") as state_file:
+    json.dump(state, state_file, sort_keys=True)
+PY
 
 : >"$test_dir/unprepared-upgrade-activation.log"
 set +e
@@ -788,6 +1929,15 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/upgrade-activation.log" \
   "$root/deploy/scripts/activate-production.sh" >/dev/null
 grep -q -- '--profile production-async.*up -d --wait worker scheduler' \
   "$test_dir/upgrade-activation.log"
+python3 - "$test_dir/live/.partsignal-production-cutover.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as state_file:
+    state = json.load(state_file)
+assert state["phase"] == "PRODUCTION_INITIALIZED"
+assert "ai_bootstrap_attempt" not in state
+PY
 
 for log_file in "$test_dir/clean.log" "$test_dir/activate.log" "$test_dir/upgrade.log" \
   "$test_dir/upgrade-activation.log"; do

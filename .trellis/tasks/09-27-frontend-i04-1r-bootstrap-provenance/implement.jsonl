@@ -1,0 +1,10 @@
+{"file":".trellis/spec/backend/ai-configuration-guidelines.md","reason":"AI credential、Channel/Model、SSRF、加密、测试与启用的稳定业务合同"}
+{"file":".trellis/spec/backend/database-guidelines.md","reason":"Production clean-init、事务、持久化与数据库副作用边界"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"CLI 复用服务错误时必须保持显式失败与无敏感信息"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"后端测试边界与目标验证要求"}
+{"file":".trellis/spec/infra/domain-security-operations.md","reason":"Production 域名、HTTPS、Cookie、CSRF 与运维安全边界"}
+{"file":".trellis/spec/infra/production-image-delivery.md","reason":"release/manifest/candidate identity 与 Production 阶段约束"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"deploy phase owner 与 backend credential owner 的跨层职责分离"}
+{"file":".trellis/tasks/09-26-frontend-i04-1-production-config-rollback-identity/design.md","reason":"父任务两项 blocker 与既有 secret boundary"}
+{"file":".trellis/tasks/09-26-frontend-i04-1-production-config-rollback-identity/implement.md","reason":"Production env、rollback identity 与 critical review 事实证据"}
+{"file":".trellis/tasks/09-27-frontend-i04-release-deployment/design.md","reason":"I04 maintenance、clean-init、External Services Gate 与 activation 顺序"}

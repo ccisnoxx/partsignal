@@ -12,6 +12,7 @@
 - `deploy/scripts/deploy.sh`：准备 PostgreSQL/Redis、migration、账号、API/frontend。
 - `deploy/scripts/activate-production.sh`：外部 Gate 通过后激活 Worker/Scheduler。
 - `create-release-manifest.py` 与 `prepare-production-data.py`：分别是候选身份 producer 与共享 consumer。
+- `prepare-production-data.py bootstrap-ai`：`PRODUCTION_PREPARED` 下唯一的 Host root/operator AI bootstrap 入口；复用同一 cutover state、candidate consumer 与 maintenance lock。
 
 ### 3. Contracts
 
@@ -19,6 +20,9 @@
 - `local` 不 pull；候选镜像必须已存在，manifest image ID/RepoDigest 校验必须早于第一个 Compose `run/up`，相关 `run/up` 必须使用 `--pull never`。
 - backend、frontend、rollback frontend 的 repository 末段以 `backend-v1` 或 `frontend-v1` 结尾时，producer 和 consumer 都必须拒绝；deploy/activate 还应在状态转换前拒绝对应环境变量。
 - V1 不能进入 manifest、Production Compose 操作或 frontend rollback；V2-only 不依赖 UI 隐藏或人工约定。
+- `bootstrap-ai` 在同一维护锁内验证 run ID、manifest/candidate、phase 和正在运行 API 容器的 project/service/image/running/mount identity；不得读取 `.Config.Env`，不得启动 one-off service 或执行 `run/up/pull`。
+- host 在调用 backend 前原子写入无 secret 的 `ai_bootstrap_attempt=STARTED`；任何已有 attempt 都拒绝重入。完整成功更新 `SUCCEEDED`，明确失败更新 `FAILED`，结果未知保持 `STARTED`；`verify-prepared`/activation 必须拒绝 `STARTED` 或 `FAILED`，且不提供 force-clear。
+- credential 只从真实交互式 no-echo TTY 经 `docker exec -i` stdin 传入；禁止 argv、environment、文件、history、日志、Docker metadata 或异常透传。bootstrap 成功不自动把完整 External Services Gate 标为 `MET`。
 
 ### 4. Validation & Error Matrix
 
@@ -29,6 +33,10 @@
 | local 镜像缺失或 identity 漂移 | 在任何 `run/up` 前失败 |
 | manifest 含 V1 current/rollback reference | producer 或共享 consumer 明确失败 |
 | registry candidate 合法 | 保持 pull 后校验与既有启动顺序 |
+| bootstrap phase/candidate/container identity 不匹配 | backend 未启动，attempt/数据库不变，明确失败 |
+| 已有 attempt 或任意 AI 配置 | 拒绝重试/覆盖，不调用 provider |
+| provider 明确失败 | attempt=`FAILED`，保留停用配置与 FAILED test state，activation 拒绝 |
+| backend 结果未知或输出丢失 | attempt 保持 `STARTED`，禁止重试和 activation，只读核对或恢复 |
 
 ### 5. Good / Base / Bad Cases
 
@@ -46,6 +54,8 @@
 - 空/非法 mode 的具体错误；
 - backend/frontend V1、producer V1 和 consumer 的 tampered rollback V1 都被拒绝；
 - 负向用例检查具体错误原因，不能只检查非零退出码。
+- `bootstrap-ai` 的 TTY/no-echo、fallback/non-TTY/EOF/SIGINT、wrong run/manifest/candidate/phase/container identity、attempt 重入与 unknown result；断言 secret 不进入命令、state、stdout/stderr 或 Docker inspect 请求。
+- `verify-prepared` 和 activation 对 `STARTED/FAILED` fail closed，对无 attempt 的既有 upgrade 兼容路径保持原行为。
 
 ### 7. Wrong vs Correct
 

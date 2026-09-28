@@ -29,6 +29,10 @@
 
 读取接口只返回凭据已配置状态，复制配置不包含 API Key 或敏感 Header。排障不得从浏览器状态、数据库密文、普通日志或审计差异导出凭据。
 
+Production clean-init 的首个真实 AI credential 只通过 Hostdzire root/operator maintenance CLI 注入：deploy 状态 owner 必须在同一锁内证明 run、manifest、candidate 与 `PRODUCTION_PREPARED`，credential owner 在真实 TTY 以 no-echo 输入，secret 仅经进程内存、内核 pipe、Docker exec 与 provider buffer，并最终只以应用既有 `CredentialCipher` 密文持久化。不得把 credential 放入 argv、环境变量、文件、history、日志、Docker metadata、Trellis 或对话，也不得读取 seed admin password；固定 `admin` 仅作为 maintenance 操作的业务审计归属。
+
+该 bootstrap 是单次 fail-closed 状态机：T1 原子创建停用 channel/model，T2 在数据库事务外进行至多一次真实连接测试，T3 仅在 `PASSED` 时原子启用二者。provider 失败、revision 冲突、host/容器结果未知或任何已有 AI 配置/attempt 都禁止自动重试和 credential 覆盖；数据库事实与 operator 确认必须分开处理。bootstrap connection test 不替代真实正式生成、OSS 或浏览器 External Services Gate。
+
 AI 请求只连接经过校验的公网地址，TLS 身份与 Host 使用渠道原 hostname。连接兼容故障、peer 越界、重定向或响应超限必须显式失败；不得关闭证书校验、恢复不受控的二次 DNS 解析或在请求发送后自动重试。
 
 只有作业输入完整且绑定事实快照的全部 Evidence 均为 `PUBLIC` 时才允许出站。供应商已接收但 Worker 丢失的作业只标记失败，不自动再次调用。

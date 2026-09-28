@@ -79,3 +79,41 @@ I03 `make verify` 复用仍成立：`387b802d` 到 `f91b98b5` 的产品代码、
 停止条件为 `PRODUCTION_ENV_MISSING`：固定路径 `/root/partsignal/shared/.env.production` 不存在。根据用户明确停止条件与 runbook，不能从 `.env.staging` 复制、猜测、打印或合成 Production 值，也不能继续构建/上传 release、生成 manifest、安装维护配置、停止容器或 quarantine 数据。
 
 恢复 I04 前需要由凭据 owner 在 Hostdzire 受控创建普通、非 symlink、权限 `0600` 的 `.env.production`，并确保 Production-only 安全配置和真实 AI/OSS 凭据完整；同时需要明确并验证上一份 V2 rollback frontend identity（最好以不可变 manifest 或等价审计记录固定）。下一会话从 Hostdzire 只读预检重跑开始，不复用本次缺失 env 的 Configuration Gate 结论。
+
+## 2026-09-27 I04-1 continuation
+
+- child：`.trellis/tasks/09-26-frontend-i04-1-production-config-rollback-identity/`，status=`in_progress / blocked_remote_precheck`。
+- target `.env.production` 仍不存在；shared parent 与 `.env.staging` metadata 安全，未执行远端写入。
+- 脱敏 source inspection 证明 staging 为 development object storage、没有 `OSS_ENDPOINT`、OSS AccessKey ID/secret 均未配置；因此触发 `PRODUCTION_OSS_CONFIGURATION_SOURCE_MISSING`，不能生成部分 Production env 或猜测真实 OSS 输入。
+- sanitized log：`/tmp/partsignal-i04-1-hostdzire-config-precheck.log`，`1447` bytes，SHA-256 `d5c3bf92b888d19f08ffbd9fa8e61fcbb4705f09da71c2df348b72f26ece8929`。
+- Settings/CLI preflight、Compose config、rollback identity freeze 与 critical review 均因前置配置不成立而未运行；release/manifest/maintenance/container/data/Nginx 仍未触碰。
+- 恢复条件：credential owner 通过 Hostdzire 本机安全渠道 provision 可验证的真实 Aliyun OSS endpoint、bucket 和 AccessKey 输入，不通过聊天传递；随后重新执行 I04-1 的 target-absent precheck。
+
+### I04-1 resume attempt
+
+- main 工作区 `.env` 已有 bucket 与 AccessKey，文件权限从 `0644` 收紧为 `0600`；但 `OSS_ENDPOINT` 仍缺失，已有 development storage endpoints 为非 HTTPS、非 Aliyun host。
+- candidate `.env` 与 Hostdzire shared/current env 也没有可用 endpoint；Production env fresh check 仍 absent，remote writes=`none`。
+- blocker 更新为 `PRODUCTION_OSS_ENDPOINT_MISSING_OR_UNSAFE`。脱敏日志 SHA-256=`9b66d168257df73b52a462bf108eb45a3ccf3b377ebdecb85a3c7fe57dd8d1f2`。
+
+### I04-1 controlled creation, validation, and critical review
+
+- credential owner 后续在 Git-ignored、`0600` 的 main `.env` 补齐真实 Aliyun OSS 四项；值未进入对话、Trellis 或普通日志。`/root/partsignal/shared/.env.production` 已受控创建，当前为 `root:root 0600` 普通非 symlink 文件，`1480` bytes，SHA-256=`413092ab3459ca8c1198a1b352eca8009ff1bc965916073d002d2be4cdab6eba`。
+- Production Settings、`python -m app.cli preflight-production-config`、Compose `config --quiet` 与 secret scan 通过；这些仅为 Configuration Gate，External Services Gate 仍为 `NOT_RUN`。
+- rollback frontend 已冻结为 `partsignal-frontend:mvp-20260830-133651-a663bcce` / image ID `sha256:c0826f2a31e30d160252c1385e6b2b14d3fcfc58ec49692b0202cb45533dca1e` / RepoDigest 同 digest / `linux/amd64` / source `a663bcce9fd49da9c5aea7f257372fc318447234`，且 I04 完成前不得删除、retag 或覆盖。
+- fresh critical review audit `20260927T133013Z-i04-1-production-config-rollback-review-922379db` 结论为 `BLOCKER`：`AI_CREDENTIAL_BOOTSTRAP_PATH_UNREACHABLE` 与 `PRODUCTION_ENV_CREATION_PROVENANCE_INCOMPLETE`。前者是 maintenance Gate 前没有可执行的 HTTPS AI credential owner 写入路径及安全 seed-admin handoff；后者是未保存实际 creator/validator 源码、精确脱敏调用方式与源码摘要，无法独立证明原子创建和随机源实现。
+- I04-1 与 I04 均保持 `in_progress / blocked_high_risk_review`；不创建 release/manifest，不进入 maintenance、clean-init、activation 或任何容器/Nginx/数据修改。
+
+### I04-1R remediation in progress
+
+- 已建立 child-of-I04-1：`.trellis/tasks/09-27-frontend-i04-1r-bootstrap-provenance/`。
+- 原 creator、validator、final secret-scan tool-call input/output 已从 session `01a0e19e-6636-75c2-a8a8-2703a2afe050` 恢复并固定 call ID、session SHA-256 和 evidence SHA-256；真实 OSS 值 evidence match=`0`，没有重建或覆盖 Production env。
+- 经独立只读架构分析，冻结为 `prepare-production-data.py bootstrap-ai` + backend `bootstrap-production-ai`：deploy state owner 在同一锁内证明候选和阶段，host TTY no-echo credential 经 stdin pipe 注入，backend 按 T1 创建 / T2 真实测试 / T3 启用执行。
+- I04-1R 只修改本地代码、测试、runbook/spec 与任务记录；未执行 Hostdzire、provider、release、manifest、maintenance、container、Nginx、数据库或活动数据操作。
+- 在目标测试与 fresh critical review 得到 `NO BLOCKER` 前，I04-1 和 I04 继续保持 `in_progress / blocked_high_risk_review`，External Services Gate=`NOT_RUN`。
+
+### I04-1 / I04-1R closure
+
+- I04-1R 最终通过 backend unit `28 passed`、真实 PostgreSQL integration `16 passed`、完整 deploy regression 与 conclusive fresh critical review `NO BLOCKER`；audit ID=`20260927T141144Z-i04-1r-bootstrap-provenance-9918acde`。
+- 两项原 blocker 已关闭，I04-1 与 I04-1R 均 completed；I04 进入 `in_progress / configuration_ready`。
+- Repository Release Gate 因代码、runbook 与任务记录输入已变化仍为 `STALE_INPUT_CHANGED_NOT_RERUN`。下一步先完成 Git 收口，并在最终 clean main 上重新建立 Gate；随后才创建 I04-2、冻结 release/manifest 并执行实际 clean-init cutover。
+- 本轮没有创建 release/manifest，没有进入 maintenance，没有停止或重建容器，没有修改 Nginx/数据库/活动数据，没有运行真实 provider 或 External Services Gate。

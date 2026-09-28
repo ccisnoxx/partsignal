@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal, cast
 
@@ -64,6 +65,23 @@ AIChannelAction = Literal[
     "CREATE_MODEL",
 ]
 AIModelAction = Literal["UPDATE", "TEST", "ENABLE", "DISABLE", "DELETE"]
+
+
+@dataclass(frozen=True, slots=True)
+class ProductionAIBootstrapResult:
+    """Production maintenance CLI 可输出的最小非敏感结果。"""
+
+    status: Literal["SUCCEEDED", "FAILED"]
+    request_id: str
+    channel_id: uuid.UUID
+    channel_revision: int
+    channel_enabled: bool
+    channel_configured: bool
+    model_id: uuid.UUID
+    model_revision: int
+    model_test_status: Literal["UNTESTED", "PASSED", "FAILED"]
+    model_enabled: bool
+    model_configured: bool
 
 
 def _ai_channel_header_name_conflict() -> AppError:
@@ -462,9 +480,7 @@ def list_ai_channel_audit_logs(
         (AuditLog.target_type == "AIModel") & or_(*model_conditions),
     )
     base_query = (
-        select(AuditLog, User)
-        .outerjoin(User, User.id == AuditLog.actor_id)
-        .where(condition)
+        select(AuditLog, User).outerjoin(User, User.id == AuditLog.actor_id).where(condition)
     )
     total = int(db.scalar(select(func.count(AuditLog.id)).where(condition)) or 0)
     records = list(
@@ -494,24 +510,48 @@ def invalidate_channel_models(db: Session, channel: AIChannel) -> None:
         model.revision += 1
 
 
-def lock_model_configuration(db: Session, model_id: uuid.UUID) -> tuple[AIModel, AIChannel]:
-    """按渠道后模型的固定顺序加锁，避免配置更新与渠道门禁竞态。"""
-    channel_id = db.scalar(select(AIModel.channel_id).where(AIModel.id == model_id))
-    if channel_id is None:
-        raise not_found("AI 模型")
-    channel = db.scalar(select(AIChannel).where(AIChannel.id == channel_id).with_for_update())
+def _lock_channel_model_configuration(
+    db: Session,
+    *,
+    channel_id: uuid.UUID,
+    model_id: uuid.UUID,
+) -> tuple[AIModel, AIChannel]:
+    """按固定顺序锁定并刷新渠道与模型，忽略 identity map 中的旧快照。"""
+    channel = db.scalar(
+        select(AIChannel)
+        .where(AIChannel.id == channel_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
     if channel is None:
         raise not_found("AI 渠道")
-    model = db.scalar(select(AIModel).where(AIModel.id == model_id).with_for_update())
+    model = db.scalar(
+        select(AIModel)
+        .where(AIModel.id == model_id, AIModel.channel_id == channel_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
     if model is None:
         raise not_found("AI 模型")
     return model, channel
 
 
-def create_ai_channel(
+def lock_model_configuration(db: Session, model_id: uuid.UUID) -> tuple[AIModel, AIChannel]:
+    """按渠道后模型的固定顺序加锁，避免配置更新与渠道门禁竞态。"""
+    channel_id = db.scalar(select(AIModel.channel_id).where(AIModel.id == model_id))
+    if channel_id is None:
+        raise not_found("AI 模型")
+    return _lock_channel_model_configuration(
+        db,
+        channel_id=channel_id,
+        model_id=model_id,
+    )
+
+
+def _create_ai_channel_in_transaction(
     *, db: Session, payload: AIChannelCreate, actor: User, request_id: str
 ) -> AIChannel:
-    """加密凭据后创建默认停用的 AI 渠道。"""
+    """在调用者事务内创建默认停用渠道并追加成功审计。"""
     _validate_channel_identity(payload.protocol_type, payload.provider_brand)
     name = payload.name.strip()
     if not name:
@@ -553,6 +593,19 @@ def create_ai_channel(
                 }
             },
         ),
+    )
+    return channel
+
+
+def create_ai_channel(
+    *, db: Session, payload: AIChannelCreate, actor: User, request_id: str
+) -> AIChannel:
+    """加密凭据后创建默认停用的 AI 渠道。"""
+    channel = _create_ai_channel_in_transaction(
+        db=db,
+        payload=payload,
+        actor=actor,
+        request_id=request_id,
     )
     db.commit()
     return channel
@@ -604,12 +657,15 @@ def create_ai_channel_header(
     if channel.revision != payload.expected_channel_revision:
         raise AppError("REVISION_CONFLICT", "AI 渠道已被其他请求修改", 409)
     normalized = validate_header(payload.name, payload.value)
-    if db.scalar(
-        select(AIChannelHeader.id).where(
-            AIChannelHeader.channel_id == channel.id,
-            AIChannelHeader.normalized_name == normalized,
+    if (
+        db.scalar(
+            select(AIChannelHeader.id).where(
+                AIChannelHeader.channel_id == channel.id,
+                AIChannelHeader.normalized_name == normalized,
+            )
         )
-    ) is not None:
+        is not None
+    ):
         raise _ai_channel_header_name_conflict()
     header_id = new_uuid()
     header = AIChannelHeader(
@@ -672,13 +728,16 @@ def update_ai_channel_header(
     if channel.revision != payload.expected_channel_revision:
         raise AppError("REVISION_CONFLICT", "AI 渠道已被其他请求修改", 409)
     normalized = validate_header(payload.name, payload.value)
-    if db.scalar(
-        select(AIChannelHeader.id).where(
-            AIChannelHeader.channel_id == channel.id,
-            AIChannelHeader.normalized_name == normalized,
-            AIChannelHeader.id != header.id,
+    if (
+        db.scalar(
+            select(AIChannelHeader.id).where(
+                AIChannelHeader.channel_id == channel.id,
+                AIChannelHeader.normalized_name == normalized,
+                AIChannelHeader.id != header.id,
+            )
         )
-    ) is not None:
+        is not None
+    ):
         raise _ai_channel_header_name_conflict()
     header.name = payload.name
     header.normalized_name = normalized
@@ -753,7 +812,7 @@ def delete_ai_channel_header(
     db.commit()
 
 
-def create_ai_model(
+def _create_ai_model_in_transaction(
     *,
     db: Session,
     channel_id: uuid.UUID,
@@ -761,16 +820,19 @@ def create_ai_model(
     actor: User,
     request_id: str,
 ) -> AIModel:
-    """在现存渠道下创建默认未测试模型。"""
+    """在调用者事务内创建默认未测试模型并追加成功审计。"""
     if db.get(AIChannel, channel_id) is None:
         raise not_found("AI 渠道")
     normalized_model_id = payload.model_id.strip()
-    if db.scalar(
-        select(AIModel.id).where(
-            AIModel.channel_id == channel_id,
-            AIModel.model_id == normalized_model_id,
+    if (
+        db.scalar(
+            select(AIModel.id).where(
+                AIModel.channel_id == channel_id,
+                AIModel.model_id == normalized_model_id,
+            )
         )
-    ) is not None:
+        is not None
+    ):
         raise _ai_model_id_conflict()
     model = AIModel(
         channel_id=channel_id,
@@ -798,6 +860,25 @@ def create_ai_model(
             result_message="AI 模型已创建",
             details={"facts": {"channel_id": str(channel_id)}},
         ),
+    )
+    return model
+
+
+def create_ai_model(
+    *,
+    db: Session,
+    channel_id: uuid.UUID,
+    payload: AIModelCreate,
+    actor: User,
+    request_id: str,
+) -> AIModel:
+    """在现存渠道下创建默认未测试模型。"""
+    model = _create_ai_model_in_transaction(
+        db=db,
+        channel_id=channel_id,
+        payload=payload,
+        actor=actor,
+        request_id=request_id,
     )
     db.commit()
     return model
@@ -923,7 +1004,7 @@ def replace_ai_channel_api_key(
     return channel
 
 
-def set_channel_enabled(
+def _set_channel_enabled_in_transaction(
     *,
     db: Session,
     channel_id: uuid.UUID,
@@ -932,19 +1013,47 @@ def set_channel_enabled(
     request_id: str,
     enabled: bool,
 ) -> AIChannel:
-    """校验测试通过门禁后切换渠道启用状态。"""
-    channel = db.scalar(select(AIChannel).where(AIChannel.id == channel_id).with_for_update())
+    """在调用者事务内校验门禁、切换渠道状态并追加审计。"""
+    channel = db.scalar(
+        select(AIChannel)
+        .where(AIChannel.id == channel_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
     if channel is None:
         raise not_found("AI 渠道")
+    return _set_locked_channel_enabled_in_transaction(
+        db=db,
+        channel=channel,
+        payload=payload,
+        actor=actor,
+        request_id=request_id,
+        enabled=enabled,
+    )
+
+
+def _set_locked_channel_enabled_in_transaction(
+    *,
+    db: Session,
+    channel: AIChannel,
+    payload: RevisionRequest,
+    actor: User,
+    request_id: str,
+    enabled: bool,
+) -> AIChannel:
+    """在调用者已锁定的渠道上校验门禁、切换状态并追加审计。"""
     if channel.revision != payload.expected_revision:
         raise AppError("REVISION_CONFLICT", "AI 渠道已被其他请求修改", 409)
     if channel.is_enabled == enabled:
         raise AppError("INVALID_STATE_TRANSITION", "AI 渠道已经处于目标状态", 409)
-    has_passed_model = db.scalar(
-        select(AIModel.id)
-        .where(AIModel.channel_id == channel.id, AIModel.test_status == "PASSED")
-        .limit(1)
-    ) is not None
+    has_passed_model = (
+        db.scalar(
+            select(AIModel.id)
+            .where(AIModel.channel_id == channel.id, AIModel.test_status == "PASSED")
+            .limit(1)
+        )
+        is not None
+    )
     if enabled and not has_passed_model:
         raise AppError("AI_MODEL_NOT_TESTED", "渠道至少需要一个测试通过的模型", 409)
     channel.is_enabled = enabled
@@ -961,6 +1070,27 @@ def set_channel_enabled(
             outcome=AuditOutcome.SUCCESS,
             result_message=f"AI 渠道已{'启用' if enabled else '停用'}",
         ),
+    )
+    return channel
+
+
+def set_channel_enabled(
+    *,
+    db: Session,
+    channel_id: uuid.UUID,
+    payload: RevisionRequest,
+    actor: User,
+    request_id: str,
+    enabled: bool,
+) -> AIChannel:
+    """校验测试通过门禁后切换渠道启用状态。"""
+    channel = _set_channel_enabled_in_transaction(
+        db=db,
+        channel_id=channel_id,
+        payload=payload,
+        actor=actor,
+        request_id=request_id,
+        enabled=enabled,
     )
     db.commit()
     return channel
@@ -979,13 +1109,16 @@ def update_ai_model(
     if model.revision != payload.expected_revision:
         raise AppError("REVISION_CONFLICT", "AI 模型已被其他请求修改", 409)
     normalized_model_id = payload.model_id.strip()
-    if db.scalar(
-        select(AIModel.id).where(
-            AIModel.channel_id == channel.id,
-            AIModel.model_id == normalized_model_id,
-            AIModel.id != model.id,
+    if (
+        db.scalar(
+            select(AIModel.id).where(
+                AIModel.channel_id == channel.id,
+                AIModel.model_id == normalized_model_id,
+                AIModel.id != model.id,
+            )
         )
-    ) is not None:
+        is not None
+    ):
         raise _ai_model_id_conflict()
     changed = (
         model.model_id != normalized_model_id
@@ -1119,7 +1252,7 @@ def discover_ai_channel_models(
     return model_ids
 
 
-def set_model_enabled(
+def _set_model_enabled_in_transaction(
     *,
     db: Session,
     model_id: uuid.UUID,
@@ -1128,8 +1261,30 @@ def set_model_enabled(
     request_id: str,
     enabled: bool,
 ) -> AIModel:
-    """校验连接测试结论后切换模型启用状态。"""
+    """在调用者事务内校验门禁、切换模型状态并追加审计。"""
     model, channel = lock_model_configuration(db, model_id)
+    return _set_locked_model_enabled_in_transaction(
+        db=db,
+        model=model,
+        channel=channel,
+        payload=payload,
+        actor=actor,
+        request_id=request_id,
+        enabled=enabled,
+    )
+
+
+def _set_locked_model_enabled_in_transaction(
+    *,
+    db: Session,
+    model: AIModel,
+    channel: AIChannel,
+    payload: RevisionRequest,
+    actor: User,
+    request_id: str,
+    enabled: bool,
+) -> AIModel:
+    """在调用者已锁定的配置上校验门禁、切换模型状态并追加审计。"""
     if model.revision != payload.expected_revision:
         raise AppError("REVISION_CONFLICT", "AI 模型已被其他请求修改", 409)
     if model.is_enabled == enabled:
@@ -1152,8 +1307,184 @@ def set_model_enabled(
             details={"facts": {"channel_id": str(channel.id)}},
         ),
     )
+    return model
+
+
+def set_model_enabled(
+    *,
+    db: Session,
+    model_id: uuid.UUID,
+    payload: RevisionRequest,
+    actor: User,
+    request_id: str,
+    enabled: bool,
+) -> AIModel:
+    """校验连接测试结论后切换模型启用状态。"""
+    model = _set_model_enabled_in_transaction(
+        db=db,
+        model_id=model_id,
+        payload=payload,
+        actor=actor,
+        request_id=request_id,
+        enabled=enabled,
+    )
     db.commit()
     return model
+
+
+def _production_bootstrap_actor(db: Session) -> User:
+    """锁定固定 maintenance 审计操作者并拒绝异常账号状态。"""
+    actor = db.scalar(select(User).where(User.username == "admin").with_for_update())
+    if actor is None:
+        raise AppError("PRODUCTION_AI_BOOTSTRAP_REJECTED", "Production 管理员不存在", 409)
+    if actor.account_type != "ADMIN" or not actor.is_active or actor.must_change_password:
+        raise AppError(
+            "PRODUCTION_AI_BOOTSTRAP_REJECTED",
+            "Production 管理员状态不允许执行 AI bootstrap",
+            409,
+        )
+    return actor
+
+
+def _require_empty_ai_configuration(db: Session) -> None:
+    """fresh bootstrap 只接受全局三张配置表均为空。"""
+    for model in (AIChannel, AIChannelHeader, AIModel):
+        if db.scalar(select(model.id).limit(1)) is not None:
+            raise AppError(
+                "PRODUCTION_AI_BOOTSTRAP_REJECTED",
+                "Production AI 配置不是 fresh 状态",
+                409,
+            )
+
+
+def _production_bootstrap_result(
+    *,
+    status: Literal["SUCCEEDED", "FAILED"],
+    request_id: str,
+    channel: AIChannel,
+    model: AIModel,
+) -> ProductionAIBootstrapResult:
+    """只投影 CLI 合同批准的状态与身份字段。"""
+    return ProductionAIBootstrapResult(
+        status=status,
+        request_id=request_id,
+        channel_id=channel.id,
+        channel_revision=channel.revision,
+        channel_enabled=channel.is_enabled,
+        channel_configured=bool(channel.api_key_ciphertext),
+        model_id=model.id,
+        model_revision=model.revision,
+        model_test_status=cast(Literal["UNTESTED", "PASSED", "FAILED"], model.test_status),
+        model_enabled=model.is_enabled,
+        model_configured=True,
+    )
+
+
+def bootstrap_production_ai_configuration(
+    *,
+    db: Session,
+    channel_payload: AIChannelCreate,
+    model_payload: AIModelCreate,
+    request_id: str,
+) -> ProductionAIBootstrapResult:
+    """以 T1 创建、T2 单次外部测试、T3 原子启用完成 fresh bootstrap。"""
+    try:
+        actor = _production_bootstrap_actor(db)
+        _require_empty_ai_configuration(db)
+        channel = _create_ai_channel_in_transaction(
+            db=db,
+            payload=channel_payload,
+            actor=actor,
+            request_id=request_id,
+        )
+        model = _create_ai_model_in_transaction(
+            db=db,
+            channel_id=channel.id,
+            payload=model_payload,
+            actor=actor,
+            request_id=request_id,
+        )
+        channel_id = channel.id
+        model_id = model.id
+        frozen_channel_revision = channel.revision
+        frozen_model_revision = model.revision
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+    try:
+        tested_model = test_ai_model(
+            db=db,
+            model_id=model_id,
+            payload=RevisionRequest(expected_revision=frozen_model_revision),
+            actor=actor,
+            request_id=request_id,
+        )
+    except Exception:
+        db.rollback()
+        raise
+
+    expected_tested_model_revision = frozen_model_revision + 1
+    db.expire_all()
+    try:
+        tested_model, tested_channel = _lock_channel_model_configuration(
+            db,
+            channel_id=channel_id,
+            model_id=model_id,
+        )
+        if (
+            tested_channel.revision != frozen_channel_revision
+            or tested_model.revision != expected_tested_model_revision
+        ):
+            raise AppError(
+                "REVISION_CONFLICT",
+                "Production AI 配置在测试后已被其他请求修改",
+                409,
+            )
+        if tested_model.test_status == "FAILED":
+            result = _production_bootstrap_result(
+                status="FAILED",
+                request_id=request_id,
+                channel=tested_channel,
+                model=tested_model,
+            )
+            db.commit()
+            return result
+        if tested_model.test_status != "PASSED":
+            raise AppError(
+                "PRODUCTION_AI_BOOTSTRAP_REJECTED",
+                "Production AI 模型测试状态无效",
+                409,
+            )
+        enabled_model = _set_locked_model_enabled_in_transaction(
+            db=db,
+            model=tested_model,
+            channel=tested_channel,
+            payload=RevisionRequest(expected_revision=expected_tested_model_revision),
+            actor=actor,
+            request_id=request_id,
+            enabled=True,
+        )
+        enabled_channel = _set_locked_channel_enabled_in_transaction(
+            db=db,
+            channel=tested_channel,
+            payload=RevisionRequest(expected_revision=frozen_channel_revision),
+            actor=actor,
+            request_id=request_id,
+            enabled=True,
+        )
+        result = _production_bootstrap_result(
+            status="SUCCEEDED",
+            request_id=request_id,
+            channel=enabled_channel,
+            model=enabled_model,
+        )
+        db.commit()
+        return result
+    except Exception:
+        db.rollback()
+        raise
 
 
 def request_credentials(

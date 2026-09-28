@@ -106,7 +106,30 @@ COMPOSE_FILE=deploy/compose.prod.yaml \
 
 `clean-init` 先验证状态为 `QUARANTINED`、run ID/固定根/隔离目标匹配、两个活动目录为空且没有 `objects`，并把状态绑定到 manifest 摘要、release/commit/schema、backend/frontend 镜像引用、image ID 与 RepoDigest；脚本同时复算固定 tracked files，且只接受 `deploy/compose.prod.yaml`。local 模式不 pull，在任何 create/run/up 前再次核对本地 image ID 与 RepoDigest；registry 模式则保留 pull 后核对。随后才执行 PostgreSQL/Redis、Production config preflight、migration、空库 integrity、`initialize-accounts`、API/Frontend 与回环探针。成功后状态为 `PRODUCTION_PREPARED`，Worker/Scheduler 仍保持停止。
 
-使用 API/Frontend 完成真实 AI/OSS Gate。只有 Gate=`MET` 后才运行：
+clean-init 成功且阶段为 `PRODUCTION_PREPARED` 后，先由真实 credential owner 在 Hostdzire 交互式 TTY 运行一次 AI bootstrap。以下参数均为非 secret，必须按 credential owner 提供的受控 provider 配置显式填写；不得从品牌、名称或 URL 猜测协议或 model：
+
+```sh
+PARTSIGNAL_VERSION="$release_id" \
+PARTSIGNAL_BACKEND_IMAGE="$backend_repository" \
+PARTSIGNAL_FRONTEND_IMAGE="$frontend_v2_repository" \
+python3 ./deploy/scripts/prepare-production-data.py \
+  bootstrap-ai prr_YYYYMMDD_HHMMSS "$manifest_path" \
+  --channel-name "$channel_name" \
+  --channel-description "$channel_description" \
+  --protocol-type openai-compatible-chat-completions \
+  --provider-brand "$provider_brand" \
+  --base-url "$provider_https_base_url" \
+  --timeout-seconds "$provider_timeout_seconds" \
+  --model-display-name "$model_display_name" \
+  --model-id "$exact_provider_model_id" \
+  --request-parameters-json "$validated_non_secret_parameters_json"
+```
+
+三个 `PARTSIGNAL_*` 变量都是非 secret 的候选身份：`release_id` 必须等于 manifest release ID，`backend_repository` 与 `frontend_v2_repository` 必须是不带 tag 的 image repository，并且分别与 `release_id` 拼接后精确等于 manifest 的完整 backend/frontend image reference；它们不会从上一条 `clean-init` 命令的临时环境继承。脚本在同一 maintenance lock 内复核 run ID、绝对 manifest、candidate、`PRODUCTION_PREPARED` 与唯一运行 API 容器的 project/service/image/running/mount identity，然后才用 `getpass` 从真实 TTY 无回显读取 API Key，并通过 `docker exec -i` stdin 调用容器内 `python -m app.cli bootstrap-production-ai`。API Key 不得通过 argv、环境变量、文件、shell history、日志、Docker metadata、Trellis 或对话传入；getpass 发生 echo fallback、non-TTY、EOF 或 Ctrl-C 都必须退出。第一版不支持自定义 Header。
+
+host 在 backend 启动前把无 secret 的 `ai_bootstrap_attempt` 原子记录为 `STARTED`。任何已有 attempt 或数据库中任意 AI channel/model/header 都拒绝再次执行；完整成功才更新 `SUCCEEDED`，明确失败更新 `FAILED`，结果未知保留 `STARTED`。provider 失败保留停用且 test=`FAILED` 的配置供调查，不自动重试或替换 credential；`STARTED/FAILED` 都阻断 activation，只能做脱敏只读核对或停止精确 API 容器后恢复数据，不得 force-clear。
+
+bootstrap 的真实连接测试成功只证明该 model 的 credential 注入与连接边界；不得单独把 External Services Gate 写成 `MET`。继续完成受控的真实 AI/OSS Gate，包括 AI 结果语义与失败边界、OSS 空 namespace/零旧对象引用、预签名上传、HEAD、短期下载和 CORS。只有全部 Gate=`MET` 后才运行：
 
 ```sh
 PARTSIGNAL_VERSION="$release_id" \

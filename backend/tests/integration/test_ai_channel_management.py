@@ -8,10 +8,11 @@ import sys
 import uuid
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
-from threading import Barrier
+from threading import Barrier, Event
 from types import SimpleNamespace
 from urllib.parse import urlsplit, urlunsplit
 
@@ -19,12 +20,13 @@ import psycopg
 import pytest
 from fastapi.testclient import TestClient
 from psycopg import sql
-from sqlalchemy import create_engine, event, select
+from sqlalchemy import create_engine, event, select, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 import app.routers.configuration as configuration_routes
+import app.services.ai_configuration as ai_configuration_service
 import app.services.identity as identity_service
 from app.audit import contains_sensitive_key
 from app.db import get_db
@@ -33,14 +35,18 @@ from app.errors import AppError
 from app.main import app
 from app.models.ai_generation import AIChannel, AIChannelHeader, AIModel
 from app.models.identity import AuditLog, User
+from app.schemas.common import RevisionRequest
 from app.schemas.configuration import (
+    AIChannelCreate,
     AIChannelHeaderCreate,
     AIChannelSort,
     AIModelCreate,
+    AIModelUpdate,
 )
 from app.security import hash_token
 from app.services.ai_configuration import (
     _flush_ai_configuration,
+    bootstrap_production_ai_configuration,
     create_ai_channel_header,
     create_ai_model,
     list_ai_channel_audit_logs,
@@ -803,6 +809,7 @@ def test_ai_channel_api_enforces_permissions_contract_and_secret_redaction(
                     )
                 )
                 db.commit()
+
             def read_header_state(header_key: str) -> tuple[object, ...]:
                 with session_factory() as db:
                     channel_row = db.get(AIChannel, uuid.UUID(channel_id))
@@ -822,18 +829,25 @@ def test_ai_channel_api_enforces_permissions_contract_and_secret_redaction(
                         tuple(
                             getattr(header_row, field)
                             for field in (
-                                "name", "normalized_name", "is_sensitive",
-                                "plain_value", "encrypted_value",
+                                "name",
+                                "normalized_name",
+                                "is_sensitive",
+                                "plain_value",
+                                "encrypted_value",
                             )
                         ),
                         tuple(
                             getattr(sentinel_row, field)
                             for field in (
-                                "revision", "is_enabled", "test_status",
-                                "last_tested_at", "last_test_error_summary",
+                                "revision",
+                                "is_enabled",
+                                "test_status",
+                                "last_tested_at",
+                                "last_test_error_summary",
                             )
                         ),
                     )
+
             def assert_header_state(
                 header_key: str,
                 expected: tuple[object, ...],
@@ -842,13 +856,17 @@ def test_ai_channel_api_enforces_permissions_contract_and_secret_redaction(
             ) -> None:
                 assert read_header_state(header_key) == expected
                 with session_factory() as db:
-                    assert db.scalar(
-                        select(AuditLog.id).where(
-                            AuditLog.request_id == request_id,
-                            AuditLog.action == action,
-                            AuditLog.outcome == "SUCCESS",
+                    assert (
+                        db.scalar(
+                            select(AuditLog.id).where(
+                                AuditLog.request_id == request_id,
+                                AuditLog.action == action,
+                                AuditLog.outcome == "SUCCESS",
+                            )
                         )
-                    ) is None
+                        is None
+                    )
+
             def read_model_state(model_key: str) -> tuple[object, ...]:
                 with session_factory() as db:
                     model_row = db.get(AIModel, uuid.UUID(model_key))
@@ -862,13 +880,19 @@ def test_ai_channel_api_enforces_permissions_contract_and_secret_redaction(
                             if field == "request_parameters"
                             else getattr(model_row, field)
                             for field in (
-                                "display_name", "model_id", "request_parameters",
-                                "revision", "is_enabled", "test_status",
-                                "last_tested_at", "last_test_error_summary",
+                                "display_name",
+                                "model_id",
+                                "request_parameters",
+                                "revision",
+                                "is_enabled",
+                                "test_status",
+                                "last_tested_at",
+                                "last_test_error_summary",
                             )
                         ),
                         len(list(models)),
                     )
+
             header_snapshot = read_header_state(header_id)
 
             duplicate_header = client.post(
@@ -967,9 +991,7 @@ def test_ai_channel_api_enforces_permissions_contract_and_secret_redaction(
                 },
             )
             assert stale_duplicate_header_update.status_code == 409
-            assert stale_duplicate_header_update.json()["error"]["code"] == (
-                "REVISION_CONFLICT"
-            )
+            assert stale_duplicate_header_update.json()["error"]["code"] == ("REVISION_CONFLICT")
             assert_header_state(
                 second_header_id,
                 header_snapshot,
@@ -990,9 +1012,7 @@ def test_ai_channel_api_enforces_permissions_contract_and_secret_redaction(
             stale_header_delete = client.delete(
                 f"/api/v1/ai-channel-headers/{header_id}",
                 headers={"X-CSRF-Token": csrf_token},
-                params={
-                    "expected_channel_revision": updated_header.json()["revision"] - 1
-                },
+                params={"expected_channel_revision": updated_header.json()["revision"] - 1},
             )
             assert stale_header_delete.status_code == 409
             assert stale_header_delete.json()["error"]["code"] == "REVISION_CONFLICT"
@@ -1075,13 +1095,16 @@ def test_ai_channel_api_enforces_permissions_contract_and_secret_redaction(
             ]
             assert read_model_state(second_model_id) == model_snapshot
             with session_factory() as db:
-                assert db.scalar(
-                    select(AuditLog.id).where(
-                        AuditLog.request_id == "ai-model-update-duplicate",
-                        AuditLog.action == "ai_model.updated",
-                        AuditLog.outcome == "SUCCESS",
+                assert (
+                    db.scalar(
+                        select(AuditLog.id).where(
+                            AuditLog.request_id == "ai-model-update-duplicate",
+                            AuditLog.action == "ai_model.updated",
+                            AuditLog.outcome == "SUCCESS",
+                        )
                     )
-                ) is None
+                    is None
+                )
             with session_factory() as db:
                 stale_revision_model = db.get(AIModel, uuid.UUID(second_model_id))
                 assert stale_revision_model is not None
@@ -1102,18 +1125,19 @@ def test_ai_channel_api_enforces_permissions_contract_and_secret_redaction(
                 },
             )
             assert stale_duplicate_model_update.status_code == 409
-            assert stale_duplicate_model_update.json()["error"]["code"] == (
-                "REVISION_CONFLICT"
-            )
+            assert stale_duplicate_model_update.json()["error"]["code"] == ("REVISION_CONFLICT")
             assert read_model_state(second_model_id) == model_snapshot
             with session_factory() as db:
-                assert db.scalar(
-                    select(AuditLog.id).where(
-                        AuditLog.request_id == "ai-model-update-stale-duplicate",
-                        AuditLog.action == "ai_model.updated",
-                        AuditLog.outcome == "SUCCESS",
+                assert (
+                    db.scalar(
+                        select(AuditLog.id).where(
+                            AuditLog.request_id == "ai-model-update-stale-duplicate",
+                            AuditLog.action == "ai_model.updated",
+                            AuditLog.outcome == "SUCCESS",
+                        )
                     )
-                ) is None
+                    is None
+                )
             deleted_second_model = client.delete(
                 f"/api/v1/ai-models/{second_model_id}",
                 headers={"X-CSRF-Token": csrf_token},
@@ -1470,13 +1494,15 @@ def test_ai_channel_list_query_count_is_constant() -> None:
                     )
                     db.add(channel)
                     db.flush()
-                    db.add(AIModel(
-                        channel_id=channel.id,
-                        display_name=f"模型 {index}",
-                        model_id=f"model-{index}",
-                        request_parameters={},
-                        created_by=admin.id,
-                    ))
+                    db.add(
+                        AIModel(
+                            channel_id=channel.id,
+                            display_name=f"模型 {index}",
+                            model_id=f"model-{index}",
+                            request_parameters={},
+                            created_by=admin.id,
+                        )
+                    )
                 db.commit()
 
             assert _ai_channel_list_statement_count(engine) == 3
@@ -1764,3 +1790,613 @@ def test_ai_channel_migration_backfills_constraints_and_blocks_lossy_downgrade()
         with psycopg.connect(database_url) as connection, connection.cursor() as cursor:
             cursor.execute("SELECT version_num FROM alembic_version")
             assert cursor.fetchone() == ("0021_ai_channel_model_management",)
+
+
+def _production_bootstrap_payloads() -> tuple[AIChannelCreate, AIModelCreate]:
+    return (
+        AIChannelCreate(
+            name="Production bootstrap channel",
+            description="isolated integration provider",
+            protocol_type="openai-compatible-chat-completions",
+            provider_brand="CUSTOM",
+            base_url="https://8.8.8.8/v1",
+            api_key="bootstrap-secret-must-not-leak",
+            timeout_seconds=30,
+        ),
+        AIModelCreate(
+            display_name="Production bootstrap model",
+            model_id="bootstrap-model-exact",
+            request_parameters={"temperature": 0},
+        ),
+    )
+
+
+def _seed_production_bootstrap_admin(engine: Engine, **overrides: object) -> uuid.UUID:
+    with Session(engine) as db:
+        values: dict[str, object] = {
+            "username": "admin",
+            "display_name": "Production bootstrap admin",
+            "password_hash": "not-used",
+            "account_type": "ADMIN",
+            "is_active": True,
+            "must_change_password": False,
+        }
+        values.update(overrides)
+        actor = User(**values)
+        db.add(actor)
+        db.commit()
+        return actor.id
+
+
+@pytest.mark.integration
+def test_production_ai_bootstrap_commits_three_phases_and_four_audits(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """T1/T3 各自原子，T2 provider 事务外且成功路径只调用一次。"""
+    with temporary_database("head") as (_, database_url, _, _):
+        engine = create_engine(database_url)
+        _seed_production_bootstrap_admin(engine)
+        channel_payload, model_payload = _production_bootstrap_payloads()
+        provider_calls: list[dict[str, object]] = []
+
+        def pass_connection(_client: object, **request: object) -> None:
+            provider_calls.append(request)
+
+        monkeypatch.setattr(
+            ai_configuration_service.OpenAICompatibleClient,
+            "test_connection",
+            pass_connection,
+        )
+        request_id = f"production-bootstrap-{uuid.uuid4()}"
+        try:
+            with Session(engine) as db:
+                result = bootstrap_production_ai_configuration(
+                    db=db,
+                    channel_payload=channel_payload,
+                    model_payload=model_payload,
+                    request_id=request_id,
+                )
+                assert db.in_transaction() is False
+            assert result.status == "SUCCEEDED"
+            assert result.channel_enabled is True
+            assert result.model_enabled is True
+            assert result.model_test_status == "PASSED"
+            assert len(provider_calls) == 1
+            assert provider_calls[0]["model_id"] == "bootstrap-model-exact"
+            with Session(engine) as db:
+                channel = db.get(AIChannel, result.channel_id)
+                model = db.get(AIModel, result.model_id)
+                audits = list(db.scalars(select(AuditLog).where(AuditLog.request_id == request_id)))
+                assert channel is not None and channel.is_enabled is True
+                assert model is not None and model.is_enabled is True
+                assert model.test_status == "PASSED"
+                assert len(audits) == 4
+                assert {item.action for item in audits} == {
+                    "ai_channel.created",
+                    "ai_model.created",
+                    "ai_model.enabled",
+                    "ai_channel.enabled",
+                }
+                assert all(item.outcome == "SUCCESS" for item in audits)
+                assert all(
+                    "bootstrap-secret-must-not-leak" not in str(item.details) for item in audits
+                )
+        finally:
+            engine.dispose()
+
+
+@pytest.mark.integration
+def test_production_ai_bootstrap_provider_failure_is_disabled_and_at_most_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """明确 provider 失败保留 FAILED 配置，不启用、不审计失败且不重试。"""
+    with temporary_database("head") as (_, database_url, _, _):
+        engine = create_engine(database_url)
+        _seed_production_bootstrap_admin(engine)
+        channel_payload, model_payload = _production_bootstrap_payloads()
+        provider_calls = 0
+
+        def fail_connection(_client: object, **_request: object) -> None:
+            nonlocal provider_calls
+            provider_calls += 1
+            raise AppError("AI_PROVIDER_ERROR", "provider body must not escape", 502)
+
+        monkeypatch.setattr(
+            ai_configuration_service.OpenAICompatibleClient,
+            "test_connection",
+            fail_connection,
+        )
+        request_id = f"production-bootstrap-{uuid.uuid4()}"
+        try:
+            with Session(engine) as db:
+                result = bootstrap_production_ai_configuration(
+                    db=db,
+                    channel_payload=channel_payload,
+                    model_payload=model_payload,
+                    request_id=request_id,
+                )
+                assert db.in_transaction() is False
+            assert result.status == "FAILED"
+            assert result.channel_revision == 0
+            assert result.model_revision == 1
+            assert result.model_test_status == "FAILED"
+            assert result.channel_enabled is False
+            assert result.model_enabled is False
+            assert provider_calls == 1
+            with Session(engine) as db:
+                channel = db.get(AIChannel, result.channel_id)
+                model = db.get(AIModel, result.model_id)
+                audits = list(db.scalars(select(AuditLog).where(AuditLog.request_id == request_id)))
+                assert channel is not None and channel.is_enabled is False
+                assert model is not None and model.is_enabled is False
+                assert model.test_status == "FAILED"
+                assert len(audits) == 2
+                assert {item.action for item in audits} == {
+                    "ai_channel.created",
+                    "ai_model.created",
+                }
+        finally:
+            engine.dispose()
+
+
+@pytest.mark.integration
+def test_production_ai_bootstrap_rejects_post_test_revision_drift(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """T2 后的合法更新与重测不能被 bootstrap 误认成本次测试并启用。"""
+    with temporary_database("head") as (_, database_url, _, _):
+        engine = create_engine(database_url)
+        actor_id = _seed_production_bootstrap_admin(engine)
+        channel_payload, model_payload = _production_bootstrap_payloads()
+        request_id = f"production-bootstrap-{uuid.uuid4()}"
+        concurrent_request_id = f"concurrent-model-change-{uuid.uuid4()}"
+        provider_calls = 0
+        original_test_ai_model = ai_configuration_service.test_ai_model
+        interleaved_revisions: list[tuple[int, int]] = []
+
+        def pass_connection(_client: object, **_request: object) -> None:
+            nonlocal provider_calls
+            provider_calls += 1
+
+        def test_then_interleave(**values: object) -> AIModel:
+            tested_model = original_test_ai_model(**values)
+            with Session(engine) as concurrent_db:
+                actor = concurrent_db.get(User, actor_id)
+                assert actor is not None
+                current_model = concurrent_db.get(AIModel, tested_model.id)
+                assert current_model is not None
+                t2_revision = current_model.revision
+                updated_model = ai_configuration_service.update_ai_model(
+                    db=concurrent_db,
+                    model_id=current_model.id,
+                    payload=AIModelUpdate(
+                        display_name="Concurrent replacement",
+                        model_id="bootstrap-model-concurrent",
+                        request_parameters={"temperature": 0.5},
+                        expected_revision=t2_revision,
+                    ),
+                    actor=actor,
+                    request_id=concurrent_request_id,
+                )
+                assert updated_model.test_status == "UNTESTED"
+                assert updated_model.revision == t2_revision + 1
+                retested_model = original_test_ai_model(
+                    db=concurrent_db,
+                    model_id=current_model.id,
+                    payload=RevisionRequest(expected_revision=updated_model.revision),
+                    actor=actor,
+                    request_id=concurrent_request_id,
+                )
+                assert retested_model.test_status == "PASSED"
+                assert retested_model.revision == t2_revision + 2
+                interleaved_revisions.append((t2_revision, retested_model.revision))
+            return tested_model
+
+        monkeypatch.setattr(
+            ai_configuration_service.OpenAICompatibleClient,
+            "test_connection",
+            pass_connection,
+        )
+        monkeypatch.setattr(
+            ai_configuration_service,
+            "test_ai_model",
+            test_then_interleave,
+        )
+        try:
+            with Session(engine) as db, pytest.raises(AppError) as conflict:
+                bootstrap_production_ai_configuration(
+                    db=db,
+                    channel_payload=channel_payload,
+                    model_payload=model_payload,
+                    request_id=request_id,
+                )
+            assert conflict.value.code == "REVISION_CONFLICT"
+            assert conflict.value.status_code == 409
+            assert interleaved_revisions == [(1, 3)]
+            assert provider_calls == 2
+
+            with Session(engine) as db:
+                channel = db.scalar(select(AIChannel))
+                model = db.scalar(select(AIModel))
+                bootstrap_audits = list(
+                    db.scalars(select(AuditLog).where(AuditLog.request_id == request_id))
+                )
+                assert channel is not None
+                assert channel.revision == 0
+                assert channel.is_enabled is False
+                assert model is not None
+                assert model.revision == 3
+                assert model.test_status == "PASSED"
+                assert model.is_enabled is False
+                assert model.model_id == "bootstrap-model-concurrent"
+                assert {item.action for item in bootstrap_audits} == {
+                    "ai_channel.created",
+                    "ai_model.created",
+                }
+                assert all(
+                    item.action not in {"ai_model.enabled", "ai_channel.enabled"}
+                    for item in bootstrap_audits
+                )
+                assert (
+                    db.scalar(
+                        select(AuditLog.id).where(
+                            AuditLog.action.in_(["ai_model.enabled", "ai_channel.enabled"])
+                        )
+                    )
+                    is None
+                )
+        finally:
+            engine.dispose()
+
+
+@pytest.mark.integration
+def test_production_ai_bootstrap_refreshes_locked_rows_after_stale_provenance_read(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """旧 provenance 快照后的 r+2 更新必须由 fresh T3 锁读取并拒绝。"""
+    with temporary_database("head") as (_, database_url, _, _):
+        engine = create_engine(database_url)
+        actor_id = _seed_production_bootstrap_admin(engine)
+        channel_payload, model_payload = _production_bootstrap_payloads()
+        request_id = f"production-bootstrap-{uuid.uuid4()}"
+        concurrent_request_id = f"concurrent-stale-window-{uuid.uuid4()}"
+        original_lock = ai_configuration_service._lock_channel_model_configuration
+        interleaved = False
+        observed_revisions: list[tuple[int, str, int, str]] = []
+
+        def pass_connection(_client: object, **_request: object) -> None:
+            return None
+
+        def lock_after_stale_provenance_read(
+            db: Session,
+            *,
+            channel_id: uuid.UUID,
+            model_id: uuid.UUID,
+        ) -> tuple[AIModel, AIChannel]:
+            nonlocal interleaved
+            stale_channel = db.get(AIChannel, channel_id)
+            stale_model = db.get(AIModel, model_id)
+            assert stale_channel is not None
+            assert stale_model is not None
+            if (
+                not interleaved
+                and stale_model.revision == 1
+                and stale_model.test_status == "PASSED"
+            ):
+                interleaved = True
+                stale_revision = stale_model.revision
+                stale_status = stale_model.test_status
+                with Session(engine) as concurrent_db:
+                    actor = concurrent_db.get(User, actor_id)
+                    assert actor is not None
+                    updated_model = ai_configuration_service.update_ai_model(
+                        db=concurrent_db,
+                        model_id=model_id,
+                        payload=AIModelUpdate(
+                            display_name="Concurrent stale-window replacement",
+                            model_id="bootstrap-model-stale-window",
+                            request_parameters={"temperature": 0.25},
+                            expected_revision=stale_revision,
+                        ),
+                        actor=actor,
+                        request_id=concurrent_request_id,
+                    )
+                    assert updated_model.revision == 2
+                    assert updated_model.test_status == "UNTESTED"
+                locked_model, locked_channel = original_lock(
+                    db,
+                    channel_id=channel_id,
+                    model_id=model_id,
+                )
+                observed_revisions.append(
+                    (
+                        stale_revision,
+                        stale_status,
+                        locked_model.revision,
+                        locked_model.test_status,
+                    )
+                )
+                return locked_model, locked_channel
+            return original_lock(
+                db,
+                channel_id=channel_id,
+                model_id=model_id,
+            )
+
+        monkeypatch.setattr(
+            ai_configuration_service.OpenAICompatibleClient,
+            "test_connection",
+            pass_connection,
+        )
+        monkeypatch.setattr(
+            ai_configuration_service,
+            "_lock_channel_model_configuration",
+            lock_after_stale_provenance_read,
+        )
+        try:
+            with Session(engine, expire_on_commit=False) as db, pytest.raises(AppError) as conflict:
+                bootstrap_production_ai_configuration(
+                    db=db,
+                    channel_payload=channel_payload,
+                    model_payload=model_payload,
+                    request_id=request_id,
+                )
+            assert conflict.value.code == "REVISION_CONFLICT"
+            assert observed_revisions == [(1, "PASSED", 2, "UNTESTED")]
+
+            with Session(engine) as db:
+                channel = db.scalar(select(AIChannel))
+                model = db.scalar(select(AIModel))
+                bootstrap_audits = list(
+                    db.scalars(select(AuditLog).where(AuditLog.request_id == request_id))
+                )
+                assert channel is not None
+                assert channel.revision == 0
+                assert channel.is_enabled is False
+                assert model is not None
+                assert model.revision == 2
+                assert model.test_status == "UNTESTED"
+                assert model.is_enabled is False
+                assert model.model_id == "bootstrap-model-stale-window"
+                assert {item.action for item in bootstrap_audits} == {
+                    "ai_channel.created",
+                    "ai_model.created",
+                }
+        finally:
+            engine.dispose()
+
+
+@pytest.mark.integration
+def test_production_ai_bootstrap_holds_fresh_locks_through_t3_commit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """T3 fresh 锁释放前，并发模型更新不能越过同一事务的提交边界。"""
+    with temporary_database("head") as (_, database_url, _, _):
+        engine = create_engine(database_url)
+        actor_id = _seed_production_bootstrap_admin(engine)
+        channel_payload, model_payload = _production_bootstrap_payloads()
+        request_id = f"production-bootstrap-{uuid.uuid4()}"
+        locks_held = Event()
+        allow_t3 = Event()
+        update_started = Event()
+        original_enable_model = ai_configuration_service._set_locked_model_enabled_in_transaction
+
+        def hold_t3_locks(**values: object) -> AIModel:
+            locks_held.set()
+            if not allow_t3.wait(timeout=10):
+                raise RuntimeError("T3 lock release sentinel timeout")
+            return original_enable_model(**values)
+
+        monkeypatch.setattr(
+            ai_configuration_service.OpenAICompatibleClient,
+            "test_connection",
+            lambda _client, **_request: None,
+        )
+        monkeypatch.setattr(
+            ai_configuration_service,
+            "_set_locked_model_enabled_in_transaction",
+            hold_t3_locks,
+        )
+
+        def bootstrap() -> object:
+            with Session(engine, expire_on_commit=False) as db:
+                return bootstrap_production_ai_configuration(
+                    db=db,
+                    channel_payload=channel_payload,
+                    model_payload=model_payload,
+                    request_id=request_id,
+                )
+
+        def update_while_t3_is_locked() -> str:
+            with Session(engine, expire_on_commit=False) as db:
+                db.execute(text("SET LOCAL lock_timeout = '5s'"))
+                actor = db.get(User, actor_id)
+                model = db.scalar(select(AIModel))
+                assert actor is not None
+                assert model is not None
+                expected_revision = model.revision
+                update_started.set()
+                try:
+                    ai_configuration_service.update_ai_model(
+                        db=db,
+                        model_id=model.id,
+                        payload=AIModelUpdate(
+                            display_name="Blocked concurrent replacement",
+                            model_id="bootstrap-model-blocked",
+                            request_parameters={"temperature": 0.75},
+                            expected_revision=expected_revision,
+                        ),
+                        actor=actor,
+                        request_id=f"concurrent-locked-t3-{uuid.uuid4()}",
+                    )
+                except AppError as error:
+                    db.rollback()
+                    return error.code
+                return "UPDATED"
+
+        try:
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                bootstrap_future = executor.submit(bootstrap)
+                assert locks_held.wait(timeout=30)
+                update_future = executor.submit(update_while_t3_is_locked)
+                assert update_started.wait(timeout=10)
+                try:
+                    with pytest.raises(FutureTimeoutError):
+                        update_future.result(timeout=0.25)
+                finally:
+                    allow_t3.set()
+                result = bootstrap_future.result(timeout=10)
+                update_outcome = update_future.result(timeout=10)
+
+            assert result.status == "SUCCEEDED"
+            assert update_outcome == "REVISION_CONFLICT"
+            with Session(engine) as db:
+                channel = db.scalar(select(AIChannel))
+                model = db.scalar(select(AIModel))
+                assert channel is not None and channel.is_enabled is True
+                assert model is not None and model.is_enabled is True
+                assert model.revision == 2
+                assert model.test_status == "PASSED"
+                assert model.model_id == "bootstrap-model-exact"
+        finally:
+            allow_t3.set()
+            engine.dispose()
+
+
+@pytest.mark.integration
+def test_production_ai_bootstrap_t1_and_t3_failures_roll_back_atomically(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """T1 任一步失败不留配置；T3 第二步失败回滚模型启用和两条审计。"""
+    with temporary_database("head") as (_, database_url, _, _):
+        engine = create_engine(database_url)
+        _seed_production_bootstrap_admin(engine)
+        channel_payload, model_payload = _production_bootstrap_payloads()
+        request_id = f"production-bootstrap-{uuid.uuid4()}"
+        original_create_model = ai_configuration_service._create_ai_model_in_transaction
+
+        def fail_t1(**_values: object) -> AIModel:
+            raise RuntimeError("T1 sentinel")
+
+        monkeypatch.setattr(
+            ai_configuration_service,
+            "_create_ai_model_in_transaction",
+            fail_t1,
+        )
+        try:
+            with Session(engine) as db, pytest.raises(RuntimeError, match="T1 sentinel"):
+                bootstrap_production_ai_configuration(
+                    db=db,
+                    channel_payload=channel_payload,
+                    model_payload=model_payload,
+                    request_id=request_id,
+                )
+            with Session(engine) as db:
+                assert db.scalar(select(AIChannel.id)) is None
+                assert db.scalar(select(AIModel.id)) is None
+                assert (
+                    db.scalar(select(AuditLog.id).where(AuditLog.request_id == request_id)) is None
+                )
+
+            monkeypatch.setattr(
+                ai_configuration_service,
+                "_create_ai_model_in_transaction",
+                original_create_model,
+            )
+            monkeypatch.setattr(
+                ai_configuration_service.OpenAICompatibleClient,
+                "test_connection",
+                lambda _client, **_request: None,
+            )
+
+            def fail_t3(**_values: object) -> AIChannel:
+                raise RuntimeError("T3 sentinel")
+
+            monkeypatch.setattr(
+                ai_configuration_service,
+                "_set_locked_channel_enabled_in_transaction",
+                fail_t3,
+            )
+            with Session(engine) as db, pytest.raises(RuntimeError, match="T3 sentinel"):
+                bootstrap_production_ai_configuration(
+                    db=db,
+                    channel_payload=channel_payload,
+                    model_payload=model_payload,
+                    request_id=request_id,
+                )
+            with Session(engine) as db:
+                channel = db.scalar(select(AIChannel))
+                model = db.scalar(select(AIModel))
+                audits = list(db.scalars(select(AuditLog).where(AuditLog.request_id == request_id)))
+                assert channel is not None and channel.is_enabled is False
+                assert model is not None and model.is_enabled is False
+                assert model.test_status == "PASSED"
+                assert len(audits) == 2
+                assert {item.action for item in audits} == {
+                    "ai_channel.created",
+                    "ai_model.created",
+                }
+        finally:
+            engine.dispose()
+
+
+@pytest.mark.integration
+def test_production_ai_bootstrap_rejects_existing_config_and_concurrent_reentry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """任意既有配置与两个并发 bootstrap 都只能产生一个 provider 调用。"""
+    with temporary_database("head") as (_, database_url, _, _):
+        engine = create_engine(database_url)
+        actor_id = _seed_production_bootstrap_admin(engine)
+        channel_payload, model_payload = _production_bootstrap_payloads()
+        provider_calls: list[str] = []
+        start = Barrier(2)
+
+        def pass_connection(_client: object, **_request: object) -> None:
+            provider_calls.append("called")
+
+        monkeypatch.setattr(
+            ai_configuration_service.OpenAICompatibleClient,
+            "test_connection",
+            pass_connection,
+        )
+
+        def bootstrap(index: int) -> str:
+            start.wait(timeout=30)
+            with Session(engine) as db:
+                try:
+                    result = bootstrap_production_ai_configuration(
+                        db=db,
+                        channel_payload=channel_payload,
+                        model_payload=model_payload,
+                        request_id=f"production-bootstrap-{uuid.uuid4()}",
+                    )
+                except AppError as error:
+                    return error.code
+                return result.status
+
+        try:
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                outcomes = list(executor.map(bootstrap, [1, 2]))
+            assert sorted(outcomes) == ["PRODUCTION_AI_BOOTSTRAP_REJECTED", "SUCCEEDED"]
+            assert provider_calls == ["called"]
+            with Session(engine) as db:
+                assert len(list(db.scalars(select(AIChannel)))) == 1
+                assert len(list(db.scalars(select(AIModel)))) == 1
+                actor = db.get(User, actor_id)
+                assert actor is not None
+                model = db.scalar(select(AIModel))
+                assert model is not None
+                db.delete(model)
+                db.commit()
+            with Session(engine) as db, pytest.raises(AppError) as partial_error:
+                bootstrap_production_ai_configuration(
+                    db=db,
+                    channel_payload=channel_payload,
+                    model_payload=model_payload,
+                    request_id=f"production-bootstrap-{uuid.uuid4()}",
+                )
+            assert partial_error.value.code == "PRODUCTION_AI_BOOTSTRAP_REJECTED"
+            assert provider_calls == ["called"]
+        finally:
+            engine.dispose()

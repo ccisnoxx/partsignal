@@ -4,11 +4,36 @@ from __future__ import annotations
 
 import json
 import sys
+import uuid
+from io import BytesIO
 from types import SimpleNamespace
 
 import pytest
 
 from app import cli
+from app.services.ai_configuration import ProductionAIBootstrapResult
+
+
+def _bootstrap_envelope(**overrides: object) -> bytes:
+    payload: dict[str, object] = {
+        "request_id": "production-bootstrap-123e4567-e89b-42d3-a456-426614174000",
+        "credential": "credential-must-not-leak",
+        "channel": {
+            "name": "Production channel",
+            "description": "Production bootstrap",
+            "protocol_type": "openai-compatible-chat-completions",
+            "provider_brand": "CUSTOM",
+            "base_url": "https://provider.example/v1",
+            "timeout_seconds": 30,
+        },
+        "model": {
+            "display_name": "Production model",
+            "model_id": "exact-model-id",
+            "request_parameters": {"temperature": 0},
+        },
+    }
+    payload.update(overrides)
+    return json.dumps(payload).encode()
 
 
 def test_initialize_accounts_command_uses_public_initialization_owner(
@@ -77,8 +102,8 @@ def test_production_configuration_summary_contains_status_only(
         "engineer-secret-value",
     ):
         assert secret_value not in encoded
-    assert '\"environment\": \"production\"' in encoded
-    assert '\"oss_access_key_secret_configured\": true' in encoded
+    assert '"environment": "production"' in encoded
+    assert '"oss_access_key_secret_configured": true' in encoded
 
 
 def test_production_configuration_summary_rejects_non_production(
@@ -108,3 +133,153 @@ def test_production_configuration_summary_requires_explicit_runtime_environment(
 
     with pytest.raises(ValueError, match="DATABASE_URL.*REDIS_URL"):
         cli.production_configuration_summary()
+
+
+def test_production_ai_bootstrap_stdin_reuses_schemas_and_outputs_status_only(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """maintenance stdin 只生成现有 Schema，并返回固定非敏感投影。"""
+    received: list[object] = []
+    monkeypatch.setattr(
+        cli,
+        "settings",
+        SimpleNamespace(
+            environment="production",
+            ai_allow_local_http=False,
+            content_generator="openai-compatible",
+        ),
+    )
+
+    def bootstrap(**values: object) -> ProductionAIBootstrapResult:
+        received.append(values)
+        return ProductionAIBootstrapResult(
+            status="SUCCEEDED",
+            request_id="production-bootstrap-123e4567-e89b-42d3-a456-426614174000",
+            channel_id=uuid.UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"),
+            channel_revision=1,
+            channel_enabled=True,
+            channel_configured=True,
+            model_id=uuid.UUID("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"),
+            model_revision=2,
+            model_test_status="PASSED",
+            model_enabled=True,
+            model_configured=True,
+        )
+
+    monkeypatch.setattr(cli, "bootstrap_production_ai_configuration", bootstrap)
+
+    output, exit_code = cli.run_production_ai_bootstrap(BytesIO(_bootstrap_envelope()))
+
+    assert exit_code == 0
+    assert output == {
+        "status": "SUCCEEDED",
+        "request_id": "production-bootstrap-123e4567-e89b-42d3-a456-426614174000",
+        "channel_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "channel_revision": 1,
+        "channel_enabled": True,
+        "channel_configured": True,
+        "model_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "model_revision": 2,
+        "model_test_status": "PASSED",
+        "model_enabled": True,
+        "model_configured": True,
+    }
+    values = received[0]
+    assert isinstance(values, dict)
+    assert values["channel_payload"].api_key == "credential-must-not-leak"
+    assert values["model_payload"].model_id == "exact-model-id"
+    assert "credential-must-not-leak" not in json.dumps(output)
+    assert "provider.example" not in json.dumps(output)
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        b"not-json",
+        _bootstrap_envelope() + b" trailing",
+        _bootstrap_envelope(headers=[]),
+        _bootstrap_envelope().replace(
+            b'"credential": "credential-must-not-leak",',
+            b'"credential": "first-value", "credential": "duplicate-value",',
+        ),
+        b"{" + b"x" * cli.PRODUCTION_AI_BOOTSTRAP_MAX_BYTES + b"}",
+    ],
+)
+def test_production_ai_bootstrap_rejects_malformed_oversized_or_unknown_input(
+    payload: bytes,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """malformed、trailing、超限与自定义 Header 都在 service 前 fail closed。"""
+    monkeypatch.setattr(
+        cli,
+        "bootstrap_production_ai_configuration",
+        lambda **_values: pytest.fail("无效输入不得进入 service"),
+    )
+
+    output, exit_code = cli.run_production_ai_bootstrap(BytesIO(payload))
+
+    assert exit_code == 2
+    assert output["status"] == "REJECTED"
+    assert "credential-must-not-leak" not in json.dumps(output)
+
+
+def test_production_ai_bootstrap_rejects_valid_envelope_outside_production(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """合法 envelope 在非 Production Settings 下也不得进入 service。"""
+    monkeypatch.setattr(
+        cli,
+        "settings",
+        SimpleNamespace(
+            environment="staging",
+            ai_allow_local_http=False,
+            content_generator="openai-compatible",
+        ),
+    )
+    monkeypatch.setattr(
+        cli,
+        "bootstrap_production_ai_configuration",
+        lambda **_values: pytest.fail("非 Production 不得进入 service"),
+    )
+
+    output, exit_code = cli.run_production_ai_bootstrap(BytesIO(_bootstrap_envelope()))
+
+    assert exit_code == 2
+    assert output == {
+        "status": "REJECTED",
+        "request_id": "production-bootstrap-123e4567-e89b-42d3-a456-426614174000",
+    }
+
+
+def test_production_ai_bootstrap_unknown_never_serializes_secret_exception(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Pydantic、SQL 或 provider 异常正文都不能跨 maintenance 输出边界。"""
+    monkeypatch.setattr(
+        cli,
+        "settings",
+        SimpleNamespace(
+            environment="production",
+            ai_allow_local_http=False,
+            content_generator="openai-compatible",
+        ),
+    )
+    monkeypatch.setattr(
+        cli,
+        "bootstrap_production_ai_configuration",
+        lambda **_values: (_ for _ in ()).throw(
+            RuntimeError("credential-must-not-leak provider response SQL traceback")
+        ),
+    )
+
+    output, exit_code = cli.run_production_ai_bootstrap(BytesIO(_bootstrap_envelope()))
+    encoded = json.dumps(output)
+
+    assert exit_code == 2
+    assert output == {
+        "status": "UNKNOWN",
+        "request_id": "production-bootstrap-123e4567-e89b-42d3-a456-426614174000",
+    }
+    assert "credential-must-not-leak" not in encoded
+    assert "provider response" not in encoded
+    assert "traceback" not in encoded

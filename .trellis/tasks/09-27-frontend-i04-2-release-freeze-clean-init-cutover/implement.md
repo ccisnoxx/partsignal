@@ -64,3 +64,9 @@
 - post-failure evidence：旧 7 个容器均继续运行，restart=`0`、OOM=`false`；one-off=`0`；`current`、Nginx target/checksum、Production env hash 均未漂移；public root=`200`；quarantine 与 cutover state 均 absent。日志 SHA-256=`8d328dc40db2a36d94d07712e5412dde8b010a1649f240d0fb61097efe9d8d82`。
 - maintenance、container stop、Nginx write/reload、quarantine、clean-init、AI bootstrap、真实 AI/OSS Gate、activation 和 Observation 全部=`NOT_RUN`。
 - 当前阶段=`BLOCKED_PRE_CUTOVER_COMPOSE_NETWORK_IDENTITY`。按停止条件不在本 task 内临时修改部署合同。
+
+## I04-2A 完成记录（2026-09-28）
+
+child `09-28-frontend-i04-2a-compose-network-identity-remediation` completed，network identity 已修复。新完整 Repository Gate source `6c88563cce6edbce4b18fb010a840329600e69ee`，一次 make verify exit=0，253005 bytes，SHA-256=`1ba1e84ab20a5fd972c5b546f6a454fefa58bfc40ded2fce391433ac0416dc86`；两次 fresh critical review NO BLOCKER，audit=`20260928T035743Z-i04-2a-compose-network-identity-cec3f231`；受控资源归零/secret scan clean。旧 network blocker 是历史失败原因；本任务继续 in_progress，I04-2 stage=network_identity_remediated。旧冻结 release/archive/images/manifest 不变且不可复用，未生成新 release、进入维护或执行任何 cutover；本轮无远端写入。详细计数、日志、警告和 source continuity 合同见 child implement.md。
+
+下一会话先解决真实 AI provider 非 secret metadata 和 credential owner true-TTY handoff；随后使用全新 commit/release ID/run ID/archive/image tags/manifest 冻结 release，并重新执行 pre-cutover review/cutover。

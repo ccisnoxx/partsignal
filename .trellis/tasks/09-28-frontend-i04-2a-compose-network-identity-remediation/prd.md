@@ -16,15 +16,15 @@
 
 ## 验收
 
-- [ ] 静态精确断言 logical/name/每个 service network/internal/安全拓扑，Production 无旧 key。
-- [ ] 本地真实 Engine 正向复用和旧 label 负向覆盖通过，自己创建的 network/container/temp 全部清理。
-- [ ] deploy local 先校验 manifest image identity；local run/up 均 `--pull never`；rollback 保持 `--no-deps --no-build --pull never`，三条路径使用同一 Production Compose。
-- [ ] manifest/release 绑定的 runbook preflight 显式 `--pull never --no-deps`，清楚区分 physical name 和 logical label。
-- [ ] 定向 Compose、deploy cleanup/production/staging、Nginx、syntax、diff、secret scan 全部通过并保存日志、exit/count/bytes/SHA-256。
-- [ ] 第一次 fresh 只读 critical review 为 `NO BLOCKER`，随后 commit/fast-forward/non-force push 且两树 clean。
-- [ ] 最终 clean pushed main 上 `make verify` 只运行一次且通过，受控资源归零；失败归因并建立准确 blocker 后停止。
-- [ ] 冻结代码后第二次 fresh 只读 high-risk review 为 `NO BLOCKER`；记录真实 Gate/日志/警告/下一步。
-- [ ] I04-2A completed；I04-2 in_progress/network_identity_remediated；I04 和总体任务 in_progress；不生成 release/manifest 或进入 cutover。
+- [x] 静态精确断言 logical/name/每个 service network/internal/安全拓扑，Production 无旧 key。
+- [x] 本地真实 Engine 正向复用和旧 label 负向覆盖通过，自己创建的 network/container/temp 全部清理。
+- [x] deploy local 先校验 manifest image identity；local run/up 均 `--pull never`；rollback 保持 `--no-deps --no-build --pull never`，三条路径使用同一 Production Compose。
+- [x] manifest/release 绑定的 runbook preflight 显式 `--pull never --no-deps`，清楚区分 physical name 和 logical label。
+- [x] 定向 Compose、deploy cleanup/production/staging、Nginx、syntax、diff、secret scan 全部通过并保存日志、exit/count/bytes/SHA-256。
+- [x] 第一次 fresh 只读 critical review 为 `NO BLOCKER`，随后 commit/fast-forward/non-force push 且两树 clean。
+- [x] 最终 clean pushed main 上 `make verify` 只运行一次且通过，受控资源归零；失败归因并建立准确 blocker 后停止。
+- [x] 冻结代码后第二次 fresh 只读 high-risk review 为 `NO BLOCKER`；记录真实 Gate/日志/警告/下一步。
+- [x] I04-2A completed；I04-2 in_progress/network_identity_remediated；I04 和总体任务 in_progress；不生成 release/manifest 或进入 cutover。
 
 ## 留给下一会话
 

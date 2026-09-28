@@ -17,3 +17,9 @@
 ## 不变量与远端边界
 
 不修改 manifest、bootstrap/clean-init owner、Production env、数据库或业务合同。Hostdzire 只读复核保存 name/label、历史 archive/manifest/image identity、七容器 restart/OOM、Nginx/env hash、公网状态与 quarantine/state absent；没有远端写操作。旧冻结身份完整见父任务历史 evidence，本轮不得复用。
+
+## 验证结果与结束边界
+
+实际实现 commit `b28d72f7`，新完整 Gate source `6c88563cce6edbce4b18fb010a840329600e69ee` / tree `ab34588732c3a77cc788f21e64d7d4479e5b632c`，clean pushed main 上一次 make verify exit=0；日志 253005 bytes，SHA-256=`1ba1e84ab20a5fd972c5b546f6a454fefa58bfc40ded2fce391433ac0416dc86`。真实 Engine 七 service positive、三个旧 label negative，清理与两次 fresh review 均满足验收。结果收尾仅修改 export-ignore 的 .trellis 记录；最终 Git identity/input-continuity evidence 在持久 evidence root 保存。禁止将此 Gate 当作真实 AI/OSS、远端修复后 preflight 或 cutover 通过证明。
+
+下一会话先解决真实 AI provider 非 secret metadata 和 credential owner true-TTY handoff；随后使用全新 commit/release ID/run ID/archive/image tags/manifest 冻结 release，并重新执行 pre-cutover review/cutover。

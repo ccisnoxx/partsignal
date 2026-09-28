@@ -80,20 +80,20 @@
   ],
   "parent": null,
   "relatedFiles": [],
-  "notes": "R00 至 I03 已完成。I04-2 已冻结 release/archive/images/manifest，但 live Compose network label mismatch 经 fresh critical review 确认为 cutover blocker；未进入维护窗口或执行 cutover，总体任务继续 in_progress。",
+  "notes": "I04-2A completed：Production logical/name/Compose label 已统一，真实 Engine 回归与新 Repository Gate 通过，两次 fresh critical review 均 NO BLOCKER。旧冻结 release/archive/images/manifest 仅保留为历史失败证据，不复用或覆盖；尚未进入维护窗口/cutover。真实 AI metadata 与 owner true-TTY handoff 仍待下一会话。",
   "meta": {
-    "latest_valid_verify_commit": "e53b655b75b6d3418a96307d28f305c6bdb8245a",
-    "latest_valid_verify_tree": "363c1e49f70c3595f44e5fe8568147ee09620200",
-    "latest_review_status": "I04_REPOSITORY_RELEASE_GATE_NO_BLOCKER",
-    "latest_review_audit_id": "20260928T013736Z-i04-git-closure-and-repository-release-gate-0cca1364",
-    "latest_make_verify_log": "/tmp/partsignal-i04-final-make-verify-4.log",
+    "latest_valid_verify_commit": "6c88563cce6edbce4b18fb010a840329600e69ee",
+    "latest_valid_verify_tree": "ab34588732c3a77cc788f21e64d7d4479e5b632c",
+    "latest_review_status": "I04_2A_FINAL_HIGH_RISK_REVIEW_NO_BLOCKER",
+    "latest_review_audit_id": "20260928T035743Z-i04-2a-compose-network-identity-cec3f231",
+    "latest_make_verify_log": "/Users/sc/.codex/audits/i04-2a-20260928/repository-release-gate.log",
     "latest_make_verify_status": 0,
-    "latest_make_verify_sha256": "6f9fc122b1ac763f7e740c934cb04f40437fefa6e70cc2bb3752c1020a36395a",
-    "latest_make_verify_counts": "backend unit 691; frontend Vitest 91 files/848 tests; PostgreSQL integration 344; real-stack 21 passed; fixture E2E 494 passed/44 skipped",
-    "latest_resources": "pre/post byte-identical and all controlled resources zero",
-    "next_blocker": "I04_2_COMPOSE_NETWORK_LABEL_IDENTITY_MISMATCH",
-    "next_task": "建立部署合同 remediation child，统一 Production Compose 与线上既有 network label，补真实回归并重跑完整 Gate；随后以新 release ID 重新冻结。",
-    "i04_status": "blocked_i04_2_pre_cutover",
+    "latest_make_verify_sha256": "1ba1e84ab20a5fd972c5b546f6a454fefa58bfc40ded2fce391433ac0416dc86",
+    "latest_make_verify_counts": "backend unit 691; frontend Vitest 91 files/848 tests; PostgreSQL integration 344; real-stack 21 passed; fixture E2E 494 passed/44 skipped; Engine 7 positive/3 negative; lifecycle 6 cases; database lifecycle 5 scenarios; deploy/activate/rollback 3 paths/8 local operations",
+    "latest_resources": "controlled container/network/ports/database/Redis/temp=0; preexisting infra and 26 Redis15 keys preserved",
+    "next_blocker": "AI_PROVIDER_METADATA_AND_CREDENTIAL_OWNER_TTY_HANDOFF_MISSING",
+    "next_task": "下一会话先解决真实 AI provider 非 secret metadata 和 credential owner true-TTY handoff；随后使用全新 commit/release ID/run ID/archive/image tags/manifest 冻结 release，并重新执行 pre-cutover review/cutover。",
+    "i04_status": "in_progress_network_identity_remediated_waiting_ai_handoff",
     "i04_blocker": null,
     "i04_1_child": "09-26-frontend-i04-1-production-config-rollback-identity",
     "i04_1_status": "completed",
@@ -101,12 +101,138 @@
     "i04_1r_status": "completed",
     "i04_1_critical_review_audit_id": "20260927T141144Z-i04-1r-bootstrap-provenance-9918acde",
     "i04_2_child": "09-27-frontend-i04-2-release-freeze-clean-init-cutover",
-    "i04_2_status": "in_progress_blocked_pre_cutover",
-    "repository_release_gate": "STALE_COMPOSE_INPUT_CHANGED_NOT_RERUN",
+    "i04_2_status": "in_progress_network_identity_remediated",
+    "repository_release_gate": "MET",
     "external_services_gate": "NOT_RUN",
     "i04_2_release_source_commit": "649641cec3bdd62fa612021f0841970f99d31dfb",
     "historical_repository_release_gate": "MET",
     "i04_2a_child": "09-28-frontend-i04-2a-compose-network-identity-remediation",
-    "i04_2a_status": "in_progress"
+    "i04_2a_status": "completed",
+    "repository_release_gate_history_before_i04_2a": {
+      "repository_release_gate": "STALE_COMPOSE_INPUT_CHANGED_NOT_RERUN"
+    },
+    "repository_release_gate_source_commit": "6c88563cce6edbce4b18fb010a840329600e69ee",
+    "repository_release_gate_source_tree": "ab34588732c3a77cc788f21e64d7d4479e5b632c",
+    "repository_release_gate_review": "NO_BLOCKER",
+    "repository_release_gate_review_audit_id": "20260928T035743Z-i04-2a-compose-network-identity-cec3f231",
+    "repository_release_gate_make_verify_status": 0,
+    "repository_release_gate_make_verify_log": "/Users/sc/.codex/audits/i04-2a-20260928/repository-release-gate.log",
+    "repository_release_gate_make_verify_sha256": "1ba1e84ab20a5fd972c5b546f6a454fefa58bfc40ded2fce391433ac0416dc86",
+    "repository_release_gate_make_verify_bytes": 253005,
+    "repository_release_gate_make_verify_counts": "backend unit 691; frontend Vitest 91 files/848 tests; PostgreSQL integration 344; real-stack 21 passed; fixture E2E 494 passed/44 skipped; Engine 7 positive/3 negative; lifecycle 6 cases; database lifecycle 5 scenarios; deploy/activate/rollback 3 paths/8 local operations",
+    "repository_release_gate_make_verify_run_count_this_session": 1,
+    "repository_release_gate_secret_scan_sha256": "8fb2adaf5aa797af24a56b9561e2529f879aa0afb35010d463f81608706cd344",
+    "repository_release_gate_resources_sha256": "d39293836a52589e43625eb546a2298f26597aecad9cfd52aa765c92e60180b2",
+    "repository_release_gate_i04_2a": {
+      "counts": {
+        "backend_unit": 691,
+        "frontend_unit_files": 91,
+        "frontend_unit_tests": 848,
+        "postgres_integration": 344,
+        "real_stack_e2e_passed": 21,
+        "fixture_e2e_passed": 494,
+        "fixture_e2e_skipped": 44,
+        "lifecycle_cases": 6,
+        "database_lifecycle_scenarios": 5,
+        "production_networks": 3,
+        "production_services": 7,
+        "engine_positive": 7,
+        "engine_negative": 3,
+        "delivery_paths": 3,
+        "local_operations": 8
+      },
+      "post_gate_checks": {
+        "gate-integration-cleanup": {
+          "command": [
+            "backend/.venv/bin/python",
+            "/Users/sc/.codex/audits/i04-2a-20260928/gate-resource-cleanup.py"
+          ],
+          "exit_code": 0,
+          "bytes": 154,
+          "sha256": "7a0d8bc7d765bbb9199353ef7fcb3c672179b22ae658ac8c3f60503cde741f7a",
+          "duration_seconds": 0.13
+        },
+        "gate-resources-after": {
+          "command": [
+            "python3",
+            "/Users/sc/.codex/audits/i04-2a-20260928/resources.py"
+          ],
+          "exit_code": 0,
+          "bytes": 229,
+          "sha256": "d39293836a52589e43625eb546a2298f26597aecad9cfd52aa765c92e60180b2",
+          "duration_seconds": 0.152
+        },
+        "gate-secret-after": {
+          "command": [
+            "python3",
+            "/Users/sc/.codex/audits/i04-2a-20260928/secret-scan.py"
+          ],
+          "exit_code": 0,
+          "bytes": 47,
+          "sha256": "8fb2adaf5aa797af24a56b9561e2529f879aa0afb35010d463f81608706cd344",
+          "duration_seconds": 0.494
+        }
+      },
+      "source_commit": "6c88563cce6edbce4b18fb010a840329600e69ee",
+      "source_tree": "ab34588732c3a77cc788f21e64d7d4479e5b632c",
+      "final_review": {
+        "verdict": "NO BLOCKER",
+        "reviewer": "/root/i04_2a_final_critical_review",
+        "audit_id": "20260928T035743Z-i04-2a-compose-network-identity-cec3f231",
+        "report_bytes": 7795,
+        "report_sha256": "b03ec2285dd12049c0d2f413967236270fe1834c3617ccb23f4d762d845742e1",
+        "report_path": "/Users/sc/.codex/audits/i04-2a-20260928/review-2.md",
+        "scope": "frozen source after new full Gate; fresh independent read-only review"
+      },
+      "warnings": [
+        "Vite minified Markdown editor chunk 729.88 kB exceeds 500 kB advisory limit",
+        "NO_COLOR ignored because FORCE_COLOR is set",
+        "frontend container readiness curl exit 52 once; existing bounded readiness probe subsequently passed"
+      ]
+    },
+    "i04_2a_final_review": {
+      "verdict": "NO BLOCKER",
+      "reviewer": "/root/i04_2a_final_critical_review",
+      "audit_id": "20260928T035743Z-i04-2a-compose-network-identity-cec3f231",
+      "report_bytes": 7795,
+      "report_sha256": "b03ec2285dd12049c0d2f413967236270fe1834c3617ccb23f4d762d845742e1",
+      "report_path": "/Users/sc/.codex/audits/i04-2a-20260928/review-2.md",
+      "scope": "frozen source after new full Gate; fresh independent read-only review"
+    },
+    "maintenance_started": false,
+    "activation_gate": "NOT_RUN",
+    "observation_gate": "NOT_RUN",
+    "i04_2a_remote_writes": "none",
+    "next_action": "下一会话先解决真实 AI provider 非 secret metadata 和 credential owner true-TTY handoff；随后使用全新 commit/release ID/run ID/archive/image tags/manifest 冻结 release，并重新执行 pre-cutover review/cutover。",
+    "historical_latest_verification_before_i04_2a": {
+      "latest_valid_verify_commit": "e53b655b75b6d3418a96307d28f305c6bdb8245a",
+      "latest_valid_verify_tree": "363c1e49f70c3595f44e5fe8568147ee09620200",
+      "latest_review_status": "I04_REPOSITORY_RELEASE_GATE_NO_BLOCKER",
+      "latest_review_audit_id": "20260928T013736Z-i04-git-closure-and-repository-release-gate-0cca1364",
+      "latest_make_verify_log": "/tmp/partsignal-i04-final-make-verify-4.log",
+      "latest_make_verify_status": 0,
+      "latest_make_verify_sha256": "6f9fc122b1ac763f7e740c934cb04f40437fefa6e70cc2bb3752c1020a36395a",
+      "latest_make_verify_counts": "backend unit 691; frontend Vitest 91 files/848 tests; PostgreSQL integration 344; real-stack 21 passed; fixture E2E 494 passed/44 skipped",
+      "latest_resources": "pre/post byte-identical and all controlled resources zero"
+    },
+    "latest_make_verify_bytes": 253005,
+    "i04_2a_completion_evidence": {
+      "git_closure_log": "/Users/sc/.codex/audits/i04-2a-20260928/final-git-closure.log",
+      "git_closure_result": "/Users/sc/.codex/audits/i04-2a-20260928/final-git-closure.result.json",
+      "input_continuity": "/Users/sc/.codex/audits/i04-2a-20260928/final-input-continuity.json",
+      "git_identity": "/Users/sc/.codex/audits/i04-2a-20260928/final-git-identity.json",
+      "gate_commit": "6c88563cce6edbce4b18fb010a840329600e69ee",
+      "closeout_secret_scan": {
+        "command": [
+          "python3",
+          "/Users/sc/.codex/audits/i04-2a-20260928/secret-scan.py"
+        ],
+        "exit_code": 0,
+        "bytes": 47,
+        "sha256": "8fb2adaf5aa797af24a56b9561e2529f879aa0afb35010d463f81608706cd344",
+        "duration_seconds": 0.478
+      },
+      "audit_bundle_status": "closed_verified_no_anomaly"
+    }
   }
 }

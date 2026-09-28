@@ -34,15 +34,15 @@
     "deploy/nginx/partsignal-maintenance.conf.template",
     "deploy/nginx/partsignal.conf.template"
   ],
-  "notes": "Release checkout/archive/backend/frontend/0600 manifest were frozen, but the first Engine-backed Production Compose preflight exposed a live network-label contract mismatch. Fresh critical review returned BLOCKER. Maintenance/cutover did not start; frozen artifacts are retained as non-overwritable evidence and must not be reused after remediation.",
+  "notes": "I04-2A completed：Production logical/name/Compose label 已统一，真实 Engine 回归与新 Repository Gate 通过，两次 fresh critical review 均 NO BLOCKER。旧冻结 release/archive/images/manifest 仅保留为历史失败证据，不复用或覆盖；尚未进入维护窗口/cutover。真实 AI metadata 与 owner true-TTY handoff 仍待下一会话。",
   "meta": {
     "parent_stage": "i04_2_release_freeze",
     "product_candidate_commit": "e53b655b75b6d3418a96307d28f305c6bdb8245a",
     "product_candidate_tree": "363c1e49f70c3595f44e5fe8568147ee09620200",
-    "repository_release_gate": "STALE_COMPOSE_INPUT_CHANGED_NOT_RERUN",
+    "repository_release_gate": "MET",
     "repository_release_gate_review": "NO_BLOCKER",
-    "repository_release_gate_review_audit_id": "20260928T013736Z-i04-git-closure-and-repository-release-gate-0cca1364",
-    "repository_release_gate_make_verify_sha256": "6f9fc122b1ac763f7e740c934cb04f40437fefa6e70cc2bb3752c1020a36395a",
+    "repository_release_gate_review_audit_id": "20260928T035743Z-i04-2a-compose-network-identity-cec3f231",
+    "repository_release_gate_make_verify_sha256": "1ba1e84ab20a5fd972c5b546f6a454fefa58bfc40ded2fce391433ac0416dc86",
     "rollback_frontend_reference": "partsignal-frontend:mvp-20260830-133651-a663bcce",
     "rollback_frontend_image_id": "sha256:c0826f2a31e30d160252c1385e6b2b14d3fcfc58ec49692b0202cb45533dca1e",
     "rollback_frontend_repo_digest": "partsignal-frontend@sha256:c0826f2a31e30d160252c1385e6b2b14d3fcfc58ec49692b0202cb45533dca1e",
@@ -59,19 +59,138 @@
     "manifest_path": "/root/partsignal/releases/mvp-20260928-023635-649641cec3bd.manifest.json",
     "manifest_sha256": "d9fc3543d2dd73523c0b436d956e22a3f94e61bae19b005aeb2fbecbe55e1ad9",
     "remote_precheck": "PASSED_FOR_RELEASE_FREEZE",
-    "release_freeze": "ARTIFACTS_FROZEN_CONFIG_PREFLIGHT_BLOCKED",
-    "pre_cutover_review": "BLOCKER",
+    "release_freeze": "HISTORICAL_FAILED_RELEASE_ARTIFACTS_RETAINED_DO_NOT_REUSE",
+    "pre_cutover_review": "HISTORICAL_BLOCKER; NEW_RELEASE_REVIEW_NOT_RUN",
     "pre_cutover_reviewer": "/root/i04_2_network_pre_cutover_review",
-    "blocker_code": "COMPOSE_NETWORK_LABEL_IDENTITY_MISMATCH",
-    "blocker_detail": "Production logical network keys partsignal-internal/egress/edge do not match existing Docker Compose network labels partsignal-staging-internal/egress/edge; clean-init, activation and frontend rollback cannot safely run.",
+    "blocker_code": null,
+    "blocker_detail": null,
     "secondary_blocker": "AI_PROVIDER_METADATA_AND_CREDENTIAL_OWNER_TTY_HANDOFF_MISSING",
     "maintenance_started": false,
     "external_services_gate": "NOT_RUN",
     "activation_gate": "NOT_RUN",
     "observation_gate": "NOT_RUN",
-    "next_action": "create a remediation child to align Production Compose logical network identity and preflight runbook/tests; rerun full Repository Release Gate and freeze a new non-overwriting release before reconsidering cutover",
+    "next_action": "下一会话先解决真实 AI provider 非 secret metadata 和 credential owner true-TTY handoff；随后使用全新 commit/release ID/run ID/archive/image tags/manifest 冻结 release，并重新执行 pre-cutover review/cutover。",
     "historical_repository_release_gate": "MET",
     "i04_2a_child": "09-28-frontend-i04-2a-compose-network-identity-remediation",
-    "i04_2a_status": "in_progress"
+    "i04_2a_status": "completed",
+    "repository_release_gate_history_before_i04_2a": {
+      "repository_release_gate": "STALE_COMPOSE_INPUT_CHANGED_NOT_RERUN",
+      "repository_release_gate_review": "NO_BLOCKER",
+      "repository_release_gate_review_audit_id": "20260928T013736Z-i04-git-closure-and-repository-release-gate-0cca1364",
+      "repository_release_gate_make_verify_sha256": "6f9fc122b1ac763f7e740c934cb04f40437fefa6e70cc2bb3752c1020a36395a"
+    },
+    "repository_release_gate_source_commit": "6c88563cce6edbce4b18fb010a840329600e69ee",
+    "repository_release_gate_source_tree": "ab34588732c3a77cc788f21e64d7d4479e5b632c",
+    "repository_release_gate_make_verify_status": 0,
+    "repository_release_gate_make_verify_log": "/Users/sc/.codex/audits/i04-2a-20260928/repository-release-gate.log",
+    "repository_release_gate_make_verify_bytes": 253005,
+    "repository_release_gate_make_verify_counts": "backend unit 691; frontend Vitest 91 files/848 tests; PostgreSQL integration 344; real-stack 21 passed; fixture E2E 494 passed/44 skipped; Engine 7 positive/3 negative; lifecycle 6 cases; database lifecycle 5 scenarios; deploy/activate/rollback 3 paths/8 local operations",
+    "repository_release_gate_make_verify_run_count_this_session": 1,
+    "repository_release_gate_secret_scan_sha256": "8fb2adaf5aa797af24a56b9561e2529f879aa0afb35010d463f81608706cd344",
+    "repository_release_gate_resources_sha256": "d39293836a52589e43625eb546a2298f26597aecad9cfd52aa765c92e60180b2",
+    "repository_release_gate_i04_2a": {
+      "counts": {
+        "backend_unit": 691,
+        "frontend_unit_files": 91,
+        "frontend_unit_tests": 848,
+        "postgres_integration": 344,
+        "real_stack_e2e_passed": 21,
+        "fixture_e2e_passed": 494,
+        "fixture_e2e_skipped": 44,
+        "lifecycle_cases": 6,
+        "database_lifecycle_scenarios": 5,
+        "production_networks": 3,
+        "production_services": 7,
+        "engine_positive": 7,
+        "engine_negative": 3,
+        "delivery_paths": 3,
+        "local_operations": 8
+      },
+      "post_gate_checks": {
+        "gate-integration-cleanup": {
+          "command": [
+            "backend/.venv/bin/python",
+            "/Users/sc/.codex/audits/i04-2a-20260928/gate-resource-cleanup.py"
+          ],
+          "exit_code": 0,
+          "bytes": 154,
+          "sha256": "7a0d8bc7d765bbb9199353ef7fcb3c672179b22ae658ac8c3f60503cde741f7a",
+          "duration_seconds": 0.13
+        },
+        "gate-resources-after": {
+          "command": [
+            "python3",
+            "/Users/sc/.codex/audits/i04-2a-20260928/resources.py"
+          ],
+          "exit_code": 0,
+          "bytes": 229,
+          "sha256": "d39293836a52589e43625eb546a2298f26597aecad9cfd52aa765c92e60180b2",
+          "duration_seconds": 0.152
+        },
+        "gate-secret-after": {
+          "command": [
+            "python3",
+            "/Users/sc/.codex/audits/i04-2a-20260928/secret-scan.py"
+          ],
+          "exit_code": 0,
+          "bytes": 47,
+          "sha256": "8fb2adaf5aa797af24a56b9561e2529f879aa0afb35010d463f81608706cd344",
+          "duration_seconds": 0.494
+        }
+      },
+      "source_commit": "6c88563cce6edbce4b18fb010a840329600e69ee",
+      "source_tree": "ab34588732c3a77cc788f21e64d7d4479e5b632c",
+      "final_review": {
+        "verdict": "NO BLOCKER",
+        "reviewer": "/root/i04_2a_final_critical_review",
+        "audit_id": "20260928T035743Z-i04-2a-compose-network-identity-cec3f231",
+        "report_bytes": 7795,
+        "report_sha256": "b03ec2285dd12049c0d2f413967236270fe1834c3617ccb23f4d762d845742e1",
+        "report_path": "/Users/sc/.codex/audits/i04-2a-20260928/review-2.md",
+        "scope": "frozen source after new full Gate; fresh independent read-only review"
+      },
+      "warnings": [
+        "Vite minified Markdown editor chunk 729.88 kB exceeds 500 kB advisory limit",
+        "NO_COLOR ignored because FORCE_COLOR is set",
+        "frontend container readiness curl exit 52 once; existing bounded readiness probe subsequently passed"
+      ]
+    },
+    "i04_2a_final_review": {
+      "verdict": "NO BLOCKER",
+      "reviewer": "/root/i04_2a_final_critical_review",
+      "audit_id": "20260928T035743Z-i04-2a-compose-network-identity-cec3f231",
+      "report_bytes": 7795,
+      "report_sha256": "b03ec2285dd12049c0d2f413967236270fe1834c3617ccb23f4d762d845742e1",
+      "report_path": "/Users/sc/.codex/audits/i04-2a-20260928/review-2.md",
+      "scope": "frozen source after new full Gate; fresh independent read-only review"
+    },
+    "i04_2a_remote_writes": "none",
+    "stage": "network_identity_remediated",
+    "historical_network_identity_blocker": {
+      "code": "COMPOSE_NETWORK_LABEL_IDENTITY_MISMATCH",
+      "detail": "Production logical network keys partsignal-internal/egress/edge do not match existing Docker Compose network labels partsignal-staging-internal/egress/edge; clean-init, activation and frontend rollback cannot safely run.",
+      "pre_cutover_review": "BLOCKER"
+    },
+    "network_identity_remediation": "COMPLETED_I04_2A",
+    "historical_frozen_release_usage": "archive/images/manifest/release ID/run ID unchanged; not reusable; no new release created",
+    "i04_2a_completion_evidence": {
+      "git_closure_log": "/Users/sc/.codex/audits/i04-2a-20260928/final-git-closure.log",
+      "git_closure_result": "/Users/sc/.codex/audits/i04-2a-20260928/final-git-closure.result.json",
+      "input_continuity": "/Users/sc/.codex/audits/i04-2a-20260928/final-input-continuity.json",
+      "git_identity": "/Users/sc/.codex/audits/i04-2a-20260928/final-git-identity.json",
+      "gate_commit": "6c88563cce6edbce4b18fb010a840329600e69ee",
+      "closeout_secret_scan": {
+        "command": [
+          "python3",
+          "/Users/sc/.codex/audits/i04-2a-20260928/secret-scan.py"
+        ],
+        "exit_code": 0,
+        "bytes": 47,
+        "sha256": "8fb2adaf5aa797af24a56b9561e2529f879aa0afb35010d463f81608706cd344",
+        "duration_seconds": 0.478
+      },
+      "audit_bundle_status": "closed_verified_no_anomaly"
+    },
+    "final_local_identity_context": "historical failed frozen release source only; current Gate source is repository_release_gate_source_commit"
   }
 }

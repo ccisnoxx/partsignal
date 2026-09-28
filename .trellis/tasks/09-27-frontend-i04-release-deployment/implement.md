@@ -140,3 +140,9 @@ I03 `make verify` 复用仍成立：`387b802d` 到 `f91b98b5` 的产品代码、
 - 已建立 child `.trellis/tasks/09-27-frontend-i04-2-release-freeze-clean-init-cutover/`，I04 与总体前端任务继续 `in_progress`。
 - I04-2 先完成本批 Trellis-only 记录的 commit/push 与最终 clean identity/diff/secret scan；完整 `make verify` 仅在变更严格限于 `.trellis` 且 release archive 继续受 `export-ignore` 排除时复用。
 - 在 release/archive/image/manifest identity、远端只读 precheck、credential-owner TTY 路径与逐条命令冻结并通过 fresh pre-cutover critical review 前，不进入 maintenance，不停止容器，不 quarantine 或 clean-init。
+
+## I04-2A 完成记录（2026-09-28）
+
+child `09-28-frontend-i04-2a-compose-network-identity-remediation` completed，network identity 已修复。新完整 Repository Gate source `6c88563cce6edbce4b18fb010a840329600e69ee`，一次 make verify exit=0，253005 bytes，SHA-256=`1ba1e84ab20a5fd972c5b546f6a454fefa58bfc40ded2fce391433ac0416dc86`；两次 fresh critical review NO BLOCKER，audit=`20260928T035743Z-i04-2a-compose-network-identity-cec3f231`；受控资源归零/secret scan clean。旧 network blocker 是历史失败原因；本任务继续 in_progress，I04-2 stage=network_identity_remediated。旧冻结 release/archive/images/manifest 不变且不可复用，未生成新 release、进入维护或执行任何 cutover；本轮无远端写入。详细计数、日志、警告和 source continuity 合同见 child implement.md。
+
+下一会话先解决真实 AI provider 非 secret metadata 和 credential owner true-TTY handoff；随后使用全新 commit/release ID/run ID/archive/image tags/manifest 冻结 release，并重新执行 pre-cutover review/cutover。

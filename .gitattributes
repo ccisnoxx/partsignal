@@ -1,14 +1,3 @@
-/.agents export-ignore
-/.codex export-ignore
-/.playwright-cli export-ignore
-/.trellis export-ignore
-
-# Trellis: append-only developer journals should merge cleanly across
-# parallel sessions/worktrees — each session only appends a new block, so
-# there is nothing to actually conflict on.
-#
-# Do NOT add a rule for workspace/*/index.md here — it is fully regenerated
-# every session, so a real conflict there is expected and safe to resolve by
-# picking either side (task state lives in task.json, not index.md). See
-# .trellis/spec/cli/backend/directory-structure.md for details.
-.trellis/workspace/*/journal-*.md merge=union
+.trellis/tasks/09-27-frontend-i04-1r-bootstrap-provenance/evidence/creator-tool-call.txt whitespace=-blank-at-eof
+.trellis/tasks/09-27-frontend-i04-1r-bootstrap-provenance/evidence/validator-tool-call.txt whitespace=-blank-at-eof
+.trellis/tasks/09-27-frontend-i04-1r-bootstrap-provenance/evidence/secret-scan-tool-call.txt whitespace=-blank-at-eof

@@ -1,0 +1,11 @@
+{
+  "channel_name": "开发预览 AI",
+  "channel_description": "开发阶段功能验证",
+  "protocol_type": "openai-compatible-chat-completions",
+  "provider_brand": "",
+  "base_url": "",
+  "timeout_seconds": 60,
+  "model_display_name": "",
+  "model_id": "",
+  "request_parameters": {}
+}

@@ -20,7 +20,8 @@
   "subtasks": [],
   "children": [
     "09-26-frontend-i04-1-production-config-rollback-identity",
-    "09-27-frontend-i04-2-release-freeze-clean-init-cutover"
+    "09-27-frontend-i04-2-release-freeze-clean-init-cutover",
+    "09-28-frontend-i04-production-configuration-templates"
   ],
   "parent": "09-21-frontend-redevelopment-delivery",
   "relatedFiles": [

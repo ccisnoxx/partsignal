@@ -76,7 +76,9 @@
     "09-25-frontend-i01-legacy-routing",
     "09-25-frontend-i02-full-candidate",
     "09-25-frontend-i03-canonical-local-integration",
-    "09-27-frontend-i04-release-deployment"
+    "09-27-frontend-i04-release-deployment",
+    "09-28-development-preview-environment-cleanup",
+    "09-29-development-preview-first-deploy"
   ],
   "parent": null,
   "relatedFiles": [],
@@ -233,6 +235,15 @@
         "duration_seconds": 0.478
       },
       "audit_bundle_status": "closed_verified_no_anomaly"
+    },
+    "development_preview_cleanup": {
+      "task": "09-28-development-preview-environment-cleanup",
+      "status": "completed",
+      "hostdzire_runtime": "CLEANED_OFFLINE_410",
+      "data": "USER_AUTHORIZED_PERMANENT_TEST_DATA_DELETION",
+      "config_and_frozen_evidence": "RETAINED",
+      "deployment": "NOT_RUN_WAIT_USER_NOTICE",
+      "production_cutover": "DEFERRED_BY_USER_CURRENT_DEVELOPMENT_PHASE"
     }
   }
 }

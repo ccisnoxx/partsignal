@@ -288,6 +288,137 @@ if test "${PARTSIGNAL_PRODUCTION_HARNESS_TEST_MODE:-}" = network-compatibility; 
   exit 0
 fi
 
+uv run --offline --no-sync --project "$root/backend" python - "$root" "$test_dir" <<'PY'
+import base64
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+root, owner = map(Path, sys.argv[1:])
+checker = root / "deploy/scripts/check-production-inputs.py"
+runtime = owner / "input-runtime.env"
+ai_path = owner / "input-ai.json"
+template = (root / ".env.production.example").read_text()
+values = dict(line.split("=", 1) for line in template.splitlines() if line and not line.startswith("#"))
+values.update({
+    "POSTGRES_PASSWORD": "p" * 48, "SESSION_SECRET": "s" * 64,
+    "UPLOAD_SIGNING_SECRET": "u" * 64,
+    "PARTSIGNAL_SEED_ADMIN_PASSWORD": "a" * 48,
+    "PARTSIGNAL_SEED_ENGINEER_PASSWORD": "e" * 48,
+    "AI_CREDENTIAL_ENCRYPTION_KEY": base64.b64encode(bytes(range(32))).decode(),
+    "DATABASE_URL": "postgresql+psycopg://partsignal:" + "p" * 48 + "@postgres:5432/partsignal",
+    "OSS_ENDPOINT": "https://oss-cn-hangzhou.aliyuncs.com",
+    "OSS_BUCKET": "synthetic-input-check", "OSS_ACCESS_KEY_ID": "synthetic-access-id",
+    "OSS_ACCESS_KEY_SECRET": "synthetic-access-secret",
+})
+ai = json.loads((root / "deploy/production-ai.example.json").read_text())
+ai.update(provider_brand="CUSTOM", base_url="https://synthetic-provider.example/v1",
+          model_display_name="Synthetic Model", model_id="synthetic-model",
+          credential_owner="synthetic-owner", credential_ready=True,
+          credential_json_bytes_upper_bound=1024,
+          chat_completions_compatibility_confirmed=True,
+          credential_owner_tty_handoff_confirmed=True)
+
+def render(current):
+    return "".join(f"{key}={value}\n" for key, value in current.items())
+
+counts = {"positive": 0, "negative": 0}
+
+def run(text, ai_value=ai, *, mode=0o600, expected=0, code=None):
+    runtime.write_text(text)
+    runtime.chmod(mode)
+    ai_path.write_text(ai_value if isinstance(ai_value, str) else json.dumps(ai_value, ensure_ascii=False))
+    ai_path.chmod(0o600)
+    result = subprocess.run(
+        [sys.executable, str(checker), str(runtime), "--ai-inputs", str(ai_path)],
+        cwd=owner, env={**os.environ, "APP_ENV": "development", "SESSION_SECRET": "inherited-not-used"},
+        capture_output=True, text=True,
+    )
+    assert result.returncode == expected, result.stdout
+    counts["positive" if expected == 0 else "negative"] += 1
+    assert not result.stderr
+    assert all(secret not in result.stdout for secret in [values["POSTGRES_PASSWORD"],
+               values["SESSION_SECRET"], values["OSS_ACCESS_KEY_SECRET"], "CONFIG_REVIEW_UNSET"])
+    summary = json.loads(result.stdout)
+    if code:
+        assert summary["code"] == code
+    return summary
+
+summary = run(render(values))
+assert summary["ai_inputs"] == "PASSED" and summary["external_services_gate"] == "NOT_RUN"
+summary = run(template, json.loads((root / "deploy/production-ai.example.json").read_text()), expected=2)
+assert summary["status"] == "NOT_READY" and len(summary["missing_runtime"]) == 11
+assert len(summary["missing_ai"]) == 9
+cases = [
+    ({"POSTGRES_PASSWORD": "synthetic-safe-prefix${CONFIG_REVIEW_UNSET}",
+      "DATABASE_URL": "postgresql+psycopg://partsignal:synthetic-safe-prefix%24%7BCONFIG_REVIEW_UNSET%7D@postgres:5432/partsignal"}, "ENV_INTERPOLATION_OR_QUOTING"),
+    ({"POSTGRES_PASSWORD": "p" * 48 + "$PLAIN"}, "ENV_INTERPOLATION_OR_QUOTING"),
+    ({"POSTGRES_PASSWORD": "p" * 48 + "$(command)"}, "ENV_INTERPOLATION_OR_QUOTING"),
+    ({"POSTGRES_PASSWORD": "p" * 48 + "`command`"}, "ENV_INTERPOLATION_OR_QUOTING"),
+    ({"POSTGRES_PASSWORD": "quoted-password'"}, "ENV_INTERPOLATION_OR_QUOTING"),
+    ({"POSTGRES_USER": "different-user"}, "DATABASE_IDENTITY_MISMATCH"),
+    ({"POSTGRES_DB": "different-db"}, "DATABASE_IDENTITY_MISMATCH"),
+    ({"POSTGRES_PASSWORD": "short"}, "URL_SAFE_SECRET_REQUIRED:POSTGRES_PASSWORD"),
+    ({"GENERATION_EAGER": "true"}, "PRODUCTION_FIXED_VALUE_REQUIRED:GENERATION_EAGER"),
+    ({"VITE_API_BASE_URL": "https://cross-origin.example"}, "PRODUCTION_FIXED_VALUE_REQUIRED:VITE_API_BASE_URL"),
+    ({"AI_CREDENTIAL_ENCRYPTION_KEY": "invalid-base64"}, "BACKEND_CONFIG_OR_AI_SCHEMA_INVALID"),
+]
+for changes, code in cases:
+    run(render({**values, **changes}), expected=2, code=code)
+for text, code in [
+    (render(values).replace("\n", "\r\n"), "ENV_CONTROL_CHARACTER"),
+    (render(values) + "source another-file\n", "ENV_LITERAL_SYNTAX_REQUIRED"),
+    (render(values) + "include another-file\n", "ENV_LITERAL_SYNTAX_REQUIRED"),
+    (render(values) + "SESSION_SECRET=duplicate\n", "ENV_DUPLICATE_KEY"),
+    (render(values) + "UNKNOWN_CONFIG=value\n", "ENV_KEY_SET_MISMATCH"),
+]:
+    run(text, expected=2, code=code)
+for changes, code in [
+    ({"provider_brand": "NOT_A_BRAND"}, "BACKEND_CONFIG_OR_AI_SCHEMA_INVALID"),
+    ({"timeout_seconds": 9}, "BACKEND_CONFIG_OR_AI_SCHEMA_INVALID"),
+    ({"model_id": " synthetic-model"}, "BACKEND_CONFIG_OR_AI_SCHEMA_INVALID"),
+    ({"request_parameters": {"model": "forbidden"}}, "BACKEND_CONFIG_OR_AI_SCHEMA_INVALID"),
+    ({"custom_headers_required": True}, "AI_CUSTOM_HEADERS_UNSUPPORTED"),
+    ({"request_parameters": {"large": "x" * 70000}}, "AI_BOOTSTRAP_ENVELOPE_TOO_LARGE"),
+    ({"request_parameters": {"large": "中" * 22000}}, "AI_BOOTSTRAP_ENVELOPE_TOO_LARGE"),
+    ({"credential_json_bytes_upper_bound": 70000}, "AI_BOOTSTRAP_ENVELOPE_TOO_LARGE"),
+    ({"credential_json_bytes_upper_bound": True}, "AI_CREDENTIAL_BUDGET_INVALID"),
+    ({"base_url": "https://127.0.0.1/v1"}, "AI_PUBLIC_ADDRESS_REQUIRED"),
+    ({"base_url": "https://localhost/v1"}, "AI_PUBLIC_ADDRESS_REQUIRED"),
+    ({"base_url": "https://127.1/v1"}, "AI_PUBLIC_ADDRESS_REQUIRED"),
+    ({"base_url": "https://0x7f000001/v1"}, "AI_PUBLIC_ADDRESS_REQUIRED"),
+    ({"base_url": "https://2130706433/v1"}, "AI_PUBLIC_ADDRESS_REQUIRED"),
+    ({"base_url": "https://localhost./v1"}, "AI_PUBLIC_ADDRESS_REQUIRED"),
+]:
+    run(render(values), {**ai, **changes}, expected=2, code=code)
+summary = run(render(values), {**ai, "credential_ready": False}, expected=2)
+assert summary["missing_ai"] == ["credential_ready"]
+summary = run(render(values), {**ai, "credential_json_bytes_upper_bound": 0}, expected=2)
+assert summary["missing_ai"] == ["credential_json_bytes_upper_bound"]
+run(render(values), mode=0o644, expected=2, code="INPUT_FILE_METADATA_INVALID")
+run(render(values), '{"channel_name":"first","channel_name":"second"}',
+    expected=2, code="AI_DUPLICATE_KEY")
+runtime.unlink()
+runtime.symlink_to(ai_path)
+result = subprocess.run([sys.executable, str(checker), str(runtime)], capture_output=True, text=True)
+assert result.returncode == 2 and not result.stderr
+assert json.loads(result.stdout)["code"] == "INPUT_CHECK_FAILED"
+counts["negative"] += 1
+# 当前 Hostdzire runtime 已有有效文件；此模式不要求读回其 secret 或填本地空 runtime。
+ai_path.write_text(json.dumps(ai, ensure_ascii=False))
+result = subprocess.run([sys.executable, str(checker), "--ai-only", "--ai-inputs", str(ai_path)],
+                        capture_output=True, text=True)
+assert result.returncode == 0 and not result.stderr
+summary = json.loads(result.stdout)
+assert summary["runtime"] == "NOT_CHECKED" and summary["ai_inputs"] == "PASSED"
+assert summary["external_services_gate"] == "NOT_RUN"
+counts["positive"] += 1
+print(f"Production input readiness: {counts['positive']} positive / {counts['negative']} negative; "
+      "substitution rejected before deployment; secrets not echoed")
+PY
+
 python3 - "$test_dir/compose-async.json" <<'PY'
 import json
 import sys

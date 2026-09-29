@@ -101,7 +101,7 @@ bad_entries=$(
       {
         lower = tolower($0)
         if ($0 ~ /(^|\/)\._/ ||
-            ($0 ~ /(^|\/)\.env($|\.)/ && $0 !~ /(^|\/)\.env\.example$/) ||
+            ($0 ~ /(^|\/)\.env($|\.)/ && $0 !~ /(^|\/)\.env\.(example|production\.example|staging\.example)$/) ||
             lower ~ /(^|\/)(id_rsa|id_ed25519)(\.pub)?$/ ||
             lower ~ /(^|\/)[^\/]*(private[^\/]*key|\.pem|\.key)$/) {
           print

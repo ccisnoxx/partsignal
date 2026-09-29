@@ -1,0 +1,201 @@
+{
+  "id": "frontend-i04-production-configuration-templates",
+  "name": "frontend-i04-production-configuration-templates",
+  "title": "I04 Production 完整配置模板与本地准备流程",
+  "description": "补齐开发/生产模板与AI初始化清单，提供本地只读预检和持久配置交付流程；不修改应用配置加载、服务器env或运行态。",
+  "status": "completed",
+  "dev_type": "infra",
+  "scope": "local configuration templates, operator workflow and read-only input readiness checker",
+  "package": null,
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-09-28",
+  "completedAt": "2026-09-28",
+  "branch": "main",
+  "base_branch": "main",
+  "worktree_path": "/Users/sc/PycharmProjects/partsignal",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "09-27-frontend-i04-release-deployment",
+  "relatedFiles": [
+    ".env.example",
+    ".env.production.example",
+    ".gitignore",
+    "deploy/production-ai.example.json",
+    "docs/production-configuration.md",
+    "docs/Hostdzire部署上线流程.md",
+    "docs/Hostdzire部署附录.md",
+    "docs/operations.md",
+    "deploy/scripts/check-production-inputs.py",
+    "deploy/scripts/test-deploy-production.sh"
+  ],
+  "notes": "完整配置模板、本地草稿、只读预检与操作说明已交付，定向验证通过，最终独立NO BLOCKER；未提交/推送、未运行新完整Gate、未执行远端操作。用户后续填写AI输入。",
+  "meta": {
+    "baseline_commit": "975ea0f05a2a4bd7a3c62e7de41902c6408d043f",
+    "remote_writes": "none",
+    "runtime_contract_changed": false,
+    "new_release_created": false,
+    "new_manifest_created": false,
+    "repository_release_gate": "NOT_RUN_LOCAL_INPUT_PREPARATION_CHANGE",
+    "provider_inputs": "USER_WILL_FILL_LATER_NOT_READY",
+    "validation_results": "/Users/sc/.codex/audits/production-configuration-templates-20260928/validation-results.json",
+    "targeted_checks": {
+      "final-input-template-check": {
+        "command": [
+          "python3",
+          "/Users/sc/.codex/audits/production-configuration-templates-20260928/check-templates.py"
+        ],
+        "exit_code": 0,
+        "duration_seconds": 0.45,
+        "bytes": 458,
+        "sha256": "03af307122a0eb633616150b981344f4c30913cb380570510ae22d7995ca1e33",
+        "counts": {
+          "development": 38,
+          "production": 35,
+          "required_empty": 11,
+          "settings_canonical": 28,
+          "ai_parameters": 9,
+          "ai_preparation_fields": 6,
+          "private_drafts": 2,
+          "valid_cli_exit": 0,
+          "unfilled_cli_exit": 1
+        }
+      },
+      "normalized-url-regression": {
+        "command": [
+          "deploy/scripts/test-deploy-production.sh"
+        ],
+        "exit_code": 0,
+        "duration_seconds": 17.074,
+        "bytes": 1025,
+        "sha256": "8027016c3601ee16d27ade97fcfd0920418a840eb011fcf8afbcfdccdef19cdb",
+        "counts": {
+          "input_positive": 2,
+          "input_negative": 37,
+          "engine_positive": 7,
+          "engine_negative": 3,
+          "networks": 3,
+          "services": 7,
+          "delivery_paths": 3,
+          "local_operations": 8,
+          "remaining_containers": 0,
+          "remaining_networks": 0
+        }
+      },
+      "staging-regression": {
+        "command": [
+          "deploy/scripts/test-deploy-staging.sh"
+        ],
+        "exit_code": 0,
+        "duration_seconds": 1.038,
+        "bytes": 152,
+        "sha256": "fd574621f03c8142222f748dfdb6f828574f70f8b1956da2a2726498e3cf9c51"
+      },
+      "compose-config": {
+        "command": [
+          "docker",
+          "compose",
+          "--env-file",
+          ".env.production.example",
+          "-f",
+          "deploy/compose.prod.yaml",
+          "config",
+          "--quiet"
+        ],
+        "exit_code": 0,
+        "duration_seconds": 0.035,
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "normalized-url-lint": {
+        "command": [
+          "uv",
+          "run",
+          "--offline",
+          "--no-sync",
+          "--project",
+          "backend",
+          "ruff",
+          "check",
+          "deploy/scripts/check-production-inputs.py"
+        ],
+        "exit_code": 0,
+        "duration_seconds": 0.017,
+        "bytes": 19,
+        "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+      },
+      "normalized-url-shell-syntax": {
+        "command": [
+          "sh",
+          "-n",
+          "deploy/scripts/test-deploy-production.sh"
+        ],
+        "exit_code": 0,
+        "duration_seconds": 0.004,
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "normalized-url-diff": {
+        "command": [
+          "git",
+          "diff",
+          "--check"
+        ],
+        "exit_code": 0,
+        "duration_seconds": 0.008,
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "normalized-url-secret-scan": {
+        "command": [
+          "python3",
+          "/Users/sc/.codex/audits/i04-2a-20260928/secret-scan.py"
+        ],
+        "exit_code": 0,
+        "duration_seconds": 0.502,
+        "bytes": 47,
+        "sha256": "0355f7fe91605581f08ffe2776ecbf26ef316e1084ffae60b7834444d41ad668",
+        "counts": {
+          "files": 2456,
+          "high_signal_findings": 0
+        }
+      }
+    },
+    "critical_review": "NO BLOCKER",
+    "controlled_docker_resources": "ZERO_OWNED_CONTAINERS_AND_NETWORKS",
+    "review_1": {
+      "verdict": "BLOCKER",
+      "code": "DOTENV_INTERPOLATION_DB_IDENTITY",
+      "path": "/Users/sc/.codex/audits/production-configuration-templates-20260928/review-1.md",
+      "sha256": "9fcf67d4fcd9d61e70fc6f7cd5df747649aa79cdc1db4c00d0949388aa8e8cfa"
+    },
+    "controlled_resource_counts": {
+      "owned_harness_temp_dirs": 0,
+      "owned_input_check_temp_dirs": 0,
+      "engine_owned_containers": 0,
+      "engine_owned_networks": 0,
+      "note": "Engine counts from final successful harness; it starts no persistent database/Redis services"
+    },
+    "public_candidate_snapshot": "/Users/sc/.codex/audits/production-configuration-templates-20260928/final-input-snapshot.json",
+    "audit_id": "20260928T082239Z-production-configuration-templates-24b63ee8",
+    "review_2": {
+      "verdict": "BLOCKER",
+      "code": "BOOTSTRAP_ENVELOPE_SIZE",
+      "path": "/Users/sc/.codex/audits/production-configuration-templates-20260928/review-2.md",
+      "sha256": "61bf8aef5b30a2fc6222414d3589daef9d921e3ca8a268a209a8a813963102e6"
+    },
+    "final_review": {
+      "verdict": "NO BLOCKER",
+      "agent_type": "critical_reviewer",
+      "runtime_ref": "/root/production_inputs_envelope_review",
+      "attempt": 2,
+      "path": "/Users/sc/.codex/audits/production-configuration-templates-20260928/review-final.md",
+      "sha256": "dd7c031c9d1df401698056544f139719147e72e78bde24835dcb4196b426e734"
+    },
+    "git_delivery": "UNCOMMITTED_LOCAL_CHANGES_NO_PUSH",
+    "task_delivery": "COMPLETE_LOCAL_INPUT_PREPARATION_ONLY"
+  }
+}

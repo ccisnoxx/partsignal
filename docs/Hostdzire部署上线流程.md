@@ -56,7 +56,9 @@ Production 镜像交付模式由 `PARTSIGNAL_IMAGE_DELIVERY_MODE` 显式控制�
 
 ## 4. Production 配置
 
-`/root/partsignal/shared/.env.production` 只能在 Hostdzire 受控创建或更新，权限必须为 `0600`。至少满足 `APP_ENV=production`、安全 Cookie、`CONTENT_GENERATOR=openai-compatible`、`AI_ALLOW_LOCAL_HTTP=false`、`OBJECT_STORAGE_BACKEND=aliyun_oss`，并使用独立 session/encryption/database/account secrets 和完整低权限 OSS 配置。
+完整模板、本地只读检查命令与准备流程见[开发与 Production 配置准备](./production-configuration.md)。开发复制 `.env.example → .env`；生产独立复制 `.env.production.example → .env.production`，不把开发文件转换为生产文件。AI 首次初始化所需的九项非 secret 参数与凭据交接确认集中在 `deploy/production-ai.example.json`；它是操作输入清单，不是应用自动读取的配置接口。所有已知缺项应在 release freeze 和维护前确认，不能等到 clean-init 中途才索取。runtime 必须为无插值、无控制字符的 literal 配置；暂存安装前再次核验 Compose 实际消费的数据库身份，不能把 `config --quiet` 当作该校验。
+
+本地准备文件可以通过独立受控配置交付安装到 `/root/partsignal/shared/.env.production`；最终文件只能在 Hostdzire 受控创建或更新，权限必须为 `0600`。后续 release 复用它，只有配置变化时才更新，`deploy.sh` 不自动上传或覆盖 env。已有文件更新必须保留现有 secret/数据库身份，并经过精确备份、受控暂存校验、旧 checksum 核验与原子安装；当前 Hostdzire 已有完整文件，不得用新空模板覆盖。至少满足 `APP_ENV=production`、安全 Cookie、`CONTENT_GENERATOR=openai-compatible`、`AI_ALLOW_LOCAL_HTTP=false`、`OBJECT_STORAGE_BACKEND=aliyun_oss`，并使用独立 session/encryption/database/account secrets 和完整低权限 OSS 配置。
 
 只允许通过 `python -m app.cli preflight-production-config` 输出固定枚举与 `*_configured` 状态；不得输出 URL、bucket、AccessKey 或 secret 值。结构预检不能替代真实 AI/OSS 的权限、连通性、超时、CORS、上传/HEAD/读取验证。
 

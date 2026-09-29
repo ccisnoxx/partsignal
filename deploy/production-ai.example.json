@@ -1,0 +1,17 @@
+{
+  "channel_name": "PartSignal Production",
+  "channel_description": "Production 内容草稿生成",
+  "protocol_type": "openai-compatible-chat-completions",
+  "provider_brand": "",
+  "base_url": "",
+  "timeout_seconds": 60,
+  "model_display_name": "",
+  "model_id": "",
+  "request_parameters": {},
+  "chat_completions_compatibility_confirmed": false,
+  "custom_headers_required": false,
+  "credential_ready": false,
+  "credential_json_bytes_upper_bound": 0,
+  "credential_owner": "",
+  "credential_owner_tty_handoff_confirmed": false
+}

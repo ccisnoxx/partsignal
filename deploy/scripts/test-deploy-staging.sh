@@ -13,6 +13,75 @@ trap cleanup 0 INT TERM
 
 node "$root/deploy/scripts/check-nginx-security.mjs"
 
+uv run --offline --no-sync --project "$root/backend" python - "$root" "$test_dir" <<'PY'
+import base64
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+import sys
+from urllib.parse import urlsplit
+
+root, owner = map(Path, sys.argv[1:])
+script = root / "deploy/scripts/prepare-preview-env.py"
+origin = "https://preview.example"
+target = owner / "preview.env"
+
+def invoke(output, *extra, expected=0):
+    result = subprocess.run([sys.executable, str(script), "--origin", origin,
+                             "--output", str(output), *extra], capture_output=True, text=True)
+    assert result.returncode == expected and not result.stderr
+    document = json.loads(result.stdout)
+    assert document["status"] == ("CREATED" if expected == 0 else "FAILED")
+    return result.stdout
+
+output = invoke(target)
+assert target.stat().st_mode & 0o777 == 0o600
+values = dict(line.split("=", 1) for line in target.read_text().splitlines()
+              if line and not line.startswith("#"))
+assert len(values) == 38 and values["APP_ENV"] == "staging"
+assert values["CONTENT_GENERATOR"] == "deterministic"
+assert values["SESSION_COOKIE_SECURE"] == "true" and values["AI_ALLOW_LOCAL_HTTP"] == "false"
+assert values["CORS_ALLOWED_ORIGINS"] == origin
+assert values["OBJECT_STORAGE_PUBLIC_ENDPOINT"] == origin + "/object-storage"
+assert urlsplit(values["DATABASE_URL"]).password == values["POSTGRES_PASSWORD"]
+secret_keys = ["POSTGRES_PASSWORD", "SESSION_SECRET", "UPLOAD_SIGNING_SECRET",
+               "PARTSIGNAL_SEED_ADMIN_PASSWORD", "PARTSIGNAL_SEED_ENGINEER_PASSWORD",
+               "AI_CREDENTIAL_ENCRYPTION_KEY"]
+assert len({values[key] for key in secret_keys}) == 6
+assert len(base64.b64decode(values["AI_CREDENTIAL_ENCRYPTION_KEY"], validate=True)) == 32
+assert all(values[key] not in output for key in secret_keys)
+previous = hashlib.sha256(target.read_bytes()).digest()
+invoke(target, expected=2)
+assert hashlib.sha256(target.read_bytes()).digest() == previous
+link = owner / "preview-link.env"
+link.symlink_to(target)
+invoke(link, expected=2)
+assert hashlib.sha256(target.read_bytes()).digest() == previous
+for index, invalid in enumerate(["http://preview.example", origin + "/path", origin + "?secret=value"]):
+    destination = owner / f"invalid-{index}.env"
+    invoke(destination, "--origin", invalid, expected=2)
+    assert not destination.exists()
+invoke(owner / "missing-parent" / "preview.env", expected=2)
+real_ai = owner / "real-ai.env"
+invoke(real_ai, "--generator", "openai-compatible")
+assert "CONTENT_GENERATOR=openai-compatible\n" in real_ai.read_text()
+assert not list(owner.glob(".partsignal-preview-*"))
+print("Preview env preparation: 2 positive / 6 negative; automatic secrets, no overwrite/output, staging boundary passed")
+source = (root / "deploy/scripts/redeploy-staging-fast.sh").read_text()
+start = source.index("bad_entries=$(" )
+fragment = source[start:source.index('\n)', start)]
+program = fragment.split("awk '\n", 1)[1].rsplit("'", 1)[0]
+public = [".env.example", ".env.production.example", ".env.staging.example"]
+private = [".env", ".env.production", ".env.staging", ".env.ai.json",
+           ".env.production.ai.json", ".env.unknown.example"]
+for entry in public + private:
+    result = subprocess.run(["awk", program], input=entry + "\n", capture_output=True, text=True)
+    assert result.returncode == 0 and not result.stderr
+    assert bool(result.stdout.strip()) is (entry in private)
+print("Staging archive env allowlist: 3 public templates allowed / 6 private-or-unknown entries rejected")
+PY
+
 test "$(grep -c '^[[:space:]]*keepalive_timeout 30s;$' "$root/deploy/nginx/partsignal.conf.template")" -eq 1
 test "$(grep -c '^[[:space:]]*keepalive_timeout 30s;$' "$root/deploy/nginx/partsignal.staging.conf.template")" -eq 1
 grep -Fqx "    command: [uvicorn, 'app.main:app', --host, 0.0.0.0, --port, '8000', --timeout-keep-alive, '35', --workers, '2']" \

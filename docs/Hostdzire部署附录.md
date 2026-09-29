@@ -6,7 +6,7 @@
 
 只使用本机 OpenSSH alias：`ssh hostdzire '<已批准的精确命令>'` 与 `scp <source> hostdzire:<approved-target>`。`hostdzire` 是应用主机唯一写入目标；`dmit` 仅在公网入口异常时只读诊断。主机密钥冲突必须停止，不能自动接受新 key 或执行 `ssh-keygen -R`。
 
-禁止读取或输出私钥。Production env、数据库密码、会话密钥、账号密码、OSS/AI 凭据不得进入仓库、发布包、manifest、普通日志、对话或临时文件。
+禁止读取或输出私钥。Production env、数据库密码、会话密钥、账号密码、OSS/AI 凭据不得进入仓库、发布包、manifest、普通日志、对话或无受控权限的临时文件。完整 runtime env 仅可存放于明确批准、权限受限的配置文件和原子安装暂存；AI API Key 仍禁止写入任何文件，遵守第 6 节 true-TTY 合同。
 
 ## 2. Candidate manifest
 
@@ -37,6 +37,8 @@ python3 deploy/scripts/create-release-manifest.py \
 镜像交付模式由 `PARTSIGNAL_IMAGE_DELIVERY_MODE` 控制，未设置时为 `registry`；registry 模式保留 pull 后校验。Hostdzire 从本地构建候选时必须显式使用 `local`，此模式跳过 pull、要求候选 image 已存在，并在任何 `docker compose run`/`up` 前校验 manifest image ID 与 RepoDigest，相关命令均固定 `--pull never`。空值或未知模式、以及 V1 镜像仓库都会 fail closed。
 
 ## 3. Production env 预检
+
+开发/生产完整模板、AI 初始化输入清单、本地准备与持久配置交付见[配置准备说明](./production-configuration.md)。输入就绪检查在 release freeze 前完成；本节检查使用随后冻结的新候选。现有 `deploy.sh` 不负责上传 env，普通发布复用固定文件。
 
 共享文件固定为 `/root/partsignal/shared/.env.production`，权限 `0600`。转换前只输出键名或状态，不能输出值：
 

@@ -1,0 +1,42 @@
+{
+  "id": "development-preview-first-deploy",
+  "name": "development-preview-first-deploy",
+  "title": "Hostdzire 开发预览首次重新部署",
+  "description": "从已清理的离线Hostdzire首次部署新的开发预览，保留旧冻结证据；按用户选择处理真实外部服务。",
+  "status": "in_progress",
+  "dev_type": "infra",
+  "scope": "first development preview deployment after approved cleanup",
+  "package": null,
+  "priority": "P1",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-09-29",
+  "completedAt": null,
+  "branch": "main",
+  "base_branch": "main",
+  "worktree_path": "/Users/sc/PycharmProjects/partsignal",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "09-21-frontend-redevelopment-delivery",
+  "relatedFiles": [
+    ".env.staging.example",
+    "deploy/scripts/prepare-preview-env.py",
+    "deploy/compose.staging.yaml",
+    "deploy/scripts/deploy-staging.sh",
+    "deploy/scripts/redeploy-staging-fast.sh",
+    "deploy/nginx/partsignal.staging.conf.template",
+    "docs/development-preview.md"
+  ],
+  "notes": "",
+  "meta": {
+    "deployment_type": "DEVELOPMENT_PREVIEW_FIRST_DEPLOY",
+    "target": "hostdzire",
+    "status": "PREFLIGHT_INPUT_MAPPING_PENDING",
+    "baseline_commit": "975ea0f05a2a4bd7a3c62e7de41902c6408d043f",
+    "prior_cleanup_task": "09-28-development-preview-environment-cleanup",
+    "old_frozen_release": "mvp-20260928-023635-649641cec3bd",
+    "production_cutover": "NOT_AUTHORIZED"
+  }
+}

@@ -1,0 +1,2 @@
+{"file":".trellis/spec/backend/ai-configuration-guidelines.md","reason":"独立复核真实 Provider 与生成作业不变量"}
+{"file":".trellis/spec/infra/domain-security-operations.md","reason":"独立复核 Hostdzire 公网、容器和网络边界"}

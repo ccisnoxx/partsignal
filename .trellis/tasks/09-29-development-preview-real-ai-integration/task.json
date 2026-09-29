@@ -1,0 +1,32 @@
+{
+  "id": "development-preview-real-ai-integration",
+  "name": "development-preview-real-ai-integration",
+  "title": "Hostdzire 开发预览真实 AI 接入与端到端生成验证",
+  "description": "仅配置 Hostdzire 开发预览真实 AI 并验证一次可追溯生成；写入前因 CONTENT_GENERATOR 运行门禁缺失而暂停。",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-09-29",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "PREWRITE_BLOCKER: CONTENT_GENERATOR 不控制 Worker 真实供应商调用；禁止在本任务内修改产品代码，首次远端/数据库写入未执行。恢复点见 implement.md。",
+  "meta": {
+    "outcome": "PREWRITE_BLOCKED_PRODUCT_CODE_DEFECT",
+    "review_audit_id": "20260929T180831Z-development-preview-real-ai-integration-c2dc96c0",
+    "remote_writes": false,
+    "database_writes": false,
+    "task_provider_calls": 0
+  }
+}

@@ -3,7 +3,7 @@
   "name": "development-preview-first-deploy",
   "title": "Hostdzire 开发预览首次重新部署",
   "description": "从已清理的离线Hostdzire首次部署新的开发预览，保留旧冻结证据；按用户选择处理真实外部服务。",
-  "status": "in_progress",
+  "status": "completed",
   "dev_type": "infra",
   "scope": "first development preview deployment after approved cleanup",
   "package": null,
@@ -11,11 +11,11 @@
   "creator": "777",
   "assignee": "777",
   "createdAt": "2026-09-29",
-  "completedAt": null,
+  "completedAt": "2026-09-29",
   "branch": "main",
   "base_branch": "main",
   "worktree_path": "/Users/sc/PycharmProjects/partsignal",
-  "commit": null,
+  "commit": "4e85aaf9f8c4f96dc121658f08ca49aa74810409",
   "pr_url": null,
   "subtasks": [],
   "children": [],
@@ -29,14 +29,22 @@
     "deploy/nginx/partsignal.staging.conf.template",
     "docs/development-preview.md"
   ],
-  "notes": "",
+  "notes": "Hostdzire 开发预览已上线并通过公网、容器、网络、旧冻结证据验证；正式 Production cutover 未执行。",
   "meta": {
     "deployment_type": "DEVELOPMENT_PREVIEW_FIRST_DEPLOY",
     "target": "hostdzire",
-    "status": "PREFLIGHT_INPUT_MAPPING_PENDING",
+    "status": "PREVIEW_DEPLOYED_VERIFIED",
     "baseline_commit": "975ea0f05a2a4bd7a3c62e7de41902c6408d043f",
     "prior_cleanup_task": "09-28-development-preview-environment-cleanup",
     "old_frozen_release": "mvp-20260928-023635-649641cec3bd",
-    "production_cutover": "NOT_AUTHORIZED"
+    "production_cutover": "NOT_AUTHORIZED",
+    "release_source_commit": "4e85aaf9f8c4f96dc121658f08ca49aa74810409",
+    "release_id": "preview-20260929-082104-4e85aaf9",
+    "release_archive_sha256": "766f65d2d9bb42aa244722e6315ac561545fe87bef97ac3df5800093b11ed6c4",
+    "repository_gate": "make verify PASSED",
+    "independent_review": "NO BLOCKER",
+    "public_url": "https://geo.962850.xyz/",
+    "runtime_adapters": "deterministic AI and development fake-oss",
+    "audit_id": "20260929T082204Z-development-preview-first-deploy-2ff4b279"
   }
 }

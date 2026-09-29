@@ -1,4 +1,13 @@
-# I04 发布准备与 Hostdzire clean-init 部署
+# I04 发布准备与实际部署
+
+> 2026-09-29 当前授权目标：Hostdzire 开发预览。`docs/frontend-v2/11-frontend-redevelopment-task-list.md` 规定 I04“按届时目标环境重新定义候选、备份/回退、部署 smoke 与观察”。下方原 Production clean-init Goal、Requirements、Stop conditions 和 Acceptance Criteria 保留为历史路线，不是本轮完成标准；I04-2 已按 `SUPERSEDED_BY_AUTHORIZED_DEVELOPMENT_PREVIEW_TARGET` 终止，实际验收见 I04-3。
+
+## 当前目标与验收
+
+- 已部署 release `preview-20260929-082104-4e85aaf9`，运行源码 `4e85aaf9f8c4f96dc121658f08ca49aa74810409`；首次部署证据见 `09-29-development-preview-first-deploy`。
+- I04-3 证明 `4e85aaf9..66976eb0` 没有运行、依赖、构建或部署输入变化，复用完整 `make verify` 与最终独立 `NO BLOCKER` 复核。
+- Hostdzire 只读复查 current、容器、网络、公网、六项安全头、Nginx、历史冻结证据及其他容器身份；仅在全部一致后完成 I04。
+- 预览运行确定性 AI 和开发 fake-oss。真实 AI、真实 Aliyun OSS 和正式 Production cutover 未接入、未验证；Production External Services Gate 等全部为 `NOT_RUN`。
 
 ## Goal
 

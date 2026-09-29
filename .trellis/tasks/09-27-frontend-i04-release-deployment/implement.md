@@ -1,5 +1,7 @@
 # I04 执行与证据记录
 
+> 当前 I04 实际目标已按 `docs/frontend-v2/11-frontend-redevelopment-task-list.md` 改为 Hostdzire 开发预览。下列原 Production planned phases 和历史 Gate 均保留为历史路线证据；实际完成依据见文末 I04-3 收口，不得把 `PRODUCTION_INITIALIZED` 或真实 External Services Gate 视为已达到。
+
 ## Phase 0 — 当前恢复点
 
 - 候选工作树：`codex/frontend-redevelopment-candidate@a4c15a535f21621188a61f076cf7856c14509d42`，tree `9738ba36cb0f4fbe1f4352cfb89e043df7fa580c`，创建 I04 前 clean。
@@ -146,3 +148,13 @@ I03 `make verify` 复用仍成立：`387b802d` 到 `f91b98b5` 的产品代码、
 child `09-28-frontend-i04-2a-compose-network-identity-remediation` completed，network identity 已修复。新完整 Repository Gate source `6c88563cce6edbce4b18fb010a840329600e69ee`，一次 make verify exit=0，253005 bytes，SHA-256=`1ba1e84ab20a5fd972c5b546f6a454fefa58bfc40ded2fce391433ac0416dc86`；两次 fresh critical review NO BLOCKER，audit=`20260928T035743Z-i04-2a-compose-network-identity-cec3f231`；受控资源归零/secret scan clean。旧 network blocker 是历史失败原因；本任务继续 in_progress，I04-2 stage=network_identity_remediated。旧冻结 release/archive/images/manifest 不变且不可复用，未生成新 release、进入维护或执行任何 cutover；本轮无远端写入。详细计数、日志、警告和 source continuity 合同见 child implement.md。
 
 下一会话先解决真实 AI provider 非 secret metadata 和 credential owner true-TTY handoff；随后使用全新 commit/release ID/run ID/archive/image tags/manifest 冻结 release，并重新执行 pre-cutover review/cutover。
+
+## 2026-09-29 I04-3 开发预览实际收口
+
+- 目标环境来自 `11` 的“按届时目标环境重新定义候选”合同。用户当前授权开发预览，首次部署 child `09-29-development-preview-first-deploy` 为 `completed`；运行 source commit `4e85aaf9f8c4f96dc121658f08ca49aa74810409`，release `preview-20260929-082104-4e85aaf9`。
+- 完整 `make verify` exit `0`，233,517 bytes，SHA-256 `d9566bb2d4fcc2a3a989c8f2c11cdddc23f174ba04e66e4aed2cd3d8ec74f24d`；最终独立只读复核 `NO BLOCKER`，audit `20260929T082204Z-development-preview-first-deploy-2ff4b279`。其后至 `66976eb0` 仅修改四个 Trellis 首次部署记录文件与 `docs/development-preview.md`，没有运行、依赖、构建、Compose 或部署输入变化，因此复用门禁，不重跑 `make verify`。
+- I04-3 于 `2026-09-29T16:46:03Z` 经 alias `hostdzire` 只读复查 exit `0`：current/release/archive、七容器、三网络、公网四路径精确 200/六项安全头、pending/Nginx、其他九容器和历史失败冻结证据一致。脱敏详细结果 6,898 bytes，SHA-256 `d00dd33aa87ea0f93c6af58458a34628222609c12d02813f2c8601395055d668`，路径 `/Users/sc/.codex/audits/i04-3-development-preview-closeout-20260929/remote-readonly.json`；检查 receipt 546 bytes，SHA-256 `18b978d669f3d4a85314d41a5cd149ec2d135fa37456f30c89976cd071a41bbb`。
+- I04-2 以 `outcome=SUPERSEDED_BY_AUTHORIZED_DEVELOPMENT_PREVIEW_TARGET` 终止；失败冻结 release `mvp-20260928-023635-649641cec3bd` 仅历史证据，未复用、覆盖或 retag。Production maintenance/quarantine/clean-init/AI bootstrap/External Services Gate/activation/observation 都是 `NOT_RUN`。
+- 当前运行时使用确定性 AI 与开发 fake-oss；真实 AI 和真实 Aliyun OSS 未接入、未验证，Production cutover 未执行。这些是后续另行授权的覆盖缺口，不是开发预览完成的阻断项。
+
+I04-3 的完整输入、状态和收尾验证见其 `implement.md` 与 `task.json`。原 Production 路线的历史“下一步”由本次授权目标取代，不应继续执行。

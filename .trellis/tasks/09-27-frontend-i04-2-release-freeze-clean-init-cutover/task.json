@@ -3,7 +3,7 @@
   "name": "frontend-i04-2-release-freeze-clean-init-cutover",
   "title": "I04-2 release freeze 与 clean-init cutover",
   "description": "在最终 clean main 和已通过 Repository Release Gate 上冻结 release/archive/images/manifest，经 pre-cutover high-risk review 后在 Hostdzire 执行 maintenance、clean-init、真实 AI/OSS Gate、activation、生产验收与观察。",
-  "status": "in_progress",
+  "status": "completed",
   "dev_type": "release",
   "scope": "final local closure, Hostdzire release freeze, pre-cutover review, maintenance, clean-init, real external-service gates, activation, acceptance and observation",
   "package": null,
@@ -11,7 +11,7 @@
   "creator": "777",
   "assignee": "777",
   "createdAt": "2026-09-27",
-  "completedAt": null,
+  "completedAt": "2026-09-29",
   "branch": "main",
   "base_branch": "main",
   "worktree_path": "/Users/sc/PycharmProjects/partsignal",
@@ -34,9 +34,9 @@
     "deploy/nginx/partsignal-maintenance.conf.template",
     "deploy/nginx/partsignal.conf.template"
   ],
-  "notes": "I04-2A completed：Production logical/name/Compose label 已统一，真实 Engine 回归与新 Repository Gate 通过，两次 fresh critical review 均 NO BLOCKER。旧冻结 release/archive/images/manifest 仅保留为历史失败证据，不复用或覆盖；尚未进入维护窗口/cutover。真实 AI metadata 与 owner true-TTY handoff 仍待下一会话。",
+  "notes": "旧 Production I04-2 路线因当前授权目标改为 Hostdzire 开发预览而终止；completed 仅是 Trellis 终止状态，不表示 Production cutover 成功。失败冻结证据保留。",
   "meta": {
-    "parent_stage": "i04_2_release_freeze",
+    "parent_stage": "superseded_by_authorized_development_preview_target",
     "product_candidate_commit": "e53b655b75b6d3418a96307d28f305c6bdb8245a",
     "product_candidate_tree": "363c1e49f70c3595f44e5fe8568147ee09620200",
     "repository_release_gate": "MET",
@@ -69,7 +69,7 @@
     "external_services_gate": "NOT_RUN",
     "activation_gate": "NOT_RUN",
     "observation_gate": "NOT_RUN",
-    "next_action": "下一会话先解决真实 AI provider 非 secret metadata 和 credential owner true-TTY handoff；随后使用全新 commit/release ID/run ID/archive/image tags/manifest 冻结 release，并重新执行 pre-cutover review/cutover。",
+    "next_action": "NONE_IN_THIS_CLOSED_ROUTE; future Production requires separate authorization",
     "historical_repository_release_gate": "MET",
     "i04_2a_child": "09-28-frontend-i04-2a-compose-network-identity-remediation",
     "i04_2a_status": "completed",
@@ -165,7 +165,7 @@
       "scope": "frozen source after new full Gate; fresh independent read-only review"
     },
     "i04_2a_remote_writes": "none",
-    "stage": "network_identity_remediated",
+    "stage": "superseded_by_authorized_development_preview_target",
     "historical_network_identity_blocker": {
       "code": "COMPOSE_NETWORK_LABEL_IDENTITY_MISMATCH",
       "detail": "Production logical network keys partsignal-internal/egress/edge do not match existing Docker Compose network labels partsignal-staging-internal/egress/edge; clean-init, activation and frontend rollback cannot safely run.",
@@ -191,6 +191,14 @@
       },
       "audit_bundle_status": "closed_verified_no_anomaly"
     },
-    "final_local_identity_context": "historical failed frozen release source only; current Gate source is repository_release_gate_source_commit"
+    "final_local_identity_context": "historical failed frozen release source only; current Gate source is repository_release_gate_source_commit",
+    "outcome": "SUPERSEDED_BY_AUTHORIZED_DEVELOPMENT_PREVIEW_TARGET",
+    "production_cutover": "NOT_RUN",
+    "quarantine": "NOT_RUN",
+    "clean_init": "NOT_RUN",
+    "ai_bootstrap": "NOT_RUN",
+    "historical_release_role": "FAILED_FREEZE_EVIDENCE_ONLY_DO_NOT_REUSE",
+    "historical_frozen_backend_frontend_images": "PRESENT_UNCHANGED_AT_I04_3_READONLY_CHECK",
+    "prior_rollback_frontend_image": "REMOVED_IN_AUTHORIZED_09_28_PREVIEW_CLEANUP"
   }
 }

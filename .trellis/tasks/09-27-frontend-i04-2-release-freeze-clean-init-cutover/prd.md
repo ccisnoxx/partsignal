@@ -1,5 +1,7 @@
 # I04-2 release freeze 与 clean-init cutover
 
+> 2026-09-29 终止状态：`outcome=SUPERSEDED_BY_AUTHORIZED_DEVELOPMENT_PREVIEW_TARGET`。以下 Production 目标、要求和未勾选验收是历史方案，不表示已执行或已通过。当前授权目标由 I04-3 收口为 Hostdzire 开发预览；本任务不再继续 cutover。
+
 ## Goal
 
 在最终 clean main 和已通过 Repository Release Gate 上冻结 release/archive/images/manifest，经 pre-cutover high-risk review 后在 Hostdzire 执行 maintenance、clean-init、真实 AI/OSS Gate、activation、生产验收与观察。

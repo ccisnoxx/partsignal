@@ -1,5 +1,7 @@
 # I04-2 设计
 
+> 本设计是已终止的 Production 路线记录。2026-09-29 按当前授权开发预览目标停止；下面状态机步骤未因任务终止而变成已执行。
+
 ## 边界与状态归属
 
 - Git/main 是 release source identity 的唯一来源；source archive 必须从 clean、已推送的最终 main 生成。

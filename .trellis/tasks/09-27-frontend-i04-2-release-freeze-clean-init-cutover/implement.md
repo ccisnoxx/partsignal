@@ -70,3 +70,9 @@
 child `09-28-frontend-i04-2a-compose-network-identity-remediation` completed，network identity 已修复。新完整 Repository Gate source `6c88563cce6edbce4b18fb010a840329600e69ee`，一次 make verify exit=0，253005 bytes，SHA-256=`1ba1e84ab20a5fd972c5b546f6a454fefa58bfc40ded2fce391433ac0416dc86`；两次 fresh critical review NO BLOCKER，audit=`20260928T035743Z-i04-2a-compose-network-identity-cec3f231`；受控资源归零/secret scan clean。旧 network blocker 是历史失败原因；本任务继续 in_progress，I04-2 stage=network_identity_remediated。旧冻结 release/archive/images/manifest 不变且不可复用，未生成新 release、进入维护或执行任何 cutover；本轮无远端写入。详细计数、日志、警告和 source continuity 合同见 child implement.md。
 
 下一会话先解决真实 AI provider 非 secret metadata 和 credential owner true-TTY handoff；随后使用全新 commit/release ID/run ID/archive/image tags/manifest 冻结 release，并重新执行 pre-cutover review/cutover。
+
+## 2026-09-29 旧路线终止
+
+当前用户明确把本轮 I04 实际目标确定为 Hostdzire 开发预览，并禁止本会话 Production cutover。根据 `docs/frontend-v2/11-frontend-redevelopment-task-list.md` 的 I04“按届时目标环境重新定义候选”合同，本 Production 路线以 `outcome=SUPERSEDED_BY_AUTHORIZED_DEVELOPMENT_PREVIEW_TARGET` 终止。Trellis 仅支持 `completed` 终止状态；该字段表示历史路线已关闭，**不是 Production 部署成功**。上文“下一会话”是当时恢复计划，现已失效。
+
+`production_cutover=NOT_RUN`、`external_services_gate=NOT_RUN`、maintenance/quarantine/clean-init/AI bootstrap/activation/observation 均未执行。失败冻结 release `mvp-20260928-023635-649641cec3bd`、archive、manifest 与该 release 的 backend/frontend 镜像保留为历史失败证据，未复用、覆盖或 retag。更早的 rollback frontend 镜像已在 `09-28-development-preview-environment-cleanup` 的用户授权清理中移除；历史 manifest 因而不构成可执行的当前 rollback package。本轮线上只读检查和输入连续性见 I04-3 `implement.md`。

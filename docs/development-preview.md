@@ -28,7 +28,7 @@ uv run --project backend python deploy/scripts/prepare-preview-env.py \
 
 默认 `APP_ENV=staging`、安全 HTTPS Cookie、`AI_ALLOW_LOCAL_HTTP=false`。默认 `CONTENT_GENERATOR=deterministic` 与开发对象存储 `fake-oss`，可验证页面、工作流和上传功能，无需真实 AI/OSS 账号；它们是明确的开发适配器，不能当成真实供应商验收。真实 AI 可在首次准备时添加 `--generator openai-compatible`；既有环境需要受控更新并使容器加载，不会因填写 JSON 自动切换模式。
 
-准备文件在后续获准部署时单独交付到共享路径，各 release 引用同一份配置。当前生成器不上传，部署脚本不自动生成 env；普通发布复用配置与数据库 AI 设置。本次清理保留旧配置，新首次预览部署须明确选择复用配置或新独立环境，不会悄悄覆盖已有值。正式生产另有专用模板/runbook，预览生成器不会生成 Production env。
+准备文件经授权部署时单独交付到服务器共享路径，各 release 引用同一份配置。生成器本身不上传，部署脚本不自动生成 env；后续发布复用配置与数据库 AI 设置。本次首次预览已先备份旧配置，再安装新的完整 staging 配置。正式生产另有专用模板/runbook，预览生成器不会生成 Production env。
 
 ## 3. 开发阶段如何配置真实 AI
 
@@ -65,6 +65,8 @@ API Key 只在受控管理员表单输入并加密入库，不进入聊天、env
 
 这些字段不改变程序加载方式，也不应成为查看开发界面的前置条件。
 
-## 5. 本次清理与后续部署
+## 5. 当前开发预览
 
-用户已授权永久删除旧测试数据，保留配置和历史冻结证据。清理关闭现有预览，不创建新release、不重新部署。后续以用户通知为准，先检查新的预览输入、源码与部署入口，再执行独立的开发预览部署；Production切换暂不推进。
+用户授权清理旧测试数据后，已单独授权首次重新部署。开发预览现在可访问 `https://geo.962850.xyz/`；本次 release 为 `preview-20260929-082104-4e85aaf9`。首次部署走 staging `full` 路径，已完成数据库迁移和 `admin`、`content_editor` 初始化。登录密码由准备工具生成，保存在本机 Git 忽略且权限为 `0600` 的 `.env.staging` 中，分别对应 `PARTSIGNAL_SEED_ADMIN_PASSWORD` 和 `PARTSIGNAL_SEED_ENGINEER_PASSWORD`；请在本机查看，不要将其粘贴到聊天或提交到 Git。修改 env 中的初始密码不会自动修改已经创建的账号密码，后续改密应通过应用流程。
+
+当前预览使用确定性 AI 和开发对象存储，适合检查界面与开发工作流。真实 AI/OSS 须按上文单独配置并验证；`.env.production.ai.json` 不会自动启用预览 AI。旧冻结证据仍保留，正式 Production 切换暂不推进。

@@ -1,0 +1,17 @@
+{
+  "stage": "current",
+  "started_utc": "2026-09-30T13:04:06.334563+00:00",
+  "finished_utc": "2026-09-30T13:04:06.916602+00:00",
+  "exit_code": 0,
+  "records": [
+    {
+      "exit_code": 0,
+      "operation": "docker exec"
+    },
+    {
+      "status": "CURRENT_SWITCHED",
+      "target": "releases/preview-20260930-111500-2f171300"
+    }
+  ],
+  "stderr_bytes": 0
+}

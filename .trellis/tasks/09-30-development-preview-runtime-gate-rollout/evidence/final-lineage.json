@@ -1,0 +1,189 @@
+{
+  "channels": [
+    {
+      "id": "d6e8f8b9-a5b2-4b35-b175-ac20598526af",
+      "is_enabled": true,
+      "protocol_type": "openai-compatible-chat-completions",
+      "provider_brand": "OPENAI",
+      "revision": 1,
+      "https": true
+    }
+  ],
+  "models": [
+    {
+      "id": "ac74a39e-5d40-4171-b22c-34f9e57c2d75",
+      "channel_id": "d6e8f8b9-a5b2-4b35-b175-ac20598526af",
+      "model_id": "deepseek-flash",
+      "is_enabled": true,
+      "test_status": "PASSED",
+      "revision": 4,
+      "last_tested_at": "2026-09-30 04:03:39.197441+00:00"
+    }
+  ],
+  "counts": [
+    {
+      "active_products": 1,
+      "public_approved_facts": 1,
+      "active_platforms_with_prompt": 1,
+      "platform_prompts": 1,
+      "open_empty_content_tasks": 0,
+      "generation_jobs": 2,
+      "active_jobs": 0
+    }
+  ],
+  "lineage": [
+    {
+      "job_id": "abc4e3cd-efc2-40fb-a87d-330a378bfecb",
+      "task_id": "43997411-afe2-4a45-88f5-9d20605015a6",
+      "current_content_version_id": "40445d14-fa04-4bb9-80b0-f9cef49257b0",
+      "product_id": "c44dc902-283e-4e25-b96b-158e0b451a2a",
+      "task_fact_version_id": "965f1c89-5cfb-49a7-9d88-4f49660f15e9",
+      "platform_profile_id": "b1f25fd0-b4b7-4ce7-aa60-313da2242bc6",
+      "task_revision": 1,
+      "task_status": "OPEN",
+      "version_id": "40445d14-fa04-4bb9-80b0-f9cef49257b0",
+      "source_job_id": "abc4e3cd-efc2-40fb-a87d-330a378bfecb",
+      "source_type": "AI",
+      "version_status": "DRAFT",
+      "version": 1,
+      "version_revision": 0,
+      "content_hash": "931c8288ad81517ed2bde67df3fe8a4992428638cab7ecbbb9c05bd2bb128900",
+      "fact_version_id": "965f1c89-5cfb-49a7-9d88-4f49660f15e9",
+      "created_at": "2026-09-30 12:58:34.754592+00:00",
+      "updated_at": "2026-09-30 12:58:34.754592+00:00",
+      "contract_version": "content-markdown-v3",
+      "prompt_id": "3406aad6-60e9-4762-affa-8f16961523fc",
+      "prompt_revision": "0",
+      "snapshot_channel_id": "d6e8f8b9-a5b2-4b35-b175-ac20598526af",
+      "snapshot_model_id": "ac74a39e-5d40-4171-b22c-34f9e57c2d75",
+      "snapshot_model_id_exact": "deepseek-flash",
+      "fact_classification": "PUBLIC",
+      "prompt_body_matches": true,
+      "fact_body_matches": true
+    }
+  ],
+  "audits": [
+    {
+      "id": "e44025f3-73c1-49da-b5e7-9738c785da99",
+      "business_module": "CONFIGURATION",
+      "action": "ai_channel.enabled",
+      "target_type": "AIChannel",
+      "target_id": "d6e8f8b9-a5b2-4b35-b175-ac20598526af",
+      "outcome": "SUCCESS",
+      "created_at": "2026-09-30 04:03:59.530083+00:00",
+      "error_code": null
+    },
+    {
+      "id": "16abe645-2861-4899-9eb1-56d63d79a31f",
+      "business_module": "CONFIGURATION",
+      "action": "ai_model.enabled",
+      "target_type": "AIModel",
+      "target_id": "ac74a39e-5d40-4171-b22c-34f9e57c2d75",
+      "outcome": "SUCCESS",
+      "created_at": "2026-09-30 04:03:41.558720+00:00",
+      "error_code": null
+    },
+    {
+      "id": "f1f7b35f-403a-4c3d-a89a-bfef84814116",
+      "business_module": "CONFIGURATION",
+      "action": "ai_model.enabled",
+      "target_type": "AIModel",
+      "target_id": "ac74a39e-5d40-4171-b22c-34f9e57c2d75",
+      "outcome": "SUCCESS",
+      "created_at": "2026-09-30 04:03:34.443021+00:00",
+      "error_code": null
+    },
+    {
+      "id": "9ba1f85b-529a-4ac0-9a98-36e3e04fd5ce",
+      "business_module": "CONFIGURATION",
+      "action": "ai_model.created",
+      "target_type": "AIModel",
+      "target_id": "ac74a39e-5d40-4171-b22c-34f9e57c2d75",
+      "outcome": "SUCCESS",
+      "created_at": "2026-09-30 04:03:26.912316+00:00",
+      "error_code": null
+    },
+    {
+      "id": "71aa78f5-cfdc-420d-9406-d6c584c42aa2",
+      "business_module": "CONFIGURATION",
+      "action": "ai_channel.created",
+      "target_type": "AIChannel",
+      "target_id": "d6e8f8b9-a5b2-4b35-b175-ac20598526af",
+      "outcome": "SUCCESS",
+      "created_at": "2026-09-30 04:03:08.216341+00:00",
+      "error_code": null
+    }
+  ],
+  "history_counts": [
+    {
+      "content_reviews": 0,
+      "publication_works": 0,
+      "content_versions": 2
+    }
+  ],
+  "jobs": [
+    {
+      "id": "abc4e3cd-efc2-40fb-a87d-330a378bfecb",
+      "status": "SUCCEEDED",
+      "job_type": "GENERATE",
+      "adapter_name": "openai-compatible-chat-completions",
+      "ai_channel_id": "d6e8f8b9-a5b2-4b35-b175-ac20598526af",
+      "ai_model_id": "ac74a39e-5d40-4171-b22c-34f9e57c2d75",
+      "content_task_id": "43997411-afe2-4a45-88f5-9d20605015a6",
+      "content_version_id": "40445d14-fa04-4bb9-80b0-f9cef49257b0",
+      "attempt_count": 1,
+      "started_at": "2026-09-30 12:58:34.721618+00:00",
+      "finished_at": "2026-09-30 12:58:37.944496+00:00",
+      "response_duration_ms": 3147,
+      "prompt_tokens": 257,
+      "completion_tokens": 676,
+      "total_tokens": 933,
+      "error_code": null
+    },
+    {
+      "id": "01f4506d-9975-4779-9d81-ac5663f79511",
+      "status": "SUCCEEDED",
+      "job_type": "GENERATE",
+      "adapter_name": "openai-compatible-chat-completions",
+      "ai_channel_id": "d6e8f8b9-a5b2-4b35-b175-ac20598526af",
+      "ai_model_id": "ac74a39e-5d40-4171-b22c-34f9e57c2d75",
+      "content_task_id": "1f313697-2062-43ec-9d40-24492bf1f964",
+      "content_version_id": "8494fa1f-ab2c-4bb0-b5a0-f1337ee1d342",
+      "attempt_count": 1,
+      "started_at": "2026-09-30 05:27:17.714461+00:00",
+      "finished_at": "2026-09-30 05:27:19.541817+00:00",
+      "response_duration_ms": 1767,
+      "prompt_tokens": 257,
+      "completion_tokens": 339,
+      "total_tokens": 596,
+      "error_code": null
+    }
+  ],
+  "generator_env_openai_compatible": true,
+  "generation_eager": false,
+  "schema": [
+    {
+      "version_num": "0043_geo_platform_identity"
+    }
+  ],
+  "credential_state": [
+    {
+      "id": "d6e8f8b9-a5b2-4b35-b175-ac20598526af",
+      "configured": true,
+      "api_key_updated_at": "2026-09-30 04:03:08.229121+00:00"
+    }
+  ],
+  "header_state": [],
+  "users": [
+    {
+      "id": "9551af5e-93c1-49dd-9fa6-e78af592a0f3",
+      "username": "admin",
+      "account_type": "ADMIN"
+    },
+    {
+      "id": "b4ed3f2e-ed8c-4402-8edc-941653019237",
+      "username": "content_editor",
+      "account_type": "ENGINEER"
+    }
+  ]
+}

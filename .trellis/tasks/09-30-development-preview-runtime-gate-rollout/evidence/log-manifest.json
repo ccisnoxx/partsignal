@@ -1,0 +1,145 @@
+{
+  "entries": [
+    {
+      "path": "audit-path.json",
+      "bytes": 2884,
+      "sha256": "bc0bee297b59a5991c68a937300b9663fd8a3604179abc2c74ad7ed567478f66"
+    },
+    {
+      "path": "backup-result.json",
+      "bytes": 1042,
+      "sha256": "3bf690b2aeb0a43fb706e5611a4163ee6632ae43697ae7e4893ae381447aa361"
+    },
+    {
+      "path": "browser-generation.json",
+      "bytes": 887,
+      "sha256": "6f04c6dbe42e23ad82e738c3a1cda118f7fe3024d0ee9a2fb5a29beeecb76fbc"
+    },
+    {
+      "path": "candidate-result.json",
+      "bytes": 2564,
+      "sha256": "c102496b63ea68b2d473a621ed3d069ca127ad129c101dd079f823bd1abfef3a"
+    },
+    {
+      "path": "current-result.json",
+      "bytes": 367,
+      "sha256": "bb6dcc7095f83a0ea0c023fdfb7e0da45c61490665e4800c62f7cbb0e2232c89"
+    },
+    {
+      "path": "db-before.json",
+      "bytes": 5264,
+      "sha256": "fba9c46f3a790ff558bf5fe5daf2836cf53616d0e3240084c9ec759cecaeb75a"
+    },
+    {
+      "path": "db-post-deploy.json",
+      "bytes": 5263,
+      "sha256": "fd8fc7d6d82db5624e651f860b8d0edcaf5bfa00026e4d3bb63ff64a2a56c40f"
+    },
+    {
+      "path": "final-lineage.json",
+      "bytes": 6190,
+      "sha256": "45b3c85097d2919cc958b43e186806f21b3c5c3281a942ac84a7f0625d41aec1"
+    },
+    {
+      "path": "final-runtime.json",
+      "bytes": 14095,
+      "sha256": "d870538fbd21e82b72ac9b8eef94e74960472e52874746b072a48e9407cb97f5"
+    },
+    {
+      "path": "frontend-owner.json",
+      "bytes": 615,
+      "sha256": "950c3f85dd50f2c095aec2e240f03f0cbc2f94233794d9e5170e763f570eca76"
+    },
+    {
+      "path": "generation-result.jpg",
+      "bytes": 36832,
+      "sha256": "7f2a2f33adb9e22347b63256a8f1dc034448b360b0893138979a036861d2cdd6"
+    },
+    {
+      "path": "local-input.json",
+      "bytes": 693,
+      "sha256": "dda21308d422b18b22ddaad1049eead5dafb7d607bedcdd2053a8ecb80bb918e"
+    },
+    {
+      "path": "new-generation-lineage.json",
+      "bytes": 6190,
+      "sha256": "45b3c85097d2919cc958b43e186806f21b3c5c3281a942ac84a7f0625d41aec1"
+    },
+    {
+      "path": "old-history-after-generation.json",
+      "bytes": 5991,
+      "sha256": "ad5d36a82aaca2419ff10e42c348911cc6a132108e75b0a9ad5f2bffaece1fd9"
+    },
+    {
+      "path": "original-AGENTS-final.json",
+      "bytes": 213,
+      "sha256": "e95b92fa051a2cd0030d5647f287a7245bbb9b348b6f824a3c8bc2a8b639cfcb"
+    },
+    {
+      "path": "post-deploy.json",
+      "bytes": 14095,
+      "sha256": "82dd97e2529c3a09f1bc90c6771754e4c9c8e1c75bf94473ae5068f08b2b44ec"
+    },
+    {
+      "path": "post-secret-scan.json",
+      "bytes": 454,
+      "sha256": "2e83e4671a886789dcaa10099ec673cfc7a55dc5f5fff9051c1ce49baaf5899f"
+    },
+    {
+      "path": "pre-current.json",
+      "bytes": 14095,
+      "sha256": "34874a80a1b5561a4b2efd16395d036614800347bb8b90637c4b51f397eba163"
+    },
+    {
+      "path": "prepare-result.json",
+      "bytes": 2567,
+      "sha256": "c811aa6ebc5434c7e15950b7bed3f4306e4f5da1c0e7722e679d43fa19856953"
+    },
+    {
+      "path": "prewrite-review.md",
+      "bytes": 1017,
+      "sha256": "1fe77472630cb71d1b53f1a920fc6d25c3e725a01224ef5d6d9f6d4b44f3fbc5"
+    },
+    {
+      "path": "remote-before.json",
+      "bytes": 8461,
+      "sha256": "c445fe14a79b7685d3be85e479db02b705d98170ade07fff984e51655e19e6f0"
+    },
+    {
+      "path": "remote-prewrite-latest.json",
+      "bytes": 8461,
+      "sha256": "1c6f69de329f3b7c6e94f4f91cb31ddd0bd33e7abbbe8187d376bd4866fc0083"
+    },
+    {
+      "path": "switch-result.json",
+      "bytes": 3705,
+      "sha256": "390ac3eb49a4c67293c0e6a29173c0fd8291770368910dd3781ddfad2561bc2d"
+    },
+    {
+      "path": "tracked-secret-scan.json",
+      "bytes": 3654,
+      "sha256": "78dc42409e4975d535720b3814237da4813019623de32c0a06745b2d39bf6b0a"
+    },
+    {
+      "path": "upload-result.json",
+      "bytes": 162,
+      "sha256": "4eadb25ae2fb6f4ce11771a8f6de6223d7a90bc6a94dba97430f6b9515cf9a7f"
+    },
+    {
+      "path": "usage-after.json",
+      "bytes": 159,
+      "sha256": "84c5b319cc2831e6bc81b290ca51fb5ad55cee3002b79ad1c1c606702007c362"
+    },
+    {
+      "path": "usage-before.json",
+      "bytes": 157,
+      "sha256": "faf877d403e30b51ddd7e3793a662868acfd1fd0afe73f0b4d9c6e72d6d1a4e6"
+    },
+    {
+      "path": "worker-proof.json",
+      "bytes": 629,
+      "sha256": "26325addf776b52a99b76ce264b4a1d6595bd46da8a1b95acaae3d95fc59e2f8"
+    }
+  ],
+  "snapshot_scope": "部署证据保持原SHA；tracked-secret-scan为Git首个记录提交前的扫描回执，无自引用文件SHA。"
+}

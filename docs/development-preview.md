@@ -71,8 +71,10 @@ API Key 只在受控管理员表单输入并加密入库，不进入聊天、env
 
 ## 5. 当前开发预览
 
-用户授权清理旧测试数据后，已单独授权首次重新部署。开发预览现在可访问 `https://geo.962850.xyz/`；本次 release 为 `preview-20260929-082104-4e85aaf9`。首次部署走 staging `full` 路径，已完成数据库迁移和 `admin`、`content_editor` 初始化。登录密码由准备工具生成，保存在本机 Git 忽略且权限为 `0600` 的 `.env.staging` 中，分别对应 `PARTSIGNAL_SEED_ADMIN_PASSWORD` 和 `PARTSIGNAL_SEED_ENGINEER_PASSWORD`；请在本机查看，不要将其粘贴到聊天或提交到 Git。修改 env 中的初始密码不会自动修改已经创建的账号密码，后续改密应通过应用流程。
+用户授权清理旧测试数据后，已单独授权首次重新部署。开发预览现在可访问 `https://geo.962850.xyz/`；当前 release 为 `preview-20260930-111500-2f171300`（源码精确 `2f17130055439f59dfc11fed42ada47d066c71cf`）。首次部署走 staging `full` 路径，已完成数据库迁移和 `admin`、`content_editor` 初始化。登录密码由准备工具生成，保存在本机 Git 忽略且权限为 `0600` 的 `.env.staging` 中，分别对应 `PARTSIGNAL_SEED_ADMIN_PASSWORD` 和 `PARTSIGNAL_SEED_ENGINEER_PASSWORD`；请在本机查看，不要将其粘贴到聊天或提交到 Git。修改 env 中的初始密码不会自动修改已经创建的账号密码，后续改密应通过应用流程。
 
 2026-09-29 的独立真实 AI 接入任务中，用户通过管理员页面配置了 HTTPS `api.deepseek.com` 渠道与精确模型 `deepseek-flash`，模型通过真实测试并启用。一次正常 Content Editor 生成成功，Job `01f4506d-9975-4779-9d81-ac5663f79511` 创建 AI 草稿 ContentVersion `8494fa1f-ab2c-4bb0-b5a0-f1337ee1d342`；Worker、Usage 与 lineage 证据见 `.trellis/tasks/09-29-development-preview-real-ai-integration/implement.md`。双方确认按现有真实路径验证并采用上述配置停用门禁；env 没有切换、容器没有重建，模式开关缺陷没有修复。对象存储仍为 `fake-oss`，没有接入真实 OSS。`.env.production.ai.json` 不会自动启用预览 AI；旧冻结证据保留，正式 Production 切换暂不推进。
 
-本次 `content-generator-runtime-mode-gate` 任务只修复本地源码与验证，未更新上述服务器 release、env、渠道/模型或既存 Job/ContentVersion。上段真实接入证据描述修复前的历史运行状态；服务器仍需另行授权的受控配置与部署才能获得新门禁。
+2026-09-30 的独立 `development-preview-runtime-gate-rollout` 任务已将运行模式门禁部署到上述新 release。staging 共享配置只将 `CONTENT_GENERATOR` 从 `deterministic` 改为 `openai-compatible`；API、Worker、Scheduler 已重建并加载同一模式。现有 PostgreSQL、Redis、fake-oss、账号、渠道/模型与上一轮 Job/ContentVersion 保留；没有迁移、clean-init、Production cutover 或历史清理。原 env 和一致性数据库备份配对保存在 Hostdzire 受限目录，旧 release 与镜像保留。
+
+部署后正常管理员流程仅确认一次真实生成：任务 `CT-43997411`，Job `abc4e3cd-efc2-40fb-a87d-330a378bfecb` 为 `SUCCEEDED`、attempt=1，创建不可变 AI DRAFT ContentVersion `40445d14-fa04-4bb9-80b0-f9cef49257b0`。Prompt/PUBLIC Fact/channel/model/provider lineage、Worker、Usage 和部署证据见 `.trellis/tasks/09-30-development-preview-runtime-gate-rollout/implement.md`。current 在健康与真实生成通过后才原子切换；对象存储仍为 `fake-oss`，本次草稿没有审核、批准或发布。上段“env 没有切换”的描述仅属于上一轮修复前历史。

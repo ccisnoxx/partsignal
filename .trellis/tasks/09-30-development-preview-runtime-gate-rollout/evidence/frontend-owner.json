@@ -1,0 +1,17 @@
+{
+  "loopback": {
+    "root_sha256": "cc3fd3a5430d070d966d4582914b2297f1ce1f3d3b9dc2d090fd2015066d486f",
+    "asset_sha256": "e5d2668f496630f5c6c9ec828d8bfbb48bca1c4d744b81b32652a0678375c362",
+    "asset_path": "/assets/index-DQYGr5SQ.js",
+    "root_status": 200,
+    "asset_status": 200
+  },
+  "public": {
+    "root_sha256": "cc3fd3a5430d070d966d4582914b2297f1ce1f3d3b9dc2d090fd2015066d486f",
+    "asset_sha256": "e5d2668f496630f5c6c9ec828d8bfbb48bca1c4d744b81b32652a0678375c362",
+    "asset_path": "/assets/index-DQYGr5SQ.js",
+    "root_status": 200,
+    "asset_status": 200
+  },
+  "local_public_matches": true
+}

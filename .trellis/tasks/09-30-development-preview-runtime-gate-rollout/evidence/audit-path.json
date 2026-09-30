@@ -1,0 +1,33 @@
+{
+  "audit": "/Users/sc/.codex/audits/multi-agent/partsignal-33ca8378/20260930T123258Z-development-preview-runtime-gate-rollout-13c16622",
+  "stage": {
+    "audit_id": "20260930T123258Z-development-preview-runtime-gate-rollout-13c16622",
+    "audit_dir": "/Users/sc/.codex/audits/multi-agent/partsignal-33ca8378/20260930T123258Z-development-preview-runtime-gate-rollout-13c16622",
+    "sequence": 1,
+    "name": "prewrite",
+    "prefix": "01-prewrite",
+    "paths": {
+      "draft": "/Users/sc/.codex/audits/multi-agent/partsignal-33ca8378/20260930T123258Z-development-preview-runtime-gate-rollout-13c16622/01-prewrite.draft.json",
+      "plan": "/Users/sc/.codex/audits/multi-agent/partsignal-33ca8378/20260930T123258Z-development-preview-runtime-gate-rollout-13c16622/01-prewrite.plan.json",
+      "dispatch_dir": "/Users/sc/.codex/audits/multi-agent/partsignal-33ca8378/20260930T123258Z-development-preview-runtime-gate-rollout-13c16622/01-prewrite.dispatches",
+      "execution": "/Users/sc/.codex/audits/multi-agent/partsignal-33ca8378/20260930T123258Z-development-preview-runtime-gate-rollout-13c16622/01-prewrite.execution.json",
+      "summary_json": "/Users/sc/.codex/audits/multi-agent/partsignal-33ca8378/20260930T123258Z-development-preview-runtime-gate-rollout-13c16622/01-prewrite.summary.json",
+      "summary_text": "/Users/sc/.codex/audits/multi-agent/partsignal-33ca8378/20260930T123258Z-development-preview-runtime-gate-rollout-13c16622/01-prewrite.summary.txt"
+    }
+  },
+  "final_stage": {
+    "audit_id": "20260930T123258Z-development-preview-runtime-gate-rollout-13c16622",
+    "audit_dir": "/Users/sc/.codex/audits/multi-agent/partsignal-33ca8378/20260930T123258Z-development-preview-runtime-gate-rollout-13c16622",
+    "sequence": 2,
+    "name": "final-review",
+    "prefix": "02-final-review",
+    "paths": {
+      "draft": "/Users/sc/.codex/audits/multi-agent/partsignal-33ca8378/20260930T123258Z-development-preview-runtime-gate-rollout-13c16622/02-final-review.draft.json",
+      "plan": "/Users/sc/.codex/audits/multi-agent/partsignal-33ca8378/20260930T123258Z-development-preview-runtime-gate-rollout-13c16622/02-final-review.plan.json",
+      "dispatch_dir": "/Users/sc/.codex/audits/multi-agent/partsignal-33ca8378/20260930T123258Z-development-preview-runtime-gate-rollout-13c16622/02-final-review.dispatches",
+      "execution": "/Users/sc/.codex/audits/multi-agent/partsignal-33ca8378/20260930T123258Z-development-preview-runtime-gate-rollout-13c16622/02-final-review.execution.json",
+      "summary_json": "/Users/sc/.codex/audits/multi-agent/partsignal-33ca8378/20260930T123258Z-development-preview-runtime-gate-rollout-13c16622/02-final-review.summary.json",
+      "summary_text": "/Users/sc/.codex/audits/multi-agent/partsignal-33ca8378/20260930T123258Z-development-preview-runtime-gate-rollout-13c16622/02-final-review.summary.txt"
+    }
+  }
+}

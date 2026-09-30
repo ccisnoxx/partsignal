@@ -1,0 +1,18 @@
+{
+  "release_id": "preview-20260930-111500-2f171300",
+  "source_commit": "2f17130055439f59dfc11fed42ada47d066c71cf",
+  "archive_path": "/Users/sc/.codex/worktrees/runtime-gate-rollout/preview-20260930-111500-2f171300.tar.gz",
+  "archive_bytes": 1941504,
+  "archive_sha256": "c83c6ece8f11e1c4fa4d340dc50fd7dde6b828948598febd255f75577ef8e0d2",
+  "bad_entries": [],
+  "baseline_fixture_findings": [
+    {
+      "path": "backend/app/ai_fake_server.py",
+      "pattern": "test Bearer fixture"
+    }
+  ],
+  "committed_AGENTS_exact": true,
+  "user_AGENTS_excluded": true,
+  "pre_task_clean": true,
+  "original_AGENTS_diff_sha256": "8475b78dd8ba60f75d7992f8c5a2fda96ce1b1a2d1afc334fda7a09ac60daf3e"
+}

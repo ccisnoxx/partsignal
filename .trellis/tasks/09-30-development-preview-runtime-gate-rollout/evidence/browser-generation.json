@@ -1,0 +1,26 @@
+{
+  "task_label": "DEV-PREVIEW-RUNTIME-GATE-20260930 / CT-43997411",
+  "content_task_id": "43997411-afe2-4a45-88f5-9d20605015a6",
+  "options_status": 200,
+  "model_id": "ac74a39e-5d40-4171-b22c-34f9e57c2d75",
+  "provider_model_id": "deepseek-flash",
+  "channel_id": "d6e8f8b9-a5b2-4b35-b175-ac20598526af",
+  "platform_profile_id": "b1f25fd0-b4b7-4ce7-aa60-313da2242bc6",
+  "prompt_id": "3406aad6-60e9-4762-affa-8f16961523fc",
+  "prompt_revision": 0,
+  "confirmation_click_count": 1,
+  "pending_observed": {
+    "id": "abc4e3cd-efc2-40fb-a87d-330a378bfecb",
+    "status": "PENDING",
+    "attempt_count": 0,
+    "content_version_id": null,
+    "error_code": null
+  },
+  "terminal_observed": {
+    "id": "abc4e3cd-efc2-40fb-a87d-330a378bfecb",
+    "status": "SUCCEEDED",
+    "attempt_count": 1,
+    "error_code": null,
+    "content_version_id": "40445d14-fa04-4bb9-80b0-f9cef49257b0"
+  }
+}

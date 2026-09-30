@@ -1,0 +1,395 @@
+{
+  "archive_sha": "c83c6ece8f11e1c4fa4d340dc50fd7dde6b828948598febd255f75577ef8e0d2",
+  "backups": {
+    "/root/partsignal/shared/runtime-gate-rollout-backups/preview-20260930-111500-2f171300/env.staging.original": {
+      "bytes": 1583,
+      "mode": "0o600",
+      "sha256": "05adbfab384d9417d60e7e28d516a17ea4f84c5a9e778ebcb8e02c5db104ee85",
+      "uid": 0
+    },
+    "/root/partsignal/shared/runtime-gate-rollout-backups/preview-20260930-111500-2f171300/postgres.dump": {
+      "bytes": 174866,
+      "mode": "0o600",
+      "sha256": "97f71e40eeb9503510eff5ede5b32c988a05846aa5ca0469a064dc6258a73e39",
+      "uid": 0
+    }
+  },
+  "candidate_images": {
+    "partsignal-backend:preview-20260930-111500-2f171300": {
+      "id": "sha256:072aac34239b9f76782b8f6b1a9badf97e6c7ab5792c6a70464f0138eb890c66",
+      "platform": "linux/amd64",
+      "repo_digests": [
+        "partsignal-backend@sha256:072aac34239b9f76782b8f6b1a9badf97e6c7ab5792c6a70464f0138eb890c66"
+      ]
+    },
+    "partsignal-frontend:preview-20260930-111500-2f171300": {
+      "id": "sha256:5b65fa7f7c2662f675ef577b5b50a32f6e398a2f6371d1a121fea11ebbd0390f",
+      "platform": "linux/amd64",
+      "repo_digests": [
+        "partsignal-frontend@sha256:5b65fa7f7c2662f675ef577b5b50a32f6e398a2f6371d1a121fea11ebbd0390f"
+      ]
+    }
+  },
+  "current_images": {
+    "partsignal-backend:preview-20260930-111500-2f171300": {
+      "id": "sha256:072aac34239b9f76782b8f6b1a9badf97e6c7ab5792c6a70464f0138eb890c66",
+      "platform": "linux/amd64",
+      "repo_digests": [
+        "partsignal-backend@sha256:072aac34239b9f76782b8f6b1a9badf97e6c7ab5792c6a70464f0138eb890c66"
+      ]
+    },
+    "partsignal-frontend:preview-20260930-111500-2f171300": {
+      "id": "sha256:5b65fa7f7c2662f675ef577b5b50a32f6e398a2f6371d1a121fea11ebbd0390f",
+      "platform": "linux/amd64",
+      "repo_digests": [
+        "partsignal-frontend@sha256:5b65fa7f7c2662f675ef577b5b50a32f6e398a2f6371d1a121fea11ebbd0390f"
+      ]
+    }
+  },
+  "current_target": "releases/preview-20260929-082104-4e85aaf9",
+  "data": [
+    {
+      "device": 2049,
+      "gid": 0,
+      "inode": 1442556,
+      "mode": "0o700",
+      "path": "/root/partsignal-data/postgres",
+      "uid": 70
+    },
+    {
+      "device": 2049,
+      "gid": 0,
+      "inode": 1442557,
+      "mode": "0o755",
+      "path": "/root/partsignal-data/redis",
+      "uid": 999
+    },
+    {
+      "device": 2049,
+      "gid": 0,
+      "inode": 1442555,
+      "mode": "0o755",
+      "path": "/root/partsignal-data/objects",
+      "uid": 0
+    }
+  ],
+  "env": {
+    "bytes": 1587,
+    "candidate_bytes": 1587,
+    "candidate_sha256": "3f43478292b82002c4bc6bae44adb580f939f6c74219346d0cb5364fc41141cf",
+    "gid": 0,
+    "mode": "0o600",
+    "sha256": "3f43478292b82002c4bc6bae44adb580f939f6c74219346d0cb5364fc41141cf",
+    "uid": 0
+  },
+  "health": {
+    "live_status": "ok",
+    "ready_checks": {
+      "postgresql": "ok",
+      "redis": "ok"
+    },
+    "ready_status": "ok"
+  },
+  "historical_images": {
+    "partsignal-backend:mvp-20260928-023635-649641cec3bd": {
+      "id": "sha256:095b31d1065db7da74cde93b9cde52e491895fc39033d64c873f91a55ac111a5",
+      "repo_digests": [
+        "partsignal-backend@sha256:095b31d1065db7da74cde93b9cde52e491895fc39033d64c873f91a55ac111a5"
+      ]
+    },
+    "partsignal-frontend:mvp-20260928-023635-649641cec3bd": {
+      "id": "sha256:c39f66dfb58568e471480dde019e78cd2c93dfbee00cb38f3895e64905569b42",
+      "repo_digests": [
+        "partsignal-frontend@sha256:c39f66dfb58568e471480dde019e78cd2c93dfbee00cb38f3895e64905569b42"
+      ]
+    }
+  },
+  "http": {
+    "asset": {
+      "bytes": 188417,
+      "security_headers_exact": true,
+      "status": 200
+    },
+    "live": {
+      "bytes": 29,
+      "security_headers_exact": true,
+      "status": 200
+    },
+    "ready": {
+      "bytes": 57,
+      "security_headers_exact": true,
+      "status": 200
+    },
+    "root": {
+      "bytes": 570,
+      "security_headers_exact": true,
+      "status": 200
+    }
+  },
+  "loopback": {
+    "frontend": {
+      "bytes": 570,
+      "status": 200
+    },
+    "live": {
+      "bytes": 29,
+      "status": 200
+    },
+    "ready": {
+      "bytes": 57,
+      "status": 200
+    }
+  },
+  "networks": [
+    {
+      "id": "b1fde93faf75e9a705b09d276e41ad5775258124391e069a4a971d704b7fce9a",
+      "internal": false,
+      "logical": "partsignal-staging-edge",
+      "name": "partsignal-staging-edge",
+      "project": "partsignal-staging"
+    },
+    {
+      "id": "56fa2ca936fe3547ad9ddd050e5db509d0e384b64632f3f4accb7c49446a2853",
+      "internal": false,
+      "logical": "partsignal-staging-egress",
+      "name": "partsignal-staging-egress",
+      "project": "partsignal-staging"
+    },
+    {
+      "id": "10d334e54682df87d506d680c8af5ec92a828ac86aa35f9fad8a975141869633",
+      "internal": true,
+      "logical": "partsignal-staging-internal",
+      "name": "partsignal-staging-internal",
+      "project": "partsignal-staging"
+    }
+  ],
+  "nginx_full_sha": "a33ffd049f3c2e9955eeb0b07f966814571c694486831be65b39e4ac90d9b449",
+  "nginx_test_exit": 0,
+  "old_archive_sha": "d51eb7ad0b703931a417f8233444a0d2ceafa39055656a5f46c95c6277dce250",
+  "old_manifest_sha": "d9fc3543d2dd73523c0b436d956e22a3f94e61bae19b005aeb2fbecbe55e1ad9",
+  "old_release_directory_exists": true,
+  "other": [
+    {
+      "id": "0529d65db4212a498f828c456a69b986929020d84d8290de1b433614d38dc745",
+      "oom": false,
+      "restart_count": 0,
+      "running": true,
+      "started_at": "2026-08-27T07:33:00.022335546Z"
+    },
+    {
+      "id": "06f72de6f2e24e8890932df0e90ffbb1732c918a3cbb6eb6aa4639a80e088bef",
+      "oom": false,
+      "restart_count": 0,
+      "running": true,
+      "started_at": "2026-05-30T17:04:37.454110668Z"
+    },
+    {
+      "id": "21ee6e287dbc786215a00d7265508bf644c792ca1132e6692d8d18c37a5857b9",
+      "oom": false,
+      "restart_count": 0,
+      "running": true,
+      "started_at": "2026-09-18T08:29:52.19357992Z"
+    },
+    {
+      "id": "2dde4d796a27550466b6ba7daf73c42a5e74dbfa754ba3e421846ef907e1638a",
+      "oom": false,
+      "restart_count": 0,
+      "running": true,
+      "started_at": "2026-05-21T08:38:06.409196679Z"
+    },
+    {
+      "id": "4e3bb1b6ef553d6e4f374b188c81d212e59f58df015475a01b3bb4808dd21bf6",
+      "oom": false,
+      "restart_count": 0,
+      "running": true,
+      "started_at": "2026-07-28T08:40:04.681572531Z"
+    },
+    {
+      "id": "56c40a62b9377e7cacb3a0e040a9865f4a7fef76df87e4502befe2e3a2454e96",
+      "oom": false,
+      "restart_count": 0,
+      "running": true,
+      "started_at": "2026-05-30T17:04:37.4549545Z"
+    },
+    {
+      "id": "6e95a059134c2cd1b9a73c6d47ea9e87efa06555e975f87fcc27efc68faef055",
+      "oom": false,
+      "restart_count": 0,
+      "running": true,
+      "started_at": "2026-08-27T07:33:00.708356513Z"
+    },
+    {
+      "id": "88358cc159ddfd6283aab98209b68b8bb078f9d656b788668c5d45cf61cb972a",
+      "oom": false,
+      "restart_count": 0,
+      "running": true,
+      "started_at": "2026-09-30T08:17:52.322290608Z"
+    },
+    {
+      "id": "c98be88c92274954da5270fc801f16f8dc266299bdff0892427b19eb3b60a0ea",
+      "oom": false,
+      "restart_count": 0,
+      "running": true,
+      "started_at": "2026-09-18T08:29:52.196019009Z"
+    }
+  ],
+  "pending_any": [],
+  "pending_marker": false,
+  "processes": {
+    "api": {
+      "environment_matches": true,
+      "pid1_mode": "openai-compatible",
+      "settings_mode": "openai-compatible",
+      "source_sha256": {
+        "app/config.py": "a67dd9d36ca4cc919bb8e720b2761670146f656b15969a460546562de88b364e",
+        "app/services/generation.py": "e7ea762baf2015e8fad37c66cd7ba9f58122a76a8345a6618f8dac050d5b0170",
+        "app/services/openai_client.py": "61861f9b34fac8b55d781205be58b3ba23a568d9cb02f2873d533408ded981b4",
+        "app/worker.py": "f8da76ab87674d8f9b026f35dcc176ea32977d03b63f2da9d2e359961ead6e01"
+      }
+    },
+    "scheduler": {
+      "environment_matches": true,
+      "pid1_mode": "openai-compatible",
+      "settings_mode": "openai-compatible",
+      "source_sha256": {
+        "app/config.py": "a67dd9d36ca4cc919bb8e720b2761670146f656b15969a460546562de88b364e",
+        "app/services/generation.py": "e7ea762baf2015e8fad37c66cd7ba9f58122a76a8345a6618f8dac050d5b0170",
+        "app/services/openai_client.py": "61861f9b34fac8b55d781205be58b3ba23a568d9cb02f2873d533408ded981b4",
+        "app/worker.py": "f8da76ab87674d8f9b026f35dcc176ea32977d03b63f2da9d2e359961ead6e01"
+      }
+    },
+    "worker": {
+      "environment_matches": true,
+      "pid1_mode": "openai-compatible",
+      "settings_mode": "openai-compatible",
+      "source_sha256": {
+        "app/config.py": "a67dd9d36ca4cc919bb8e720b2761670146f656b15969a460546562de88b364e",
+        "app/services/generation.py": "e7ea762baf2015e8fad37c66cd7ba9f58122a76a8345a6618f8dac050d5b0170",
+        "app/services/openai_client.py": "61861f9b34fac8b55d781205be58b3ba23a568d9cb02f2873d533408ded981b4",
+        "app/worker.py": "f8da76ab87674d8f9b026f35dcc176ea32977d03b63f2da9d2e359961ead6e01"
+      }
+    }
+  },
+  "project": [
+    {
+      "health": "healthy",
+      "id": "9d5e48b004692a4889c3e59a738b4f436bb8f242cea9ff026b00a0b6e38762b1",
+      "image": "sha256:072aac34239b9f76782b8f6b1a9badf97e6c7ab5792c6a70464f0138eb890c66",
+      "oneoff": "False",
+      "oom": false,
+      "restart_count": 0,
+      "running": true,
+      "service": "api"
+    },
+    {
+      "health": null,
+      "id": "22173dcb1cca1471cda81dccd16a4e580628b8726b86c824d84802d7d98d0c93",
+      "image": "sha256:072aac34239b9f76782b8f6b1a9badf97e6c7ab5792c6a70464f0138eb890c66",
+      "oneoff": "False",
+      "oom": false,
+      "restart_count": 0,
+      "running": true,
+      "service": "fake-oss"
+    },
+    {
+      "health": null,
+      "id": "80773b42cc4e7e1af0d38b6d8d17898e2d8e8b92a071d3620588419f71a7db46",
+      "image": "sha256:5b65fa7f7c2662f675ef577b5b50a32f6e398a2f6371d1a121fea11ebbd0390f",
+      "oneoff": "False",
+      "oom": false,
+      "restart_count": 0,
+      "running": true,
+      "service": "frontend"
+    },
+    {
+      "health": "healthy",
+      "id": "a50ec6194cabf8ccffd652afb3a3eee3d10f776bf5bc27f821bd06b2a8b8634e",
+      "image": "sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777",
+      "oneoff": "False",
+      "oom": false,
+      "restart_count": 0,
+      "running": true,
+      "service": "postgres"
+    },
+    {
+      "health": "healthy",
+      "id": "d82f73f96f3517f54b520ffcd97cf41ccc791b15f21368d005d46a84c5f1e7b9",
+      "image": "sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99",
+      "oneoff": "False",
+      "oom": false,
+      "restart_count": 0,
+      "running": true,
+      "service": "redis"
+    },
+    {
+      "health": "healthy",
+      "id": "6d0f06ab061ed52f4ba0370c5e257315c2216fdf4ca1d0207b10e987591387ff",
+      "image": "sha256:072aac34239b9f76782b8f6b1a9badf97e6c7ab5792c6a70464f0138eb890c66",
+      "oneoff": "False",
+      "oom": false,
+      "restart_count": 0,
+      "running": true,
+      "service": "scheduler"
+    },
+    {
+      "health": "healthy",
+      "id": "550e2cf52e05623a434cae4e6a1882fc3736970a352d37ecd8d101f6ff302438",
+      "image": "sha256:072aac34239b9f76782b8f6b1a9badf97e6c7ab5792c6a70464f0138eb890c66",
+      "oneoff": "False",
+      "oom": false,
+      "restart_count": 0,
+      "running": true,
+      "service": "worker"
+    }
+  ],
+  "release_directory_exists": true,
+  "release_id": "preview-20260930-111500-2f171300",
+  "rollback_release_exists": true,
+  "service_identity": {
+    "api": {
+      "config_files": "/root/partsignal/releases/preview-20260930-111500-2f171300/deploy/compose.staging.yaml",
+      "image_tag": "partsignal-backend:preview-20260930-111500-2f171300",
+      "started_at": "2026-09-30T12:53:58.886026967Z",
+      "working_dir": "/root/partsignal/releases/preview-20260930-111500-2f171300/deploy"
+    },
+    "fake-oss": {
+      "config_files": "/root/partsignal/releases/preview-20260930-111500-2f171300/deploy/compose.staging.yaml",
+      "image_tag": "partsignal-backend:preview-20260930-111500-2f171300",
+      "started_at": "2026-09-30T12:53:28.435904074Z",
+      "working_dir": "/root/partsignal/releases/preview-20260930-111500-2f171300/deploy"
+    },
+    "frontend": {
+      "config_files": "/root/partsignal/releases/preview-20260930-111500-2f171300/deploy/compose.staging.yaml",
+      "image_tag": "partsignal-frontend:preview-20260930-111500-2f171300",
+      "started_at": "2026-09-30T12:53:58.364099877Z",
+      "working_dir": "/root/partsignal/releases/preview-20260930-111500-2f171300/deploy"
+    },
+    "postgres": {
+      "config_files": "/root/partsignal/releases/preview-20260930-111500-2f171300/deploy/compose.staging.yaml",
+      "image_tag": "postgres:16-alpine",
+      "started_at": "2026-09-30T12:53:28.437511281Z",
+      "working_dir": "/root/partsignal/releases/preview-20260930-111500-2f171300/deploy"
+    },
+    "redis": {
+      "config_files": "/root/partsignal/releases/preview-20260929-082104-4e85aaf9/deploy/compose.staging.yaml",
+      "image_tag": "redis:7.4-alpine",
+      "started_at": "2026-09-29T09:17:57.01896425Z",
+      "working_dir": "/root/partsignal/releases/preview-20260929-082104-4e85aaf9/deploy"
+    },
+    "scheduler": {
+      "config_files": "/root/partsignal/releases/preview-20260930-111500-2f171300/deploy/compose.staging.yaml",
+      "image_tag": "partsignal-backend:preview-20260930-111500-2f171300",
+      "started_at": "2026-09-30T12:53:34.757189989Z",
+      "working_dir": "/root/partsignal/releases/preview-20260930-111500-2f171300/deploy"
+    },
+    "worker": {
+      "config_files": "/root/partsignal/releases/preview-20260930-111500-2f171300/deploy/compose.staging.yaml",
+      "image_tag": "partsignal-backend:preview-20260930-111500-2f171300",
+      "started_at": "2026-09-30T12:53:34.755644067Z",
+      "working_dir": "/root/partsignal/releases/preview-20260930-111500-2f171300/deploy"
+    }
+  },
+  "site_enabled_target": "/etc/nginx/sites-available/partsignal-staging.conf",
+  "site_sha": "ea41efdb6c3b1535eaa3aa07a652f55b915002a8a792ed129b8f437907aea982",
+  "utc": "2026-09-30T13:03:35Z"
+}

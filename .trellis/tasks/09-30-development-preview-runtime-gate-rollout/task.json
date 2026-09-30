@@ -1,0 +1,30 @@
+{
+  "id": "development-preview-runtime-gate-rollout",
+  "name": "development-preview-runtime-gate-rollout",
+  "title": "开发预览运行模式门禁受控部署",
+  "description": "精确2f171300开发预览部署、CONTENT_GENERATOR单字段切换、一次真实AI生成；保留全部数据/历史与用户AGENTS改动。",
+  "status": "review",
+  "dev_type": null,
+  "scope": "deployment",
+  "package": null,
+  "priority": "P2",
+  "creator": "sc",
+  "assignee": "sc",
+  "createdAt": "2026-09-30",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": "/Users/sc/.codex/worktrees/runtime-gate-rollout/partsignal",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "source_commit": "2f17130055439f59dfc11fed42ada47d066c71cf",
+    "release_id": "preview-20260930-111500-2f171300",
+    "audit_id": "20260930T123258Z-development-preview-runtime-gate-rollout-13c16622"
+  }
+}

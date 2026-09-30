@@ -1,0 +1,86 @@
+{
+  "stage": "candidate",
+  "started_utc": "2026-09-30T12:52:29.257046+00:00",
+  "finished_utc": "2026-09-30T12:52:36.991095+00:00",
+  "exit_code": 0,
+  "records": [
+    {
+      "exit_code": 0,
+      "operation": "docker exec"
+    },
+    {
+      "exit_code": 0,
+      "operation": "docker run"
+    },
+    {
+      "exit_code": 0,
+      "operation": "docker compose"
+    },
+    {
+      "exit_code": 0,
+      "operation": "docker compose"
+    },
+    {
+      "exit_code": 0,
+      "operation": "docker compose"
+    },
+    {
+      "exit_code": 0,
+      "operation": "docker exec"
+    },
+    {
+      "exit_code": 0,
+      "operation": "docker image"
+    },
+    {
+      "exit_code": 0,
+      "operation": "docker image"
+    },
+    {
+      "exit_code": 0,
+      "operation": "docker image"
+    },
+    {
+      "exit_code": 0,
+      "operation": "docker image"
+    },
+    {
+      "candidate_bytes": 1587,
+      "candidate_sha256": "3f43478292b82002c4bc6bae44adb580f939f6c74219346d0cb5364fc41141cf",
+      "images": {
+        "partsignal-backend:preview-20260929-082104-4e85aaf9": {
+          "id": "sha256:434a136729a8f2eb33ba260a870cd3f3f9f37a6ffeba1e5999a967cfae893642",
+          "platform": "linux/amd64",
+          "repo_digests": [
+            "partsignal-backend@sha256:434a136729a8f2eb33ba260a870cd3f3f9f37a6ffeba1e5999a967cfae893642"
+          ]
+        },
+        "partsignal-backend:preview-20260930-111500-2f171300": {
+          "id": "sha256:072aac34239b9f76782b8f6b1a9badf97e6c7ab5792c6a70464f0138eb890c66",
+          "platform": "linux/amd64",
+          "repo_digests": [
+            "partsignal-backend@sha256:072aac34239b9f76782b8f6b1a9badf97e6c7ab5792c6a70464f0138eb890c66"
+          ]
+        },
+        "partsignal-frontend:preview-20260929-082104-4e85aaf9": {
+          "id": "sha256:e98d2c8c65074f6051235eae59cf770d5239ea4fcd3987796c94945d9b3710cb",
+          "platform": "linux/amd64",
+          "repo_digests": [
+            "partsignal-frontend@sha256:e98d2c8c65074f6051235eae59cf770d5239ea4fcd3987796c94945d9b3710cb"
+          ]
+        },
+        "partsignal-frontend:preview-20260930-111500-2f171300": {
+          "id": "sha256:5b65fa7f7c2662f675ef577b5b50a32f6e398a2f6371d1a121fea11ebbd0390f",
+          "platform": "linux/amd64",
+          "repo_digests": [
+            "partsignal-frontend@sha256:5b65fa7f7c2662f675ef577b5b50a32f6e398a2f6371d1a121fea11ebbd0390f"
+          ]
+        }
+      },
+      "mode": "openai-compatible",
+      "only_changed_key": "CONTENT_GENERATOR",
+      "status": "CANDIDATE_VALID"
+    }
+  ],
+  "stderr_bytes": 0
+}

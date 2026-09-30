@@ -1,0 +1,18 @@
+{
+  "archive_commit_replay": "PASSED",
+  "archive_secret_scan": "PASSED_WITH_UNCHANGED_FIXTURE",
+  "tracked_secret_scan": "PASSED_WITH_2_UNCHANGED_FIXTURES",
+  "git_diff_check": "PASSED",
+  "prepare": 0,
+  "candidate_settings_compose_integrity": 0,
+  "switch": 0,
+  "current": 0,
+  "runtime_checks": "PASSED",
+  "new_job": "SUCCEEDED",
+  "supplier_calls": 1,
+  "nginx_runtime_test": 0,
+  "nginx_local_source_check": "UNAVAILABLE_TYPESCRIPT_DEPENDENCY",
+  "full_make_verify": "REUSED_9a2d29b6_NOT_RERUN",
+  "backup_restore_drill": "NOT_RUN_NO_SCHEMA_CHANGE",
+  "provider_failure_drill": "NOT_RUN_SINGLE_SUCCESSFUL_CALL_ONLY"
+}

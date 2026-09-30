@@ -1,0 +1,32 @@
+{
+  "stage": "backup",
+  "started_utc": "2026-09-30T12:49:49.170070+00:00",
+  "finished_utc": "2026-09-30T12:49:50.443727+00:00",
+  "exit_code": 0,
+  "records": [
+    {
+      "exit_code": 0,
+      "operation": "docker exec"
+    },
+    {
+      "exit_code": 0,
+      "operation": "docker exec"
+    },
+    {
+      "exit_code": 0,
+      "operation": "docker exec"
+    },
+    {
+      "database_backup_bytes": 174866,
+      "database_backup_path": "/root/partsignal/shared/runtime-gate-rollout-backups/preview-20260930-111500-2f171300/postgres.dump",
+      "database_backup_sha256": "97f71e40eeb9503510eff5ede5b32c988a05846aa5ca0469a064dc6258a73e39",
+      "env_backup_bytes": 1583,
+      "env_backup_path": "/root/partsignal/shared/runtime-gate-rollout-backups/preview-20260930-111500-2f171300/env.staging.original",
+      "env_backup_sha256": "05adbfab384d9417d60e7e28d516a17ea4f84c5a9e778ebcb8e02c5db104ee85",
+      "mode": "0600",
+      "schema": "0043_geo_platform_identity",
+      "status": "BACKUP_COMPLETE"
+    }
+  ],
+  "stderr_bytes": 0
+}

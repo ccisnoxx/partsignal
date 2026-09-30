@@ -16,3 +16,7 @@ parent=null。用户明确授权本独立部署任务，源码精确固定 `2f17
 ## 验证复用
 
 9a2d29b6 完整 make verify exit0（日志SHA 6be630b5f979a05e6c6ca5dd2bc94461a7b1dae4694360cd6340510fa3b07c78）及最终 NO BLOCKER；到2f171300只有三个Trellis收口记录文件改变。无需重跑全门禁。新增部署态证据。
+
+## 完成状态
+
+上述验收均已获得部署态证据，两次独立复核NO BLOCKER；实际状态、验证局限和成功Git回执见implement.md及evidence。记录提交已推送；最终收口提交按交付前Git状态核验。

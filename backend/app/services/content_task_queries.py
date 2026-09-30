@@ -27,11 +27,14 @@ from app.schemas.content import (
     PlatformPromptPreviewOptions,
     PlatformPromptSnapshot,
 )
+from app.services.generation import business_generation_enabled
 from app.services.projections import content_task_workflow_projection, content_tasks_out
 
 
 def generation_model_options(db: Session) -> list[GenerationOptionModel]:
     """返回所有当前启用且测试通过的模型，供生成入口共享。"""
+    if not business_generation_enabled():
+        return []
     rows = db.execute(
         select(AIModel, AIChannel)
         .join(AIChannel, AIChannel.id == AIModel.channel_id)

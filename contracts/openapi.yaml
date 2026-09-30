@@ -1236,7 +1236,7 @@ paths:
         - {$ref: '#/components/parameters/RequestIdHeader'}
       responses:
         '200':
-          description: Prompt 当前可用于真实首稿生成的任务上下文与模型
+          description: Prompt 当前可用于真实首稿生成的任务上下文与模型；deterministic 模式 contexts 和 models 为空
           headers:
             X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
@@ -2068,7 +2068,7 @@ paths:
       parameters: [{$ref: '#/components/parameters/ContentTaskId'}, {$ref: '#/components/parameters/RequestIdHeader'}]
       responses:
         '200':
-          description: 锁定平台、只读 Prompt 和当前可用模型
+          description: 锁定平台、只读 Prompt 和当前可用模型；deterministic 模式 models 为空
           headers:
             X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
           content:
@@ -2213,6 +2213,7 @@ paths:
     post:
       tags: [production]
       operationId: createGenerationJob
+      description: CONTENT_GENERATOR=deterministic 时以 409 AI_GENERATION_DISABLED 拒绝，包含幂等重放；不创建或提交作业，也不投递 Redis。
       parameters:
         - {$ref: '#/components/parameters/ContentTaskId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
@@ -2286,6 +2287,7 @@ paths:
     post:
       tags: [production]
       operationId: createHumanizationJob
+      description: CONTENT_GENERATOR=deterministic 时以 409 AI_GENERATION_DISABLED 拒绝，包含幂等重放；不创建或提交作业，也不投递 Redis。
       parameters:
         - {$ref: '#/components/parameters/ContentVersionId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
@@ -2332,6 +2334,7 @@ paths:
     post:
       tags: [production]
       operationId: retryGenerationJob
+      description: CONTENT_GENERATOR=deterministic 时以 409 AI_GENERATION_DISABLED 拒绝，包含幂等重放；不创建或提交作业，也不投递 Redis。
       parameters:
         - {$ref: '#/components/parameters/GenerationJobId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
@@ -6103,6 +6106,7 @@ components:
         fact_version: {type: integer, minimum: 1}
     PlatformPromptPreviewOptions:
       type: object
+      description: 业务生成模型候选受 CONTENT_GENERATOR 运行模式门禁控制；deterministic 不提供真实模型选择。
       additionalProperties: false
       required: [platform_prompt, contexts, models]
       properties:
@@ -6111,6 +6115,7 @@ components:
         models: {type: array, items: {$ref: '#/components/schemas/GenerationOptionModel'}}
     GenerationOptions:
       type: object
+      description: 业务生成模型候选受 CONTENT_GENERATOR 运行模式门禁控制；deterministic 不提供真实模型选择。
       additionalProperties: false
       required: [platform_profile_id, platform_profile_name, platform_prompt, humanization_prompt_configured, models]
       properties:
@@ -6146,6 +6151,7 @@ components:
     GenerationJobType: {type: string, enum: [GENERATE, HUMANIZE]}
     GenerationJob:
       type: object
+      description: deterministic Worker 将 PENDING 作业原子标记 FAILED/AI_GENERATION_DISABLED，不调用供应商或创建内容；重复投递不改变终态。已 RUNNING 请求沿用租约及迟到结果合同。
       additionalProperties: false
       required: [id, content_task_id, job_type, source_content_version_id, status, workflow_stage, primary_task, available_actions, attempt_count, created_at]
       properties:

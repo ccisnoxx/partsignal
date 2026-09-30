@@ -54,6 +54,23 @@ NEAR_DUPLICATE_THRESHOLD = 0.85
 GenerationSnapshotRead = MarkdownGenerationSnapshotV2 | GenerationSnapshot
 
 
+def business_generation_enabled() -> bool:
+    """业务生成资格只取进程启动时选定的运行模式。"""
+    return settings.content_generator == "openai-compatible"
+
+
+def require_business_generation_enabled() -> None:
+    """关闭模式必须显式失败，不以开发输出代替真实业务生成。"""
+    if not business_generation_enabled():
+        raise AppError("AI_GENERATION_DISABLED", "当前运行模式未启用 AI 内容生成", 409)
+
+
+def _require_test_generator(generator: ContentGenerator | None) -> None:
+    """显式生成器是测试边界，正式 UUID 入口不得借此绕过模式门禁。"""
+    if generator is not None and settings.environment != "test":
+        raise ValueError("ContentGenerator 测试注入仅允许 APP_ENV=test")
+
+
 def _generation_snapshot(generation_input: dict[str, Any]) -> GenerationSnapshotRead:
     """按显式版本解析原始生成快照，不猜测未知历史结构。"""
     try:
@@ -263,6 +280,9 @@ def generate_for_job(
     generator: ContentGenerator | None,
 ) -> tuple[GeneratedDraft, CompletionResult | None]:
     """按作业冻结的适配器执行，不允许重试时切换生成方式。"""
+    _require_test_generator(generator)
+    if generator is None:
+        require_business_generation_enabled()
     if job.job_type == "GENERATE":
         snapshot: GenerationSnapshotRead | HumanizationSnapshot = ensure_third_party_egress_allowed(
             generation_input
@@ -338,28 +358,29 @@ def generation_timeout_seconds(
 
 def process_generation_job(job_id: uuid.UUID, generator: ContentGenerator | None = None) -> None:
     """执行一个数据库作业；重复投递不会创建第二个内容版本。"""
+    _require_test_generator(generator)
     with SessionLocal() as db:
         job = db.scalar(select(GenerationJob).where(GenerationJob.id == job_id).with_for_update())
         if job is None:
             logger.error("生成作业不存在 job_id=%s", job_id)
             return
-        if job.status == "SUCCEEDED":
+        if job.status != "PENDING":
+            # RUNNING 重投不得触发第二次调用；过期租约仍由 Beat 标记失败。
             return
         now = datetime.now(UTC)
-        if job.status == "RUNNING":
-            # Celery 重投不得触发第二次供应商调用；过期租约由 Beat 标记失败。
-            return
-        if job.status != "PENDING":
-            return
-        existing = db.scalar(select(ContentVersion).where(ContentVersion.source_job_id == job.id))
-        if existing is not None:
-            job.status = "SUCCEEDED"
-            job.content_version_id = existing.id
-            job.finished_at = datetime.now(UTC)
-            job.lease_expires_at = None
-            db.commit()
-            return
         try:
+            if generator is None:
+                require_business_generation_enabled()
+            existing = db.scalar(
+                select(ContentVersion).where(ContentVersion.source_job_id == job.id)
+            )
+            if existing is not None:
+                job.status = "SUCCEEDED"
+                job.content_version_id = existing.id
+                job.finished_at = now
+                job.lease_expires_at = None
+                db.commit()
+                return
             timeout_seconds = generation_timeout_seconds(job.input_snapshot, job_type=job.job_type)
         except AppError as error:
             job.status = "FAILED"
@@ -368,7 +389,7 @@ def process_generation_job(job_id: uuid.UUID, generator: ContentGenerator | None
             job.finished_at = now
             job.lease_expires_at = None
             db.commit()
-            logger.error("生成作业快照无效 job_id=%s error_code=%s", job.id, error.code)
+            logger.error("生成作业执行前校验失败 job_id=%s error_code=%s", job.id, error.code)
             return
         job.status = "RUNNING"
         job.attempt_count += 1

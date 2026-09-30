@@ -115,6 +115,17 @@ def fake_ai_server(
     state = FakeAIState(blocked=blocked, status_code=status_code)
 
     class Handler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802 - 标准库回调名称固定
+            with state.lock:
+                state.calls += 1
+                state.requests.append({"method": "GET", "path": self.path})
+            payload = json.dumps({"data": [{"id": "reliability-model"}]}).encode()
+            self.send_response(200)
+            self.send_header("content-type", "application/json")
+            self.send_header("content-length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+
         def do_POST(self) -> None:  # noqa: N802 - 标准库回调名称固定
             length = int(self.headers.get("content-length", "0"))
             request_body = json.loads(self.rfile.read(length))
@@ -218,6 +229,7 @@ def seed_generation_job(
     base_url: str,
     timeout_seconds: int = 10,
     created_at: datetime | None = None,
+    snapshot_override: dict[str, Any] | None = None,
 ) -> uuid.UUID:
     """写入满足全部数据库触发器的最小生成聚合。"""
     ids = {
@@ -354,7 +366,7 @@ def seed_generation_job(
                 ids["job"],
                 ids["task"],
                 f"idem-{unique}",
-                Jsonb(snapshot),
+                Jsonb(snapshot if snapshot_override is None else snapshot_override),
                 ids["channel"],
                 ids["model"],
                 "0" * 64,
@@ -391,9 +403,10 @@ def clone_retry_job(test_url: str, original_id: uuid.UUID) -> uuid.UUID:
             "(id, content_task_id, idempotency_key, job_type, status, input_snapshot, "
             "ai_channel_id, "
             "ai_model_id, adapter_name, prompt_template_version, prompt_hash, attempt_count, "
-            "retry_of_id, created_by) "
+            "retry_of_id, source_content_version_id, created_by) "
             "SELECT %s, content_task_id, %s, job_type, 'PENDING', input_snapshot, ai_channel_id, "
-            "ai_model_id, adapter_name, prompt_template_version, prompt_hash, 0, id, created_by "
+            "ai_model_id, adapter_name, prompt_template_version, prompt_hash, 0, id, "
+            "source_content_version_id, created_by "
             "FROM generation_jobs WHERE id = %s",
             (retry_id, f"retry-{retry_id.hex}", original_id),
         )

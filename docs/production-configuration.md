@@ -50,7 +50,7 @@ runtime 文件使用单行 literal `KEY=value`，不使用引号、内联注释�
 | `CORS_ALLOWED_ORIGINS` | 实际 HTTPS 站点 origin；本环境为 `https://geo.962850.xyz`，无路径、无通配符 |
 | `PARTSIGNAL_SEED_ADMIN_PASSWORD`、`PARTSIGNAL_SEED_ENGINEER_PASSWORD` | 首次分别生成至少 32 随机字节的 URL-safe 值；应用底层最小值为 12 字符；只负责空库创建 `admin`/`content_editor`，不覆盖现有账号密码 |
 | `CELERY_CONCURRENCY` | 历史记录字段；实际 Compose worker command 固定 `--concurrency=1` |
-| `CONTENT_GENERATOR` | 固定 `openai-compatible` |
+| `CONTENT_GENERATOR` | Production 固定 `openai-compatible`；`deterministic` 会被 Settings 启动校验拒绝。开发/预览保留该值为业务 no-egress，不能产生假 AI 成功 |
 | `AI_CREDENTIAL_ENCRYPTION_KEY` | 独立随机 32 字节经 Base64 编码；与数据库备份成对保护，不能随发布轮换 |
 | `AI_ALLOW_LOCAL_HTTP` | 固定 `false` |
 | `GENERATION_EAGER` | 固定 `false`，使用 Worker/Scheduler |

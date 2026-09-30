@@ -54,7 +54,7 @@ from app.services.content_version_policy import (
     content_version_delete_references,
     content_version_is_deletable,
 )
-from app.services.generation import content_hash
+from app.services.generation import business_generation_enabled, content_hash
 from app.services.review_policy import content_review_actions, fact_review_actions
 from app.services.storage import get_evidence_storage
 
@@ -450,7 +450,8 @@ def content_versions_out(db: Session, contents: list[ContentVersion]) -> list[Co
             content.tags,
         )
         if (
-            fact_ready
+            business_generation_enabled()
+            and fact_ready
             and is_current
             and fact is not None
             and fact.classification == "PUBLIC"
@@ -946,7 +947,8 @@ def content_tasks_out(
             task,
             has_in_flight_publication=task.id in in_flight_task_ids,
             can_generate=bool(
-                fact_ready
+                business_generation_enabled()
+                and fact_ready
                 and current is None
                 and latest_generation_status not in {"PENDING", "RUNNING"}
                 and fact.classification == "PUBLIC"

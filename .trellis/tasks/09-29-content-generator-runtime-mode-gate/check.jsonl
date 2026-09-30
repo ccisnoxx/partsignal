@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "必要定向、合同和完整验证要求"}
+{"file": ".trellis/spec/backend/ai-configuration-guidelines.md", "reason": "第三方调用与测试注入验收"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "错误、失败与幂等验收"}
+{"file": ".trellis/tasks/09-29-content-generator-runtime-mode-gate/prd.md", "reason": "本任务验收与Git收口判据"}

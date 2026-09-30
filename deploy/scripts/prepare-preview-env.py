@@ -26,7 +26,10 @@ def main() -> int:
     parser.add_argument("--origin", required=True, help="预览站点 HTTPS origin，无路径")
     parser.add_argument("--output", type=Path, default=ROOT / ".env.staging")
     parser.add_argument(
-        "--generator", choices=("deterministic", "openai-compatible"), default="deterministic"
+        "--generator",
+        choices=("deterministic", "openai-compatible"),
+        default="deterministic",
+        help="deterministic 关闭业务生成；openai-compatible 允许合格真实生成，不自动创建渠道/模型",
     )
     args = parser.parse_args()
     try:

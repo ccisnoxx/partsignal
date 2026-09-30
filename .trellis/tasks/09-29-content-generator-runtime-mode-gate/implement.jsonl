@@ -1,0 +1,7 @@
+{"file": ".trellis/spec/backend/ai-configuration-guidelines.md", "reason": "正式业务模式、真实外发与测试注入合同"}
+{"file": ".trellis/spec/backend/available-actions-contract.md", "reason": "动作资格与命令重新验证"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "模式关闭错误与Job终态合同"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "PENDING/RUNNING、恢复与事务边界"}
+{"file": "contracts/openapi.yaml", "reason": "公共错误、read model与操作权威"}
+{"file": "contracts/database.md", "reason": "数据库生命周期权威"}
+{"file": ".trellis/tasks/09-29-content-generator-runtime-mode-gate/design.md", "reason": "已确认最小实现方向与范围"}

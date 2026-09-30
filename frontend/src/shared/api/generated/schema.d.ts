@@ -1167,6 +1167,7 @@ export interface paths {
         };
         get: operations["listGenerationJobs"];
         put?: never;
+        /** @description CONTENT_GENERATOR=deterministic 时以 409 AI_GENERATION_DISABLED 拒绝，包含幂等重放；不创建或提交作业，也不投递 Redis。 */
         post: operations["createGenerationJob"];
         delete?: never;
         options?: never;
@@ -1215,6 +1216,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** @description CONTENT_GENERATOR=deterministic 时以 409 AI_GENERATION_DISABLED 拒绝，包含幂等重放；不创建或提交作业，也不投递 Redis。 */
         post: operations["createHumanizationJob"];
         delete?: never;
         options?: never;
@@ -1247,6 +1249,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** @description CONTENT_GENERATOR=deterministic 时以 409 AI_GENERATION_DISABLED 拒绝，包含幂等重放；不创建或提交作业，也不投递 Redis。 */
         post: operations["retryGenerationJob"];
         delete?: never;
         options?: never;
@@ -3543,11 +3546,13 @@ export interface components {
             fact_version_id: string;
             fact_version: number;
         };
+        /** @description 业务生成模型候选受 CONTENT_GENERATOR 运行模式门禁控制；deterministic 不提供真实模型选择。 */
         PlatformPromptPreviewOptions: {
             platform_prompt: components["schemas"]["PlatformPromptSnapshot"];
             contexts: components["schemas"]["PlatformPromptPreviewContext"][];
             models: components["schemas"]["GenerationOptionModel"][];
         };
+        /** @description 业务生成模型候选受 CONTENT_GENERATOR 运行模式门禁控制；deterministic 不提供真实模型选择。 */
         GenerationOptions: {
             /** Format: uuid */
             platform_profile_id: string;
@@ -3578,6 +3583,7 @@ export interface components {
         GenerationJobStatus: "PENDING" | "RUNNING" | "SUCCEEDED" | "FAILED";
         /** @enum {string} */
         GenerationJobType: "GENERATE" | "HUMANIZE";
+        /** @description deterministic Worker 将 PENDING 作业原子标记 FAILED/AI_GENERATION_DISABLED，不调用供应商或创建内容；重复投递不改变终态。已 RUNNING 请求沿用租约及迟到结果合同。 */
         GenerationJob: {
             /** Format: uuid */
             id: string;
@@ -7330,7 +7336,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Prompt 当前可用于真实首稿生成的任务上下文与模型 */
+            /** @description Prompt 当前可用于真实首稿生成的任务上下文与模型；deterministic 模式 contexts 和 models 为空 */
             200: {
                 headers: {
                     "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
@@ -8520,7 +8526,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description 锁定平台、只读 Prompt 和当前可用模型 */
+            /** @description 锁定平台、只读 Prompt 和当前可用模型；deterministic 模式 models 为空 */
             200: {
                 headers: {
                     "X-Request-ID": components["headers"]["RequestIdResponseHeader"];

@@ -59,12 +59,14 @@ from app.services.generation import (
     GENERATION_CONTRACT_VERSION,
     HUMANIZATION_CONTRACT_VERSION,
     add_near_duplicate_warning,
+    business_generation_enabled,
     content_hash,
     ensure_generation_eligible,
     ensure_generation_sources_public,
     ensure_humanization_egress_allowed,
     ensure_third_party_egress_allowed,
     process_generation_job,
+    require_business_generation_enabled,
 )
 from app.services.generation_dispatch import dispatch_generation_job
 from app.worker import generate_content
@@ -84,7 +86,8 @@ def generation_job_contract_retryable(job: GenerationJob) -> bool:
 def generation_job_retryable(job: GenerationJob, task: ContentTask | None) -> bool:
     """返回作业是否通过重试入口的快照、状态与父任务门禁。"""
     return (
-        generation_job_contract_retryable(job)
+        business_generation_enabled()
+        and generation_job_contract_retryable(job)
         and job.status == "FAILED"
         and task is not None
         and task.status == "OPEN"
@@ -544,6 +547,7 @@ def create_generation_job(
     idempotency_key: str,
 ) -> GenerationJob:
     """锁定 OPEN 任务，幂等创建作业并在提交后尝试投递。"""
+    require_business_generation_enabled()
     task = db.scalar(select(ContentTask).where(ContentTask.id == content_task_id).with_for_update())
     if task is None:
         raise not_found("内容任务")
@@ -606,6 +610,7 @@ def create_humanization_job(
     idempotency_key: str,
 ) -> GenerationJob:
     """对一个合格 AI 版本幂等创建独立自然化作业。"""
+    require_business_generation_enabled()
     source_identity = db.get(ContentVersion, content_version_id)
     if source_identity is None:
         raise not_found("内容版本")
@@ -688,6 +693,7 @@ def retry_generation_job(
     idempotency_key: str,
 ) -> GenerationJob:
     """只允许 FAILED 作业在 OPEN 任务上以原快照显式重试。"""
+    require_business_generation_enabled()
     previous = db.get(GenerationJob, generation_job_id)
     if previous is None:
         raise not_found("生成作业")

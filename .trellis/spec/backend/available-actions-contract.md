@@ -31,7 +31,8 @@ class DeletionProjection(ContractModel):
 
 ## 3. 合同
 
-- PostgreSQL 当前资源、引用关系和当前操作者是动作资格的权威输入。
+- PostgreSQL 当前资源、引用关系、当前操作者及进程级业务运行门禁是动作资格的权威输入。
+- CONTENT_GENERATOR=deterministic 时内容任务、版本与作业投影分别移除 CREATE_GENERATION_JOB、CREATE_HUMANIZATION_JOB、RETRY；共享模式条件由 generation service owner 持有，命令入口仍以 AI_GENERATION_DISABLED 明确拒绝。人工创建、编辑和历史读取保持既有资格。
 - `workflow_stage` 是领域内可解释的当前阶段；`primary_task` 是该资源当前唯一高频主入口。两者都是读模型投影，不是写入授权凭证。
 - `available_actions` 表示响应生成时可尝试的命令，不是授权凭证；命令入口必须重新执行服务端校验并保留既有错误合同。
 - 同一资源的列表、详情和返回资源的 mutation 响应使用同一领域资格规则。

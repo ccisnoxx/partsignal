@@ -34,7 +34,8 @@ jobs:
       DATABASE_URL: postgresql+psycopg://partsignal:partsignal_test@localhost:5432/partsignal_test
       REDIS_URL: redis://localhost:6379/15
       SESSION_SECRET: ci-session-secret-at-least-32-bytes
-      CONTENT_GENERATOR: deterministic
+      # 成功路径使用本地协议替身；关闭模式由专门测试显式覆盖。
+      CONTENT_GENERATOR: openai-compatible
       OBJECT_STORAGE_BACKEND: development
       OBJECT_STORAGE_ENDPOINT: http://127.0.0.1:19009
       PARTSIGNAL_SEED_ADMIN_PASSWORD: partsignal-admin-dev

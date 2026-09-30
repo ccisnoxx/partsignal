@@ -405,6 +405,7 @@ ContentTask: OPEN -> CANCELLED
              OPEN | COMPLETED | CANCELLED -- archive/restore --> same status
 
 GenerationJob: PENDING -> RUNNING -> SUCCEEDED | FAILED
+               PENDING -> FAILED (pre-execution snapshot/runtime gate rejection)
                (applies to both GENERATE and HUMANIZE)
 
 PublicationWork:
@@ -477,3 +478,9 @@ State changes not shown above are invalid. A rejected immutable fact or content 
 - Historical GEO publication associations with null insight facts remain explicitly incomplete and never enter manual insight denominators.
 - GEO 优化任务必须与一条不可变 `content_task_geo_sources` 来源快照同事务创建；服务端重新计算异常，拒绝客户端伪造、过期或数据不足的依据。
 - Audit log details must not contain passwords, session cookies, AccessKeys, model keys, or unpublished source documents. Runtime audit accepts only retained successful actions; task aggregate deletion may remove old target logs and preserve one minimal deletion tombstone.
+
+## CONTENT_GENERATOR 业务生成运行模式
+
+`CONTENT_GENERATOR` 为各进程启动时的配置快照，保留 `deterministic` 和 `openai-compatible`。`deterministic` 只表示关闭正式业务生成，不能生成固定成功内容；GENERATE、HUMANIZE 与 RETRY 命令在任何 Job 写入、提交和 Redis 投递前返回 `409 AI_GENERATION_DISABLED`，包括同 key 的幂等 replay。管理模型测试/发现属于独立操作，仍遵守各自权限、revision 和网络门禁。
+
+正式 Worker 以 Job 行锁吸收重复投递；deterministic 下所有 PENDING 在执行前进入 `FAILED/AI_GENERATION_DISABLED`，保留原 attempt/started 字段，设置 finished_at、清 lease，不创建 ContentVersion、不写供应商成功 metadata 或审计。门禁先于已有 source_job_id 内容回收快速路径；既存内容历史不修改。openai-compatible 的既有内容回收语义保持不变。RUNNING 重投始终直接返回，配置变更不能撤回已发请求；原执行继续按 lease 与迟到结果合同收尾。配置文件变化不代表运行进程已重载，API/Worker/Scheduler 必须加载同一受控模式后才可声称新模式生效。

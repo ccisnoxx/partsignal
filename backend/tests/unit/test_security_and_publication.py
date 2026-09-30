@@ -202,6 +202,7 @@ def test_production_rejects_development_session_secret() -> None:
             _env_file=None,
             APP_ENV="production",
             SESSION_SECRET=DEVELOPMENT_SESSION_SECRET,
+            AI_ALLOW_LOCAL_HTTP=False,
             SESSION_COOKIE_SECURE=True,
             OBJECT_STORAGE_BACKEND="aliyun_oss",
             OSS_ENDPOINT="https://oss.example.invalid",

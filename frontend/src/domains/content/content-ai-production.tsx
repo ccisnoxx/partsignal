@@ -174,6 +174,7 @@ function ContentAiProduction({ blocked = false, context, csrfToken, taskId }: Co
 
   async function submitProduction() {
     if (blocked || !mode || !selectedModelId || !options.data) return;
+    if (!options.data.models.some((model) => model.id === selectedModelId)) return;
     if (mode === 'generate' ? !canGenerate : !canHumanize) return;
     setError(undefined);
     const prompt = options.data.platform_prompt;
@@ -199,7 +200,18 @@ function ContentAiProduction({ blocked = false, context, csrfToken, taskId }: Co
         if (!continuation.isCurrent()) return;
       }
       setError(errorMessage(caught));
+      if (isErrorCode(caught, 'AI_GENERATION_DISABLED')) await refreshModeProjections();
     }
+  }
+
+  async function refreshModeProjections() {
+    await Promise.all([
+      queryClient.invalidateQueries({ exact: true, queryKey: contentKeys.editorContext(taskId) }),
+      queryClient.invalidateQueries({ exact: true, queryKey: contentKeys.generationOptions(taskId) }),
+      queryClient.invalidateQueries({ exact: true, queryKey: contentKeys.generationJobs(taskId) }),
+      queryClient.invalidateQueries({ queryKey: contentKeys.details() }),
+      queryClient.invalidateQueries({ queryKey: contentKeys.lists() }),
+    ]);
   }
 
   async function submitRetry() {
@@ -216,6 +228,7 @@ function ContentAiProduction({ blocked = false, context, csrfToken, taskId }: Co
       if (!continuation.isCurrent()) return;
       if (isErrorCode(caught, 'IDEMPOTENCY_CONFLICT')) commandKeys.current.delete(signature);
       setError(errorMessage(caught));
+      if (isErrorCode(caught, 'AI_GENERATION_DISABLED')) await refreshModeProjections();
     }
   }
 
@@ -312,7 +325,7 @@ function ContentAiProduction({ blocked = false, context, csrfToken, taskId }: Co
             {error ? <p className="text-sm text-danger" role="alert">{error}</p> : null}
             <DialogFooter>
               <DialogClose render={<Button disabled={retry.isPending} variant="outline" />}>取消</DialogClose>
-              <Button disabled={blocked || retry.isPending} onClick={() => void submitRetry()} type="button">
+              <Button disabled={blocked || !summaryJob.available_actions.includes('RETRY') || retry.isPending} onClick={() => void submitRetry()} type="button">
                 {retry.isPending ? '创建重试作业中…' : '确认按原快照重试'}
               </Button>
             </DialogFooter>
@@ -416,6 +429,7 @@ function ProductionDialog({
             <label className="flex flex-col gap-1.5 text-sm" htmlFor="ai-production-model">
               <span className="type-label">模型</span>
               <Select
+                disabled={blocked || models.length === 0 || submitting}
                 items={models}
                 onValueChange={(value) => onSelectModel(value ?? undefined)}
                 value={selectedModelId ?? null}
@@ -443,7 +457,7 @@ function ProductionDialog({
         <DialogFooter>
           <DialogClose render={<Button disabled={submitting} variant="outline" />}>取消</DialogClose>
           <Button
-            disabled={blocked || !options || !selectedModelId || models.length === 0 || humanizationUnavailable || submitting}
+            disabled={blocked || !options || !models.some((model) => model.value === selectedModelId) || humanizationUnavailable || submitting}
             onClick={onSubmit}
             type="button"
           >

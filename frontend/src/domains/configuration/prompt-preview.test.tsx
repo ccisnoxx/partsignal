@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
+import { promptKeys } from './prompt.api';
 import { PromptPreview } from './prompt-preview';
 
 type ContentVersion = components['schemas']['ContentVersion'];
@@ -182,6 +183,58 @@ async function selectAndRun(contextName: RegExp, modelName: RegExp) {
 afterEach(() => vi.restoreAllMocks());
 
 describe('PromptPreview', () => {
+  it('服务端无 contexts/models 时禁用选择和真实 Preview 入口', async () => {
+    vi.spyOn(api, 'GET').mockResolvedValue(response({ ...previewOptions(), contexts: [], models: [] }));
+    const post = vi.spyOn(api, 'POST');
+    renderPreview();
+    await waitFor(() => expect(screen.getByRole('button', { name: '运行真实 Preview' })).toBeDisabled());
+    expect(screen.getByRole('combobox', { name: 'Test Context' })).toBeDisabled();
+    expect(screen.getByRole('combobox', { name: '模型' })).toBeDisabled();
+    await userEvent.setup().click(screen.getByRole('button', { name: '运行真实 Preview' }));
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('确认窗口打开后服务端清空候选，不能提交旧 context/model', async () => {
+    vi.spyOn(api, 'GET').mockResolvedValue(response(previewOptions()));
+    const post = vi.spyOn(api, 'POST');
+    const { queryClient } = renderPreview();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('combobox', { name: 'Test Context' }));
+    await user.click(await screen.findByRole('option', { name: /CT-FIRST/ }));
+    await user.click(screen.getByRole('combobox', { name: '模型' }));
+    await user.click(await screen.findByRole('option', { name: /模型 A/ }));
+    await user.click(screen.getByRole('button', { name: '运行真实 Preview' }));
+    const submit = screen.getByRole('button', { name: '确认创建真实首稿' });
+    await act(async () => {
+      queryClient.setQueryData(promptKeys.previewOptions(promptId), { ...previewOptions(), contexts: [], models: [] });
+    });
+    await waitFor(() => expect(submit).toBeDisabled());
+    await user.click(submit);
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('409 模式拒绝后刷新权威选项并保留公开错误，不重发命令', async () => {
+    let closed = false;
+    vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+      if (path === '/api/v1/platform-prompts/{platform_prompt_id}/preview-options') {
+        return response(closed ? { ...previewOptions(), contexts: [], models: [] } : previewOptions());
+      }
+      throw new Error(`测试收到未声明 GET：${path}`);
+    });
+    const post = vi.spyOn(api, 'POST').mockImplementation(async () => {
+      closed = true;
+      return {
+        error: { error: { code: 'AI_GENERATION_DISABLED', message: '当前运行模式已关闭业务 AI 生成', details: {}, request_id: 'preview-mode' } },
+        response: Response.json({}, { status: 409 }),
+      } as never;
+    });
+    renderPreview();
+    await selectAndRun(/CT-FIRST/, /模型 A/);
+    expect(await screen.findByText(/当前运行模式已关闭业务 AI 生成/)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('button', { name: '确认创建真实首稿' })).toBeDisabled());
+    expect(post).toHaveBeenCalledOnce();
+  });
+
   it('POST 采用 Job 后立即释放命令锁，旧消费者刷新挂起时可提交新 Task/model intent', async () => {
     let releaseFirstRead: (() => void) | undefined;
     const firstRead = new Promise<void>((resolve) => { releaseFirstRead = resolve; });

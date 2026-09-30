@@ -119,7 +119,8 @@ services:
       SESSION_SECRET: test-session-secret-at-least-32-bytes
       PARTSIGNAL_SEED_ADMIN_PASSWORD: partsignal-admin-dev
       PARTSIGNAL_SEED_ENGINEER_PASSWORD: partsignal-engineer-dev
-      CONTENT_GENERATOR: deterministic
+      # 测试成功路径调用显式 HTTP 替身；deterministic no-egress 由专门用例覆盖。
+      CONTENT_GENERATOR: openai-compatible
       AI_CREDENTIAL_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
       AI_ALLOW_LOCAL_HTTP: 'true'
       OBJECT_STORAGE_BACKEND: development

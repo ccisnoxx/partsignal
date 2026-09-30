@@ -365,6 +365,7 @@ const current = task.current_content;
 - 数据库 revision：`0011_generation_reliability`，`down_revision = "0010_user_cleanup"`。
 - `generation_jobs.status` 是执行权威；Redis 消息、投递次数和时间只负责唤醒与诊断，不能形成第二状态机。
 - 超龄 `PENDING` 扫描必须使用有限批次与 `FOR UPDATE SKIP LOCKED`；只有原子声明为 `RUNNING` 的 Worker 可以发起供应商调用。
+- 正式 Worker 加锁后对 `deterministic` 的 PENDING 先提交 `FAILED/AI_GENERATION_DISABLED`，不增加 attempt、不设置 started_at、不写 provider metadata 或创建内容；重复消息不重复写失败。Beat 只补投递 UUID，不能决定生成权限。模式关闭早于 source version 恢复，既有内容不删除；已 RUNNING 的请求仍遵守原 lease/迟到结果合同。
 - 租约取不可变快照中的供应商超时再加正数收尾裕量。过期 `RUNNING` 只能显式失败，自动补投递不得覆盖到该状态。
 - 迁移只增加可向后读取的列、检查约束和部分索引；历史迁移与 `migration_schema_v1.py` 保持冻结。
 - PostgreSQL 集成测试必须覆盖多恢复器、重复消息、租约竞态、迟到响应和迁移前后旧列读取，不能用 SQLite 替代行锁语义。

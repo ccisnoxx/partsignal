@@ -25,6 +25,11 @@
 
 - `AI_CREDENTIAL_ENCRYPTION_KEY` 必须是 Base64 编码的 32 字节密钥。
 - 生产环境必须使用 `CONTENT_GENERATOR=openai-compatible` 和 `AI_ALLOW_LOCAL_HTTP=false`。
+- `CONTENT_GENERATOR=deterministic` 是兼容保留的正式业务 no-egress 模式，不是运行时确定性 AI adapter：GENERATE/HUMANIZE/RETRY 在服务入口、幂等 replay 和任何 Job 写入/提交/Redis 投递前返回 `409 AI_GENERATION_DISABLED`（details={}）。模式 predicate/guard 共用 generation service owner；管理员显式模型测试/发现不受该业务门禁影响。
+- 模式关闭时 task/version/job 投影不包含 CREATE_GENERATION_JOB/CREATE_HUMANIZATION_JOB/RETRY，共享 generation_model_options 返回空模型，Prompt Preview contexts 由同一 action 筛选为空；配置事实和人工工作流保留。
+- Worker 锁行并吸收非 PENDING 后先检查模式，早于已有内容回收路径：所有关闭模式 PENDING 进入 FAILED/AI_GENERATION_DISABLED，设置 finished_at/清 lease、保留 attempt_count/started_at，不调用 provider、不插入 Version/成功 metadata 或审计，既存内容历史不改。openai-compatible 仍保留已有结果恢复路径。真实外发边界再次执行相同 guard。
+- 只有 APP_ENV=test 下显式 ContentGenerator 注入可绕过业务模式；快照/PUBLIC/context 校验仍执行。Celery 与 eager 正式 UUID 入口不提供注入。未知模式继续 Settings 显式失败，不添加 fallback。
+- Settings 为进程启动快照，各 API/Worker/Scheduler 必须加载同一配置；文件更新不是热重载。已有 RUNNING 不因模式变化重放或撤回请求，执行者继续租约/迟到结果合同，收尾不增加模式复验。
 - `AI_ALLOW_LOCAL_HTTP=true` 只允许 `development`/`test` 的回环 HTTP 地址；公网仍使用 HTTPS，私网、链路本地和混合解析结果均拒绝。
 - API Key 和敏感 Header 使用 AES-256-GCM 密文保存，关联数据绑定记录 ID；响应、日志、审计和作业快照不得包含明文。
 - Production bootstrap 的 credential 只能从真实交互式 no-echo TTY 经 stdin pipe 进入 backend；不得使用 argv、environment、文件、shell history、日志、Docker metadata 或网络管理入口。第一版不接收自定义 Header。输出只允许固定状态、request ID、UUID、revision、test status 和 enabled/configured 布尔值，不得包含名称、URL、model ID、参数、credential 长度/摘要/片段、provider body 或原始异常。
@@ -108,7 +113,7 @@
 - 单元测试：连接测试请求必须只有一条 `hi` 用户消息；连接响应只校验通用 Chat Completions 结构，正式生成仍覆盖严格业务 JSON。
 - 迁移测试：`0008_files -> head` 账号映射、旧权限表删除、新配置表/约束/触发器和有损回滚策略。
 - 契约测试：`make contract-check` 验证 FastAPI/OpenAPI 语义和前端生成类型无漂移。
-- 端到端测试：真实 HTTP 测试替身完成模型发现、测试和生成；确定性生成器只用于明确的单元/开发场景，不能伪装成真实云端成功。
+- 端到端测试：真实 HTTP 测试替身完成模型发现、测试和生成；显式 ContentGenerator 只用于 APP_ENV=test 注入；deterministic 正式模式仅关闭业务生成，不能伪装成真实云端成功。
 - Prompt 管理断言：平台列表批量返回当前模板摘要，共享更新列出全部受影响平台，绑定模板按 revision 原子解绑删除并使新生成显式缺配置，历史作业快照不变；Preview Options 覆盖 ADMIN/403/404、action 最终筛选、稳定排序、共享模型查询、无敏感正文与固定查询次数；配置页覆盖显式选择、stable key、returned Job polling、终态停止、公开失败和不可变 AI `DRAFT`。
 - 并发断言：作业创建锁定任务并读取当前平台 Prompt 与冻结事实；过期租约后的迟到响应不能写入成功结果。
 - 恢复断言：首次投递缺失、Broker 已接受但元数据未提交、重复消息和并发恢复均至多产生一次供应商调用和一个内容版本。

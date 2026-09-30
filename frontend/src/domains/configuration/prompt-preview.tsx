@@ -248,6 +248,9 @@ function PromptPreview({
         if (!continuation.isCurrent()) return;
       }
       setError(errorMessage(caught));
+      if (isErrorCode(caught, 'AI_GENERATION_DISABLED')) {
+        await invalidatePreviewConsumers(queryClient, selectedContext.content_task_id, false);
+      }
     } finally {
       if (continuation.isCurrent()) pending.current = false;
     }

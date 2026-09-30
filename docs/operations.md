@@ -45,6 +45,10 @@ AI 请求只连接经过校验的公网地址，TLS 身份与 Host 使用渠道�
 
 ## 生成恢复与历史门禁
 
+`CONTENT_GENERATOR` 是进程启动配置：`deterministic` 保留为正式业务 no-egress 模式，关闭生成、自然化与重试，不输出假内容；Production Settings 仍要求 `openai-compatible`。管理员显式模型测试/发现不受业务模式关闭影响。API 拒绝为 `409 AI_GENERATION_DISABLED`，没有 Job/commit/Redis 副作用；读投影移除相关动作，模型候选为空。Worker 对关闭模式的 PENDING 原子写入 `FAILED/AI_GENERATION_DISABLED`、finished_at 并清 lease，保留 attempt/started，重复消息不重复改变终态或新增审计。供应商 metadata 保持未报告值，不补零。
+
+API、Worker、Scheduler 必须加载同一模式；配置文件修改不是热重载，也无法撤回已经 RUNNING 的请求。RUNNING 重投始终不再次外发，原调用继续按租约收尾，迟到结果不能覆盖已经提交的失败终态。Beat 只补投递超龄 PENDING UUID，不替 Worker 判定供应商资格；模式关闭后的历史 PENDING 最终由 Worker 拒绝。没有新配置版本/运行进程证据时不得宣称门禁已在线生效。
+
 生成恢复默认每 60 秒扫描一次，只补投递超过 120 秒的 `PENDING` Job；`RUNNING` 租约按作业快照供应商超时加 120 秒收尾裕量计算。可按负载显式配置 `GENERATION_PENDING_REDISPATCH_SECONDS`、`GENERATION_FINALIZE_GRACE_SECONDS`、`GENERATION_RECOVERY_BATCH_SIZE` 和 `GENERATION_RECOVERY_SCAN_SECONDS`，不得把阈值设为零规避状态机。
 
 诊断必须同时观察 Worker、Scheduler 和 PostgreSQL 业务积压，输出只允许包含数量、年龄、错误码和供应商耗时。消息风暴时先停止 Scheduler；不得批量改写 PostgreSQL 作业状态，也不得自动重放已经进入 `RUNNING` 或 `FAILED` 的 Job。

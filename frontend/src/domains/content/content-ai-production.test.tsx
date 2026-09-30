@@ -1,10 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
+import { contentKeys } from './content.api';
 import { ContentAiProduction } from './content-ai-production';
 
 type ContentEditorContext = components['schemas']['ContentEditorContext'];
@@ -194,6 +195,90 @@ afterEach(() => {
 });
 
 describe('ContentAiProduction', () => {
+  it.each(['generate', 'humanize'] as const)('服务端移除 %s 动作时不呈现入口或请求模型', (mode) => {
+    const initial = context({ current: mode === 'humanize' ? version() : null });
+    const get = vi.spyOn(api, 'GET');
+    renderProduction({
+      ...initial,
+      task: { ...initial.task, available_actions: ['CANCEL', 'CREATE_MANUAL_VERSION'] },
+      current_content: initial.current_content
+        ? { ...initial.current_content, available_actions: ['CREATE_REVISION'] }
+        : null,
+    });
+    expect(screen.queryByRole('button', { name: 'AI 生成首稿' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '创建自然化版本' })).not.toBeInTheDocument();
+    expect(get).not.toHaveBeenCalled();
+  });
+
+  it.each(['generate', 'humanize'] as const)('打开 %s 后模型候选被撤销，禁止提交旧选择', async (mode) => {
+    vi.spyOn(api, 'GET').mockResolvedValue(response(generationOptions));
+    const post = vi.spyOn(api, 'POST');
+    const { queryClient } = renderProduction(context({ current: mode === 'humanize' ? version() : null }));
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: mode === 'generate' ? 'AI 生成首稿' : '创建自然化版本' }));
+    const dialog = screen.getByRole('dialog');
+    await user.click(within(dialog).getByRole('combobox', { name: '模型' }));
+    await user.click(await screen.findByRole('option', { name: /Fixture Model/ }));
+    const submit = within(dialog).getByRole('button', { name: mode === 'generate' ? '确认 Prompt 与模型并开始生成' : '确认创建自然化版本' });
+    expect(submit).toBeEnabled();
+    await act(async () => {
+      queryClient.setQueryData(contentKeys.generationOptions(ids.task), { ...generationOptions, models: [] });
+    });
+    await waitFor(() => expect(submit).toBeDisabled());
+    expect(within(dialog).getByRole('combobox', { name: '模型' })).toBeDisabled();
+    await user.click(submit);
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('重试确认窗打开后服务端撤销 RETRY，确认控件不可点击', async () => {
+    const failed = job({ status: 'FAILED', workflow_stage: 'RETRYABLE_FAILURE', primary_task: 'HANDLE_FAILURE', available_actions: ['RETRY'] });
+    vi.spyOn(api, 'GET').mockResolvedValue(response({ items: [failed] }));
+    const post = vi.spyOn(api, 'POST');
+    const { queryClient } = renderProduction(context({ latest: {
+      id: ids.job, job_type: 'GENERATE', status: 'FAILED', attempt_count: 0,
+      error_code: 'AI_GENERATION_DISABLED', error_summary: '业务生成已关闭',
+      created_at: failed.created_at, started_at: null, finished_at: null,
+    } }));
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: '按原快照重试' }));
+    const submit = screen.getByRole('button', { name: '确认按原快照重试' });
+    await act(async () => {
+      queryClient.setQueryData(contentKeys.generationJobs(ids.task), { items: [{
+        ...failed, workflow_stage: 'HISTORICAL_FAILURE', primary_task: 'VIEW_FAILURE', available_actions: [],
+      }] });
+    });
+    await waitFor(() => expect(submit).toBeDisabled());
+    await user.click(submit);
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('模式拒绝显示公开错误并刷新模型与动作，不自动重发', async () => {
+    let closed = false;
+    vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+      if (path === '/api/v1/content-tasks/{content_task_id}/generation-options') {
+        return response({ ...generationOptions, models: closed ? [] : generationOptions.models });
+      }
+      throw new Error(`未声明 GET：${path}`);
+    });
+    const post = vi.spyOn(api, 'POST').mockImplementation(async () => {
+      closed = true;
+      return apiError('AI_GENERATION_DISABLED', '当前运行模式已关闭业务 AI 生成', 'mode-request', 409);
+    });
+    const { queryClient } = renderProduction(context());
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'AI 生成首稿' }));
+    const dialog = screen.getByRole('dialog');
+    await user.click(within(dialog).getByRole('combobox', { name: '模型' }));
+    await user.click(await screen.findByRole('option', { name: /Fixture Model/ }));
+    const submit = within(dialog).getByRole('button', { name: '确认 Prompt 与模型并开始生成' });
+    await user.click(submit);
+    expect(await within(dialog).findByText(/当前运行模式已关闭业务 AI 生成/)).toBeInTheDocument();
+    await waitFor(() => expect(submit).toBeDisabled());
+    expect(invalidate).toHaveBeenCalledWith({ exact: true, queryKey: contentKeys.editorContext(ids.task) });
+    expect(post).toHaveBeenCalledOnce();
+  });
+
   it.each(['generate', 'humanize'] as const)('打开 %s Dialog 后 token 被撤销，禁止继续提交', async (mode) => {
     vi.spyOn(api, 'GET').mockResolvedValue(response(generationOptions));
     const post = vi.spyOn(api, 'POST');

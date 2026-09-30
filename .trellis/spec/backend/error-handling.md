@@ -353,7 +353,7 @@ except IntegrityError as error:
   - `uq_generation_jobs_idempotency_key`：由 caller root `rollback()` 后按 key 加载 winner；先确认 canonical identity 字段可验证，再用同一冻结 identity 比较。同身份 replay 既有作业，可证明异身份抛 `IDEMPOTENCY_CONFLICT`（409，`幂等键已用于另一生成请求`，`details={}`）。winner 缺失或 identity 无法验证时原样上抛原 `IntegrityError`。
   - `uq_generation_jobs_active_humanization_source`：只允许 Humanization caller 接管；caller root `rollback()` 后直接抛 `HUMANIZATION_ALREADY_ACTIVE`（409，`该源版本已有活动自然化作业`，`details={}`），不得回查幂等键或用查询结果反推约束。GENERATE caller 遇到该约束必须原抛。
 - canonical identity 必须在 flush 前冻结为标量，正常 replay 和竞态恢复共用同一比较规则；actor 与 request ID 不属于 identity。原始 GENERATE winner 的 `input_snapshot.platform_prompt.id/revision` 缺失、损坏或类型无法解释时属于不可验证，不得降格为可证明的异身份冲突；该完整性检查只用于 rollback 后恢复，不改变普通 lookup 与 Humanization 既有语义。
-- GENERATE 与 HUMANIZE retry 都必须先验证旧作业存在、快照合同有效、状态为 `FAILED` 且父任务为 `OPEN`，随后冻结 identity 并做 key replay/conflict；只有新 key 才继续 latest 和当前新建资格检查。different key 不得绕过 latest-job 规则。
+- 正式命令先执行业务生成运行模式门禁；开启后，GENERATE 与 HUMANIZE retry 都必须先验证旧作业存在、快照合同有效、状态为 `FAILED` 且父任务为 `OPEN`，随后冻结 identity 并做 key replay/conflict；只有新 key 才继续 latest 和当前新建资格检查。different key 不得绕过 latest-job 规则。
 - 成功仍由 caller `commit()` 后 dispatch；已知冲突和未知异常不得 commit、dispatch 或留下 generation/content/review/audit/task revision 副作用。
 
 ### 3. Validation & Error Matrix
@@ -381,19 +381,27 @@ except IntegrityError as error:
 ## 场景：ContentVersion identity 的最终失败边界
 
 - `uq_content_versions_source_job_id` 只属于 `process_generation_job` 的内容 INSERT；`uq_content_versions_task_id` 属于人工首稿、人工修订及 worker 的版本号分配。约束可识别不代表它具有可恢复的 HTTP 业务含义，不新增 mapper。
-- worker 在 provider 前按 `source_job_id` 查到既有版本时，沿用同一 Job 的 `SUCCEEDED` 收敛且不调用 provider；正常重复消息由 Job 锁和状态门禁吸收。
+- `openai-compatible` worker 在 provider 前按 `source_job_id` 查到既有版本时，沿用同一 Job 的 `SUCCEEDED` 收敛且不调用 provider；正常重复消息由 Job 锁和状态门禁吸收。`deterministic` 对所有 PENDING 先执行运行模式失败门禁，保留既有版本但不恢复成功。
 - final transaction 真实命中任一 identity 唯一约束时，worker 先 root rollback，再将同一 Job 提交为 `FAILED`，`error_code=GENERATION_FAILED`、`error_summary=生成作业执行失败`，设置失败完成时间并清 lease。不在错误后查询或猜测 winner，不 replay、不改号、不再次调用 provider 或 dispatch。
 - 人工首稿与修订的 `23505 + uq_content_versions_task_id` 保持原始 `IntegrityError`，由 request Session rollback 后进入默认 unknown 500；不得映射 `REVISION_CONFLICT`。只有真实 `expected_revision` 比较失败继续返回原有 409。
 
 | 入口与触发点 | 结果 | 事务边界 |
 |---|---|---|
-| worker provider 前已有 source version | 同 Job `SUCCEEDED`，零 provider 调用 | 沿用已有版本身份 |
+| openai-compatible worker provider 前已有 source version | 同 Job `SUCCEEDED`，零 provider 调用 | 沿用已有版本身份 |
 | worker final flush 的两个精确 identity 约束之一 | `FAILED/GENERATION_FAILED`，固定安全摘要 | 回滚整个 final transaction，随后只提交 Job 失败字段 |
 | manual/revision 的 task/version 精确唯一约束 | 默认 unknown 500 | request Session 回滚，正文不 replay、版本不改号 |
 
 必需证据：current-head PostgreSQL catalog 与真实 `23505/diag.constraint_name`；正常重复 worker；两个精确约束 sentinel；HTTP 500 正文与响应头不泄漏 SQL、表名、约束、数据库 message 或堆栈；独立 stale revision 409。HTTP 与 worker 均须观测原 Session 在真实 rollback 后可查询，独立连接查询只作为持久化原子性的补充。不得把默认 500 的 body/code/header 固化成新的公共错误信封。
 
 事务分配及晚期失败证明见 [数据库开发规范](./database-guidelines.md#场景contentversion-版本分配与-final-transaction)。错误做法是在 source unique 失败后查询并采用某一版本；正确做法是保留 provider 前 lookup，final exception 交给 worker 自己的 rollback/FAILED owner。
+
+## 场景：业务生成运行模式关闭
+
+- `CONTENT_GENERATOR=deterministic` 是正式业务生成禁用值；共享门禁由 `services/generation.py` 拥有。GENERATE、HUMANIZE 与两种 RETRY 在任何幂等 replay、Job 写入、commit 或 dispatch 前抛 `409 AI_GENERATION_DISABLED`，message 为 `当前运行模式未启用 AI 内容生成`，`details={}`。不得映射为渠道 disabled、revision conflict 或供应商错误。
+- Worker 对加锁的 PENDING 原子提交 `FAILED/AI_GENERATION_DISABLED`、安全摘要与 finished_at，清除 lease；不开始 attempt、不写供应商 usage、不创建 ContentVersion，也不新增成功审计。重复消息首先检查终态，不能再次执行失败写入。
+- RUNNING 及其他非 PENDING 消息不重放；已经发出的请求继续按现有 lease/迟到结果合同结束。配置是进程启动快照，文件修改不代表运行进程已经重载。
+- 管理员连接测试、模型测试与发现模型属于独立管理操作；不得在公共供应商 client 上施加业务模式门禁。显式测试 generator 只允许 APP_ENV=test，不得进入 Celery 正式入口。
+- 前端显示实际错误并刷新服务端动作/候选；不能猜测模式、自动重发或保留失效确认按钮。
 
 ## 场景：ContentVersion 审核状态唯一约束的领域边界
 

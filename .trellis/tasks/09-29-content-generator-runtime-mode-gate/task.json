@@ -3,7 +3,7 @@
   "name": "content-generator-runtime-mode-gate",
   "title": "CONTENT_GENERATOR 正式 Worker 运行模式门禁修复",
   "description": "保留 deterministic no-egress 兼容模式，修复 API/read model/Worker/eager/redispatch/retry 的正式业务生成门禁；仅本地验证与 Git 收口。",
-  "status": "in_progress",
+  "status": "completed",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -11,11 +11,11 @@
   "creator": "777",
   "assignee": "777",
   "createdAt": "2026-09-29",
-  "completedAt": null,
+  "completedAt": "2026-09-30",
   "branch": null,
   "base_branch": "main",
   "worktree_path": null,
-  "commit": null,
+  "commit": "9a2d29b6c3fd6c9544293204813aa0c046adb692",
   "pr_url": null,
   "subtasks": [],
   "children": [],
@@ -51,7 +51,7 @@
     "frontend/src/domains/content/content-ai-production.tsx",
     "frontend/src/shared/api/generated/schema.d.ts"
   ],
-  "notes": "实现与全部验证通过；唯一一次make verify exit0；fresh高风险复核NO BLOCKER。Git收口待本记录后执行，其他任务/远端状态不变。",
+  "notes": "代码提交9a2d29b6已非强制fast-forward push并确认main=origin/main/clean；713+857 unit、356 integration、21真实E2E、494 frontendE2E/44 skipped。单次make verify exit0，fresh高风险复核NO BLOCKER；本任务完成，收口记录独立docs提交，不继续开发或部署。",
   "meta": {
     "baseline_commit": "743ace98a322fc8b060360e54d2cb8298d296eba",
     "previous_task_commit": "743ace98a322fc8b060360e54d2cb8298d296eba",
@@ -74,6 +74,14 @@
     "final_review": "NO BLOCKER",
     "audit_verified": true,
     "resources_cleaned": true,
-    "shared_redis_binding_metadata_preserved": 33
+    "shared_redis_binding_metadata_preserved": 33,
+    "code_commit_pushed": true,
+    "secret_scan": {
+      "tracked_files": 2491,
+      "unchanged_baseline_fixture_findings": 2,
+      "candidate_hits": 0,
+      "protected_env_tracked": false,
+      "task_json_jsonl_parsed": 6
+    }
   }
 }

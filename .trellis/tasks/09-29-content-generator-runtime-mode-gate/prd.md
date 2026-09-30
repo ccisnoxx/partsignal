@@ -23,6 +23,6 @@
 - [x] 定向检查、lint/typecheck/contract、真实 PostgreSQL/Redis/Celery lifecycle 通过。
 - [x] fresh critical_reviewer 最终 NO BLOCKER，有效 SUBAGENT_EXECUTION_DIGEST。
 - [x] 候选稳定后仅一次完整 make verify，保存日志/退出码/测试数量/SHA/清理证据。
-- [ ] 最后 diff/secret scan/JSON 解析，原子提交并非强制 fast-forward push；local main=origin/main，clean。
+- [x] 最后 diff/secret scan/JSON 解析，原子提交并非强制 fast-forward push；local main=origin/main，clean。
 
 若调查需要删除 CONTENT_GENERATOR，不破坏兼容；记录 blocker 并停止等待单独合同决策。

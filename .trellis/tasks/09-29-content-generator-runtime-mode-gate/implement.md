@@ -53,3 +53,11 @@ real-stack脚本执行独立worker/scheduler启动与退出路径；未独立采
 有效SUBAGENT_EXECUTION_DIGEST属于本任务，Bundle已CLOSED/VERIFIED：20260930T062903Z-content-generator-runtime-mode-gate-fb510127，20 artifacts，3 plans/3 attempts/3 accepted/1 independent review，warnings/errors/anomalies均0，无残留active Worker，无未知write evidence。模型/effort是Agent TOML配置快照，不冒充运行时遥测。
 
 实现与验收完成，Git代码提交/push尚待本记录之后执行；任务在Git确认前保持in_progress。下一步只做本任务Git收口，不继续开发/部署。服务器仍运行旧release；真实AI/OSS、线上env/credential/DB/container以及Hostdzire/Production cutover均未操作，既有真实AI Job/ContentVersion/审计与其他Trellis任务及旧候选工作区保留。要使门禁在线生效，需另行授权受控模式配置和服务部署/重载，不属于本会话。
+
+## Git 完成与任务关闭
+
+最后实际 diff 复核仅本任务29维护源+6Trellis记录共35文件，无其他task/旧工作区/私有env/browser状态。全部维护源SHA与fresh独立复核一致。最终diff --check及cached --check exit0；任务相关6个JSON/JSONL解析通过；tracked secret scan覆盖2491文件，2 unchanged baseline Bearer fixture，候选命中0，protected env tracked0。高信号启发式扫描不替代未知secret格式检测；两个E2E另有受控运行secret scan clean。precommit扫描code-precommit-secret-scan.json，完整外部日志/receipt清单与SHA为log-inventory.json。
+
+代码及初始记录原子提交 `9a2d29b6c3fd6c9544293204813aa0c046adb692`（fix(generation): enforce content generator runtime gate）已非强制fast-forward push，之后确认local main=origin/main、工作树clean；code-git-closure.json记录真实成功。任务设为completed、parent仍null；仅本任务解除会话指针，不归档其他活动task。该Git完成记录将单独docs提交并非强制push，最终main/clean结果保存在外部final-git-closure.json；不改动维护源、不重跑已有效全门禁。
+
+本会话完成后停止。无Hostdzire部署、真实OSS接入、线上AI配置改变、release、Production cutover或旧候选工作区操作。后续服务部署/配置重载属于单独授权任务；来源未确认的共享Redis routing binding metadata及基础volume保持保留。

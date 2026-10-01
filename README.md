@@ -33,6 +33,13 @@ PartSignal（元件信号）是面向电子元器件国产替代业务的多平�
 - [Hostdzire 部署上线 Runbook](./docs/Hostdzire部署上线流程.md)
 - [Hostdzire 部署附录](./docs/Hostdzire部署附录.md)
 
+### GEO 监测文档
+
+- [GEO 文档索引与阅读顺序](./docs/geo-monitoring/README.md)
+- [实施路线图](./docs/geo-monitoring/04-delivery/01-implementation-roadmap.md)
+- [工作分解结构（WBS）](./docs/geo-monitoring/04-delivery/02-work-breakdown-structure.md)
+- [任务状态与依赖清单](./docs/geo-monitoring/04-delivery/task-manifest.yaml)
+
 ## 状态
 
 MVP 纵向闭环已实现，采用契约优先的前后端并行开发。默认开发配置只使用虚构数据、确定性生成器和独立开发对象存储；真实模型、生产 OSS、生产 VPS 与跨平台自动发布均未启用。

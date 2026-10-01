@@ -40,6 +40,29 @@ Managed by Trellis. Edits outside this block are preserved; edits inside may be 
 - 当前分支规则有两个记录来源：本文件采用 `main` 单分支，迁移历史记录 V2 临时分支例外。创建分支或提交前依据用户当前指示解析，不自动沿用历史例外。
 - 功能、权限、数据模型、API、配置或部署行为变化时更新对应权威文档；一次性实现过程留在 task 历史，不复制到多个稳定规范。
 
+## GEO Monitoring Implementation
+
+For every task whose ID starts with `GEO-`:
+
+1. Read `docs/geo-monitoring/README.md`.
+2. Read `docs/geo-monitoring/04-delivery/04-codex-execution-guide.md`.
+3. Locate the task in:
+   - `docs/geo-monitoring/04-delivery/task-manifest.yaml`
+   - `docs/geo-monitoring/04-delivery/02-work-breakdown-structure.md`
+4. Verify that all task dependencies are `done`.
+5. Read the task's `required_docs` and applicable ADRs.
+6. Inspect the current code, tests, migrations, `contracts/openapi.yaml`,
+   and `contracts/database.md` before editing.
+7. Implement exactly one `GEO-NNN` task per branch or worktree.
+8. Do not implement downstream tasks or alter approved metrics and state machines.
+9. Use `.trellis` for task execution evidence according to existing repository conventions.
+10. Run and report the exact required validation commands. Never claim unrun tests passed.
+
+`docs/geo-monitoring/04-delivery/task-manifest.yaml` is the authoritative
+task-status and dependency source. A task moves to `done` only after human review.
+
+GEO 文档任务从 [文档索引](./docs/geo-monitoring/README.md) 和 [执行指南](./docs/geo-monitoring/04-delivery/04-codex-execution-guide.md) 进入；按本任务范围选择验证，纯文档任务检查导航、相对链接和文件哈希。完成交付与验证后将 manifest 状态置为 `review`，保留 Trellis 验证证据，等待人工验收。
+
 ## 核心工程原则
 
 ### 适用与解释

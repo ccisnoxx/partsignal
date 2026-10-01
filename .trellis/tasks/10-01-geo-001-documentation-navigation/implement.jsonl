@@ -1,0 +1,5 @@
+{"file": "docs/geo-monitoring/README.md", "reason": "文档根路径、全量导航和阅读顺序"}
+{"file": "docs/geo-monitoring/00-governance/01-document-governance.md", "reason": "文档状态、治理与变更范围"}
+{"file": "docs/geo-monitoring/04-delivery/02-work-breakdown-structure.md", "reason": "GEO-001 范围、交付和验收"}
+{"file": "docs/geo-monitoring/04-delivery/task-manifest.yaml", "reason": "GEO-001 依赖及人工评审状态权威"}
+{"file": "docs/geo-monitoring/04-delivery/04-codex-execution-guide.md", "reason": "单任务执行边界和完成证据"}

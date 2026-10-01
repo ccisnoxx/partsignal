@@ -266,7 +266,7 @@ async function uploadEvidence(page: Page, filename: string) {
     )),
     page.waitForRequest((request) => (
       request.method() === 'PUT'
-      && new URL(request.url()).port === (process.env.PARTSIGNAL_E2E_STORAGE_PORT ?? '19009')
+      && /^\/api\/v1\/files\/[^/]+\/content$/.test(new URL(request.url()).pathname)
     )),
     page.waitForResponse((response) => (
       response.request().method() === 'POST'
@@ -281,10 +281,15 @@ async function uploadEvidence(page: Page, filename: string) {
   const intent = await responseBody<UploadIntent>(intentResponse);
   const file = await responseBody<FileRecord>(completeResponse);
   expect(intent.upload.method).toBe('PUT');
+  expect(intent.upload.url).toBe(`/api/v1/files/${intent.file.id}/content`);
+  expect(new URL(transferRequest.url()).pathname).toBe(intent.upload.url);
+  expect(new URL(transferRequest.url()).origin).toBe(new URL(intentResponse.url()).origin);
   expect(
-    transferRequest.url() === intent.upload.url,
-    '上传请求必须使用 upload intent 提供的签名 URL',
+    transferRequest.headers()['x-csrf-token'] === intentResponse.request().headers()['x-csrf-token'],
+    '上传请求必须使用同一会话的 CSRF 令牌',
   ).toBe(true);
+  expect(transferRequest.headers()['content-type']).toBe('application/octet-stream');
+  expect(transferRequest.postDataBuffer()).toEqual(Buffer.from(`PartSignal GEO evidence ${filename}`));
   expect(file).toMatchObject({
     id: intent.file.id,
     original_filename: filename,

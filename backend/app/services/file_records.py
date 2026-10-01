@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import mimetypes
 import uuid
@@ -67,7 +68,7 @@ ALLOWED_TYPES = {
 def create_upload_intent(
     *, db: Session, payload: UploadIntentCreate, actor: User, request_id: str
 ) -> UploadIntent:
-    """校验类别、类型和大小后持久化上传意图并签发直传 URL。"""
+    """校验类别、类型和大小后持久化意图，返回应用内传输路径。"""
     if payload.size > MAX_SIZES[payload.category]:
         raise AppError("VALIDATION_ERROR", "文件大小超过该类别限制", 422)
     if payload.content_type not in ALLOWED_TYPES[payload.category]:
@@ -81,12 +82,6 @@ def create_upload_intent(
     object_key = (
         f"{settings.environment}/{payload.category.casefold()}/{now.year}/{now.month:02d}/"
         f"{file_id}{suffix}"
-    )
-    authorization = get_evidence_storage().authorize_upload(
-        object_key,
-        expires_at,
-        content_type=payload.content_type,
-        sha256=payload.sha256,
     )
     file = FileRecord(
         id=file_id,
@@ -106,19 +101,75 @@ def create_upload_intent(
         file=FileRecordOut.model_validate(file),
         upload=UploadInstruction(
             method="PUT",
-            url=authorization.url,
-            headers=authorization.headers,
+            url=f"/api/v1/files/{file_id}/content",
+            headers={"Content-Type": "application/octet-stream"},
             fields={},
             expires_at=expires_at,
         ),
     )
 
 
+def _pending_upload(file: FileRecord | None, actor: User) -> FileRecord:
+    """传输入口与写入边界共用创建者、状态和有效期守卫。"""
+    if file is None:
+        raise not_found("文件记录")
+    if file.uploader_id != actor.id:
+        raise AppError("PERMISSION_DENIED", "只有上传意图创建者可以传输文件", 403)
+    if file.status != "PENDING":
+        raise AppError("INVALID_STATE_TRANSITION", "只有 PENDING 文件可以传输", 409)
+    if file.upload_expires_at <= datetime.now(UTC):
+        raise AppError("INVALID_STATE_TRANSITION", "上传意图已过期", 409)
+    return file
+
+
+def prepare_file_upload(*, db: Session, file_id: uuid.UUID, actor: User) -> int:
+    """先授权，再释放认证事务；慢速接收期间不持有数据库连接或行锁。"""
+    file = _pending_upload(db.get(FileRecord, file_id), actor)
+    size_limit = min(file.size, MAX_SIZES[file.category])
+    db.commit()
+    return size_limit
+
+
+def upload_file_content(
+    *, db: Session, file_id: uuid.UUID, actor: User, data: bytes
+) -> None:
+    """持行锁复核意图、校验实际字节并写入存储，仍由 HEAD complete 确认。"""
+    file = _pending_upload(
+        db.scalar(
+            select(FileRecord)
+            .where(FileRecord.id == file_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        ),
+        actor,
+    )
+    if len(data) > min(file.size, MAX_SIZES[file.category]):
+        raise AppError("VALIDATION_ERROR", "实际文件大小超过上传意图或类别限制", 413)
+    if len(data) != file.size or hashlib.sha256(data).hexdigest() != file.sha256:
+        raise AppError("FILE_INTEGRITY_FAILED", "实际文件大小或哈希与上传意图不一致", 422)
+    try:
+        # PUT 全程持有此锁，使 complete、abort 和 SKIP LOCKED 清理不能复活已删除对象。
+        get_evidence_storage().put(
+            file.object_key,
+            data,
+            content_type=file.content_type,
+            sha256=file.sha256,
+        )
+    except StorageUnavailable as error:
+        raise AppError("DEPENDENCY_UNAVAILABLE", "对象存储暂时不可用，请稍后重试", 503) from error
+    db.commit()
+
+
 def complete_file_upload(
     *, db: Session, file_id: uuid.UUID, actor: User, request_id: str
 ) -> FileRecord:
     """校验上传者与对象元数据后转换文件状态。"""
-    file = db.get(FileRecord, file_id)
+    file = db.scalar(
+        select(FileRecord)
+        .where(FileRecord.id == file_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
     if file is None:
         raise not_found("文件记录")
     if file.uploader_id != actor.id:
@@ -155,7 +206,12 @@ def abort_file_upload(
     *, db: Session, file_id: uuid.UUID, actor: User, request_id: str
 ) -> FileRecord:
     """只允许上传意图创建者中止 PENDING 文件。"""
-    file = db.get(FileRecord, file_id)
+    file = db.scalar(
+        select(FileRecord)
+        .where(FileRecord.id == file_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
     if file is None:
         raise not_found("文件记录")
     if file.uploader_id != actor.id:

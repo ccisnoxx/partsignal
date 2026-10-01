@@ -17,7 +17,7 @@
 - `deploy/nginx/partsignal-security-headers.conf` 是 PartSignal 公网安全头的唯一仓库权威；外层 production/staging/maintenance 站点引用它，容器内 `frontend/nginx.conf` 不重复定义。
 - 外层 Nginx 必须为 `1.29.3` 或更高版本，并通过 `add_header_inherit merge` 让 location 缓存头与项目安全头同时返回。升级或回滚前运行 `node deploy/scripts/check-nginx-security.mjs` 和 `nginx -t`。
 - CSP `script-src` 只允许同源脚本，HTML 不得保留内联脚本。Markdown 只通过 canonical `MarkdownContent` 边界渲染，必须同时使用 `react-markdown`、`rehype-sanitize`、`skipHtml` 和显式禁用 raw HTML 元素；DOM HTML sink、依赖补丁或 CSP 任一侧变化都必须通过自动检查，不得改用 `unsafe-inline`、`unsafe-eval` 或宽松 default policy。
-- 当前样式运行时保留 `style-src 'unsafe-inline'`；对象存储直传和图片只保留已确认的 HTTPS scheme 边界。全域 HTTPS 台账和分阶段观察获得明确授权前，HSTS 现状保持 `max-age=31536000`，不提前添加 `includeSubDomains` 或 preload；后续只按 `07-28-pagespeed-p0-security-domain` 的域级单一 snippet、观察期和回滚门禁推进。
+- 当前样式运行时保留 `style-src 'unsafe-inline'`；文件上传经应用后端中转，外部下载和图片只保留已确认的 HTTPS scheme 边界。全域 HTTPS 台账和分阶段观察获得明确授权前，HSTS 现状保持 `max-age=31536000`，不提前添加 `includeSubDomains` 或 preload；后续只按 `07-28-pagespeed-p0-security-domain` 的域级单一 snippet、观察期和回滚门禁推进。
 
 ## 数据与网络原则
 
@@ -41,7 +41,7 @@ AI 请求只连接经过校验的公网地址，TLS 身份与 Host 使用渠道�
 
 只有作业输入完整且绑定事实快照的全部 Evidence 均为 `PUBLIC` 时才允许出站。供应商已接收但 Worker 丢失的作业只标记失败，不自动再次调用。
 
-生产文件存储必须显式使用 `OBJECT_STORAGE_BACKEND=aliyun_oss` 并注入受控凭据。上线前必须验证预签名直传、后端 HEAD 校验、短期下载 URL 和 CORS 白名单；配置错误不得回退到开发存储。
+生产文件存储必须显式使用 `OBJECT_STORAGE_BACKEND=aliyun_oss` 并注入受控凭据。上线前必须验证同站点后端上传、服务端 OSS PUT、HEAD complete 和短期下载 URL；浏览器跨域读取下载字节时才核对所需 GET CORS。应用上传不要求 Bucket CORS 管理权限；配置错误不得回退到开发存储。
 
 ## 生成恢复与历史门禁
 

@@ -44,6 +44,15 @@ server {
     gzip_proxied any;
     gzip_types text/css application/javascript application/json image/svg+xml;
 
+    # 文件类别最高允许 50 MiB；其他 API 继续沿用站点的 10 MiB 上限。
+    location ^~ /api/v1/files/ {
+        client_max_body_size 50m;
+        include /etc/nginx/snippets/proxy-common.conf;
+        proxy_set_header Connection "";
+        proxy_next_upstream off;
+        proxy_pass http://partsignal_staging_api;
+    }
+
     location ^~ /api/ {
         include /etc/nginx/snippets/proxy-common.conf;
         proxy_set_header Connection "";

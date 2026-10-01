@@ -86,11 +86,20 @@ test('Logo 手工上传只接受图片并通过 PLATFORM_LOGO 生命周期，移
   const session = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/v1/auth/session');
   await page.goto(`/settings/platforms/${platformId}?tab=overview`);
   await session;
+  const uploadBytes = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');
+  const transfer = page.waitForRequest((request) => (
+    request.method() === 'PUT'
+    && new URL(request.url()).pathname === '/api/v1/files/40000000-0000-4000-8000-000000000002/content'
+  ));
   await page.getByLabel('上传平台 Logo').setInputFiles({
     name: 'workspace-logo.png',
     mimeType: 'image/png',
-    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64'),
+    buffer: uploadBytes,
   });
+  const transferRequest = await transfer;
+  expect(transferRequest.headers()['x-csrf-token']).toBe('platforms-e2e-csrf');
+  expect(transferRequest.headers()['content-type']).toBe('application/octet-stream');
+  expect(transferRequest.postDataBuffer()).toEqual(uploadBytes);
   await expect.poll(() => platformWorkspaceApi.uploadRequests.length).toBe(1);
   expect(platformWorkspaceApi.uploadRequests[0]).toMatchObject({
     access_level: 'PUBLIC',

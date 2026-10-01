@@ -236,7 +236,7 @@ def test_manual_platform_logo_verification_starts_24_hour_retention(
         cleanup_after=None,
     )
     db = Mock(spec=Session)
-    db.get.return_value = file
+    db.scalar.return_value = file
     storage = Mock(spec=EvidenceStorage)
     storage.head.return_value = ObjectMetadata(
         size=file.size,

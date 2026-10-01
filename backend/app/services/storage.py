@@ -1,4 +1,4 @@
-"""开发对象存储签名协议与 EvidenceStorage 适配器。"""
+"""服务端对象读写、完整性校验与限时下载存储适配器。"""
 
 from __future__ import annotations
 
@@ -51,25 +51,8 @@ class ObjectMetadata:
     content_type: str
 
 
-@dataclass(frozen=True)
-class UploadAuthorization:
-    """浏览器直传需要的限时 URL 和强制请求头。"""
-
-    url: str
-    headers: dict[str, str]
-
-
 class EvidenceStorage(Protocol):
     """开发存储和阿里云 OSS 共同遵循的最小边界。"""
-
-    def authorize_upload(
-        self,
-        object_key: str,
-        expires_at: datetime,
-        *,
-        content_type: str,
-        sha256: str,
-    ) -> UploadAuthorization: ...
 
     def head(self, object_key: str, expires_at: datetime) -> ObjectMetadata: ...
 
@@ -96,20 +79,7 @@ class StorageUnavailable(Exception):
 
 
 class DevelopmentEvidenceStorage:
-    """通过独立开发服务执行对象读写，文件字节不经过业务 API。"""
-
-    def authorize_upload(
-        self,
-        object_key: str,
-        expires_at: datetime,
-        *,
-        content_type: str,
-        sha256: str,
-    ) -> UploadAuthorization:
-        return UploadAuthorization(
-            url=signed_storage_url("upload", object_key, expires_at),
-            headers={"content-type": content_type, "x-meta-sha256": sha256},
-        )
+    """通过独立开发服务保存后端已校验的字节并读取对象。"""
 
     def head(self, object_key: str, expires_at: datetime) -> ObjectMetadata:
         url = signed_storage_url("head", object_key, expires_at, internal=True)
@@ -166,7 +136,7 @@ class DevelopmentEvidenceStorage:
 
 
 class AliyunOssEvidenceStorage:
-    """使用最小权限 RAM 凭据签发 OSS 直传和下载 URL。"""
+    """使用最小权限 RAM 凭据执行服务端对象读写并签发下载 URL。"""
 
     def __init__(self) -> None:
         required = {
@@ -184,26 +154,6 @@ class AliyunOssEvidenceStorage:
     @staticmethod
     def _expires_in(expires_at: datetime) -> int:
         return max(1, int((expires_at - datetime.now(UTC)).total_seconds()))
-
-    def authorize_upload(
-        self,
-        object_key: str,
-        expires_at: datetime,
-        *,
-        content_type: str,
-        sha256: str,
-    ) -> UploadAuthorization:
-        headers = {"Content-Type": content_type, "x-oss-meta-sha256": sha256}
-        url = str(
-            self.bucket.sign_url(
-                "PUT",
-                object_key,
-                self._expires_in(expires_at),
-                headers=headers,
-                slash_safe=True,
-            )
-        )
-        return UploadAuthorization(url=url, headers=headers)
 
     def head(self, object_key: str, expires_at: datetime) -> ObjectMetadata:
         del expires_at

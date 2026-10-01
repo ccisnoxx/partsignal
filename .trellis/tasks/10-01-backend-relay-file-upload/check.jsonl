@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "写接口权限、错误信封与HTTP元数据"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "文件状态与清理行锁边界"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "三个入口的transfer/complete/abort和会话延续"}
+{"file": ".trellis/spec/infra/e2e-isolation.md", "reason": "验证与secret产物隔离"}
+{"file": ".trellis/spec/infra/development-object-storage.md", "reason": "显式开发存储与真实PUT/HEAD/DELETE"}

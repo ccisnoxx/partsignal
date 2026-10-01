@@ -1,0 +1,19 @@
+{
+  "current": true,
+  "release": true,
+  "env_sha256": true,
+  "generator": true,
+  "storage": true,
+  "oss_four_empty": true,
+  "project": true,
+  "other": true,
+  "networks": true,
+  "consumers": true,
+  "db": true,
+  "fake_objects": true,
+  "nginx_sha256": true,
+  "files_sha": true,
+  "data": true,
+  "public_healthy": true,
+  "nginx_valid": true
+}

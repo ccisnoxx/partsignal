@@ -1,0 +1,15 @@
+{
+  "observed_at": "2026-10-01",
+  "current": "releases/preview-20260930-111500-2f171300",
+  "release": "preview-20260930-111500-2f171300",
+  "storage": "development",
+  "generator": "openai-compatible",
+  "active_jobs": 0,
+  "env_matches_original_baseline": true,
+  "project_resources_match_original_baseline": true,
+  "business_data_match_original_baseline": true,
+  "fake_objects_match_original_baseline": true,
+  "project_nginx_compose_archive_match_original_baseline": true,
+  "global_nginx_dump_matches_original_baseline": false,
+  "global_nginx_note": "全局 nginx -T 摘要相较9月30日有变化；本应用站点文件、Compose、release归档、安全头和健康均保持。未执行任何远端写入。"
+}

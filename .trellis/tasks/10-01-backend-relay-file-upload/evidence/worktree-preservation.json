@@ -1,0 +1,10 @@
+{
+  "original_head": "2f17130055439f59dfc11fed42ada47d066c71cf",
+  "original_agents_sha256": "dc12b4adb341c38c80aedc0a797940f4dc2a86b6af4d45c9220c7ff16cd382cd",
+  "original_agents_diff_sha256": "8475b78dd8ba60f75d7992f8c5a2fda96ce1b1a2d1afc334fda7a09ac60daf3e",
+  "original_head_matches_baseline": true,
+  "original_agents_matches_baseline": true,
+  "original_agents_diff_matches_baseline": true,
+  "other_head_matches_baseline": true,
+  "other_worktree_clean": true
+}

@@ -113,13 +113,14 @@ const test = base.extend<WorkspaceFixtures>({
       },
     ];
 
-    await page.route('**/workspace-logo-upload', async (route) => {
-      await route.fulfill({ status: 200, body: '' });
-    });
-
     await page.route('**/api/v1/**', async (route, request) => {
       const url = new URL(request.url());
       const detailMatch = url.pathname.match(/^\/api\/v1\/platform-profiles\/([^/]+)$/);
+
+      if (request.method() === 'PUT' && url.pathname === '/api/v1/files/40000000-0000-4000-8000-000000000002/content') {
+        await route.fulfill({ status: 204, body: '' });
+        return;
+      }
 
       if (request.method() === 'GET' && detailMatch) {
         const platformId = detailMatch[1]!;
@@ -339,8 +340,8 @@ const test = base.extend<WorkspaceFixtures>({
             },
             upload: {
               method: 'PUT',
-              url: 'http://127.0.0.1:4174/workspace-logo-upload',
-              headers: { 'Content-Type': body.content_type },
+              url: '/api/v1/files/40000000-0000-4000-8000-000000000002/content',
+              headers: { 'Content-Type': 'application/octet-stream' },
               fields: {},
               expires_at: '2026-08-13T01:00:00Z',
             },

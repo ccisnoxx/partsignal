@@ -19,6 +19,8 @@ make dev
 
 如需在独立的受控环境验证阿里云 OSS 适配器，将 `OBJECT_STORAGE_BACKEND` 设置为 `aliyun_oss`，并提供 `OSS_ENDPOINT`、`OSS_BUCKET`、`OSS_ACCESS_KEY_ID` 和 `OSS_ACCESS_KEY_SECRET`。缺少任一配置时文件请求会明确失败，不会回退到开发存储；不得使用生产 Bucket 或生产凭据进行本地测试。
 
+文件传输采用“浏览器 → PartSignal API → 对象存储”：上传意图返回 `/api/v1/files/{file_id}/content` 相对路径，浏览器携带会话和 CSRF 以 `application/octet-stream` PUT 原始字节。API 检查意图创建者、PENDING 状态、有效期、实际大小和 SHA-256 后保存对象，原文件类型取意图中的已校验值；传输成功仍需 complete 的 HEAD 校验才能成为 VERIFIED。此路径无需浏览器直连 OSS 的上传 CORS，也不要求应用凭据具备 GetBucketCors/ListObjects 管理权限。限时下载 URL 和对象访问权限沿用现有行为；public-read Bucket 的签名有效期不能限制匿名公开读取。
+
 ## 契约流程
 
 公共接口先修改 `contracts/openapi.yaml`，再实现 Pydantic 和前端生成类型。运行 `make contract-generate` 更新前端产物，运行 `make contract-check` 检查漂移。子 Agent 不得直接修改公共契约。

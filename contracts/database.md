@@ -74,6 +74,8 @@ Concurrency evidence distinguishes the production row-lock path, whose loser rea
 
 Only `VERIFIED` files may be linked. Publication attachments additionally require `category=OPERATION_SCREENSHOT` in both candidate creation and `mark-published`; other modules enforce their own category contracts at their service boundaries. `publication_attachments` is one append-only evidence relation used in both publication phases, with no mutable phase or replacement field. Revision `0025` later deletes `evidences` and its file foreign key; the current head therefore has three actual `file_records` references: platform Logo, publication attachment, and GEO observation attachment. Revision `0029` permits only the GEO attachment rows belonging to a declared full-chain manual-observation deletion to be removed.
 
+文件传输由应用后端中转，不新增表、列或状态。接收字节后，服务锁定 `FileRecord` 并重新检查意图创建者、`PENDING` 与上传有效期；持锁执行对象写入，成功仍保持 `PENDING`。complete 的 HEAD 校验与 abort 使用同一行锁，清理器继续 `FOR UPDATE SKIP LOCKED`，防止对象写入与确认、中止或删除声明交错而复活已删除文件。
+
 ### 0009 Configuration Center And AI Generation
 
 `users` gains `account_type` (`ADMIN | ENGINEER`) and `must_change_password`. Existing users with `SYSTEM_ADMIN` become `ADMIN`; all other existing users become `ENGINEER`. After the mapping, `roles` and `user_roles` are removed so `users.account_type` is the only permission source. Disabling a user or resetting a password revokes all active sessions. A transaction may not disable or demote the last active `ADMIN`. Revision `0027` later adds a restricted physical-deletion path for disabled, unreferenced users.

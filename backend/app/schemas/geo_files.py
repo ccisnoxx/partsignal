@@ -596,8 +596,8 @@ class UploadIntentCreate(ContractModel):
 
 
 class UploadInstruction(ContractModel):
-    method: Literal["PUT", "POST"]
-    url: HttpUrl
+    method: Literal["PUT"]
+    url: str = Field(pattern=r"^/api/v1/files/[0-9a-f-]{36}/content$")
     headers: dict[str, str]
     fields: dict[str, str]
     expires_at: datetime

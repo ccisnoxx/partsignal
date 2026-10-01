@@ -49,7 +49,7 @@ async def put_object(
     signature: str = Query(),
     x_meta_sha256: str = Header(alias="x-meta-sha256"),
 ) -> Response:
-    """校验签名、长度和哈希后保存浏览器直传字节。"""
+    """校验内部上传签名和哈希后保存应用后端传来的字节。"""
     if operation != "upload" or not storage_request_valid(
         operation, object_key, expires, signature
     ):

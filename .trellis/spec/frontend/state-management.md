@@ -627,7 +627,7 @@ query keys: ["geo", "query-topics"]
 - Product 使用既有服务端搜索，Query Topic 使用权威集合；Published Article 只使用 GEO eligibility endpoint，并在 Product 选择后读取。浏览器不得通过通用 Published Article 分页接口 join 或推导资格；没有真实首屏 waterfall 时不增加 creation-options。
 - `GeoObservationCreate` 只提交 `product_id/query_topic_id/search_platform/search_query/tested_at/article_results/attachment_file_ids/notes`。新建页省略 correction 专用 `supersedes_id`；人工逐篇结果只含 `published_article_id/discovered/mentioned/accuracy`，不得恢复 legacy recommendation/citation。
 - `discovered/mentioned` 初始为未选择状态并要求显式布尔值；`accuracy` 可为 null。POST 仍在事务内锁定 Product、重算完整候选集合并校验 VERIFIED `OPERATION_SCREENSHOT`。
-- 附件沿用 upload-intent → signed PUT/POST → complete；transfer 失败 abort，complete 失败只重试 complete。SHA-256 与对象存储 transfer 可以共享纯协议函数，领域 API、状态和错误不得抽成万能 Upload framework。
+- 附件沿用 upload-intent → 携带会话/CSRF 的应用 API PUT → complete；transfer 失败 abort，complete 失败只重试 complete。SHA-256 与文件 transfer 可以共享纯协议函数，领域 API、状态和错误不得抽成万能 Upload framework。
 - 当前 POST 没有服务端幂等合同，不发送 `Idempotency-Key`。同步提交锁与 mutation pending 只防止同页面并发；失败后必须由用户显式重试。
 - 成功清 dirty，失效 GEO lists、Insights、Query Topic list-items 与对应 Product detail，并使用 POST 响应的 canonical Observation ID 导航 `/geo/observations/$observationId`；不得通过 List 搜索 ID 或创建占位页。
 

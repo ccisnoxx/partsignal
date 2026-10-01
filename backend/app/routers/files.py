@@ -1,11 +1,14 @@
-"""文件上传意图、HEAD 完成校验和限时下载接口。"""
+"""文件上传意图、后端中转、HEAD 完成校验和限时下载接口。"""
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter, Request, status
+from fastapi import APIRouter, Request, Response, status
+from starlette.concurrency import run_in_threadpool
+from starlette.requests import ClientDisconnect
 
 from app.config import settings
 from app.deps import CsrfProtected, CurrentUser, DbSession, EngineerUser
@@ -23,10 +26,16 @@ from app.services.file_records import (
 from app.services.file_records import (
     create_upload_intent as create_upload_intent_command,
 )
+from app.services.file_records import prepare_file_upload
+from app.services.file_records import (
+    upload_file_content as upload_file_content_command,
+)
 from app.services.storage import get_evidence_storage
 
 router = APIRouter(prefix="/api/v1", tags=["files"])
 UploadUser = EngineerUser
+UPLOAD_RECEIVE_TIMEOUT_SECONDS = 120
+
 
 def file_out(file: FileRecord) -> FileRecordOut:
     return FileRecordOut.model_validate(file)
@@ -49,6 +58,55 @@ def create_upload_intent(
     return create_upload_intent_command(
         db=db, payload=payload, actor=uploader, request_id=request.state.request_id
     )
+
+
+@router.put(
+    "/files/{file_id}/content",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    responses=error_responses(401, 403, 404, 408, 409, 413, 422, 503),
+    operation_id="uploadFileContent",
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {
+                "application/octet-stream": {"schema": {"type": "string", "format": "binary"}}
+            },
+        }
+    },
+)
+async def upload_file_content(
+    file_id: uuid.UUID,
+    request: Request,
+    db: DbSession,
+    uploader: UploadUser,
+    _csrf: CsrfProtected,
+) -> Response:
+    size_limit = await run_in_threadpool(
+        prepare_file_upload, db=db, file_id=file_id, actor=uploader
+    )
+    content_type = request.headers.get("content-type", "").split(";", 1)[0].strip().casefold()
+    if content_type != "application/octet-stream":
+        raise AppError("VALIDATION_ERROR", "传输类型必须为 application/octet-stream", 422)
+    data = bytearray()
+    try:
+        async with asyncio.timeout(UPLOAD_RECEIVE_TIMEOUT_SECONDS):
+            async for chunk in request.stream():
+                if len(data) + len(chunk) > size_limit:
+                    raise AppError("VALIDATION_ERROR", "实际文件大小超过上传意图或类别限制", 413)
+                data.extend(chunk)
+    except TimeoutError as error:
+        raise AppError("VALIDATION_ERROR", "文件接收超过 120 秒，请重新上传", 408) from error
+    except ClientDisconnect as error:
+        raise AppError("FILE_INTEGRITY_FAILED", "文件传输中断，字节未完整接收", 422) from error
+    await run_in_threadpool(
+        upload_file_content_command,
+        db=db,
+        file_id=file_id,
+        actor=uploader,
+        data=bytes(data),
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post(

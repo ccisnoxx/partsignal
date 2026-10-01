@@ -53,9 +53,9 @@ def test_static_request_context_metadata_covers_all_operations_and_responses() -
     contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
     document = yaml.safe_load(contract.read_text(encoding="utf-8"))
     operations = operation_map(document)
-    assert len(operations) == 163
-    assert len({operation["operationId"] for operation in operations.values()}) == 163
-    assert sum(len(operation["responses"]) for operation in operations.values()) == 1029
+    assert len(operations) == 164
+    assert len({operation["operationId"] for operation in operations.values()}) == 164
+    assert sum(len(operation["responses"]) for operation in operations.values()) == 1039
 
     expected_parameter = {
         "name": "X-Request-ID",
@@ -295,6 +295,9 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
             "permanentlyDeletePublishedArticle",
             "deleteGeoObservation",
         ),
+        ("204", "401", "403", "404", "408", "409", "413", "422", "503"): (
+            "uploadFileContent",
+        ),
         ("200", "401", "403", "404", "409", "422", "503"): (
             "completeFileUpload",
         ),
@@ -314,7 +317,7 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
         if isinstance(operation, dict) and "operationId" in operation
     }
 
-    assert len(expected) == 163
+    assert len(expected) == 164
     assert set(operations) == set(expected)
     for operation_id, operation in operations.items():
         responses = operation["responses"]
@@ -342,7 +345,7 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
         "getWorkbench",
     }
     assert len(validation_free) == 14
-    assert sum("422" in statuses for statuses in expected.values()) == 149
+    assert sum("422" in statuses for statuses in expected.values()) == 150
     assert {
         operation_id for operation_id, statuses in expected.items() if "422" not in statuses
     } == validation_free
@@ -1641,7 +1644,7 @@ def test_complete_file_upload_storage_failure_keeps_pending_state(
         category="PUBLICATION_ASSET",
     )
     db = Mock()
-    db.get.return_value = file
+    db.scalar.return_value = file
     storage = Mock()
     storage.head.side_effect = StorageUnavailable("模拟对象存储不可用")
     monkeypatch.setattr(file_records, "get_evidence_storage", lambda: storage)

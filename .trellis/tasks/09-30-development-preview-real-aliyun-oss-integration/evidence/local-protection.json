@@ -1,0 +1,12 @@
+{
+  "original_head": "2f17130055439f59dfc11fed42ada47d066c71cf",
+  "original_agents_diff_sha256": "8475b78dd8ba60f75d7992f8c5a2fda96ce1b1a2d1afc334fda7a09ac60daf3e",
+  "original_agents_file_sha256": "dc12b4adb341c38c80aedc0a797940f4dc2a86b6af4d45c9220c7ff16cd382cd",
+  "frontend_worktree_head": "975ea0f05a2a4bd7a3c62e7de41902c6408d043f",
+  "frontend_worktree_clean": true,
+  "remote_runtime_writes": false,
+  "secret_temporary_files_created": false,
+  "submitted": false,
+  "pushed": false,
+  "integration_accepted": false
+}

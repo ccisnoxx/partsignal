@@ -78,3 +78,14 @@ API Key 只在受控管理员表单输入并加密入库，不进入聊天、env
 2026-09-30 的独立 `development-preview-runtime-gate-rollout` 任务已将运行模式门禁部署到上述新 release。staging 共享配置只将 `CONTENT_GENERATOR` 从 `deterministic` 改为 `openai-compatible`；API、Worker、Scheduler 已重建并加载同一模式。现有 PostgreSQL、Redis、fake-oss、账号、渠道/模型与上一轮 Job/ContentVersion 保留；没有迁移、clean-init、Production cutover 或历史清理。原 env 和一致性数据库备份配对保存在 Hostdzire 受限目录，旧 release 与镜像保留。
 
 部署后正常管理员流程仅确认一次真实生成：任务 `CT-43997411`，Job `abc4e3cd-efc2-40fb-a87d-330a378bfecb` 为 `SUCCEEDED`、attempt=1，创建不可变 AI DRAFT ContentVersion `40445d14-fa04-4bb9-80b0-f9cef49257b0`。Prompt/PUBLIC Fact/channel/model/provider lineage、Worker、Usage 和部署证据见 `.trellis/tasks/09-30-development-preview-runtime-gate-rollout/implement.md`。current 在健康与真实生成通过后才原子切换；对象存储仍为 `fake-oss`，本次草稿没有审核、批准或发布。上段“env 没有切换”的描述仅属于上一轮修复前历史。
+
+2026-09-30 的独立 `development-preview-real-aliyun-oss-integration` 前置检查停在配置写入之前：候选 OSS Settings 和适配器可以构造，但 Bucket 的 `GetBucketInfo` 返回 `public-read`，不满足必须私有的合同；现有凭据的 `GetBucketCors` 与 `ListObjects(staging/)` 均返回 `403 AccessDenied`，无法证明精确 CORS 与 namespace 隔离。本任务不授权修改 Bucket ACL，因此未切换对象存储、未上传文件、未修改 CORS 或重建服务。开发预览仍为 `openai-compatible` + `development/fake-oss`，current、release、镜像与历史数据保持。真实浏览器文件验收尚未执行；准确恢复点见该任务 `implement.md`。没有推进 Production、Observation 或其他后续任务。
+
+
+2026-10-01 用户确认输入 Bucket 身份并取消本开发预览任务的强制 private 要求，计划保留共享 Bucket 的现有 ACL。前一段 private 阻断仅属于修订前验收合同；当前必要 CORS 和 staging namespace 读取仍为 403，尚未执行配置切换。public-read 下当前适配器上传对象继承 Bucket ACL，短期下载签名不能被表述为对象整体访问期限；后续须记录匿名访问实态。该次权限复核未修改产品源码或其他环境合同。
+
+
+2026-10-01 用户将上传架构改为“浏览器 → PartSignal 后端 → OSS”，并明确本轮只完成代码和定向验证、保留当前 staging release。源码候选的文件意图改为应用内上传路径，三个上传入口携带会话与 CSRF，后端校验实际大小/哈希后写入存储并沿用 HEAD complete；OSS 上传 CORS 管理权限不再是该架构的前置条件。共享 Bucket 的身份确认不授予删除其他项目对象的权限，应用仍只操作服务端生成的单一 UUID key。当前在线版本仍是上述 2f171300 release 的直传流程和 development/fake-oss；候选尚未部署，也没有真实 OSS 文件验收结果。后端中转实现与定向证据见 `.trellis/tasks/10-01-backend-relay-file-upload/`，不推进 Production 或 Observation。
+
+
+后端中转候选的源码与定向验证已完成（后端467、前端32、桌面fixture5用例通过），完整API契约和secret扫描通过，独立源码复核NO BLOCKER。此结论只覆盖本轮代码范围，未完成真实PostgreSQL并发或实际OSS验收。结束核对发现现有同一Scheduler容器RestartCount从0增为1，当前healthy、OOM=false；一小时内Docker事件/错误类别读取没有提供原因，未自行重建服务。current、配置、镜像、数据库/AI指纹、fake目录与应用Nginx保持一致，不能宣称运行期间完全无重启。

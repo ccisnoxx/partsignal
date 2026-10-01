@@ -18,7 +18,7 @@ python -m app.files.fake_server -> app.dev_storage:app -> 0.0.0.0:9000
 
 - `OBJECT_STORAGE_BACKEND=development`：显式选择开发适配器；未知值直接失败。
 - `OBJECT_STORAGE_ENDPOINT=http://fake-oss:9000`：API、Worker 等容器使用的内部端点。
-- `OBJECT_STORAGE_PUBLIC_ENDPOINT=http://localhost:19001`：浏览器直传和下载使用的主机端点。
+- `OBJECT_STORAGE_PUBLIC_ENDPOINT=http://localhost:19001`：浏览器下载使用的主机端点；上传由 API 使用内部端点中转。
 - `UPLOAD_SIGNING_SECRET`：签署 `operation + object_key + expires`；开发服务拒绝错误或过期签名。
 - `OBJECT_STORAGE_PATH=/data`（默认）：对象和 `.metadata.json` 的单一共享卷根目录。
 - PUT 必须携带 `content-type` 与 `x-meta-sha256`；HEAD 返回 `x-object-size`、`x-meta-sha256` 与 `content-type`；DELETE 幂等删除对象及 metadata。
@@ -38,7 +38,7 @@ python -m app.files.fake_server -> app.dev_storage:app -> 0.0.0.0:9000
 
 ## 5. Good / Base / Bad Cases
 
-- Good：镜像重建后 `fake-oss` 直接 Python 持续运行；真实 upload intent → 浏览器 PUT → API HEAD/complete → 浏览器 GET → 精确 DELETE 全部成功。
+- Good：镜像重建后 `fake-oss` 直接 Python 持续运行；真实 upload intent → 浏览器 API PUT → API 内部存储 PUT → API HEAD/complete → 浏览器 GET → 精确 DELETE 全部成功。
 - Base：服务正常启动，但请求的既有对象明确返回 404；保留该证据并按数据所有权调查，不把它误判为启动失败。
 - Bad：bind mount 后使用 `uv run` 在线同步；端口冲突时自动停止另一环境；为消除 404/ORB 伪造对象或添加静默 fallback。
 

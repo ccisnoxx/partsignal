@@ -2047,6 +2047,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/files/{file_id}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description 浏览器将原始字节上传至应用后端；仅意图创建者可在有效期内传输 PENDING 文件，后端校验字节数与 SHA-256 后写入对象存储。仍需调用 complete 执行 HEAD 确认。 */
+        put: operations["uploadFileContent"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/files/{file_id}/complete": {
         parameters: {
             query?: never;
@@ -5479,8 +5496,8 @@ export interface components {
         };
         UploadInstruction: {
             /** @enum {string} */
-            method: "PUT" | "POST";
-            /** Format: uri */
+            method: "PUT";
+            /** @description 应用 API 内的相对上传路径，不包含对象存储签名或凭据 */
             url: string;
             headers: {
                 [key: string]: string;
@@ -10711,6 +10728,43 @@ export interface operations {
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
+        };
+    };
+    uploadFileContent: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                file_id: components["parameters"]["FileId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description 字节已写入对象存储，文件仍为 PENDING */
+            204: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            408: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            413: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
         };
     };
     completeFileUpload: {

@@ -1,0 +1,44 @@
+{
+  "id": "development-preview-real-aliyun-oss-integration",
+  "name": "development-preview-real-aliyun-oss-integration",
+  "title": "开发预览真实 Aliyun OSS 接入与完整文件流程验收",
+  "description": "仅开发预览真实 OSS 配置、三消费者重载与单次真实浏览器文件流程验收",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": "deployment/integration",
+  "package": null,
+  "priority": "P2",
+  "creator": "sc",
+  "assignee": "sc",
+  "createdAt": "2026-09-30",
+  "completedAt": null,
+  "branch": "codex/development-preview-real-aliyun-oss-integration",
+  "base_branch": "main",
+  "worktree_path": "/Users/sc/.codex/worktrees/development-preview-real-aliyun-oss-integration/partsignal",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "10-01-backend-relay-file-upload"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "2026-10-01用户授权后端中转上传源码实现，并明确本轮保留当前staging release。真实OSS切换与完整外部验收尚未执行；子任务只完成源码与定向验证。",
+  "meta": {
+    "blocker": {
+      "category": "deployment_deferred_by_user_scope",
+      "bucket_private": false,
+      "cors_read_status": 403,
+      "namespace_read_status": 403,
+      "runtime_changed": false,
+      "bucket_private_required": false,
+      "bucket_identity_user_confirmed": true
+    },
+    "independent_review": {
+      "outcome": "BLOCKER",
+      "review_deliverable_accepted": true,
+      "audit_id": "20260930T141519Z-development-preview-real-aliyun-oss-integration-215fb218",
+      "applies_to": "2026-09-30原private验收合同，历史保留；恢复写入前需按修订合同重新fresh复核"
+    }
+  }
+}

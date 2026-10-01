@@ -252,15 +252,16 @@ const test = base.extend<GeoCorrectionFixtures>({
     const uploadRequests: string[] = [];
     const unexpectedRequests: string[] = [];
 
-    await page.route('https://storage.example.test/correction-proof', async (route) => {
-      uploadRequests.push(`${route.request().method()} ${new URL(route.request().url()).pathname}`);
-      await route.fulfill({ status: 200, body: '' });
-    });
-
     await page.route('**/api/v1/**', async (route) => {
       const request = route.request();
       const url = new URL(request.url());
       const method = request.method();
+
+      if (method === 'PUT' && url.pathname === `/api/v1/files/${correctionIds.file}/content`) {
+        uploadRequests.push(`${method} ${url.pathname}`);
+        await route.fulfill({ status: 204, body: '' });
+        return;
+      }
 
       if (method === 'GET' && url.pathname === '/api/v1/auth/session') {
         await route.fulfill({
@@ -364,8 +365,8 @@ const test = base.extend<GeoCorrectionFixtures>({
             file: pendingFile,
             upload: {
               method: 'PUT',
-              url: 'https://storage.example.test/correction-proof',
-              headers: {},
+              url: `/api/v1/files/${correctionIds.file}/content`,
+              headers: { 'Content-Type': 'application/octet-stream' },
               fields: {},
               expires_at: '2026-08-12T09:05:00Z',
             },

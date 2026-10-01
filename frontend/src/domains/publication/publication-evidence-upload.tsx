@@ -75,13 +75,13 @@ function PublicationEvidenceUpload({
     if (!continuation.isCurrent()) return;
 
     try {
-      await transferFile(file, intent);
+      await transferFile(file, intent, csrfToken);
     } catch (reason) {
       if (!continuation.isCurrent()) return;
       try {
         await abortFileUpload(intent.file.id, csrfToken);
       } catch {
-        // 原始对象传输错误更有诊断价值；中止失败由服务端过期清理兜底。
+        // 原始传输错误更有诊断价值；中止失败由服务端过期清理兜底。
       }
       throw reason;
     }

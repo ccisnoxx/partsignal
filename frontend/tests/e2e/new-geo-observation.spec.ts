@@ -145,7 +145,7 @@ test('客户端校验显式事实；上传后 POST 防重复并 canonical handof
   await expect(page.getByText('geo-proof.png')).toBeVisible();
   expect(newGeoApi.uploadRequests).toEqual([
     '/api/v1/files/upload-intents',
-    'PUT /geo-proof',
+    `PUT /api/v1/files/${fileRecord.id}/content`,
     `/api/v1/files/${fileRecord.id}/complete`,
   ]);
 

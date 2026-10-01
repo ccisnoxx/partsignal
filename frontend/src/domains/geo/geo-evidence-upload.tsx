@@ -77,7 +77,7 @@ function useGeoEvidenceUpload({
     if (!continuation.isCurrent()) return;
 
     try {
-      await transferFile(file, intent);
+      await transferFile(file, intent, csrfToken);
     } catch (reason) {
       if (!continuation.isCurrent()) return;
       try {

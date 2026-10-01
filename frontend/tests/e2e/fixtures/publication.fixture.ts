@@ -59,6 +59,7 @@ const publicationIds = {
   taskNoAccount: '70000000-0000-4000-8000-000000000002',
   user: '80000000-0000-4000-8000-000000000001',
   work: '90000000-0000-4000-8000-000000000001',
+  evidenceFile: 'a0000000-0000-4000-8000-000000000001',
   issue: 'b0000000-0000-4000-8000-000000000001',
   repairTask: 'c0000000-0000-4000-8000-000000000001',
 } as const;
@@ -414,7 +415,7 @@ const switchCandidate = {
 } satisfies components['schemas']['PublicationWorkspaceVersionCandidate'];
 
 const evidenceFile = {
-  id: 'a0000000-0000-4000-8000-000000000001',
+  id: publicationIds.evidenceFile,
   category: 'OPERATION_SCREENSHOT',
   original_filename: 'publication-proof.png',
   object_key: 'evidence/publication-proof.png',
@@ -547,15 +548,15 @@ const test = base.extend<PublicationFixtures>({
       runtimeErrors.push(`requestfailed: ${request.method()} ${request.url()}`);
     });
 
-    await page.route('**/e2e-storage/**', async (route) => {
-      uploadRequests.push({ method: route.request().method(), path: new URL(route.request().url()).pathname });
-      await route.fulfill({ status: 200, body: 'stored' });
-    });
-
     await page.route('**/api/v1/**', async (route) => {
       const request = route.request();
       const url = new URL(request.url());
       const method = request.method();
+      if (method === 'PUT' && url.pathname === `/api/v1/files/${evidenceFile.id}/content`) {
+        uploadRequests.push({ method, path: url.pathname });
+        await route.fulfill({ status: 204, body: '' });
+        return;
+      }
       if (method === 'GET' && url.pathname === '/api/v1/auth/session') {
         await route.fulfill({
           status: 200,
@@ -803,8 +804,8 @@ const test = base.extend<PublicationFixtures>({
             file: currentEvidence,
             upload: {
               method: 'PUT',
-              url: `http://127.0.0.1:4174/e2e-storage/${currentEvidence.id}`,
-              headers: { 'x-e2e-upload': 'publication' },
+              url: `/api/v1/files/${currentEvidence.id}/content`,
+              headers: { 'Content-Type': 'application/octet-stream' },
               fields: {},
               expires_at: '2026-08-11T03:05:00Z',
             },

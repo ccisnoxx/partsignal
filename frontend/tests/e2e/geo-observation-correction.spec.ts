@@ -140,7 +140,7 @@ test('校验显式事实；上传失败只重试 complete，POST 防重复并按
   await expect(page.getByRole('button', { name: '返回当前 Detail' })).toBeDisabled();
   expect(geoCorrectionApi.uploadRequests).toEqual([
     '/api/v1/files/upload-intents',
-    'PUT /correction-proof',
+    `PUT /api/v1/files/${pendingFile.id}/content`,
     `/api/v1/files/${pendingFile.id}/complete`,
     `/api/v1/files/${pendingFile.id}/complete`,
   ]);

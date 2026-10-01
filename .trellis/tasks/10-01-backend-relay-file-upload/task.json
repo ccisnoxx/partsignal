@@ -1,0 +1,44 @@
+{
+  "id": "backend-relay-file-upload",
+  "name": "backend-relay-file-upload",
+  "title": "后端中转文件上传实现与定向验收",
+  "description": "用户授权浏览器上传至PartSignal后端，再由后端写入对象存储；只实现与定向验证，保留当前staging release",
+  "status": "completed",
+  "dev_type": null,
+  "scope": "backend/frontend/files",
+  "package": null,
+  "priority": "P2",
+  "creator": "sc",
+  "assignee": "sc",
+  "createdAt": "2026-10-01",
+  "completedAt": "2026-10-01",
+  "branch": "codex/development-preview-real-aliyun-oss-integration",
+  "base_branch": "main",
+  "worktree_path": "/Users/sc/.codex/worktrees/development-preview-real-aliyun-oss-integration/partsignal",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "09-30-development-preview-real-aliyun-oss-integration",
+  "relatedFiles": [],
+  "notes": "用户授权的后端中转上传源码与定向验证完成；保留现在线staging release，真实OSS集成父任务未完成。结束后停止，无后续任务。",
+  "meta": {
+    "scope": "backend/frontend/files",
+    "independent_review": {
+      "outcome": "NO BLOCKER",
+      "scope": "source_and_targeted_validation_only",
+      "audit_id": "20261001T085009Z-backend-relay-file-upload-4cee4a41"
+    },
+    "validation": {
+      "backend_tests": 467,
+      "frontend_tests": 32,
+      "desktop_fixture_tests": 5,
+      "contract_check": "passed",
+      "actual_oss": "not_executed",
+      "real_postgresql_concurrency": "not_executed",
+      "full_real_stack": "not_executed",
+      "deployment": "not_executed"
+    },
+    "git_delivery": "user_authorized_complete_change_commit_and_non_force_fast_forward_push_to_origin_main"
+  }
+}

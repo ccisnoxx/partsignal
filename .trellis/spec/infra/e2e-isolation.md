@@ -2,7 +2,7 @@
 
 ## 1. Scope / Trigger
 
-本地或 CI 运行根 `make e2e` 时适用。canonical Frontend 的 AI Channel Configuration、Product Facts、Content Editor、AI Production、Content Review、Content Version Detail、Publishing、GEO、Auth 与 System Admin 真实栈 Playwright 使用真实 PostgreSQL、Redis、API、Worker、对象存储和浏览器，每次运行必须拥有独立数据库与临时存储；fixture-based 页面测试继续只验证 production build artifact，不冒充真实业务闭环。对象存储 upload intent 的签名 query 属于临时 capability；真实文件流的 access log、Playwright failure message 和保留产物不得回显该 query。
+本地或 CI 运行根 `make e2e` 时适用。canonical Frontend 的 AI Channel Configuration、Product Facts、Content Editor、AI Production、Content Review、Content Version Detail、Publishing、GEO、Auth 与 System Admin 真实栈 Playwright 使用真实 PostgreSQL、Redis、API、Worker、对象存储和浏览器，每次运行必须拥有独立数据库与临时存储；fixture-based 页面测试继续只验证 production build artifact，不冒充真实业务闭环。对象存储下载 URL 的签名 query 属于临时 capability；真实文件流的 access log、Playwright failure message 和保留产物不得回显该 query。
 
 ## 2. Signatures
 
@@ -33,7 +33,7 @@ backend/.venv/bin/uvicorn app.dev_storage:app --host 127.0.0.1 --port "$PARTSIGN
 - 真实栈 spec 只允许测试 API 登录、读取最终投影和前端尚无页面的最小前置配置；已有页面覆盖的业务 mutation 必须通过 UI，禁止 `page.route`、`route.fulfill` 或固定成功状态。既有专项 flow 为建立独立读取或后续状态前置所需的 API mutation不得扩展为第二套业务编排。
 - Playwright config 在 `PARTSIGNAL_E2E_REAL_STACK=1` 时统一关闭 trace；普通 fixture suite 继续 `retain-on-failure`，不得让 credential 进入失败产物。
 - `foundationApi` 只允许 active ADMIN 的原子 `GET /api/v1/auth/session` snapshot；任何其他 API 请求、页面异常、失败请求或失败静态资源使 smoke 失败。匿名、首次改密、自助改密与退出由 `auth-session.spec.ts` 显式验证。
-- dev-storage 必须关闭 Uvicorn access log，避免完整签名 URL 进入终端或 CI 日志；Playwright `requestfailed` 只记录 method 与 pathname。浏览器上传仍严格使用 upload intent 返回的完整 URL，但 assertion 只能比较 boolean 或其他不展开 operands 的值。
+- dev-storage 必须关闭 Uvicorn access log，避免完整签名 URL 进入终端或 CI 日志；Playwright `requestfailed` 只记录 method 与 pathname。浏览器上传仍严格使用 canonical API base 与 upload intent 相对路径解析出的 URL，但 assertion 只能比较 boolean 或其他不展开 operands 的值。
 
 ## 4. Validation & Error Matrix
 
@@ -60,7 +60,7 @@ backend/.venv/bin/uvicorn app.dev_storage:app --host 127.0.0.1 --port "$PARTSIGN
 - Good：canonical 真实 flows 在同一独立数据库栈完成并精确清理；随后 fixture suite 对同一类 production artifact 完成页面矩阵。
 - Base：真实 flow 或 artifact 缺陷使根入口失败；已创建资源仍完整清理并保留真实失败。
 - Bad：真实 flow 对共享开发库运行、fixture suite 连接未受控后端、运行时加入 mock fallback，或过滤失败请求。
-- Good：真实上传仍精确比较完整 intent URL，同时终端日志和失败产物只含 pathname，不含 `signature`、`expires` 或 `operation` query。
+- Good：真实上传仍精确比较解析后的应用 API intent URL，同时终端日志和失败产物只含 pathname，不含 `signature`、`expires` 或 `operation` query。
 
 ## 6. Tests Required
 
@@ -72,7 +72,7 @@ backend/.venv/bin/uvicorn app.dev_storage:app --host 127.0.0.1 --port "$PARTSIGN
 - `npm --prefix frontend run e2e -- tests/e2e/foundation-smoke.spec.ts` 必须在 375×900 与 1440×1000 均通过，并确认 `/`、`/products` deep link/refresh、App Shell、导航和静态资源错误审计。
 - `deploy/scripts/e2e-local.sh` 必须实际运行 `tests/e2e/ai-channel-configuration-real-stack.spec.ts`、`product-facts-real-stack.spec.ts`、`content-ai-real-stack.spec.ts`、`content-review-real-stack.spec.ts`、`content-version-detail-real-stack.spec.ts`、`publication-workspace-real-stack.spec.ts`、`geo-real-stack.spec.ts`、`auth-session-real-stack.spec.ts` 与 `system-admin-real-stack.spec.ts --project=foundation-desktop`。
 - `auth-session-real-stack.spec.ts` 必须在真实浏览器原生 Web Locks 下覆盖 transition owner 于 durable `STARTED` 后终止、存活页孤儿回收、全部页面关闭后的重载回收、初始化 STARTED→SETTLED 竞态、丢失 terminal 投递后的 durable 收敛与异常/旧协议 marker fail-closed；每条有效恢复路径精确断言 canonical session read 次数，无效协议断言零次读取，且 harness cleanup 仍证明数据库、存储、Redis 与端口全部释放。
-- 真实 GEO 上传成功后检查 dev-storage 输出和 Playwright 保留产物不含 `signature=`；同时断言浏览器 PUT 的完整 URL 与 upload intent 完全相等。
+- 真实 GEO 上传成功后检查 dev-storage 输出和 Playwright 保留产物不含 `signature=`；同时断言浏览器 PUT 的完整 URL 与解析后的应用 API intent URL 完全相等。
 - 最后运行 `make e2e`；完整门禁运行 `make verify`。
 
 ## 7. Wrong vs Correct

@@ -1,0 +1,34 @@
+{
+  "status": "application_release_configuration_data_preserved",
+  "all_container_restart_counts_unchanged": false,
+  "unchanged": {
+    "current": true,
+    "env_sha256": true,
+    "other": true,
+    "networks": true,
+    "consumers": true,
+    "db": true,
+    "fake_objects": true,
+    "nginx_sha256": true,
+    "files_sha": true,
+    "data": true
+  },
+  "scheduler": {
+    "restart_count": 1,
+    "running": true,
+    "oom": false,
+    "health": "healthy",
+    "events": [],
+    "log_error_classes": [],
+    "started_at": "2026-10-01T09:08:37.929117437Z"
+  },
+  "scheduler_restart_cause": "unknown; no relevant events or error classes returned in readonly one-hour diagnostic",
+  "remote_writes_performed": false,
+  "public_http": {
+    "asset": 200,
+    "live": 200,
+    "ready": 200,
+    "root": 200
+  },
+  "security_headers_exact": true
+}

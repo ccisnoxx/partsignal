@@ -244,7 +244,7 @@ Detail 在单个 `REPEATABLE READ` 请求中批量读取链、recorder、文章�
 
 `/geo/observations/new` 直接组合既有权威接口：Product 使用服务端分页搜索，Query Topic 使用 `GET /api/v1/query-topics`，选择 Product 后使用 `GET /api/v1/geo-observation-publications?product_id=...` 读取完整合格 Published Article 候选。当前首屏没有真实 waterfall 或一致性缺口，因此不增加 creation-options read model，浏览器也不得跨分页 join 或自行推导文章资格。
 
-创建只提交 `GeoObservationCreate`：逐篇 `discovered` 与 `mentioned` 必须由用户显式选择，`accuracy` 可为空，附件必须先完成既有 upload-intent → object store → complete 流程；新建请求不提交 `supersedes_id`，也不承载 legacy `recommendation/citation`。当前 POST 合同没有 `Idempotency-Key`，前端以同步提交锁和 pending 禁用保证单次请求；409 `GEO_PUBLICATIONS_CHANGED` 只允许显式重读候选并保留仍有效输入，不自动 replay。
+创建只提交 `GeoObservationCreate`：逐篇 `discovered` 与 `mentioned` 必须由用户显式选择，`accuracy` 可为空，附件必须先完成既有 upload-intent → 应用 API PUT（会话/CSRF）→ 后端 object store PUT → complete 流程；新建请求不提交 `supersedes_id`，也不承载 legacy `recommendation/citation`。当前 POST 合同没有 `Idempotency-Key`，前端以同步提交锁和 pending 禁用保证单次请求；409 `GEO_PUBLICATIONS_CHANGED` 只允许显式重读候选并保留仍有效输入，不自动 replay。
 
 创建成功后失效 GEO List、Insights、Query Topic list-items 与受影响 Product Detail cache，并直接使用 POST canonical response 的 `id` 导航 `/geo/observations/{id}`；不得通过 List 搜索发现新 ID。新建页只创建根观测，Correction 继续由后端 append-only 命令及锁内资格校验负责，原 Observation 不可在本页修改。
 

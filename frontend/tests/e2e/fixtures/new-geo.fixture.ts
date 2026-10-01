@@ -110,15 +110,16 @@ const test = base.extend<NewGeoFixtures>({
     const uploadRequests: string[] = [];
     const unexpectedRequests: string[] = [];
 
-    await page.route('https://storage.example.test/geo-proof', async (route) => {
-      uploadRequests.push(`${route.request().method()} ${new URL(route.request().url()).pathname}`);
-      await route.fulfill({ status: 200, body: '' });
-    });
-
     await page.route('**/api/v1/**', async (route) => {
       const request = route.request();
       const url = new URL(request.url());
       const method = request.method();
+
+      if (method === 'PUT' && url.pathname === `/api/v1/files/${fileRecord.id}/content`) {
+        uploadRequests.push(`${method} ${url.pathname}`);
+        await route.fulfill({ status: 204, body: '' });
+        return;
+      }
 
       if (method === 'GET' && url.pathname === '/api/v1/products') {
         await route.fulfill({
@@ -277,8 +278,8 @@ const test = base.extend<NewGeoFixtures>({
             file: fileRecord,
             upload: {
               method: 'PUT',
-              url: 'https://storage.example.test/geo-proof',
-              headers: {},
+              url: `/api/v1/files/${fileRecord.id}/content`,
+              headers: { 'Content-Type': 'application/octet-stream' },
               fields: {},
               expires_at: '2026-08-12T00:05:00Z',
             },

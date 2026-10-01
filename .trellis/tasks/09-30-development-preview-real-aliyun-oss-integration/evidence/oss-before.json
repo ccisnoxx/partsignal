@@ -1,0 +1,33 @@
+{
+  "GetBucketCors": {
+    "code": "AccessDenied",
+    "safe_error_type": "AccessDenied",
+    "status": 403
+  },
+  "GetBucketInfo": {
+    "acl": "public-read",
+    "location": "oss-cn-shanghai",
+    "name_matches": true,
+    "status": 200
+  },
+  "GetBucketTagging": {
+    "code": "AccessDenied",
+    "safe_error_type": "AccessDenied",
+    "status": 403
+  },
+  "ListStagingObjects": {
+    "code": "AccessDenied",
+    "safe_error_type": "AccessDenied",
+    "status": 403
+  },
+  "adapter_constructed": true,
+  "bucket_sha256": "c7cf388224a908707e873ad08c612ea6aec077cf6592e8b0ba936c5ff09e5119",
+  "previous_acl_probe": {
+    "code": "AccessDenied",
+    "operation": "GetBucketAcl",
+    "status": 403
+  },
+  "sdk_version": "2.19.1",
+  "settings_valid": true,
+  "endpoint_https_normalized": true
+}

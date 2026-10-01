@@ -353,7 +353,7 @@ describe('PlatformWorkspacePage', () => {
   it('上传 complete pending 与父表单协调，取消后不创建预览或写回 Logo', async () => {
     mockWorkspaceReads(() => workspaceDetail());
     vi.spyOn(fileTransfer, 'sha256File').mockResolvedValue('a'.repeat(64));
-    vi.spyOn(fileTransfer, 'transferFile').mockResolvedValue(undefined);
+    const transfer = vi.spyOn(fileTransfer, 'transferFile').mockResolvedValue(undefined);
     let complete!: (value: never) => void;
     const post = vi.spyOn(api, 'POST').mockImplementation(async (path) => {
       if (path === '/api/v1/files/upload-intents') return response({ file: { id: '00000000-0000-4000-8000-000000000040' } });
@@ -364,8 +364,10 @@ describe('PlatformWorkspacePage', () => {
     renderWorkspace();
     const name = await screen.findByRole('textbox', { name: '平台名称' });
     await userEvent.type(name, '草稿');
-    await userEvent.upload(screen.getByLabelText('上传平台 Logo'), new File(['image'], 'logo.png', { type: 'image/png' }));
+    const file = new File(['image'], 'logo.png', { type: 'image/png' });
+    await userEvent.upload(screen.getByLabelText('上传平台 Logo'), file);
     await waitFor(() => expect(post).toHaveBeenCalledWith('/api/v1/files/{file_id}/complete', expect.anything()));
+    expect(transfer).toHaveBeenCalledWith(file, expect.anything(), auth.csrfToken);
     expect(screen.getByRole('button', { name: '保存概览' })).toBeDisabled();
     fireEvent.submit(screen.getByRole('button', { name: '保存概览' }).closest('form')!);
     expect(patch).not.toHaveBeenCalled();

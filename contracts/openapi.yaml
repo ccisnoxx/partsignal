@@ -4032,6 +4032,34 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
         '400': {$ref: '#/components/responses/ErrorResponse'}
+  /api/v1/files/{file_id}/content:
+    put:
+      tags: [files]
+      operationId: uploadFileContent
+      description: 浏览器将原始字节上传至应用后端；仅意图创建者可在有效期内传输 PENDING 文件，后端校验字节数与 SHA-256 后写入对象存储。仍需调用 complete 执行 HEAD 确认。
+      parameters:
+        - {$ref: '#/components/parameters/FileId'}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/RequestIdHeader'}
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema: {type: string, format: binary}
+      responses:
+        '204':
+          description: 字节已写入对象存储，文件仍为 PENDING
+          headers:
+            X-Request-ID: {$ref: '#/components/headers/RequestIdResponseHeader'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '408': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+        '413': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
+        '503': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/files/{file_id}/complete:
     post:
       tags: [files]
@@ -8958,8 +8986,8 @@ components:
       additionalProperties: false
       required: [method, url, headers, fields, expires_at]
       properties:
-        method: {type: string, enum: [PUT, POST]}
-        url: {type: string, format: uri, minLength: 1, maxLength: 2083}
+        method: {type: string, enum: [PUT]}
+        url: {type: string, pattern: '^/api/v1/files/[0-9a-f-]{36}/content$', description: 应用 API 内的相对上传路径，不包含对象存储签名或凭据}
         headers: {type: object, additionalProperties: {type: string}}
         fields: {type: object, additionalProperties: {type: string}}
         expires_at: {type: string, format: date-time}

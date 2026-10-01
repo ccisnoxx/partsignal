@@ -672,7 +672,7 @@ function PlatformLogoField({
     }, csrfToken);
     if (!continuation.isCurrent()) return;
     try {
-      await transferFile(file, intent);
+      await transferFile(file, intent, csrfToken);
       if (!continuation.isCurrent()) return;
       await completePlatformLogoUpload(intent.file.id, csrfToken);
     } catch (reason) {

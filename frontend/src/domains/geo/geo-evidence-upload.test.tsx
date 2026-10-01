@@ -27,8 +27,8 @@ const intent = {
   file: pendingFile,
   upload: {
     method: 'PUT',
-    url: 'https://storage.example.test/proof',
-    headers: {},
+    url: `/api/v1/files/${pendingFile.id}/content`,
+    headers: { 'Content-Type': 'application/octet-stream' },
     fields: {},
     expires_at: '2026-08-12T00:05:00Z',
   },
@@ -57,7 +57,7 @@ describe('GeoEvidenceUpload', () => {
       data: { ...pendingFile, status: 'VERIFIED' },
       response: Response.json({ ...pendingFile, status: 'VERIFIED' }),
     } as never);
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 200 }));
+    const put = vi.spyOn(api, 'PUT').mockResolvedValue({ data: undefined, response: new Response(null, { status: 204 }) } as never);
     const onUploaded = vi.fn();
     const onBlockingChange = vi.fn();
     renderUpload(onUploaded, onBlockingChange);
@@ -75,6 +75,11 @@ describe('GeoEvidenceUpload', () => {
       status: 'VERIFIED',
     }));
     expect(onBlockingChange).toHaveBeenLastCalledWith(false);
+    expect(put).toHaveBeenCalledWith('/api/v1/files/{file_id}/content', expect.objectContaining({
+      params: { path: { file_id: pendingFile.id }, header: { 'X-CSRF-Token': 'csrf' } },
+      redirect: 'error',
+    }));
+    expect(put).toHaveBeenCalledTimes(1);
     expect(post).toHaveBeenNthCalledWith(1, '/api/v1/files/upload-intents', expect.anything());
     expect(post).toHaveBeenNthCalledWith(2, '/api/v1/files/{file_id}/complete', expect.anything());
     expect(post).toHaveBeenNthCalledWith(3, '/api/v1/files/{file_id}/complete', expect.anything());
@@ -85,7 +90,7 @@ describe('GeoEvidenceUpload', () => {
     post.mockResolvedValueOnce({ error: {}, response: Response.json({}, { status: 422 }) } as never);
     post.mockResolvedValueOnce({ error: {}, response: Response.json({}, { status: 500 }) } as never);
     post.mockResolvedValueOnce({ data: { ...pendingFile, status: 'ABORTED' }, response: Response.json({}) } as never);
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 200 }));
+    vi.spyOn(api, 'PUT').mockResolvedValue({ data: undefined, response: new Response(null, { status: 204 }) } as never);
     const onBlockingChange = vi.fn();
     const onUploaded = vi.fn();
     renderUpload(onUploaded, onBlockingChange);

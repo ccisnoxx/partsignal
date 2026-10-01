@@ -105,10 +105,10 @@ test('证据上传完成前禁止登记，完成后携带已校验文件 ID', as
   let releaseUpload!: () => void;
   const uploadStarted = new Promise<void>((resolve) => { markUploadStarted = resolve; });
   const uploadReleased = new Promise<void>((resolve) => { releaseUpload = resolve; });
-  await page.route('**/e2e-storage/**', async (route) => {
+  await page.route(`**/api/v1/files/${publicationIds.evidenceFile}/content`, async (route) => {
     markUploadStarted();
     await uploadReleased;
-    await route.fulfill({ status: 200, body: 'stored' });
+    await route.fulfill({ status: 204, body: '' });
   });
 
   await page.goto(`${workspace}#result`);

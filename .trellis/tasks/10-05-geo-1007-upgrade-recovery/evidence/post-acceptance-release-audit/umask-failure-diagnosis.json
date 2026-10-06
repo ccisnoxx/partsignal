@@ -1,0 +1,11 @@
+{
+  "command": "node ephemeral non-secret writeFile(mode=0644) actual-mode comparison",
+  "umask_077_actual_mode": "0600",
+  "umask_022_actual_mode": "0644",
+  "failed_run": "branch-full-verify",
+  "corrected_targeted_run": "branch-browser-umask-corrected",
+  "source_changed": false,
+  "test_assertions_changed": false,
+  "reason": "日志launcher的umask077影响权限反例夹具；改为日志显式0600、测试umask022",
+  "recorded_at": "2026-10-06T19:34:56.621165+00:00"
+}

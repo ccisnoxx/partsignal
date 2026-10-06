@@ -19,7 +19,7 @@ a0291d4a77609a1db741e3adc84d19ab712ac3ffff8c49f8572ac09b1c5327eb  03-technical/0
 10e3e60c5885c23cd36e941d0d46dc2d1e30a01d3b7817b2f1ecf6700151f654  03-technical/07-testing-and-quality.md
 95ff451b9d6927240bbf19ba157f22952212178b52089f4053f6644c889fa7b7  03-technical/08-deployment-and-operations.md
 0ea92a90c7ba38dcf4db7e81b580814628e6f902b530fdb108939829e0393f29  03-technical/09-backup-recovery-runbook.md
-754232c6621ecd81680b43a7a6b8f15374df7215d30d4c39abdb5e0ebec37ecf  03-technical/10-core-rollout-runbook.md
+8c627ab424b48ed93a6391ae4791b701692c63407fd00b60be59cf5b32cb5c40  03-technical/10-core-rollout-runbook.md
 9edd3f79af2d9f91932e9e668b41c6f3e9a38ebe781ec9dc8b6517c135f3ee49  04-delivery/01-implementation-roadmap.md
 0c43e4072efeb3b4271cbad3f6e7ff896dcc075530e73f2e98bf2d74c0c48e19  04-delivery/02-work-breakdown-structure.md
 ff9c5c9426eadc2f53c9df96daccba3761c8a736d1c7c4feb547f39f2b58adbc  04-delivery/03-requirement-traceability-matrix.md
@@ -128,5 +128,6 @@ ef64491f2e7587136bb3009b8be0059b450b5323760b4bb914a68ae10f8b0a38  04-delivery/ge
 d9431452a1e5c033dec86e07e3d40d05af13968de5894c90aa1fc883fba44911  05-decisions/ADR-007-manual-first-v1-release-scope.md
 c3e9f23a90bd7fc9b47760d53c56fd6f09f73065dff5b19c1040ee5fd608a560  05-decisions/GEO-002-architecture-review.md
 b949243cf6b9715e2ecad7c36bee3d9e094d76ed9f50dca1bc365da77c956fb3  06-reviews/GEO-1001-release-readiness-audit.md
+b36012529fce0cbbc4000388c5ac5208ee56dec955d1fd83b075f2c300bd47fe  06-reviews/2026-10-06-v1-post-recovery-blocker-audit.md
 4bf765fa4d49d49736ac5b9422a5e63ff2ccdd20f1ee937223b98a1bf944748c  CHANGELOG.md
 8cbc60f79a6d232f0504175d9221678ec5b8881849957ddad395fe249c312f58  README.md

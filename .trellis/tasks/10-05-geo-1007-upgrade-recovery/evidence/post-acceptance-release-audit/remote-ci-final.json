@@ -1,0 +1,44 @@
+{
+  "sha": "d2aefec7ced564d70d2961f7855755a6f17b6b2d",
+  "run_id": 37519768532,
+  "workflow_conclusion": "failure",
+  "recorded_at": "2026-10-06T19:40:35.238860+00:00",
+  "log_sha256": "25e3dc3e7eb1866a3772482f8915b247752ae473415d3be04615ef63d7c90a9c",
+  "read_command": [
+    "gh",
+    "run",
+    "view",
+    "37519768532",
+    "--log-failed"
+  ],
+  "failed_test_count": 33,
+  "observed_step_exit_codes": [
+    "1"
+  ],
+  "job_states": [
+    {
+      "name": "frontend-test (2)",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-06T19:32:49Z",
+      "completedAt": "2026-10-06T19:37:11Z",
+      "url": "https://github.com/ccisnoxx/partsignal/actions/runs/37519768532/job/112461888390"
+    },
+    {
+      "name": "verify",
+      "status": "completed",
+      "conclusion": "failure",
+      "startedAt": "2026-10-06T19:32:48Z",
+      "completedAt": "2026-10-06T19:38:52Z",
+      "url": "https://github.com/ccisnoxx/partsignal/actions/runs/37519768532/job/112461888750"
+    },
+    {
+      "name": "frontend-test (1)",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-06T19:32:48Z",
+      "completedAt": "2026-10-06T19:36:00Z",
+      "url": "https://github.com/ccisnoxx/partsignal/actions/runs/37519768532/job/112461888762"
+    }
+  ]
+}

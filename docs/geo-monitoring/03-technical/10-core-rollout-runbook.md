@@ -12,18 +12,20 @@
 
 | 门禁 | Go 所需证据 | 当前结论/收口任务 |
 |---|---|---|
-| 范围与任务接受 | ADR-007 Accepted；1002～1009 已人工接受，候选包含全部修复；范围外能力披露 | GEO-1002 交付 review；后续 planned，当前 NOT_MET |
+| 范围与任务接受 | ADR-007 Accepted；1002～1009 已人工接受，候选包含全部修复；范围外能力披露 | GEO-1002～1006 交付 review；原页面1007 planned；恢复1008单项接受（baea420f）；1009 planned；整体 NOT_MET |
 | Browser production 硬禁止 | Settings/启动预检/profile-overlay 明确拒绝 true/显式启动，负例通过且独立复核；现场三进程 false、零服务/profile/会话/材料 | NOT_MET / NOT_VERIFIED；1003/1010 |
 | Catalog 当前身份 | 正确锁序及锁内 active/ADMIN/改密重验；真实 PG 角色变化竞态拒绝且零业务写入，独立复核 | NOT_MET；1004 |
 | CRON 禁用与既存治理 | 禁止 CRON Plan 新建/全部写命令/首次 run、PLAN 建批及 scheduled 新窗口，稳定 409；历史配置/状态/快照只读，无写动作且页面明确不调度；MANUAL 入口正常 | GEO-1005 本地实现交付 review；目标/候选历史清点及投影现场证据 NOT_VERIFIED（1010）；不要求自动到期入口 |
 | Opportunity 显式评估 | ADMIN 经实际受保护入口评估，非管理员/资格关闭拒绝，重复触发去重、来源可追溯；无周期或隐式触发 | GEO-1006 本地实现交付 review；同候选现场实际入口证据 NOT_VERIFIED（1010）；测试 seed 不替代入口 |
 | 能力真实性 | 现有报告/三类 CSV/API 与页面说明一致；未实现 CSV/UI/重分析/占位明确不可用，无依据无引用不推断 | NOT_VERIFIED；1007 |
-| 升级失败恢复 | 未 initialized 的 UPGRADE_DEPLOYING/PREPARED artifact 失败可安全前向/阶段恢复；身份/兼容/维护锁/再次失败拒绝演练和独立复核 | 本地修复见 GEO-1007 Trellis（delivery 1008），已 review，待人工接受；固定候选及目标恢复仍 NOT_VERIFIED（1009/1010） |
+| 升级失败恢复 | 未 initialized 的 UPGRADE_DEPLOYING/PREPARED artifact 失败可安全前向/阶段恢复；身份/兼容/维护锁/再次失败拒绝演练和独立复核 | GEO-1007 Trellis（delivery 1008）已按用户条件授权单项接受；accepted_commit=baea420fb8a479d66d578d3f4fd91d38086b8c29，fresh复审APPROVE；固定候选及目标恢复仍 NOT_VERIFIED（1009/1010） |
 | 固定候选 | clean main=origin/main；commit/archive/release manifest/images/schema/tracked hashes 一致；同候选完整 make verify exit 0，失败/skip/限制明列 | NOT_VERIFIED；1009；旧本地成功日志不替代新候选 |
 | 目标配置与安全 | 精确目标/入口/权限，API/Worker/Beat 重建实际值一致；API 初始 false、显式评估资格准确；CSRF/SSRF/secret/页面安全及全应用 AI/OSS Gate | NOT_VERIFIED；1010；不输出秘密 |
 | 目标备份/容量/监控/恢复 | DB/OSS/适用密钥成套备份与隔离扫描；目标规格/代表负载/冻结阈值及告警观察期；目标安全停止、升级失败恢复与恢复后对账 | NOT_VERIFIED；1010；904/905/906 done 不证明现场 |
 | 正式 MANUAL 与内部试运行 | 真实批准样本→原文/引用/证据→确定性分析→必要复核→指标/现有报告→管理员显式评估→Action/Retest API→严格比较/显式解决；人群/时长/反馈与业务签署 | NOT_VERIFIED；1010；不把 API 操作写成全程页面 |
 | 阶段批准与最终签署 | 同候选/目标 expand/deploy/enable、访问开放及停止/恢复所需批准；GEO-1010 必需门禁全部 MET，业务/运维签署 | NOT_VERIFIED；当前 NO-GO；未具名者不得补造 |
+
+2026-10-06 [接受后发布阻断复审](../06-reviews/2026-10-06-v1-post-recovery-blocker-audit.md)确认本地实现与现场门禁分别判断：整PR门禁/前端竞态仍待修复，GEO-1007恢复接受不改变整分支、clean main/RC或生产NO-GO。
 
 任何必需项 NOT_MET、NOT_VERIFIED、缺失、失败或缺批准均 No-Go，并保存失败/未知和具体恢复输入。Go 不授权超出已批准范围的公开流量、API 启用、实际材料删除或 Browser 试点。GEO-1010 完成先 review；done 需用户接受，阶段操作仍遵守相应授权。
 

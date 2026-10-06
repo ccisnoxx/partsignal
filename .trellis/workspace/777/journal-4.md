@@ -1884,3 +1884,41 @@ L8 principal mutation pre-send fence 完成；新候选唯一完整 make verify 
 ### Next Steps
 
 - 保留review供人工验收；生产服务器/maintenance/备份/真实AI-OSS/registry与正式候选远端CI仍未验证。
+
+
+## Session 235: GEO-1007严格恢复修复接受与整分支待修复收尾
+
+**Date**: 2026-10-06
+**Task**: GEO-1007严格恢复修复接受与整分支待修复收尾
+**Branch**: `geo/GEO-906`
+
+### Summary
+
+执行owner监督/真实失败来源及严格缺表修复已独立APPROVE，按用户条件单项接受；整分支矩阵和PR审查CHANGES_REQUESTED，CI/完整verify失败保留，PR#1 Draft，未进入main/RC/现场。
+
+### Main Changes
+
+- GEO-1007代码baea420f及接受治理d2aefec7已推送；task completed，delivery1008done，原页面1007保持planned；维护锁FD不跳监督，失败只能由实际执行owner观测。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `baea420fb8a479d66d578d3f4fd91d38086b8c29` | (see git log) |
+| `d2aefec7ced564d70d2961f7855755a6f17b6b2d` | (see git log) |
+
+### Testing
+
+- [OK] 固定baea420f: 51恢复+7信号、backend20、真实PG16/Compose/runtime镜像和production harness exit0；三反例抓住FD绕路、公开失败补造和head正确缺表。
+- [FAILED] clean d2a整verify: contract/lint/typecheck通过，backend3832passed/33failed，exit2；CI37519768532 verifyFAILURE、两frontend shardSUCCESS；旧head集成6模块静态失败未跑。首次umask环境失败与10项修正通过日志保留。
+
+### Status
+
+[OK] **Completed**
+
+GEO-1007 修复与单项接受已完成；整分支仍为 CHANGES_REQUESTED，尚未完成发布验收。
+
+### Next Steps
+
+- 按新全PR报告修复会话/metadata/head测试夹具、写后首个list GET/删除详情缓存竞态和页面能力文案；新SHA验证复审及其他任务接受后才main/clean gate/候选RC/生产。
+- 报告docs/geo-monitoring/06-reviews/2026-10-06-v1-post-recovery-blocker-audit.md；新多代理审计20261006T184244Z-geo1007-execution-owner-remediation-ab9f9b27已关闭验证。只收尾本会话，不归档其他任务或补造现场证据。

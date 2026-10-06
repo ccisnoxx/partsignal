@@ -1,0 +1,429 @@
+{
+  "overview_product_30d": [
+    {
+      "query": 1,
+      "actual_rows": 600,
+      "execution_ms": 20.548,
+      "indexes": [
+        "ix_geo_runs_profile_created",
+        "uq_geo_runs_successor"
+      ]
+    },
+    {
+      "query": 2,
+      "actual_rows": 1,
+      "execution_ms": 4.261,
+      "indexes": [
+        "pk_geo_observation_runs"
+      ]
+    },
+    {
+      "query": 3,
+      "actual_rows": 420,
+      "execution_ms": 0.525,
+      "indexes": [
+        "uq_geo_answers_run"
+      ]
+    },
+    {
+      "query": 4,
+      "actual_rows": 420,
+      "execution_ms": 0.424,
+      "indexes": [
+        "uq_geo_citations_position"
+      ]
+    },
+    {
+      "query": 5,
+      "actual_rows": 1,
+      "execution_ms": 0.59,
+      "indexes": [
+        "pk_geo_analysis_revisions"
+      ]
+    },
+    {
+      "query": 6,
+      "actual_rows": 420,
+      "execution_ms": 0.27,
+      "indexes": [
+        "pk_geo_analysis_revisions"
+      ]
+    },
+    {
+      "query": 7,
+      "actual_rows": 420,
+      "execution_ms": 2.512,
+      "indexes": []
+    },
+    {
+      "query": 8,
+      "actual_rows": 420,
+      "execution_ms": 2.434,
+      "indexes": []
+    },
+    {
+      "query": 9,
+      "actual_rows": 420,
+      "execution_ms": 0.287,
+      "indexes": [
+        "ix_geo_claims_analysis"
+      ]
+    },
+    {
+      "query": 10,
+      "actual_rows": 420,
+      "execution_ms": 2.965,
+      "indexes": []
+    },
+    {
+      "query": 11,
+      "actual_rows": 420,
+      "execution_ms": 1.782,
+      "indexes": []
+    },
+    {
+      "query": 12,
+      "actual_rows": 60,
+      "execution_ms": 0.084,
+      "indexes": [
+        "pk_geo_observation_batches"
+      ]
+    }
+  ],
+  "insights_product_30d": [
+    {
+      "query": 1,
+      "actual_rows": 1200,
+      "execution_ms": 41.599,
+      "indexes": [
+        "ix_geo_runs_profile_created",
+        "uq_geo_runs_successor"
+      ]
+    },
+    {
+      "query": 2,
+      "actual_rows": 1,
+      "execution_ms": 8.769,
+      "indexes": [
+        "pk_geo_observation_runs"
+      ]
+    },
+    {
+      "query": 3,
+      "actual_rows": 840,
+      "execution_ms": 7.697,
+      "indexes": []
+    },
+    {
+      "query": 4,
+      "actual_rows": 840,
+      "execution_ms": 4.39,
+      "indexes": []
+    },
+    {
+      "query": 5,
+      "actual_rows": 1,
+      "execution_ms": 0.995,
+      "indexes": [
+        "pk_geo_analysis_revisions"
+      ]
+    },
+    {
+      "query": 6,
+      "actual_rows": 840,
+      "execution_ms": 0.524,
+      "indexes": [
+        "pk_geo_analysis_revisions"
+      ]
+    },
+    {
+      "query": 7,
+      "actual_rows": 840,
+      "execution_ms": 2.702,
+      "indexes": []
+    },
+    {
+      "query": 8,
+      "actual_rows": 840,
+      "execution_ms": 3.899,
+      "indexes": []
+    },
+    {
+      "query": 9,
+      "actual_rows": 840,
+      "execution_ms": 6.353,
+      "indexes": []
+    },
+    {
+      "query": 10,
+      "actual_rows": 840,
+      "execution_ms": 4.319,
+      "indexes": []
+    },
+    {
+      "query": 11,
+      "actual_rows": 840,
+      "execution_ms": 2.877,
+      "indexes": []
+    },
+    {
+      "query": 12,
+      "actual_rows": 120,
+      "execution_ms": 0.45,
+      "indexes": [
+        "pk_geo_observation_batches"
+      ]
+    }
+  ],
+  "report_product_30d": [
+    {
+      "query": 1,
+      "actual_rows": 1200,
+      "execution_ms": 38.864,
+      "indexes": [
+        "ix_geo_runs_profile_created",
+        "uq_geo_runs_successor"
+      ]
+    },
+    {
+      "query": 2,
+      "actual_rows": 1,
+      "execution_ms": 8.733,
+      "indexes": [
+        "pk_geo_observation_runs"
+      ]
+    },
+    {
+      "query": 3,
+      "actual_rows": 840,
+      "execution_ms": 7.269,
+      "indexes": []
+    },
+    {
+      "query": 4,
+      "actual_rows": 840,
+      "execution_ms": 5.918,
+      "indexes": []
+    },
+    {
+      "query": 5,
+      "actual_rows": 1,
+      "execution_ms": 1.025,
+      "indexes": [
+        "pk_geo_analysis_revisions"
+      ]
+    },
+    {
+      "query": 6,
+      "actual_rows": 840,
+      "execution_ms": 0.595,
+      "indexes": [
+        "pk_geo_analysis_revisions"
+      ]
+    },
+    {
+      "query": 7,
+      "actual_rows": 840,
+      "execution_ms": 3.113,
+      "indexes": []
+    },
+    {
+      "query": 8,
+      "actual_rows": 840,
+      "execution_ms": 2.668,
+      "indexes": []
+    },
+    {
+      "query": 9,
+      "actual_rows": 840,
+      "execution_ms": 5.983,
+      "indexes": []
+    },
+    {
+      "query": 10,
+      "actual_rows": 840,
+      "execution_ms": 3.241,
+      "indexes": []
+    },
+    {
+      "query": 11,
+      "actual_rows": 840,
+      "execution_ms": 2.359,
+      "indexes": []
+    },
+    {
+      "query": 12,
+      "actual_rows": 120,
+      "execution_ms": 0.404,
+      "indexes": [
+        "pk_geo_observation_batches"
+      ]
+    }
+  ],
+  "insights_all_30d": [
+    {
+      "query": 1,
+      "actual_rows": 16800,
+      "execution_ms": 111.245,
+      "indexes": [
+        "ix_geo_runs_insight_created",
+        "uq_geo_runs_successor"
+      ]
+    },
+    {
+      "query": 2,
+      "actual_rows": 20,
+      "execution_ms": 101.685,
+      "indexes": [
+        "pk_geo_observation_runs"
+      ]
+    },
+    {
+      "query": 3,
+      "actual_rows": 11760,
+      "execution_ms": 8.111,
+      "indexes": []
+    },
+    {
+      "query": 4,
+      "actual_rows": 11760,
+      "execution_ms": 4.203,
+      "indexes": []
+    },
+    {
+      "query": 5,
+      "actual_rows": 20,
+      "execution_ms": 29.858,
+      "indexes": []
+    },
+    {
+      "query": 6,
+      "actual_rows": 11760,
+      "execution_ms": 21.31,
+      "indexes": []
+    },
+    {
+      "query": 7,
+      "actual_rows": 8925,
+      "execution_ms": 2.891,
+      "indexes": []
+    },
+    {
+      "query": 8,
+      "actual_rows": 8925,
+      "execution_ms": 2.877,
+      "indexes": []
+    },
+    {
+      "query": 9,
+      "actual_rows": 8925,
+      "execution_ms": 6.543,
+      "indexes": []
+    },
+    {
+      "query": 10,
+      "actual_rows": 11760,
+      "execution_ms": 3.461,
+      "indexes": []
+    },
+    {
+      "query": 11,
+      "actual_rows": 6300,
+      "execution_ms": 3.302,
+      "indexes": []
+    },
+    {
+      "query": 12,
+      "actual_rows": 1680,
+      "execution_ms": 0.602,
+      "indexes": [
+        "ix_geo_batches_status_created"
+      ]
+    }
+  ],
+  "overview_all_30d": [
+    {
+      "query": 1,
+      "actual_rows": 8400,
+      "execution_ms": 59.347,
+      "indexes": [
+        "ix_geo_runs_insight_created",
+        "uq_geo_runs_successor"
+      ]
+    },
+    {
+      "query": 2,
+      "actual_rows": 20,
+      "execution_ms": 50.077,
+      "indexes": [
+        "pk_geo_observation_runs"
+      ]
+    },
+    {
+      "query": 3,
+      "actual_rows": 5880,
+      "execution_ms": 6.945,
+      "indexes": []
+    },
+    {
+      "query": 4,
+      "actual_rows": 5880,
+      "execution_ms": 3.621,
+      "indexes": []
+    },
+    {
+      "query": 5,
+      "actual_rows": 20,
+      "execution_ms": 16.551,
+      "indexes": [
+        "pk_geo_analysis_revisions"
+      ]
+    },
+    {
+      "query": 6,
+      "actual_rows": 5880,
+      "execution_ms": 4.038,
+      "indexes": [
+        "pk_geo_analysis_revisions"
+      ]
+    },
+    {
+      "query": 7,
+      "actual_rows": 4655,
+      "execution_ms": 2.486,
+      "indexes": []
+    },
+    {
+      "query": 8,
+      "actual_rows": 4655,
+      "execution_ms": 2.435,
+      "indexes": []
+    },
+    {
+      "query": 9,
+      "actual_rows": 4655,
+      "execution_ms": 5.835,
+      "indexes": []
+    },
+    {
+      "query": 10,
+      "actual_rows": 5880,
+      "execution_ms": 3.128,
+      "indexes": []
+    },
+    {
+      "query": 11,
+      "actual_rows": 3150,
+      "execution_ms": 2.482,
+      "indexes": []
+    },
+    {
+      "query": 12,
+      "actual_rows": 840,
+      "execution_ms": 0.578,
+      "indexes": [
+        "ix_geo_batches_status_created"
+      ]
+    }
+  ]
+}

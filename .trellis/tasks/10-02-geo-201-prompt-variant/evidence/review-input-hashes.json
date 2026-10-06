@@ -1,0 +1,12 @@
+{
+  "backend/app/geo_prompt_variants.py": "8677422d12f9f488a546f87d9b04e45f0f09fa8077c5b7d91622503bbfefcca3",
+  "backend/app/models/geo_prompt_variants.py": "22b06d3139a6644b9928cc528dc4e5e072d80251debfb41707f72c58bce43390",
+  "backend/app/schemas/geo_prompt_variants.py": "df1678b923faeccdbac30d9f3976d2e8e6f2b68f47287bfb2bdd3adfc4b4e641",
+  "backend/app/services/content_planning.py": "d6d6a4ff277138ef52294b127556c0a3535d69615ab72bfe3803737eb8d8503f",
+  "backend/app/services/identity.py": "c4527d8c353f51be87c6eca5c442040b3b82e32e9b52ccce93a2245fec1bbefe",
+  "backend/alembic/versions/0045_geo_prompt_variants.py": "f565159223d05ecb6a31eb10377d1aaebae41d5847b59305e5eb5748675c6484",
+  "backend/tests/unit/test_geo_prompt_variant_contract.py": "22279bc286669aeb053bc6063b918202f598c5f31b96af5a82a968fbd17c26ac",
+  "backend/tests/integration/test_geo_prompt_variants.py": "ffe36aa3d8ce0f075edfaca1cc4a4841c50d485cf96bb644c5ef860c76c0839f",
+  "contracts/openapi.yaml": "955bfa9f172f3fe914a4ec2c476d4c13fd8adeb5629a3cbad8ff6ecbec2235a2",
+  "contracts/database.md": "e3bd83a7a2f5b1b464a0b5b7689048aac6adc320824d1347d7cefb741c4b6e70"
+}

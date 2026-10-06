@@ -1,0 +1,19 @@
+[
+  {
+    "command": "make contract-check",
+    "exit_code": 0,
+    "log": "baseline-contract.log"
+  },
+  {
+    "command": "UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/unit/test_geo_insights.py backend/tests/unit/test_geo_configuration.py",
+    "exit_code": 0,
+    "result": "53 passed",
+    "log": "baseline-backend-geo.log"
+  },
+  {
+    "command": "npm --prefix frontend run test -- src/domains/geo/geo-insights.model.test.ts src/domains/geo/geo.api.test.ts",
+    "exit_code": 0,
+    "result": "2 files / 13 passed",
+    "log": "baseline-frontend-geo.log"
+  }
+]

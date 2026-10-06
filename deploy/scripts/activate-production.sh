@@ -2,6 +2,8 @@
 set -eu
 
 script_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
+python3 "$script_dir/check-production-inputs.py" --deployment-boundary \
+  "${ENV_FILE:?必须通过 ENV_FILE 指定 Production 环境文件}"
 
 : "${PARTSIGNAL_VERSION:?必须指定 PARTSIGNAL_VERSION}"
 : "${PARTSIGNAL_BACKEND_IMAGE:?必须指定 PARTSIGNAL_BACKEND_IMAGE}"

@@ -1,0 +1,89 @@
+FFFF                                                                     [100%]
+=================================== FAILURES ===================================
+_________________ test_recommendation_gold[recommend-against] __________________
+
+case = {'expected': {'recommendations': [{'rank': None, 'recommendation': 'NOT_RECOMMENDED', 'subject_id': 'subject-base'}], ... 'subject-competitor-two', 'subject-own-brand', 'subject-competitor-brand'], 'text': 'I recommend against GEOFX-731Q.'}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_recommendation_gold(case: dict[str, Any]) -> None:
+        inputs = snapshots(case["subject_ids"])
+        result = classify_recommendations(case["text"], freeze_subject_aliases(inputs))
+        actual = {r.subject_id: (r.recommendation.value, r.rank) for r in result.recommendations}
+>       assert actual == {
+            identity(r["subject_id"]): (r["recommendation"], r["rank"])
+            for r in case["expected"]["recommendations"]
+        }
+E       AssertionError: assert {UUID('a9e287...ENDED', None)} == {UUID('a9e287...ENDED', None)}
+E         
+E         Differing items:
+E         {UUID('a9e28782-707d-5c90-8ed0-98a1312be8f5'): ('RECOMMENDED', None)} != {UUID('a9e28782-707d-5c90-8ed0-98a1312be8f5'): ('NOT_RECOMMENDED', None)}
+E         Use -v to get more diff
+
+backend/tests/unit/test_geo_recommendations.py:72: AssertionError
+_________________ test_recommendation_gold[recommend-avoiding] _________________
+
+case = {'expected': {'recommendations': [{'rank': None, 'recommendation': 'NOT_RECOMMENDED', 'subject_id': 'subject-base'}], ...subject-competitor-two', 'subject-own-brand', 'subject-competitor-brand'], 'text': 'We recommend avoiding GEOFX-731Q.'}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_recommendation_gold(case: dict[str, Any]) -> None:
+        inputs = snapshots(case["subject_ids"])
+        result = classify_recommendations(case["text"], freeze_subject_aliases(inputs))
+        actual = {r.subject_id: (r.recommendation.value, r.rank) for r in result.recommendations}
+>       assert actual == {
+            identity(r["subject_id"]): (r["recommendation"], r["rank"])
+            for r in case["expected"]["recommendations"]
+        }
+E       AssertionError: assert {UUID('a9e287...ENDED', None)} == {UUID('a9e287...ENDED', None)}
+E         
+E         Differing items:
+E         {UUID('a9e28782-707d-5c90-8ed0-98a1312be8f5'): ('RECOMMENDED', None)} != {UUID('a9e28782-707d-5c90-8ed0-98a1312be8f5'): ('NOT_RECOMMENDED', None)}
+E         Use -v to get more diff
+
+backend/tests/unit/test_geo_recommendations.py:72: AssertionError
+___________________ test_recommendation_gold[suggest-avoid] ____________________
+
+case = {'expected': {'recommendations': [{'rank': None, 'recommendation': 'NOT_RECOMMENDED', 'subject_id': 'subject-base'}], ...-competitor', 'subject-competitor-two', 'subject-own-brand', 'subject-competitor-brand'], 'text': '建议避免使用 GEOFX-731Q。'}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_recommendation_gold(case: dict[str, Any]) -> None:
+        inputs = snapshots(case["subject_ids"])
+        result = classify_recommendations(case["text"], freeze_subject_aliases(inputs))
+        actual = {r.subject_id: (r.recommendation.value, r.rank) for r in result.recommendations}
+>       assert actual == {
+            identity(r["subject_id"]): (r["recommendation"], r["rank"])
+            for r in case["expected"]["recommendations"]
+        }
+E       AssertionError: assert {UUID('a9e287...KNOWN', None)} == {UUID('a9e287...ENDED', None)}
+E         
+E         Differing items:
+E         {UUID('a9e28782-707d-5c90-8ed0-98a1312be8f5'): ('UNKNOWN', None)} != {UUID('a9e28782-707d-5c90-8ed0-98a1312be8f5'): ('NOT_RECOMMENDED', None)}
+E         Use -v to get more diff
+
+backend/tests/unit/test_geo_recommendations.py:72: AssertionError
+______________ test_recommendation_gold[position-marker-conflict] ______________
+
+case = {'expected': {'recommendations': [{'rank': None, 'recommendation': 'RECOMMENDED', 'subject_id': 'subject-base'}, {'ran...mpetitor-two', 'subject-own-brand', 'subject-competitor-brand'], 'text': '推荐顺序：\n1. GEOFX-731Q，首选。\n2. GEOCX-842R，首选。'}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_recommendation_gold(case: dict[str, Any]) -> None:
+        inputs = snapshots(case["subject_ids"])
+        result = classify_recommendations(case["text"], freeze_subject_aliases(inputs))
+        actual = {r.subject_id: (r.recommendation.value, r.rank) for r in result.recommendations}
+>       assert actual == {
+            identity(r["subject_id"]): (r["recommendation"], r["rank"])
+            for r in case["expected"]["recommendations"]
+        }
+E       AssertionError: assert {UUID('34ca66...OMMENDED', 1)} == {UUID('34ca66...ENDED', None)}
+E         
+E         Differing items:
+E         {UUID('34ca66bd-ac2b-50a9-8a75-6dfa2387c15f'): ('RECOMMENDED', 2)} != {UUID('34ca66bd-ac2b-50a9-8a75-6dfa2387c15f'): ('RECOMMENDED', None)}
+E         {UUID('a9e28782-707d-5c90-8ed0-98a1312be8f5'): ('RECOMMENDED', 1)} != {UUID('a9e28782-707d-5c90-8ed0-98a1312be8f5'): ('RECOMMENDED', None)}
+E         Use -v to get more diff
+
+backend/tests/unit/test_geo_recommendations.py:72: AssertionError
+=========================== short test summary info ============================
+FAILED backend/tests/unit/test_geo_recommendations.py::test_recommendation_gold[recommend-against]
+FAILED backend/tests/unit/test_geo_recommendations.py::test_recommendation_gold[recommend-avoiding]
+FAILED backend/tests/unit/test_geo_recommendations.py::test_recommendation_gold[suggest-avoid]
+FAILED backend/tests/unit/test_geo_recommendations.py::test_recommendation_gold[position-marker-conflict]
+4 failed, 75 deselected in 0.19s

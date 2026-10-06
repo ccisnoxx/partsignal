@@ -1,0 +1,9 @@
+{
+  "command": [
+    "python3",
+    ".trellis/tasks/10-04-geo-701-rule-configuration/evidence/run_e2e.py"
+  ],
+  "started_at": "2026-10-04T15:38:40.989791+00:00",
+  "duration_seconds": 31.92704366700491,
+  "exit_code": 0
+}

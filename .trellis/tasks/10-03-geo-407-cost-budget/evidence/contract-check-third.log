@@ -1,0 +1,21 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend python -m app.tools.contract_check contracts/openapi.yaml
+FastAPI 运行时操作与 OpenAPI 完整契约一致。
+npm --prefix frontend run api:check
+
+> partsignal-frontend-v2@0.1.0 api:check
+> node scripts/check-openapi.mjs
+
+✨ openapi-typescript 7.13.0
+🚀 ../contracts/openapi.yaml → /var/folders/m5/j06tv2sn1hn93d6f33j559jm0000gn/T/partsignal-v2-openapi-EVv0mv/schema.d.ts [195.7ms]
+file:///Users/sc/PycharmProjects/partsignal/frontend/scripts/check-openapi.mjs:23
+    throw new Error('OpenAPI 类型已漂移，请运行 npm run api:generate');
+          ^
+
+Error: OpenAPI 类型已漂移，请运行 npm run api:generate
+    at file:///Users/sc/PycharmProjects/partsignal/frontend/scripts/check-openapi.mjs:23:11
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:633:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+
+Node.js v24.16.0
+make: *** [contract-check] Error 1

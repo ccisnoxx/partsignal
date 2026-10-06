@@ -1,0 +1,128 @@
+--- a/backend/app/services/geo_opportunities.py
++++ b/backend/app/services/geo_opportunities.py
+@@ -10,6 +10,8 @@
+ from sqlalchemy.dialects.postgresql import insert
+ from sqlalchemy.orm import Session
+ 
++from app.audit import append_audit
++from app.audit_types import AuditEntry, AuditModule, AuditOutcome
+ from app.config import settings
+ from app.errors import AppError
+ from app.models.geo_catalog import GeoSubject
+@@ -169,6 +171,7 @@
+     rules: FrozenRuleSet,
+     as_of: datetime,
+     actor_id: UUID,
++    request_id: str,
+ ) -> EvaluationResult:
+     now = db.scalar(select(func.clock_timestamp()))
+     assert now is not None
+@@ -266,11 +269,27 @@
+     )
+     db.add(evaluation)
+     db.flush()
++    if disposition == "CREATED":
++        # 只记录真实创建；同输入重放、追加评估与旁路唯一键获胜都不重复 opened。
++        append_audit(
++            db,
++            AuditEntry(
++                actor_id=actor_id,
++                business_module=AuditModule.GEO_OBSERVATION,
++                action="geo_opportunity.opened",
++                target_type="GeoOpportunity",
++                target_id=opportunity_id,
++                request_id=request_id,
++                outcome=AuditOutcome.SUCCESS,
++                result_message="规则机会已创建，首次来源证据保留",
++                details={"facts": {"revision": 1, "status": "OPEN"}},
++            ),
++        )
+     return EvaluationResult(evaluation.id, opportunity_id, disposition, False)
+ 
+ 
+ def evaluate_opportunities(
+-    db: Session, filters: GeoOverviewFilters, *, actor: User
++    db: Session, filters: GeoOverviewFilters, *, actor: User, request_id: str
+ ) -> list[EvaluationResult]:
+     """服务入口；702不提供HTTP路由、自动调度或后续行动/复测命令。"""
+     if not settings.geo_monitoring_enabled or not settings.geo_opportunity_evaluation_enabled:
+@@ -299,6 +318,7 @@
+                 rules=rules,
+                 as_of=as_of,
+                 actor_id=current_actor.id,
++                request_id=request_id,
+             )
+             for key, fingerprint, result, snapshot in sorted(prepared, key=lambda p: (p[0], p[1]))
+         ]
+--- a/backend/app/audit_types.py
++++ b/backend/app/audit_types.py
+@@ -109,6 +109,7 @@
+         "geo_collection_profile.deleted",
+         "geo_collection_profile.tested",
+         "geo_rule_set.updated",
++        "geo_opportunity.opened",
+         "geo_opportunity.acknowledged",
+         "geo_opportunity.dismissed",
+         "geo_opportunity.resolved",
+--- a/frontend/src/domains/audit/audit.model.ts
++++ b/frontend/src/domains/audit/audit.model.ts
+@@ -68,6 +68,7 @@
+     'revision', 'status', 'status_event_count', 'task_id', 'trigger_status',
+   ]),
+   GEO_OBSERVATION: new Set([
++    'baseline_id', 'baseline_batch_id', 'batch_id', 'requested_run_count',
+     'article_count', 'article_result_count', 'attachment_count', 'observation_count', 'product_id',
+     'publication_count', 'query_topic_id', 'root_observation_id', 'supersedes_id',
+     'action_id', 'action_type', 'target_type', 'target_id', 'decision_id', 'decision', 'export_type', 'as_of', 'filter_sha256', 'revision', 'status',
+@@ -577,6 +578,8 @@
+   'geo_report.print_prepared': '准备 GEO 打印报告',
+   'geo_observation.deleted': '删除 GEO 观测',
+   'geo_rule_set.updated': '更新 GEO 规则集',
++  'geo_opportunity.opened': '创建 GEO 机会',
++  'geo.retest.created': '创建 GEO 严格复测',
+   'geo_opportunity.acknowledged': '确认 GEO 机会',
+   'geo_opportunity.dismissed': '忽略 GEO 机会',
+   'geo_opportunity.resolved': '解决 GEO 机会',
+@@ -611,6 +614,7 @@
+ };
+ 
+ const auditFieldLabels: Record<string, string> = {
++  baseline_id: '冻结基线 ID', baseline_batch_id: '基线批次 ID', batch_id: '复测批次 ID', requested_run_count: '请求运行数',
+   action_id: '行动 ID', action_type: '行动类型', target_type: '目标类型', target_id: '目标 ID',
+   export_type: '导出类型', as_of: '数据截止时间', filter_sha256: '筛选摘要 SHA-256',
+   decision_id: '处理记录 ID', decision: '处理选择', account_type: '账号类型', is_active: '启用状态', source: '来源', status: '状态', row_count: '行数', revision: '修订号', display_name: '显示名称',
+--- a/frontend/src/domains/audit/audit.model.test.ts
++++ b/frontend/src/domains/audit/audit.model.test.ts
+@@ -60,6 +60,32 @@
+ }
+ 
+ describe('系统审计 model', () => {
++  it('机会创建与严格复测审计使用登记动作、闭合安全事实和机会导航', () => {
++    const common = {
++      business_module: 'GEO_OBSERVATION', target_type: 'GeoOpportunity', changes: [],
++      related_entry: { status: 'AVAILABLE', kind: 'GeoOpportunity', parent_id: null },
++    };
++    const opened = parseAuditLogDetailResponse(runtimeDetail({ ...common,
++      action: 'geo_opportunity.opened', facts: { revision: 1, status: 'OPEN' },
++    }), runtimeLog.id);
++    expect(auditActionLabel(opened.action)).toBe('创建 GEO 机会');
++    const retest = parseAuditLogDetailResponse(runtimeDetail({ ...common,
++      action: 'geo.retest.created', facts: { baseline_id: runtimeLog.id,
++        baseline_batch_id: runtimeLog.id, batch_id: runtimeLog.id,
++        requested_run_count: 5, revision: 4 },
++    }), runtimeLog.id);
++    expect(auditActionLabel(retest.action)).toBe('创建 GEO 严格复测');
++    expect(projectAuditFacts(retest.facts).map((item) => item.label)).toEqual([
++      '冻结基线 ID', '基线批次 ID', '复测批次 ID', '请求运行数', '修订号',
++    ]);
++    expect(resolveAuditRelatedLink(retest)).toMatchObject({
++      href: `/geo/opportunities?opportunity_id=${runtimeLog.target_id}`,
++    });
++    expectRuntimeProjectionFailure(runtimeDetail({ ...common, action: 'geo.retest.created',
++      facts: { baseline_id: runtimeLog.id, answer_text: 'audit-runtime-secret-sentinel' },
++    }));
++  });
++
+   it('初始化一次近三天 UTC 范围并规范化 URL/API 字段', async () => {
+     vi.useFakeTimers();
+     vi.setSystemTime(new Date('2026-08-16T08:30:45.000Z'));

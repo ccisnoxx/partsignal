@@ -1,0 +1,171 @@
+ Container partsignal-geo407-postgres-1 Running 
+ Container partsignal-geo407-redis-1 Running 
+ Container partsignal-geo407-fake-oss-1 Running 
+ Container partsignal-geo407-postgres-1 Waiting 
+ Container partsignal-geo407-postgres-1 Healthy 
+ Container partsignal-geo407-backend-test-run-f55a486ab197 Creating 
+ Container partsignal-geo407-backend-test-run-f55a486ab197 Created 
+....E
+==================================== ERRORS ====================================
+__ ERROR at teardown of test_expired_lease_fails_and_rejects_old_token[False] __
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_a950617baa...e793b4440f76'), surface=UUID('b64fa3ec-c789-4f40-83f8-d36c873811f0'), name='虚构计划-a8a7f330-ea53-4243-b1fb-b3bade23e171')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0xf6144da0eff0>
+local_provider = <app.geo_fake_server.GeoFakeServer object at 0xf6144da0e4e0>
+
+    @pytest.fixture
+    def worker_graph(
+        plans_api: PlansAPI, monkeypatch: pytest.MonkeyPatch, local_provider: GeoFakeServer
+    ):
+        from app.worker import collect_geo_run
+    
+        monkeypatch.setattr(settings, "geo_api_collection_enabled", True)
+        monkeypatch.setattr(settings, "ai_allow_local_http", True)
+        monkeypatch.setattr(settings, "ai_credential_encryption_key", "A" * 43 + "=")
+        monkeypatch.setattr(geo_runs, "SessionLocal", plans_api.api.factory)
+        monkeypatch.setattr(geo_dispatch, "SessionLocal", plans_api.api.factory)
+        registration = replace(collector_registry.resolve("openai-compatible-chat"), approved=True)
+        monkeypatch.setattr(
+            collector_registry,
+            "_entries",
+            MappingProxyType(
+                {
+                    "manual": collector_registry.resolve("manual"),
+                    registration.key: registration,
+                }
+            ),
+        )
+        original = geo_batch_snapshots.BatchInputs.input_for
+    
+        def public_input(self, prompt_id, profile_id):
+            value = original(self, prompt_id, profile_id)
+            value["data_classification"] = "PUBLIC"  # 仅虚构测试资料。
+            return value
+    
+        monkeypatch.setattr(geo_batch_snapshots.BatchInputs, "input_for", public_input)
+    
+        def unavailable(_run_id):
+            raise ConnectionError("虚构 Broker 离线")
+    
+        monkeypatch.setattr(collect_geo_run, "delay", unavailable)
+        call_id, channel_id = uuid4(), uuid4()
+        with plans_api.api.factory() as db:
+            channel = AIChannel(
+                id=channel_id,
+                name=f"虚构渠道-{channel_id}",
+                description="本地模拟站",
+                protocol_type="openai-compatible-chat-completions",
+                provider_brand="CUSTOM",
+                base_url=local_provider.base_url + "/v1",
+                api_key_updated_at=datetime.now(UTC),
+                api_key_ciphertext=CredentialCipher(settings.ai_credential_encryption_key).encrypt(
+                    "geo405-fake-secret", associated_data=f"ai_channel:{channel_id}:api_key"
+                ),
+                timeout_seconds=10,
+                is_enabled=True,
+                revision=0,
+                created_by=plans_api.api.admin_id,
+            )
+            db.add(channel)
+            db.flush()
+            model = AIModel(
+                channel_id=channel.id,
+                display_name="虚构模型",
+                model_id="fake-model",
+                request_parameters={},
+                is_enabled=True,
+                test_status="PASSED",
+                last_tested_at=datetime.now(UTC),
+                revision=0,
+                created_by=plans_api.api.admin_id,
+            )
+            surface = GeoEngineSurface(
+                name="虚构 API",
+                slug=f"geo405-{uuid4()}",
+                surface_kind="MODEL_API",
+                provider_brand="CUSTOM",
+                compliance_status="APPROVED",
+                is_active=True,
+                created_by=plans_api.api.admin_id,
+                capabilities={
+                    "answer_text": True,
+                    "citations": False,
+                    "web_search_signal": False,
+                    "model_version": False,
+                    "usage": False,
+                    "cost": False,
+                },
+            )
+            db.add_all(
+                [
+                    model,
+                    surface,
+                    AIChannelHeader(
+                        channel_id=channel.id,
+                        name="X-GEO-Attempt-ID",
+                        normalized_name="x-geo-attempt-id",
+                        is_sensitive=False,
+                        plain_value=str(call_id),
+                    ),
+                ]
+            )
+            db.flush()
+            profile = GeoCollectionProfile(
+                engine_surface_id=surface.id,
+                name="虚构已批准测试配置",
+                collection_mode="API",
+                adapter_key="openai-compatible-chat",
+                ai_channel_id=channel.id,
+                ai_model_id=model.id,
+                language_code="zh-hans",
+                region_code="CN",
+                login_state="NOT_APPLICABLE",
+                web_search_policy="UNKNOWN",
+                settings_json={},
+                is_active=True,
+                last_test_status="PASSED",
+                last_tested_at=datetime.now(UTC),
+                created_by=plans_api.api.admin_id,
+            )
+            db.add(profile)
+            db.commit()
+        yield WorkerGraph(plans_api, profile.id, channel_id, call_id)
+        from app.services.geo_run_lifecycle import fail_run, lock_run, refresh_batch
+    
+        with plans_api.api.factory.begin() as db:
+            identities = list(
+                db.scalars(
+                    select(GeoObservationRun.id).where(
+                        GeoObservationRun.collection_profile_id == profile.id,
+                        GeoObservationRun.status.in_(["PENDING", "RUNNING"]),
+                    )
+                )
+            )
+            geo_collection_admission.lock_accounting(db)
+            for identity in identities:
+                batch, run = lock_run(db, identity)
+                now = max(datetime.now(UTC), run.started_at or run.created_at)
+                fail_run(db, run, now=now, code="WORKER_LOST", summary="虚构测试数据结束")
+>               geo_collection_admission.settle(db, run, now)
+
+tests/integration/geo_worker_support.py:182: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+db = <sqlalchemy.orm.session.Session object at 0xf61454756180>
+run = <app.models.geo_runs.GeoObservationRun object at 0xf6144d41a2d0>
+now = datetime.datetime(2026, 10, 3, 11, 56, 53, 108692, tzinfo=datetime.timezone.utc)
+
+    def settle(db: Session, run: Run, now: datetime) -> None:
+        reservation = db.get(Reservation, run.id)
+        if reservation is None:
+            return  # 尚未 claim 的配置失败、人工 Run 或预算拒绝没有预留。
+        if reservation.state not in {"RESERVED", "SENT"}:
+>           raise ValueError("已结算的运行不能再次结算")
+E           ValueError: 已结算的运行不能再次结算
+
+app/services/geo_collection_admission.py:155: ValueError
+=========================== short test summary info ============================
+ERROR tests/integration/test_geo_worker.py::test_expired_lease_fails_and_rejects_old_token[False]
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+4 passed, 1 error in 3.25s
+

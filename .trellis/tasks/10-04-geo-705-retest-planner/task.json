@@ -1,0 +1,40 @@
+{
+  "id": "geo-705-retest-planner",
+  "name": "geo-705-retest-planner",
+  "title": "GEO-705：RetestPlanner、基线冻结与严格可比性门禁",
+  "description": "严格冻结机会来源批次矩阵、基线和幂等复测",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-10-04",
+  "completedAt": "2026-10-04",
+  "branch": "geo/GEO-705",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "2026-10-04 本会话用户已人工审查并接受GEO-705实现与测试证据；本次仅记录验收，manifest=done、Trellis=completed，不修改其他任务状态、不实施后续任务，不提交或归档。完整修改清单见files.md，逐项命令与证据见implement.md及evidence。",
+  "meta": {
+    "geo_task_id": "GEO-705",
+    "release": "R6",
+    "manifest_status": "done",
+    "dependencies_verified": {
+      "GEO-704": "done",
+      "GEO-303": "done"
+    },
+    "delivery_status": "done",
+    "accepted_at": "2026-10-04",
+    "accepted_by": "本会话用户",
+    "accepted_scope": "GEO-705基线snapshot、严格矩阵复现、差异列表、RETEST batch、幂等及已记录的实现和测试证据；不包含后续任务。",
+    "acceptance_basis": "用户明确表示：我已经人工审查并接受 GEO-705 的实现与测试证据。",
+    "validation_record": ".trellis/tasks/10-04-geo-705-retest-planner/implement.md"
+  }
+}

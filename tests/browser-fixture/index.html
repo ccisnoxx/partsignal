@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>本地虚构 AI 产品</title></head>
+<body>
+  <header><h1>虚构 AI 产品 · 仅供合同测试</h1></header>
+  <aside data-testid="sensitive-ui" hidden></aside>
+  <section data-testid="login" hidden>请人工重新登录；本地场景不接受账号密码。</section>
+  <section data-testid="challenge" hidden>安全挑战；停止自动化并由人工处理。</section>
+  <main data-testid="chat" hidden>
+    <button type="button" data-testid="temporary-chat">新建临时聊天</button>
+    <p data-testid="chat-mode">历史聊天</p>
+    <form>
+      <label>问题<textarea data-testid="prompt" required></textarea></label>
+      <button data-testid="submit" type="submit">发送</button>
+    </form>
+    <p data-testid="loading" hidden>回答生成中</p>
+    <section data-testid="answer-panel" data-status="idle">
+      <pre data-testid="answer-text"></pre>
+      <ol data-testid="citations"></ol>
+    </section>
+  </main>
+  <script src="/fixture.js" defer></script>
+</body>
+</html>

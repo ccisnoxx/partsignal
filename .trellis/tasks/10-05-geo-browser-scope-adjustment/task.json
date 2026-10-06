@@ -1,0 +1,38 @@
+{
+  "id": "geo-browser-scope-adjustment",
+  "name": "geo-browser-scope-adjustment",
+  "title": "GEO 浏览器延期与人工优先核心版范围调整",
+  "description": "接受 ADR-006，延期 GEO-804 至 807，调整 R6 到 R8 核心发布路径并建立人工观测 SOP；仅文档与任务治理",
+  "status": "review",
+  "dev_type": "infra",
+  "scope": "geo-browser-scope-adjustment",
+  "package": null,
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-10-05",
+  "completedAt": null,
+  "branch": "geo/GEO-804",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "docs/geo-monitoring",
+    ".trellis/tasks/10-05-geo-804-approved-browser-adapter"
+  ],
+  "notes": "2026-10-05：ADR-006 Accepted；MANUAL正式核心版、804～807 deferred/post-core、R6→R8、R8条件验收和SOP完成。定向治理/链接/摘要/default关闭验证通过，独立只读复核两项SOP说明已修正；本地交付review，未运行生产/第三方/业务测试，无源码配置合同迁移数据变化、不自行done。",
+  "meta": {
+    "scope": "geo-browser-scope-adjustment",
+    "release": "core-R8/post-core-R7",
+    "manifest_status": "not_a_numbered_geo_task",
+    "delegated": true,
+    "validation_record": ".trellis/tasks/10-05-geo-browser-scope-adjustment/implement.md",
+    "delivery_status": "review",
+    "audit_id": "20261005T130659Z-geo-browser-scope-adjustment-dd53e77f",
+    "independent_review_record": ".trellis/tasks/10-05-geo-browser-scope-adjustment/evidence/independent-review.md"
+  }
+}

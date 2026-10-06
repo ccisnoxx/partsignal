@@ -1,0 +1,36 @@
+ Container partsignal-geo507-validation-fake-oss-1 Running 
+ Container partsignal-geo507-validation-postgres-1 Running 
+ Container partsignal-geo507-validation-redis-1 Running 
+ Container partsignal-geo507-validation-postgres-1 Waiting 
+ Container partsignal-geo507-validation-postgres-1 Healthy 
+ Container partsignal-geo507-validation-backend-test-run-97d319032fe9 Creating 
+ Container partsignal-geo507-validation-backend-test-run-97d319032fe9 Created 
+..F............                                                          [100%]
+=================================== FAILURES ===================================
+________________ test_stale_run_analysis_and_superseded_history ________________
+
+review_api = ReviewAPI(harness=AnalysisHarness(database=AnswerDatabase(runs=RunDatabase(plan=PlanDatabase(url='postgresql://partsig...s=<starlette.testclient.TestClient object at 0xf0a7046ba9f0>, engineer_id=UUID('ebc7e7e7-5ef7-4e18-b09c-950a4d272224'))
+
+    def test_stale_run_analysis_and_superseded_history(review_api):
+        api = review_api
+        case = api.create()
+        payload = api.payload(case)
+        accepted = api.submit(case)
+        assert accepted.status_code == 201
+        stale = api.engineer.post(f"{RUNS}/{case.run_id}/review", json=payload)
+        assert stale.status_code == 409 and stale.json()["error"]["code"] == "REVISION_CONFLICT"
+        newer = api.reanalyze(case)
+        current = api.detail(case)
+        assert current["analysis"]["selection"]["current_analysis_revision_id"] == str(newer)
+        assert current["run"]["status"] == "COMPLETED"
+        assert current["analysis"]["selection"]["current_review_id"] is None
+>       assert (
+            current["analysis"]["review_required"]
+            and current["data_quality"]["metric_eligible"] is False
+        )
+E       assert (False)
+
+tests/integration/test_geo_reviews.py:200: AssertionError
+=========================== short test summary info ============================
+FAILED tests/integration/test_geo_reviews.py::test_stale_run_analysis_and_superseded_history
+

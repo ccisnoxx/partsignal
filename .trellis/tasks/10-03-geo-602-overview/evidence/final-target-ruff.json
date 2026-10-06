@@ -1,0 +1,15 @@
+{
+  "argv": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "ruff",
+    "check",
+    "backend/tests/integration/test_geo_overview.py"
+  ],
+  "cwd": "/Users/sc/PycharmProjects/partsignal",
+  "exit_code": 0,
+  "started_at": "2026-10-04T06:55:39.805883+00:00",
+  "finished_at": "2026-10-04T06:55:39.828154+00:00"
+}

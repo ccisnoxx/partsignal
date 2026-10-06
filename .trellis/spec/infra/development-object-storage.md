@@ -21,6 +21,7 @@ python -m app.files.fake_server -> app.dev_storage:app -> 0.0.0.0:9000
 - `OBJECT_STORAGE_PUBLIC_ENDPOINT=http://localhost:19001`：浏览器下载使用的主机端点；上传由 API 使用内部端点中转。
 - `UPLOAD_SIGNING_SECRET`：签署 `operation + object_key + expires`；开发服务拒绝错误或过期签名。
 - `OBJECT_STORAGE_PATH=/data`（默认）：对象和 `.metadata.json` 的单一共享卷根目录。
+- fake OSS 通过容器内 `/openapi.json` HTTP 健康检查确认进程就绪；`backend-test` 必须等待其 `service_healthy`，不能只等待 PG/Redis 或假设配置存在即服务运行。
 - PUT 必须携带 `content-type` 与 `x-meta-sha256`；HEAD 返回 `x-object-size`、`x-meta-sha256` 与 `content-type`；DELETE 幂等删除对象及 metadata。
 - 开发与 staging 默认都绑定 `127.0.0.1:19001`，同一主机不能同时占用该端口。端口冲突是显式环境所有权问题，不得通过修改权威端口或停止范围外服务来掩盖。
 
@@ -43,6 +44,10 @@ python -m app.files.fake_server -> app.dev_storage:app -> 0.0.0.0:9000
 - Bad：bind mount 后使用 `uv run` 在线同步；端口冲突时自动停止另一环境；为消除 404/ORB 伪造对象或添加静默 fallback。
 
 ## 6. Tests Required
+
+`make test-integration`（也由 `make verify` 调用）执行完整集成集合：容器执行除 `test_geo_recovery.py` 外的集成测试，随后必跑 `make test-geo-recovery-integration`。恢复测试由宿主机使用开发 Compose `test` profile 的测试身份、唯一 postgres 容器及 `127.0.0.1` 发布端口执行；现有 fixture 显式调用该 PG16 容器的工具，只处理本次随机来源库和恢复库。两部分任一失败都令入口失败，不得仅运行容器部分后报告全量通过。该入口不安装生产 PG 工具、不挂载 Docker socket、不读取 staging/production 配置。
+
+单独运行恢复集成测试可使用 `make test-geo-recovery-integration`；它启动并等待开发 PG/Redis，不要求用户在私有 env 中永久添加 `RECOVERY_PG_BIN` 或 `GEO_RECOVERY_PG_CONTAINER`。直接调用 pytest 则仍需显式提供这些工具之一，未配置时保持失败而非 skip。
 
 ```bash
 docker compose --env-file .env -f deploy/compose.dev.yaml config --quiet

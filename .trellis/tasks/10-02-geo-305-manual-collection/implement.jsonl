@@ -1,0 +1,6 @@
+{"file": "contracts/openapi.yaml", "reason": "MANUAL三端点和公共数据唯一协议权威"}
+{"file": "contracts/database.md", "reason": "草稿、提交身份、原始证据及文件生命周期数据库权威"}
+{"file": "docs/geo-monitoring/02-business/03-workflows-and-state-machines.md", "reason": "MANUAL跳过RUNNING及独立草稿revision"}
+{"file": "docs/geo-monitoring/05-decisions/ADR-003-separate-collection-analysis-review.md", "reason": "证据冻结与独立分析/复核边界"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "事务、锁和精确约束异常策略"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "真实数据库及当前安装测试API"}

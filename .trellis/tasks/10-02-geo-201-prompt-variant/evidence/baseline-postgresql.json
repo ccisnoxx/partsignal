@@ -1,0 +1,6 @@
+{
+  "command": "UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/integration/test_geo_catalog.py backend/tests/integration/test_query_topic_list.py backend/tests/integration/test_migrations.py::test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent",
+  "environment": "PARTSIGNAL_TEST_DATABASE_URL=隔离 geo201_validation:55441",
+  "exit_code": 0,
+  "elapsed_seconds": 5.68
+}

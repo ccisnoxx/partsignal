@@ -1,0 +1,178 @@
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_identity_audit, 创建身份、会话和审计表。
+INFO  [alembic.runtime.migration] Running upgrade 0001_identity_audit -> 0002_product_facts, 创建规范化产品事实和不可变事实版本。
+INFO  [alembic.runtime.migration] Running upgrade 0002_product_facts -> 0003_content_planning, 创建目标问题、平台规则版本和内容任务。
+INFO  [alembic.runtime.migration] Running upgrade 0003_content_planning -> 0004_content_production, 创建 PostgreSQL 权威生成作业和不可变 Markdown 内容版本。
+INFO  [alembic.runtime.migration] Running upgrade 0004_content_production -> 0005_content_review, 创建追加式内容审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0005_content_review -> 0006_publication, 创建平台账号、人工发布记录和状态事件。
+INFO  [alembic.runtime.migration] Running upgrade 0006_publication -> 0007_geo_observation, 创建追加式 GEO 观测及引用关联。
+INFO  [alembic.runtime.migration] Running upgrade 0007_geo_observation -> 0008_files, 创建文件生命周期、附件关联并补加证据文件外键。
+INFO  [alembic.runtime.migration] Running upgrade 0008_files -> 0009_config_center, 迁移账号类型、配置中心与真实 AI 生成字段。
+INFO  [alembic.runtime.migration] Running upgrade 0009_config_center -> 0010_user_cleanup, 清理旧版职责账号并强制既有内容工程师改密。
+INFO  [alembic.runtime.migration] Running upgrade 0010_user_cleanup -> 0011_generation_reliability, 增加生成作业补投递诊断字段与到期扫描索引。
+INFO  [alembic.runtime.migration] Running upgrade 0011_generation_reliability -> 0012_ai_data_classification, 为生成输入增加显式数据分级与责任人记录。
+INFO  [alembic.runtime.migration] Running upgrade 0012_ai_data_classification -> 0013_publication_closure, 增加发布异常待办、修复任务来源和发布平台一致性门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0013_publication_closure -> 0014_platform_prompt_ownership, 将当前 Prompt 所有权从平台类型迁移到具体平台。
+INFO  [alembic.runtime.migration] Running upgrade 0014_platform_prompt_ownership -> 0015_platform_rule_draft_editing, 允许按修订号编辑平台规则草稿，并继续冻结已激活或退役正文。
+INFO  [alembic.runtime.migration] Running upgrade 0015_platform_rule_draft_editing -> 0016_fact_review_cleanup, 允许受约束删除事实版本时清理其从属审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0016_fact_review_cleanup -> 0017_content_humanization, 增加全局自然化 Prompt，并让现有 AI 作业承载自然化修订。
+INFO  [alembic.runtime.migration] Running upgrade 0017_content_humanization -> 0018_manual_geo_observation, 增加产品级人工 GEO 观测，并保留旧模型观测历史。
+INFO  [alembic.runtime.migration] Running upgrade 0018_manual_geo_observation -> 0019_product_driven_tasks, 允许新内容任务直接围绕产品创建，同时保留历史目标问题关联。
+INFO  [alembic.runtime.migration] Running upgrade 0019_product_driven_tasks -> 0020_platform_branding_task_list, 为具体平台增加官网与单一来源 Logo。
+INFO  [alembic.runtime.migration] Running upgrade 0020_platform_branding_task_list -> 0021_ai_channel_model_management, 补齐 AI 渠道身份字段与使用统计索引。
+INFO  [alembic.runtime.migration] Running upgrade 0021_ai_channel_model_management -> 0022_geo_observation_insights, 补充人工 GEO 逐篇阶段事实与问题主题约束。
+INFO  [alembic.runtime.migration] Running upgrade 0022_geo_observation_insights -> 0023_platform_management, 增加具体平台启停状态与管理聚合索引。
+INFO  [alembic.runtime.migration] Running upgrade 0023_platform_management -> 0024_audit_outcome, 补齐审计模块、命令结果和安全结果说明。
+INFO  [alembic.runtime.migration] Running upgrade 0024_audit_outcome -> 0025_markdown_facts, 将结构化产品事实收敛为 Markdown，并让内容任务直接绑定平台。
+INFO  [alembic.runtime.migration] Running upgrade 0025_markdown_facts -> 0026_publication_account_dedup, 补齐发布账号修订约束，并阻止同平台规范化账号标识重复。
+INFO  [alembic.runtime.migration] Running upgrade 0026_publication_account_dedup -> 0027_audit_user_delete_guard, 只允许受约束用户删除把匹配审计操作者置空。
+INFO  [alembic.runtime.migration] Running upgrade 0027_audit_user_delete_guard -> 0028_platform_logo_lifecycle, 增加平台 Logo 的未引用保留、幂等删除状态与数据库门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0028_platform_logo_lifecycle -> 0029_geo_evidence_management, 收敛人工 GEO 独立事实，并为完整更正链删除增加事务门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0029_geo_evidence_management -> 0030_publication_record_delete, 为从未公开的发布聚合增加事务级受控删除门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0030_publication_record_delete -> 0031_reusable_platform_prompts, 把平台私有 Prompt 收敛为可复用模板和平台当前绑定。
+INFO  [alembic.runtime.migration] Running upgrade 0031_reusable_platform_prompts -> 0032_content_task_idempotency, 为普通内容任务创建增加持久化请求键幂等约束。
+INFO  [alembic.runtime.migration] Running upgrade 0032_content_task_idempotency -> 0033_task_owned_history_delete, 允许受控删除已取消任务自有的未批准生产历史。
+INFO  [alembic.runtime.migration] Running upgrade 0033_task_owned_history_delete -> 0034_publication_redesign, 以发布工作、首次核验成果和发布后内容问题替换旧发布记录。
+INFO  [alembic.runtime.migration] Running upgrade 0034_publication_redesign -> 0035_business_workflow, 建立事实提交、内容单主线、发布版本快照与 GEO 来源合同。
+INFO  [alembic.runtime.migration] Running upgrade 0035_business_workflow -> 0036_remove_section_url, 删除没有稳定业务含义的发布栏目地址。
+INFO  [alembic.runtime.migration] Running upgrade 0036_remove_section_url -> 0037_simplify_deletion_lifecycle, 收缩任务、配置与审计的删除生命周期。
+INFO  [alembic.runtime.migration] Running upgrade 0037_simplify_deletion_lifecycle -> 0038_published_article_delete, 允许受控删除无 GEO 引用的发布成果聚合。
+INFO  [alembic.runtime.migration] Running upgrade 0038_published_article_delete -> 0039_article_delete_platform, 允许归档任务在删除失效平台的发布成果后转为已取消。
+INFO  [alembic.runtime.migration] Running upgrade 0039_article_delete_platform -> 0040_content_draft_management, 允许当前人工未审核草稿受控保存和彻底删除。
+INFO  [alembic.runtime.migration] Running upgrade 0040_content_draft_management -> 0041_content_task_list, 补齐内容任务列表的稳定更新时间与排序索引。
+INFO  [alembic.runtime.migration] Running upgrade 0041_content_task_list -> 0042_content_version_detail, 记录内容版本自身的真实更新时间。
+INFO  [alembic.runtime.migration] Running upgrade 0042_content_version_detail -> 0043_geo_platform_identity, 冻结发布工作的平台 UUID，避免配置删除后 GEO 历史失去身份。
+INFO  [alembic.runtime.migration] Running upgrade 0043_geo_platform_identity -> 0044_geo_catalog, 新增 GEO Catalog 三表；冻结本 revision，不读取运行时 ORM。
+INFO  [alembic.runtime.migration] Running upgrade 0044_geo_catalog -> 0045_geo_prompt_variants, 仅新增问题变体，冻结规范化及历史锁存，不回填旧问题数组。
+INFO  [alembic.runtime.migration] Running upgrade 0045_geo_prompt_variants -> 0046_geo_surfaces_profiles, 新增观测配置与闭合JSON合同；不回填旧GEO或实现运行资格。
+INFO  [alembic.runtime.migration] Running upgrade 0046_geo_surfaces_profiles -> 0047_geo_monitoring_plans, 仅增加计划配置聚合；不创建批次、运行或改写历史观测。
+INFO  [alembic.runtime.migration] Running upgrade 0047_geo_monitoring_plans -> 0048_geo_batches_runs, 新增独立回答级 Batch/Run，冻结 DDL 与快照/写入守卫，不迁移旧 GEO。
+INFO  [alembic.runtime.migration] Running upgrade 0048_geo_batches_runs -> 0049_geo_batch_creation, 创建幂等与批次主体引用；不修改已冻结的 Batch/Run 输入。
+INFO  [alembic.runtime.migration] Running upgrade 0049_geo_batch_creation -> 0050_geo_answer_evidence, 新增不可变原始回答、引用和受控文件关系；不实现采集命令。
+Traceback (most recent call last):
+  File "/Users/sc/PycharmProjects/partsignal/backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1817, in _execute_context
+    context = constructor(
+              ^^^^^^^^^^^^
+  File "/Users/sc/PycharmProjects/partsignal/backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 1417, in _init_compiled
+    compiled.construct_params(
+  File "/Users/sc/PycharmProjects/partsignal/backend/.venv/lib/python3.12/site-packages/sqlalchemy/sql/compiler.py", line 1963, in construct_params
+    raise exc.InvalidRequestError(
+sqlalchemy.exc.InvalidRequestError: A value is required for bind parameter '80' (Background on this error at: https://sqlalche.me/e/20/cd3x)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/sc/PycharmProjects/partsignal/backend/.venv/bin/alembic", line 10, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/Users/sc/PycharmProjects/partsignal/backend/.venv/lib/python3.12/site-packages/alembic/config.py", line 1047, in main
+    CommandLine(prog=prog).main(argv=argv)
+  File "/Users/sc/PycharmProjects/partsignal/backend/.venv/lib/python3.12/site-packages/alembic/config.py", line 1037, in main
+    self.run_cmd(cfg, options)
+  File "/Users/sc/PycharmProjects/partsignal/backend/.venv/lib/python3.12/site-packages/alembic/config.py", line 971, in run_cmd
+    fn(
+  File "/Users/sc/PycharmProjects/partsignal/backend/.venv/lib/python3.12/site-packages/alembic/command.py", line 490, in upgrade
+    script.run_env()
+  File "/Users/sc/PycharmProjects/partsignal/backend/.venv/lib/python3.12/site-packages/alembic/script/base.py", line 556, in run_env
+    util.load_python_file(self.dir, "env.py")
+  File "/Users/sc/PycharmProjects/partsignal/backend/.venv/lib/python3.12/site-packages/alembic/util/pyfiles.py", line 116, in load_python_file
+    module = load_module_py(module_id, path)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/sc/PycharmProjects/partsignal/backend/.venv/lib/python3.12/site-packages/alembic/util/pyfiles.py", line 136, in load_module_py
+    spec.loader.exec_module(module)  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap_external>", line 999, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/Users/sc/PycharmProjects/partsignal/backend/alembic/env.py", line 50, in <module>
+    run_migrations_online()
+  File "/Users/sc/PycharmProjects/partsignal/backend/alembic/env.py", line 44, in run_migrations_online
+    context.run_migrations()
+  File "<string>", line 8, in run_migrations
+  File "/Users/sc/PycharmProjects/partsignal/backend/.venv/lib/python3.12/site-packages/alembic/runtime/environment.py", line 969, in run_migrations
+    self.get_context().run_migrations(**kw)
+  File "/Users/sc/PycharmProjects/partsignal/backend/.venv/lib/python3.12/site-packages/alembic/runtime/migration.py", line 626, in run_migrations
+    step.migration_fn(**kw)
+  File "/Users/sc/PycharmProjects/partsignal/backend/alembic/versions/0050_geo_answer_evidence.py", line 21, in upgrade
+    op.execute((sql_dir / "0050_geo_answer_functions.sql").read_text())
+  File "<string>", line 8, in execute
+  File "<string>", line 3, in execute
+  File "/Users/sc/PycharmProjects/partsignal/backend/.venv/lib/python3.12/site-packages/alembic/operations/ops.py", line 2667, in execute
+    return operations.invoke(op)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/sc/PycharmProjects/partsignal/backend/.venv/lib/python3.12/site-packages/alembic/operations/base.py", line 452, in invoke
+    return fn(self, operation)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/Users/sc/PycharmProjects/partsignal/backend/.venv/lib/python3.12/site-packages/alembic/operations/toimpl.py", line 259, in execute_sql
+    operations.migration_context.impl.execute(
+  File "/Users/sc/PycharmProjects/partsignal/backend/.venv/lib/python3.12/site-packages/alembic/ddl/impl.py", line 263, in execute
+    self._exec(sql, execution_options)
+  File "/Users/sc/PycharmProjects/partsignal/backend/.venv/lib/python3.12/site-packages/alembic/ddl/impl.py", line 256, in _exec
+    return conn.execute(construct, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/sc/PycharmProjects/partsignal/backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1421, in execute
+    return meth(
+           ^^^^^
+  File "/Users/sc/PycharmProjects/partsignal/backend/.venv/lib/python3.12/site-packages/sqlalchemy/sql/elements.py", line 526, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/sc/PycharmProjects/partsignal/backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1643, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/sc/PycharmProjects/partsignal/backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1823, in _execute_context
+    self._handle_dbapi_exception(
+  File "/Users/sc/PycharmProjects/partsignal/backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 2365, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/Users/sc/PycharmProjects/partsignal/backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1817, in _execute_context
+    context = constructor(
+              ^^^^^^^^^^^^
+  File "/Users/sc/PycharmProjects/partsignal/backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 1417, in _init_compiled
+    compiled.construct_params(
+  File "/Users/sc/PycharmProjects/partsignal/backend/.venv/lib/python3.12/site-packages/sqlalchemy/sql/compiler.py", line 1963, in construct_params
+    raise exc.InvalidRequestError(
+sqlalchemy.exc.StatementError: (sqlalchemy.exc.InvalidRequestError) A value is required for bind parameter '80'
+[SQL: -- 固定 UTF8 编码不会随数据库 locale/session 改变；保留正文的全部原始字节。
+CREATE FUNCTION geo_answer_sha256(value text) RETURNS text
+LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE AS $$
+    SELECT encode(sha256(convert_to(value, 'UTF8')), 'hex')
+$$;
+CREATE FUNCTION geo_raw_summary_valid(value jsonb) RETURNS boolean
+LANGUAGE plpgsql IMMUTABLE AS $$
+BEGIN
+    IF jsonb_typeof(value) IS DISTINCT FROM 'object'
+        OR NOT value ?& ARRAY['schema_version','payload_format','payload_bytes','finish_reason']
+        OR value - ARRAY['schema_version','payload_format','payload_bytes','finish_reason'] <> '{}'::jsonb
+        OR value->'schema_version' IS DISTINCT FROM '1'::jsonb THEN RETURN false; END IF;
+    RETURN (value->'payload_format' = 'null'::jsonb OR value->>'payload_format' IN ('JSON','TEXT','DOM'))
+        AND (value->'finish_reason' = 'null'::jsonb OR value->>'finish_reason' IN ('STOP','LENGTH','CONTENT_FILTER','OTHER'))
+        AND (value->'payload_bytes' = 'null'::jsonb OR (
+            jsonb_typeof(value->'payload_bytes') = 'number'
+            AND value->>'payload_bytes' ~ '^(0|[1-9][0-9]{0,7})$'
+            AND (value->>'payload_bytes')::numeric <= 52428800));
+END $$;
+CREATE FUNCTION geo_citation_occurrences_valid(first_position integer, positions integer[])
+RETURNS boolean LANGUAGE sql IMMUTABLE AS $$
+    SELECT COALESCE(array_ndims(positions)=1 AND array_lower(positions,1)=1
+        AND cardinality(positions) BETWEEN 1 AND 1000 AND positions[1]=first_position
+        AND NOT EXISTS (SELECT 1 FROM generate_subscripts(positions,1) i
+            WHERE positions[i] IS NULL OR positions[i] NOT BETWEEN 1 AND 1000
+                OR (i > 1 AND positions[i] <= positions[i-1])), false)
+$$;
+CREATE FUNCTION geo_citation_url_valid(original text, normalized text, host text)
+RETURNS boolean LANGUAGE sql IMMUTABLE AS $$
+    SELECT COALESCE(length(original) BETWEEN 1 AND 2083 AND length(normalized) BETWEEN 1 AND 2083
+        AND length(host) BETWEEN 1 AND 253 AND host=lower(host)
+        AND host ~ '^[a-z0-9][a-z0-9.:-]*[a-z0-9]$'
+        AND original ~* '^https?://[^/?#]+'
+        AND substring(original FROM '^https?://([^/?#]+)') NOT LIKE '%%@%%'
+        AND original !~ '[[:space:][:cntrl:]\\]' AND normalized !~ '[[:space:][:cntrl:]\\#]'
+        AND original !~* '%%([01][0-9a-f]|7f)'
+        AND normalized ~ '^https?://[^/?#]+/'
+        AND substring(normalized FROM '^https?://([^/?#]+)') =
+            CASE WHEN host LIKE '%%:%%' THEN '['||host||']' ELSE host END
+            || COALESCE(substring(normalized FROM '^https?://[^/?#]+(:[0-9]+)/'), '')
+        AND normalized !~ '^http://[^/?#]+%(80)s/' AND normalized !~ '^https://[^/?#]+%(443)s/', false)
+$$;
+]
+[parameters: [immutabledict({})]]
+(Background on this error at: https://sqlalche.me/e/20/cd3x)

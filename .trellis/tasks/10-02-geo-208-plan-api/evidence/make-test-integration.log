@@ -1,0 +1,49 @@
+docker compose -p partsignal-geo208-validation -f .trellis/tasks/10-02-geo-208-plan-api/evidence/validation-compose.yaml run --rm backend-test
+ Volume partsignal-geo208-validation_geo208-oss Creating 
+ Volume partsignal-geo208-validation_geo208-oss Created 
+ Container partsignal-geo208-validation-postgres-1 Running 
+ Container partsignal-geo208-validation-redis-1 Running 
+ Container partsignal-geo208-validation-fake-oss-1 Creating 
+ Container partsignal-geo208-validation-fake-oss-1 Created 
+ Container partsignal-geo208-validation-fake-oss-1 Starting 
+ Container partsignal-geo208-validation-fake-oss-1 Started 
+ Container partsignal-geo208-validation-postgres-1 Waiting 
+ Container partsignal-geo208-validation-postgres-1 Healthy 
+ Container partsignal-geo208-validation-backend-test-run-e9a7c89f1fec Creating 
+ Container partsignal-geo208-validation-backend-test-run-e9a7c89f1fec Created 
+........................................................................ [ 11%]
+........................................................................ [ 23%]
+........................................................................ [ 34%]
+........................................................................ [ 46%]
+........................................................................ [ 57%]
+........................................................................ [ 69%]
+........................................................................ [ 80%]
+........................................................................ [ 92%]
+.................................................                        [100%]
+=============================== warnings summary ===============================
+tests/integration/test_geo_catalog.py::test_catalog_metadata_matches_migrated_postgresql
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_catalog.py:187: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+
+tests/integration/test_geo_catalog.py::test_catalog_metadata_matches_migrated_postgresql
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_catalog.py:187: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+
+tests/integration/test_geo_monitoring_plans.py::test_forward_preserves_existing_data_and_metadata
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_monitoring_plans.py:232: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+
+tests/integration/test_geo_monitoring_plans.py::test_forward_preserves_existing_data_and_metadata
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_monitoring_plans.py:232: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+
+tests/integration/test_geo_prompt_variants.py::test_additive_migration_metadata_and_safe_stop
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_prompt_variants.py:176: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+
+tests/integration/test_geo_prompt_variants.py::test_additive_migration_metadata_and_safe_stop
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_prompt_variants.py:176: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+
+tests/integration/test_geo_surfaces_profiles.py::test_old_head_forward_preserves_rows_metadata_and_downgrade_stops
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_surfaces_profiles.py:202: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+
+tests/integration/test_geo_surfaces_profiles.py::test_old_head_forward_preserves_rows_metadata_and_downgrade_stops
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_surfaces_profiles.py:202: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+625 passed, 8 warnings in 352.90s (0:05:52)

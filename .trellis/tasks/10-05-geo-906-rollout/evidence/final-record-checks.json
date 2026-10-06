@@ -1,0 +1,13 @@
+{
+  "manifest_changed_tasks": [
+    "GEO-906"
+  ],
+  "dependencies": "done",
+  "deferred": "804-807/post-core unchanged",
+  "trellis": "blocked",
+  "updated_doc_hashes_checked": 9,
+  "duplicate_checksum_paths": 0,
+  "new_document_links": "passed",
+  "template_yaml_unknowns": "passed",
+  "production_stage": "NOT_STARTED"
+}

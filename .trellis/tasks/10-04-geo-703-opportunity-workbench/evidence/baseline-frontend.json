@@ -1,0 +1,15 @@
+{
+  "argv": [
+    "npm",
+    "--prefix",
+    "frontend",
+    "run",
+    "test",
+    "--",
+    "src/domains/geo-rules",
+    "src/domains/geo-runs",
+    "src/app/navigation.test.ts"
+  ],
+  "exit_code": 0,
+  "seconds": 5.51
+}

@@ -1,0 +1,115 @@
+CATALOG_DIAGNOSTIC 31 31
+SOURCE_METADATA ('constraint', 'ck_content_tasks_ck_content_tasks_archive_state', '["c", "content_tasks", [27, 13], null, null, false, false, true, false, " ", " ", " "]')
+SOURCE_METADATA ('constraint', 'ck_content_tasks_ck_content_tasks_open_requires_platform', '["c", "content_tasks", [13, 24], null, null, false, false, true, false, " ", " ", " "]')
+SOURCE_METADATA ('constraint', 'ck_content_versions_ck_content_versions_status_business_e24e', '["c", "content_versions", [16], null, null, false, false, true, false, " ", " ", " "]')
+SOURCE_METADATA ('constraint', 'ck_fact_versions_classification', '["c", "fact_versions", [13], null, null, false, false, true, false, " ", " ", " "]')
+SOURCE_METADATA ('constraint', 'ck_geo_observation_publications_ck_geo_observation_publ_cc33', '["c", "geo_observation_publications", [4, 5, 7], null, null, false, false, true, false, " ", " ", " "]')
+SOURCE_METADATA ('constraint', 'ck_publication_works_ck_publication_works_close_complete', '["c", "publication_works", [11, 13, 14, 15, 16], null, null, false, false, true, false, " ", " ", " "]')
+RESTORED_METADATA ('constraint', 'ck_content_tasks_ck_content_tasks_archive_state', '["c", "content_tasks", [13, 5], null, null, false, false, true, false, " ", " ", " "]')
+RESTORED_METADATA ('constraint', 'ck_content_tasks_ck_content_tasks_open_requires_platform', '["c", "content_tasks", [5, 10], null, null, false, false, true, false, " ", " ", " "]')
+RESTORED_METADATA ('constraint', 'ck_content_versions_ck_content_versions_status_business_e24e', '["c", "content_versions", [13], null, null, false, false, true, false, " ", " ", " "]')
+RESTORED_METADATA ('constraint', 'ck_fact_versions_classification', '["c", "fact_versions", [12], null, null, false, false, true, false, " ", " ", " "]')
+RESTORED_METADATA ('constraint', 'ck_geo_observation_publications_ck_geo_observation_publ_cc33', '["c", "geo_observation_publications", [3, 4, 5], null, null, false, false, true, false, " ", " ", " "]')
+RESTORED_METADATA ('constraint', 'ck_publication_works_ck_publication_works_close_complete', '["c", "publication_works", [10, 12, 13, 14, 15], null, null, false, false, true, false, " ", " ", " "]')
+F
+=================================== FAILURES ===================================
+_____ test_real_restore_preserves_details_metrics_credentials_and_schedule _____
+
+recovery_case = (namespace(__name__='<run_path>', __doc__='成套备份与一次性隔离恢复；不接受已有数据库或生产 OSS 作为恢复目标。', __package__='', __loader__=None, __s...equested_run_count=3, created_at=datetime.datetime(2026, 10, 5, 17, 51, 42, 19759, tzinfo=datetime.timezone.utc)), ...)
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10f9fd160>
+
+    def test_real_restore_preserves_details_metrics_credentials_and_schedule(
+        recovery_case, monkeypatch
+    ):
+        recovery, args, api, rows, data, scheduled, plan, window, master = recovery_case
+        result = recovery.backup(args)
+        assert result["complete"] and result["credential_count"] == 2
+        assert result["browser"]["status"] == "N/A"
+        packed = json.loads(Path(args.secrets_file).read_text())
+        token = api.api.engineer.cookies.get(settings.session_cookie_name)
+        assert token
+        monkeypatch.setattr(settings, "session_secret", "wrong-current-session-key" * 2)
+        monkeypatch.setattr(settings, "development_storage_signing_key", "wrong-current-object-key")
+        tested_objects = []
+        original_scan = recovery.scan_database
+        original_digest = recovery.file_digest
+    
+        def scan(db, key):
+            assert settings.session_secret == packed["SESSION_SECRET"]
+            assert settings.development_storage_signing_key == packed["UPLOAD_SIGNING_SECRET"]
+            result = original_scan(db, key)
+            assert db.scalar(
+                select(SessionRecord.id).where(SessionRecord.token_hash == hash_token(token))
+            )
+            if db.get_bind().url.database.startswith("partsignal_e2e_"):
+                engine = create_engine(db.get_bind().url)
+                try:
+    
+                    def replay(_):
+                        with Session(engine) as session:
+                            return geo_batches.create_scheduled_batch(
+                                db=session, plan_id=UUID(plan["id"]), scheduled_for=window
+                            )
+    
+                    with ThreadPoolExecutor(max_workers=2) as pool:
+                        assert list(pool.map(replay, range(2))) == [scheduled, scheduled]
+                    with Session(engine) as session:
+                        count = session.scalar(
+                            text(
+                                "SELECT count(*) FROM geo_observation_batches "
+                                "WHERE plan_id=:id AND scheduled_for=:window"
+                            ),
+                            {"id": UUID(plan["id"]), "window": window},
+                        )
+                        assert count == 1
+                    with engine.connect() as connection:
+                        from sqlalchemy.exc import IntegrityError
+    
+                        with pytest.raises(IntegrityError) as immutable:
+                            connection.execute(
+                                text("UPDATE geo_answer_snapshots SET answer_text=answer_text")
+                            )
+                        assert getattr(immutable.value.orig, "sqlstate", None) == "23514"
+                        assert immutable.value.orig.diag.constraint_name == "ck_geo_answers_immutable"
+                        connection.rollback()
+                finally:
+                    engine.dispose()
+            return result
+    
+        def digest(path):
+            if "/oss/" in str(path):
+                object_root = next(parent for parent in path.parents if parent.name == "oss")
+                key = path.relative_to(object_root).as_posix()
+                identity = next(str(identity) for identity, expected in rows if expected == key)
+                with monkeypatch.context() as patch:
+                    patch.setattr(settings, "development_storage_path", str(object_root))
+                    expires = datetime.now(UTC) + timedelta(minutes=1)
+                    with TestClient(storage_app) as client:
+                        downloaded = client.get(signed_storage_url("download", key, expires))
+                        head = client.head(signed_storage_url("head", key, expires))
+                        assert downloaded.status_code == head.status_code == 200
+                        assert downloaded.content == data[identity]
+                        assert (
+                            head.headers["x-meta-sha256"] == hashlib.sha256(data[identity]).hexdigest()
+                        )
+                tested_objects.append(identity)
+            return original_digest(path)
+    
+        monkeypatch.setitem(recovery.restore.__globals__, "scan_database", scan)
+        monkeypatch.setitem(recovery.restore.__globals__, "file_digest", digest)
+        restored = recovery.restore(args)
+>       assert restored["complete"], json.dumps(restored, ensure_ascii=False)
+E       AssertionError: {"operation": "restore", "complete": false, "database": "partsignal_e2e_20261005_21a45298f6a84f479ce92cfafd211df3", "isolated": true, "objects": [{"id": "010718f7-848c-406d-a9f3-03cc58fbda84", "status": "VERIFIED"}, {"id": "3fe9dddd-1e8f-4f3b-a29c-14c9254702e7", "status": "VERIFIED"}], "mismatched_sections": ["schema"], "credentials": [{"id": "1c120a0b-a1ba-4f56-af0f-b2f7b5464dbd", "status": "DECRYPTED"}, {"id": "aa0175ce-5990-4990-b2de-ef8d924350a9", "status": "DECRYPTED"}], "run_detail_count": 4, "overview": {"status": "READABLE", "sha256": "c8c04ac0d81e94358a14937441f252042d39374a7127de027727044a79f1f1cb"}, "migration_head": ["0065_geo_observability"], "run_states": {"PENDING": 3, "COMPLETED": 1}, "browser": {"status": "N/A", "environment": "GEO-903-owned-test-source", "checked_at": "2026-10-05T17:51:42.140768+00:00", "r7_deployed": false, "browser_service_running": false, "session_mounts_present": false, "browser_collection_enabled": false, "session_configured": false, "session_rows": 0, "checked_material_roots": 1, "material_entries": 0}, "external_provider_calls": 0, "object_storage": "ISOLATED_TEMPORARY_DEVELOPMENT_TREE"}
+E       assert False
+
+backend/tests/integration/test_geo_recovery.py:129: AssertionError
+=============================== warnings summary ===============================
+backend/.venv/lib/python3.12/site-packages/_pytest/config/__init__.py:1290
+  /Users/sc/PycharmProjects/partsignal/backend/.venv/lib/python3.12/site-packages/_pytest/config/__init__.py:1290: PytestAssertRewriteWarning: Module already imported so cannot be rewritten; anyio
+    self._mark_plugins_for_rewrite(hook, disable_autoload)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED backend/tests/integration/test_geo_recovery.py::test_real_restore_preserves_details_metrics_credentials_and_schedule
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 1 warning in 4.49s

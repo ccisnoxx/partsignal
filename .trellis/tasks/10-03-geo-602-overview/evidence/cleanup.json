@@ -1,0 +1,16 @@
+{
+  "argv": [
+    "docker",
+    "compose",
+    "-p",
+    "partsignal-geo602-validation",
+    "-f",
+    ".trellis/tasks/10-03-geo-602-overview/evidence/validation-compose.yaml",
+    "down",
+    "--remove-orphans"
+  ],
+  "cwd": "/Users/sc/PycharmProjects/partsignal",
+  "exit_code": 0,
+  "started_at": "2026-10-04T06:56:13.704375+00:00",
+  "finished_at": "2026-10-04T06:56:14.147930+00:00"
+}

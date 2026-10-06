@@ -1,0 +1,14 @@
+--- baseline/docs/geo-monitoring/README.md
++++ docs/geo-monitoring/README.md
+@@ -256,3 +256,11 @@
+ 
+ 
+ GEO-308 / R2 的并发、已提交聚合不可变与旧文章导航兼容验收见 [R2 试用与验收边界](./04-delivery/07-r2-acceptance.md)、[Task Brief](../../.trellis/tasks/10-02-geo-308-r2-acceptance/prd.md) 和 [实际实施证据](../../.trellis/tasks/10-02-geo-308-r2-acceptance/implement.md)。只补测试与验收文档，不改变根合同或生产状态机；取消仍无公共命令，人工正式提交停在 COLLECTED，分析为 NOT_IMPLEMENTED。当前状态以任务清单为准，不代表生产发布或后续自动采集已经完成。
++
++GEO-401 / R3 已定义内部 `GeoCollector` 同步协议、不可变采集输入/原始结果/估价值对象和
++含显式 send state 的稳定错误。能力与错误目录复用现有权威，不新增 OpenAPI、数据库或
++Alembic；默认仍只登记 manual 元数据。接口包含发送前授权回调，但尚未实现 provider、
++Worker 或 at-most-once 恢复。边界见 [Collector 说明](./03-technical/05-worker-and-collector-architecture.md#当前-r3geo-401-内部采集合同)，
++实际状态与验证见 [Task Brief](../../.trellis/tasks/10-03-geo-401-collector-contract/prd.md)、
++[实施证据](../../.trellis/tasks/10-03-geo-401-collector-contract/implement.md) 和任务清单；
++本地交付为 review，等待人工接受。

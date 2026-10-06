@@ -1,0 +1,79 @@
+[
+  {
+    "name": "make-lint",
+    "command": [
+      "make",
+      "lint"
+    ],
+    "exit_code": 2,
+    "duration_seconds": 0.14,
+    "log": "make-lint.log"
+  },
+  {
+    "name": "make-typecheck",
+    "command": [
+      "make",
+      "typecheck"
+    ],
+    "exit_code": 0,
+    "duration_seconds": 6.47,
+    "log": "make-typecheck.log"
+  },
+  {
+    "name": "make-test-unit",
+    "command": [
+      "make",
+      "test-unit"
+    ],
+    "exit_code": 0,
+    "duration_seconds": 43.36,
+    "log": "make-test-unit.log"
+  },
+  {
+    "name": "frontend-test",
+    "command": [
+      "npm",
+      "--prefix",
+      "frontend",
+      "run",
+      "test"
+    ],
+    "exit_code": 0,
+    "duration_seconds": 21.23,
+    "log": "frontend-test.log"
+  },
+  {
+    "name": "frontend-typecheck",
+    "command": [
+      "npm",
+      "--prefix",
+      "frontend",
+      "run",
+      "typecheck"
+    ],
+    "exit_code": 0,
+    "duration_seconds": 6.16,
+    "log": "frontend-typecheck.log"
+  },
+  {
+    "name": "git-diff-check",
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "exit_code": 0,
+    "duration_seconds": 0.02,
+    "log": "git-diff-check.log"
+  },
+  {
+    "name": "make-lint-final",
+    "command": [
+      "make",
+      "lint"
+    ],
+    "exit_code": 0,
+    "log": "make-lint-final.log",
+    "correction": "新回归测试SQL字符串分行，无行为变化"
+  }
+]

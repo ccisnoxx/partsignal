@@ -1,0 +1,45 @@
+ Container partsignal-geo405-postgres-1 Running 
+ Container partsignal-geo405-redis-1 Running 
+ Container partsignal-geo405-fake-oss-1 Running 
+ Container partsignal-geo405-postgres-1 Waiting 
+ Container partsignal-geo405-postgres-1 Healthy 
+ Container partsignal-geo405-backend-test-run-dc5557028f1a Creating 
+ Container partsignal-geo405-backend-test-run-dc5557028f1a Created 
+..F
+=================================== FAILURES ===================================
+____________ test_pending_redispatch_throttle_limit_and_skip_locked ____________
+
+worker_graph = WorkerGraph(api=PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_g...9d4a4fe8'), channel=UUID('2b828b80-4f60-4562-9af8-e810cad1add0'), call_id=UUID('351e9c8b-1e2f-4c4a-a7ec-373e504669ba'))
+local_provider = <app.geo_fake_server.GeoFakeServer object at 0xf43f7a850650>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0xf43f783852b0>
+
+    def test_pending_redispatch_throttle_limit_and_skip_locked(
+        worker_graph, local_provider, monkeypatch
+    ):
+        ids = [worker_graph.create() for _ in range(3)]
+        now = datetime.now(UTC) + timedelta(minutes=3)
+        monkeypatch.setattr(settings, "geo_recovery_batch_size", 2)
+        sent = []
+        first_locked = Event()
+        release = Event()
+    
+        def hold(value):
+            first_locked.set()
+            assert release.wait(5)
+            sent.append(value)
+    
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            future = pool.submit(geo_dispatch.redispatch_pending_collection_runs, hold, now=now)
+            assert first_locked.wait(5)
+            other = geo_dispatch.redispatch_pending_collection_runs(sent.append, now=now)
+            release.set()
+            total = future.result() + other
+>       assert total == 3 and sorted(sent) == sorted(map(str, ids))
+E       assert (2 == 3)
+
+tests/integration/test_geo_worker.py:144: AssertionError
+=========================== short test summary info ============================
+FAILED tests/integration/test_geo_worker.py::test_pending_redispatch_throttle_limit_and_skip_locked
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 2 passed in 3.15s
+

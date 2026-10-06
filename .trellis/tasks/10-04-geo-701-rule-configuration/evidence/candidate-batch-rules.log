@@ -1,0 +1,25 @@
+ Container partsignal-geo701-validation-redis-1 Running 
+ Container partsignal-geo701-validation-fake-oss-1 Running 
+ Container partsignal-geo701-validation-postgres-1 Running 
+ Container partsignal-geo701-validation-postgres-1 Waiting 
+ Container partsignal-geo701-validation-postgres-1 Healthy 
+ Container partsignal-geo701-validation-backend-test-run-96150c1a93cd Creating 
+ Container partsignal-geo701-validation-backend-test-run-96150c1a93cd Created 
+...........................                                              [100%]
+=============================== warnings summary ===============================
+tests/integration/test_geo_batch_creation_migration.py::test_forward_preserves_nonempty_frozen_inputs_and_matches_metadata
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_batch_creation_migration.py:82: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+
+tests/integration/test_geo_batch_creation_migration.py::test_forward_preserves_nonempty_frozen_inputs_and_matches_metadata
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_batch_creation_migration.py:82: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+
+tests/integration/test_geo_run_migration.py::test_forward_preserves_nonempty_old_geo_and_matches_metadata
+  /app/tests/integration/test_geo_run_migration.py:77: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_run_migration.py::test_forward_preserves_nonempty_old_geo_and_matches_metadata
+  /app/tests/integration/test_geo_run_migration.py:77: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+    assert compare_metadata(context, Base.metadata) == []
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+27 passed, 4 warnings in 12.71s

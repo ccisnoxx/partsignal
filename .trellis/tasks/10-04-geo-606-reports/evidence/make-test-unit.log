@@ -1,0 +1,461 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend pytest backend/tests/unit
+.......................................................FF............... [  2%]
+........................................................................ [  4%]
+........................................................................ [  6%]
+........................................................................ [  8%]
+........................................................................ [ 10%]
+........................................................................ [ 12%]
+........................................................................ [ 14%]
+........................................................................ [ 16%]
+........................................................................ [ 18%]
+........................................................................ [ 20%]
+........................................................................ [ 22%]
+........................................................................ [ 24%]
+........................................................................ [ 26%]
+........................................................................ [ 28%]
+........................................................................ [ 30%]
+........................................................................ [ 32%]
+........................................................................ [ 34%]
+........................................................................ [ 36%]
+........................................................................ [ 38%]
+........................................................................ [ 40%]
+........................................................................ [ 42%]
+........................................................................ [ 44%]
+........................................................................ [ 46%]
+........................................................................ [ 48%]
+..........F............................................................. [ 50%]
+........................................................................ [ 52%]
+........................................................................ [ 54%]
+........................................................................ [ 56%]
+........................................................................ [ 58%]
+........................................................................ [ 60%]
+........................................................................ [ 62%]
+........................................................................ [ 64%]
+........................................................................ [ 66%]
+........................................................................ [ 68%]
+........................................................................ [ 70%]
+........................................................................ [ 72%]
+........................................................................ [ 75%]
+........................................................................ [ 77%]
+........................................................................ [ 79%]
+........................................................................ [ 81%]
+........................................................................ [ 83%]
+........................................................................ [ 85%]
+........................................................................ [ 87%]
+...................................................................FF... [ 89%]
+........................................................................ [ 91%]
+........................................................................ [ 93%]
+........................................................................ [ 95%]
+........................................................................ [ 97%]
+........................................................................ [ 99%]
+.......................                                                  [100%]
+=================================== FAILURES ===================================
+___ test_static_request_context_metadata_covers_all_operations_and_responses ___
+
+    def test_static_request_context_metadata_covers_all_operations_and_responses() -> None:
+        """静态合同逐操作声明 request ID、400 信封和全部 response Header。"""
+        contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+        document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+        operations = operation_map(document)
+>       assert len(operations) == 228
+E       AssertionError: assert 234 == 228
+E        +  where 234 = len({('/api/health/live', 'get'): {'operationId': 'getLiveHealth', 'parameters': [{'$ref': '#/components/parameters/Reques...ef': '#/components/responses/ErrorResponse'}, '403': {'$ref': '#/components/responses/ErrorResponse'}, ...}, ...}, ...})
+
+backend/tests/unit/test_contract.py:56: AssertionError
+_________ test_frozen_response_status_signatures_cover_every_operation _________
+
+    def test_frozen_response_status_signatures_cover_every_operation() -> None:
+        """逐 operation 冻结精确 response 集合，避免合同回退到宽泛状态模板。"""
+        contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+        document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+        expected_by_signature = {
+            ("200",): ("getLiveHealth",),
+            ("200", "503"): ("getReadyHealth",),
+            ("200", "204", "401"): ("getCurrentUser",),
+            ("200", "401", "403"): (
+                "getCsrfToken",
+                "getAuditLogFilterOptions",
+                "listQueryTopics",
+                "listPlatformPrompts",
+                "listPlatformTypes",
+                "listPublicationReadyItems",
+                "getPublicationWorkbenchSummary",
+                "getDashboardSummary",
+            ),
+            ("200", "401", "422"): ("login",),
+            ("200", "204", "401", "403"): (
+                "getAuthSession",
+                "getContentHumanizationPrompt",
+            ),
+            ("200", "401", "403", "409"): ("getWorkbench",),
+            ("200", "401", "403", "422"): (
+                "listUsers",
+                "bulkUpdateUserStatus",
+                "exportUsers",
+                "listAuditLogs",
+                "listProducts",
+                "listQueryTopicItems",
+                "listPlatformProfiles",
+                "exportPlatformProfiles",
+                "listAIChannels",
+                "listContentTasks",
+                "getContentTaskCreationOptions",
+                "listPlatformAccounts",
+                "getGeoMetrics",
+                "listGeoSubjects",
+                "listGeoPromptVariants",
+                "listGeoEngineSurfaces",
+                "listGeoCollectionProfiles",
+                "listGeoMonitoringPlans",
+                "previewGeoMonitoringPlan",
+            ),
+            ("201", "401", "403", "422"): (
+                "createQueryTopic",
+                "createAIChannel",
+                "createFileUploadIntent",
+            ),
+            ("204", "401", "403", "422"): ("logout", "changePassword"),
+            ("200", "401", "403", "404", "422"): (
+                "getProduct",
+                "getProductDetail",
+                "getProductFactsDraft",
+                "listFactVersions",
+                "listProductFactHistory",
+                "getProductFactReviewContext",
+                "getFactVersion",
+                "getFactReviewContext",
+                "getPlatformProfile",
+                "getPlatformPrompt",
+                "getPlatformPromptPreviewOptions",
+                "getAIChannel",
+                "getAIChannelUsageSummary",
+                "listAIChannelAuditLogs",
+                "listAIModels",
+                "getContentTask",
+                "getContentTaskDetail",
+                "listGenerationJobs",
+                "listContentTaskVersions",
+                "getGenerationJob",
+                "getContentVersion",
+                "compareContentVersions",
+                "listGeoObservationPublications",
+                "getFileRecord",
+                "getGeoSubject",
+                "getGeoPromptVariant",
+                "getGeoEngineSurface",
+                "getGeoCollectionProfile",
+                "getGeoMonitoringPlan",
+            ),
+            ("200", "401", "403", "409", "422"): (
+                "putContentHumanizationPrompt",
+                "listPublicationWorks",
+                "listPublishedArticles",
+                "listPublishedContentIssues",
+                "listGeoObservations",
+                "listGeoObservationItems",
+                "getGeoOverview",
+                "getGeoAnswerInsights",
+                "listGeoInsightQualityRuns",
+            ),
+            ("201", "401", "403", "409", "422"): (
+                "createUser",
+                "createProduct",
+                "createPlatformPrompt",
+                "createPlatformType",
+                "createGeoMonitoringPlan",
+            ),
+            ("200", "401", "403", "404", "409", "422"): (
+                "listGeoOverviewRuns",
+                "listGeoAnswerInsightRuns",
+                "listGeoInsightCitations",
+                "listGeoInsightClaims",
+                "updateUser",
+                "resetUserPassword",
+                "getAuditLog",
+                "updateProduct",
+                "replaceProductFactsDraft",
+                "approveFactVersion",
+                "requestFactVersionChanges",
+                "retireFactVersion",
+                "updateQueryTopic",
+                "updatePlatformProfile",
+                "enablePlatformProfile",
+                "disablePlatformProfile",
+                "updatePlatformPrompt",
+                "updatePlatformType",
+                "updateAIChannel",
+                "replaceAIChannelApiKey",
+                "enableAIChannel",
+                "disableAIChannel",
+                "updateAIChannelHeader",
+                "updateAIModel",
+                "testAIModel",
+                "enableAIModel",
+                "disableAIModel",
+                "getContentEditorContext",
+                "getContentTaskReviewContext",
+                "getContentTaskGenerationOptions",
+                "cancelContentTask",
+                "archiveContentTask",
+                "restoreContentTask",
+                "getContentTaskPermanentDeletionPreview",
+                "updateContentDraft",
+                "getContentReviewContext",
+                "getContentVersionDetail",
+                "submitContentVersion",
+                "abandonContentVersion",
+                "approveContentVersion",
+                "requestContentVersionChanges",
+                "getPublicationPackage",
+                "updatePlatformAccount",
+                "enablePlatformAccount",
+                "disablePlatformAccount",
+                "getPublicationWork",
+                "getPublicationWorkspaceContext",
+                "updatePublicationPreparation",
+                "markPublicationPlatformReview",
+                "registerPublicationResult",
+                "verifyPublicationWork",
+                "switchPublicationContentVersion",
+                "closePublicationWork",
+                "getPublishedArticle",
+                "previewPublishedArticlePermanentDeletion",
+                "getPublishedContentIssue",
+                "getPublishedContentIssueWorkspaceContext",
+                "getPublishedContentRepairContext",
+                "resolvePublishedContentIssue",
+                "getGeoManualEntryContext",
+                "listGeoObservationBatches",
+                "getGeoObservationBatch",
+                "listGeoObservationBatchRuns",
+                "listGeoObservationRuns",
+                "getGeoObservation",
+                "getGeoObservationDetail",
+                "getGeoObservationCorrectionContext",
+                "getGeoInsights",
+                "abortFileUpload",
+                "getFileDownloadUrl",
+                "updateGeoSubject",
+                "updateGeoEngineSurface",
+                "enableGeoEngineSurface",
+                "disableGeoEngineSurface",
+                "updateGeoCollectionProfile",
+                "enableGeoCollectionProfile",
+                "testGeoCollectionProfile",
+                "disableGeoCollectionProfile",
+                "updateGeoPromptVariant",
+                "enableGeoPromptVariant",
+                "disableGeoPromptVariant",
+                "enableGeoSubject",
+                "disableGeoSubject",
+                "createGeoSubjectAlias",
+                "updateGeoSubjectAlias",
+                "deleteGeoSubjectAlias",
+                "createGeoSubjectDomain",
+                "deleteGeoSubjectDomain",
+                "updateGeoMonitoringPlan",
+                "activateGeoMonitoringPlan",
+                "pauseGeoMonitoringPlan",
+                "resumeGeoMonitoringPlan",
+                "archiveGeoMonitoringPlan",
+            ),
+            ("201", "401", "403", "404", "409", "422"): (
+                "submitProductFactReview",
+                "createPlatformProfile",
+                "createAIChannelHeader",
+                "createContentTask",
+                "createManualContentVersion",
+                "createContentRevision",
+                "createPlatformAccount",
+                "createPublicationWork",
+                "openPublishedContentIssue",
+                "createPublishedContentRepairTask",
+                "createGeoObservation",
+                "createGeoOptimizationContentTask",
+                "createAIModel",
+                "createGeoSubject",
+                "createGeoPromptVariant",
+                "createGeoEngineSurface",
+                "createGeoCollectionProfile",
+                "copyGeoMonitoringPlan",
+                "createGeoObservationBatch",
+                "runGeoMonitoringPlanNow",
+                "retryGeoObservationRun",
+                "reviewGeoObservationRun",
+            ),
+            ("201", "401", "403", "409", "422", "503"): (
+                "createPlatformLogoCandidate",
+            ),
+            ("202", "401", "403", "404", "409", "422"): (
+                "createGenerationJob",
+                "createHumanizationJob",
+                "retryGenerationJob",
+            ),
+            ("204", "401", "403", "404", "409", "422"): (
+                "deleteUser",
+                "deleteProduct",
+                "deleteFactVersion",
+                "deleteQueryTopic",
+                "deletePlatformProfile",
+                "deletePlatformPrompt",
+                "deletePlatformType",
+                "deleteAIChannel",
+                "deleteAIChannelHeader",
+                "deleteAIModel",
+                "deleteContentTask",
+                "permanentlyDeleteContentTask",
+                "deleteContentDraft",
+                "deletePlatformAccount",
+                "permanentlyDeletePublishedArticle",
+                "deleteGeoObservation",
+                "deleteGeoSubject",
+                "deleteGeoPromptVariant",
+                "deleteGeoEngineSurface",
+                "deleteGeoCollectionProfile",
+                "deleteGeoMonitoringPlan",
+            ),
+            ("204", "401", "403", "404", "408", "409", "413", "422", "503"): (
+                "uploadFileContent",
+            ),
+            ("200", "401", "403", "404", "409", "422", "503"): (
+                "saveGeoManualDraft",
+                "completeFileUpload",
+                "getGeoObservationRun",
+            ),
+            ("200", "401", "403", "404", "409", "422", "502", "504"): (
+                "discoverAIChannelModels",
+            ),
+            ("201", "401", "403", "404", "409", "422", "503"): ("submitGeoManualObservation",),
+        }
+        expected = {
+            operation_id: set(statuses) | {"400"}
+            for statuses, operation_ids in expected_by_signature.items()
+            for operation_id in operation_ids
+        }
+        operations = {
+            operation["operationId"]: operation
+            for path in document["paths"].values()
+            for operation in path.values()
+            if isinstance(operation, dict) and "operationId" in operation
+        }
+    
+        assert len(expected) == 228
+>       assert set(operations) == set(expected)
+E       AssertionError: assert {'abandonCont...entTask', ...} == {'abandonCont...entTask', ...}
+E         
+E         Extra items in the left set:
+E         'exportGeoRunsCsv'
+E         'exportGeoClaimsCsv'
+E         'exportGeoOpportunitiesCsv'
+E         'getGeoPrintReport'
+E         'getGeoReportPreview'
+E         'exportGeoCitationsCsv'
+E         Use -v to get more diff
+
+backend/tests/unit/test_contract.py:385: AssertionError
+___ test_call_counter_observes_duplicates_concurrency_and_instance_isolation ___
+
+    def test_call_counter_observes_duplicates_concurrency_and_instance_isolation():
+        attempt = uuid4()
+        body = b'{"messages":[{"role":"user","content":"fixture"}]}'
+        with running_geo_fake() as first, running_geo_fake() as second:
+            with ThreadPoolExecutor(max_workers=6) as pool:
+                futures = [pool.submit(send, first, attempt, body) for _ in range(12)]
+>               assert all(f.result(timeout=5).status_code == 200 for f in futures)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_fake_provider.py:138: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/tests/unit/test_geo_fake_provider.py:138: in <genexpr>
+    assert all(f.result(timeout=5).status_code == 200 for f in futures)
+               ^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/concurrent/futures/_base.py:449: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/concurrent/futures/_base.py:401: in __get_result
+    raise self._exception
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/concurrent/futures/thread.py:59: in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/unit/test_geo_fake_provider.py:20: in send
+    return PinnedHTTPTransport(allow_local_http=True, max_response_bytes=4096).request(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <app.services.pinned_http.PinnedHTTPTransport object at 0x10f663230>
+
+    def request(
+        self,
+        *,
+        method: str,
+        base_url: str,
+        suffix: str,
+        headers: dict[str, str],
+        timeout_seconds: int,
+        body: bytes | None,
+        before_send: Callable[[], None] | None = None,
+        max_response_bytes: int | None = None,
+    ) -> PinnedResponse:
+        """最多发送一次 HTTP 请求；开始发送后任何失败都不会换地址重试。"""
+        limit = self._max_response_bytes
+        if max_response_bytes is not None:
+            if max_response_bytes <= 0:
+                raise ValueError("响应上限必须大于零")
+            limit = min(limit, max_response_bytes)
+        try:
+            endpoint = resolve_endpoint(
+                base_url,
+                allow_local_http=self._allow_local_http,
+                resolver=self._resolver,
+            )
+        except AppError as error:
+            raise PinnedTransportError(
+                error.code,
+                error.message,
+                error.status_code,
+                stage="CONFIGURATION",
+                request_started=False,
+            ) from None
+        try:
+            connection = self._connect(endpoint, timeout_seconds)
+        except AppError as error:
+>           raise PinnedTransportError(
+                error.code,
+                error.message,
+                error.status_code,
+                stage="CONNECT",
+                request_started=False,
+            ) from None
+E           app.services.pinned_http.PinnedTransportError: AI 渠道网络请求失败
+
+backend/app/services/pinned_http.py:251: PinnedTransportError
+_______ test_runtime_request_context_covers_all_operations_and_responses _______
+
+    def test_runtime_request_context_covers_all_operations_and_responses() -> None:
+        runtime = app.openapi()
+        operations = _operation_map(runtime)
+    
+>       assert len(operations) == 228
+E       AssertionError: assert 234 == 228
+E        +  where 234 = len({'abandonContentVersion': {'operationId': 'abandonContentVersion', 'parameters': [{'in': 'path', 'name': 'content_vers...n': '业务或校验错误', 'headers': {'X-Request-ID': {'$ref': '#/components/headers/RequestIdResponseHeader'}}}, ...}, ...}, ...})
+
+backend/tests/unit/test_runtime_response_metadata.py:650: AssertionError
+______ test_runtime_request_context_merge_does_not_change_route_metadata _______
+
+    def test_runtime_request_context_merge_does_not_change_route_metadata() -> None:
+        raw = get_openapi(title=app.title, version=app.version, routes=app.routes)
+        augmented = app.openapi()
+        stripped = _strip_request_context_metadata(augmented)
+    
+>       assert sum(len(operation["responses"]) for operation in _operation_map(raw).values()) == 1241
+E       assert 1275 == 1241
+E        +  where 1275 = sum(<generator object test_runtime_request_context_merge_does_not_change_route_metadata.<locals>.<genexpr> at 0x10ede7140>)
+
+backend/tests/unit/test_runtime_response_metadata.py:697: AssertionError
+=========================== short test summary info ============================
+FAILED backend/tests/unit/test_contract.py::test_static_request_context_metadata_covers_all_operations_and_responses
+FAILED backend/tests/unit/test_contract.py::test_frozen_response_status_signatures_cover_every_operation
+FAILED backend/tests/unit/test_geo_fake_provider.py::test_call_counter_observes_duplicates_concurrency_and_instance_isolation
+FAILED backend/tests/unit/test_runtime_response_metadata.py::test_runtime_request_context_covers_all_operations_and_responses
+FAILED backend/tests/unit/test_runtime_response_metadata.py::test_runtime_request_context_merge_does_not_change_route_metadata
+5 failed, 3546 passed in 55.24s
+make: *** [test-unit] Error 1

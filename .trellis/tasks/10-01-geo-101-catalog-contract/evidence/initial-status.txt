@@ -1,0 +1,35 @@
+ M .env.example
+ M .env.production.example
+ M Makefile
+ M backend/app/config.py
+ M deploy/scripts/check-production-inputs.py
+ M docs/production-configuration.md
+?? .trellis/tasks/10-01-geo-002-adr-review/
+?? .trellis/tasks/10-01-geo-003-current-baseline/
+?? .trellis/tasks/10-01-geo-004-safe-configuration/
+?? .trellis/tasks/10-01-geo-005-fixtures-gold/
+?? .trellis/tasks/10-01-geo-101-catalog-contract/
+?? backend/tests/fixtures/
+?? backend/tests/geo_fixtures.py
+?? backend/tests/unit/test_geo_configuration.py
+?? backend/tests/unit/test_geo_fixtures.py
+?? deploy/scripts/check-geo-fixtures.py
+?? deploy/scripts/test-geo-configuration.py
+?? docs/geo-monitoring/00-governance/
+?? docs/geo-monitoring/01-product/
+?? docs/geo-monitoring/02-business/
+?? docs/geo-monitoring/03-technical/
+?? docs/geo-monitoring/04-delivery/01-implementation-roadmap.md
+?? docs/geo-monitoring/04-delivery/02-work-breakdown-structure.md
+?? docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md
+?? docs/geo-monitoring/04-delivery/04-codex-execution-guide.md
+?? docs/geo-monitoring/04-delivery/05-task-template.md
+?? docs/geo-monitoring/04-delivery/06-current-geo-baseline.md
+?? docs/geo-monitoring/04-delivery/geo-003-baseline/
+?? docs/geo-monitoring/04-delivery/task-manifest.yaml
+?? docs/geo-monitoring/05-decisions/
+?? docs/geo-monitoring/CHANGELOG.md
+?? docs/geo-monitoring/README.md
+?? docs/geo-monitoring/SHA256SUMS
+?? frontend/src/test/geo-fixtures.test.ts
+?? frontend/src/test/geo-fixtures.ts

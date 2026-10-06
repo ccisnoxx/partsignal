@@ -1,0 +1,212 @@
+.........FFF....                                                         [100%]
+=================================== FAILURES ===================================
+_ test_production_input_checker_preserves_safe_defaults_and_strict_boundaries[change9-PASSED-None] _
+
+tmp_path = PosixPath('/private/var/folders/m5/j06tv2sn1hn93d6f33j559jm0000gn/T/pytest-of-sc/pytest-194/test_production_input_checker_9')
+change = {'GEO_RAW_PAYLOAD_RETENTION_DAYS': None, 'GEO_RETENTION_BATCH_SIZE': None, 'GEO_RETENTION_DRY_RUN': None, 'GEO_TERMINAL_DRAFT_RETENTION_DAYS': None, ...}
+expected_status = 'PASSED', expected_code = None
+
+    @pytest.mark.parametrize(
+        ("change", "expected_status", "expected_code"),
+        [
+            ({}, "PASSED", None),
+            ({name: None for name in GEO_FLAGS}, "PASSED", None),
+            ({"GEO_MONITORING_ENABLED": "true"}, "PASSED", None),
+            ({name: "true" for name in GEO_FLAGS}, "PASSED", None),
+            ({"GEO_API_COLLECTION_ENABLED": "true"}, "FAILED", "BACKEND_CONFIG_OR_AI_SCHEMA_INVALID"),
+            ({"GEO_BROWSER_COLLECTION_ENABLED": "true"}, "FAILED",
+             "BACKEND_CONFIG_OR_AI_SCHEMA_INVALID"),
+            ({"GEO_OPPORTUNITY_EVALUATION_ENABLED": "true"}, "FAILED",
+             "BACKEND_CONFIG_OR_AI_SCHEMA_INVALID"),
+            ({"GEO_MONITORING_ENABLED": "invalid"}, "FAILED", "BACKEND_CONFIG_OR_AI_SCHEMA_INVALID"),
+            ({"GEO_MONITORING_ENABLED": ""}, "NOT_READY", None),
+            ({name: None for name in (
+                "GEO_RETENTION_DRY_RUN", "GEO_RETENTION_BATCH_SIZE",
+                "GEO_RAW_PAYLOAD_RETENTION_DAYS", "GEO_TERMINAL_DRAFT_RETENTION_DAYS",
+                "GEO_UNREFERENCED_FILE_RETENTION_DAYS",
+            )}, "PASSED", None),
+            ({"GEO_RAW_PAYLOAD_RETENTION_DAYS": "180",
+              "GEO_TERMINAL_DRAFT_RETENTION_DAYS": "30",
+              "GEO_UNREFERENCED_FILE_RETENTION_DAYS": "7"}, "PASSED", None),
+            ({"GEO_RAW_PAYLOAD_RETENTION_DAYS": "89"}, "FAILED",
+             "BACKEND_CONFIG_OR_AI_SCHEMA_INVALID"),
+            ({"GEO_RETENTION_BATCH_SIZE": "1001"}, "FAILED",
+             "BACKEND_CONFIG_OR_AI_SCHEMA_INVALID"),
+            ({"UNKNOWN_GEO_FLAG": "false"}, "FAILED", "ENV_KEY_SET_MISMATCH"),
+            ({"SESSION_SECRET": None}, "FAILED", "ENV_KEY_SET_MISMATCH"),
+            ({"AI_ALLOW_LOCAL_HTTP": "true"}, "FAILED",
+             "PRODUCTION_FIXED_VALUE_REQUIRED:AI_ALLOW_LOCAL_HTTP"),
+        ],
+    )
+    def test_production_input_checker_preserves_safe_defaults_and_strict_boundaries(
+        tmp_path: Path,
+        change: dict[str, str | None],
+        expected_status: str,
+        expected_code: str | None,
+    ) -> None:
+        values = production_configuration()
+        for key, value in change.items():
+            if value is None:
+                values.pop(key, None)
+            else:
+                values[key] = value
+        runtime = tmp_path / "runtime.env"
+        runtime.write_text("".join(f"{key}={value}\n" for key, value in values.items()))
+        runtime.chmod(0o600)
+        result = subprocess.run(
+            [sys.executable, str(ROOT / "deploy/scripts/check-production-inputs.py"), str(runtime)],
+            cwd=tmp_path,
+            env={**os.environ, **{name: "true" for name in GEO_FLAGS}},
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+>       assert result.returncode == (0 if expected_status == "PASSED" else 2)
+E       assert 2 == 0
+E        +  where 2 = CompletedProcess(args=['/Users/sc/PycharmProjects/partsignal/backend/.venv/bin/python3', '/Users/sc/PycharmProjects/pa...nput_checker_9/runtime.env'], returncode=2, stdout='{"status": "FAILED", "code": "ENV_KEY_SET_MISMATCH"}\n', stderr='').returncode
+
+backend/tests/unit/test_geo_configuration.py:152: AssertionError
+_ test_production_input_checker_preserves_safe_defaults_and_strict_boundaries[change10-PASSED-None] _
+
+tmp_path = PosixPath('/private/var/folders/m5/j06tv2sn1hn93d6f33j559jm0000gn/T/pytest-of-sc/pytest-194/test_production_input_checker_10')
+change = {'GEO_RAW_PAYLOAD_RETENTION_DAYS': '180', 'GEO_TERMINAL_DRAFT_RETENTION_DAYS': '30', 'GEO_UNREFERENCED_FILE_RETENTION_DAYS': '7'}
+expected_status = 'PASSED', expected_code = None
+
+    @pytest.mark.parametrize(
+        ("change", "expected_status", "expected_code"),
+        [
+            ({}, "PASSED", None),
+            ({name: None for name in GEO_FLAGS}, "PASSED", None),
+            ({"GEO_MONITORING_ENABLED": "true"}, "PASSED", None),
+            ({name: "true" for name in GEO_FLAGS}, "PASSED", None),
+            ({"GEO_API_COLLECTION_ENABLED": "true"}, "FAILED", "BACKEND_CONFIG_OR_AI_SCHEMA_INVALID"),
+            ({"GEO_BROWSER_COLLECTION_ENABLED": "true"}, "FAILED",
+             "BACKEND_CONFIG_OR_AI_SCHEMA_INVALID"),
+            ({"GEO_OPPORTUNITY_EVALUATION_ENABLED": "true"}, "FAILED",
+             "BACKEND_CONFIG_OR_AI_SCHEMA_INVALID"),
+            ({"GEO_MONITORING_ENABLED": "invalid"}, "FAILED", "BACKEND_CONFIG_OR_AI_SCHEMA_INVALID"),
+            ({"GEO_MONITORING_ENABLED": ""}, "NOT_READY", None),
+            ({name: None for name in (
+                "GEO_RETENTION_DRY_RUN", "GEO_RETENTION_BATCH_SIZE",
+                "GEO_RAW_PAYLOAD_RETENTION_DAYS", "GEO_TERMINAL_DRAFT_RETENTION_DAYS",
+                "GEO_UNREFERENCED_FILE_RETENTION_DAYS",
+            )}, "PASSED", None),
+            ({"GEO_RAW_PAYLOAD_RETENTION_DAYS": "180",
+              "GEO_TERMINAL_DRAFT_RETENTION_DAYS": "30",
+              "GEO_UNREFERENCED_FILE_RETENTION_DAYS": "7"}, "PASSED", None),
+            ({"GEO_RAW_PAYLOAD_RETENTION_DAYS": "89"}, "FAILED",
+             "BACKEND_CONFIG_OR_AI_SCHEMA_INVALID"),
+            ({"GEO_RETENTION_BATCH_SIZE": "1001"}, "FAILED",
+             "BACKEND_CONFIG_OR_AI_SCHEMA_INVALID"),
+            ({"UNKNOWN_GEO_FLAG": "false"}, "FAILED", "ENV_KEY_SET_MISMATCH"),
+            ({"SESSION_SECRET": None}, "FAILED", "ENV_KEY_SET_MISMATCH"),
+            ({"AI_ALLOW_LOCAL_HTTP": "true"}, "FAILED",
+             "PRODUCTION_FIXED_VALUE_REQUIRED:AI_ALLOW_LOCAL_HTTP"),
+        ],
+    )
+    def test_production_input_checker_preserves_safe_defaults_and_strict_boundaries(
+        tmp_path: Path,
+        change: dict[str, str | None],
+        expected_status: str,
+        expected_code: str | None,
+    ) -> None:
+        values = production_configuration()
+        for key, value in change.items():
+            if value is None:
+                values.pop(key, None)
+            else:
+                values[key] = value
+        runtime = tmp_path / "runtime.env"
+        runtime.write_text("".join(f"{key}={value}\n" for key, value in values.items()))
+        runtime.chmod(0o600)
+        result = subprocess.run(
+            [sys.executable, str(ROOT / "deploy/scripts/check-production-inputs.py"), str(runtime)],
+            cwd=tmp_path,
+            env={**os.environ, **{name: "true" for name in GEO_FLAGS}},
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+>       assert result.returncode == (0 if expected_status == "PASSED" else 2)
+E       assert 2 == 0
+E        +  where 2 = CompletedProcess(args=['/Users/sc/PycharmProjects/partsignal/backend/.venv/bin/python3', '/Users/sc/PycharmProjects/pa...put_checker_10/runtime.env'], returncode=2, stdout='{"status": "FAILED", "code": "ENV_KEY_SET_MISMATCH"}\n', stderr='').returncode
+
+backend/tests/unit/test_geo_configuration.py:152: AssertionError
+_ test_production_input_checker_preserves_safe_defaults_and_strict_boundaries[change11-FAILED-BACKEND_CONFIG_OR_AI_SCHEMA_INVALID] _
+
+tmp_path = PosixPath('/private/var/folders/m5/j06tv2sn1hn93d6f33j559jm0000gn/T/pytest-of-sc/pytest-194/test_production_input_checker_11')
+change = {'GEO_RAW_PAYLOAD_RETENTION_DAYS': '89'}, expected_status = 'FAILED'
+expected_code = 'BACKEND_CONFIG_OR_AI_SCHEMA_INVALID'
+
+    @pytest.mark.parametrize(
+        ("change", "expected_status", "expected_code"),
+        [
+            ({}, "PASSED", None),
+            ({name: None for name in GEO_FLAGS}, "PASSED", None),
+            ({"GEO_MONITORING_ENABLED": "true"}, "PASSED", None),
+            ({name: "true" for name in GEO_FLAGS}, "PASSED", None),
+            ({"GEO_API_COLLECTION_ENABLED": "true"}, "FAILED", "BACKEND_CONFIG_OR_AI_SCHEMA_INVALID"),
+            ({"GEO_BROWSER_COLLECTION_ENABLED": "true"}, "FAILED",
+             "BACKEND_CONFIG_OR_AI_SCHEMA_INVALID"),
+            ({"GEO_OPPORTUNITY_EVALUATION_ENABLED": "true"}, "FAILED",
+             "BACKEND_CONFIG_OR_AI_SCHEMA_INVALID"),
+            ({"GEO_MONITORING_ENABLED": "invalid"}, "FAILED", "BACKEND_CONFIG_OR_AI_SCHEMA_INVALID"),
+            ({"GEO_MONITORING_ENABLED": ""}, "NOT_READY", None),
+            ({name: None for name in (
+                "GEO_RETENTION_DRY_RUN", "GEO_RETENTION_BATCH_SIZE",
+                "GEO_RAW_PAYLOAD_RETENTION_DAYS", "GEO_TERMINAL_DRAFT_RETENTION_DAYS",
+                "GEO_UNREFERENCED_FILE_RETENTION_DAYS",
+            )}, "PASSED", None),
+            ({"GEO_RAW_PAYLOAD_RETENTION_DAYS": "180",
+              "GEO_TERMINAL_DRAFT_RETENTION_DAYS": "30",
+              "GEO_UNREFERENCED_FILE_RETENTION_DAYS": "7"}, "PASSED", None),
+            ({"GEO_RAW_PAYLOAD_RETENTION_DAYS": "89"}, "FAILED",
+             "BACKEND_CONFIG_OR_AI_SCHEMA_INVALID"),
+            ({"GEO_RETENTION_BATCH_SIZE": "1001"}, "FAILED",
+             "BACKEND_CONFIG_OR_AI_SCHEMA_INVALID"),
+            ({"UNKNOWN_GEO_FLAG": "false"}, "FAILED", "ENV_KEY_SET_MISMATCH"),
+            ({"SESSION_SECRET": None}, "FAILED", "ENV_KEY_SET_MISMATCH"),
+            ({"AI_ALLOW_LOCAL_HTTP": "true"}, "FAILED",
+             "PRODUCTION_FIXED_VALUE_REQUIRED:AI_ALLOW_LOCAL_HTTP"),
+        ],
+    )
+    def test_production_input_checker_preserves_safe_defaults_and_strict_boundaries(
+        tmp_path: Path,
+        change: dict[str, str | None],
+        expected_status: str,
+        expected_code: str | None,
+    ) -> None:
+        values = production_configuration()
+        for key, value in change.items():
+            if value is None:
+                values.pop(key, None)
+            else:
+                values[key] = value
+        runtime = tmp_path / "runtime.env"
+        runtime.write_text("".join(f"{key}={value}\n" for key, value in values.items()))
+        runtime.chmod(0o600)
+        result = subprocess.run(
+            [sys.executable, str(ROOT / "deploy/scripts/check-production-inputs.py"), str(runtime)],
+            cwd=tmp_path,
+            env={**os.environ, **{name: "true" for name in GEO_FLAGS}},
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode == (0 if expected_status == "PASSED" else 2)
+        assert result.stderr == ""
+        summary = json.loads(result.stdout)
+        assert summary["status"] == expected_status
+        if expected_code:
+>           assert summary["code"] == expected_code
+E           AssertionError: assert 'ENV_KEY_SET_MISMATCH' == 'BACKEND_CONF...CHEMA_INVALID'
+E             
+E             - BACKEND_CONFIG_OR_AI_SCHEMA_INVALID
+E             + ENV_KEY_SET_MISMATCH
+
+backend/tests/unit/test_geo_configuration.py:157: AssertionError
+=========================== short test summary info ============================
+FAILED backend/tests/unit/test_geo_configuration.py::test_production_input_checker_preserves_safe_defaults_and_strict_boundaries[change9-PASSED-None]
+FAILED backend/tests/unit/test_geo_configuration.py::test_production_input_checker_preserves_safe_defaults_and_strict_boundaries[change10-PASSED-None]
+FAILED backend/tests/unit/test_geo_configuration.py::test_production_input_checker_preserves_safe_defaults_and_strict_boundaries[change11-FAILED-BACKEND_CONFIG_OR_AI_SCHEMA_INVALID]
+3 failed, 13 passed, 33 deselected in 2.77s

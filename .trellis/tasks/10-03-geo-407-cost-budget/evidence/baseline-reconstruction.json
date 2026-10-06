@@ -1,0 +1,14 @@
+{
+  "backend/app/models/__init__.py": "verified_reconstruction",
+  "backend/app/config.py": "verified_reconstruction",
+  "backend/tests/integration/test_migrations.py": "verified_reconstruction",
+  "backend/tests/integration/test_geo_answer_migration.py": "verified_reconstruction",
+  "backend/tests/integration/test_geo_manual_migration.py": "verified_reconstruction",
+  "backend/tests/integration/geo_worker_support.py": "verified_reconstruction",
+  ".env.example": "inverse_of_recorded_exact_task_mutation; no_initial_sha256_for_env_examples",
+  ".env.production.example": "inverse_of_recorded_exact_task_mutation; no_initial_sha256_for_env_examples",
+  "backend/tests/integration/test_geo_worker.py": "verified_initial_sha256; worker_original_read_transcript_or_unchanged_source",
+  "backend/tests/integration/test_geo_runs.py": "verified_initial_sha256; worker_original_read_transcript_or_unchanged_source",
+  "backend/tests/integration/test_geo_at_most_once.py": "verified_initial_sha256; worker_original_read_transcript_or_unchanged_source",
+  "backend/tests/integration/test_geo_run_migration.py": "verified_initial_sha256; worker_original_read_transcript_or_unchanged_source"
+}

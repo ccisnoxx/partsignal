@@ -1,0 +1,24 @@
+{
+  "modified": [
+    "contracts/openapi.yaml",
+    "docs/geo-monitoring/02-business/02-domain-model.md",
+    "docs/geo-monitoring/03-technical/03-api-contract-design.md",
+    "docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md",
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "docs/geo-monitoring/CHANGELOG.md",
+    "docs/geo-monitoring/README.md",
+    "docs/geo-monitoring/SHA256SUMS",
+    "frontend/src/shared/api/generated/schema.d.ts"
+  ],
+  "added": [
+    "backend/app/schemas/geo_plan_preview.py",
+    "backend/app/services/geo_plans.py",
+    "backend/tests/integration/test_geo_plan_preview.py",
+    "backend/tests/unit/test_geo_plan_preview_contract.py",
+    "backend/tests/unit/test_geo_run_matrix.py"
+  ],
+  "removed": [],
+  "recorded_initial_file_count": 2814,
+  "unrelated_recorded_files_unchanged": true,
+  "baseline_exclusions": "前序evidence/本任务目录及未纳入起点哈希的大型文件；不将这些旧文件误判为本次新增"
+}

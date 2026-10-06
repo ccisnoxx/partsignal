@@ -1,0 +1,18 @@
+{
+  "argv": [
+    "docker",
+    "compose",
+    "-p",
+    "partsignal-geo604-validation",
+    "-f",
+    ".trellis/tasks/10-04-geo-604-citation-risk-quality/evidence/validation-compose.yaml",
+    "run",
+    "--rm",
+    "backend-test",
+    "pytest",
+    "tests/integration/test_geo_insight_details.py"
+  ],
+  "exit_code": 0,
+  "started_at": "2026-10-04T08:25:20.447029+00:00",
+  "finished_at": "2026-10-04T08:25:31.330735+00:00"
+}

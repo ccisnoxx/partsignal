@@ -1,0 +1,28 @@
+{
+  "source_additions": [
+    "backend/app/collectors/contracts.py",
+    "backend/app/collectors/base.py",
+    "backend/app/collectors/errors.py",
+    "backend/tests/unit/test_geo_collector_contract.py"
+  ],
+  "changed_baseline_files": [
+    "docs/geo-monitoring/README.md",
+    "docs/geo-monitoring/03-technical/01-technical-architecture.md",
+    "docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md",
+    "docs/geo-monitoring/03-technical/07-testing-and-quality.md",
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "docs/geo-monitoring/SHA256SUMS",
+    "docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md"
+  ],
+  "unchanged_authoritative_files": [
+    "backend/app/collectors/registry.py",
+    "backend/app/schemas/geo_runs.py",
+    "backend/app/schemas/geo_answers.py",
+    "contracts/openapi.yaml",
+    "contracts/database.md"
+  ],
+  "only_manifest_task_changed": "GEO-401",
+  "dependencies": "GEO-204/GEO-301 done",
+  "final_status": "review",
+  "new_and_baseline_increment_whitespace": "passed"
+}

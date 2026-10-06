@@ -1,0 +1,4 @@
+{
+  "private_secret_value_match_keys": [],
+  "scope": "仅扫描本任务日志；值仅在内存比较，未输出或保存；公开 example 相同值不视为私有值"
+}

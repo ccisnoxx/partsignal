@@ -1,0 +1,29 @@
+{
+  "changed_existing": [
+    "backend/tests/unit/test_geo_catalog_contract.py",
+    "docs/geo-monitoring/03-technical/02-data-architecture.md",
+    "docs/geo-monitoring/03-technical/03-api-contract-design.md",
+    "docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md",
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "docs/geo-monitoring/CHANGELOG.md",
+    "docs/geo-monitoring/README.md",
+    "backend/app/audit_types.py",
+    "backend/app/main.py",
+    "backend/app/schemas/common.py",
+    "backend/app/services/audit_logs.py",
+    "backend/app/services/identity.py",
+    "backend/app/services/product_facts.py",
+    "backend/tests/unit/test_contract.py",
+    "backend/tests/unit/test_runtime_response_metadata.py",
+    "contracts/database.md",
+    "contracts/openapi.yaml",
+    "frontend/src/app/auth/auth-provider.tsx",
+    "frontend/src/domains/audit/audit.model.ts",
+    "frontend/src/domains/content/content-task-lifecycle.tsx",
+    "frontend/src/domains/product/product.model.ts",
+    "frontend/src/shared/api/generated/schema.d.ts"
+  ],
+  "outside_candidate": [],
+  "preexisting_trellis_changed": [],
+  "alembic_0044_unchanged": true
+}

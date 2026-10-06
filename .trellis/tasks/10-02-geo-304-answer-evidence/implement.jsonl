@@ -1,0 +1,5 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": "contracts/database.md", "reason": "AnswerSnapshot/Citation及FileRecord资格/GC数据库权威合同"}
+{"file": "contracts/openapi.yaml", "reason": "四个公共证据组件与generated类型权威"}
+{"file": "docs/geo-monitoring/05-decisions/ADR-003-separate-collection-analysis-review.md", "reason": "原始引用与派生分析事实分离"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "迁移/文件生命周期/锁与证据边界"}

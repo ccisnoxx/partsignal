@@ -1,0 +1,2914 @@
+--- before/backend/alembic/versions/0047_geo_monitoring_plans.py
++++ after/backend/alembic/versions/0047_geo_monitoring_plans.py
+@@ -0,0 +1,213 @@
++"""仅增加计划配置聚合；不创建批次、运行或改写历史观测。"""
++
++import sqlalchemy as sa
++from sqlalchemy.dialects import postgresql
++
++from alembic import op
++
++revision = "0047_geo_monitoring_plans"
++down_revision = "0046_geo_surfaces_profiles"
++branch_labels = None
++depends_on = None
++
++
++def upgrade() -> None:
++    op.execute("""
++        CREATE FUNCTION geo_plan_timezone_valid(value text) RETURNS boolean
++        LANGUAGE sql STABLE STRICT AS $$
++            SELECT EXISTS (SELECT 1 FROM pg_timezone_names WHERE name = value)
++                AND value NOT LIKE 'posix/%' AND value NOT LIKE 'right/%'
++        $$;
++    """)
++    op.create_table(
++        "geo_monitoring_plans",
++        sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
++        sa.Column("name", sa.String(200), nullable=False),
++        sa.Column("description", sa.Text(), nullable=False, server_default=""),
++        sa.Column("status", sa.String(16), nullable=False, server_default="DISABLED"),
++        sa.Column("repeat_count", sa.Integer(), nullable=False, server_default="3"),
++        sa.Column("schedule_kind", sa.String(16), nullable=False, server_default="MANUAL_ONLY"),
++        sa.Column("cron_expression", sa.String(120)),
++        sa.Column("timezone", sa.String(64), nullable=False, server_default="Asia/Shanghai"),
++        sa.Column("budget_limit", sa.Numeric(14, 6)),
++        sa.Column("rule_set_revision", sa.Integer(), nullable=False, server_default="1"),
++        sa.Column("revision", sa.Integer(), nullable=False, server_default="0"),
++        sa.Column("created_by", postgresql.UUID(as_uuid=True), nullable=False),
++        sa.Column("updated_by", postgresql.UUID(as_uuid=True), nullable=False),
++        sa.Column(
++            "created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
++        ),
++        sa.Column(
++            "updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
++        ),
++        sa.PrimaryKeyConstraint("id", name=op.f("pk_geo_monitoring_plans")),
++        sa.ForeignKeyConstraint(
++            ["created_by"],
++            ["users.id"],
++            name=op.f("fk_geo_monitoring_plans_creator"),
++            ondelete="RESTRICT",
++        ),
++        sa.ForeignKeyConstraint(
++            ["updated_by"],
++            ["users.id"],
++            name=op.f("fk_geo_monitoring_plans_updater"),
++            ondelete="RESTRICT",
++        ),
++        sa.CheckConstraint(
++            "length(name) BETWEEN 1 AND 200 AND name !~ '^[[:space:]]|[[:space:]]$'",
++            name=op.f("ck_geo_monitoring_plans_name"),
++        ),
++        sa.CheckConstraint(
++            "status IN ('DISABLED','ACTIVE','PAUSED','ARCHIVED')",
++            name=op.f("ck_geo_monitoring_plans_status"),
++        ),
++        sa.CheckConstraint(
++            "repeat_count BETWEEN 1 AND 10", name=op.f("ck_geo_monitoring_plans_repeat")
++        ),
++        sa.CheckConstraint(
++            "(schedule_kind = 'MANUAL_ONLY' AND cron_expression IS NULL) OR (schedule_kind = 'CRON' AND cron_expression IS NOT NULL AND length(cron_expression) BETWEEN 9 AND 120 AND cron_expression ~ '^[!-~]+( [!-~]+){4}$')",
++            name=op.f("ck_geo_monitoring_plans_schedule"),
++        ),
++        sa.CheckConstraint(
++            "geo_plan_timezone_valid(timezone)", name=op.f("ck_geo_monitoring_plans_timezone")
++        ),
++        sa.CheckConstraint(
++            "budget_limit IS NULL OR (budget_limit >= 0 AND budget_limit < 'Infinity'::numeric)",
++            name=op.f("ck_geo_monitoring_plans_budget"),
++        ),
++        sa.CheckConstraint("revision >= 0", name=op.f("ck_geo_monitoring_plans_revision")),
++        sa.CheckConstraint(
++            "rule_set_revision >= 1", name=op.f("ck_geo_monitoring_plans_rule_revision")
++        ),
++    )
++    for suffix, columns in [
++        ("status_updated", ["status", "updated_at", "id"]),
++        ("creator", ["created_by"]),
++        ("updater", ["updated_by"]),
++    ]:
++        op.create_index(f"ix_geo_monitoring_plans_{suffix}", "geo_monitoring_plans", columns)
++    # 三种关系分别拥有明确资源语义；只在父聚合显式删除时级联关系自身。
++    for suffix, column, target, label in [
++        ("subjects", "subject_id", "geo_subjects", "subject"),
++        ("prompts", "prompt_variant_id", "geo_prompt_variants", "prompt"),
++        ("profiles", "collection_profile_id", "geo_collection_profiles", "profile"),
++    ]:
++        table = f"geo_monitoring_plan_{suffix}"
++        columns = [
++            sa.Column("plan_id", postgresql.UUID(as_uuid=True), nullable=False),
++            sa.Column(column, postgresql.UUID(as_uuid=True), nullable=False),
++        ]
++        constraints = [
++            sa.PrimaryKeyConstraint("plan_id", column, name=op.f(f"pk_{table}")),
++            sa.ForeignKeyConstraint(
++                ["plan_id"],
++                ["geo_monitoring_plans.id"],
++                name=op.f(f"fk_{table}_plan"),
++                ondelete="CASCADE",
++            ),
++            sa.ForeignKeyConstraint(
++                [column], [f"{target}.id"], name=op.f(f"fk_{table}_{label}"), ondelete="RESTRICT"
++            ),
++        ]
++        if suffix == "subjects":
++            columns.append(sa.Column("role", sa.String(16), nullable=False))
++            constraints.append(
++                sa.CheckConstraint(
++                    "role IN ('PRIMARY','COMPETITOR','REFERENCE')",
++                    name=op.f("ck_geo_monitoring_plan_subjects_role"),
++                )
++            )
++        op.create_table(table, *columns, *constraints)
++        op.create_index(f"ix_{table}_{label}", table, [column, "plan_id"])
++    op.execute("""
++        CREATE FUNCTION geo_guard_monitoring_plan() RETURNS trigger LANGUAGE plpgsql AS $$
++        BEGIN
++            IF TG_OP = 'INSERT' THEN
++                IF NEW.status <> 'DISABLED' OR NEW.revision <> 0 THEN
++                    RAISE EXCEPTION '计划必须从 DISABLED revision 0 创建'
++                        USING ERRCODE = '23514', CONSTRAINT = 'ck_geo_monitoring_plans_initial';
++                END IF;
++                RETURN NEW;
++            END IF;
++            IF OLD.status = 'ARCHIVED' AND (TG_OP = 'DELETE' OR NEW IS DISTINCT FROM OLD) THEN
++                RAISE EXCEPTION '归档计划只读'
++                    USING ERRCODE = '23514', CONSTRAINT = 'ck_geo_monitoring_plans_archived';
++            END IF;
++            IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
++            IF ROW(NEW.id, NEW.created_by, NEW.created_at)
++                IS DISTINCT FROM ROW(OLD.id, OLD.created_by, OLD.created_at) THEN
++                RAISE EXCEPTION '计划创建身份不可变'
++                    USING ERRCODE = '23514', CONSTRAINT = 'ck_geo_monitoring_plans_identity';
++            END IF;
++            RETURN NEW;
++        END $$;
++        CREATE TRIGGER geo_monitoring_plan_guard BEFORE INSERT OR UPDATE OR DELETE
++            ON geo_monitoring_plans FOR EACH ROW EXECUTE FUNCTION geo_guard_monitoring_plan();
++
++        CREATE FUNCTION geo_guard_plan_membership() RETURNS trigger LANGUAGE plpgsql AS $$
++        DECLARE parent uuid; state text;
++        BEGIN
++            IF TG_OP = 'UPDATE' AND NEW.plan_id IS DISTINCT FROM OLD.plan_id THEN
++                RAISE EXCEPTION '关系不可移动到其他计划，必须显式替换'
++                    USING ERRCODE = '23514', CONSTRAINT = 'ck_geo_monitoring_plans_membership_identity';
++            END IF;
++            parent := CASE WHEN TG_OP = 'DELETE' THEN OLD.plan_id ELSE NEW.plan_id END;
++            SELECT status INTO state FROM geo_monitoring_plans WHERE id = parent FOR UPDATE;
++            IF state = 'ARCHIVED' THEN
++                RAISE EXCEPTION '归档计划关系只读'
++                    USING ERRCODE = '23514', CONSTRAINT = 'ck_geo_monitoring_plans_archived';
++            END IF;
++            -- 锁本身不能阻止 RR 旧快照写偏斜；建立父行 MVCC 写冲突，不改逻辑 revision。
++            UPDATE geo_monitoring_plans SET revision = revision WHERE id = parent;
++            IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
++            RETURN NEW;
++        END $$;
++
++        CREATE FUNCTION geo_check_plan_complete() RETURNS trigger LANGUAGE plpgsql AS $$
++        DECLARE parent uuid;
++        BEGIN
++            IF TG_TABLE_NAME = 'geo_monitoring_plans' THEN
++                parent := NEW.id;
++            ELSE
++                parent := CASE WHEN TG_OP = 'DELETE' THEN OLD.plan_id ELSE NEW.plan_id END;
++            END IF;
++            IF NOT EXISTS (SELECT 1 FROM geo_monitoring_plans WHERE id = parent) THEN
++                RETURN NULL; -- 父聚合已被显式删除，关系级联不要求重建它。
++            END IF;
++            IF NOT EXISTS (SELECT 1 FROM geo_monitoring_plan_subjects
++                           WHERE plan_id = parent AND role = 'PRIMARY') THEN
++                RAISE EXCEPTION '计划至少需要一个 PRIMARY'
++                    USING ERRCODE = '23514', CONSTRAINT = 'ck_geo_monitoring_plans_primary_required';
++            END IF;
++            IF NOT EXISTS (SELECT 1 FROM geo_monitoring_plan_prompts WHERE plan_id = parent) THEN
++                RAISE EXCEPTION '计划至少需要一个问题变体'
++                    USING ERRCODE = '23514', CONSTRAINT = 'ck_geo_monitoring_plans_prompt_required';
++            END IF;
++            IF NOT EXISTS (SELECT 1 FROM geo_monitoring_plan_profiles WHERE plan_id = parent) THEN
++                RAISE EXCEPTION '计划至少需要一个采集配置'
++                    USING ERRCODE = '23514', CONSTRAINT = 'ck_geo_monitoring_plans_profile_required';
++            END IF;
++            RETURN NULL;
++        END $$;
++        CREATE CONSTRAINT TRIGGER geo_monitoring_plan_complete AFTER INSERT OR UPDATE
++            ON geo_monitoring_plans DEFERRABLE INITIALLY DEFERRED
++            FOR EACH ROW EXECUTE FUNCTION geo_check_plan_complete();
++    """)
++    for suffix in ("subjects", "prompts", "profiles"):
++        table = f"geo_monitoring_plan_{suffix}"
++        op.execute(f"""
++            CREATE TRIGGER {table}_guard BEFORE INSERT OR UPDATE OR DELETE
++                ON {table} FOR EACH ROW EXECUTE FUNCTION geo_guard_plan_membership();
++            CREATE CONSTRAINT TRIGGER {table}_complete AFTER INSERT OR UPDATE OR DELETE
++                ON {table} DEFERRABLE INITIALLY DEFERRED
++                FOR EACH ROW EXECUTE FUNCTION geo_check_plan_complete();
++        """)
++
++
++def downgrade() -> None:
++    op.execute("""
++        DO $$ BEGIN
++            RAISE EXCEPTION '0047 MonitoringPlan 无法安全降级；保留配置并使用前向修复'
++                USING ERRCODE = '55000';
++        END $$;
++    """)
+--- before/backend/app/models/__init__.py
++++ after/backend/app/models/__init__.py
+@@ -5,6 +5,7 @@
+ import app.models.content  # noqa: F401
+ import app.models.geo_catalog  # noqa: F401
+ import app.models.geo_files  # noqa: F401
++import app.models.geo_monitoring_plans  # noqa: F401
+ import app.models.geo_prompt_variants  # noqa: F401
+ import app.models.geo_surfaces  # noqa: F401
+ import app.models.identity  # noqa: F401
+--- before/backend/app/models/geo_monitoring_plans.py
++++ after/backend/app/models/geo_monitoring_plans.py
+@@ -0,0 +1,180 @@
++"""计划配置及三类关系；完整性与归档由 0047 提供最终数据库防线。"""
++
++import uuid
++from datetime import datetime
++from decimal import Decimal
++
++from sqlalchemy import (
++    CheckConstraint,
++    DateTime,
++    ForeignKey,
++    Index,
++    Integer,
++    Numeric,
++    String,
++    Text,
++    func,
++    text,
++)
++from sqlalchemy.dialects.postgresql import UUID
++from sqlalchemy.orm import Mapped, mapped_column
++from sqlalchemy.schema import conv
++
++from app.db import Base
++from app.models.base import new_uuid
++
++
++class GeoMonitoringPlan(Base):
++    __tablename__ = "geo_monitoring_plans"
++    __table_args__ = (
++        CheckConstraint(
++            "length(name) BETWEEN 1 AND 200 AND name !~ '^[[:space:]]|[[:space:]]$'",
++            name=conv("ck_geo_monitoring_plans_name"),
++        ),
++        CheckConstraint(
++            "status IN ('DISABLED','ACTIVE','PAUSED','ARCHIVED')",
++            name=conv("ck_geo_monitoring_plans_status"),
++        ),
++        CheckConstraint(
++            "repeat_count BETWEEN 1 AND 10", name=conv("ck_geo_monitoring_plans_repeat")
++        ),
++        CheckConstraint(
++            "(schedule_kind = 'MANUAL_ONLY' AND cron_expression IS NULL) OR "
++            "(schedule_kind = 'CRON' AND cron_expression IS NOT NULL "
++            "AND length(cron_expression) BETWEEN 9 AND 120 "
++            "AND cron_expression ~ '^[!-~]+( [!-~]+){4}$')",
++            name=conv("ck_geo_monitoring_plans_schedule"),
++        ),
++        CheckConstraint(
++            "geo_plan_timezone_valid(timezone)", name=conv("ck_geo_monitoring_plans_timezone")
++        ),
++        CheckConstraint(
++            "budget_limit IS NULL OR (budget_limit >= 0 AND budget_limit < 'Infinity'::numeric)",
++            name=conv("ck_geo_monitoring_plans_budget"),
++        ),
++        CheckConstraint("revision >= 0", name=conv("ck_geo_monitoring_plans_revision")),
++        CheckConstraint(
++            "rule_set_revision >= 1", name=conv("ck_geo_monitoring_plans_rule_revision")
++        ),
++        Index("ix_geo_monitoring_plans_status_updated", "status", "updated_at", "id"),
++        Index("ix_geo_monitoring_plans_creator", "created_by"),
++        Index("ix_geo_monitoring_plans_updater", "updated_by"),
++    )
++
++    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
++    name: Mapped[str] = mapped_column(String(200), nullable=False)
++    description: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
++    status: Mapped[str] = mapped_column(
++        String(16), nullable=False, default="DISABLED", server_default="DISABLED"
++    )
++    repeat_count: Mapped[int] = mapped_column(
++        Integer, nullable=False, default=3, server_default="3"
++    )
++    schedule_kind: Mapped[str] = mapped_column(
++        String(16), nullable=False, default="MANUAL_ONLY", server_default="MANUAL_ONLY"
++    )
++    cron_expression: Mapped[str | None] = mapped_column(String(120))
++    timezone: Mapped[str] = mapped_column(
++        String(64), nullable=False, default="Asia/Shanghai", server_default="Asia/Shanghai"
++    )
++    budget_limit: Mapped[Decimal | None] = mapped_column(Numeric(14, 6))
++    rule_set_revision: Mapped[int] = mapped_column(
++        Integer, nullable=False, default=1, server_default="1"
++    )
++    revision: Mapped[int] = mapped_column(
++        Integer, nullable=False, default=0, server_default=text("0")
++    )
++    created_by: Mapped[uuid.UUID] = mapped_column(
++        UUID(as_uuid=True),
++        ForeignKey("users.id", name="fk_geo_monitoring_plans_creator", ondelete="RESTRICT"),
++        nullable=False,
++    )
++    updated_by: Mapped[uuid.UUID] = mapped_column(
++        UUID(as_uuid=True),
++        ForeignKey("users.id", name="fk_geo_monitoring_plans_updater", ondelete="RESTRICT"),
++        nullable=False,
++    )
++    created_at: Mapped[datetime] = mapped_column(
++        DateTime(timezone=True), nullable=False, server_default=func.now()
++    )
++    updated_at: Mapped[datetime] = mapped_column(
++        DateTime(timezone=True), nullable=False, server_default=func.now()
++    )
++
++
++class GeoMonitoringPlanSubject(Base):
++    __tablename__ = "geo_monitoring_plan_subjects"
++    __table_args__ = (
++        CheckConstraint(
++            "role IN ('PRIMARY','COMPETITOR','REFERENCE')",
++            name=conv("ck_geo_monitoring_plan_subjects_role"),
++        ),
++        Index("ix_geo_monitoring_plan_subjects_subject", "subject_id", "plan_id"),
++    )
++    plan_id: Mapped[uuid.UUID] = mapped_column(
++        UUID(as_uuid=True),
++        ForeignKey(
++            "geo_monitoring_plans.id",
++            name="fk_geo_monitoring_plan_subjects_plan",
++            ondelete="CASCADE",
++        ),
++        primary_key=True,
++    )
++    subject_id: Mapped[uuid.UUID] = mapped_column(
++        UUID(as_uuid=True),
++        ForeignKey(
++            "geo_subjects.id", name="fk_geo_monitoring_plan_subjects_subject", ondelete="RESTRICT"
++        ),
++        primary_key=True,
++    )
++    role: Mapped[str] = mapped_column(String(16), nullable=False)
++
++
++class GeoMonitoringPlanPrompt(Base):
++    __tablename__ = "geo_monitoring_plan_prompts"
++    __table_args__ = (
++        Index("ix_geo_monitoring_plan_prompts_prompt", "prompt_variant_id", "plan_id"),
++    )
++    plan_id: Mapped[uuid.UUID] = mapped_column(
++        UUID(as_uuid=True),
++        ForeignKey(
++            "geo_monitoring_plans.id",
++            name="fk_geo_monitoring_plan_prompts_plan",
++            ondelete="CASCADE",
++        ),
++        primary_key=True,
++    )
++    prompt_variant_id: Mapped[uuid.UUID] = mapped_column(
++        UUID(as_uuid=True),
++        ForeignKey(
++            "geo_prompt_variants.id",
++            name="fk_geo_monitoring_plan_prompts_prompt",
++            ondelete="RESTRICT",
++        ),
++        primary_key=True,
++    )
++
++
++class GeoMonitoringPlanProfile(Base):
++    __tablename__ = "geo_monitoring_plan_profiles"
++    __table_args__ = (
++        Index("ix_geo_monitoring_plan_profiles_profile", "collection_profile_id", "plan_id"),
++    )
++    plan_id: Mapped[uuid.UUID] = mapped_column(
++        UUID(as_uuid=True),
++        ForeignKey(
++            "geo_monitoring_plans.id",
++            name="fk_geo_monitoring_plan_profiles_plan",
++            ondelete="CASCADE",
++        ),
++        primary_key=True,
++    )
++    collection_profile_id: Mapped[uuid.UUID] = mapped_column(
++        UUID(as_uuid=True),
++        ForeignKey(
++            "geo_collection_profiles.id",
++            name="fk_geo_monitoring_plan_profiles_profile",
++            ondelete="RESTRICT",
++        ),
++        primary_key=True,
++    )
+--- before/backend/app/schemas/geo_monitoring_plans.py
++++ after/backend/app/schemas/geo_monitoring_plans.py
+@@ -0,0 +1,199 @@
++"""MonitoringPlan 配置数据组件；矩阵、资格与命令由 GEO-207/208 接入。"""
++
++import re
++from collections.abc import Iterable
++from datetime import datetime
++from decimal import Decimal
++from enum import StrEnum
++from typing import Annotated, Any, Self
++from uuid import UUID
++from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
++
++from celery.schedules import ParseException, crontab
++from celery.utils.time import WEEKDAYS, YEARMONTHS
++from pydantic import (
++    AfterValidator,
++    BeforeValidator,
++    Field,
++    PlainSerializer,
++    WithJsonSchema,
++    model_validator,
++)
++
++from app.schemas.base import ContractModel, require_unique_items
++from app.schemas.geo_prompt_variants import Revision
++
++
++class GeoMonitoringPlanStatus(StrEnum):
++    DISABLED = "DISABLED"
++    ACTIVE = "ACTIVE"
++    PAUSED = "PAUSED"
++    ARCHIVED = "ARCHIVED"
++
++
++class GeoPlanScheduleKind(StrEnum):
++    MANUAL_ONLY = "MANUAL_ONLY"
++    CRON = "CRON"
++
++
++class GeoPlanSubjectRole(StrEnum):
++    PRIMARY = "PRIMARY"
++    COMPETITOR = "COMPETITOR"
++    REFERENCE = "REFERENCE"
++
++
++def _cron_field_pattern(names: Iterable[str] = ()) -> str:
++    literals = ["".join(f"[{char.lower()}{char.upper()}]" for char in name) for name in names]
++    atom = "(?:" + "|".join(["[0-9]+", *literals]) + ")"
++    # Celery 只实际执行星号/显式范围的步长；裸字面量后的 /step 会被截断。
++    part = rf"(?:\*(?:/[0-9]+)?|{atom}-{atom}(?:/[0-9]+)?|{atom})"
++    return rf"{part}(?:,{part})*"
++
++
++# 完整词法匹配，数值、范围和步长仍由安装版 Celery 判定。
++_CRON_FIELDS = [_cron_field_pattern()] * 3 + [
++    _cron_field_pattern(YEARMONTHS),
++    _cron_field_pattern(WEEKDAYS),
++]
++CRON_PATTERN = "^" + " ".join(_CRON_FIELDS) + r"$(?![\s\S])"
++BUDGET_PATTERN = r"^(?:0|[1-9][0-9]{0,7})(?:\.[0-9]{1,6})?$(?![\s\S])"
++
++
++def _budget_input(value: object) -> object:
++    # ORM/内部模型可传 Decimal，JSON wire 仅接受明确精度的十进制字符串。
++    if isinstance(value, Decimal):
++        return value
++    if not isinstance(value, str) or re.fullmatch(BUDGET_PATTERN, value) is None:
++        raise ValueError("预算必须为非负十进制字符串，最多8位整数和6位小数")
++    return value
++
++
++def _budget_output(value: Decimal) -> str:
++    result = format(value.copy_abs() if value.is_zero() else value, "f")
++    return result.rstrip("0").rstrip(".") if "." in result else result
++
++
++def _timezone(value: str) -> str:
++    if value.startswith(("posix/", "right/")):
++        raise ValueError("必须使用有效 IANA 时区")
++    try:
++        ZoneInfo(value)
++    except (ZoneInfoNotFoundError, ValueError) as error:
++        raise ValueError("必须使用有效 IANA 时区") from error
++    return value
++
++
++def _cron(value: str) -> str:
++    if re.fullmatch(CRON_PATTERN, value) is None:
++        raise ValueError("必须使用有效五字段 Cron 表达式")
++    try:
++        crontab.from_string(value)
++    except (ValueError, KeyError, ZeroDivisionError, ParseException) as error:
++        raise ValueError("必须使用有效五字段 Cron 表达式") from error
++    return value
++
++
++PlanName = Annotated[
++    str,
++    Field(strict=True, min_length=1, max_length=200, pattern=r"^[^\s\x00](?:[^\x00]*[^\s\x00])?$"),
++]
++PlanTimezone = Annotated[
++    str, Field(strict=True, min_length=1, max_length=64), AfterValidator(_timezone)
++]
++PlanCron = Annotated[
++    str,
++    Field(strict=True, min_length=9, max_length=120, json_schema_extra={"pattern": CRON_PATTERN}),
++    AfterValidator(_cron),
++]
++PlanBudget = Annotated[
++    Decimal,
++    Field(ge=0, max_digits=14, decimal_places=6, allow_inf_nan=False),
++    BeforeValidator(_budget_input),
++    PlainSerializer(_budget_output, return_type=str, when_used="json"),
++    WithJsonSchema({"type": "string", "pattern": BUDGET_PATTERN}),
++]
++PlanIds = Annotated[
++    list[UUID],
++    Field(min_length=1, json_schema_extra={"uniqueItems": True}),
++    AfterValidator(require_unique_items),
++]
++
++
++class GeoPlanSubject(ContractModel):
++    subject_id: UUID
++    role: GeoPlanSubjectRole
++
++
++def _configuration_schema(schema: dict[str, Any]) -> None:
++    schema["allOf"] = [
++        {
++            "if": {
++                "properties": {"schedule_kind": {"const": "CRON"}},
++                "required": ["schedule_kind"],
++            },
++            "then": {
++                "properties": {"cron_expression": {"type": "string"}},
++                "required": ["cron_expression"],
++            },
++            "else": {"properties": {"cron_expression": {"type": "null"}}},
++        }
++    ]
++
++
++class GeoMonitoringPlanConfiguration(ContractModel):
++    model_config = {"json_schema_extra": _configuration_schema}
++
++    name: PlanName
++    description: str = Field(default="", strict=True, pattern=r"^[^\x00]*$")
++    subjects: list[GeoPlanSubject] = Field(
++        min_length=1,
++        json_schema_extra={
++            "uniqueItems": True,
++            "contains": {"properties": {"role": {"const": "PRIMARY"}}, "required": ["role"]},
++            "minContains": 1,
++            "description": "subject_id 在集合内唯一；至少一个 PRIMARY，不由对象类型推断角色。",
++        },
++    )
++    prompt_variant_ids: PlanIds
++    collection_profile_ids: PlanIds
++    repeat_count: int = Field(default=3, strict=True, ge=1, le=10)
++    schedule_kind: GeoPlanScheduleKind = GeoPlanScheduleKind.MANUAL_ONLY
++    cron_expression: PlanCron | None = None
++    timezone: PlanTimezone = "Asia/Shanghai"
++    budget_limit: PlanBudget | None = None
++    rule_set_revision: int = Field(default=1, strict=True, ge=1)
++
++    @model_validator(mode="after")
++    def configuration_invariants(self) -> Self:
++        require_unique_items([item.subject_id for item in self.subjects])
++        if not any(item.role == GeoPlanSubjectRole.PRIMARY for item in self.subjects):
++            raise ValueError("计划至少需要一个 PRIMARY 监测对象")
++        if (self.schedule_kind == GeoPlanScheduleKind.CRON) != (self.cron_expression is not None):
++            raise ValueError("CRON 必须提供表达式，MANUAL_ONLY 必须为空")
++        return self
++
++
++class GeoMonitoringPlanCreate(GeoMonitoringPlanConfiguration):
++    pass
++
++
++class GeoMonitoringPlanRevisionRequest(ContractModel):
++    expected_revision: Revision
++
++
++class GeoMonitoringPlanUpdate(GeoMonitoringPlanConfiguration):
++    """完整替换配置，避免 PATCH 集合片段绕过聚合完整性；不允许写状态或追溯。"""
++
++    expected_revision: Revision
++
++
++class GeoMonitoringPlanOut(GeoMonitoringPlanConfiguration):
++    """数据组件，不是尚未实施的 Plan 详情/动作/运行健康读模型。"""
++
++    id: UUID
++    status: GeoMonitoringPlanStatus
++    revision: Revision
++    created_by: UUID
++    updated_by: UUID
++    created_at: datetime
++    updated_at: datetime
+--- before/backend/app/schemas/geo_prompt_variants.py
++++ after/backend/app/schemas/geo_prompt_variants.py
+@@ -106,7 +106,7 @@
+ 
+ 
+ class GeoPromptVariantDeletion(ContractModel):
+-    blockers: list[Literal["HISTORY_REFERENCE"]]
++    blockers: list[Literal["HISTORY_REFERENCE", "MONITORING_PLAN"]]
+ 
+ 
+ class GeoPromptRunEntry(ContractModel):
+--- before/backend/app/schemas/geo_surface_management.py
++++ after/backend/app/schemas/geo_surface_management.py
+@@ -53,6 +53,7 @@
+ class GeoConfigurationDeletionBlockerType(StrEnum):
+     COLLECTION_PROFILE = "COLLECTION_PROFILE"
+     HISTORICAL_REFERENCE = "HISTORICAL_REFERENCE"
++    MONITORING_PLAN = "MONITORING_PLAN"
+ 
+ 
+ class GeoConfigurationDeletionBlocker(ContractModel):
+--- before/backend/app/services/geo_catalog.py
++++ after/backend/app/services/geo_catalog.py
+@@ -76,7 +76,10 @@
+         pair = _diagnostics(error)
+         mapped: AppError | None = None
+         if deleting:
+-            if pair == ("23503", "fk_geo_subjects_parent_identity"):
++            if pair in {
++                ("23503", "fk_geo_subjects_parent_identity"),
++                ("23503", "fk_geo_monitoring_plan_subjects_subject"),
++            }:
+                 mapped = AppError("GEO_SUBJECT_IN_USE", "监测对象仍有直接引用，不能删除", 409)
+         elif pair == ("23505", "uq_geo_subjects_active_own_product"):
+             mapped = own_product_conflict
+--- before/backend/app/services/geo_catalog_queries.py
++++ after/backend/app/services/geo_catalog_queries.py
+@@ -13,6 +13,7 @@
+ from app.deps import DbSession
+ from app.errors import AppError, not_found
+ from app.models.geo_catalog import GeoSubject, GeoSubjectAlias, GeoSubjectDomain
++from app.models.geo_monitoring_plans import GeoMonitoringPlanSubject
+ from app.models.product_facts import Product
+ from app.schemas.common import AccountType
+ from app.schemas.geo_catalog import GeoSubjectListPage, GeoSubjectOut, GeoSubjectType
+@@ -47,11 +48,24 @@
+         if ids
+         else {}
+     )
+-    # 0044 只有子 Subject 引用域；后续真实域必须连同 RESTRICT FK/锁接入此 owner。
++    plans = (
++        dict(
++            db.execute(
++                select(GeoMonitoringPlanSubject.subject_id, func.count())
++                .where(GeoMonitoringPlanSubject.subject_id.in_(ids))
++                .group_by(GeoMonitoringPlanSubject.subject_id)
++            )
++            .tuples()
++            .all()
++        )
++        if ids
++        else {}
++    )
++    # Run/Analysis/Opportunity 尚未实施；Plan 已通过真实 RESTRICT 关系接入。
+     return {
+         key: SubjectReferenceCounts(
+             child_subject_count=int(children.get(key, 0)),
+-            monitoring_plan_count=0,
++            monitoring_plan_count=int(plans.get(key, 0)),
+             observation_run_count=0,
+             analysis_count=0,
+             opportunity_count=0,
+--- before/backend/app/services/geo_prompt_variant_queries.py
++++ after/backend/app/services/geo_prompt_variant_queries.py
+@@ -10,6 +10,7 @@
+ from app.errors import not_found
+ from app.geo_prompt_variants import GeoPromptMentionMode, GeoPromptPriority, normalize_prompt_text
+ from app.models.configuration import QueryTopic
++from app.models.geo_monitoring_plans import GeoMonitoringPlanPrompt
+ from app.models.geo_prompt_variants import GeoPromptVariant
+ from app.schemas.configuration import IntentType
+ from app.schemas.geo_prompt_variants import (
+@@ -30,13 +31,17 @@
+     db.connection(execution_options={"isolation_level": "REPEATABLE READ"})
+ 
+ 
+-def variant_out(variant: GeoPromptVariant, topic: QueryTopic) -> GeoPromptVariantOut:
++def variant_out(
++    variant: GeoPromptVariant, topic: QueryTopic, *, plan_referenced: bool = False
++) -> GeoPromptVariantOut:
+     if variant.query_topic_id != topic.id:
+         raise ValueError("变体与主题摘要必须属于同一资源")
+     referenced = variant.first_referenced_at is not None
+     actions = [GeoPromptVariantAction.COPY]
+     if not referenced:
+-        actions += [GeoPromptVariantAction.UPDATE, GeoPromptVariantAction.DELETE]
++        actions.append(GeoPromptVariantAction.UPDATE)
++        if not plan_referenced:
++            actions.append(GeoPromptVariantAction.DELETE)
+     if variant.is_active:
+         actions.append(GeoPromptVariantAction.DISABLE)
+     elif not referenced:
+@@ -80,10 +85,22 @@
+             else GeoPromptVariantPrimaryTask.EDIT,
+             "available_actions": actions,
+             "deletion": GeoPromptVariantDeletion(
+-                blockers=["HISTORY_REFERENCE"] if referenced else []
++                blockers=(["HISTORY_REFERENCE"] if referenced else [])
++                + (["MONITORING_PLAN"] if plan_referenced else [])
+             ),
+             "run_entry": GeoPromptRunEntry(available=False, reason_code="NOT_IMPLEMENTED"),
+         }
++    )
++
++
++def plan_prompt_referenced(db: Session, variant_id: UUID) -> bool:
++    return (
++        db.scalar(
++            select(GeoMonitoringPlanPrompt.plan_id)
++            .where(GeoMonitoringPlanPrompt.prompt_variant_id == variant_id)
++            .limit(1)
++        )
++        is not None
+     )
+ 
+ 
+@@ -96,7 +113,7 @@
+     ).one_or_none()
+     if row is None:
+         raise not_found("问题变体")
+-    return variant_out(*row)
++    return variant_out(*row, plan_referenced=plan_prompt_referenced(db, variant_id))
+ 
+ 
+ def list_variants(
+@@ -152,8 +169,19 @@
+         .limit(page_size)
+         .execution_options(populate_existing=True)
+     ).all()
++    plan_ids = (
++        set(
++            db.scalars(
++                select(GeoMonitoringPlanPrompt.prompt_variant_id).where(
++                    GeoMonitoringPlanPrompt.prompt_variant_id.in_([row[0].id for row in rows])
++                )
++            )
++        )
++        if rows
++        else set()
++    )
+     return GeoPromptVariantListPage(
+-        items=[variant_out(*row) for row in rows],
++        items=[variant_out(*row, plan_referenced=row[0].id in plan_ids) for row in rows],
+         total=total,
+         page=page,
+         page_size=page_size,
+--- before/backend/app/services/geo_prompt_variants.py
++++ after/backend/app/services/geo_prompt_variants.py
+@@ -22,7 +22,7 @@
+     GeoPromptVariantOut,
+     GeoPromptVariantUpdate,
+ )
+-from app.services.geo_prompt_variant_queries import variant_out
++from app.services.geo_prompt_variant_queries import plan_prompt_referenced, variant_out
+ 
+ 
+ @contextmanager
+@@ -111,6 +111,10 @@
+             mapped = AppError("GEO_PROMPT_VARIANT_EXISTS", "主题已有相同语义的问题变体", 409)
+         elif pair == ("23514", "ck_geo_prompt_variants_history"):
+             mapped = _history_error(deleting=deleting)
++        elif deleting and pair == ("23503", "fk_geo_monitoring_plan_prompts_prompt"):
++            mapped = AppError(
++                "GEO_PROMPT_VARIANT_IN_USE", "问题变体仍被监测计划引用，不能删除", 409
++            )
+         else:
+             raise
+         db.rollback()
+@@ -153,7 +157,7 @@
+         _audit(db, variant, actor, request_id, action)
+     # 审计失败不能映射为业务唯一性错误；业务与审计同事务。
+     db.flush()
+-    result = variant_out(variant, topic)
++    result = variant_out(variant, topic, plan_referenced=plan_prompt_referenced(db, variant.id))
+     db.commit()
+     return result
+ 
+@@ -247,6 +251,8 @@
+         variant, _ = _lock_variant(db, variant_id, expected_revision)
+         if variant.first_referenced_at is not None:
+             raise _history_error(deleting=True)
++        if plan_prompt_referenced(db, variant.id):
++            raise AppError("GEO_PROMPT_VARIANT_IN_USE", "问题变体仍被监测计划引用，不能删除", 409)
+         db.delete(variant)
+         _flush(db, deleting=True)
+         _audit(db, variant, current, request_id, "geo_prompt_variant.deleted")
+--- before/backend/app/services/geo_surface_commands.py
++++ after/backend/app/services/geo_surface_commands.py
+@@ -35,7 +35,12 @@
+     lock_surface,
+ )
+ from app.services.geo_surface_projections import surface_deletion
+-from app.services.geo_surface_queries import profiles_read, surface_profile_counts, surfaces_read
++from app.services.geo_surface_queries import (
++    profile_plan_counts,
++    profiles_read,
++    surface_profile_counts,
++    surfaces_read,
++)
+ 
+ 
+ def _field_error(code: str, field: str, message: str, status: int = 409) -> AppError:
+@@ -51,7 +56,9 @@
+     return AppError("GEO_SURFACE_IN_USE", "GEO 观测面仍有配置或历史引用，不能删除", 409)
+ 
+ 
+-def _flush_business(db: Session, *, deleting_surface: bool = False) -> None:
++def _flush_business(
++    db: Session, *, deleting_surface: bool = False, deleting_profile: bool = False
++) -> None:
+     try:
+         db.flush()
+     except IntegrityError as error:
+@@ -71,6 +78,8 @@
+             ("23514", "ck_geo_engine_surfaces_history"),
+         }:
+             mapped = _surface_in_use()
++        if deleting_profile and pair == ("23503", "fk_geo_monitoring_plan_profiles_profile"):
++            mapped = AppError("GEO_PROFILE_IN_USE", "采集配置仍被监测计划引用，不能删除", 409)
+         if mapped is None:
+             raise
+         db.rollback()
+@@ -393,9 +402,16 @@
+ ) -> None:
+     with command(db, actor) as current:
+         profile = lock_profile(db, profile_id, expected_revision)
+-        # 0046 没有真实 Run/Plan 引用表；未来引用 owner 必须连同锁/RESTRICT 接入。
++        count = profile_plan_counts(db, [profile.id]).get(profile.id, 0)
++        if count:
++            raise AppError(
++                "GEO_PROFILE_IN_USE",
++                "采集配置仍被监测计划引用，不能删除",
++                409,
++                {"blockers": [{"type": "MONITORING_PLAN", "count": count}]},
++            )
+         db.delete(profile)
+-        _flush_business(db)
++        _flush_business(db, deleting_profile=True)
+         _audit(db, profile, current, request_id, "geo_collection_profile.deleted")
+         db.flush()
+         db.commit()
+--- before/backend/app/services/geo_surface_projections.py
++++ after/backend/app/services/geo_surface_projections.py
+@@ -96,6 +96,7 @@
+     facts: ProfileFacts,
+     *,
+     actor_type: AccountType,
++    plan_count: int = 0,
+ ) -> GeoCollectionProfileRead:
+     if profile.id != facts.profile.id or profile.engine_surface_id != surface.id:
+         raise ValueError("采集配置投影必须使用同一当前归属与快照")
+@@ -143,7 +144,8 @@
+         actions.append(Action.DISABLE)
+     elif not blockers:
+         actions.append(Action.ENABLE)
+-    actions.append(Action.DELETE)
++    if not plan_count:
++        actions.append(Action.DELETE)
+     configuration = _PROFILE_OUT.validate_python(
+         {
+             **{
+@@ -182,6 +184,10 @@
+         if profile.is_active
+         else Task.ENABLE_PROFILE,
+         available_actions=actions,
+-        deletion=GeoConfigurationDeletionProjection(blockers=[]),
++        deletion=GeoConfigurationDeletionProjection(
++            blockers=[DeletionBlocker(type=DeletionType.MONITORING_PLAN, count=plan_count)]
++            if plan_count
++            else []
++        ),
+         activation_blockers=blockers,
+     )
+--- before/backend/app/services/geo_surface_queries.py
++++ after/backend/app/services/geo_surface_queries.py
+@@ -8,6 +8,7 @@
+ from sqlalchemy.orm import Session
+ 
+ from app.errors import not_found
++from app.models.geo_monitoring_plans import GeoMonitoringPlanProfile
+ from app.models.geo_surfaces import GeoCollectionProfile, GeoEngineSurface
+ from app.schemas.common import AccountType
+ from app.schemas.geo_surface_management import (
+@@ -46,6 +47,20 @@
+     ]
+ 
+ 
++def profile_plan_counts(db: Session, ids: Sequence[UUID]) -> dict[UUID, int]:
++    if not ids:
++        return {}
++    return dict(
++        db.execute(
++            select(GeoMonitoringPlanProfile.collection_profile_id, func.count())
++            .where(GeoMonitoringPlanProfile.collection_profile_id.in_(ids))
++            .group_by(GeoMonitoringPlanProfile.collection_profile_id)
++        )
++        .tuples()
++        .all()
++    )
++
++
+ def profiles_read(
+     db: Session, profiles: Sequence[GeoCollectionProfile], *, actor_type: AccountType
+ ) -> list[GeoCollectionProfileRead]:
+@@ -60,8 +75,15 @@
+         )
+     }
+     facts = load_profile_facts(db, [item.id for item in profiles])
++    plans = profile_plan_counts(db, [item.id for item in profiles])
+     return [
+-        profile_read(item, surfaces[item.engine_surface_id], facts[item.id], actor_type=actor_type)
++        profile_read(
++            item,
++            surfaces[item.engine_surface_id],
++            facts[item.id],
++            actor_type=actor_type,
++            plan_count=plans.get(item.id, 0),
++        )
+         for item in profiles
+     ]
+ 
+--- before/backend/app/services/identity.py
++++ after/backend/app/services/identity.py
+@@ -24,6 +24,7 @@
+ from app.models.content import ContentReviewRecord, ContentTask, ContentVersion
+ from app.models.geo_catalog import GeoSubject
+ from app.models.geo_files import FileRecord, GeoObservation
++from app.models.geo_monitoring_plans import GeoMonitoringPlan
+ from app.models.geo_prompt_variants import GeoPromptVariant
+ from app.models.geo_surfaces import GeoCollectionProfile, GeoEngineSurface
+ from app.models.identity import (
+@@ -95,6 +96,8 @@
+         GeoPromptVariant.created_by,
+         GeoEngineSurface.created_by,
+         GeoCollectionProfile.created_by,
++        GeoMonitoringPlan.created_by,
++        GeoMonitoringPlan.updated_by,
+         FileRecord.uploader_id,
+         FactVersion.created_by,
+         FactVersion.approved_by,
+--- before/backend/tests/integration/test_geo_monitoring_plans.py
++++ after/backend/tests/integration/test_geo_monitoring_plans.py
+@@ -0,0 +1,490 @@
++"""真实 PostgreSQL 的计划完整性、关系唯一、生命周期与并发最终防线。"""
++
++import subprocess
++import sys
++import time
++from collections.abc import Iterator
++from concurrent.futures import ThreadPoolExecutor
++from dataclasses import dataclass
++from pathlib import Path
++from typing import Any
++from uuid import UUID, uuid4
++
++import psycopg
++import pytest
++from alembic.autogenerate import compare_metadata
++from alembic.migration import MigrationContext
++from psycopg import sql
++from psycopg.types.json import Jsonb
++from sqlalchemy import create_engine
++
++from app.db import Base
++from tests.integration.test_geo_catalog import insert_row
++from tests.integration.test_migrations import run_alembic, temporary_database
++from tests.unit.test_geo_surface_contract import capabilities
++
++pytestmark = pytest.mark.integration
++TABLES = {
++    "geo_monitoring_plans",
++    "geo_monitoring_plan_subjects",
++    "geo_monitoring_plan_prompts",
++    "geo_monitoring_plan_profiles",
++}
++
++
++@dataclass
++class PlanDatabase:
++    url: str
++    env: dict[str, str]
++    backend_dir: Path
++    actor: UUID
++    subjects: list[UUID]
++    prompt: UUID
++    profile: UUID
++    before: list[Any]
++
++
++def existing_rows(conn: psycopg.Connection[Any]) -> list[Any]:
++    return [
++        conn.execute(f"SELECT to_jsonb(t) FROM {name} t ORDER BY id").fetchall()
++        for name in [
++            "users",
++            "query_topics",
++            "geo_subjects",
++            "geo_prompt_variants",
++            "geo_engine_surfaces",
++            "geo_collection_profiles",
++            "geo_observations",
++        ]
++    ]
++
++
++@pytest.fixture(scope="module")
++def plan_database() -> Iterator[PlanDatabase]:
++    with temporary_database("partsignal_geo206") as (url, env, backend_dir):
++        run_alembic(env, backend_dir, "0046_geo_surfaces_profiles")
++        actor, topic, prompt, surface, profile = [uuid4() for _ in range(5)]
++        subjects = [uuid4(), uuid4()]
++        with psycopg.connect(url) as conn:
++            insert_row(
++                conn,
++                "users",
++                {
++                    "id": actor,
++                    "username": f"geo206-{actor}",
++                    "display_name": "虚构用户",
++                    "password_hash": "unused",
++                    "account_type": "ADMIN",
++                    "is_active": True,
++                    "must_change_password": False,
++                    "revision": 0,
++                },
++            )
++            insert_row(
++                conn,
++                "query_topics",
++                {
++                    "id": topic,
++                    "canonical_question": "虚构原问题",
++                    "intent_type": "REPLACEMENT",
++                    "variants": ["保留旧问题"],
++                    "revision": 0,
++                },
++            )
++            for subject in subjects:
++                insert_row(
++                    conn,
++                    "geo_subjects",
++                    {
++                        "id": subject,
++                        "subject_type": "OWN_BRAND",
++                        "canonical_name": "虚构原品牌",
++                        "normalized_name": "虚构原品牌",
++                        "display_name": "虚构原品牌",
++                        "created_by": actor,
++                    },
++                )
++            insert_row(
++                conn,
++                "geo_prompt_variants",
++                {
++                    "id": prompt,
++                    "query_topic_id": topic,
++                    "prompt_text": "虚构测试问题",
++                    "mention_mode": "UNBRANDED",
++                    "language_code": "zh-hans",
++                    "region_code": "CN",
++                    "priority": "CORE",
++                    "created_by": actor,
++                },
++            )
++            insert_row(
++                conn,
++                "geo_engine_surfaces",
++                {
++                    "id": surface,
++                    "name": "虚构平台",
++                    "slug": "fictional-206",
++                    "surface_kind": "MANUAL_SITE",
++                    "provider_brand": "CUSTOM",
++                    "capabilities": Jsonb(capabilities()),
++                    "created_by": actor,
++                },
++            )
++            insert_row(
++                conn,
++                "geo_collection_profiles",
++                {
++                    "id": profile,
++                    "engine_surface_id": surface,
++                    "name": "虚构人工配置",
++                    "collection_mode": "MANUAL",
++                    "adapter_key": "manual",
++                    "language_code": "zh-hans",
++                    "region_code": "CN",
++                    "login_state": "ANONYMOUS",
++                    "web_search_policy": "UNKNOWN",
++                    "settings_json": Jsonb({}),
++                    "created_by": actor,
++                },
++            )
++            before = existing_rows(conn)
++        run_alembic(env, backend_dir, "head")
++        yield PlanDatabase(url, env, backend_dir, actor, subjects, prompt, profile, before)
++
++
++@pytest.fixture
++def connection(plan_database: PlanDatabase) -> Iterator[psycopg.Connection[Any]]:
++    with psycopg.connect(plan_database.url) as conn:
++        yield conn
++        conn.rollback()
++
++
++def insert_plan(
++    conn: psycopg.Connection[Any],
++    db: PlanDatabase,
++    *,
++    omit: str | None = None,
++    two_primary: bool = False,
++    **patch: Any,
++) -> UUID:
++    identity = uuid4()
++    insert_row(
++        conn,
++        "geo_monitoring_plans",
++        {
++            "id": identity,
++            "name": "虚构计划",
++            "created_by": db.actor,
++            "updated_by": db.actor,
++            **patch,
++        },
++    )
++    if omit != "subjects":
++        for subject in db.subjects if two_primary else db.subjects[:1]:
++            insert_row(
++                conn,
++                "geo_monitoring_plan_subjects",
++                {"plan_id": identity, "subject_id": subject, "role": "PRIMARY"},
++            )
++    if omit != "prompts":
++        insert_row(
++            conn,
++            "geo_monitoring_plan_prompts",
++            {"plan_id": identity, "prompt_variant_id": db.prompt},
++        )
++    if omit != "profiles":
++        insert_row(
++            conn,
++            "geo_monitoring_plan_profiles",
++            {"plan_id": identity, "collection_profile_id": db.profile},
++        )
++    return identity
++
++
++def test_forward_preserves_existing_data_and_metadata(plan_database: PlanDatabase) -> None:
++    db = plan_database
++    with psycopg.connect(db.url) as conn:
++        assert existing_rows(conn) == db.before
++        assert (
++            conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
++            == "0047_geo_monitoring_plans"
++        )
++        names = {
++            row[0]
++            for row in conn.execute("SELECT tablename FROM pg_tables WHERE schemaname='public'")
++        }
++        assert names >= TABLES
++        assert not {"geo_observation_batches", "geo_observation_runs"} & names
++    engine = create_engine(db.url.replace("postgresql://", "postgresql+psycopg://", 1))
++    try:
++        with engine.connect() as conn:
++            context = MigrationContext.configure(
++                conn,
++                opts={
++                    "compare_type": True,
++                    "compare_server_default": True,
++                    "include_object": lambda obj, name, kind, reflected, compared: (
++                        obj.name in TABLES if kind == "table" else obj.table.name in TABLES
++                    ),
++                },
++            )
++            assert compare_metadata(context, Base.metadata) == []
++    finally:
++        engine.dispose()
++    result = subprocess.run(
++        [sys.executable, "-m", "alembic", "downgrade", "0046_geo_surfaces_profiles"],
++        cwd=db.backend_dir,
++        env=db.env,
++        capture_output=True,
++        text=True,
++    )
++    assert (
++        result.returncode != 0
++        and "0047 MonitoringPlan 无法安全降级" in result.stdout + result.stderr
++    )
++    with psycopg.connect(db.url) as conn:
++        assert existing_rows(conn) == db.before
++        assert (
++            conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
++            == "0047_geo_monitoring_plans"
++        )
++
++
++def test_defaults_and_valid_configuration(
++    connection: psycopg.Connection[Any], plan_database: PlanDatabase
++) -> None:
++    identity = insert_plan(
++        connection,
++        plan_database,
++        schedule_kind="CRON",
++        cron_expression="0 9 * * mon-fri",
++        timezone="America/Los_Angeles",
++        budget_limit="0.000001",
++    )
++    connection.execute("SET CONSTRAINTS ALL IMMEDIATE")
++    row = connection.execute(
++        "SELECT status,repeat_count,revision,rule_set_revision,budget_limit "
++        "FROM geo_monitoring_plans WHERE id=%s",
++        (identity,),
++    ).fetchone()
++    assert row[:4] == ("DISABLED", 3, 0, 1) and str(row[4]) == "0.000001"
++    assert connection.execute(
++        "SELECT first_referenced_at FROM geo_prompt_variants WHERE id=%s", (plan_database.prompt,)
++    ).fetchone() == (None,)
++
++
++@pytest.mark.parametrize(
++    "omit,suffix", [("subjects", "primary"), ("prompts", "prompt"), ("profiles", "profile")]
++)
++def test_incomplete_plan_fails_at_commit(
++    plan_database: PlanDatabase, omit: str, suffix: str
++) -> None:
++    with psycopg.connect(plan_database.url) as conn:
++        identity = insert_plan(conn, plan_database, omit=omit)
++        with pytest.raises(psycopg.errors.CheckViolation) as error:
++            conn.commit()
++        assert error.value.diag.constraint_name == f"ck_geo_monitoring_plans_{suffix}_required"
++        conn.rollback()
++        assert (
++            conn.execute("SELECT 1 FROM geo_monitoring_plans WHERE id=%s", (identity,)).fetchone()
++            is None
++        )
++
++
++@pytest.mark.parametrize(
++    "column,value,constraint",
++    [
++        ("name", " ", "name"),
++        ("status", "RUNNING", "status"),
++        ("repeat_count", 0, "repeat"),
++        ("repeat_count", 11, "repeat"),
++        ("schedule_kind", "DAILY", "schedule"),
++        ("schedule_kind", "CRON", "schedule"),
++        ("cron_expression", "* * * * *", "schedule"),
++        ("timezone", "Unknown/Zone", "timezone"),
++        ("budget_limit", "-0.000001", "budget"),
++        ("budget_limit", "NaN", "budget"),
++        ("revision", -1, "revision"),
++        ("rule_set_revision", 0, "rule_revision"),
++    ],
++)
++def test_named_checks(
++    connection: psycopg.Connection[Any],
++    plan_database: PlanDatabase,
++    column: str,
++    value: Any,
++    constraint: str,
++) -> None:
++    identity = insert_plan(connection, plan_database)
++    with pytest.raises(psycopg.errors.CheckViolation) as error:
++        connection.execute(
++            sql.SQL("UPDATE geo_monitoring_plans SET {}=%s WHERE id=%s").format(
++                sql.Identifier(column)
++            ),
++            (value, identity),
++        )
++    assert error.value.diag.constraint_name == f"ck_geo_monitoring_plans_{constraint}"
++
++
++@pytest.mark.parametrize(
++    "suffix,column",
++    [
++        ("subjects", "subject_id"),
++        ("prompts", "prompt_variant_id"),
++        ("profiles", "collection_profile_id"),
++    ],
++)
++def test_relationship_unique_and_resource_delete_restricted(
++    connection: psycopg.Connection[Any], plan_database: PlanDatabase, suffix: str, column: str
++) -> None:
++    db = plan_database
++    identity = insert_plan(connection, db)
++    resource = {"subjects": db.subjects[0], "prompts": db.prompt, "profiles": db.profile}[suffix]
++    with pytest.raises(psycopg.errors.UniqueViolation) as error, connection.transaction():
++        values = {"plan_id": identity, column: resource}
++        if suffix == "subjects":
++            values["role"] = "REFERENCE"
++        insert_row(connection, f"geo_monitoring_plan_{suffix}", values)
++    assert error.value.diag.constraint_name == f"pk_geo_monitoring_plan_{suffix}"
++    target = {
++        "subjects": "geo_subjects",
++        "prompts": "geo_prompt_variants",
++        "profiles": "geo_collection_profiles",
++    }[suffix]
++    with pytest.raises(psycopg.errors.ForeignKeyViolation) as error, connection.transaction():
++        connection.execute(
++            sql.SQL("DELETE FROM {} WHERE id=%s").format(sql.Identifier(target)), (resource,)
++        )
++    label = {"subjects": "subject", "prompts": "prompt", "profiles": "profile"}[suffix]
++    assert error.value.diag.constraint_name == f"fk_geo_monitoring_plan_{suffix}_{label}"
++
++
++@pytest.mark.parametrize(
++    "statement,constraint",
++    [
++        (
++            "UPDATE geo_monitoring_plan_subjects SET role='UNKNOWN' WHERE plan_id=%s",
++            "subjects_role",
++        ),
++        (
++            "UPDATE geo_monitoring_plan_subjects SET role='REFERENCE' WHERE plan_id=%s",
++            "primary_required",
++        ),
++        ("DELETE FROM geo_monitoring_plan_prompts WHERE plan_id=%s", "prompt_required"),
++        ("DELETE FROM geo_monitoring_plan_profiles WHERE plan_id=%s", "profile_required"),
++    ],
++)
++def test_membership_changes_cannot_break_complete_plan(
++    plan_database: PlanDatabase, statement: str, constraint: str
++) -> None:
++    with psycopg.connect(plan_database.url) as conn:
++        identity = insert_plan(conn, plan_database)
++        conn.commit()
++        with pytest.raises(psycopg.errors.CheckViolation) as error:
++            conn.execute(statement, (identity,))
++            conn.commit()
++        prefix = (
++            "ck_geo_monitoring_plan_"
++            if constraint == "subjects_role"
++            else "ck_geo_monitoring_plans_"
++        )
++        assert error.value.diag.constraint_name == prefix + constraint
++        conn.rollback()
++        assert conn.execute(
++            "SELECT role FROM geo_monitoring_plan_subjects WHERE plan_id=%s", (identity,)
++        ).fetchone() == ("PRIMARY",)
++        for suffix in ["prompts", "profiles"]:
++            assert conn.execute(
++                f"SELECT count(*) FROM geo_monitoring_plan_{suffix} WHERE plan_id=%s", (identity,)
++            ).fetchone() == (1,)
++        conn.execute("DELETE FROM geo_monitoring_plans WHERE id=%s", (identity,))
++
++
++def test_replace_membership_then_archive_and_delete_rules(
++    connection: psycopg.Connection[Any], plan_database: PlanDatabase
++) -> None:
++    identity = insert_plan(connection, plan_database)
++    connection.execute("DELETE FROM geo_monitoring_plan_subjects WHERE plan_id=%s", (identity,))
++    insert_row(
++        connection,
++        "geo_monitoring_plan_subjects",
++        {"plan_id": identity, "subject_id": plan_database.subjects[1], "role": "PRIMARY"},
++    )
++    connection.execute("SET CONSTRAINTS ALL IMMEDIATE")
++    connection.execute(
++        "UPDATE geo_monitoring_plans SET status='ARCHIVED', revision=revision+1 WHERE id=%s",
++        (identity,),
++    )
++    for statement in [
++        "UPDATE geo_monitoring_plans SET name='新名称' WHERE id=%s",
++        "DELETE FROM geo_monitoring_plans WHERE id=%s",
++        "DELETE FROM geo_monitoring_plan_subjects WHERE plan_id=%s",
++    ]:
++        with pytest.raises(psycopg.errors.CheckViolation) as error, connection.transaction():
++            connection.execute(statement, (identity,))
++        assert error.value.diag.constraint_name == "ck_geo_monitoring_plans_archived"
++    connection.execute("SET CONSTRAINTS ALL DEFERRED")
++    unused = insert_plan(connection, plan_database)
++    connection.execute("DELETE FROM geo_monitoring_plans WHERE id=%s", (unused,))
++    for suffix in ["subjects", "prompts", "profiles"]:
++        assert (
++            connection.execute(
++                f"SELECT 1 FROM geo_monitoring_plan_{suffix} WHERE plan_id=%s", (unused,)
++            ).fetchone()
++            is None
++        )
++
++
++@pytest.mark.parametrize("isolation", ["READ COMMITTED", "REPEATABLE READ"])
++def test_concurrent_last_primary_removal_cannot_write_skew(
++    plan_database: PlanDatabase, isolation: str
++) -> None:
++    db = plan_database
++    with psycopg.connect(db.url) as seed:
++        identity = insert_plan(seed, db, two_primary=True)
++    with (
++        psycopg.connect(db.url) as first,
++        psycopg.connect(db.url) as second,
++        ThreadPoolExecutor(max_workers=1) as pool,
++    ):
++        first.execute(f"SET TRANSACTION ISOLATION LEVEL {isolation}")
++        second.execute(f"SET TRANSACTION ISOLATION LEVEL {isolation}")
++        second.execute("SET LOCAL statement_timeout = '5s'")
++        second.execute(
++            "SELECT count(*) FROM geo_monitoring_plan_subjects WHERE plan_id=%s", (identity,)
++        )
++        first.execute(
++            "DELETE FROM geo_monitoring_plan_subjects WHERE plan_id=%s AND subject_id=%s",
++            (identity, db.subjects[0]),
++        )
++        pid = second.info.backend_pid
++
++        def remove() -> str:
++            try:
++                second.execute(
++                    "DELETE FROM geo_monitoring_plan_subjects WHERE plan_id=%s AND subject_id=%s",
++                    (identity, db.subjects[1]),
++                )
++                second.commit()
++                return "committed"
++            except psycopg.Error as error:
++                second.rollback()
++                return error.sqlstate
++
++        future = pool.submit(remove)
++        deadline = time.monotonic() + 4
++        with psycopg.connect(db.url, autocommit=True) as observer:
++            while not observer.execute(
++                "SELECT cardinality(pg_blocking_pids(%s))", (pid,)
++            ).fetchone()[0]:
++                assert time.monotonic() < deadline, "未观测到数据库锁等待"
++                time.sleep(0.02)
++        first.commit()
++        assert future.result(timeout=6) == ("23514" if isolation == "READ COMMITTED" else "40001")
++    with psycopg.connect(db.url) as conn:
++        assert conn.execute(
++            "SELECT count(*) FROM geo_monitoring_plan_subjects WHERE plan_id=%s AND role='PRIMARY'",
++            (identity,),
++        ).fetchone() == (1,)
++        conn.execute("DELETE FROM geo_monitoring_plans WHERE id=%s", (identity,))
+--- before/backend/tests/integration/test_geo_plan_reference_api.py
++++ after/backend/tests/integration/test_geo_plan_reference_api.py
+@@ -0,0 +1,197 @@
++"""计划关系接入已有资源 API 的删除阻断与安全投影。"""
++
++from uuid import UUID, uuid4
++
++import pytest
++from sqlalchemy import select, text
++from sqlalchemy.exc import IntegrityError
++
++from app.errors import AppError
++from app.models.configuration import QueryTopic
++from app.models.geo_monitoring_plans import GeoMonitoringPlan
++from app.models.geo_prompt_variants import GeoPromptVariant
++from app.models.identity import User
++from app.services import geo_catalog, geo_prompt_variants, geo_surface_commands
++from app.services.geo_catalog_policy import SubjectReferenceCounts
++from tests.integration.geo_surface_management_support import (
++    PROFILES,
++    SurfaceAPI,
++    actor,
++    surface_api,  # noqa: F401
++    surface_engine,  # noqa: F401
++)
++
++pytestmark = pytest.mark.integration
++
++
++def test_existing_api_deletion_and_role_projection(
++    surface_api: SurfaceAPI,  # noqa: F811
++    monkeypatch: pytest.MonkeyPatch,
++) -> None:
++    api = surface_api
++    subject = api.admin.post(
++        "/api/v1/geo/subjects",
++        json={
++            "subject_type": "OWN_BRAND",
++            "canonical_name": "虚构品牌206",
++            "display_name": "虚构品牌206",
++        },
++    ).json()
++    surface = api.surface()
++    profile = api.profile(surface)
++    with api.factory() as session:
++        updater = User(
++            username=f"plan-updater-{uuid4().hex}",
++            display_name="虚构维护者",
++            password_hash="unused",
++            account_type="ENGINEER",
++            is_active=False,
++            must_change_password=False,
++            revision=0,
++        )
++        session.add(updater)
++        topic = QueryTopic(
++            canonical_question="虚构206问题", intent_type="REPLACEMENT", variants=[], revision=0
++        )
++        session.add(topic)
++        session.flush()
++        variant = GeoPromptVariant(
++            query_topic_id=topic.id,
++            prompt_text=f"虚构206问题{uuid4()}",
++            mention_mode="UNBRANDED",
++            language_code="zh-hans",
++            region_code="CN",
++            priority="CORE",
++            created_by=api.admin_id,
++        )
++        session.add(variant)
++        session.flush()
++        plan = GeoMonitoringPlan(
++            name="虚构API关系计划", created_by=api.admin_id, updated_by=updater.id
++        )
++        session.add(plan)
++        session.flush()
++        for suffix, column, resource in [
++            ("subjects", "subject_id", subject["id"]),
++            ("prompts", "prompt_variant_id", str(variant.id)),
++            ("profiles", "collection_profile_id", profile["summary"]["id"]),
++        ]:
++            extra = ",role" if suffix == "subjects" else ""
++            role = ",'PRIMARY'" if suffix == "subjects" else ""
++            session.execute(
++                text(
++                    f"INSERT INTO geo_monitoring_plan_{suffix} (plan_id,{column}{extra}) "
++                    f"VALUES (:plan,:resource{role})"
++                ),
++                {"plan": plan.id, "resource": UUID(resource)},
++            )
++        session.commit()
++        variant_id = variant.id
++        updater_id = updater.id
++        audit_before = session.scalar(text("SELECT count(*) FROM audit_logs"))
++    targets = [
++        (f"/api/v1/geo/subjects/{subject['id']}", "GEO_SUBJECT_IN_USE"),
++        (f"/api/v1/geo/prompt-variants/{variant_id}", "GEO_PROMPT_VARIANT_IN_USE"),
++        (f"{PROFILES}/{profile['summary']['id']}", "GEO_PROFILE_IN_USE"),
++    ]
++    for url, code in targets:
++        data = api.admin.get(url).json()
++        assert "DELETE" not in data["available_actions"]
++        assert "MONITORING_PLAN" in str(data["deletion"]["blockers"])
++        response = api.admin.delete(url, params={"expected_revision": 0})
++        assert response.status_code == 409 and response.json()["error"]["code"] == code
++    for url, key, identity, params in [
++        ("/api/v1/geo/subjects", "id", subject["id"], {"q": "虚构品牌206"}),
++        ("/api/v1/geo/prompt-variants", "id", str(variant_id), {"query_topic_id": str(topic.id)}),
++        (
++            PROFILES,
++            "summary",
++            profile["summary"]["id"],
++            {"engine_surface_id": surface["summary"]["id"]},
++        ),
++    ]:
++        items = api.admin.get(url, params=params).json()["items"]
++        selected = [
++            item
++            for item in items
++            if (item[key]["id"] if key == "summary" else item[key]) == identity
++        ]
++        assert len(selected) == 1
++        assert "DELETE" not in selected[0]["available_actions"]
++        assert "MONITORING_PLAN" in str(selected[0]["deletion"]["blockers"])
++    assert api.engineer.get(f"{PROFILES}/{profile['summary']['id']}").json()["deletion"] is None
++    users = api.admin.get("/api/v1/users", params={"q": updater.username}).json()
++    assert len(users["items"]) == 1
++    user = users["items"][0]
++    assert "DELETE" not in user["available_actions"]
++    assert user["deletion"]["blockers"][0]["count"] == 1
++    rejected_user = api.admin.delete(f"/api/v1/users/{updater_id}", params={"expected_revision": 0})
++    assert rejected_user.status_code == 409
++    assert rejected_user.json()["error"]["code"] == "USER_IN_USE"
++    # 配置引用不冻结语义，也不能因更新响应省略真实删除阻断。
++    changed = api.admin.patch(
++        f"/api/v1/geo/prompt-variants/{variant_id}",
++        json={"expected_revision": 0, "priority": "STANDARD"},
++    )
++    assert changed.status_code == 200 and changed.json()["deletion"]["blockers"] == [
++        "MONITORING_PLAN"
++    ]
++    # 只旁路友好引用预检，真实 FK/权限/事务保持，证明最终错误映射与回滚。
++    with monkeypatch.context() as patch:
++        patch.setattr(
++            geo_catalog,
++            "subject_references",
++            lambda db, ids: {identity: SubjectReferenceCounts(0, 0, 0, 0, 0) for identity in ids},
++        )
++        patch.setattr(geo_prompt_variants, "plan_prompt_referenced", lambda *args: False)
++        patch.setattr(geo_surface_commands, "profile_plan_counts", lambda *args: {})
++        for delete, field, identity, revision, code, constraint in [
++            (
++                geo_catalog.delete_subject,
++                "subject_id",
++                UUID(subject["id"]),
++                0,
++                "GEO_SUBJECT_IN_USE",
++                "fk_geo_monitoring_plan_subjects_subject",
++            ),
++            (
++                geo_prompt_variants.delete_variant,
++                "variant_id",
++                variant_id,
++                1,
++                "GEO_PROMPT_VARIANT_IN_USE",
++                "fk_geo_monitoring_plan_prompts_prompt",
++            ),
++            (
++                geo_surface_commands.delete_profile,
++                "profile_id",
++                UUID(profile["summary"]["id"]),
++                0,
++                "GEO_PROFILE_IN_USE",
++                "fk_geo_monitoring_plan_profiles_profile",
++            ),
++        ]:
++            with api.factory() as db:
++                with pytest.raises(AppError) as caught:
++                    delete(
++                        db=db,
++                        **{field: identity},
++                        expected_revision=revision,
++                        actor=actor(db, api),
++                        request_id="geo206-real-fk",
++                    )
++                assert caught.value.code == code and caught.value.details == {}
++                cause = caught.value.__cause__
++                assert isinstance(cause, IntegrityError) and cause.orig.sqlstate == "23503"
++                assert cause.orig.diag.constraint_name == constraint
++                assert db.scalar(text("SELECT 1")) == 1
++    with api.factory() as session:
++        assert session.scalar(text("SELECT count(*) FROM audit_logs")) == audit_before + 1
++        assert (
++            session.scalar(
++                select(GeoPromptVariant.first_referenced_at).where(
++                    GeoPromptVariant.id == variant_id
++                )
++            )
++            is None
++        )
+--- before/backend/tests/integration/test_geo_questions_api.py
++++ after/backend/tests/integration/test_geo_questions_api.py
+@@ -217,7 +217,7 @@
+         response = api.engineer.get(PREFIX, params=params)
+     finally:
+         event.remove(api.engine, "before_cursor_execute", observe)
+-    assert len(selects) == 3  # 认证（joined user）+ count/rows；不随行数增长。
++    assert len(selects) == 4  # 认证 + count/rows + 计划引用批量查询；不随行数增长。
+     assert all(
+         r["query_topic"]["canonical_question"] == "新主题摘要" for r in response.json()["items"]
+     )
+--- before/backend/tests/integration/test_geo_surfaces_profiles.py
++++ after/backend/tests/integration/test_geo_surfaces_profiles.py
+@@ -1,6 +1,7 @@
+ """PostgreSQL16 的观测配置约束、前滚、敏感数据和真实引用生命周期。"""
+ 
+ from collections.abc import Iterator
++from contextlib import contextmanager
+ from dataclasses import dataclass
+ from datetime import UTC, datetime
+ from pathlib import Path
+@@ -55,8 +56,8 @@
+     ]
+ 
+ 
+-@pytest.fixture(scope="module")
+-def surface_database() -> Iterator[SurfaceDatabase]:
++@contextmanager
++def prepared_surface_database(target_revision: str) -> Iterator[SurfaceDatabase]:
+     with temporary_database("partsignal_geo203") as (url, env, backend_dir):
+         run_alembic(env, backend_dir, "0045_geo_prompt_variants")
+         actor, admin, channel, other, model = (uuid4() for _ in range(5))
+@@ -111,8 +112,21 @@
+                 },
+             )
+             before = snapshot(connection)
+-        run_alembic(env, backend_dir, "head")
++        run_alembic(env, backend_dir, target_revision)
+         yield SurfaceDatabase(url, env, backend_dir, actor, admin, channel, other, model, before)
++
++
++@pytest.fixture(scope="module")
++def surface_database() -> Iterator[SurfaceDatabase]:
++    with prepared_surface_database("head") as db:
++        yield db
++
++
++@pytest.fixture(scope="module")
++def surface_migration_database() -> Iterator[SurfaceDatabase]:
++    # 历史前滚/拒绝降级只验收 0046，业务测试继续运行当前 head。
++    with prepared_surface_database("0046_geo_surfaces_profiles") as db:
++        yield db
+ 
+ 
+ @pytest.fixture
+@@ -160,9 +174,9 @@
+ 
+ 
+ def test_old_head_forward_preserves_rows_metadata_and_downgrade_stops(
+-    surface_database: SurfaceDatabase,
+-) -> None:
+-    db = surface_database
++    surface_migration_database: SurfaceDatabase,
++) -> None:
++    db = surface_migration_database
+     with psycopg.connect(db.url) as connection:
+         assert snapshot(connection) == db.before
+         assert connection.execute("SELECT version_num FROM alembic_version").fetchone() == (
+--- before/backend/tests/integration/test_migrations.py
++++ after/backend/tests/integration/test_migrations.py
+@@ -326,7 +326,7 @@
+ 
+         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+             cursor.execute("SELECT version_num FROM alembic_version")
+-            assert cursor.fetchone() == ("0046_geo_surfaces_profiles",)
++            assert cursor.fetchone() == ("0047_geo_monitoring_plans",)
+             cursor.execute(
+                 "SELECT tablename FROM pg_tables "
+                 "WHERE schemaname = 'public' AND tablename = ANY(%s)",
+@@ -484,10 +484,10 @@
+             text=True,
+         )
+         assert downgrade.returncode != 0
+-        assert "0046 GEO Surface/Profile 无法安全降级" in downgrade.stdout + downgrade.stderr
++        assert "0047 MonitoringPlan 无法安全降级" in downgrade.stdout + downgrade.stderr
+         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+             cursor.execute("SELECT version_num FROM alembic_version")
+-            assert cursor.fetchone() == ("0046_geo_surfaces_profiles",)
++            assert cursor.fetchone() == ("0047_geo_monitoring_plans",)
+ 
+ 
+ @pytest.mark.integration
+--- before/backend/tests/unit/test_geo_monitoring_plan_contract.py
++++ after/backend/tests/unit/test_geo_monitoring_plan_contract.py
+@@ -0,0 +1,218 @@
++"""计划完整配置的可观察输入边界和 OpenAPI 数据组件。"""
++
++from datetime import UTC, datetime
++from decimal import Decimal
++from pathlib import Path
++from typing import Any
++from uuid import uuid4
++
++import pytest
++import yaml
++from jsonschema import Draft202012Validator, FormatChecker
++from jsonschema.exceptions import ValidationError as SchemaValidationError
++from pydantic import TypeAdapter, ValidationError
++
++from app.schemas import geo_monitoring_plans as schemas
++
++
++def payload(**patch: Any) -> dict[str, Any]:
++    return {
++        "name": "虚构监测计划",
++        "subjects": [{"subject_id": str(uuid4()), "role": "PRIMARY"}],
++        "prompt_variant_ids": [str(uuid4())],
++        "collection_profile_ids": [str(uuid4())],
++        **patch,
++    }
++
++
++@pytest.fixture(scope="module")
++def contract() -> dict[str, Any]:
++    return yaml.safe_load(
++        (Path(__file__).resolve().parents[3] / "contracts/openapi.yaml").read_text()
++    )
++
++
++def validate(contract: dict[str, Any], name: str, value: Any) -> None:
++    Draft202012Validator(
++        {"$ref": f"#/components/schemas/{name}", "components": contract["components"]},
++        format_checker=FormatChecker(),
++    ).validate(value)
++
++
++@pytest.mark.parametrize(
++    "model",
++    [
++        schemas.GeoMonitoringPlanCreate,
++        schemas.GeoMonitoringPlanUpdate,
++        schemas.GeoMonitoringPlanOut,
++        schemas.GeoMonitoringPlanRevisionRequest,
++    ],
++)
++def test_components_match_pydantic(contract: dict[str, Any], model: type) -> None:
++    component = TypeAdapter(model).json_schema(
++        ref_template="#/components/schemas/{model}",
++        mode="serialization" if model is schemas.GeoMonitoringPlanOut else "validation",
++    )
++    definitions = component.pop("$defs", {})
++    assert contract["components"]["schemas"][model.__name__] == component
++    for name, definition in definitions.items():
++        assert contract["components"]["schemas"][name] == definition
++
++
++def test_defaults_decimal_and_response_exclude_runtime(contract: dict[str, Any]) -> None:
++    raw = payload(budget_limit="123.000001")
++    plan = schemas.GeoMonitoringPlanCreate.model_validate(raw)
++    assert plan.repeat_count == 3 and plan.timezone == "Asia/Shanghai"
++    assert plan.schedule_kind == "MANUAL_ONLY" and plan.cron_expression is None
++    assert plan.budget_limit == Decimal("123.000001")
++    validate(contract, "GeoMonitoringPlanCreate", raw)
++    now = datetime.now(UTC)
++    response = schemas.GeoMonitoringPlanOut(
++        **plan.model_dump(),
++        id=uuid4(),
++        status="DISABLED",
++        revision=0,
++        created_by=uuid4(),
++        updated_by=uuid4(),
++        created_at=now,
++        updated_at=now,
++    ).model_dump(mode="json")
++    assert response["budget_limit"] == "123.000001"
++    validate(contract, "GeoMonitoringPlanOut", response)
++    assert (
++        not {"run_count", "last_batch_id", "next_run_at", "lease", "answer", "spent_cost"}
++        & response.keys()
++    )
++    assert not any("monitoring-plans" in path for path in contract["paths"])
++
++
++@pytest.mark.parametrize(
++    "patch",
++    [
++        {"subjects": []},
++        {"prompt_variant_ids": []},
++        {"collection_profile_ids": []},
++        {"subjects": [{"subject_id": str(uuid4()), "role": "COMPETITOR"}]},
++        {"repeat_count": 0},
++        {"repeat_count": 11},
++        {"repeat_count": True},
++        {"repeat_count": "3"},
++        {"schedule_kind": "DAILY"},
++        {"schedule_kind": "CRON"},
++        {"cron_expression": "0 0 * * *"},
++        {"schedule_kind": "CRON", "cron_expression": ""},
++        {"budget_limit": -1},
++        {"budget_limit": "NaN"},
++        {"budget_limit": "Infinity"},
++        {"budget_limit": "100000000"},
++        {"budget_limit": "0.0000001"},
++        {"rule_set_revision": 0},
++        {"name": " "},
++        {"name": "\x00"},
++        {"timezone": "Unknown/Zone"},
++        {"timezone": "/etc/passwd"},
++        {"timezone": "posix/Asia/Shanghai"},
++        {"timezone": "right/Asia/Shanghai"},
++        {"status": "ACTIVE"},
++        {"revision": 0},
++        {"run_count": 1},
++        {"api_key": "fake-secret"},
++    ],
++)
++def test_invalid_configuration_rejected(patch: dict[str, Any]) -> None:
++    with pytest.raises(ValidationError):
++        schemas.GeoMonitoringPlanCreate.model_validate(payload(**patch))
++
++
++@pytest.mark.parametrize("field", ["prompt_variant_ids", "collection_profile_ids", "subjects"])
++def test_duplicate_resources_rejected_even_if_subject_role_differs(field: str) -> None:
++    value = payload()
++    item = value[field][0]
++    value[field].append({**item, "role": "REFERENCE"} if field == "subjects" else item)
++    with pytest.raises(ValidationError):
++        schemas.GeoMonitoringPlanCreate.model_validate(value)
++
++
++@pytest.mark.parametrize(
++    "expression",
++    [
++        "60 * * * *",
++        "0 24 * * *",
++        "0 0 32 * *",
++        "0 0 * 13 *",
++        "0 0 * * 7",
++        "*/0 * * * *",
++        "1,,2 * * * *",
++        "@daily",
++        "* * * * * *",
++        "*  * * * *",
++        "0-5/2/3 * * * *",
++        "*/5/2 * * * *",
++        "0-5/2! * * * *",
++        "0 0 * jan/0 *",
++        "0 0 * * mon/0",
++        "0 0 * jan/2 *",
++        "0 0 * * mon/2",
++    ],
++)
++def test_invalid_cron_is_validation_error(expression: str) -> None:
++    with pytest.raises(ValidationError):
++        schemas.GeoMonitoringPlanCreate.model_validate(
++            payload(schedule_kind="CRON", cron_expression=expression)
++        )
++
++
++@pytest.mark.parametrize(
++    "expression",
++    ["* * * * *", "*/15 9-17 * * mon-fri", "0 0 1,15 * 0", "0 0 * JAN-MAR/2 Mon-Fri/2"],
++)
++def test_cron_timezone_and_budget_boundaries(expression: str) -> None:
++    plan = schemas.GeoMonitoringPlanCreate.model_validate(
++        payload(
++            schedule_kind="CRON",
++            cron_expression=expression,
++            timezone="America/Los_Angeles",
++            repeat_count=10,
++            budget_limit="99999999.999999",
++        )
++    )
++    assert plan.cron_expression == expression
++
++
++def test_update_requires_full_configuration_and_revision() -> None:
++    with pytest.raises(ValidationError):
++        schemas.GeoMonitoringPlanUpdate.model_validate({"expected_revision": 0, "name": "新名称"})
++    with pytest.raises(ValidationError):
++        schemas.GeoMonitoringPlanUpdate.model_validate(payload(expected_revision=-1))
++    assert (
++        schemas.GeoMonitoringPlanUpdate.model_validate(
++            payload(expected_revision=0)
++        ).expected_revision
++        == 0
++    )
++
++
++@pytest.mark.parametrize(
++    "budget", ["-1", "1garbage", 100000000, 0.0000001, "1\n", "+1", "01", "1e-6", 1]
++)
++def test_budget_wire_negatives_rejected_by_static_and_runtime(
++    contract: dict[str, Any], budget: Any
++) -> None:
++    raw = payload(budget_limit=budget)
++    with pytest.raises(SchemaValidationError):
++        validate(contract, "GeoMonitoringPlanCreate", raw)
++    with pytest.raises(ValidationError):
++        schemas.GeoMonitoringPlanCreate.model_validate(raw)
++
++
++@pytest.mark.parametrize("budget", ["0", "0.000001", "123.000001", "99999999.999999"])
++def test_budget_string_boundaries_round_trip_contract(
++    contract: dict[str, Any], budget: str
++) -> None:
++    raw = payload(budget_limit=budget)
++    validate(contract, "GeoMonitoringPlanCreate", raw)
++    model = schemas.GeoMonitoringPlanCreate.model_validate(raw)
++    assert model.budget_limit == Decimal(budget)
++    encoded = model.model_dump(mode="json")
++    assert encoded["budget_limit"] == budget
++    validate(contract, "GeoMonitoringPlanCreate", encoded)
+--- before/contracts/database.md
++++ after/contracts/database.md
+@@ -9,6 +9,58 @@
+ - Revisions `0001` through `0008` use `app.migration_schema_v1` as a frozen metadata snapshot; future runtime model changes must add a new revision and must not edit that snapshot.
+ - JSONB is limited to immutable generation snapshots, structured generation output, and audit details. Editable product facts use one Markdown body on `products`; platform rules and normalized fact subgraphs no longer exist after `0025`.
+ - Review records, publication work events, publication verifications, observations, and audit logs cannot be modified in place。`0027` 仅在物理删除停用用户时允许把匹配 `audit_logs.actor_id` 置空；`0029` 允许管理员按完整更正链删除人工 GEO 观测；`0037` 允许普通删除未成功发布的任务聚合，并允许管理员永久删除已归档任务聚合。发布与 GEO 历史在保留期间仍禁止原地改写，删除只能从显式业务命令进入。
++
++## GEO MonitoringPlan 合同（GEO-206 / R1）
++
++`0047_geo_monitoring_plans` 从 `0046_geo_surfaces_profiles` 仅新增四表、完整性/归档守卫和时区目录函数。不回填旧 QueryTopic/GeoObservation，不创建 Batch/Run，不执行调度或外部采集。公司内部单租户共享配置，created_by/updated_by 是服务端追溯，不是用户私有归属。Plan 的业务命令、权限/CAS/审计由 GEO-208 接入；矩阵、当前资源活动和运行资格由 GEO-207 接入。
++
++### geo_monitoring_plans
++
++| 列 | 类型/默认 | 合同 |
++|---|---|---|
++| id | UUID | pk_geo_monitoring_plans |
++| name / description | varchar(200) / text 默认空 | 名称非空、无首尾空白；无名称唯一性要求 |
++| status | varchar(16) DISABLED | DISABLED / ACTIVE / PAUSED / ARCHIVED；配置生命周期，不是运行状态 |
++| repeat_count | integer 3 | 1..10 |
++| schedule_kind / cron_expression | varchar(16) MANUAL_ONLY / varchar(120) NULL | MANUAL_ONLY 必须空；CRON 必须五个非空字段，用单空格分隔 |
++| timezone | varchar(64) Asia/Shanghai | IANA 名称；Schema ZoneInfo、数据库 pg_timezone_names 精确存在校验 |
++| budget_limit | numeric(14,6) NULL | 有限且非负；NULL 表示未设置上限，不表示已知费用为零 |
++| rule_set_revision | integer 1 | >=1，配置选择；未来批次冻结，不是分析结果或规则表实现 |
++| revision | integer 0 | >=0；未来Application Service在完整配置变化时CAS并恰好+1 |
++| created_by / updated_by | UUID NOT NULL | fk_geo_monitoring_plans_creator / updater → users.id RESTRICT |
++| created_at / updated_at | timestamptz now() | 创建追溯不可变，UTC |
++
++CHECK 前缀 `ck_geo_monitoring_plans_`：name/status/repeat/schedule/timezone/budget/revision/rule_revision。索引 `ix_geo_monitoring_plans_status_updated(status,updated_at,id)`、creator(created_by)、updater(updated_by)。无 next_run_at、last_batch、run_count、费用消费、lease、dispatch、成功率或答案列。Cron 在 Schema 完整匹配各字段词法后，复用已安装 Celery 校验数值/范围/步长；数据库只保证结构和调度组合，不构造第二个解析器或执行器。预算 JSON 输入/输出仅十进制字符串或 NULL：非负、最多8位整数/6位小数，无前导零、符号、指数或尾随字符；内部用 Decimal 并保留精度。Schema拒绝不符合此语法/精度的输入，数据库numeric自身可能舍入旁路SQL的超精度输入，正常writer须经过Schema。
++
++### 三种显式关系
++
++| 表 | PK / 资源FK / 反向索引 |
++|---|---|
++| geo_monitoring_plan_subjects | PK(plan_id,subject_id)；fk_geo_monitoring_plan_subjects_subject → geo_subjects.id RESTRICT；ix_geo_monitoring_plan_subjects_subject(subject_id,plan_id) |
++| geo_monitoring_plan_prompts | PK(plan_id,prompt_variant_id)；fk_geo_monitoring_plan_prompts_prompt → geo_prompt_variants.id RESTRICT；ix_geo_monitoring_plan_prompts_prompt(prompt_variant_id,plan_id) |
++| geo_monitoring_plan_profiles | PK(plan_id,collection_profile_id)；fk_geo_monitoring_plan_profiles_profile → geo_collection_profiles.id RESTRICT；ix_geo_monitoring_plan_profiles_profile(collection_profile_id,plan_id) |
++
++Subject关系role为PRIMARY/COMPETITOR/REFERENCE，`ck_geo_monitoring_plan_subjects_role`限制枚举。角色独立于Subject类型；同资源在同计划内只能出现一次，即使role不同。三个 `fk_geo_monitoring_plan_<suffix>_plan` 都引用Plan.id，CASCADE仅清理显式删除父聚合的关系，不级联任何被选择资源。配置引用不等于历史运行：不得设置Prompt/Surface first_referenced_at，资源仍可维护或停用，删除被真实关系阻断。已暂停/归档Plan同样计入引用。
++
++### 提交完整性、版本和并发
++
++- `geo_monitoring_plan_complete` 与三个 `<table>_complete` 为 `DEFERRABLE INITIALLY DEFERRED` constraint triggers；事务提交时每个现存Plan必须至少一个PRIMARY、一个prompt、一个profile，分别以 `23514 + ck_geo_monitoring_plans_primary_required / prompt_required / profile_required` 拒绝。创建/替换关系可暂时为空；不允许将未完整草稿提交。`SET CONSTRAINTS ALL IMMEDIATE` 可在同事务提前验收最终集合。
++- `<table>_guard` 在关系写前锁父Plan，再执行父行同值UPDATE建立MVCC写冲突；不自动改变逻辑revision/updated_at/审计。这样READ COMMITTED串行后重验最终集合，REPEATABLE READ并发旧快照写入失败为40001，不能写偏斜删除不同最后PRIMARY。未来命令仍须自行持锁、CAS、一次更新聚合revision；本任务没有自动重试或并发成功兜底。
++- `geo_monitoring_plan_guard` 要求INSERT为DISABLED/revision0，禁止改id/created_by/created_at；归档行禁止实际UPDATE与DELETE，归档关系任何写入均以 `23514 + ck_geo_monitoring_plans_archived` 拒绝。关系plan_id不可原地改动（membership_identity）；显式删除/新建完成迁移。完整状态转换、资格门禁和no-op判定属于GEO-208，不由该数据守卫推导可用动作。
++- 引用写入与现有删除命令通过资源FK KEY SHARE和资源行锁仲裁；未来Plan命令应先按现有User/资源锁序，再锁Plan，稳定UUID顺序锁集合。本任务不新增Router/Plan事务入口。
++
++### 删除投影与错误边界
++
++Subject现有references.monitoring_plan_count改为三表中真实Subject关系的批量计数，MONITORING_PLAN blocker复用既有owner。Prompt新增MONITORING_PLAN删除blocker；计划引用不冻结编辑/启停语义，历史HISTORY_REFERENCE仍独立。Profile ADMIN deletion新增MONITORING_PLAN/count且移除DELETE；ENGINEER继续deletion=null。User批量引用查询计入creator/updater，沿用USER_BUSINESS_HISTORY。没有N+1或秘密读取。
++
++| 真实失败 | 现有命令映射 |
++|---|---|
++| Subject持锁引用预检；DELETE 23503 + fk_geo_monitoring_plan_subjects_subject | 409 GEO_SUBJECT_IN_USE；预检含真实references，FK回滚后details={} |
++| Prompt持锁引用预检；DELETE 23503 + fk_geo_monitoring_plan_prompts_prompt | 409 GEO_PROMPT_VARIANT_IN_USE；不改历史IMMUTABLE语义 |
++| Profile持锁引用预检；DELETE 23503 + fk_geo_monitoring_plan_profiles_profile | 409 GEO_PROFILE_IN_USE；预检含blockers，FK回滚后details={} |
++| User计划追溯引用 | 409 USER_IN_USE，沿用USER_BUSINESS_HISTORY |
++
++只有上述命令边界/精确约束允许映射；未知SQLSTATE/constraint原样失败，业务/成功审计整体回滚。GEO-208后续登记Plan完整性/状态/版本错误映射，本任务不伪造可调用端点。0047 downgrade主动55000拒绝删配置；恢复使用前向修复或迁移前PostgreSQL备份，无破坏性数据迁移。
+ 
+ ## GEO EngineSurface / CollectionProfile 合同（GEO-203 / R1）
+ 
+@@ -74,7 +126,7 @@
+ 
+ 两资源各有列表、创建、详情、更新、启用、停用、删除，共14个操作。全部认证，写入 ADMIN + CSRF；Service 锁后重读当前账号资格。ENGINEER 的读模型只有 summary，configuration=null，available_actions=[]，deletion=null；不会取得 adapter、settings、channel/model 引用、网站或创建者配置。管理员 configuration 仍是闭合非敏感 Out，永不读取 AI Key、密文、Header、Cookie、浏览器会话或资料路径。数据组件本身不直接作为角色无差别的HTTP响应。
+ 
+-读请求在认证前建立 REPEATABLE READ 并禁 autoflush，列表使用固定批量查询与稳定排序、total 和 10/20/50 分页；动作/删除/启用阻断由服务端投影，不是授权凭证。当前 Surface 删除检查实际 Profile 引用和 first_referenced_at；当前 Profile 没有 Run/Plan 引用表，不伪造历史数量。未来真实引用消费方必须接入 RESTRICT FK、锁和删除查询，不能靠当前零引用路径授予历史删除许可。
++读请求在认证前建立 REPEATABLE READ 并禁 autoflush，列表使用固定批量查询与稳定排序、total 和 10/20/50 分页；动作/删除/启用阻断由服务端投影，不是授权凭证。当前 Surface 删除检查实际 Profile 引用和 first_referenced_at；GEO-206 起 Profile 删除检查真实 Plan 引用（含暂停/归档），ADMIN 获得 MONITORING_PLAN 阻断，ENGINEER 仍无删除详情。Run 尚未建表，不伪造历史数量；未来 Run 消费方仍须接入真实 FK、锁和删除查询。
+ 
+ 写事务从 User FOR NO KEY UPDATE 开始，舍弃认证待写 last_seen_at 活动提示以避开 Session→User 的改密锁环，不修改过期/撤销规则。依次锁定当前与目标 Channel（UUID排序）、Model（UUID排序）、Surface、Profile；初读只决定锁集合，锁后重新比对绑定/revision。CREATE默认停用与 UNTESTED；Profile配置实际变更清除旧测试事实并停用；模式和Surface归属不可变。实际变化revision恰好+1、更新时间单调不减；同值更新/启停不改revision、时间或成功审计。业务与最小白名单成功审计同事务提交，未知错误整体回滚；没有命令自动重放或 Idempotency-Key。
+ 
+@@ -128,7 +180,7 @@
+ 
+ 写入禁 autoflush 后按 User→QueryTopic→PromptVariant 锁序，锁后复核活动账号、首次改密和角色，topic 存在性及 expected_revision。topic_id 不可改，初读只选择锁集合，锁后重新加载权威行。只对实际字段变化递增 revision 和单调 updated_at；语义规范化 no-op 保持全部业务字段及审计不变。历史后 PATCH/enable 拒绝，disable 重复为 no-op。CRUD 没有 Idempotency-Key，唯一键防重复创建，stale 命令不能重放。
+ 
+-同事务 flush 业务变化、最小白名单审计并 commit；审计只含 revision/is_active，无问题正文。只在业务 flush 边界映射上述精确唯一/历史约束；审计 flush/未知完整性错误原样失败并回滚。列表/详情用 REPEATABLE READ 与禁 autoflush，join 当前 QueryTopic 摘要，count/rows 固定查询，无客户端拼接。搜索为规范文本字面子串，LIKE 通配符转义；筛选基于当前主题意图及显式变体维度，稳定排序 tie-break UUID。历史标记只提供 HISTORY_REFERENCE 阻断，不宣称 Run/Plan 计数。run_entry.available=false/NOT_IMPLEMENTED 是未开放能力，无执行成功含义。
++同事务 flush 业务变化、最小白名单审计并 commit；审计只含 revision/is_active，无问题正文。只在业务 flush 边界映射上述精确唯一/历史约束；审计 flush/未知完整性错误原样失败并回滚。列表/详情用 REPEATABLE READ 与禁 autoflush，join 当前 QueryTopic 摘要，count/rows 固定查询，无客户端拼接。搜索为规范文本字面子串，LIKE 通配符转义；筛选基于当前主题意图及显式变体维度，稳定排序 tie-break UUID。历史标记提供 HISTORY_REFERENCE；GEO-206 起真实 Plan 引用另提供 MONITORING_PLAN 删除阻断，不冻结配置编辑，也不宣称 Run 已实现。run_entry.available=false/NOT_IMPLEMENTED 是未开放能力，无执行成功含义。
+ 
+ 本任务没有 Alembic revision、列/索引/约束或数据回填，head 仍为 0045_geo_prompt_variants。真实 Run 后续需按原锁存/FK/快照同事务义务接入。
+ 
+@@ -136,7 +188,7 @@
+ 
+ ## GEO Catalog 合同（GEO-101 / R1；GEO-102 ORM/Alembic；GEO-103 Schema/策略）
+ 
+-本节冻结 GeoSubject/Alias/Domain 合同。GEO-102 已实现三表 ORM、模型注册及 `0044_geo_catalog`，Catalog revision 从 `0043_geo_platform_identity` 前滚（当前 head 为 0045 PromptVariant）；这不表示生产数据库已迁移。GEO-103 已实现 Schema、规范化、真实父子/别名歧义与无 I/O 的 stage/actions/deletion/当前 Product 投影；GEO-104 CRUD Application Service/Router 已接线并完成验收。公共 Schema 和标准操作分别见 `contracts/openapi.yaml` 的 `components.schemas.Geo*Subject*` 与 `paths./api/v1/geo/subjects`。既有文章关系 GEO、Product/FactVersion 与历史迁移均保持独立。
++本节冻结 GeoSubject/Alias/Domain 合同。GEO-102 已实现三表 ORM、模型注册及 `0044_geo_catalog`，Catalog revision 从 `0043_geo_platform_identity` 前滚（当前 head 为 0047 MonitoringPlan）；这不表示生产数据库已迁移。GEO-103 已实现 Schema、规范化、真实父子/别名歧义与无 I/O 的 stage/actions/deletion/当前 Product 投影；GEO-104 CRUD Application Service/Router 已接线并完成验收。公共 Schema 和标准操作分别见 `contracts/openapi.yaml` 的 `components.schemas.Geo*Subject*` 与 `paths./api/v1/geo/subjects`。既有文章关系 GEO、Product/FactVersion 与历史迁移均保持独立。
+ 
+ ### 身份、归属与规范化
+ 
+@@ -237,7 +289,7 @@
+ 
+ ### 实施与恢复边界
+ 
+-GEO-101 只冻结合同。GEO-102 新增 `0044_geo_catalog`，仅添加三张表、约束、索引及身份守卫，不修改 0001～0043 或 migration_schema_v1，不回填或改写历史 Product/GEO 数据；迁移冻结自身 DDL，不导入运行时 ORM。隔离 PostgreSQL 16 的空库及含旧记录的 0043 前滚、metadata、直接 SQL 和唯一索引并发验证见 `.trellis/tasks/10-01-geo-102-catalog-orm/implement.md`。downgrade 以 SQLSTATE 55000 明确拒绝删除三表，保留 revision 和数据；恢复使用前滚修复或迁移前 PostgreSQL 备份。GEO-103 的请求/响应声明、Unicode/IDNA 规范化及领域/投影策略按本合同实现，没有新增 revision 或历史回填；实施与机器形状/实例验证见 `.trellis/tasks/10-01-geo-103-catalog-policy/implement.md`。GEO-104 已接线 12 个标准 OpenAPI 操作及 Catalog Application Service，拥有聚合锁、revision、精确映射和同事务成功审计。列表/详情由服务在认证读取前建立 REPEATABLE READ 并关闭 autoflush（认证 last_seen_at 不能在纯读快照中自动写入），请求内批量读取当前 Product、父级、字典及直接引用；未来尚不存在的四个引用域显式为零，不能据此声称已实现查询。审计登记十个 Catalog 成功动作，target_type=GeoSubject、target_id=稳定 Subject UUID；facts 仅 revision/is_active，不复制名称、描述、字典或产品事实。搜索在同一快照批量规范当前 Product/显示名称，与 q 统一 NFKC/Unicode 空白/casefold，不写身份副本；匹配 UUID 以单一 ARRAY 参数进入 SQL count/page。删除保留审计 tombstone。实施证据见 `.trellis/tasks/10-02-geo-104-catalog-api/implement.md`；无新 Alembic revision、历史回填或生产迁移。Catalog 页面由 GEO-105 实施。
++GEO-101 只冻结合同。GEO-102 新增 `0044_geo_catalog`，仅添加三张表、约束、索引及身份守卫，不修改 0001～0043 或 migration_schema_v1，不回填或改写历史 Product/GEO 数据；迁移冻结自身 DDL，不导入运行时 ORM。隔离 PostgreSQL 16 的空库及含旧记录的 0043 前滚、metadata、直接 SQL 和唯一索引并发验证见 `.trellis/tasks/10-01-geo-102-catalog-orm/implement.md`。downgrade 以 SQLSTATE 55000 明确拒绝删除三表，保留 revision 和数据；恢复使用前滚修复或迁移前 PostgreSQL 备份。GEO-103 的请求/响应声明、Unicode/IDNA 规范化及领域/投影策略按本合同实现，没有新增 revision 或历史回填；实施与机器形状/实例验证见 `.trellis/tasks/10-01-geo-103-catalog-policy/implement.md`。GEO-104 已接线 12 个标准 OpenAPI 操作及 Catalog Application Service，拥有聚合锁、revision、精确映射和同事务成功审计。列表/详情由服务在认证读取前建立 REPEATABLE READ 并关闭 autoflush（认证 last_seen_at 不能在纯读快照中自动写入），请求内批量读取当前 Product、父级、字典及直接引用；GEO-206 起 monitoring_plan_count 来自真实关系的批量计数；Run/Analysis/Opportunity 三个尚不存在的引用域仍显式为零，不能据此声称已实现查询。审计登记十个 Catalog 成功动作，target_type=GeoSubject、target_id=稳定 Subject UUID；facts 仅 revision/is_active，不复制名称、描述、字典或产品事实。搜索在同一快照批量规范当前 Product/显示名称，与 q 统一 NFKC/Unicode 空白/casefold，不写身份副本；匹配 UUID 以单一 ARRAY 参数进入 SQL count/page。删除保留审计 tombstone。实施证据见 `.trellis/tasks/10-02-geo-104-catalog-api/implement.md`；无新 Alembic revision、历史回填或生产迁移。Catalog 页面由 GEO-105 实施。
+ 
+ ## Product Detail Read Projection
+ 
+--- before/contracts/openapi.yaml
++++ after/contracts/openapi.yaml
+@@ -6107,6 +6107,7 @@
+         - NOT_FOUND
+         '409':
+         - REVISION_CONFLICT
++        - GEO_PROFILE_IN_USE
+   /api/v1/geo/collection-profiles/{profile_id}/enable:
+     post:
+       tags:
+@@ -12091,7 +12092,9 @@
+       properties:
+         blockers:
+           items:
+-            const: HISTORY_REFERENCE
++            enum:
++            - HISTORY_REFERENCE
++            - MONITORING_PLAN
+             type: string
+           type: array
+       required:
+@@ -13487,6 +13490,7 @@
+       enum:
+       - COLLECTION_PROFILE
+       - HISTORICAL_REFERENCE
++      - MONITORING_PLAN
+       title: GeoConfigurationDeletionBlockerType
+     GeoConfigurationDeletionProjection:
+       properties:
+@@ -13681,3 +13685,424 @@
+       - CREDENTIAL_NOT_CONFIGURED
+       - PROTOCOL_UNSUPPORTED
+       title: ProfileBlockerCode
++
++    GeoPlanScheduleKind:
++      enum:
++      - MANUAL_ONLY
++      - CRON
++      title: GeoPlanScheduleKind
++      type: string
++
++    GeoPlanSubject:
++      additionalProperties: false
++      properties:
++        subject_id:
++          format: uuid
++          title: Subject Id
++          type: string
++        role:
++          $ref: '#/components/schemas/GeoPlanSubjectRole'
++      required:
++      - subject_id
++      - role
++      title: GeoPlanSubject
++      type: object
++
++    GeoPlanSubjectRole:
++      enum:
++      - PRIMARY
++      - COMPETITOR
++      - REFERENCE
++      title: GeoPlanSubjectRole
++      type: string
++
++    GeoMonitoringPlanCreate:
++      additionalProperties: false
++      allOf:
++      - else:
++          properties:
++            cron_expression:
++              type: 'null'
++        if:
++          properties:
++            schedule_kind:
++              const: CRON
++          required:
++          - schedule_kind
++        then:
++          properties:
++            cron_expression:
++              type: string
++          required:
++          - cron_expression
++      properties:
++        name:
++          maxLength: 200
++          minLength: 1
++          pattern: ^[^\s\x00](?:[^\x00]*[^\s\x00])?$
++          title: Name
++          type: string
++        description:
++          default: ''
++          pattern: ^[^\x00]*$
++          title: Description
++          type: string
++        subjects:
++          contains:
++            properties:
++              role:
++                const: PRIMARY
++            required:
++            - role
++          description: subject_id 在集合内唯一；至少一个 PRIMARY，不由对象类型推断角色。
++          items:
++            $ref: '#/components/schemas/GeoPlanSubject'
++          minContains: 1
++          minItems: 1
++          title: Subjects
++          type: array
++          uniqueItems: true
++        prompt_variant_ids:
++          items:
++            format: uuid
++            type: string
++          minItems: 1
++          title: Prompt Variant Ids
++          type: array
++          uniqueItems: true
++        collection_profile_ids:
++          items:
++            format: uuid
++            type: string
++          minItems: 1
++          title: Collection Profile Ids
++          type: array
++          uniqueItems: true
++        repeat_count:
++          default: 3
++          maximum: 10
++          minimum: 1
++          title: Repeat Count
++          type: integer
++        schedule_kind:
++          $ref: '#/components/schemas/GeoPlanScheduleKind'
++          default: MANUAL_ONLY
++        cron_expression:
++          anyOf:
++          - maxLength: 120
++            minLength: 9
++            pattern: ^(?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+))(?:,(?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+)))*
++              (?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+))(?:,(?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+)))*
++              (?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+))(?:,(?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+)))*
++              (?:\*(?:/[0-9]+)?|(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC])-(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC])(?:/[0-9]+)?|(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC]))(?:,(?:\*(?:/[0-9]+)?|(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC])-(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC])(?:/[0-9]+)?|(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC])))*
++              (?:\*(?:/[0-9]+)?|(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT])-(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT])(?:/[0-9]+)?|(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT]))(?:,(?:\*(?:/[0-9]+)?|(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT])-(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT])(?:/[0-9]+)?|(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT])))*$(?![\s\S])
++            type: string
++          - type: 'null'
++          default: null
++          title: Cron Expression
++        timezone:
++          default: Asia/Shanghai
++          maxLength: 64
++          minLength: 1
++          title: Timezone
++          type: string
++        budget_limit:
++          anyOf:
++          - pattern: ^(?:0|[1-9][0-9]{0,7})(?:\.[0-9]{1,6})?$(?![\s\S])
++            type: string
++          - type: 'null'
++          default: null
++          title: Budget Limit
++        rule_set_revision:
++          default: 1
++          minimum: 1
++          title: Rule Set Revision
++          type: integer
++      required:
++      - name
++      - subjects
++      - prompt_variant_ids
++      - collection_profile_ids
++      title: GeoMonitoringPlanCreate
++      type: object
++
++    GeoMonitoringPlanUpdate:
++      additionalProperties: false
++      allOf:
++      - else:
++          properties:
++            cron_expression:
++              type: 'null'
++        if:
++          properties:
++            schedule_kind:
++              const: CRON
++          required:
++          - schedule_kind
++        then:
++          properties:
++            cron_expression:
++              type: string
++          required:
++          - cron_expression
++      description: 完整替换配置，避免 PATCH 集合片段绕过聚合完整性；不允许写状态或追溯。
++      properties:
++        name:
++          maxLength: 200
++          minLength: 1
++          pattern: ^[^\s\x00](?:[^\x00]*[^\s\x00])?$
++          title: Name
++          type: string
++        description:
++          default: ''
++          pattern: ^[^\x00]*$
++          title: Description
++          type: string
++        subjects:
++          contains:
++            properties:
++              role:
++                const: PRIMARY
++            required:
++            - role
++          description: subject_id 在集合内唯一；至少一个 PRIMARY，不由对象类型推断角色。
++          items:
++            $ref: '#/components/schemas/GeoPlanSubject'
++          minContains: 1
++          minItems: 1
++          title: Subjects
++          type: array
++          uniqueItems: true
++        prompt_variant_ids:
++          items:
++            format: uuid
++            type: string
++          minItems: 1
++          title: Prompt Variant Ids
++          type: array
++          uniqueItems: true
++        collection_profile_ids:
++          items:
++            format: uuid
++            type: string
++          minItems: 1
++          title: Collection Profile Ids
++          type: array
++          uniqueItems: true
++        repeat_count:
++          default: 3
++          maximum: 10
++          minimum: 1
++          title: Repeat Count
++          type: integer
++        schedule_kind:
++          $ref: '#/components/schemas/GeoPlanScheduleKind'
++          default: MANUAL_ONLY
++        cron_expression:
++          anyOf:
++          - maxLength: 120
++            minLength: 9
++            pattern: ^(?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+))(?:,(?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+)))*
++              (?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+))(?:,(?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+)))*
++              (?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+))(?:,(?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+)))*
++              (?:\*(?:/[0-9]+)?|(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC])-(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC])(?:/[0-9]+)?|(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC]))(?:,(?:\*(?:/[0-9]+)?|(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC])-(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC])(?:/[0-9]+)?|(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC])))*
++              (?:\*(?:/[0-9]+)?|(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT])-(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT])(?:/[0-9]+)?|(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT]))(?:,(?:\*(?:/[0-9]+)?|(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT])-(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT])(?:/[0-9]+)?|(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT])))*$(?![\s\S])
++            type: string
++          - type: 'null'
++          default: null
++          title: Cron Expression
++        timezone:
++          default: Asia/Shanghai
++          maxLength: 64
++          minLength: 1
++          title: Timezone
++          type: string
++        budget_limit:
++          anyOf:
++          - pattern: ^(?:0|[1-9][0-9]{0,7})(?:\.[0-9]{1,6})?$(?![\s\S])
++            type: string
++          - type: 'null'
++          default: null
++          title: Budget Limit
++        rule_set_revision:
++          default: 1
++          minimum: 1
++          title: Rule Set Revision
++          type: integer
++        expected_revision:
++          minimum: 0
++          title: Expected Revision
++          type: integer
++      required:
++      - name
++      - subjects
++      - prompt_variant_ids
++      - collection_profile_ids
++      - expected_revision
++      title: GeoMonitoringPlanUpdate
++      type: object
++
++    GeoMonitoringPlanStatus:
++      enum:
++      - DISABLED
++      - ACTIVE
++      - PAUSED
++      - ARCHIVED
++      title: GeoMonitoringPlanStatus
++      type: string
++
++    GeoMonitoringPlanOut:
++      additionalProperties: false
++      allOf:
++      - else:
++          properties:
++            cron_expression:
++              type: 'null'
++        if:
++          properties:
++            schedule_kind:
++              const: CRON
++          required:
++          - schedule_kind
++        then:
++          properties:
++            cron_expression:
++              type: string
++          required:
++          - cron_expression
++      description: 数据组件，不是尚未实施的 Plan 详情/动作/运行健康读模型。
++      properties:
++        name:
++          maxLength: 200
++          minLength: 1
++          pattern: ^[^\s\x00](?:[^\x00]*[^\s\x00])?$
++          title: Name
++          type: string
++        description:
++          default: ''
++          pattern: ^[^\x00]*$
++          title: Description
++          type: string
++        subjects:
++          contains:
++            properties:
++              role:
++                const: PRIMARY
++            required:
++            - role
++          description: subject_id 在集合内唯一；至少一个 PRIMARY，不由对象类型推断角色。
++          items:
++            $ref: '#/components/schemas/GeoPlanSubject'
++          minContains: 1
++          minItems: 1
++          title: Subjects
++          type: array
++          uniqueItems: true
++        prompt_variant_ids:
++          items:
++            format: uuid
++            type: string
++          minItems: 1
++          title: Prompt Variant Ids
++          type: array
++          uniqueItems: true
++        collection_profile_ids:
++          items:
++            format: uuid
++            type: string
++          minItems: 1
++          title: Collection Profile Ids
++          type: array
++          uniqueItems: true
++        repeat_count:
++          default: 3
++          maximum: 10
++          minimum: 1
++          title: Repeat Count
++          type: integer
++        schedule_kind:
++          $ref: '#/components/schemas/GeoPlanScheduleKind'
++          default: MANUAL_ONLY
++        cron_expression:
++          anyOf:
++          - maxLength: 120
++            minLength: 9
++            pattern: ^(?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+))(?:,(?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+)))*
++              (?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+))(?:,(?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+)))*
++              (?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+))(?:,(?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+)))*
++              (?:\*(?:/[0-9]+)?|(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC])-(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC])(?:/[0-9]+)?|(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC]))(?:,(?:\*(?:/[0-9]+)?|(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC])-(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC])(?:/[0-9]+)?|(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC])))*
++              (?:\*(?:/[0-9]+)?|(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT])-(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT])(?:/[0-9]+)?|(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT]))(?:,(?:\*(?:/[0-9]+)?|(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT])-(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT])(?:/[0-9]+)?|(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT])))*$(?![\s\S])
++            type: string
++          - type: 'null'
++          default: null
++          title: Cron Expression
++        timezone:
++          default: Asia/Shanghai
++          maxLength: 64
++          minLength: 1
++          title: Timezone
++          type: string
++        budget_limit:
++          anyOf:
++          - pattern: ^(?:0|[1-9][0-9]{0,7})(?:\.[0-9]{1,6})?$(?![\s\S])
++            type: string
++          - type: 'null'
++          default: null
++          title: Budget Limit
++        rule_set_revision:
++          default: 1
++          minimum: 1
++          title: Rule Set Revision
++          type: integer
++        id:
++          format: uuid
++          title: Id
++          type: string
++        status:
++          $ref: '#/components/schemas/GeoMonitoringPlanStatus'
++        revision:
++          minimum: 0
++          title: Revision
++          type: integer
++        created_by:
++          format: uuid
++          title: Created By
++          type: string
++        updated_by:
++          format: uuid
++          title: Updated By
++          type: string
++        created_at:
++          format: date-time
++          title: Created At
++          type: string
++        updated_at:
++          format: date-time
++          title: Updated At
++          type: string
++      required:
++      - name
++      - subjects
++      - prompt_variant_ids
++      - collection_profile_ids
++      - id
++      - status
++      - revision
++      - created_by
++      - updated_by
++      - created_at
++      - updated_at
++      title: GeoMonitoringPlanOut
++      type: object
++
++    GeoMonitoringPlanRevisionRequest:
++      additionalProperties: false
++      properties:
++        expected_revision:
++          minimum: 0
++          title: Expected Revision
++          type: integer
++      required:
++      - expected_revision
++      title: GeoMonitoringPlanRevisionRequest
++      type: object
+--- before/docs/geo-monitoring/02-business/02-domain-model.md
++++ after/docs/geo-monitoring/02-business/02-domain-model.md
+@@ -182,6 +182,8 @@
+ 
+ ## 3.4 GeoMonitoringPlan 聚合
+ 
++GEO-206 / R1 已实现配置数据组件、四表 ORM 和 `0047_geo_monitoring_plans`，当前等待人工验收；字段与数据库防线以 [根 OpenAPI](../../../contracts/openapi.yaml) 和 [数据库合同](../../../contracts/database.md#geo-monitoringplan-合同geo-206--r1) 为权威。角色独立于 Subject 类型，配置至少一个 PRIMARY、prompt、profile；repeat 为 1..10、默认 3，revision 初始 0，rule_set_revision 默认 1。Cron 与 IANA 时区经输入边界校验，预算有限且非负或未设置。关系唯一且阻止删除资源，归档配置及关系只读；配置引用不设置历史首次运行标记。下面描述最终业务能力，当前资源活动/矩阵与命令资格分别留给 GEO-207/208，不生成批次或保存运行状态。
++
+ ### 目的
+ 
+ 保存可变计划配置并生成不可变批次快照。
+@@ -194,6 +196,7 @@
+ - `schedule_kind`：`MANUAL_ONLY | CRON`
+ - `cron_expression/timezone`
+ - `budget_limit`
++- `rule_set_revision`
+ - `revision`
+ - `created_by/updated_by/created_at/updated_at`
+ 
+--- before/docs/geo-monitoring/03-technical/02-data-architecture.md
++++ after/docs/geo-monitoring/03-technical/02-data-architecture.md
+@@ -123,6 +123,8 @@
+ 唯一：`(query_topic_id, normalized_hash, mention_mode, language_code, region_code)`。
+ 
+ ## 4.2 `geo_monitoring_plans`
++
++GEO-206 / R1 已实现本表及 4.3 三张关系表。精确默认值、命名 CHECK/PK/FK、索引、提交时完整性和归档守卫见 [数据库合同](../../../contracts/database.md#geo-monitoringplan-合同geo-206--r1)。`0047_geo_monitoring_plans` 只新增配置，不回填或改变既有数据；关系写锁父 Plan 并建立 MVCC 写冲突，提交时至少一个 PRIMARY、prompt、profile，支持同事务替换。关系到资源 RESTRICT，Plan 显式删除只级联自身关系；created_by/updated_by 到 User RESTRICT。没有 Batch/Run、lease、next_run_at 或成本累计列；本次生产迁移未执行，downgrade 安全拒绝，恢复使用前向修复或备份。
+ 
+ | 字段 | 类型 | 约束 |
+ |---|---|---|
+@@ -140,7 +142,7 @@
+ | created_by/updated_by | UUID | |
+ | created_at/updated_at | timestamptz | |
+ 
+-CRON 状态约束：`schedule_kind=CRON` 时 cron 非空。
++CRON 配置约束：`schedule_kind=CRON` 时提供有效五字段表达式，`MANUAL_ONLY` 时必须为空。输入解析复用 Celery；数据库 CHECK 保证字段结构，IANA 时区由 PostgreSQL 目录验证。预算为 numeric(14,6) 的有限非负数，NULL 表示未设置上限。
+ 
+ ## 4.3 Join tables
+ 
+@@ -165,7 +167,7 @@
+ - `collection_profile_id`
+ - PK `(plan_id, collection_profile_id)`
+ 
+-关系表只在 Plan 聚合内允许变更；批次创建后只读 plan snapshot。
++关系表只在 Plan 聚合内允许变更，同计划同资源唯一（Subject 换角色也不能重复）；至少一个 PRIMARY、prompt、profile 由可延迟约束触发器最终保证。归档关系只读。未来批次创建后只读 plan snapshot，GEO-206 不创建该快照或批次。
+ 
+ ## 5. Collection 表
+ 
+--- before/docs/geo-monitoring/03-technical/03-api-contract-design.md
++++ after/docs/geo-monitoring/03-technical/03-api-contract-design.md
+@@ -178,6 +178,8 @@
+ 
+ ## 6. 监测计划 API
+ 
++GEO-206 当前只交付 `GeoMonitoringPlanCreate/Update/Out/RevisionRequest`、状态/关系/调度枚举和 generated 类型。Create/Update 是完整配置，Update 另需 expected_revision；创建者、身份、状态与逻辑 revision 不接受客户端写入，预算 JSON 输入/输出均为非负十进制字符串（最多8位整数/6位小数）或 NULL，内部使用 Decimal；拒绝数字、符号、前导零、指数和尾随字符。没有 Plan 路径、预览或动作读模型；下表仍为后续目标，GEO-207 负责矩阵，GEO-208 接入命令。既有 Subject/Prompt/Profile 的删除读模型已接入真实 MONITORING_PLAN 阻断，沿既有权限和 CSRF，不新增外部调用。
++
+ | 方法 | 路径 | operationId |
+ |---|---|---|
+ | GET | `/geo/monitoring-plans` | `listGeoMonitoringPlans` |
+--- before/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ after/docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -375,7 +375,7 @@
+   phase: R1
+   release: R1
+   title: 定义并实现 MonitoringPlan 数据契约
+-  status: planned
++  status: review
+   dependencies:
+   - GEO-202
+   - GEO-205
+@@ -393,6 +393,9 @@
+   - 02-business/03-workflows-and-state-machines.md
+   - 03-technical/01-technical-architecture.md
+   - 04-delivery/04-codex-execution-guide.md
++  trellis_task: .trellis/tasks/10-02-geo-206-monitoring-plan
++  validation_record: .trellis/tasks/10-02-geo-206-monitoring-plan/implement.md
++  review_note: 配置契约、四表0047、提交完整性、真实关系删除阻断及本地门禁已完成；最终独立复核无确认阻断，等待人工验收，不自行done。
+ - id: GEO-207
+   phase: R1
+   release: R1
+--- before/docs/geo-monitoring/CHANGELOG.md
++++ after/docs/geo-monitoring/CHANGELOG.md
+@@ -1,4 +1,12 @@
+ # 文档包变更记录
++
++## GEO-206 MonitoringPlan 数据契约 — 2026-10-02（review）
++
++- 依赖 GEO-202、GEO-205 均已人工接受 done；本任务按 planned→in_progress→review 交付，不自行 done。
++- 新增闭合配置组件与 generated 类型、四表 ORM 和 0047；计划状态、repeat、Cron/IANA 时区、预算、rule_set_revision/revision 与追溯字段一致，没有运行状态。
++- 至少一个 PRIMARY、prompt、profile、关系唯一和 RESTRICT 删除阻断由真实 PostgreSQL 验证；可延迟约束支持事务内替换，父 Plan 锁与 MVCC 写冲突阻止 RC/RR 的最后 PRIMARY 并发写偏斜。归档标量/关系只读。
++- 既有 Subject/Prompt/Profile/User 删除预检和批量投影接入真实配置引用，只精确映射新 FK；不锁存历史首次运行、不冻结配置维护、不改变权限/CSRF/审计。前端只同步类型和删除说明。
++- 无数据回填、历史重写、生产迁移或新依赖；不实现 GEO-207/208/209、Batch/Run、外部采集、指标或机会。实际门禁、首次失败诊断、独立只读复核和隔离环境清理见 [实施证据](../../.trellis/tasks/10-02-geo-206-monitoring-plan/implement.md)。
+ 
+ ## GEO-205 观测面与 Profile 管理 — 2026-10-02（review）
+ 
+--- before/docs/geo-monitoring/README.md
++++ after/docs/geo-monitoring/README.md
+@@ -50,6 +50,12 @@
+ 本任务无新 Alembic revision，不提供连接测试或外部采集；当前状态与逐项验证见
+ [Task Brief](../../.trellis/tasks/10-02-geo-205-surface-management/prd.md) 和
+ [实施证据](../../.trellis/tasks/10-02-geo-205-surface-management/implement.md)。
++
++GEO-206 / R1 已实现 MonitoringPlan 配置组件、Plan 与三类关系表、`0047_geo_monitoring_plans`。
++至少一个 PRIMARY、prompt、profile 由输入校验与数据库提交约束保证；真实配置引用接入既有资源删除阻断，归档配置只读。
++本任务不提供 Plan API、矩阵预览、调度执行或 Batch/Run，尚未迁移生产数据库。
++当前状态与逐项验证见 [Task Brief](../../.trellis/tasks/10-02-geo-206-monitoring-plan/prd.md)
++和 [实施证据](../../.trellis/tasks/10-02-geo-206-monitoring-plan/implement.md)，本地验收后交付 review，等待人工接受。
+ 
+ ## 1. 文档包用途
+ 
+--- before/docs/geo-monitoring/SHA256SUMS
++++ after/docs/geo-monitoring/SHA256SUMS
+@@ -4,12 +4,12 @@
+ 813055a6ecd380b1362f697dba8006a0bedd22d8261aa6e090841eb82bb03f6a  ./01-product/02-geo-core-prd.md
+ 7ea6985cdc63749a10c73b801f69349dc2f0ac797b9aa87622723f26b988bcbe  ./01-product/03-information-architecture-and-page-spec.md
+ 3892c8f83318ee460de04960a5162b4d777db06eb731a5999cdee946cd8042e3  ./02-business/01-business-architecture.md
+-e41b583666283267e005f121a8b7af6e82e5415319b457fbfa8f326179ef22d6  ./02-business/02-domain-model.md
++2b4bc4afd9d768df82122cb1922451065937caa39427d463be82a5ed40858dd1  ./02-business/02-domain-model.md
+ ecd00edfdb3bd3dc1e301206d4988774d0a6b425dae5eb6cd71459da3716b0b2  ./02-business/03-workflows-and-state-machines.md
+ 30e1976c61c18150724cf4b89ead9e2d960b0cea729ba377b06c7c384c264899  ./02-business/04-monitoring-methodology-and-metrics.md
+ 2ce491f8dbf89639aabbf59b5afb7a3fd43520e40e7848e4e9e3049c85436689  ./03-technical/01-technical-architecture.md
+-ac53188d22f0fcc1dc03cb2936f547fefd5d396430663321cad8b5a786db99eb  ./03-technical/02-data-architecture.md
+-b9ae3dd93f70fcfb14fe9bd65ed947ca7cff79f4feded027f05b38cb9632d23d  ./03-technical/03-api-contract-design.md
++fb71186470e732b6642cb970cbff9af28e4c821e955ab25b5ffd6c0bd2cc20c0  ./03-technical/02-data-architecture.md
++7e39869b4be278daa580e86247363e017942c9600b74e46582c8185be4f09265  ./03-technical/03-api-contract-design.md
+ 364b95b01a9e57572d5844e11f9858be120eb24a85cce5577a4c6561797bba2f  ./03-technical/04-frontend-architecture.md
+ 1474ab5f413927669a0b4029399034cb8956eecbe282a174423203835d45e1bb  ./03-technical/05-worker-and-collector-architecture.md
+ 2698d3095cfaeb5857d6bafd3efd633d9d50b813257054e7568d779be35d7dd7  ./03-technical/06-security-and-compliance.md
+@@ -102,13 +102,13 @@
+ 7106b3f1df66de6ba41a4d7ca85e291b8b181f78e2b7c0ef91f4fa696d1f9e8b  ./04-delivery/geo-003-baseline/sources.json
+ 316ab24c5f645e18d39c529c7fcbca2260b14a5375cc5ebd799a5b7c6cfc8f40  ./04-delivery/geo-003-baseline/tests.json
+ 9dae298eb77cc0063394bfacea27b02ece69bf2a7dceba637ef1320565810ec7  ./04-delivery/geo-003-baseline/validation.md
+-384aa6df400a5bc7f1b89315b16c0f2b446da82ca4553d30eba6269d52271cb9  ./04-delivery/task-manifest.yaml
++0377d24831cda0594ded776ded672739d2360d43cc4cc7afb04bc5d8078cc81c  ./04-delivery/task-manifest.yaml
+ 2c0f8d8ba314039b44e48614481c28e615e996c2e4ed444c8f07362b5cd75de9  ./05-decisions/ADR-001-extend-modular-monolith.md
+ 4e0ec1be59e33c2f3e83ee50abc55ffe35d2d0bf471c19cc2c713b391fc12cee  ./05-decisions/ADR-002-unified-observation-run-model.md
+ 00baab5f8fe68fbaf75e3aa7b07a0cfbd7c510e39b6a70ea462d9ab941330dc7  ./05-decisions/ADR-003-separate-collection-analysis-review.md
+ 09d2ba6a3d8f07ca61309d0a9d4a557c30a1d16853d73139e15b43ca6f1303bb  ./05-decisions/ADR-004-no-unified-geo-score.md
+ 6197eb3379ad5c5f99c499ab8b74eac5cf18e6df26a3f5c34c4e9bf83845593b  ./05-decisions/ADR-005-staged-collector-rollout.md
+ c3e9f23a90bd7fc9b47760d53c56fd6f09f73065dff5b19c1040ee5fd608a560  ./05-decisions/GEO-002-architecture-review.md
+-3d08adda6f74d3dc7ecaf7d1e3ddbbb6469fd36b6fc5a2cb6d9056dcf47db85d  ./CHANGELOG.md
+-d5cf8599b40af2e29a675bcbee9406b0b9858f5bd1f2a9c82b5a3eba16181dbd  ./README.md
++f0b6f12c78aef638e0148e42bf98d7cd7a0d8b99f0af79d4f0001de4e5677fc1  ./CHANGELOG.md
++fd246f356b9b85b21218a3882f9f9b05c95bc94de00d3fcfc3b91de4b6cb1e15  ./README.md
+ 36be92c676c3150e5953f01498418900d3e2bcc1f37a0bda31b9892e57b8a2d0  ./01-product/04-catalog-user-guide.md
+--- before/frontend/src/domains/geo-catalog/surfaces.model.ts
++++ after/frontend/src/domains/geo-catalog/surfaces.model.ts
+@@ -14,7 +14,7 @@
+ const testLabels = { UNTESTED: '未测试', PASSED: '测试通过', FAILED: '测试失败' } satisfies Record<components['schemas']['GeoProfileTestStatus'], string>;
+ const loginLabels = { ANONYMOUS: '匿名', AUTHENTICATED: '已登录', NOT_APPLICABLE: '不适用' } satisfies Record<components['schemas']['GeoProfileLoginState'], string>;
+ const webPolicyLabels = { UNKNOWN: '未知', REQUESTED: '请求搜索', REQUIRED: '必须搜索', NOT_APPLICABLE: '不适用' } satisfies Record<components['schemas']['GeoWebSearchPolicy'], string>;
+-const deletionLabels = { COLLECTION_PROFILE: '采集配置', HISTORICAL_REFERENCE: '历史引用' } satisfies Record<components['schemas']['GeoConfigurationDeletionBlockerType'], string>;
++const deletionLabels = { COLLECTION_PROFILE: '采集配置', HISTORICAL_REFERENCE: '历史引用', MONITORING_PLAN: '监测计划引用' } satisfies Record<components['schemas']['GeoConfigurationDeletionBlockerType'], string>;
+ const activationLabels = {
+   ADAPTER_UNKNOWN: '适配器未登记', CONFIGURATION_INVALID: '配置无效', MODE_UNSUPPORTED: '采集模式不受支持', SURFACE_UNSUPPORTED: '观测面不受支持',
+   LANGUAGE_UNSUPPORTED: '语言不受支持', REGION_UNSUPPORTED: '地区不受支持', LOGIN_UNSUPPORTED: '登录状态不受支持', SEARCH_POLICY_UNSUPPORTED: '搜索策略不受支持', CAPABILITY_UNSUPPORTED: '能力不受支持',
+--- before/frontend/src/domains/geo-questions/question-detail.tsx
++++ after/frontend/src/domains/geo-questions/question-detail.tsx
+@@ -102,6 +102,6 @@
+   </section>;
+ }
+ function runReason(code: PromptVariant['run_entry']['reason_code']) { switch (code) { case 'NOT_IMPLEMENTED': return '运行能力尚未实现（NOT_IMPLEMENTED），当前只能维护问题变体。'; default: return assertNever(code); } }
+-function blockerReason(code: PromptVariant['deletion']['blockers'][number]) { switch (code) { case 'HISTORY_REFERENCE': return '已有历史引用（HISTORY_REFERENCE），不能编辑或删除语义；可停用，或复制形成新变体。'; default: return assertNever(code); } }
++function blockerReason(code: PromptVariant['deletion']['blockers'][number]) { switch (code) { case 'HISTORY_REFERENCE': return '已有历史引用（HISTORY_REFERENCE），不能编辑或删除语义；可停用，或复制形成新变体。'; case 'MONITORING_PLAN': return '仍被监测计划引用（MONITORING_PLAN），不能删除；可继续编辑或停用。'; default: return assertNever(code); } }
+ export { QuestionDetail };
+ export type { QuestionDetailHandle };
+--- before/frontend/src/shared/api/generated/schema.d.ts
++++ after/frontend/src/shared/api/generated/schema.d.ts
+@@ -6188,7 +6188,7 @@
+         /** @enum {string} */
+         GeoPromptVariantAction: "UPDATE" | "ENABLE" | "DISABLE" | "DELETE" | "COPY";
+         GeoPromptVariantDeletion: {
+-            blockers: "HISTORY_REFERENCE"[];
++            blockers: ("HISTORY_REFERENCE" | "MONITORING_PLAN")[];
+         };
+         /** @enum {string} */
+         GeoPromptVariantPrimaryTask: "EDIT" | "VIEW_DETAILS";
+@@ -6858,7 +6858,7 @@
+          * GeoConfigurationDeletionBlockerType
+          * @enum {string}
+          */
+-        GeoConfigurationDeletionBlockerType: "COLLECTION_PROFILE" | "HISTORICAL_REFERENCE";
++        GeoConfigurationDeletionBlockerType: "COLLECTION_PROFILE" | "HISTORICAL_REFERENCE" | "MONITORING_PLAN";
+         /** GeoConfigurationDeletionProjection */
+         GeoConfigurationDeletionProjection: {
+             /** Blockers */
+@@ -6941,6 +6941,209 @@
+          * @enum {string}
+          */
+         ProfileBlockerCode: "ADAPTER_UNKNOWN" | "CONFIGURATION_INVALID" | "MODE_UNSUPPORTED" | "SURFACE_UNSUPPORTED" | "LANGUAGE_UNSUPPORTED" | "REGION_UNSUPPORTED" | "LOGIN_UNSUPPORTED" | "SEARCH_POLICY_UNSUPPORTED" | "CAPABILITY_UNSUPPORTED" | "MONITORING_DISABLED" | "API_COLLECTION_DISABLED" | "BROWSER_COLLECTION_DISABLED" | "PROFILE_DISABLED" | "SURFACE_DISABLED" | "ADAPTER_NOT_APPROVED" | "ENVIRONMENT_UNSUPPORTED" | "COMPLIANCE_NOT_APPROVED" | "PROFILE_NOT_TESTED" | "MODEL_BINDING_REQUIRED" | "MODEL_BINDING_UNSUPPORTED" | "MODEL_BINDING_INVALID" | "MODEL_DISABLED" | "CHANNEL_DISABLED" | "MODEL_NOT_TESTED" | "CREDENTIAL_NOT_CONFIGURED" | "PROTOCOL_UNSUPPORTED";
++        /**
++         * GeoPlanScheduleKind
++         * @enum {string}
++         */
++        GeoPlanScheduleKind: "MANUAL_ONLY" | "CRON";
++        /** GeoPlanSubject */
++        GeoPlanSubject: {
++            /**
++             * Subject Id
++             * Format: uuid
++             */
++            subject_id: string;
++            role: components["schemas"]["GeoPlanSubjectRole"];
++        };
++        /**
++         * GeoPlanSubjectRole
++         * @enum {string}
++         */
++        GeoPlanSubjectRole: "PRIMARY" | "COMPETITOR" | "REFERENCE";
++        /** GeoMonitoringPlanCreate */
++        GeoMonitoringPlanCreate: {
++            /** Name */
++            name: string;
++            /**
++             * Description
++             * @default
++             */
++            description: string;
++            /**
++             * Subjects
++             * @description subject_id 在集合内唯一；至少一个 PRIMARY，不由对象类型推断角色。
++             */
++            subjects: components["schemas"]["GeoPlanSubject"][];
++            /** Prompt Variant Ids */
++            prompt_variant_ids: string[];
++            /** Collection Profile Ids */
++            collection_profile_ids: string[];
++            /**
++             * Repeat Count
++             * @default 3
++             */
++            repeat_count: number;
++            /** @default MANUAL_ONLY */
++            schedule_kind: components["schemas"]["GeoPlanScheduleKind"];
++            /**
++             * Cron Expression
++             * @default null
++             */
++            cron_expression: string | null;
++            /**
++             * Timezone
++             * @default Asia/Shanghai
++             */
++            timezone: string;
++            /**
++             * Budget Limit
++             * @default null
++             */
++            budget_limit: string | null;
++            /**
++             * Rule Set Revision
++             * @default 1
++             */
++            rule_set_revision: number;
++        } & unknown;
++        /**
++         * GeoMonitoringPlanUpdate
++         * @description 完整替换配置，避免 PATCH 集合片段绕过聚合完整性；不允许写状态或追溯。
++         */
++        GeoMonitoringPlanUpdate: {
++            /** Name */
++            name: string;
++            /**
++             * Description
++             * @default
++             */
++            description: string;
++            /**
++             * Subjects
++             * @description subject_id 在集合内唯一；至少一个 PRIMARY，不由对象类型推断角色。
++             */
++            subjects: components["schemas"]["GeoPlanSubject"][];
++            /** Prompt Variant Ids */
++            prompt_variant_ids: string[];
++            /** Collection Profile Ids */
++            collection_profile_ids: string[];
++            /**
++             * Repeat Count
++             * @default 3
++             */
++            repeat_count: number;
++            /** @default MANUAL_ONLY */
++            schedule_kind: components["schemas"]["GeoPlanScheduleKind"];
++            /**
++             * Cron Expression
++             * @default null
++             */
++            cron_expression: string | null;
++            /**
++             * Timezone
++             * @default Asia/Shanghai
++             */
++            timezone: string;
++            /**
++             * Budget Limit
++             * @default null
++             */
++            budget_limit: string | null;
++            /**
++             * Rule Set Revision
++             * @default 1
++             */
++            rule_set_revision: number;
++            /** Expected Revision */
++            expected_revision: number;
++        } & unknown;
++        /**
++         * GeoMonitoringPlanStatus
++         * @enum {string}
++         */
++        GeoMonitoringPlanStatus: "DISABLED" | "ACTIVE" | "PAUSED" | "ARCHIVED";
++        /**
++         * GeoMonitoringPlanOut
++         * @description 数据组件，不是尚未实施的 Plan 详情/动作/运行健康读模型。
++         */
++        GeoMonitoringPlanOut: {
++            /** Name */
++            name: string;
++            /**
++             * Description
++             * @default
++             */
++            description: string;
++            /**
++             * Subjects
++             * @description subject_id 在集合内唯一；至少一个 PRIMARY，不由对象类型推断角色。
++             */
++            subjects: components["schemas"]["GeoPlanSubject"][];
++            /** Prompt Variant Ids */
++            prompt_variant_ids: string[];
++            /** Collection Profile Ids */
++            collection_profile_ids: string[];
++            /**
++             * Repeat Count
++             * @default 3
++             */
++            repeat_count: number;
++            /** @default MANUAL_ONLY */
++            schedule_kind: components["schemas"]["GeoPlanScheduleKind"];
++            /**
++             * Cron Expression
++             * @default null
++             */
++            cron_expression: string | null;
++            /**
++             * Timezone
++             * @default Asia/Shanghai
++             */
++            timezone: string;
++            /**
++             * Budget Limit
++             * @default null
++             */
++            budget_limit: string | null;
++            /**
++             * Rule Set Revision
++             * @default 1
++             */
++            rule_set_revision: number;
++            /**
++             * Id
++             * Format: uuid
++             */
++            id: string;
++            status: components["schemas"]["GeoMonitoringPlanStatus"];
++            /** Revision */
++            revision: number;
++            /**
++             * Created By
++             * Format: uuid
++             */
++            created_by: string;
++            /**
++             * Updated By
++             * Format: uuid
++             */
++            updated_by: string;
++            /**
++             * Created At
++             * Format: date-time
++             */
++            created_at: string;
++            /**
++             * Updated At
++             * Format: date-time
++             */
++            updated_at: string;
++        } & unknown;
++        /** GeoMonitoringPlanRevisionRequest */
++        GeoMonitoringPlanRevisionRequest: {
++            /** Expected Revision */
++            expected_revision: number;
++        };
+     };
+     responses: {
+         /** @description 业务或校验错误 */

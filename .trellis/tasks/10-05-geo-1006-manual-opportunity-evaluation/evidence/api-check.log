@@ -1,0 +1,7 @@
+
+> partsignal-frontend-v2@0.1.0 api:check
+> node scripts/check-openapi.mjs
+
+✨ openapi-typescript 7.13.0
+🚀 ../contracts/openapi.yaml → /var/folders/m5/j06tv2sn1hn93d6f33j559jm0000gn/T/partsignal-v2-openapi-D3RdLS/schema.d.ts [278.3ms]
+OpenAPI 类型与根合同一致。

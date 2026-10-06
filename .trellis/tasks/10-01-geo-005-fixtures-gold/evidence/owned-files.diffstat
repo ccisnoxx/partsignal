@@ -1,0 +1,19 @@
+ .../tasks/10-01-geo-005-fixtures-gold/implement.md |   85 ++
+ .trellis/tasks/10-01-geo-005-fixtures-gold/prd.md  |  120 ++
+ .../tasks/10-01-geo-005-fixtures-gold/task.json    |   51 +
+ Makefile                                           |    7 +-
+ backend/tests/fixtures/geo_analysis/README.md      |   55 +
+ backend/tests/fixtures/geo_analysis/v1/corpus.json |  347 +++++
+ .../fixtures/geo_analysis/v1/gold/analysis.json    |  512 +++++++
+ backend/tests/fixtures/geo_analysis/v1/schema.json |  742 ++++++++++
+ backend/tests/geo_fixtures.py                      |  200 +++
+ backend/tests/unit/test_geo_fixtures.py            |  134 ++
+ deploy/scripts/check-geo-fixtures.py               |   27 +
+ .../03-technical/07-testing-and-quality.md         |  435 ++++++
+ docs/geo-monitoring/04-delivery/task-manifest.yaml | 1471 ++++++++++++++++++++
+ docs/geo-monitoring/CHANGELOG.md                   |   60 +
+ docs/geo-monitoring/README.md                      |  194 +++
+ docs/geo-monitoring/SHA256SUMS                     |  113 ++
+ frontend/src/test/geo-fixtures.test.ts             |   43 +
+ frontend/src/test/geo-fixtures.ts                  |   17 +
+ 18 files changed, 4612 insertions(+), 1 deletion(-)

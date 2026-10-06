@@ -1,0 +1,15 @@
+--- initial/docs/geo-monitoring/README.md
++++ candidate/docs/geo-monitoring/README.md
+@@ -264,3 +264,12 @@
+ 实际状态与验证见 [Task Brief](../../.trellis/tasks/10-03-geo-401-collector-contract/prd.md)、
+ [实施证据](../../.trellis/tasks/10-03-geo-401-collector-contract/implement.md) 和任务清单；
+ 本地交付为 review，等待人工接受。
++
++
++GEO-402 / R3 提供独立本地 TCP fake provider、每 attempt 调用计数/请求哈希，以及 Collector
++合同断言和套件自测。运行、控制协议、故障模式和 CI 脱敏边界见
++[fake provider 说明](../../backend/tests/fixtures/geo_provider/README.md)，
++`make test-geo-collector-contract` 只访问回环。当前状态及逐项证据见
++[Task Brief](../../.trellis/tasks/10-03-geo-402-fake-provider/prd.md) 与
++[实施记录](../../.trellis/tasks/10-03-geo-402-fake-provider/implement.md)。
++该测试驱动不登记生产 Collector，不代表 Profile 连接测试、Worker 或发送恢复已经实现。

@@ -1,0 +1,11 @@
+{
+  "argv": [
+    "docker",
+    "compose",
+    "-f",
+    ".trellis/tasks/10-04-geo-706-retest-comparison/evidence/compose.yaml",
+    "down"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 0.361
+}

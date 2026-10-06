@@ -1,0 +1,20 @@
+- id: GEO-005
+  phase: R0
+  release: R0
+  title: 建立 GEO 测试夹具和金标目录
+  status: planned
+  dependencies:
+  - GEO-003
+  areas:
+  - backend/tests
+  - frontend/src/test
+  - deploy/scripts
+  deliverables: 创建虚构产品、问题、回答、引用和分析金标目录，定义 fixture 格式和敏感数据规则。
+  tests: Fixture schema 校验；最小加载测试。
+  acceptance: 后续分析和指标任务可复用稳定夹具，不含真实公司或凭据。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md

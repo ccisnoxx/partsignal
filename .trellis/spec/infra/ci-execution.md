@@ -12,6 +12,8 @@
 - jobs：`verify`、`frontend-test`；`frontend-test` 使用 `shard: [1, 2]` 矩阵。
 - npm cache 唯一输入：`frontend/package-lock.json`。
 - 前端依赖只安装：`npm ci --prefix frontend`。
+- 独立 Browser 测试包另行安装：`npm ci --prefix browser-collector`；不增加前端缓存或第二套前端。
+- `verify` 设置 `GEO_BROWSER_CONTRACT_CONTAINER=1`；根 `make e2e` 前置运行完全本地 Browser 合同。
 - canonical 前端单元测试：`npm --prefix frontend run test`；根 E2E：`make e2e`。
 - 前端分片命令：在 `frontend/` 工作目录运行 `npm exec -- vitest run --shard=<1|2>/2 --maxWorkers=1`。
 - E2E step 覆盖 `REDIS_URL=redis://localhost:6379/14`；backend integration 继续继承 job 级 DB 15。
@@ -20,7 +22,8 @@
 
 - `on` 只声明 `workflow_dispatch`，不得声明 `push` 或 `pull_request`。
 - 手动运行必须保留完整质量检查：`verify` 持有合同、lint、typecheck、后端单元/集成、canonical 前端 unit/build/container/E2E 和 Compose/部署脚本检查；`frontend-test` 持有两路 canonical Vitest 集合。
-- `verify` 只缓存并安装 canonical `frontend/`；依赖安装或任一检查失败时 job 失败，不得静默跳过或恢复第二套前端。
+- `verify` 的前端缓存与前端依赖安装唯一 owner 为 canonical `frontend/`，独立 Browser 包单独安装；依赖安装或任一检查失败时 job 失败，不得静默跳过或恢复第二套前端。
+- Browser 合同使用固定同版 Playwright 的独立 `network none` 容器和本地模拟站；依赖下载不属于业务采集，测试不得访问真实第三方。运行方式见 [`tests/browser-fixture/README.md`](../../../tests/browser-fixture/README.md)。
 - `make e2e` 必须覆盖 step 级 Redis DB 14，避免清理前序 backend integration 所属的 DB 15；不得退回 DB 0 或共享 logical DB。
 - 两个 shard 各使用 1 个 worker，测试文件集合并集必须等于本地权威 `npm --prefix frontend run test` 中的 Vitest 集合；不得修改超时、断言或跳过规则换取通过。
 - 手动 CI 是低频备用质量反馈，不是日常 push 或部署步骤；runner 耗时只记录为运维证据，不自动扩大 shard 数量。
@@ -48,7 +51,7 @@
 ## 6. Tests Required
 
 - 静态解析 `.github/workflows/ci.yml`，断言只有 `workflow_dispatch`。
-- 静态断言 `verify` cache/install 只包含 `frontend`，且两路 canonical shard 都保留。
+- 静态断言 `verify` 的前端 cache/install 只包含 `frontend`、独立 Browser 包安装及隔离选项存在，且两路 canonical shard 都保留。
 - 静态断言 `make e2e` step 覆盖 `REDIS_URL=redis://localhost:6379/14`，job 级 backend integration 保持 DB 15。
 - 本地运行 canonical frontend unit、根 build/E2E 与最终 `make verify`；无 push 授权时不声称远端 workflow 已运行。
 - 推送后确认没有自动 run；再由操作者手动触发并确认唯一新 run 包含 `verify` 和两路 `frontend-test`。

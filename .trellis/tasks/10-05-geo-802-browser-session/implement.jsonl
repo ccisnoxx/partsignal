@@ -1,0 +1,9 @@
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "Application Service事务、迁移与数据库权威"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "稳定错误与敏感输入redaction"}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "安全日志与审计边界"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "query owner、secret生命周期与并发响应"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "前端generated OpenAPI类型"}
+{"file": ".trellis/spec/infra/e2e-isolation.md", "reason": "本地真实栈隔离与清理"}
+{"file": "contracts/database.md", "reason": "GEO-802当前持久化合同"}
+{"file": "docs/geo-monitoring/03-technical/06-security-and-compliance.md", "reason": "会话加密隔离与人工授权"}
+{"file": "docs/geo-monitoring/04-delivery/05-task-template.md", "reason": "Task Brief字段与完成证据"}

@@ -1,0 +1,11 @@
+docker compose -p partsignal-geo403 -f .trellis/tasks/10-03-geo-403-profile-test/evidence/validation-compose.yaml run --rm backend-test
+ Container partsignal-geo403-postgres-1 Running 
+ Container partsignal-geo403-redis-1 Running 
+ Container partsignal-geo403-fake-oss-1 Running 
+ Container partsignal-geo403-postgres-1 Waiting 
+ Container partsignal-geo403-postgres-1 Healthy 
+ Container partsignal-geo403-backend-test-run-0e8f5bec3503 Creating 
+ Container partsignal-geo403-backend-test-run-0e8f5bec3503 Created 
+........................................................................ [  8%]
+....................
+make: *** [test-integration] Error 137

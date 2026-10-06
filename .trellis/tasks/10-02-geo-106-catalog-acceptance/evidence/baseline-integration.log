@@ -1,0 +1,10 @@
+ Container partsignal-geo106-validation-redis-1 Running 
+ Container partsignal-geo106-validation-postgres-1 Running 
+ Container partsignal-geo106-validation-redis-1 Waiting 
+ Container partsignal-geo106-validation-postgres-1 Waiting 
+ Container partsignal-geo106-validation-redis-1 Healthy 
+ Container partsignal-geo106-validation-postgres-1 Healthy 
+ Container partsignal-geo106-validation-backend-test-run-d3fb369aef59 Creating 
+ Container partsignal-geo106-validation-backend-test-run-d3fb369aef59 Created 
+........................                                                 [100%]
+24 passed in 3.02s

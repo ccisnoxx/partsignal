@@ -1,0 +1,14 @@
+.F
+======================================================================
+FAIL: test_uncached_registry_candidate_delivers_before_policy_and_run (__main__.RegistryUpgradeTests.test_uncached_registry_candidate_delivers_before_policy_and_run)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-upgrade-registry-order.py", line 68, in test_uncached_registry_candidate_delivers_before_policy_and_run
+    self.assertEqual(result.returncode, 0, result.stderr)
+AssertionError: 2 != 0 : Production 数据状态操作失败：Command '['docker', 'image', 'inspect', 'sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb']' returned non-zero exit status 81.
+
+
+----------------------------------------------------------------------
+Ran 2 tests in 1.059s
+
+FAILED (failures=1)

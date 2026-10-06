@@ -1,0 +1,23 @@
+{
+  "GEO-501": {
+    "status": "done",
+    "dependencies": [
+      "GEO-304",
+      "GEO-005"
+    ]
+  },
+  "GEO-502": {
+    "status": "done",
+    "dependencies": [
+      "GEO-501",
+      "GEO-106"
+    ]
+  },
+  "GEO-503": {
+    "status": "planned",
+    "dependencies": [
+      "GEO-501",
+      "GEO-502"
+    ]
+  }
+}

@@ -1,0 +1,52 @@
+...........F.........                                                    [100%]
+=================================== FAILURES ===================================
+_______________________ test_blocked_before_egress[csrf] _______________________
+
+surface_api = SurfaceAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55453/partsignal_geo205_a43fbe5b74), factory=se...arlette.testclient.TestClient object at 0x10db0bb90>, engineer=<starlette.testclient.TestClient object at 0x10db34da0>)
+https_provider = <app.geo_fake_server.GeoFakeServer object at 0x10db0aab0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10da29400>
+gate = 'csrf'
+
+    @pytest.mark.parametrize("gate", ["permission", "csrf", "switch", "search", "compliance"])
+    def test_blocked_before_egress(surface_api, https_provider, monkeypatch, gate):
+        profile, _, _, call_id = api_profile(surface_api, monkeypatch)
+        pid = profile["summary"]["id"]
+        client = surface_api.admin
+        if gate == "permission":
+            client = surface_api.engineer
+        elif gate == "csrf":
+            client.headers.pop("X-CSRF-Token")
+        elif gate == "switch":
+            monkeypatch.setattr(settings, "geo_api_collection_enabled", False)
+        elif gate == "search":
+            with surface_api.factory() as db:
+                db.execute(
+                    text(
+                        "UPDATE geo_collection_profiles SET web_search_policy='REQUIRED', "
+                        "revision=revision+1 WHERE id=:id"
+                    ),
+                    {"id": pid},
+                )
+                db.commit()
+        elif gate == "compliance":
+            with surface_api.factory() as db:
+                db.execute(
+                    text(
+                        "UPDATE geo_engine_surfaces SET compliance_status='SUSPENDED', "
+                        "revision=revision+1 WHERE id=:id"
+                    ),
+                    {"id": profile["summary"]["engine_surface_id"]},
+                )
+                db.commit()
+        response = client.post(
+            f"{PROFILES}/{pid}/test", json={"expected_revision": 1 if gate == "search" else 0}
+        )
+>       assert response.status_code in (400, 403, 409), response.text
+E       AssertionError: {"error":{"code":"VALIDATION_ERROR","message":"请求数据不符合接口契约","details":{"errors":[{"loc":["header","X-CSRF-Token"],"msg":"请求字段不符合接口契约","type":"missing"}]},"request_id":"cfbf587b-adf5-426d-a633-5a5922af1659"}}
+E       assert 422 in (400, 403, 409)
+E        +  where 422 = <Response [422 Unprocessable Entity]>.status_code
+
+backend/tests/integration/test_geo_profile_tests.py:133: AssertionError
+=========================== short test summary info ============================
+FAILED backend/tests/integration/test_geo_profile_tests.py::test_blocked_before_egress[csrf]
+1 failed, 20 passed in 6.25s

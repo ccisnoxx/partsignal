@@ -1,0 +1,25 @@
+
+> partsignal-frontend-v2@0.1.0 e2e
+> tests/e2e/run-with-secret-scan.sh tests/e2e/prompt-workspace.spec.ts --project=foundation-mobile --grep 管理员从导航进入
+
+[WebServer] (node:19425) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] [plugin builtin:vite-reporter] 
+[WebServer] (!) Some chunks are larger than 500 kB after minification. Consider:
+[WebServer] - Using dynamic import() to code-split the application
+[WebServer] - Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+[WebServer] - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+[WebServer] (node:19435) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:19457) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 1 test using 1 worker
+
+(node:19458) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [foundation-mobile] › tests/e2e/prompt-workspace.spec.ts:14:1 › 管理员从导航进入 Prompt Workspace，并完成 create/update/delete revision 闭环 (1.3s)
+
+  1 passed (10.5s)
+E2E_SECRET_SCAN status=clean
+E2E_RESULT playwright=0 secret_scan=0

@@ -1,0 +1,139 @@
+"""数据库驱动的分析派发与过期失败；Broker 只保存稳定 UUID。"""
+
+import logging
+from collections.abc import Callable
+from datetime import datetime, timedelta
+from uuid import UUID
+
+from sqlalchemy import func, select
+
+from app.config import settings
+from app.db import SessionLocal
+from app.models.geo_analysis import GeoAnalysisRevision
+from app.models.geo_analysis_worker import GeoAnalysisJob
+from app.models.geo_runs import GeoObservationRun
+from app.services.geo_analysis_runs import finish_failure, lock_analysis, prepare_collected_run
+from app.services.geo_run_lifecycle import database_now
+
+logger = logging.getLogger("partsignal.worker")
+type AnalysisSender = Callable[[str], object]
+
+
+def publish(identity: UUID, sender: AnalysisSender) -> bool:
+    try:
+        sender(str(identity))
+        return True
+    except Exception as error:
+        logger.warning("GEO 分析投递失败 id=%s error_type=%s", identity, type(error).__name__)
+        return False
+
+
+def dispatch_revision(
+    analysis_id: UUID, sender: AnalysisSender, *, now: datetime | None = None
+) -> bool:
+    with SessionLocal.begin() as db:
+        locked = lock_analysis(db, analysis_id)
+        if locked is None:
+            return False
+        _, _, analysis, job = locked
+        if analysis.status != "PENDING" or job.claimed_at is not None:
+            return False
+        clock = now if now is not None else database_now(db)
+        if (
+            job.last_dispatch_attempt_at is not None
+            and job.last_dispatch_attempt_at
+            > clock - timedelta(seconds=settings.geo_pending_redispatch_seconds)
+        ):
+            return False
+        job.last_dispatch_attempt_at = clock
+        job.dispatch_attempt_count += 1
+    # 预留已提交，丢失 Broker 确认时允许重复消息，claim 确保只有一个有效计算者。
+    return publish(analysis_id, sender)
+
+
+def redispatch_pending_analysis_revisions(
+    sender: AnalysisSender, *, now: datetime | None = None
+) -> int:
+    if not settings.geo_monitoring_enabled:
+        return 0
+    with SessionLocal() as db:
+        clock = now if now is not None else database_now(db)
+        collected = list(
+            db.scalars(
+                select(GeoObservationRun.id)
+                .where(
+                    GeoObservationRun.status == "COLLECTED",
+                )
+                .order_by(GeoObservationRun.collected_at, GeoObservationRun.id)
+                .limit(settings.geo_recovery_batch_size)
+            )
+        )
+    for run_id in collected:
+        try:
+            prepare_collected_run(run_id)
+        except Exception as error:
+            logger.error(
+                "GEO 分析装配扫描失败 run_id=%s error_type=%s", run_id, type(error).__name__
+            )
+    a, j = GeoAnalysisRevision, GeoAnalysisJob
+    with SessionLocal() as db:
+        ids = list(
+            db.scalars(
+                select(a.id)
+                .join(j, j.analysis_revision_id == a.id)
+                .where(
+                    a.status == "PENDING",
+                    j.claimed_at.is_(None),
+                    (j.last_dispatch_attempt_at.is_(None))
+                    | (
+                        j.last_dispatch_attempt_at
+                        <= clock - timedelta(seconds=settings.geo_pending_redispatch_seconds)
+                    ),
+                )
+                .order_by(func.coalesce(j.last_dispatch_attempt_at, a.created_at), a.id)
+                .limit(settings.geo_recovery_batch_size)
+            )
+        )
+    sent = 0
+    for identity in ids:
+        if not dispatch_revision(identity, sender, now=now):
+            # Broker 故障不在一个周期逐个等待，未预留项下次仍可派发。
+            break
+        sent += 1
+    return sent
+
+
+def recover_expired_analysis_revisions(*, now: datetime | None = None) -> int:
+    with SessionLocal() as db:
+        clock = now if now is not None else database_now(db)
+        ids = list(
+            db.scalars(
+                select(GeoAnalysisRevision.id)
+                .join(
+                    GeoAnalysisJob,
+                    GeoAnalysisJob.analysis_revision_id == GeoAnalysisRevision.id,
+                )
+                .where(
+                    GeoAnalysisRevision.status == "PENDING",
+                    GeoAnalysisJob.lease_expires_at <= clock,
+                )
+                .order_by(GeoAnalysisJob.lease_expires_at, GeoAnalysisRevision.id)
+                .limit(settings.geo_recovery_batch_size)
+            )
+        )
+    recovered = 0
+    for identity in ids:
+        with SessionLocal.begin() as db:
+            locked = lock_analysis(db, identity)
+            if locked is None:
+                continue
+            _, _, analysis, job = locked
+            if (
+                analysis.status != "PENDING"
+                or job.lease_expires_at is None
+                or job.lease_expires_at > clock
+            ):
+                continue
+            finish_failure(db, locked, clock)
+            recovered += 1
+    return recovered

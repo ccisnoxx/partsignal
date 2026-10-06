@@ -1,0 +1,14 @@
+{
+  "checked_at": "2026-10-05T18:41:56.404091+00:00",
+  "scope": "LOCAL_DOCKER_ENGINE_ONLY_NOT_TARGET_PRODUCTION",
+  "owned_temporary_object_container_present": false,
+  "temporary_object_root": "/tmp/geo904-object-store (container disposed)",
+  "original_local_service_states": {
+    "partsignal-dev-fake-oss-1": "exited",
+    "partsignal-dev-postgres-1": "running",
+    "partsignal-dev-redis-1": "running"
+  },
+  "production_state": "NOT_VERIFIED",
+  "tests_use_temporary_owner_databases": true,
+  "database_cleanup_evidence": "fixture finally和恢复SIGTERM定向测试；未以宽泛SQL删除任何现存库"
+}

@@ -1,0 +1,26 @@
+{
+  "task": "GEO-904",
+  "new_links": "passed",
+  "whole_modified_document_link_scan": "one_preexisting_failure",
+  "preexisting_broken_links": [
+    {
+      "file": "docs/geo-monitoring/03-technical/07-testing-and-quality.md",
+      "target": "../../../../.trellis/tasks/10-05-geo-902-observability/implement.md"
+    }
+  ],
+  "checked_files": [
+    "docs/geo-monitoring/README.md",
+    "docs/geo-monitoring/CHANGELOG.md",
+    "docs/geo-monitoring/03-technical/07-testing-and-quality.md",
+    "docs/geo-monitoring/04-delivery/11-r8-security-review.md",
+    ".trellis/tasks/10-05-geo-904-security/prd.md",
+    ".trellis/tasks/10-05-geo-904-security/design.md",
+    ".trellis/tasks/10-05-geo-904-security/implement.md"
+  ],
+  "document_hash_entries": 123,
+  "task_manifest_consistent": true,
+  "geo903": "done",
+  "geo904": "blocked",
+  "geo906": "planned",
+  "geo804_807": "deferred"
+}

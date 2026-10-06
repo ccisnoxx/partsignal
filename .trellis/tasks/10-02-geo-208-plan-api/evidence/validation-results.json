@@ -1,0 +1,58 @@
+{
+  "task": "GEO-208",
+  "status": "review",
+  "commands": {
+    "git diff --check": {
+      "status": "passed",
+      "exit_code": 0
+    },
+    "make lint": {
+      "status": "passed",
+      "exit_code": 0
+    },
+    "make typecheck": {
+      "status": "passed",
+      "exit_code": 0,
+      "backend_source_files": 117
+    },
+    "make test-unit": {
+      "status": "passed",
+      "exit_code": 0,
+      "backend_passed": 1247,
+      "frontend_passed": 993,
+      "frontend_files": 106
+    },
+    "make test-integration": {
+      "status": "passed",
+      "exit_code": 0,
+      "compose_project": "partsignal-geo208-validation",
+      "passed": 625,
+      "warnings": 8,
+      "seconds": 352.9
+    },
+    "make contract-generate": {
+      "status": "passed",
+      "exit_code": 0
+    },
+    "make contract-check": {
+      "status": "passed",
+      "exit_code": 0
+    },
+    "make build": {
+      "status": "passed",
+      "exit_code": 0
+    },
+    "docs SHA256SUMS": {
+      "status": "passed",
+      "exit_code": 0
+    },
+    "make e2e": {
+      "status": "not_run",
+      "reason": "无Plan页面/路由，本任务真实API跨请求流程由PostgreSQL会话集成覆盖，Plan页面归GEO-209"
+    },
+    "make verify": {
+      "status": "not_run",
+      "reason": "R1发布整体阶段门禁，单任务尚未构成R1发布完成"
+    }
+  }
+}

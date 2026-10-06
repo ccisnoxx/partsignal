@@ -1,0 +1,37 @@
+{
+  "id": "geo-408-api-acceptance",
+  "name": "geo-408-api-acceptance",
+  "title": "GEO-408 完成 API 自动观测 UI 和纵向验收",
+  "description": "GEO-408 自动采集UI、fake provider真实栈和R3验收",
+  "status": "completed",
+  "dev_type": "frontend",
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-10-03",
+  "completedAt": "2026-10-03",
+  "branch": "geo/GEO-408",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "frontend/src/domains/geo-runs",
+    "frontend/tests/e2e",
+    "docs/geo-monitoring"
+  ],
+  "notes": "2026-10-03 本会话用户已人工审查并接受 GEO-408 的实现与测试证据；本次仅记录人工验收完成，保留原有验证范围和已知限制，不修改其他任务状态，不实施后续任务。 manifest=done，Trellis=completed；未提交、推送、部署或归档。",
+  "meta": {
+    "manifest_status": "done",
+    "validation_record": ".trellis/tasks/10-03-geo-408-api-acceptance/implement.md",
+    "accepted_at": "2026-10-03",
+    "accepted_by": "本会话用户",
+    "accepted_scope": "GEO-408 的实现与已记录测试证据；保留 implement.md 中的验证范围和已知限制。",
+    "acceptance_basis": "用户明确表示：我已经人工审查并接受 GEO-408 的实现与测试证据。"
+  }
+}

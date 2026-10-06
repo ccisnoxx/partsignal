@@ -1,0 +1,2 @@
+backend/app/services/geo_plan_queries.py:158: error: Argument 1 to "dict" has incompatible type "Sequence[tuple[UUID | None, int]]"; expected "Iterable[tuple[UUID, int]]"  [arg-type]
+Found 1 error in 1 file (checked 128 source files)

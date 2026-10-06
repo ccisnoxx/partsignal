@@ -1,0 +1,13 @@
+
+> partsignal-frontend-v2@0.1.0 test
+> vitest run src/domains/geo-plans src/domains/geo-questions src/domains/geo/geo-evidence-upload.test.tsx src/design-system/forms/dirty-guard.test.tsx
+
+
+ RUN  v4.1.10 /Users/sc/PycharmProjects/partsignal/frontend
+
+
+ Test Files  9 passed (9)
+      Tests  91 passed (91)
+   Start at  21:56:24
+   Duration  3.33s (transform 2.77s, setup 1.18s, import 4.40s, tests 5.14s, environment 4.46s)
+

@@ -1,0 +1,245 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "fixture_version",
+    "dataset_id",
+    "synthetic",
+    "additional_subjects",
+    "cases"
+  ],
+  "properties": {
+    "fixture_version": {
+      "const": "1.0.0"
+    },
+    "dataset_id": {
+      "const": "geo-502-mentions-v1"
+    },
+    "synthetic": {
+      "const": true
+    },
+    "additional_subjects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "subject_type",
+          "name",
+          "aliases"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^subject-[a-z0-9-]+$"
+          },
+          "subject_type": {
+            "enum": [
+              "REFERENCE_PART",
+              "OWN_BRAND",
+              "COMPETITOR_BRAND"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          },
+          "aliases": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 240
+            },
+            "minItems": 0,
+            "uniqueItems": true
+          }
+        }
+      },
+      "minItems": 0
+    },
+    "cases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "text",
+          "subject_ids",
+          "expected"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]+$"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 8000
+          },
+          "subject_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^subject-[a-z0-9-]+$"
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "expected": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "mentions",
+              "ambiguities"
+            ],
+            "properties": {
+              "mentions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "subject_id",
+                    "matched_aliases",
+                    "occurrences"
+                  ],
+                  "properties": {
+                    "subject_id": {
+                      "type": "string",
+                      "pattern": "^subject-[a-z0-9-]+$"
+                    },
+                    "matched_aliases": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 240
+                      },
+                      "minItems": 1,
+                      "uniqueItems": true
+                    },
+                    "occurrences": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "start",
+                          "end",
+                          "excerpt",
+                          "negation_cues"
+                        ],
+                        "properties": {
+                          "start": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "end": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "excerpt": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 240
+                          },
+                          "negation_cues": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 240
+                            },
+                            "minItems": 0,
+                            "uniqueItems": true
+                          }
+                        }
+                      },
+                      "minItems": 1
+                    }
+                  }
+                },
+                "minItems": 0
+              },
+              "ambiguities": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "start",
+                    "end",
+                    "excerpt",
+                    "negation_cues",
+                    "subject_ids",
+                    "reason",
+                    "matched_aliases"
+                  ],
+                  "properties": {
+                    "start": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "end": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "excerpt": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 240
+                    },
+                    "negation_cues": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 240
+                      },
+                      "minItems": 0,
+                      "uniqueItems": true
+                    },
+                    "subject_ids": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^subject-[a-z0-9-]+$"
+                      },
+                      "minItems": 2,
+                      "uniqueItems": true
+                    },
+                    "reason": {
+                      "enum": [
+                        "SHARED_ALIAS",
+                        "NORMALIZED_ALIAS_COLLISION",
+                        "OVERLAPPING_ALIASES"
+                      ]
+                    },
+                    "matched_aliases": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 240
+                      },
+                      "minItems": 1,
+                      "uniqueItems": true
+                    }
+                  }
+                },
+                "minItems": 0
+              }
+            }
+          }
+        }
+      },
+      "minItems": 1
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "argv": [
+    "env",
+    "DATABASE_URL=postgresql+psycopg://partsignal:partsignal_dev@127.0.0.1:55474/partsignal",
+    "REDIS_URL=redis://127.0.0.1:56474/14",
+    "SESSION_SECRET=geo704-fictional-session-secret-at-least-32-bytes",
+    "OBJECT_STORAGE_BACKEND=development",
+    "COOKIE_SECURE=false",
+    "make",
+    "e2e"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 937.034
+}

@@ -1,0 +1,1397 @@
+FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF.FFFFFF.               [100%]
+=================================== FAILURES ===================================
+________________________ test_claim_gold[voltage-match] ________________________
+
+case = {'expected': {'claims': [{'claim_kind': 'PARAMETER', 'severity': 'LOW', 'subject_id': 'subject-base', 'verdict': 'ACCURATE'}], 'review_required_reasons': []}, 'fact_body': None, 'fact_status': 'APPROVED', 'id': 'voltage-match', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+>       facts = candidates()
+                ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+_____________________ test_claim_gold[voltage-millivolts] ______________________
+
+case = {'expected': {'claims': [{'claim_kind': 'PARAMETER', 'severity': 'LOW', 'subject_id': 'subject-base', 'verdict': 'ACCURATE'}], 'review_required_reasons': []}, 'fact_body': None, 'fact_status': 'APPROVED', 'id': 'voltage-millivolts', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+>       facts = candidates()
+                ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+______________________ test_claim_gold[voltage-conflict] _______________________
+
+case = {'expected': {'claims': [{'claim_kind': 'PARAMETER', 'severity': 'HIGH', 'subject_id': 'subject-base', 'verdict': 'INC...ed_reasons': ['HIGH_SEVERITY_INCORRECT']}, 'fact_body': None, 'fact_status': 'APPROVED', 'id': 'voltage-conflict', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+>       facts = candidates()
+                ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+____________________ test_claim_gold[voltage-range-unknown] ____________________
+
+case = {'expected': {'claims': [{'claim_kind': 'PARAMETER', 'severity': 'MEDIUM', 'subject_id': 'subject-base', 'verdict': 'U...red_reasons': ['CLAIM_UNJUDGEABLE']}, 'fact_body': None, 'fact_status': 'APPROVED', 'id': 'voltage-range-unknown', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+>       facts = candidates()
+                ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+________________________ test_claim_gold[package-match] ________________________
+
+case = {'expected': {'claims': [{'claim_kind': 'PACKAGE', 'severity': 'LOW', 'subject_id': 'subject-base', 'verdict': 'ACCURATE'}], 'review_required_reasons': []}, 'fact_body': None, 'fact_status': 'APPROVED', 'id': 'package-match', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+>       facts = candidates()
+                ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+______________________ test_claim_gold[package-conflict] _______________________
+
+case = {'expected': {'claims': [{'claim_kind': 'PACKAGE', 'severity': 'HIGH', 'subject_id': 'subject-base', 'verdict': 'INCOR...ed_reasons': ['HIGH_SEVERITY_INCORRECT']}, 'fact_body': None, 'fact_status': 'APPROVED', 'id': 'package-conflict', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+>       facts = candidates()
+                ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+___________________ test_claim_gold[package-unknown-format] ____________________
+
+case = {'expected': {'claims': [{'claim_kind': 'PACKAGE', 'severity': 'MEDIUM', 'subject_id': 'subject-base', 'verdict': 'UNJ...ed_reasons': ['CLAIM_UNJUDGEABLE']}, 'fact_body': None, 'fact_status': 'APPROVED', 'id': 'package-unknown-format', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+>       facts = candidates()
+                ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+______________________ test_claim_gold[temperature-match] ______________________
+
+case = {'expected': {'claims': [{'claim_kind': 'TEMPERATURE_GRADE', 'severity': 'LOW', 'subject_id': 'subject-base', 'verdict...URATE'}], 'review_required_reasons': []}, 'fact_body': None, 'fact_status': 'APPROVED', 'id': 'temperature-match', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+>       facts = candidates()
+                ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+____________________ test_claim_gold[temperature-conflict] _____________________
+
+case = {'expected': {'claims': [{'claim_kind': 'TEMPERATURE_GRADE', 'severity': 'HIGH', 'subject_id': 'subject-base', 'verdic...easons': ['HIGH_SEVERITY_INCORRECT']}, 'fact_body': None, 'fact_status': 'APPROVED', 'id': 'temperature-conflict', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+>       facts = candidates()
+                ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+_________________________ test_claim_gold[brand-match] _________________________
+
+case = {'expected': {'claims': [{'claim_kind': 'IDENTITY', 'severity': 'LOW', 'subject_id': 'subject-base', 'verdict': 'ACCURATE'}], 'review_required_reasons': []}, 'fact_body': None, 'fact_status': 'APPROVED', 'id': 'brand-match', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+>       facts = candidates()
+                ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+_______________________ test_claim_gold[brand-conflict] ________________________
+
+case = {'expected': {'claims': [{'claim_kind': 'IDENTITY', 'severity': 'HIGH', 'subject_id': 'subject-base', 'verdict': 'INCO...ired_reasons': ['HIGH_SEVERITY_INCORRECT']}, 'fact_body': None, 'fact_status': 'APPROVED', 'id': 'brand-conflict', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+>       facts = candidates()
+                ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+_________________ test_claim_gold[certification-insufficient] __________________
+
+case = {'expected': {'claims': [{'claim_kind': 'CERTIFICATION', 'severity': 'MEDIUM', 'subject_id': 'subject-base', 'verdict'...'SAFETY_CERTIFICATION_REVIEW']}, 'fact_body': None, 'fact_status': 'APPROVED', 'id': 'certification-insufficient', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+>       facts = candidates()
+                ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+_____________________ test_claim_gold[certification-match] _____________________
+
+case = {'expected': {'claims': [{'claim_kind': 'CERTIFICATION', 'severity': 'LOW', 'subject_id': 'subject-base', 'verdict': '...Y_CERTIFICATION_REVIEW']}, 'fact_body': '已获得虚构安全认证 Q-77。', 'fact_status': 'APPROVED', 'id': 'certification-match', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+>       facts = candidates()
+                ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+___________________ test_claim_gold[certification-conflict] ____________________
+
+case = {'expected': {'claims': [{'claim_kind': 'CERTIFICATION', 'severity': 'CRITICAL', 'subject_id': 'subject-base', 'verdic...ERTIFICATION_REVIEW']}, 'fact_body': '未获得虚构安全认证 Q-77。', 'fact_status': 'APPROVED', 'id': 'certification-conflict', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+>       facts = candidates()
+                ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+___________________ test_claim_gold[certification-other-id] ____________________
+
+case = {'expected': {'claims': [{'claim_kind': 'CERTIFICATION', 'severity': 'MEDIUM', 'subject_id': 'subject-base', 'verdict'...ERTIFICATION_REVIEW']}, 'fact_body': '已获得虚构安全认证 Q-77。', 'fact_status': 'APPROVED', 'id': 'certification-other-id', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+>       facts = candidates()
+                ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+_______________________ test_claim_gold[lifecycle-match] _______________________
+
+case = {'expected': {'claims': [{'claim_kind': 'LIFECYCLE_STATUS', 'severity': 'LOW', 'subject_id': 'subject-base', 'verdict'...E'}], 'review_required_reasons': []}, 'fact_body': '生命周期：在产。', 'fact_status': 'APPROVED', 'id': 'lifecycle-match', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+>       facts = candidates()
+                ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+_____________________ test_claim_gold[lifecycle-conflict] ______________________
+
+case = {'expected': {'claims': [{'claim_kind': 'LIFECYCLE_STATUS', 'severity': 'HIGH', 'subject_id': 'subject-base', 'verdict...ns': ['HIGH_SEVERITY_INCORRECT']}, 'fact_body': '生命周期：在产。', 'fact_status': 'APPROVED', 'id': 'lifecycle-conflict', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+>       facts = candidates()
+                ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+______________________ test_claim_gold[application-match] ______________________
+
+case = {'expected': {'claims': [{'claim_kind': 'APPLICATION', 'severity': 'LOW', 'subject_id': 'subject-base', 'verdict': 'AC..., 'review_required_reasons': []}, 'fact_body': '应用：虚构传感接口。', 'fact_status': 'APPROVED', 'id': 'application-match', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+>       facts = candidates()
+                ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+__________________ test_claim_gold[application-insufficient] ___________________
+
+case = {'expected': {'claims': [{'claim_kind': 'APPLICATION', 'severity': 'MEDIUM', 'subject_id': 'subject-base', 'verdict': ..._reasons': ['CLAIM_UNJUDGEABLE']}, 'fact_body': None, 'fact_status': 'APPROVED', 'id': 'application-insufficient', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+>       facts = candidates()
+                ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+_____________________ test_claim_gold[compatibility-match] _____________________
+
+case = {'expected': {'claims': [{'claim_kind': 'COMPATIBILITY_CONDITION', 'severity': 'LOW', 'subject_id': 'subject-base', 'v...], 'review_required_reasons': []}, 'fact_body': '引脚定义一致。', 'fact_status': 'APPROVED', 'id': 'compatibility-match', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+>       facts = candidates()
+                ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+___________________ test_claim_gold[compatibility-conflict] ____________________
+
+case = {'expected': {'claims': [{'claim_kind': 'COMPATIBILITY_CONDITION', 'severity': 'HIGH', 'subject_id': 'subject-base', '...: ['HIGH_SEVERITY_INCORRECT']}, 'fact_body': '引脚定义一致。', 'fact_status': 'APPROVED', 'id': 'compatibility-conflict', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+>       facts = candidates()
+                ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+______________________ test_claim_gold[other-unjudgeable] ______________________
+
+case = {'expected': {'claims': [{'claim_kind': 'OTHER', 'severity': 'MEDIUM', 'subject_id': 'subject-base', 'verdict': 'UNJUD...equired_reasons': ['CLAIM_UNJUDGEABLE']}, 'fact_body': None, 'fact_status': 'APPROVED', 'id': 'other-unjudgeable', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+>       facts = candidates()
+                ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+______________________ test_claim_gold[replacement-full] _______________________
+
+case = {'expected': {'claims': [{'claim_kind': 'REPLACEMENT_RELATION', 'severity': 'LOW', 'subject_id': 'subject-base', 'verd...easons': ['CRITICAL_REPLACEMENT_REVIEW']}, 'fact_body': None, 'fact_status': 'APPROVED', 'id': 'replacement-full', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+>       facts = candidates()
+                ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+_____________________ test_claim_gold[replacement-partial] _____________________
+
+case = {'expected': {'claims': [{'claim_kind': 'REPLACEMENT_RELATION', 'severity': 'HIGH', 'subject_id': 'subject-base', 'ver...ons': ['CRITICAL_REPLACEMENT_REVIEW']}, 'fact_body': None, 'fact_status': 'APPROVED', 'id': 'replacement-partial', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+>       facts = candidates()
+                ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+__________________ test_claim_gold[replacement-unconditional] __________________
+
+case = {'expected': {'claims': [{'claim_kind': 'REPLACEMENT_RELATION', 'severity': 'CRITICAL', 'subject_id': 'subject-base', ...EW', 'HIGH_SEVERITY_INCORRECT']}, 'fact_body': None, 'fact_status': 'APPROVED', 'id': 'replacement-unconditional', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+>       facts = candidates()
+                ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+________________ test_claim_gold[replacement-different-target] _________________
+
+case = {'expected': {'claims': [{'claim_kind': 'REPLACEMENT_RELATION', 'severity': 'MEDIUM', 'subject_id': 'subject-base', 'v...RITICAL_REPLACEMENT_REVIEW']}, 'fact_body': None, 'fact_status': 'APPROVED', 'id': 'replacement-different-target', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+>       facts = candidates()
+                ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+_________________ test_claim_gold[replacement-extra-condition] _________________
+
+case = {'expected': {'claims': [{'claim_kind': 'REPLACEMENT_RELATION', 'severity': 'HIGH', 'subject_id': 'subject-base', 'ver...CRITICAL_REPLACEMENT_REVIEW']}, 'fact_body': None, 'fact_status': 'APPROVED', 'id': 'replacement-extra-condition', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+>       facts = candidates()
+                ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+_________________ test_claim_gold[replacement-wrong-direction] _________________
+
+case = {'expected': {'claims': [{'claim_kind': 'REPLACEMENT_RELATION', 'severity': 'MEDIUM', 'subject_id': 'subject-base', 'v...IEW']}, 'fact_body': 'GEORF-915T 可替代 GEOFX-731Q。', 'fact_status': 'APPROVED', 'id': 'replacement-wrong-direction', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+>       facts = candidates()
+                ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+__________________ test_claim_gold[replacement-other-source] ___________________
+
+case = {'expected': {'claims': [{'claim_kind': 'REPLACEMENT_RELATION', 'severity': 'MEDIUM', 'subject_id': 'subject-base', 'v...REVIEW']}, 'fact_body': 'GEOCX-842R 可替代 GEORF-915T。', 'fact_status': 'APPROVED', 'id': 'replacement-other-source', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+>       facts = candidates()
+                ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+____________________ test_claim_gold[pending-not-evidence] _____________________
+
+case = {'expected': {'claims': [{'claim_kind': 'PARAMETER', 'severity': 'MEDIUM', 'subject_id': 'subject-base', 'verdict': 'U...easons': ['CLAIM_UNJUDGEABLE']}, 'fact_body': None, 'fact_status': 'PENDING_REVIEW', 'id': 'pending-not-evidence', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+>       facts = candidates()
+                ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+____________________ test_claim_gold[retired-not-evidence] _____________________
+
+case = {'expected': {'claims': [{'claim_kind': 'PARAMETER', 'severity': 'MEDIUM', 'subject_id': 'subject-base', 'verdict': 'U...uired_reasons': ['CLAIM_UNJUDGEABLE']}, 'fact_body': None, 'fact_status': 'RETIRED', 'id': 'retired-not-evidence', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+>       facts = candidates()
+                ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+___________________ test_claim_gold[requested-not-evidence] ____________________
+
+case = {'expected': {'claims': [{'claim_kind': 'PARAMETER', 'severity': 'MEDIUM', 'subject_id': 'subject-base', 'verdict': 'U...s': ['CLAIM_UNJUDGEABLE']}, 'fact_body': None, 'fact_status': 'CHANGES_REQUESTED', 'id': 'requested-not-evidence', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+>       facts = candidates()
+                ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+_____________________ test_claim_gold[blank-not-evidence] ______________________
+
+case = {'expected': {'claims': [{'claim_kind': 'PARAMETER', 'severity': 'MEDIUM', 'subject_id': 'subject-base', 'verdict': 'U...asons': ['CLAIM_UNJUDGEABLE']}, 'fact_body': ' \n\t\u3000', 'fact_status': 'APPROVED', 'id': 'blank-not-evidence', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+>       facts = candidates()
+                ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+__________________ test_claim_gold[conflicting-approved-body] __________________
+
+case = {'expected': {'claims': [{'claim_kind': 'PARAMETER', 'severity': 'MEDIUM', 'subject_id': 'subject-base', 'verdict': 'U...JUDGEABLE']}, 'fact_body': '供电电压为 3.3 V。供电电压为 5 V。', 'fact_status': 'APPROVED', 'id': 'conflicting-approved-body', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+>       facts = candidates()
+                ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+______________________ test_claim_gold[uncertain-answer] _______________________
+
+case = {'expected': {'claims': [{'claim_kind': 'PARAMETER', 'severity': 'MEDIUM', 'subject_id': 'subject-base', 'verdict': 'U...required_reasons': ['CLAIM_UNJUDGEABLE']}, 'fact_body': None, 'fact_status': 'APPROVED', 'id': 'uncertain-answer', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+>       facts = candidates()
+                ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+__________________ test_claim_gold[instruction-not-authority] __________________
+
+case = {'expected': {'claims': [{'claim_kind': 'PARAMETER', 'severity': 'HIGH', 'subject_id': 'subject-base', 'verdict': 'INC...ECT', 'UNTRUSTED_INSTRUCTIONS']}, 'fact_body': None, 'fact_status': 'APPROVED', 'id': 'instruction-not-authority', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+>       facts = candidates()
+                ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+___________________ test_shared_claim_gold[gold-exact-model] ___________________
+
+case = {'answer_id': 'answer-exact-model', 'category': 'exact_model', 'expected': {'citations': [{'citation_id': 'citation-ow...构雾桥晶元的 GEOFX-731Q。', 'label': 'RECOMMENDED', 'rank': 1, 'subject_id': 'subject-base'}], ...}, 'id': 'gold-exact-model'}
+
+    @pytest.mark.parametrize("case", SHARED["gold"]["cases"], ids=lambda row: row["id"])
+    def test_shared_claim_gold(case: dict[str, Any]) -> None:
+        corpus = SHARED["corpus"]
+        answer = next(row for row in corpus["answers"] if row["id"] == case["answer_id"])
+        question = next(row for row in corpus["questions"] if row["id"] == answer["question_id"])
+        scope = subjects(question["subject_ids"])
+>       result = assess_claims(answer["text"], scope, freeze_fact_versions(scope, candidates()))
+                                                                                  ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:72: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+__________________ test_shared_claim_gold[gold-model-suffix] ___________________
+
+case = {'answer_id': 'answer-model-suffix', 'category': 'model_suffix', 'expected': {'citations': [], 'claims': [{'claim_type...独立的 1.8 V 器件。', 'label': 'CONSIDERED', 'rank': None, 'subject_id': 'subject-suffix'}], ...}, 'id': 'gold-model-suffix'}
+
+    @pytest.mark.parametrize("case", SHARED["gold"]["cases"], ids=lambda row: row["id"])
+    def test_shared_claim_gold(case: dict[str, Any]) -> None:
+        corpus = SHARED["corpus"]
+        answer = next(row for row in corpus["answers"] if row["id"] == case["answer_id"])
+        question = next(row for row in corpus["questions"] if row["id"] == answer["question_id"])
+        scope = subjects(question["subject_ids"])
+>       result = assess_claims(answer["text"], scope, freeze_fact_versions(scope, candidates()))
+                                                                                  ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:72: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+________________ test_shared_claim_gold[gold-normalized-model] _________________
+
+case = {'answer_id': 'answer-normalized-model', 'category': 'case_and_hyphen', 'expected': {'citations': [], 'claims': [], 'm...comparison.', 'label': 'CONSIDERED', 'rank': None, 'subject_id': 'subject-base'}], ...}, 'id': 'gold-normalized-model'}
+
+    @pytest.mark.parametrize("case", SHARED["gold"]["cases"], ids=lambda row: row["id"])
+    def test_shared_claim_gold(case: dict[str, Any]) -> None:
+        corpus = SHARED["corpus"]
+        answer = next(row for row in corpus["answers"] if row["id"] == case["answer_id"])
+        question = next(row for row in corpus["questions"] if row["id"] == answer["question_id"])
+        scope = subjects(question["subject_ids"])
+>       result = assess_claims(answer["text"], scope, freeze_fact_versions(scope, candidates()))
+                                                                                  ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:72: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+_________________ test_shared_claim_gold[gold-ambiguous-brand] _________________
+
+case = {'answer_id': 'answer-ambiguous-brand', 'category': 'ambiguous_alias', 'expected': {'citations': [], 'claims': [], 'me...t_ids': ['subject-own-brand', 'subject-competitor-brand']}], 'recommendations': [], ...}, 'id': 'gold-ambiguous-brand'}
+
+    @pytest.mark.parametrize("case", SHARED["gold"]["cases"], ids=lambda row: row["id"])
+    def test_shared_claim_gold(case: dict[str, Any]) -> None:
+        corpus = SHARED["corpus"]
+        answer = next(row for row in corpus["answers"] if row["id"] == case["answer_id"])
+        question = next(row for row in corpus["questions"] if row["id"] == answer["question_id"])
+        scope = subjects(question["subject_ids"])
+>       result = assess_claims(answer["text"], scope, freeze_fact_versions(scope, candidates()))
+                                                                                  ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:72: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+________________ test_shared_claim_gold[gold-negative-mention] _________________
+
+case = {'answer_id': 'answer-negative-mention', 'category': 'negated_mention', 'expected': {'citations': [], 'claims': [], 'm...于这一应用。', 'label': 'NOT_RECOMMENDED', 'rank': None, 'subject_id': 'subject-base'}], ...}, 'id': 'gold-negative-mention'}
+
+    @pytest.mark.parametrize("case", SHARED["gold"]["cases"], ids=lambda row: row["id"])
+    def test_shared_claim_gold(case: dict[str, Any]) -> None:
+        corpus = SHARED["corpus"]
+        answer = next(row for row in corpus["answers"] if row["id"] == case["answer_id"])
+        question = next(row for row in corpus["questions"] if row["id"] == answer["question_id"])
+        scope = subjects(question["subject_ids"])
+>       result = assess_claims(answer["text"], scope, freeze_fact_versions(scope, candidates()))
+                                                                                  ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:72: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+__________________ test_shared_claim_gold[gold-listing-only] ___________________
+
+case = {'answer_id': 'answer-listing-only', 'category': 'listed_without_recommendation', 'expected': {'citations': [], 'claim...R；尚未完成选型。', 'label': 'CONSIDERED', 'rank': None, 'subject_id': 'subject-competitor'}], ...}, 'id': 'gold-listing-only'}
+
+    @pytest.mark.parametrize("case", SHARED["gold"]["cases"], ids=lambda row: row["id"])
+    def test_shared_claim_gold(case: dict[str, Any]) -> None:
+        corpus = SHARED["corpus"]
+        answer = next(row for row in corpus["answers"] if row["id"] == case["answer_id"])
+        question = next(row for row in corpus["questions"] if row["id"] == answer["question_id"])
+        scope = subjects(question["subject_ids"])
+>       result = assess_claims(answer["text"], scope, freeze_fact_versions(scope, candidates()))
+                                                                                  ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:72: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+_____________ test_shared_claim_gold[gold-ordered-recommendation] ______________
+
+case = {'answer_id': 'answer-ordered-recommendation', 'category': 'ordered_recommendation', 'expected': {'citations': [{'cita...31Q，次选。', 'label': 'RECOMMENDED', 'rank': 2, 'subject_id': 'subject-base'}], ...}, 'id': 'gold-ordered-recommendation'}
+
+    @pytest.mark.parametrize("case", SHARED["gold"]["cases"], ids=lambda row: row["id"])
+    def test_shared_claim_gold(case: dict[str, Any]) -> None:
+        corpus = SHARED["corpus"]
+        answer = next(row for row in corpus["answers"] if row["id"] == case["answer_id"])
+        question = next(row for row in corpus["questions"] if row["id"] == answer["question_id"])
+        scope = subjects(question["subject_ids"])
+>       result = assess_claims(answer["text"], scope, freeze_fact_versions(scope, candidates()))
+                                                                                  ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:72: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+____________ test_shared_claim_gold[gold-unordered-recommendation] _____________
+
+case = {'answer_id': 'answer-unordered-recommendation', 'category': 'unordered_recommendation', 'expected': {'citations': [],...label': 'RECOMMENDED', 'rank': None, 'subject_id': 'subject-competitor'}], ...}, 'id': 'gold-unordered-recommendation'}
+
+    @pytest.mark.parametrize("case", SHARED["gold"]["cases"], ids=lambda row: row["id"])
+    def test_shared_claim_gold(case: dict[str, Any]) -> None:
+        corpus = SHARED["corpus"]
+        answer = next(row for row in corpus["answers"] if row["id"] == case["answer_id"])
+        question = next(row for row in corpus["questions"] if row["id"] == answer["question_id"])
+        scope = subjects(question["subject_ids"])
+>       result = assess_claims(answer["text"], scope, freeze_fact_versions(scope, candidates()))
+                                                                                  ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:72: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+_____________ test_shared_claim_gold[gold-conditional-replacement] _____________
+
+case = {'answer_id': 'answer-conditional-replacement', 'category': 'conditional_replacement', 'expected': {'citations': [], '...15T。', 'label': 'CONSIDERED', 'rank': None, 'subject_id': 'subject-base'}], ...}, 'id': 'gold-conditional-replacement'}
+
+    @pytest.mark.parametrize("case", SHARED["gold"]["cases"], ids=lambda row: row["id"])
+    def test_shared_claim_gold(case: dict[str, Any]) -> None:
+        corpus = SHARED["corpus"]
+        answer = next(row for row in corpus["answers"] if row["id"] == case["answer_id"])
+        question = next(row for row in corpus["questions"] if row["id"] == answer["question_id"])
+        scope = subjects(question["subject_ids"])
+>       result = assess_claims(answer["text"], scope, freeze_fact_versions(scope, candidates()))
+                                                                                  ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:72: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+_______________ test_shared_claim_gold[gold-parameter-conflict] ________________
+
+case = {'answer_id': 'answer-parameter-conflict', 'category': 'parameter_conflict', 'expected': {'citations': [], 'claims': [...Q', 'mentioned': True, 'subject_ids': ['subject-base']}], 'recommendations': [], ...}, 'id': 'gold-parameter-conflict'}
+
+    @pytest.mark.parametrize("case", SHARED["gold"]["cases"], ids=lambda row: row["id"])
+    def test_shared_claim_gold(case: dict[str, Any]) -> None:
+        corpus = SHARED["corpus"]
+        answer = next(row for row in corpus["answers"] if row["id"] == case["answer_id"])
+        question = next(row for row in corpus["questions"] if row["id"] == answer["question_id"])
+        scope = subjects(question["subject_ids"])
+>       result = assess_claims(answer["text"], scope, freeze_fact_versions(scope, candidates()))
+                                                                                  ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:72: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+_______________ test_shared_claim_gold[gold-insufficient-facts] ________________
+
+case = {'answer_id': 'answer-insufficient-facts', 'category': 'insufficient_facts', 'expected': {'citations': [], 'claims': [...Q', 'mentioned': True, 'subject_ids': ['subject-base']}], 'recommendations': [], ...}, 'id': 'gold-insufficient-facts'}
+
+    @pytest.mark.parametrize("case", SHARED["gold"]["cases"], ids=lambda row: row["id"])
+    def test_shared_claim_gold(case: dict[str, Any]) -> None:
+        corpus = SHARED["corpus"]
+        answer = next(row for row in corpus["answers"] if row["id"] == case["answer_id"])
+        question = next(row for row in corpus["questions"] if row["id"] == answer["question_id"])
+        scope = subjects(question["subject_ids"])
+>       result = assess_claims(answer["text"], scope, freeze_fact_versions(scope, candidates()))
+                                                                                  ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:72: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+________________ test_shared_claim_gold[gold-prompt-injection] _________________
+
+case = {'answer_id': 'answer-prompt-injection', 'category': 'prompt_injection', 'expected': {'citations': [], 'claims': [], '...31Q 仅作为文本示例出现。', 'label': 'UNKNOWN', 'rank': None, 'subject_id': 'subject-base'}], ...}, 'id': 'gold-prompt-injection'}
+
+    @pytest.mark.parametrize("case", SHARED["gold"]["cases"], ids=lambda row: row["id"])
+    def test_shared_claim_gold(case: dict[str, Any]) -> None:
+        corpus = SHARED["corpus"]
+        answer = next(row for row in corpus["answers"] if row["id"] == case["answer_id"])
+        question = next(row for row in corpus["questions"] if row["id"] == answer["question_id"])
+        scope = subjects(question["subject_ids"])
+>       result = assess_claims(answer["text"], scope, freeze_fact_versions(scope, candidates()))
+                                                                                  ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:72: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+_________________ test_shared_claim_gold[gold-mixed-language] __________________
+
+case = {'answer_id': 'answer-mixed-language', 'category': 'mixed_language', 'expected': {'citations': [{'citation_id': 'citat...ndidate', 'label': 'CONSIDERED', 'rank': None, 'subject_id': 'subject-competitor'}], ...}, 'id': 'gold-mixed-language'}
+
+    @pytest.mark.parametrize("case", SHARED["gold"]["cases"], ids=lambda row: row["id"])
+    def test_shared_claim_gold(case: dict[str, Any]) -> None:
+        corpus = SHARED["corpus"]
+        answer = next(row for row in corpus["answers"] if row["id"] == case["answer_id"])
+        question = next(row for row in corpus["questions"] if row["id"] == answer["question_id"])
+        scope = subjects(question["subject_ids"])
+>       result = assess_claims(answer["text"], scope, freeze_fact_versions(scope, candidates()))
+                                                                                  ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:72: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+___________ test_each_own_product_uses_its_own_fact_and_alias_suffix ___________
+
+    def test_each_own_product_uses_its_own_fact_and_alias_suffix() -> None:
+        scope = subjects(["subject-base", "subject-suffix"])
+        text = "GEOFX-731Q 的供电电压为 3.3 V，GEOFX-731Q-S 的供电电压为 1.8 V。"
+>       result = assess_claims(text, scope, freeze_fact_versions(scope, candidates()))
+                                                                        ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:87: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+_____________ test_joined_products_and_long_claims_require_review ______________
+
+    def test_joined_products_and_long_claims_require_review() -> None:
+        scope = subjects(["subject-base", "subject-suffix"])
+>       facts = freeze_fact_versions(scope, candidates())
+                                            ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:105: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+_______________ test_highest_qualifying_version_not_newest_draft _______________
+
+    def test_highest_qualifying_version_not_newest_draft() -> None:
+        scope = subjects(["subject-base"])
+>       base = candidates()[0]
+               ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:116: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+________ test_invalid_assembly_and_snapshot_mismatch_fail_without_body _________
+
+    def test_invalid_assembly_and_snapshot_mismatch_fail_without_body() -> None:
+        scope = subjects(["subject-base"])
+>       base = candidates()[0]
+               ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:131: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+_________ test_all_classifications_stay_local_and_out_of_repr[PUBLIC] __________
+
+classification = <Confidentiality.PUBLIC: 'PUBLIC'>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x109fb4bc0>
+
+    @pytest.mark.parametrize("classification", list(Confidentiality))
+    def test_all_classifications_stay_local_and_out_of_repr(
+        classification: Confidentiality, monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        def no_network(*args: Any, **kwargs: Any) -> None:
+            pytest.fail("本地声明评估不能连接外部服务")
+        monkeypatch.setattr(socket, "create_connection", no_network)
+        monkeypatch.setattr(socket.socket, "connect", no_network)
+        scope = subjects(["subject-base"])
+>       fact = replace(candidates()[0], classification=classification)
+                       ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:152: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+________ test_all_classifications_stay_local_and_out_of_repr[INTERNAL] _________
+
+classification = <Confidentiality.INTERNAL: 'INTERNAL'>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x109fb4890>
+
+    @pytest.mark.parametrize("classification", list(Confidentiality))
+    def test_all_classifications_stay_local_and_out_of_repr(
+        classification: Confidentiality, monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        def no_network(*args: Any, **kwargs: Any) -> None:
+            pytest.fail("本地声明评估不能连接外部服务")
+        monkeypatch.setattr(socket, "create_connection", no_network)
+        monkeypatch.setattr(socket.socket, "connect", no_network)
+        scope = subjects(["subject-base"])
+>       fact = replace(candidates()[0], classification=classification)
+                       ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:152: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+_______ test_all_classifications_stay_local_and_out_of_repr[RESTRICTED] ________
+
+classification = <Confidentiality.RESTRICTED: 'RESTRICTED'>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x109ebadb0>
+
+    @pytest.mark.parametrize("classification", list(Confidentiality))
+    def test_all_classifications_stay_local_and_out_of_repr(
+        classification: Confidentiality, monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        def no_network(*args: Any, **kwargs: Any) -> None:
+            pytest.fail("本地声明评估不能连接外部服务")
+        monkeypatch.setattr(socket, "create_connection", no_network)
+        monkeypatch.setattr(socket.socket, "connect", no_network)
+        scope = subjects(["subject-base"])
+>       fact = replace(candidates()[0], classification=classification)
+                       ^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_claims.py:152: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def candidates() -> list[FactCandidate]:
+        return [FactCandidate(
+            identity(row["id"]), identity(row["product_id"]), row["version"],
+            FactVersionStatus(row["status"]), Confidentiality(row["classification"]),
+>           row["body_markdown"],
+            ^^^^^^^^^^^^^^^^^^^^
+        ) for row in SHARED["corpus"]["fact_versions"]]
+E       KeyError: 'body_markdown'
+
+backend/tests/unit/test_geo_claims.py:38: KeyError
+=========================== short test summary info ============================
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[voltage-match]
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[voltage-millivolts]
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[voltage-conflict]
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[voltage-range-unknown]
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[package-match]
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[package-conflict]
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[package-unknown-format]
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[temperature-match]
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[temperature-conflict]
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[brand-match] - ...
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[brand-conflict]
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[certification-insufficient]
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[certification-match]
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[certification-conflict]
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[certification-other-id]
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[lifecycle-match]
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[lifecycle-conflict]
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[application-match]
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[application-insufficient]
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[compatibility-match]
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[compatibility-conflict]
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[other-unjudgeable]
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[replacement-full]
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[replacement-partial]
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[replacement-unconditional]
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[replacement-different-target]
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[replacement-extra-condition]
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[replacement-wrong-direction]
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[replacement-other-source]
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[pending-not-evidence]
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[retired-not-evidence]
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[requested-not-evidence]
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[blank-not-evidence]
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[conflicting-approved-body]
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[uncertain-answer]
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[instruction-not-authority]
+FAILED backend/tests/unit/test_geo_claims.py::test_shared_claim_gold[gold-exact-model]
+FAILED backend/tests/unit/test_geo_claims.py::test_shared_claim_gold[gold-model-suffix]
+FAILED backend/tests/unit/test_geo_claims.py::test_shared_claim_gold[gold-normalized-model]
+FAILED backend/tests/unit/test_geo_claims.py::test_shared_claim_gold[gold-ambiguous-brand]
+FAILED backend/tests/unit/test_geo_claims.py::test_shared_claim_gold[gold-negative-mention]
+FAILED backend/tests/unit/test_geo_claims.py::test_shared_claim_gold[gold-listing-only]
+FAILED backend/tests/unit/test_geo_claims.py::test_shared_claim_gold[gold-ordered-recommendation]
+FAILED backend/tests/unit/test_geo_claims.py::test_shared_claim_gold[gold-unordered-recommendation]
+FAILED backend/tests/unit/test_geo_claims.py::test_shared_claim_gold[gold-conditional-replacement]
+FAILED backend/tests/unit/test_geo_claims.py::test_shared_claim_gold[gold-parameter-conflict]
+FAILED backend/tests/unit/test_geo_claims.py::test_shared_claim_gold[gold-insufficient-facts]
+FAILED backend/tests/unit/test_geo_claims.py::test_shared_claim_gold[gold-prompt-injection]
+FAILED backend/tests/unit/test_geo_claims.py::test_shared_claim_gold[gold-mixed-language]
+FAILED backend/tests/unit/test_geo_claims.py::test_each_own_product_uses_its_own_fact_and_alias_suffix
+FAILED backend/tests/unit/test_geo_claims.py::test_joined_products_and_long_claims_require_review
+FAILED backend/tests/unit/test_geo_claims.py::test_highest_qualifying_version_not_newest_draft
+FAILED backend/tests/unit/test_geo_claims.py::test_invalid_assembly_and_snapshot_mismatch_fail_without_body
+FAILED backend/tests/unit/test_geo_claims.py::test_all_classifications_stay_local_and_out_of_repr[PUBLIC]
+FAILED backend/tests/unit/test_geo_claims.py::test_all_classifications_stay_local_and_out_of_repr[INTERNAL]
+FAILED backend/tests/unit/test_geo_claims.py::test_all_classifications_stay_local_and_out_of_repr[RESTRICTED]
+56 failed, 2 passed in 0.58s

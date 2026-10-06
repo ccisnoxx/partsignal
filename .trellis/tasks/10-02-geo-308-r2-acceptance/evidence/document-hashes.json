@@ -1,0 +1,13 @@
+{
+  "command": [
+    "shasum",
+    "-a",
+    "256",
+    "-c",
+    "SHA256SUMS"
+  ],
+  "exit_code": 0,
+  "started_at": "2026-10-03T06:45:51.581092+00:00",
+  "seconds": 0.03,
+  "log": "document-hashes.log"
+}

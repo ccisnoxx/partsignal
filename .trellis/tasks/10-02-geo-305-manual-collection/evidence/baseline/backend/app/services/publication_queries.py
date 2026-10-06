@@ -1,0 +1,1237 @@
+"""发布就绪项、工作、成果、内容问题与安全正文的只读投影。"""
+
+from __future__ import annotations
+
+import uuid
+from collections import defaultdict
+from collections.abc import Mapping
+from html.parser import HTMLParser
+from typing import Any
+
+import bleach
+import markdown
+from sqlalchemy import case, func, literal, or_, select, union
+from sqlalchemy.engine import Row
+from sqlalchemy.orm import Session, aliased
+
+from app.errors import AppError, not_found
+from app.models.configuration import PlatformProfile, QueryTopic
+from app.models.content import ContentTask, ContentTaskGeoSource, ContentVersion
+from app.models.geo_files import (
+    FileRecord,
+    GeoObservationCitation,
+    GeoObservationPublication,
+)
+from app.models.product_facts import FactVersion, Product
+from app.models.publication import (
+    PlatformAccount,
+    PublicationAttachment,
+    PublicationVerification,
+    PublicationWork,
+    PublicationWorkEvent,
+    PublishedArticle,
+    PublishedContentIssue,
+)
+from app.schemas.common import DeletionBlocker, DeletionProjection
+from app.schemas.publication import (
+    FactVersionCandidate,
+    FileRecordOut,
+    PlatformAccountOut,
+    PublicationReadyItem,
+    PublicationReadyItemList,
+    PublicationVerificationOut,
+    PublicationWorkAction,
+    PublicationWorkbenchSummary,
+    PublicationWorkEventOut,
+    PublicationWorkList,
+    PublicationWorkListItem,
+    PublicationWorkOut,
+    PublicationWorkspaceAccountOption,
+    PublicationWorkspaceContent,
+    PublicationWorkspaceContext,
+    PublicationWorkspacePlatform,
+    PublicationWorkspaceVersionCandidate,
+    PublishedArticleAction,
+    PublishedArticleList,
+    PublishedArticleListItem,
+    PublishedArticleOut,
+    PublishedArticleSort,
+    PublishedContentIssueAction,
+    PublishedContentIssueHistoryItem,
+    PublishedContentIssueList,
+    PublishedContentIssueListItem,
+    PublishedContentIssueOut,
+    PublishedContentIssueWorkspaceContext,
+    PublishedContentRepairContext,
+    VersionChange,
+    VersionDifference,
+)
+from app.services.content_planning import query_topic_out
+from app.services.content_version_detail import get_content_version_detail
+from app.services.product_facts import product_out
+from app.services.projections import (
+    content_task_out,
+    content_versions_out,
+    fact_version_out,
+    fact_versions_out,
+    platform_accounts_out,
+)
+
+NONTERMINAL_WORK_STATUSES = (
+    "PREPARING",
+    "PLATFORM_REVIEW",
+    "AWAITING_VERIFICATION",
+    "ACTION_REQUIRED",
+)
+
+
+def publication_work_actions(
+    status: str,
+    latest_event_action: str | None,
+) -> tuple[list[PublicationWorkAction], str]:
+    """返回发布工作当前可执行动作及唯一主动作。"""
+    actions_by_status: dict[str, list[PublicationWorkAction]] = {
+        "PREPARING": [
+            "REGISTER_RESULT",
+            "UPDATE_PREPARATION",
+            "MARK_PLATFORM_REVIEW",
+            "SWITCH_CONTENT_VERSION",
+            "CLOSE",
+        ],
+        "PLATFORM_REVIEW": [
+            "REGISTER_RESULT",
+            "UPDATE_PREPARATION",
+            "SWITCH_CONTENT_VERSION",
+            "CLOSE",
+        ],
+        "AWAITING_VERIFICATION": [
+            "VERIFY",
+            "REGISTER_RESULT",
+            "SWITCH_CONTENT_VERSION",
+            "CLOSE",
+        ],
+        "ACTION_REQUIRED": [
+            "VERIFY",
+            "REGISTER_RESULT",
+            "SWITCH_CONTENT_VERSION",
+            "CLOSE",
+        ],
+    }
+    actions = actions_by_status.get(status, [])
+    requires_result_registration = (
+        status in {"AWAITING_VERIFICATION", "ACTION_REQUIRED"}
+        and latest_event_action == "CONTENT_VERSION_CHANGED"
+    )
+    if requires_result_registration:
+        actions = ["REGISTER_RESULT", "SWITCH_CONTENT_VERSION", "CLOSE"]
+    primary_task = {
+        "PREPARING": "CONTINUE_PREPARATION",
+        "PLATFORM_REVIEW": "REGISTER_RESULT",
+        "AWAITING_VERIFICATION": "RUN_FIRST_VERIFICATION",
+        "ACTION_REQUIRED": "FIX_AND_REVERIFY",
+        "COMPLETED": "VIEW_COMPLETION",
+        "CLOSED": "VIEW_CLOSURE",
+    }[status]
+    if requires_result_registration:
+        primary_task = "REGISTER_RESULT"
+    return actions, primary_task
+
+
+def published_article_actions(
+    *, has_open_issue: bool, retired: bool
+) -> tuple[list[PublishedArticleAction], str, str]:
+    """只有当前健康且从未退役的文章可以打开问题。"""
+    actions: list[PublishedArticleAction] = [] if has_open_issue or retired else ["OPEN_ISSUE"]
+    if retired:
+        return actions, "RETIRED", "VIEW_HISTORY"
+    if has_open_issue:
+        return actions, "OPEN_ISSUE", "HANDLE_CONTENT_ISSUE"
+    return actions, "HEALTHY", "START_PRODUCT_OBSERVATION"
+
+
+def published_article_deletion_blockers(
+    db: Session, article_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, list[DeletionBlocker]]:
+    """批量返回发布成果的独立 GEO 下游引用。"""
+    blockers: dict[uuid.UUID, list[DeletionBlocker]] = {
+        article_id: [] for article_id in article_ids
+    }
+    if not article_ids:
+        return blockers
+    observation_refs = union(
+        select(
+            GeoObservationPublication.published_article_id.label("article_id"),
+            GeoObservationPublication.observation_id.label("observation_id"),
+        ).where(GeoObservationPublication.published_article_id.in_(article_ids)),
+        select(
+            GeoObservationCitation.published_article_id.label("article_id"),
+            GeoObservationCitation.observation_id.label("observation_id"),
+        ).where(GeoObservationCitation.published_article_id.in_(article_ids)),
+    ).subquery()
+    for article_id, count in db.execute(
+        select(observation_refs.c.article_id, func.count()).group_by(observation_refs.c.article_id)
+    ):
+        blockers[article_id].append(DeletionBlocker(type="GEO_OBSERVATION", count=int(count)))
+    for article_id, count in db.execute(
+        select(ContentTaskGeoSource.published_article_id, func.count())
+        .where(ContentTaskGeoSource.published_article_id.in_(article_ids))
+        .group_by(ContentTaskGeoSource.published_article_id)
+    ):
+        blockers[article_id].append(
+            DeletionBlocker(type="GEO_OPTIMIZATION_SOURCE", count=int(count))
+        )
+    return blockers
+
+
+def published_content_issue_actions(
+    *, status: str, repair_task_id: uuid.UUID | None, repair_task_status: str | None
+) -> tuple[list[PublishedContentIssueAction], str, str]:
+    """返回内容问题当前可执行动作及唯一主动作。"""
+    if status == "RESOLVED":
+        return [], "RESOLVED", "VIEW_RESOLUTION"
+    if status != "OPEN":
+        raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "内容问题状态无效", 409)
+    actions: list[PublishedContentIssueAction] = []
+    if repair_task_id is None:
+        actions.append("CREATE_REPAIR_TASK")
+    actions.append("RESOLVE")
+    if repair_task_id is None:
+        return actions, "OPEN", "HANDLE_CONTENT_ISSUE"
+    if repair_task_status == "OPEN":
+        return actions, "REPAIRING", "CONTINUE_REPAIR"
+    if repair_task_status in ("COMPLETED", "CANCELLED"):
+        return actions, "AWAITING_RESOLUTION", "CONFIRM_RESOLUTION"
+    raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "内容问题关联的修复任务状态无效", 409)
+
+
+ALLOWED_HTML_TAGS = [
+    "p",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "ul",
+    "ol",
+    "li",
+    "strong",
+    "em",
+    "code",
+    "pre",
+    "blockquote",
+    "a",
+    "table",
+    "thead",
+    "tbody",
+    "tr",
+    "th",
+    "td",
+    "br",
+]
+
+
+class _TextExtractor(HTMLParser):
+    """从已清理 HTML 派生不可编辑纯文本。"""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.parts: list[str] = []
+
+    def handle_data(self, data: str) -> None:
+        if data.strip():
+            self.parts.append(data.strip())
+
+
+def render_markdown(body_markdown: str) -> tuple[str, str]:
+    """实时派生安全 HTML 与纯文本，不保存第二份正文。"""
+    raw_html = markdown.markdown(body_markdown, extensions=["tables", "fenced_code"])
+    safe_html = bleach.clean(
+        raw_html,
+        tags=ALLOWED_HTML_TAGS,
+        attributes={"a": ["href", "title", "rel"]},
+        protocols=["http", "https"],
+        strip=True,
+    )
+    extractor = _TextExtractor()
+    extractor.feed(safe_html)
+    return safe_html, "\n".join(extractor.parts)
+
+
+def task_for_work(db: Session, work: PublicationWork) -> ContentTask:
+    """返回发布工作稳定锁定的原任务。"""
+    task = db.get(ContentTask, work.content_task_id)
+    if task is None:
+        raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "发布工作关联的内容任务不存在", 409)
+    return task
+
+
+def list_publication_ready_items(
+    db: Session, *, can_delete_accounts: bool
+) -> PublicationReadyItemList:
+    """实时返回尚未开始的发布候选及服务端可执行动作。"""
+    work_for_task = (
+        select(PublicationWork.id).where(PublicationWork.content_task_id == ContentTask.id).exists()
+    )
+    active_same_hash = (
+        select(PublicationWork.id)
+        .where(
+            PublicationWork.platform_profile_id == ContentTask.platform_profile_id,
+            PublicationWork.content_hash == ContentVersion.content_hash,
+            PublicationWork.status != "CLOSED",
+        )
+        .exists()
+    )
+    rows = db.execute(
+        select(ContentVersion, ContentTask, PlatformProfile)
+        .join(ContentTask, ContentTask.id == ContentVersion.task_id)
+        .join(FactVersion, FactVersion.id == ContentVersion.fact_version_id)
+        .join(PlatformProfile, PlatformProfile.id == ContentTask.platform_profile_id)
+        .where(
+            ContentVersion.status == "APPROVED",
+            ContentTask.current_content_version_id == ContentVersion.id,
+            FactVersion.status == "APPROVED",
+            ContentTask.status == "OPEN",
+            ContentTask.archived_at.is_(None),
+            PlatformProfile.is_active.is_(True),
+            ~work_for_task,
+            ~active_same_hash,
+        )
+        .order_by(ContentVersion.created_at.desc(), ContentVersion.id)
+    ).all()
+    profile_ids = {profile.id for _content, _task, profile in rows}
+    accounts = (
+        list(
+            db.scalars(
+                select(PlatformAccount)
+                .where(
+                    PlatformAccount.platform_profile_id.in_(profile_ids),
+                    PlatformAccount.is_active.is_(True),
+                )
+                .order_by(PlatformAccount.label, PlatformAccount.id)
+            )
+        )
+        if profile_ids
+        else []
+    )
+    accounts_by_profile: defaultdict[uuid.UUID, list[PlatformAccountOut]] = defaultdict(list)
+    for account in platform_accounts_out(db, accounts, can_delete=can_delete_accounts):
+        accounts_by_profile[account.platform_profile_id].append(account)
+    contents = [content for content, _task, _profile in rows]
+    projected_contents = {
+        content.id: item
+        for content, item in zip(contents, content_versions_out(db, contents), strict=True)
+    }
+    return PublicationReadyItemList(
+        items=[
+            PublicationReadyItem(
+                content_version=projected_contents[content.id],
+                task_id=task.id,
+                platform_profile_id=profile.id,
+                platform_profile_name=profile.name,
+                matching_accounts=accounts_by_profile[profile.id],
+                available_actions=["START"] if accounts_by_profile[profile.id] else [],
+                primary_task="START_PUBLICATION",
+            )
+            for content, task, profile in rows
+        ]
+    )
+
+
+def _work_context_query() -> Any:
+    """按工作状态统一选择实时或冻结的显示身份。"""
+    use_live_identity = PublicationWork.status.in_(NONTERMINAL_WORK_STATUSES)
+    return (
+        select(
+            PublicationWork,
+            ContentTask.id.label("task_id"),
+            ContentVersion.title.label("content_title"),
+            ContentVersion.version.label("content_version"),
+            Product.id.label("product_id"),
+            Product.brand.label("product_brand"),
+            Product.part_number.label("product_part_number"),
+            case(
+                (use_live_identity, PlatformProfile.name),
+                else_=PublicationWork.platform_profile_name_snapshot,
+            ).label("platform_profile_name"),
+            case(
+                (use_live_identity, PlatformAccount.label),
+                else_=PublicationWork.platform_account_label_snapshot,
+            ).label("platform_account_label"),
+            case(
+                (use_live_identity, PlatformAccount.account_identifier),
+                else_=PublicationWork.account_identifier_snapshot,
+            ).label("account_identifier"),
+        )
+        .join(ContentVersion, ContentVersion.id == PublicationWork.content_version_id)
+        .join(ContentTask, ContentTask.id == PublicationWork.content_task_id)
+        .join(Product, Product.id == ContentTask.product_id)
+        .outerjoin(PlatformProfile, PlatformProfile.id == PublicationWork.platform_profile_id)
+        .outerjoin(PlatformAccount, PlatformAccount.id == PublicationWork.platform_account_id)
+    )
+
+
+def _latest_verification(db: Session, work_id: uuid.UUID) -> PublicationVerification | None:
+    return db.scalar(
+        select(PublicationVerification)
+        .where(PublicationVerification.publication_work_id == work_id)
+        .order_by(PublicationVerification.created_at.desc(), PublicationVerification.id.desc())
+        .limit(1)
+    )
+
+
+def _work_list_item(
+    row: Row[Any],
+    latest_verification: PublicationVerification | None,
+    latest_event: PublicationWorkEvent | None,
+) -> PublicationWorkListItem:
+    work = row[0]
+    if latest_event is None:
+        raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "发布工作缺少状态事件", 409)
+    # 非终态查询只选择实时配置，终态查询只选择冻结快照；空值统一表示上下文损坏。
+    if any(
+        value is None
+        for value in (
+            row.platform_profile_name,
+            row.platform_account_label,
+            row.account_identifier,
+        )
+    ):
+        raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "发布工作缺少平台或账号上下文", 409)
+    actions, primary_task = publication_work_actions(work.status, latest_event.action)
+    return PublicationWorkListItem.model_validate(
+        {
+            "id": work.id,
+            "task_id": row.task_id,
+            "content_version_id": work.content_version_id,
+            "content_title": row.content_title,
+            "content_version": row.content_version,
+            "product": {
+                "id": row.product_id,
+                "brand": row.product_brand,
+                "part_number": row.product_part_number,
+            },
+            "platform_profile_id": work.platform_profile_id,
+            "platform_profile_name": row.platform_profile_name,
+            "platform_account_id": work.platform_account_id,
+            "platform_account_label": row.platform_account_label,
+            "account_identifier": row.account_identifier,
+            "actual_title": work.actual_title,
+            "final_url": work.final_url,
+            "published_at": work.published_at,
+            "status": work.status,
+            "revision": work.revision,
+            "close_reason": work.close_reason,
+            "close_comment": work.close_comment,
+            "created_at": work.created_at,
+            "updated_at": work.updated_at,
+            "latest_event": PublicationWorkEventOut.model_validate(latest_event),
+            "latest_verification_outcome": (
+                latest_verification.outcome if latest_verification else None
+            ),
+            "latest_verification_at": (
+                latest_verification.created_at if latest_verification else None
+            ),
+            "workflow_stage": work.status,
+            "primary_task": primary_task,
+            "available_actions": actions,
+        }
+    )
+
+
+def publication_work_out(db: Session, work: PublicationWork) -> PublicationWorkOut:
+    """投影发布工作详情、事件、核验快照与附件。"""
+    row = db.execute(_work_context_query().where(PublicationWork.id == work.id)).one_or_none()
+    if row is None:
+        raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "发布工作锁定上下文不完整", 409)
+    events = list(
+        db.scalars(
+            select(PublicationWorkEvent)
+            .where(PublicationWorkEvent.publication_work_id == work.id)
+            .order_by(PublicationWorkEvent.created_at, PublicationWorkEvent.id)
+        )
+    )
+    verifications = list(
+        db.scalars(
+            select(PublicationVerification)
+            .where(PublicationVerification.publication_work_id == work.id)
+            .order_by(PublicationVerification.created_at, PublicationVerification.id)
+        )
+    )
+    files = list(
+        db.scalars(
+            select(FileRecord)
+            .join(PublicationAttachment, PublicationAttachment.file_id == FileRecord.id)
+            .where(PublicationAttachment.publication_work_id == work.id)
+            .order_by(FileRecord.created_at, FileRecord.id)
+        )
+    )
+    item = _work_list_item(
+        row,
+        verifications[-1] if verifications else None,
+        events[-1] if events else None,
+    )
+    return PublicationWorkOut(
+        **item.model_dump(),
+        content_hash=work.content_hash,
+        closed_by=work.closed_by,
+        closed_at=work.closed_at,
+        created_by=work.created_by,
+        events=[PublicationWorkEventOut.model_validate(event) for event in events],
+        verifications=[PublicationVerificationOut.model_validate(item) for item in verifications],
+        attachments=[FileRecordOut.model_validate(file) for file in files],
+    )
+
+
+def publication_workspace_context(db: Session, work_id: uuid.UUID) -> PublicationWorkspaceContext:
+    """用固定五条查询返回同一事务快照中的发布工作台。"""
+    candidate = aliased(ContentVersion)
+    candidate_fact = aliased(FactVersion)
+    row = db.execute(
+        _work_context_query()
+        .add_columns(
+            ContentVersion,
+            PlatformProfile.website_url.label("platform_website_url"),
+            ContentTask.platform_website_url_snapshot,
+            candidate,
+            candidate_fact.id.label("candidate_fact_id"),
+        )
+        .outerjoin(
+            candidate,
+            (candidate.id == ContentTask.current_content_version_id)
+            & (candidate.id != PublicationWork.content_version_id)
+            & (candidate.task_id == PublicationWork.content_task_id)
+            & (candidate.status == "APPROVED"),
+        )
+        .outerjoin(
+            candidate_fact,
+            (candidate_fact.id == candidate.fact_version_id)
+            & (candidate_fact.status == "APPROVED"),
+        )
+        .where(PublicationWork.id == work_id)
+    ).one_or_none()
+    if row is None:
+        if db.get(PublicationWork, work_id) is None:
+            raise not_found("发布工作")
+        raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "发布工作锁定上下文不完整", 409)
+
+    work = row[0]
+    content = row[10]
+    events = list(
+        db.scalars(
+            select(PublicationWorkEvent)
+            .where(PublicationWorkEvent.publication_work_id == work.id)
+            .order_by(PublicationWorkEvent.created_at, PublicationWorkEvent.id)
+        )
+    )
+    verifications = list(
+        db.scalars(
+            select(PublicationVerification)
+            .where(PublicationVerification.publication_work_id == work.id)
+            .order_by(PublicationVerification.created_at, PublicationVerification.id)
+        )
+    )
+    files = list(
+        db.scalars(
+            select(FileRecord)
+            .join(PublicationAttachment, PublicationAttachment.file_id == FileRecord.id)
+            .where(PublicationAttachment.publication_work_id == work.id)
+            .order_by(FileRecord.created_at, FileRecord.id)
+        )
+    )
+    item = _work_list_item(
+        row,
+        verifications[-1] if verifications else None,
+        events[-1] if events else None,
+    )
+    accounts = list(
+        db.scalars(
+            select(PlatformAccount)
+            .where(
+                PlatformAccount.platform_profile_id == work.platform_profile_id,
+                PlatformAccount.is_active.is_(True),
+                literal("UPDATE_PREPARATION" in item.available_actions),
+            )
+            .order_by(PlatformAccount.label, PlatformAccount.id)
+        )
+    )
+    work_out = PublicationWorkOut(
+        **item.model_dump(),
+        content_hash=work.content_hash,
+        closed_by=work.closed_by,
+        closed_at=work.closed_at,
+        created_by=work.created_by,
+        events=[PublicationWorkEventOut.model_validate(event) for event in events],
+        verifications=[PublicationVerificationOut.model_validate(item) for item in verifications],
+        attachments=[FileRecordOut.model_validate(file) for file in files],
+    )
+    switch_candidate = None
+    candidate_content = row[13]
+    if (
+        "SWITCH_CONTENT_VERSION" in item.available_actions
+        and candidate_content is not None
+        and row.candidate_fact_id is not None
+    ):
+        switch_candidate = PublicationWorkspaceVersionCandidate.model_validate(candidate_content)
+    return PublicationWorkspaceContext(
+        work=work_out,
+        content=PublicationWorkspaceContent.model_validate(content),
+        platform=PublicationWorkspacePlatform(
+            id=work.platform_profile_id,
+            name=row.platform_profile_name,
+            website_url=row.platform_website_url or row.platform_website_url_snapshot,
+        ),
+        eligible_accounts=[
+            PublicationWorkspaceAccountOption.model_validate(account) for account in accounts
+        ],
+        switch_candidate=switch_candidate,
+    )
+
+
+def list_publication_works(
+    db: Session,
+    *,
+    page: int,
+    page_size: int,
+    status_filter: str | None,
+    platform_account_id: uuid.UUID | None = None,
+    content_task_id: uuid.UUID | None = None,
+) -> PublicationWorkList:
+    """按处理优先级分页；引用筛选会显式包含终态历史。"""
+    query = _work_context_query()
+    count_query = select(func.count()).select_from(PublicationWork)
+    if platform_account_id is not None:
+        query = query.where(PublicationWork.platform_account_id == platform_account_id)
+        count_query = count_query.where(PublicationWork.platform_account_id == platform_account_id)
+    if content_task_id is not None:
+        query = query.where(PublicationWork.content_task_id == content_task_id)
+        count_query = count_query.where(PublicationWork.content_task_id == content_task_id)
+    if status_filter is not None:
+        query = query.where(PublicationWork.status == status_filter)
+        count_query = count_query.where(PublicationWork.status == status_filter)
+    elif platform_account_id is None and content_task_id is None:
+        query = query.where(PublicationWork.status.in_(NONTERMINAL_WORK_STATUSES))
+        count_query = count_query.where(PublicationWork.status.in_(NONTERMINAL_WORK_STATUSES))
+    total = int(db.scalar(count_query) or 0)
+    rows = db.execute(
+        query.order_by(
+            case(
+                (PublicationWork.status == "ACTION_REQUIRED", 0),
+                (PublicationWork.status == "AWAITING_VERIFICATION", 1),
+                (PublicationWork.status == "PLATFORM_REVIEW", 2),
+                (PublicationWork.status == "PREPARING", 3),
+                (PublicationWork.status == "CLOSED", 4),
+                else_=5,
+            ),
+            PublicationWork.updated_at.desc(),
+            PublicationWork.id,
+        )
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    ).all()
+    work_ids = [row[0].id for row in rows]
+    ranked = (
+        select(
+            PublicationVerification,
+            func.row_number()
+            .over(
+                partition_by=PublicationVerification.publication_work_id,
+                order_by=(
+                    PublicationVerification.created_at.desc(),
+                    PublicationVerification.id.desc(),
+                ),
+            )
+            .label("position"),
+        )
+        .where(PublicationVerification.publication_work_id.in_(work_ids))
+        .subquery()
+    )
+    latest_by_work: dict[uuid.UUID, PublicationVerification] = {}
+    if work_ids:
+        for verification in db.scalars(
+            select(PublicationVerification)
+            .join(ranked, ranked.c.id == PublicationVerification.id)
+            .where(ranked.c.position == 1)
+        ):
+            latest_by_work[verification.publication_work_id] = verification
+    ranked_events = (
+        select(
+            PublicationWorkEvent,
+            func.row_number()
+            .over(
+                partition_by=PublicationWorkEvent.publication_work_id,
+                order_by=(
+                    PublicationWorkEvent.created_at.desc(),
+                    PublicationWorkEvent.id.desc(),
+                ),
+            )
+            .label("position"),
+        )
+        .where(PublicationWorkEvent.publication_work_id.in_(work_ids))
+        .subquery()
+    )
+    latest_events_by_work: dict[uuid.UUID, PublicationWorkEvent] = {}
+    if work_ids:
+        for event in db.scalars(
+            select(PublicationWorkEvent)
+            .join(ranked_events, ranked_events.c.id == PublicationWorkEvent.id)
+            .where(ranked_events.c.position == 1)
+        ):
+            latest_events_by_work[event.publication_work_id] = event
+    return PublicationWorkList(
+        items=[
+            _work_list_item(
+                row,
+                latest_by_work.get(row[0].id),
+                latest_events_by_work.get(row[0].id),
+            )
+            for row in rows
+        ],
+        page=page,
+        page_size=page_size,
+        total=total,
+    )
+
+
+def _article_context_query(search: str | None = None) -> Any:
+    query = (
+        select(
+            PublishedArticle,
+            PublicationWork,
+            PublicationVerification,
+            ContentTask.id.label("task_id"),
+            ContentTask.product_id,
+            ContentVersion.title.label("content_title"),
+            ContentVersion.version.label("content_version"),
+            PublicationWork.platform_profile_name_snapshot.label("platform_profile_name"),
+            PublicationWork.platform_account_label_snapshot.label("platform_account_label"),
+            PublicationWork.account_identifier_snapshot.label("account_identifier"),
+        )
+        .join(PublicationWork, PublicationWork.id == PublishedArticle.id)
+        .join(
+            PublicationVerification, PublicationVerification.id == PublishedArticle.verification_id
+        )
+        .join(ContentVersion, ContentVersion.id == PublicationVerification.content_version_id)
+        .join(ContentTask, ContentTask.id == PublicationWork.content_task_id)
+    )
+    if search is not None and (term := search.strip()):
+        escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        pattern = f"%{escaped}%"
+        query = query.where(
+            or_(
+                PublicationWork.actual_title.ilike(pattern, escape="\\"),
+                ContentVersion.title.ilike(pattern, escape="\\"),
+                PublicationWork.final_url.ilike(pattern, escape="\\"),
+                PublicationWork.platform_profile_name_snapshot.ilike(pattern, escape="\\"),
+                PublicationWork.platform_account_label_snapshot.ilike(pattern, escape="\\"),
+                PublicationWork.account_identifier_snapshot.ilike(pattern, escape="\\"),
+            )
+        )
+    return query
+
+
+def _article_item(
+    row: Row[Any],
+    issue_rows: list[tuple[uuid.UUID, str, str | None]],
+    *,
+    can_delete: bool,
+    deletion_blockers: list[DeletionBlocker],
+) -> PublishedArticleListItem:
+    article, work, verification = row[0], row[1], row[2]
+    open_issue_id = next(
+        (issue_id for issue_id, status, _outcome in issue_rows if status == "OPEN"), None
+    )
+    has_open_issue = open_issue_id is not None
+    retired = any(outcome == "RETIRED" for _issue_id, _status, outcome in issue_rows)
+    actions, workflow_stage, primary_task = published_article_actions(
+        has_open_issue=has_open_issue,
+        retired=retired,
+    )
+    deletion = None
+    if can_delete:
+        deletion = DeletionProjection(blockers=deletion_blockers)
+        if not deletion_blockers:
+            actions.append("PERMANENT_DELETE")
+    if work.actual_title is None or work.final_url is None or work.published_at is None:
+        raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "发布成果缺少冻结结果", 409)
+    return PublishedArticleListItem.model_validate(
+        {
+            "id": article.id,
+            "task_id": row.task_id,
+            "product_id": row.product_id,
+            "content_version_id": verification.content_version_id,
+            "content_title": row.content_title,
+            "content_version": row.content_version,
+            "platform_profile_id": work.platform_profile_id,
+            "platform_profile_name": row.platform_profile_name,
+            "platform_account_id": work.platform_account_id,
+            "platform_account_label": row.platform_account_label,
+            "account_identifier": row.account_identifier,
+            "actual_title": work.actual_title,
+            "final_url": work.final_url,
+            "published_at": work.published_at,
+            "verified_at": verification.created_at,
+            "has_open_issue": has_open_issue,
+            "open_issue_id": open_issue_id,
+            "retired": retired,
+            "revision": work.revision,
+            "workflow_stage": workflow_stage,
+            "primary_task": primary_task,
+            "available_actions": actions,
+            "deletion": deletion,
+        }
+    )
+
+
+def published_article_out(
+    db: Session, article: PublishedArticle, *, can_delete: bool = False
+) -> PublishedArticleOut:
+    """投影只读发布成果及其历史问题。"""
+    row = db.execute(
+        _article_context_query().where(PublishedArticle.id == article.id)
+    ).one_or_none()
+    if row is None:
+        raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "发布成果上下文不完整", 409)
+    issue_rows = [
+        (issue_id, status, outcome)
+        for issue_id, status, outcome in db.execute(
+            select(
+                PublishedContentIssue.id,
+                PublishedContentIssue.status,
+                PublishedContentIssue.resolution_outcome,
+            ).where(PublishedContentIssue.published_article_id == article.id)
+        )
+    ]
+    blockers = (
+        published_article_deletion_blockers(db, [article.id])[article.id] if can_delete else []
+    )
+    item = _article_item(
+        row,
+        issue_rows,
+        can_delete=can_delete,
+        deletion_blockers=blockers,
+    )
+    work, verification = row[1], row[2]
+    source_content = get_content_version_detail(db, verification.content_version_id)
+    if (
+        verification.outcome != "PASSED"
+        or verification.actual_title_snapshot != work.actual_title
+        or verification.final_url_snapshot != work.final_url
+        or verification.published_at_snapshot != work.published_at
+        or source_content.content.id != verification.content_version_id
+        or source_content.content.content_hash != work.content_hash
+    ):
+        raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "发布成果来源快照不完整", 409)
+    events = list(
+        db.scalars(
+            select(PublicationWorkEvent)
+            .where(PublicationWorkEvent.publication_work_id == article.id)
+            .order_by(PublicationWorkEvent.created_at, PublicationWorkEvent.id)
+        )
+    )
+    issues = list(
+        db.scalars(
+            select(PublishedContentIssue)
+            .where(PublishedContentIssue.published_article_id == article.id)
+            .order_by(PublishedContentIssue.opened_at.desc(), PublishedContentIssue.id)
+        )
+    )
+    return PublishedArticleOut(
+        **item.model_dump(),
+        content_hash=work.content_hash,
+        verification=PublicationVerificationOut.model_validate(verification),
+        source_content=source_content,
+        events=[PublicationWorkEventOut.model_validate(event) for event in events],
+        issues=[PublishedContentIssueHistoryItem.model_validate(issue) for issue in issues],
+    )
+
+
+def list_published_articles(
+    db: Session,
+    *,
+    page: int,
+    page_size: int,
+    search: str | None = None,
+    sort: PublishedArticleSort = PublishedArticleSort.VERIFIED_DESC,
+    can_delete: bool = False,
+) -> PublishedArticleList:
+    """按服务端搜索与稳定顺序分页返回发布成果。"""
+    query = _article_context_query(search)
+    total = int(db.scalar(select(func.count()).select_from(query.subquery())) or 0)
+    order_by = {
+        PublishedArticleSort.VERIFIED_DESC: PublicationVerification.created_at.desc(),
+        PublishedArticleSort.VERIFIED_ASC: PublicationVerification.created_at.asc(),
+        PublishedArticleSort.PUBLISHED_DESC: PublicationWork.published_at.desc(),
+        PublishedArticleSort.PUBLISHED_ASC: PublicationWork.published_at.asc(),
+        PublishedArticleSort.TITLE_ASC: func.lower(PublicationWork.actual_title).asc(),
+        PublishedArticleSort.TITLE_DESC: func.lower(PublicationWork.actual_title).desc(),
+    }[sort]
+    rows = db.execute(
+        query.order_by(order_by, PublishedArticle.id)
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    ).all()
+    article_ids = [row[0].id for row in rows]
+    issue_states: defaultdict[uuid.UUID, list[tuple[uuid.UUID, str, str | None]]] = defaultdict(
+        list
+    )
+    if article_ids:
+        for article_id, issue_id, issue_status, outcome in db.execute(
+            select(
+                PublishedContentIssue.published_article_id,
+                PublishedContentIssue.id,
+                PublishedContentIssue.status,
+                PublishedContentIssue.resolution_outcome,
+            ).where(PublishedContentIssue.published_article_id.in_(article_ids))
+        ):
+            issue_states[article_id].append((issue_id, issue_status, outcome))
+    deletion_blockers = (
+        published_article_deletion_blockers(db, article_ids)
+        if can_delete
+        else {article_id: [] for article_id in article_ids}
+    )
+    return PublishedArticleList(
+        items=[
+            _article_item(
+                row,
+                issue_states[row[0].id],
+                can_delete=can_delete,
+                deletion_blockers=deletion_blockers[row[0].id],
+            )
+            for row in rows
+        ],
+        page=page,
+        page_size=page_size,
+        total=total,
+    )
+
+
+def _issue_repair_task(db: Session, issue_id: uuid.UUID) -> ContentTask | None:
+    return db.scalar(
+        select(ContentTask).where(ContentTask.source_published_content_issue_id == issue_id)
+    )
+
+
+def published_content_issue_out(
+    db: Session, issue: PublishedContentIssue
+) -> PublishedContentIssueOut:
+    """投影内容问题、原文章与修复任务入口。"""
+    article = db.get(PublishedArticle, issue.published_article_id)
+    if article is None:
+        raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "内容问题关联的发布成果不存在", 409)
+    article_out = published_article_out(db, article)
+    repair_task = _issue_repair_task(db, issue.id)
+    return _published_content_issue_out(issue, article_out, repair_task)
+
+
+def _published_content_issue_out(
+    issue: PublishedContentIssue,
+    article: PublishedArticleOut,
+    repair_task: ContentTask | None,
+) -> PublishedContentIssueOut:
+    """使用同一成果快照投影内容问题，避免 Workspace 重复装配。"""
+    repair_task_id = repair_task.id if repair_task is not None else None
+    actions, workflow_stage, primary_task = published_content_issue_actions(
+        status=issue.status,
+        repair_task_id=repair_task_id,
+        repair_task_status=repair_task.status if repair_task is not None else None,
+    )
+    return PublishedContentIssueOut.model_validate(
+        {
+            "id": issue.id,
+            "published_article_id": issue.published_article_id,
+            "content_title": article.content_title,
+            "platform_profile_name": article.platform_profile_name,
+            "actual_title": article.actual_title,
+            "final_url": article.final_url,
+            "kind": issue.kind,
+            "description": issue.description,
+            "status": issue.status,
+            "revision": issue.revision,
+            "opened_by": issue.opened_by,
+            "opened_at": issue.opened_at,
+            "resolved_by": issue.resolved_by,
+            "resolved_at": issue.resolved_at,
+            "resolution_outcome": issue.resolution_outcome,
+            "resolution_comment": issue.resolution_comment,
+            "repair_task_id": repair_task_id,
+            "workflow_stage": workflow_stage,
+            "primary_task": primary_task,
+            "available_actions": actions,
+            "article": {
+                field: getattr(article, field)
+                for field in PublishedArticleListItem.model_fields
+            },
+        }
+    )
+
+
+def published_content_issue_workspace_context(
+    db: Session, issue_id: uuid.UUID
+) -> PublishedContentIssueWorkspaceContext:
+    """在单一数据库快照中返回内容问题、成果与修复任务。"""
+    issue = db.get(PublishedContentIssue, issue_id)
+    if issue is None:
+        raise not_found("发布后内容问题")
+    article = db.get(PublishedArticle, issue.published_article_id)
+    if article is None:
+        raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "内容问题关联的发布成果不存在", 409)
+    article_out = published_article_out(db, article)
+    repair_task = _issue_repair_task(db, issue.id)
+    if repair_task is not None and repair_task.source_published_content_issue_id != issue.id:
+        raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "内容问题关联的修复任务身份不一致", 409)
+    return PublishedContentIssueWorkspaceContext(
+        issue=_published_content_issue_out(issue, article_out, repair_task),
+        article=article_out,
+        repair_task=content_task_out(db, repair_task) if repair_task is not None else None,
+    )
+
+
+def list_published_content_issues(
+    db: Session,
+    *,
+    page: int,
+    page_size: int,
+    status_filter: str | None,
+) -> PublishedContentIssueList:
+    """按状态和打开时间分页返回发布后内容问题。"""
+    query = select(PublishedContentIssue)
+    count_query = select(func.count()).select_from(PublishedContentIssue)
+    if status_filter is not None:
+        query = query.where(PublishedContentIssue.status == status_filter)
+        count_query = count_query.where(PublishedContentIssue.status == status_filter)
+    total = int(db.scalar(count_query) or 0)
+    issues = list(
+        db.scalars(
+            query.order_by(PublishedContentIssue.opened_at.desc(), PublishedContentIssue.id)
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+    )
+    article_ids = {issue.published_article_id for issue in issues}
+    article_rows = (
+        {
+            row[0].id: row
+            for row in db.execute(
+                _article_context_query().where(PublishedArticle.id.in_(article_ids))
+            ).all()
+        }
+        if article_ids
+        else {}
+    )
+    issue_states: defaultdict[uuid.UUID, list[tuple[uuid.UUID, str, str | None]]] = defaultdict(
+        list
+    )
+    if article_ids:
+        for article_id, issue_id, issue_status, outcome in db.execute(
+            select(
+                PublishedContentIssue.published_article_id,
+                PublishedContentIssue.id,
+                PublishedContentIssue.status,
+                PublishedContentIssue.resolution_outcome,
+            ).where(PublishedContentIssue.published_article_id.in_(article_ids))
+        ):
+            issue_states[article_id].append((issue_id, issue_status, outcome))
+    repair_tasks = {
+        source_id: (task_id, task_status)
+        for source_id, task_id, task_status in db.execute(
+            select(
+                ContentTask.source_published_content_issue_id,
+                ContentTask.id,
+                ContentTask.status,
+            ).where(
+                ContentTask.source_published_content_issue_id.in_([issue.id for issue in issues])
+            )
+        )
+        if source_id is not None
+    }
+    items: list[PublishedContentIssueListItem] = []
+    for issue in issues:
+        row = article_rows.get(issue.published_article_id)
+        if row is None:
+            raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "内容问题关联的发布成果不存在", 409)
+        article = _article_item(
+            row,
+            issue_states[issue.published_article_id],
+            can_delete=False,
+            deletion_blockers=[],
+        )
+        repair_task = repair_tasks.get(issue.id)
+        repair_task_id = repair_task[0] if repair_task is not None else None
+        actions, workflow_stage, primary_task = published_content_issue_actions(
+            status=issue.status,
+            repair_task_id=repair_task_id,
+            repair_task_status=repair_task[1] if repair_task is not None else None,
+        )
+        items.append(
+            PublishedContentIssueListItem.model_validate(
+                {
+                    **PublishedContentIssueHistoryItem.model_validate(issue).model_dump(),
+                    "published_article_id": issue.published_article_id,
+                    "content_title": article.content_title,
+                    "platform_profile_name": article.platform_profile_name,
+                    "actual_title": article.actual_title,
+                    "final_url": article.final_url,
+                    "revision": issue.revision,
+                    "repair_task_id": repair_task_id,
+                    "workflow_stage": workflow_stage,
+                    "primary_task": primary_task,
+                    "available_actions": actions,
+                }
+            )
+        )
+    return PublishedContentIssueList(items=items, page=page, page_size=page_size, total=total)
+
+
+def publication_workbench_summary(db: Session) -> PublicationWorkbenchSummary:
+    """返回发布工作台运营摘要。"""
+    work_for_task = (
+        select(PublicationWork.id).where(PublicationWork.content_task_id == ContentTask.id).exists()
+    )
+    active_same_hash = (
+        select(PublicationWork.id)
+        .where(
+            PublicationWork.platform_profile_id == ContentTask.platform_profile_id,
+            PublicationWork.content_hash == ContentVersion.content_hash,
+            PublicationWork.status != "CLOSED",
+        )
+        .exists()
+    )
+    ready_count = int(
+        db.scalar(
+            select(func.count())
+            .select_from(ContentVersion)
+            .join(ContentTask, ContentTask.id == ContentVersion.task_id)
+            .join(FactVersion, FactVersion.id == ContentVersion.fact_version_id)
+            .join(PlatformProfile, PlatformProfile.id == ContentTask.platform_profile_id)
+            .where(
+                ContentVersion.status == "APPROVED",
+                ContentTask.current_content_version_id == ContentVersion.id,
+                FactVersion.status == "APPROVED",
+                ContentTask.status == "OPEN",
+                ContentTask.archived_at.is_(None),
+                PlatformProfile.is_active.is_(True),
+                ~work_for_task,
+                ~active_same_hash,
+            )
+        )
+        or 0
+    )
+    counts = {
+        status: int(
+            db.scalar(
+                select(func.count())
+                .select_from(PublicationWork)
+                .where(PublicationWork.status == status)
+            )
+            or 0
+        )
+        for status in (
+            "PREPARING",
+            "PLATFORM_REVIEW",
+            "AWAITING_VERIFICATION",
+            "ACTION_REQUIRED",
+        )
+    }
+    open_issue_count = int(
+        db.scalar(
+            select(func.count())
+            .select_from(PublishedContentIssue)
+            .where(PublishedContentIssue.status == "OPEN")
+        )
+        or 0
+    )
+    return PublicationWorkbenchSummary(
+        ready_count=ready_count,
+        active_count=counts["PREPARING"] + counts["PLATFORM_REVIEW"],
+        awaiting_verification_count=counts["AWAITING_VERIFICATION"],
+        action_required_count=counts["ACTION_REQUIRED"],
+        open_issue_count=open_issue_count,
+    )
+
+
+def _difference(
+    from_id: uuid.UUID,
+    to_id: uuid.UUID,
+    before: Mapping[str, object],
+    after: Mapping[str, object],
+) -> VersionDifference:
+    changes = [
+        VersionChange(field=field, before=before.get(field), after=after.get(field))
+        for field in sorted(set(before) | set(after))
+        if before.get(field) != after.get(field)
+    ]
+    return VersionDifference(from_id=from_id, to_id=to_id, changes=changes)
+
+
+def get_published_content_repair_context(
+    db: Session, issue_id: uuid.UUID, *, can_delete: bool
+) -> PublishedContentRepairContext:
+    """返回问题修复所需的锁定业务上下文和事实候选。"""
+    workspace = published_content_issue_workspace_context(db, issue_id)
+    work = db.get(PublicationWork, workspace.article.id)
+    if work is None:
+        raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "内容问题关联的发布成果不存在", 409)
+    task = task_for_work(db, work)
+    product = db.get(Product, task.product_id)
+    topic = db.get(QueryTopic, task.query_topic_id) if task.query_topic_id is not None else None
+    original_fact = db.get(FactVersion, task.fact_version_id)
+    profile = db.get(PlatformProfile, work.platform_profile_id)
+    if any(item is None for item in (product, original_fact, profile)) or (
+        task.query_topic_id is not None and topic is None
+    ):
+        raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "发布修复上下文不完整", 409)
+    assert product is not None
+    assert original_fact is not None
+    assert profile is not None
+    candidates = list(
+        db.scalars(
+            select(FactVersion)
+            .where(FactVersion.product_id == task.product_id, FactVersion.status == "APPROVED")
+            .order_by(FactVersion.version.desc(), FactVersion.id)
+        )
+    )
+    candidates = [candidate for candidate in candidates if candidate.body_markdown.strip()]
+    before = {
+        "body_markdown": original_fact.body_markdown,
+        "classification": original_fact.classification,
+    }
+    return PublishedContentRepairContext(
+        issue=workspace.issue,
+        article=workspace.article,
+        original_task=content_task_out(db, task),
+        product=product_out(db, product, can_delete=can_delete),
+        query_topic=query_topic_out(db, topic, can_delete=False) if topic is not None else None,
+        platform_profile_id=profile.id,
+        platform_profile_name=profile.name,
+        original_fact_version=fact_version_out(db, original_fact, can_delete=can_delete),
+        fact_candidates=[
+            FactVersionCandidate(
+                version=projected,
+                difference=_difference(
+                    original_fact.id,
+                    candidate.id,
+                    before,
+                    {
+                        "body_markdown": candidate.body_markdown,
+                        "classification": candidate.classification,
+                    },
+                ),
+            )
+            for candidate, projected in zip(
+                candidates,
+                fact_versions_out(db, candidates, can_delete=can_delete),
+                strict=True,
+            )
+        ],
+    )
+
+
+def open_issue_count(db: Session) -> int:
+    """返回开放发布后内容问题数量。"""
+    return int(
+        db.scalar(
+            select(func.count())
+            .select_from(PublishedContentIssue)
+            .where(PublishedContentIssue.status == "OPEN")
+        )
+        or 0
+    )

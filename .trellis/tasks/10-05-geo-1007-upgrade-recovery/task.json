@@ -1,0 +1,37 @@
+{
+  "id": "geo-1007-upgrade-recovery",
+  "name": "geo-1007-upgrade-recovery",
+  "title": "GEO-1007 未初始化升级 artifact 失败恢复",
+  "description": "同schema/同迁移树的显式CAS前向恢复；失败执行缓存策略可证明，否则安全停止。",
+  "status": "review",
+  "dev_type": null,
+  "scope": "deploy",
+  "package": null,
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-10-05",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "deploy/scripts/prepare-production-data.py",
+    "deploy/scripts/production_upgrade_recovery.py",
+    "deploy/scripts/check-production-inputs.py",
+    "deploy/scripts/deploy.sh",
+    "backend/Dockerfile",
+    "docs/Hostdzire部署附录.md",
+    "docs/geo-monitoring/04-delivery/geo-1007-upgrade-recovery.template.yaml"
+  ],
+  "notes": "27项定向测试、隔离PG/Compose、镜像缓存与SIGTERM反例、canonical两目标及串行发布自检通过；最后fresh复核无确认新阻断。历史缺策略证明不补造；生产/正式候选及1009/1010未执行。未提交/推送/归档。",
+  "meta": {
+    "user_task_id": "GEO-1007",
+    "delivery_scope_id": "GEO-1008"
+  }
+}

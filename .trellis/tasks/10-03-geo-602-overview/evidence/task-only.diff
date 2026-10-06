@@ -1,0 +1,3750 @@
+--- before/backend/app/main.py
++++ after/backend/app/main.py
+@@ -30,6 +30,7 @@
+ from app.routers.geo_catalog import router as geo_catalog_router
+ from app.routers.geo_manual_collection import router as geo_manual_collection_router
+ from app.routers.geo_monitoring_plans import router as geo_monitoring_plans_router
++from app.routers.geo_overview import router as geo_overview_router
+ from app.routers.geo_questions import router as geo_questions_router
+ from app.routers.geo_reads import router as geo_reads_router
+ from app.routers.geo_reviews import router as geo_reviews_router
+@@ -337,6 +338,7 @@
+ app.include_router(geo_monitoring_plans_router)
+ app.include_router(geo_batches_router)
+ app.include_router(geo_reads_router)
++app.include_router(geo_overview_router)
+ app.include_router(geo_run_commands_router)
+ app.include_router(geo_reviews_router)
+ app.include_router(geo_manual_collection_router)
+--- before/backend/app/services/geo_metric_inputs.py
++++ after/backend/app/services/geo_metric_inputs.py
+@@ -132,7 +132,17 @@
+             if available and current
+             else "unavailable"
+         ),
+-        subject_versions=tuple(sorted((item.id, item.revision) for item in snapshot.subjects)),
++        # 重分析可更新字典；比较维度必须绑定实际 current analysis 输入版本。
++        subject_versions=tuple(
++            sorted(
++                (item.id, item.revision)
++                for item in (
++                    current.analysis.input_snapshot.subjects
++                    if available and current
++                    else snapshot.subjects
++                )
++            )
++        ),
+         analysis_configuration_key=sha256(
+             current.analysis.input_snapshot.configuration.model_dump_json().encode()
+         ).hexdigest()
+--- before/backend/app/services/geo_metric_types.py
++++ after/backend/app/services/geo_metric_types.py
+@@ -6,6 +6,8 @@
+ 
+ from app.schemas.configuration import IntentType
+ from app.schemas.geo_analysis import GeoClaimSeverity, GeoClaimVerdict, GeoRecommendationKind
++from app.schemas.geo_metric_values import MetricExclusion as MetricExclusion
++from app.schemas.geo_metric_values import SampleLevel as SampleLevel
+ from app.schemas.geo_runs import GeoRunStatus
+ 
+ 
+@@ -28,33 +30,6 @@
+     SEVERE_ERROR_RUN_RATE = "severe_error_run_rate"
+     MENTION_STABILITY = "mention_stability"
+     RECOMMENDATION_STABILITY = "recommendation_stability"
+-
+-
+-class SampleLevel(StrEnum):
+-    NONE = "NONE"
+-    OBSERVED = "OBSERVED"
+-    REPORTABLE = "REPORTABLE"
+-    STABLE = "STABLE"
+-
+-
+-class MetricExclusion(StrEnum):
+-    RUN_NOT_COMPLETED = "RUN_NOT_COMPLETED"
+-    ANSWER_MISSING_OR_EMPTY = "ANSWER_MISSING_OR_EMPTY"
+-    CURRENT_ANALYSIS_UNAVAILABLE = "CURRENT_ANALYSIS_UNAVAILABLE"
+-    CURRENT_REVIEW_REQUIRED = "CURRENT_REVIEW_REQUIRED"
+-    INTEGRITY_ERROR = "INTEGRITY_ERROR"
+-    ADMINISTRATOR_EXCLUDED = "ADMINISTRATOR_EXCLUDED"
+-    SUPERSEDED_ATTEMPT = "SUPERSEDED_ATTEMPT"
+-    DIMENSION_MISMATCH = "DIMENSION_MISMATCH"
+-    SUBJECT_NOT_APPLICABLE = "SUBJECT_NOT_APPLICABLE"
+-    MENTION_MODE_NOT_APPLICABLE = "MENTION_MODE_NOT_APPLICABLE"
+-    INTENT_NOT_APPLICABLE = "INTENT_NOT_APPLICABLE"
+-    RELIABLE_ORDER_UNAVAILABLE = "RELIABLE_ORDER_UNAVAILABLE"
+-    TARGET_RANK_UNAVAILABLE = "TARGET_RANK_UNAVAILABLE"
+-    CITATION_OBSERVATION_UNAVAILABLE = "CITATION_OBSERVATION_UNAVAILABLE"
+-    CITATION_CLASSIFICATION_INCOMPLETE = "CITATION_CLASSIFICATION_INCOMPLETE"
+-    ASSESSABLE_CLAIM_UNAVAILABLE = "ASSESSABLE_CLAIM_UNAVAILABLE"
+-    INSUFFICIENT_REPEATS = "INSUFFICIENT_REPEATS"
+ 
+ 
+ @dataclass(frozen=True)
+--- before/backend/tests/unit/test_contract.py
++++ after/backend/tests/unit/test_contract.py
+@@ -53,9 +53,9 @@
+     contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+     document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+     operations = operation_map(document)
+-    assert len(operations) == 221
+-    assert len({operation["operationId"] for operation in operations.values()}) == 221
+-    assert sum(len(operation["responses"]) for operation in operations.values()) == 1423
++    assert len(operations) == 223
++    assert len({operation["operationId"] for operation in operations.values()}) == 223
++    assert sum(len(operation["responses"]) for operation in operations.values()) == 1436
+ 
+     expected_parameter = {
+         "name": "X-Request-ID",
+@@ -195,6 +195,7 @@
+             "listPublishedContentIssues",
+             "listGeoObservations",
+             "listGeoObservationItems",
++            "getGeoOverview",
+         ),
+         ("201", "401", "403", "409", "422"): (
+             "createUser",
+@@ -204,6 +205,7 @@
+             "createGeoMonitoringPlan",
+         ),
+         ("200", "401", "403", "404", "409", "422"): (
++            "listGeoOverviewRuns",
+             "updateUser",
+             "resetUserPassword",
+             "getAuditLog",
+@@ -374,7 +376,7 @@
+         if isinstance(operation, dict) and "operationId" in operation
+     }
+ 
+-    assert len(expected) == 221
++    assert len(expected) == 223
+     assert set(operations) == set(expected)
+     for operation_id, operation in operations.items():
+         responses = operation["responses"]
+@@ -402,7 +404,7 @@
+         "getWorkbench",
+     }
+     assert len(validation_free) == 14
+-    assert sum("422" in statuses for statuses in expected.values()) == 207
++    assert sum("422" in statuses for statuses in expected.values()) == 209
+     assert {
+         operation_id for operation_id, statuses in expected.items() if "422" not in statuses
+     } == validation_free
+--- before/backend/tests/unit/test_geo_metric_inputs.py
++++ after/backend/tests/unit/test_geo_metric_inputs.py
+@@ -1,5 +1,6 @@
+ """一致快照转换不选历史最佳分析，只消费 pointer 内当前人工修正。"""
+ 
++from copy import deepcopy
+ from datetime import UTC, datetime
+ from hashlib import sha256
+ from uuid import UUID, uuid4
+@@ -250,3 +251,27 @@
+     assert not scope.is_product
+     with pytest.raises(ValueError, match="冻结"):
+         metric_scope_from_snapshot(snapshot, subject_id=uuid4())
++
++
++def test_reanalysis_subject_revision_defines_comparison_cell():
++    first = case()
++    second = deepcopy(first)
++    second["run_id"] = uuid4()
++    second["repeat_index"] = 2
++    second["answer"].run_id = second["run_id"]
++    second["analysis_detail"].selection.run_id = second["run_id"]
++    second["analysis_detail"].revisions[0].analysis.run_id = second["run_id"]
++    second["analysis_detail"].reviews[0].review.run_id = second["run_id"]
++    # 相同采集 binding 下仅一个 repeat 重分析，必须按实际字典版本分栏。
++    second["analysis_detail"].revisions[0].analysis.input_snapshot.subjects[0].revision += 1
++    first_run = metric_run_from_snapshot(**first)
++    second_run = metric_run_from_snapshot(**second)
++    assert first_run.dimensions.subject_versions != second_run.dimensions.subject_versions
++    assert first["snapshot"].subjects[0].revision == second["snapshot"].subjects[0].revision
++    result = calculate_metric(
++        [first_run, second_run],
++        metric=MetricCode.ANSWER_COVERAGE,
++        scope=MetricScope(first["snapshot"].subjects[0].id),
++        dimensions=first_run.dimensions,
++    )
++    assert result.denominator == 1
+--- before/backend/tests/unit/test_runtime_response_metadata.py
++++ after/backend/tests/unit/test_runtime_response_metadata.py
+@@ -647,9 +647,9 @@
+     runtime = app.openapi()
+     operations = _operation_map(runtime)
+ 
+-    assert len(operations) == 221
+-    assert len(set(operations)) == 221
+-    assert sum(len(operation["responses"]) for operation in operations.values()) == 1423
++    assert len(operations) == 223
++    assert len(set(operations)) == 223
++    assert sum(len(operation["responses"]) for operation in operations.values()) == 1436
+     parameter_ref = {"$ref": "#/components/parameters/RequestIdHeader"}
+     header_ref = {"$ref": "#/components/headers/RequestIdResponseHeader"}
+     parameter_schema = {
+@@ -694,10 +694,10 @@
+     augmented = app.openapi()
+     stripped = _strip_request_context_metadata(augmented)
+ 
+-    assert sum(len(operation["responses"]) for operation in _operation_map(raw).values()) == 1202
++    assert sum(len(operation["responses"]) for operation in _operation_map(raw).values()) == 1213
+     assert sum(
+         len(operation["responses"]) for operation in _operation_map(stripped).values()
+-    ) == 1202
++    ) == 1213
+     # 安装版本的 FastAPI 省略 None 默认；这里只移除已声明且显式恢复的 nullable annotation。
+     raw_settings = raw["components"]["schemas"]["GeoApiSettings"]["properties"]
+     stripped_settings = stripped["components"]["schemas"]["GeoApiSettings"]["properties"]
+--- before/contracts/database.md
++++ after/contracts/database.md
+@@ -1153,3 +1153,14 @@
+ 当前 analysis 有 review_required_reasons 且无当前 Review 时，review_required=true、review_gate_passed=false、metric_eligible=false/GEO_REVIEW_REQUIRED；通过门禁不宣称完整指标资格，metric_eligible仍null/METRIC_ELIGIBILITY_NOT_IMPLEMENTED。列表needs_review按相同 current analysis与Review存在性筛选，不按终态采集status推断。新成功pointer使旧review自然只作历史；失败不影响既有选择。GEO-601继续拥有全部MetricEligibility/公式。
+ 
+ 审计 action=`geo_observation_run.reviewed`，仅run_id、analysis_revision_id、review_id和decision，不保存comment/correction/答案/事实。0056先迁移再部署新API；downgrade显式55000安全停止，关闭复核写入口、保留历史并前向修复，不操作生产数据。
++
++
++## GEO-602 Overview 只读合同（R5）
++
++无新表、列、索引、约束、Alembic revision或回填；当前head仍0056，指标不另存权威状态。Overview和组成样本API在认证之前建立REPEATABLE READ、禁autoflush，关闭Session回滚身份heartbeat；无commit、DML、行锁、revision推进、状态命令、审计写入或外部调用。
++
++每个请求固定12次应用SELECT：数据库事务时钟、latest Run列、Answer、原始Citation、显式current Analysis、Mention/Recommendation/Claim/CitationClassification四批、current Analysis内DISTINCT ON latest Review(created_at DESC,id DESC)、引用FileRecord状态、Batch创建时间。加身份查询当前实际共13次SQL，空集也执行同样批量查询。读取Run不包含lease或渠道凭据，分析历史不择优，Review不累计历史修正。
++
++候选使用Run.created_at的半开窗口与全表successor存在性排除旧attempt；完整过滤定义及两个用户质量口径裁决见方法文档§19。批量读取冻结输入，不按当前Catalog或Product反推历史分母。所有区块和组成样本共享筛选/转换/601公式；业务按完整维度和scope分栏，quality允许明确操作统计。当前成功指针/答案不匹配、缺父Batch等不完整历史使用既有409 GEO_READ_MODEL_INCOMPLETE，不吞错或回退。
++
++组成样本为实时RR重算，返回每Run的事件贡献与analysis/review身份，适用时通过既有Run Detail查看原始证据。不同请求as_of可不同，cell已消失明确404；不引入持久化filter token、报告快照或跨请求事务。原始答案、分析、Review、事实和文件历史仍由既有不可变防线保护。文件状态完整性仅涉及PG元数据，不声称OSS下载可用，不在GET调用HEAD。
+--- before/contracts/openapi.yaml
++++ after/contracts/openapi.yaml
+@@ -7791,6 +7791,469 @@
+         '422':
+           $ref: '#/components/responses/ErrorResponse'
+ 
++  /api/v1/geo/overview:
++    get:
++      tags:
++      - geo-overview
++      operationId: getGeoOverview
++      security:
++      - sessionCookie: []
++      parameters:
++      - name: date_from
++        in: query
++        required: true
++        schema:
++          format: date-time
++          title: Date From
++          type: string
++      - name: date_to
++        in: query
++        required: true
++        schema:
++          format: date-time
++          title: Date To
++          type: string
++      - name: subject_ids
++        in: query
++        required: false
++        schema:
++          items:
++            format: uuid
++            type: string
++          maxItems: 50
++          title: Subject Ids
++          type: array
++        style: form
++        explode: true
++      - name: product_ids
++        in: query
++        required: false
++        schema:
++          items:
++            format: uuid
++            type: string
++          maxItems: 50
++          title: Product Ids
++          type: array
++        style: form
++        explode: true
++      - name: query_topic_ids
++        in: query
++        required: false
++        schema:
++          items:
++            format: uuid
++            type: string
++          maxItems: 50
++          title: Query Topic Ids
++          type: array
++        style: form
++        explode: true
++      - name: prompt_variant_ids
++        in: query
++        required: false
++        schema:
++          items:
++            format: uuid
++            type: string
++          maxItems: 50
++          title: Prompt Variant Ids
++          type: array
++        style: form
++        explode: true
++      - name: engine_surface_ids
++        in: query
++        required: false
++        schema:
++          items:
++            format: uuid
++            type: string
++          maxItems: 50
++          title: Engine Surface Ids
++          type: array
++        style: form
++        explode: true
++      - name: collection_profile_ids
++        in: query
++        required: false
++        schema:
++          items:
++            format: uuid
++            type: string
++          maxItems: 50
++          title: Collection Profile Ids
++          type: array
++        style: form
++        explode: true
++      - name: collection_modes
++        in: query
++        required: false
++        schema:
++          items:
++            $ref: '#/components/schemas/GeoCollectionMode'
++          maxItems: 3
++          title: Collection Modes
++          type: array
++        style: form
++        explode: true
++      - name: language_codes
++        in: query
++        required: false
++        schema:
++          items:
++            maxLength: 16
++            minLength: 2
++            pattern: ^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$
++            type: string
++          maxItems: 50
++          title: Language Codes
++          type: array
++        style: form
++        explode: true
++      - name: region_codes
++        in: query
++        required: false
++        schema:
++          items:
++            maxLength: 2
++            minLength: 2
++            pattern: ^[A-Za-z]{2}$
++            type: string
++          maxItems: 50
++          title: Region Codes
++          type: array
++        style: form
++        explode: true
++      - name: login_states
++        in: query
++        required: false
++        schema:
++          items:
++            $ref: '#/components/schemas/GeoProfileLoginState'
++          maxItems: 3
++          title: Login States
++          type: array
++        style: form
++        explode: true
++      - name: intent_types
++        in: query
++        required: false
++        schema:
++          items:
++            $ref: '#/components/schemas/IntentType'
++          maxItems: 10
++          title: Intent Types
++          type: array
++        style: form
++        explode: true
++      - name: mention_mode
++        in: query
++        required: false
++        schema:
++          anyOf:
++          - $ref: '#/components/schemas/GeoPromptMentionMode'
++          - type: 'null'
++          default: null
++      - name: review_policy
++        in: query
++        required: false
++        schema:
++          default: EFFECTIVE
++          enum:
++          - EFFECTIVE
++          - REVIEWED_ONLY
++          title: Review Policy
++          type: string
++      - $ref: '#/components/parameters/RequestIdHeader'
++      responses:
++        '200':
++          description: 回答级Overview一致快照
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoOverview'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++  /api/v1/geo/overview/runs:
++    get:
++      tags:
++      - geo-overview
++      operationId: listGeoOverviewRuns
++      security:
++      - sessionCookie: []
++      parameters:
++      - name: date_from
++        in: query
++        required: true
++        schema:
++          format: date-time
++          title: Date From
++          type: string
++      - name: date_to
++        in: query
++        required: true
++        schema:
++          format: date-time
++          title: Date To
++          type: string
++      - name: subject_ids
++        in: query
++        required: false
++        schema:
++          items:
++            format: uuid
++            type: string
++          maxItems: 50
++          title: Subject Ids
++          type: array
++        style: form
++        explode: true
++      - name: product_ids
++        in: query
++        required: false
++        schema:
++          items:
++            format: uuid
++            type: string
++          maxItems: 50
++          title: Product Ids
++          type: array
++        style: form
++        explode: true
++      - name: query_topic_ids
++        in: query
++        required: false
++        schema:
++          items:
++            format: uuid
++            type: string
++          maxItems: 50
++          title: Query Topic Ids
++          type: array
++        style: form
++        explode: true
++      - name: prompt_variant_ids
++        in: query
++        required: false
++        schema:
++          items:
++            format: uuid
++            type: string
++          maxItems: 50
++          title: Prompt Variant Ids
++          type: array
++        style: form
++        explode: true
++      - name: engine_surface_ids
++        in: query
++        required: false
++        schema:
++          items:
++            format: uuid
++            type: string
++          maxItems: 50
++          title: Engine Surface Ids
++          type: array
++        style: form
++        explode: true
++      - name: collection_profile_ids
++        in: query
++        required: false
++        schema:
++          items:
++            format: uuid
++            type: string
++          maxItems: 50
++          title: Collection Profile Ids
++          type: array
++        style: form
++        explode: true
++      - name: collection_modes
++        in: query
++        required: false
++        schema:
++          items:
++            $ref: '#/components/schemas/GeoCollectionMode'
++          maxItems: 3
++          title: Collection Modes
++          type: array
++        style: form
++        explode: true
++      - name: language_codes
++        in: query
++        required: false
++        schema:
++          items:
++            maxLength: 16
++            minLength: 2
++            pattern: ^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$
++            type: string
++          maxItems: 50
++          title: Language Codes
++          type: array
++        style: form
++        explode: true
++      - name: region_codes
++        in: query
++        required: false
++        schema:
++          items:
++            maxLength: 2
++            minLength: 2
++            pattern: ^[A-Za-z]{2}$
++            type: string
++          maxItems: 50
++          title: Region Codes
++          type: array
++        style: form
++        explode: true
++      - name: login_states
++        in: query
++        required: false
++        schema:
++          items:
++            $ref: '#/components/schemas/GeoProfileLoginState'
++          maxItems: 3
++          title: Login States
++          type: array
++        style: form
++        explode: true
++      - name: intent_types
++        in: query
++        required: false
++        schema:
++          items:
++            $ref: '#/components/schemas/IntentType'
++          maxItems: 10
++          title: Intent Types
++          type: array
++        style: form
++        explode: true
++      - name: mention_mode
++        in: query
++        required: false
++        schema:
++          anyOf:
++          - $ref: '#/components/schemas/GeoPromptMentionMode'
++          - type: 'null'
++          default: null
++      - name: review_policy
++        in: query
++        required: false
++        schema:
++          default: EFFECTIVE
++          enum:
++          - EFFECTIVE
++          - REVIEWED_ONLY
++          title: Review Policy
++          type: string
++      - name: metric_code
++        in: query
++        required: true
++        schema:
++          enum:
++          - answer_coverage
++          - natural_visibility
++          - product_mention
++          - recommendation_rate
++          - top_recommendation_rate
++          - owned_source_coverage
++          - accurate_claim_rate
++          - severe_error_run_rate
++          - eligible_runs
++          - run_success_rate
++          - analysis_run_coverage
++          - review_backlog
++          - evidence_completeness
++          - cost_coverage
++          - model_version_coverage
++          title: Metric Code
++          type: string
++      - name: cell_key
++        in: query
++        required: false
++        schema:
++          anyOf:
++          - pattern: ^[0-9a-f]{64}$
++            type: string
++          - type: 'null'
++          default: null
++          title: Cell Key
++      - name: cohort
++        in: query
++        required: false
++        schema:
++          default: DENOMINATOR
++          enum:
++          - CANDIDATE
++          - DENOMINATOR
++          - NUMERATOR
++          - EXCLUDED
++          title: Cohort
++          type: string
++      - name: batch_id
++        in: query
++        required: false
++        schema:
++          anyOf:
++          - format: uuid
++            type: string
++          - type: 'null'
++          default: null
++          title: Batch Id
++      - name: page
++        in: query
++        required: false
++        schema:
++          default: 1
++          minimum: 1
++          title: Page
++          type: integer
++      - name: page_size
++        in: query
++        required: false
++        schema:
++          default: 20
++          enum:
++          - 10
++          - 20
++          - 50
++          title: Page Size
++          type: integer
++      - $ref: '#/components/parameters/RequestIdHeader'
++      responses:
++        '200':
++          description: 同筛选组成样本；每运行含事件贡献
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoOverviewRunPage'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
+ components:
+   securitySchemes:
+     sessionCookie:
+@@ -19941,3 +20404,877 @@
+       - run_revision
+       title: GeoRunReviewCreated
+       type: object
++
++    GeoOverview:
++      additionalProperties: false
++      properties:
++        as_of:
++          format: date-time
++          title: As Of
++          type: string
++        filters:
++          $ref: '#/components/schemas/GeoOverviewFilters'
++        cards:
++          items:
++            $ref: '#/components/schemas/GeoOverviewCard'
++          title: Cards
++          type: array
++        metric_cells:
++          items:
++            $ref: '#/components/schemas/GeoOverviewCell'
++          title: Metric Cells
++          type: array
++        key_products:
++          items:
++            $ref: '#/components/schemas/GeoOverviewCell'
++          title: Key Products
++          type: array
++        risks:
++          items:
++            $ref: '#/components/schemas/GeoOverviewRisk'
++          title: Risks
++          type: array
++        recent_batches:
++          items:
++            $ref: '#/components/schemas/GeoOverviewBatch'
++          title: Recent Batches
++          type: array
++        open_opportunities:
++          $ref: '#/components/schemas/GeoOverviewOpportunityPlaceholder'
++        data_quality:
++          $ref: '#/components/schemas/GeoOverviewDataQuality'
++        unavailable_sections:
++          items:
++            enum:
++            - TRENDS
++            - COMPETITOR_SOV
++            - INSIGHT_DETAILS
++            - OPPORTUNITIES
++            type: string
++          title: Unavailable Sections
++          type: array
++      required:
++      - as_of
++      - filters
++      - cards
++      - metric_cells
++      - key_products
++      - risks
++      - recent_batches
++      - open_opportunities
++      - data_quality
++      - unavailable_sections
++      title: GeoOverview
++      type: object
++    GeoOverviewBatch:
++      additionalProperties: false
++      properties:
++        batch_id:
++          format: uuid
++          title: Batch Id
++          type: string
++        created_at:
++          format: date-time
++          title: Created At
++          type: string
++        candidate_run_count:
++          minimum: 0
++          title: Candidate Run Count
++          type: integer
++        status_counts:
++          additionalProperties:
++            type: integer
++          propertyNames:
++            $ref: '#/components/schemas/GeoRunStatus'
++          title: Status Counts
++          type: object
++        drilldown:
++          $ref: '#/components/schemas/GeoOverviewDrilldown'
++      required:
++      - batch_id
++      - created_at
++      - candidate_run_count
++      - status_counts
++      - drilldown
++      title: GeoOverviewBatch
++      type: object
++    GeoOverviewCard:
++      additionalProperties: false
++      properties:
++        metric_code:
++          enum:
++          - answer_coverage
++          - natural_visibility
++          - product_mention
++          - recommendation_rate
++          - top_recommendation_rate
++          - owned_source_coverage
++          - accurate_claim_rate
++          - severe_error_run_rate
++          - eligible_runs
++          - run_success_rate
++          - analysis_run_coverage
++          - review_backlog
++          - evidence_completeness
++          - cost_coverage
++          - model_version_coverage
++          title: Metric Code
++          type: string
++        formula_version:
++          title: Formula Version
++          type: string
++        value:
++          anyOf:
++          - type: number
++          - type: 'null'
++          title: Value
++        numerator:
++          minimum: 0
++          title: Numerator
++          type: integer
++        denominator:
++          minimum: 0
++          title: Denominator
++          type: integer
++        sample_level:
++          $ref: '#/components/schemas/SampleLevel'
++        eligible_run_count:
++          minimum: 0
++          title: Eligible Run Count
++          type: integer
++        excluded_run_count:
++          minimum: 0
++          title: Excluded Run Count
++          type: integer
++        exclusion_reason_counts:
++          items:
++            $ref: '#/components/schemas/GeoOverviewExclusion'
++          title: Exclusion Reason Counts
++          type: array
++        unjudgeable_claim_count:
++          minimum: 0
++          title: Unjudgeable Claim Count
++          type: integer
++        unavailable_reason:
++          anyOf:
++          - const: NO_DENOMINATOR
++            type: string
++          - type: 'null'
++          title: Unavailable Reason
++        drilldown:
++          $ref: '#/components/schemas/GeoOverviewDrilldown'
++      required:
++      - metric_code
++      - formula_version
++      - value
++      - numerator
++      - denominator
++      - sample_level
++      - eligible_run_count
++      - excluded_run_count
++      - exclusion_reason_counts
++      - unjudgeable_claim_count
++      - unavailable_reason
++      - drilldown
++      title: GeoOverviewCard
++      type: object
++    GeoOverviewCell:
++      additionalProperties: false
++      properties:
++        cell_key:
++          title: Cell Key
++          type: string
++        subject_id:
++          format: uuid
++          title: Subject Id
++          type: string
++        product_id:
++          anyOf:
++          - format: uuid
++            type: string
++          - type: 'null'
++          title: Product Id
++        display_name:
++          title: Display Name
++          type: string
++        dimensions:
++          $ref: '#/components/schemas/GeoOverviewDimensions'
++        cards:
++          items:
++            $ref: '#/components/schemas/GeoOverviewCard'
++          title: Cards
++          type: array
++      required:
++      - cell_key
++      - subject_id
++      - product_id
++      - display_name
++      - dimensions
++      - cards
++      title: GeoOverviewCell
++      type: object
++    GeoOverviewDataQuality:
++      additionalProperties: false
++      properties:
++        candidate_run_count:
++          minimum: 0
++          title: Candidate Run Count
++          type: integer
++        eligible_run_count:
++          minimum: 0
++          title: Eligible Run Count
++          type: integer
++        excluded_run_count:
++          minimum: 0
++          title: Excluded Run Count
++          type: integer
++        exclusion_reason_counts:
++          items:
++            $ref: '#/components/schemas/GeoOverviewExclusion'
++          title: Exclusion Reason Counts
++          type: array
++        status_counts:
++          additionalProperties:
++            type: integer
++          propertyNames:
++            $ref: '#/components/schemas/GeoRunStatus'
++          title: Status Counts
++          type: object
++        dimension_count:
++          minimum: 0
++          title: Dimension Count
++          type: integer
++        cards:
++          items:
++            $ref: '#/components/schemas/GeoOverviewCard'
++          title: Cards
++          type: array
++      required:
++      - candidate_run_count
++      - eligible_run_count
++      - excluded_run_count
++      - exclusion_reason_counts
++      - status_counts
++      - dimension_count
++      - cards
++      title: GeoOverviewDataQuality
++      type: object
++    GeoOverviewDimensions:
++      additionalProperties: false
++      properties:
++        query_topic_id:
++          format: uuid
++          title: Query Topic Id
++          type: string
++        query_topic_revision:
++          title: Query Topic Revision
++          type: integer
++        prompt_variant_id:
++          format: uuid
++          title: Prompt Variant Id
++          type: string
++        prompt_revision:
++          title: Prompt Revision
++          type: integer
++        collection_profile_id:
++          format: uuid
++          title: Collection Profile Id
++          type: string
++        profile_revision:
++          title: Profile Revision
++          type: integer
++        engine_surface_id:
++          format: uuid
++          title: Engine Surface Id
++          type: string
++        surface_revision:
++          title: Surface Revision
++          type: integer
++        collection_mode:
++          $ref: '#/components/schemas/GeoCollectionMode'
++        language_code:
++          title: Language Code
++          type: string
++        region_code:
++          title: Region Code
++          type: string
++        login_state:
++          $ref: '#/components/schemas/GeoProfileLoginState'
++        mention_mode:
++          $ref: '#/components/schemas/GeoPromptMentionMode'
++        intent_type:
++          $ref: '#/components/schemas/IntentType'
++        source_model:
++          anyOf:
++          - type: string
++          - type: 'null'
++          title: Source Model
++        source_product:
++          anyOf:
++          - type: string
++          - type: 'null'
++          title: Source Product
++        model_version:
++          anyOf:
++          - type: string
++          - type: 'null'
++          title: Model Version
++        product_version:
++          anyOf:
++          - type: string
++          - type: 'null'
++          title: Product Version
++        rule_set_version:
++          title: Rule Set Version
++          type: string
++        analysis_configuration_key:
++          title: Analysis Configuration Key
++          type: string
++        subject_versions:
++          items:
++            maxItems: 2
++            minItems: 2
++            prefixItems:
++            - format: uuid
++              type: string
++            - type: integer
++            type: array
++          title: Subject Versions
++          type: array
++        fact_version_bindings:
++          items:
++            maxItems: 2
++            minItems: 2
++            prefixItems:
++            - format: uuid
++              type: string
++            - format: uuid
++              type: string
++            type: array
++          title: Fact Version Bindings
++          type: array
++        window_key:
++          title: Window Key
++          type: string
++      required:
++      - query_topic_id
++      - query_topic_revision
++      - prompt_variant_id
++      - prompt_revision
++      - collection_profile_id
++      - profile_revision
++      - engine_surface_id
++      - surface_revision
++      - collection_mode
++      - language_code
++      - region_code
++      - login_state
++      - mention_mode
++      - intent_type
++      - source_model
++      - source_product
++      - model_version
++      - product_version
++      - rule_set_version
++      - analysis_configuration_key
++      - subject_versions
++      - fact_version_bindings
++      - window_key
++      title: GeoOverviewDimensions
++      type: object
++    GeoOverviewDrilldown:
++      additionalProperties: false
++      properties:
++        operation_id:
++          const: listGeoOverviewRuns
++          default: listGeoOverviewRuns
++          title: Operation Id
++          type: string
++        filters:
++          $ref: '#/components/schemas/GeoOverviewFilters'
++        metric_code:
++          enum:
++          - answer_coverage
++          - natural_visibility
++          - product_mention
++          - recommendation_rate
++          - top_recommendation_rate
++          - owned_source_coverage
++          - accurate_claim_rate
++          - severe_error_run_rate
++          - eligible_runs
++          - run_success_rate
++          - analysis_run_coverage
++          - review_backlog
++          - evidence_completeness
++          - cost_coverage
++          - model_version_coverage
++          title: Metric Code
++          type: string
++        cell_key:
++          anyOf:
++          - type: string
++          - type: 'null'
++          title: Cell Key
++        cohort:
++          enum:
++          - CANDIDATE
++          - DENOMINATOR
++          - NUMERATOR
++          - EXCLUDED
++          title: Cohort
++          type: string
++        batch_id:
++          anyOf:
++          - format: uuid
++            type: string
++          - type: 'null'
++          title: Batch Id
++      required:
++      - filters
++      - metric_code
++      - cell_key
++      - cohort
++      - batch_id
++      title: GeoOverviewDrilldown
++      type: object
++    GeoOverviewExclusion:
++      additionalProperties: false
++      properties:
++        code:
++          $ref: '#/components/schemas/MetricExclusion'
++        run_count:
++          minimum: 0
++          title: Run Count
++          type: integer
++      required:
++      - code
++      - run_count
++      title: GeoOverviewExclusion
++      type: object
++    GeoOverviewFilters:
++      additionalProperties: false
++      properties:
++        date_from:
++          format: date-time
++          title: Date From
++          type: string
++        date_to:
++          format: date-time
++          title: Date To
++          type: string
++        subject_ids:
++          items:
++            format: uuid
++            type: string
++          maxItems: 50
++          title: Subject Ids
++          type: array
++        product_ids:
++          items:
++            format: uuid
++            type: string
++          maxItems: 50
++          title: Product Ids
++          type: array
++        query_topic_ids:
++          items:
++            format: uuid
++            type: string
++          maxItems: 50
++          title: Query Topic Ids
++          type: array
++        prompt_variant_ids:
++          items:
++            format: uuid
++            type: string
++          maxItems: 50
++          title: Prompt Variant Ids
++          type: array
++        engine_surface_ids:
++          items:
++            format: uuid
++            type: string
++          maxItems: 50
++          title: Engine Surface Ids
++          type: array
++        collection_profile_ids:
++          items:
++            format: uuid
++            type: string
++          maxItems: 50
++          title: Collection Profile Ids
++          type: array
++        collection_modes:
++          items:
++            $ref: '#/components/schemas/GeoCollectionMode'
++          maxItems: 3
++          title: Collection Modes
++          type: array
++        language_codes:
++          items:
++            maxLength: 16
++            minLength: 2
++            pattern: ^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$
++            type: string
++          maxItems: 50
++          title: Language Codes
++          type: array
++        region_codes:
++          items:
++            maxLength: 2
++            minLength: 2
++            pattern: ^[A-Za-z]{2}$
++            type: string
++          maxItems: 50
++          title: Region Codes
++          type: array
++        login_states:
++          items:
++            $ref: '#/components/schemas/GeoProfileLoginState'
++          maxItems: 3
++          title: Login States
++          type: array
++        intent_types:
++          items:
++            $ref: '#/components/schemas/IntentType'
++          maxItems: 10
++          title: Intent Types
++          type: array
++        mention_mode:
++          anyOf:
++          - $ref: '#/components/schemas/GeoPromptMentionMode'
++          - type: 'null'
++        review_policy:
++          default: EFFECTIVE
++          enum:
++          - EFFECTIVE
++          - REVIEWED_ONLY
++          title: Review Policy
++          type: string
++      required:
++      - date_from
++      - date_to
++      title: GeoOverviewFilters
++      type: object
++    GeoOverviewOpportunityPlaceholder:
++      additionalProperties: false
++      properties:
++        available:
++          const: false
++          default: false
++          title: Available
++          type: boolean
++        reason_code:
++          const: NOT_IMPLEMENTED
++          default: NOT_IMPLEMENTED
++          title: Reason Code
++          type: string
++        open_count:
++          title: Open Count
++          type: 'null'
++        numerator:
++          title: Numerator
++          type: 'null'
++        denominator:
++          title: Denominator
++          type: 'null'
++        filters:
++          $ref: '#/components/schemas/GeoOverviewFilters'
++      required:
++      - filters
++      title: GeoOverviewOpportunityPlaceholder
++      type: object
++    GeoOverviewRisk:
++      additionalProperties: false
++      properties:
++        cell_key:
++          title: Cell Key
++          type: string
++        subject_id:
++          format: uuid
++          title: Subject Id
++          type: string
++        severe_error:
++          $ref: '#/components/schemas/GeoOverviewCard'
++      required:
++      - cell_key
++      - subject_id
++      - severe_error
++      title: GeoOverviewRisk
++      type: object
++    MetricExclusion:
++      enum:
++      - RUN_NOT_COMPLETED
++      - ANSWER_MISSING_OR_EMPTY
++      - CURRENT_ANALYSIS_UNAVAILABLE
++      - CURRENT_REVIEW_REQUIRED
++      - INTEGRITY_ERROR
++      - ADMINISTRATOR_EXCLUDED
++      - SUPERSEDED_ATTEMPT
++      - DIMENSION_MISMATCH
++      - SUBJECT_NOT_APPLICABLE
++      - MENTION_MODE_NOT_APPLICABLE
++      - INTENT_NOT_APPLICABLE
++      - RELIABLE_ORDER_UNAVAILABLE
++      - TARGET_RANK_UNAVAILABLE
++      - CITATION_OBSERVATION_UNAVAILABLE
++      - CITATION_CLASSIFICATION_INCOMPLETE
++      - ASSESSABLE_CLAIM_UNAVAILABLE
++      - INSUFFICIENT_REPEATS
++      title: MetricExclusion
++      type: string
++    SampleLevel:
++      enum:
++      - NONE
++      - OBSERVED
++      - REPORTABLE
++      - STABLE
++      title: SampleLevel
++      type: string
++    GeoOverviewRunPage:
++      additionalProperties: false
++      properties:
++        as_of:
++          format: date-time
++          title: As Of
++          type: string
++        filters:
++          $ref: '#/components/schemas/GeoOverviewSampleFilters'
++        items:
++          items:
++            $ref: '#/components/schemas/GeoOverviewRunSample'
++          title: Items
++          type: array
++        total:
++          minimum: 0
++          title: Total
++          type: integer
++        page:
++          title: Page
++          type: integer
++        page_size:
++          title: Page Size
++          type: integer
++      required:
++      - as_of
++      - filters
++      - items
++      - total
++      - page
++      - page_size
++      title: GeoOverviewRunPage
++      type: object
++    GeoOverviewRunSample:
++      additionalProperties: false
++      properties:
++        run_id:
++          format: uuid
++          title: Run Id
++          type: string
++        batch_id:
++          format: uuid
++          title: Batch Id
++          type: string
++        created_at:
++          format: date-time
++          title: Created At
++          type: string
++        status:
++          $ref: '#/components/schemas/GeoRunStatus'
++        analysis_revision_id:
++          anyOf:
++          - format: uuid
++            type: string
++          - type: 'null'
++          title: Analysis Revision Id
++        review_id:
++          anyOf:
++          - format: uuid
++            type: string
++          - type: 'null'
++          title: Review Id
++        numerator:
++          minimum: 0
++          title: Numerator
++          type: integer
++        denominator:
++          minimum: 0
++          title: Denominator
++          type: integer
++        exclusion_reasons:
++          items:
++            $ref: '#/components/schemas/MetricExclusion'
++          title: Exclusion Reasons
++          type: array
++      required:
++      - run_id
++      - batch_id
++      - created_at
++      - status
++      - analysis_revision_id
++      - review_id
++      - numerator
++      - denominator
++      - exclusion_reasons
++      title: GeoOverviewRunSample
++      type: object
++    GeoOverviewSampleFilters:
++      additionalProperties: false
++      properties:
++        date_from:
++          format: date-time
++          title: Date From
++          type: string
++        date_to:
++          format: date-time
++          title: Date To
++          type: string
++        subject_ids:
++          items:
++            format: uuid
++            type: string
++          maxItems: 50
++          title: Subject Ids
++          type: array
++        product_ids:
++          items:
++            format: uuid
++            type: string
++          maxItems: 50
++          title: Product Ids
++          type: array
++        query_topic_ids:
++          items:
++            format: uuid
++            type: string
++          maxItems: 50
++          title: Query Topic Ids
++          type: array
++        prompt_variant_ids:
++          items:
++            format: uuid
++            type: string
++          maxItems: 50
++          title: Prompt Variant Ids
++          type: array
++        engine_surface_ids:
++          items:
++            format: uuid
++            type: string
++          maxItems: 50
++          title: Engine Surface Ids
++          type: array
++        collection_profile_ids:
++          items:
++            format: uuid
++            type: string
++          maxItems: 50
++          title: Collection Profile Ids
++          type: array
++        collection_modes:
++          items:
++            $ref: '#/components/schemas/GeoCollectionMode'
++          maxItems: 3
++          title: Collection Modes
++          type: array
++        language_codes:
++          items:
++            maxLength: 16
++            minLength: 2
++            pattern: ^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$
++            type: string
++          maxItems: 50
++          title: Language Codes
++          type: array
++        region_codes:
++          items:
++            maxLength: 2
++            minLength: 2
++            pattern: ^[A-Za-z]{2}$
++            type: string
++          maxItems: 50
++          title: Region Codes
++          type: array
++        login_states:
++          items:
++            $ref: '#/components/schemas/GeoProfileLoginState'
++          maxItems: 3
++          title: Login States
++          type: array
++        intent_types:
++          items:
++            $ref: '#/components/schemas/IntentType'
++          maxItems: 10
++          title: Intent Types
++          type: array
++        mention_mode:
++          anyOf:
++          - $ref: '#/components/schemas/GeoPromptMentionMode'
++          - type: 'null'
++        review_policy:
++          default: EFFECTIVE
++          enum:
++          - EFFECTIVE
++          - REVIEWED_ONLY
++          title: Review Policy
++          type: string
++        metric_code:
++          enum:
++          - answer_coverage
++          - natural_visibility
++          - product_mention
++          - recommendation_rate
++          - top_recommendation_rate
++          - owned_source_coverage
++          - accurate_claim_rate
++          - severe_error_run_rate
++          - eligible_runs
++          - run_success_rate
++          - analysis_run_coverage
++          - review_backlog
++          - evidence_completeness
++          - cost_coverage
++          - model_version_coverage
++          title: Metric Code
++          type: string
++        cell_key:
++          anyOf:
++          - pattern: ^[0-9a-f]{64}$
++            type: string
++          - type: 'null'
++          title: Cell Key
++        cohort:
++          default: DENOMINATOR
++          enum:
++          - CANDIDATE
++          - DENOMINATOR
++          - NUMERATOR
++          - EXCLUDED
++          title: Cohort
++          type: string
++        batch_id:
++          anyOf:
++          - format: uuid
++            type: string
++          - type: 'null'
++          title: Batch Id
++        page:
++          default: 1
++          minimum: 1
++          title: Page
++          type: integer
++        page_size:
++          default: 20
++          enum:
++          - 10
++          - 20
++          - 50
++          title: Page Size
++          type: integer
++      required:
++      - date_from
++      - date_to
++      - metric_code
++      title: GeoOverviewSampleFilters
++      type: object
+--- before/docs/geo-monitoring/01-product/02-geo-core-prd.md
++++ after/docs/geo-monitoring/01-product/02-geo-core-prd.md
+@@ -1120,7 +1120,7 @@
+ | 严重错误运行率 | 至少一个 CRITICAL/HIGH INCORRECT 声明的运行数 ÷ 有可判断声明的有效运行数 | 运行级风险指标 |
+ | 问题监测覆盖率 | 当前周期至少有一个有效运行的问题主题数 ÷ 计划应监测的问题主题数 | 衡量是否完成计划 |
+ | 正向问题覆盖率 | 达到管理员可见率阈值的问题主题数 ÷ 有有效运行的问题主题数 | 阈值必须在报告中展示 |
+-| 运行成功率 | COMPLETED 运行数 ÷ 实际创建运行数 | CANCELLED、FAILED 等计入分母 |
++| 运行成功率 | COMPLETED 运行数 ÷ COMPLETED、FAILED、CANCELLED 终态运行数 | 2026-10-03 用户裁决方法口径；未终态不计，BUDGET_BLOCKED 单独计数 |
+ | 证据完整率 | 具备规定原始答案和证据的完成运行数 ÷ 完成运行数 | 不同采集方式可配置不同证据要求 |
+ 
+ ## 12.3 稳定性指标
+--- before/docs/geo-monitoring/02-business/04-monitoring-methodology-and-metrics.md
++++ after/docs/geo-monitoring/02-business/04-monitoring-methodology-and-metrics.md
+@@ -365,9 +365,9 @@
+ 
+ | 指标 | 公式 |
+ |---|---|
+-| 运行成功率 | COMPLETED 运行数 / 已到终态运行数 |
++| 运行成功率 | COMPLETED 运行数 / COMPLETED、FAILED、CANCELLED 终态运行数；BUDGET_BLOCKED 单独统计 |
+ | 采集成功率 | 成功保存 AnswerSnapshot 的运行数 / 已开始采集运行数 |
+-| 分析成功率 | 成功 AnalysisRevision 数 / COLLECTED 运行数 |
++| 运行级分析覆盖率 | 具有成功 current analysis 的已采集 Run 数 / 全部已采集 Run 数（不按 revision 数或当前 COLLECTED 状态计） |
+ | 复核积压 | NEEDS_REVIEW 且未有当前复核的运行数 |
+ | 证据完整率 | 满足 profile 证据要求的 COMPLETED 运行数 / COMPLETED 运行数 |
+ | 调度完整率 | 实际创建批次数 / 应创建调度窗口数 |
+@@ -554,3 +554,30 @@
+ 准确性各项按 scope 目标声明计算，不将其他对象错误归给目标。UNJUDGEABLE 单独计数包含仅因“没有可判断声明”被排除的运行；失败、旧 attempt、维度不符等通用不合格运行中的声明不计数。稳定性全未提及/未推荐可以为 1，描述一致性而不是表现好坏。
+ 
+ 完整独立金标在 `backend/tests/unit/geo_metrics_gold.py`，使用四条虚构运行及人工复算常量；18 项公式覆盖与边界由 `test_geo_metrics.py` 验证，current pointer/review 转换由 `test_geo_metric_inputs.py` 验证。不得用同一待测公式生成预期值。
++
++
++## 19. GEO-602 Overview 当前读合同
++
++2026-10-03 本会话用户完成 ADR-004 剩余裁决：运行成功率使用 COMPLETED/(COMPLETED+FAILED+CANCELLED)，预算阻断单列状态计数；分析质量命名为 `analysis_run_coverage`，以非空 Answer 的唯一 latest Run 为分母、匹配答案的成功 current analysis 为分子，不受重分析次数影响。该分析覆盖率不等同于业务指标资格，必要复核和完整性仍可阻断。质量版本 `geo-overview-quality-v1`，业务公式仍为 `geo-answer-v1`。
++
++Overview 的候选是 Run.created_at 半开窗口内每逻辑 cell 的最新 attempt；先过滤冻结主题、问题、profile/surface、模式、环境、意图、点名，再在同一 binding 上应用 subject/product 交集。REVIEWED_ONLY 只保留 current analysis 的有效 latest Review，作用于全部区块。对象适用集合来自批次事先冻结的 subject binding，不根据提及内容反推。
++
++业务卡片按 §18 完整 MetricDimensions 和目标对象/冻结监测集合分栏，不跨模式、点名、profile/revision、模型版本、事实版本或分析配置指纹汇总；字典revision取实际有效current analysis的冻结输入，重分析不能沿用采集旧字典版本。不计算趋势/SOV/矩阵。每栏公开维度、样本等级、排除原因及事件分子分母。准确率是声明事件比率，组成样本每 Run 保留声明贡献，明细条数不等于事件分母。自然可见、推荐、首位推荐、自有信源、准确与严重错误复用601；点名时自然可见返回明确不适用。
++
++质量卡片字典：
++
++| code | 分子 / 分母 |
++|---|---|
++| eligible_runs | 通用资格通过 Run / 候选 Run |
++| run_success_rate | COMPLETED / 三类终态 Run |
++| analysis_run_coverage | 有成功匹配 current analysis 的已采集 Run / 已采集 Run |
++| review_backlog | current analysis 要求复核且无有效 Review 的 Run / 候选 Run |
++| evidence_completeness | 原始答案、引用数量、引用文件 VERIFIED、冻结 profile 必需截图齐全的 COMPLETED Run / COMPLETED Run |
++| cost_coverage | 费用与币种均已报告的 Run / 候选 Run |
++| model_version_coverage | 有 source_model 和 source_version 的已采集 Run / 已采集 Run |
++
++上述操作质量可按当前筛选汇总；业务表现始终按cell分栏。预算阻断保留独立状态，不偷换为FAILED。eligible_runs的eligible_run_count为资格通过数，其他质量卡为分母运行数；sample_level基于此数。排除原因可重叠，excluded_run_count按运行去重。无分母null；费用未知不补零、不换币、不在602计算均价。维度差异显式分栏并返回dimension_count，不把已正确分栏数据当作错误排除。
++
++存在引用时按601资格计算；当前未保存独立的“可观察无引用”事实，因此无引用回答排除 CITATION_OBSERVATION_UNAVAILABLE，不能从能力或web_search_observed推断。完整性读取仅证明PG证据元数据与引用完整，不声称对象存储当前可下载；不在GET中进行外部I/O。LENGTH/CONTENT_FILTER回答不进入业务指标。没有独立实质描述事实，不推出branded_answer。
++
++每卡片drilldown带规范filters、metric_code、cell_key、cohort和可空batch_id。DENOMINATOR/NUMERATOR/CANDIDATE/EXCLUDED均由同一服务路径计算；下钻响应每运行提供稳定ID、current analysis/review身份、事件分子分母与排除原因，能跳到既有Run Detail。实时下钻重新取得RR快照，不承诺跨请求冻结；数据变动时as_of不同，失效cell返回404，不回退另一cell。机会尚未实现，available=false/NOT_IMPLEMENTED且数量和分母null，不伪装0。最近批次只统计同筛选候选，最多5批，不能把该筛选子集当作整个Batch状态。
+--- before/docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md
++++ after/docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md
+@@ -200,3 +200,9 @@
+ CAP-GEO-07/08/09/10 与 AC-ANA-02～07 的运行详情可追溯展示、结构化复核和历史由GEO-508接入。原文、机器、人工有效投影和历史分别可见，严重机器错误逐条主动核对并说明；服务端GEO-507继续拥有权限、revision和当前选择。
+ 
+ 全部分析金标、真实PG严重错误→复核→新revision与过期复核验收，以及Vitest/Playwright/完整门禁的实际状态见 [R4质量报告](./09-r4-analysis-acceptance.md) 和 [实施证据](../../../.trellis/tasks/10-03-geo-508-analysis-review-ui/implement.md)。本切片不宣布CAP-GEO-11指标、机会闭环或Browser完成；task-manifest状态仅review，待人工接受。
++
++### GEO-602 / R5 Overview 读模型切片
++
++CAP-GEO-11的Overview切片实现透明卡片、重点产品、严重错误风险、筛选内最近批次、未实施机会占位及数据质量。REQ-GEO-METRIC-010/011由两个公共GET的同筛选下钻与闭合不可用/排除code覆盖；业务指标按完整冻结维度分栏，质量分母以2026-10-03用户裁决及方法字典§19为准。
++
++`backend/tests/unit/test_geo_overview.py`覆盖运行/事件分母、null、资格与分栏；`backend/tests/unit/test_geo_metric_inputs.py`覆盖current重分析字典版本；`backend/tests/integration/test_geo_overview.py`覆盖真实HTTP/PG一致读、固定查询数、卡片贡献复现、筛选、current/review、必需截图/强制改密、latest attempt及分页。实际门禁状态见[实施证据](../../../.trellis/tasks/10-03-geo-602-overview/implement.md)。本切片仅到review，CAP-GEO-11的603/604/605/607和其他R5交付仍按manifest独立验收，不宣告全能力完成。
+--- before/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ after/docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -1020,7 +1020,7 @@
+   phase: R5
+   release: R5
+   title: 实现 GEO Overview 读模型和 API
+-  status: planned
++  status: review
+   dependencies:
+   - GEO-601
+   areas:
+@@ -1036,6 +1036,9 @@
+   - 02-business/03-workflows-and-state-machines.md
+   - 03-technical/01-technical-architecture.md
+   - 04-delivery/04-codex-execution-guide.md
++  trellis_task: .trellis/tasks/10-03-geo-602-overview
++  execution_note: "2026-10-03：GEO-601 done及人工接受已核对；开始Overview实施。用户裁决运行成功率采用终态分母，分析质量采用运行级current analysis覆盖率。"
++  review_note: "2026-10-03：透明卡片、完整维度重点产品、严重风险、最近批次、机会占位和质量完成；两个GET及同筛选组成样本。RR固定12应用SELECT（含认证13SQL）、current/latest review、latest attempt及分页验证通过。用户批准三态成功率和运行级分析覆盖率。3476后端/1170前端单元、979完整集成、8项最终Overview定向及contract/lint/typecheck/diff通过。独立重分析字典分栏P1已修正并复核，审计关闭校验通过。无数据库迁移、前端页面或生产启用；仅review等待人工接受。"
+ - id: GEO-603
+   phase: R5
+   release: R5
+--- before/docs/geo-monitoring/05-decisions/ADR-004-no-unified-geo-score.md
++++ after/docs/geo-monitoring/05-decisions/ADR-004-no-unified-geo-score.md
+@@ -41,3 +41,13 @@
+ ## GEO-601 分母裁决（2026-10-03）
+ 
+ 用户在本任务会话明确裁决“两个都采用指标方法口径”：首位推荐率分母为存在可靠推荐顺序的推荐适用合格运行；严重错误运行率分母为存在可判断声明的合格运行。PRD §12.2与指标字典据此同步。无排序、只有UNJUDGEABLE声明的运行分别排除，不填0。运行成功率及分析成功率的未决口径不由GEO-601实施或裁决。
++
++
++## GEO-602 数据质量口径裁决（2026-10-03）
++
++本会话用户明确选择：
++
++- 运行成功率采用方法口径，分母为 COMPLETED、FAILED、CANCELLED 终态运行；PENDING等未终态不进入分母。既有独立BUDGET_BLOCKED保留状态计数，不猜成FAILED或擅自加入用户选定的三态分母。
++- 分析质量采用运行级分析覆盖率：有成功 current analysis 的已采集 Run / 全部已采集 Run。成功revision数不是分子；已采集由非空原始Answer证明，不按会推进的COLLECTED状态计数。
++
++两个选择已同步PRD与方法字典，公共code为run_success_rate、analysis_run_coverage，版本geo-overview-quality-v1。Overview对latest attempt和current pointer一致读取；重分析不使覆盖率超过100%。复核与证据资格单独显示，不把分析覆盖误称为业务指标资格。历史评审冲突记录保留；分析尝试级成功率未在本任务实现。
+--- before/docs/geo-monitoring/README.md
++++ after/docs/geo-monitoring/README.md
+@@ -353,3 +353,6 @@
+ ## GEO-601 / R5 指标资格与公式库
+ 
+ GEO-601 已实现内部 MetricEligibility、可比维度、样本等级和18项透明公式，完整本地验证已完成，交付review等待人工接受，状态以manifest为准。两个争议分母已由用户裁决采用指标方法口径；唯一字典见 [指标方法 §18](./02-business/04-monitoring-methodology-and-metrics.md#18-geo-601-回答级公式字典当前内部计算合同)。快照转换复用GEO-507 current有效结果，失败/旧attempt不进入业务分母，模式和点名默认分离。Task Brief及逐项证据见 [任务记录](../../.trellis/tasks/10-03-geo-601-metric-formulas/prd.md) 与 [实施记录](../../.trellis/tasks/10-03-geo-601-metric-formulas/implement.md)。本任务没有新API、数据库/Alembic、前端页面或生产启用；GEO-602/603/604/701尚未实施，当前公开资格占位尚未接线此库。
++
++
++GEO-602 / R5 已实现回答级Overview与组成样本API，本地验证完成后交付review：透明卡片、按冻结cell分栏、重点产品、风险、最近批次、机会占位和质量。运行/分析质量两项分母已获本会话用户裁决，详见[方法字典§19](./02-business/04-monitoring-methodology-and-metrics.md)与ADR-004；范围和实际验证见[Task Brief](../../.trellis/tasks/10-03-geo-602-overview/prd.md)与[实施证据](../../.trellis/tasks/10-03-geo-602-overview/implement.md)。不实施603/604洞察明细、605前端、Opportunity、Browser或生产启用；最终状态以manifest为准。
+--- before/docs/geo-monitoring/SHA256SUMS
++++ after/docs/geo-monitoring/SHA256SUMS
+@@ -1,13 +1,13 @@
+ 0ec5e67515fa5c383612130415bfc70185a607ac65006fcc932dd750c137bbde  ./00-governance/01-document-governance.md
+ b5906690eb04c8d27911a09722761e7cf4c244ecab2fbe39a55d94c794ee8728  ./00-governance/02-glossary.md
+ 670367ab19f32e811ec651a5be24a9ca062699f1fec60571c97b055ac7f1fb15  ./01-product/01-product-vision-and-scope.md
+-e06743a06dddaaaa1f424c7a4162e67acbe86412caa0e6d67e51a63f759bcb76  ./01-product/02-geo-core-prd.md
++90faf7dcb07bf1db2c0227cfedb8a1bc8b3260ab996f74e3d566855a29ffbb41  ./01-product/02-geo-core-prd.md
+ 7ea6985cdc63749a10c73b801f69349dc2f0ac797b9aa87622723f26b988bcbe  ./01-product/03-information-architecture-and-page-spec.md
+ 36be92c676c3150e5953f01498418900d3e2bcc1f37a0bda31b9892e57b8a2d0  ./01-product/04-catalog-user-guide.md
+ 3892c8f83318ee460de04960a5162b4d777db06eb731a5999cdee946cd8042e3  ./02-business/01-business-architecture.md
+ ecf9472b259ebe572775405e0fcd5d3dddf35a13d68be130a44baec5a3db9f98  ./02-business/02-domain-model.md
+ f3aeee99fa15b2c6b28c33ef869aed12283334a2b17116b8dd0ddda6272ae0cd  ./02-business/03-workflows-and-state-machines.md
+-0e07d8fbb634da298e1c66a3993130f03932e625ab7bc13d9cb49e5a17640b01  ./02-business/04-monitoring-methodology-and-metrics.md
++f9c0851381aa2e83b626c5bf93f48138f338e6d14fd478f0a92f4fc5d9b033ea  ./02-business/04-monitoring-methodology-and-metrics.md
+ 90c2a635615b591f0d1a282fb62f289de0fbad030ea2dcb19ce7dd10983b85b2  ./03-technical/01-technical-architecture.md
+ 005d3d0bbf76fd04de5c7ab74ec6ea1b021647e88500da98870e5bfe1899a4e9  ./03-technical/02-data-architecture.md
+ 99dac7d9ecc586638b30f096fa991851958bbdcfd21f25d97c72a6be5ca05d50  ./03-technical/03-api-contract-design.md
+@@ -18,7 +18,7 @@
+ 803f4e35ce311156cb74a7d728732dc4b315c49d41cc3b2825aff669684468a9  ./03-technical/08-deployment-and-operations.md
+ f8c643e46c1159c51bd2e271e87de1d0e5a0448e2845af01f33bef5e4e1d411b  ./04-delivery/01-implementation-roadmap.md
+ acf0bde87ddfc34ebbc09543c1f2c2c1f496d48f330727b5e943807267eed41c  ./04-delivery/02-work-breakdown-structure.md
+-a8f4ab138e314fafddb7b19b284aff8892293dd55d313e2a26f4ed2bf7b7384a  ./04-delivery/03-requirement-traceability-matrix.md
++68a879b70c986da26ada6df7685c99fedce44549ec41af209fbeebd9d1a1847a  ./04-delivery/03-requirement-traceability-matrix.md
+ 8991d4c1ec5cc872904aa3b10ffbb2f77ca46a4bfda88589d290f7fd92c2f1fb  ./04-delivery/04-codex-execution-guide.md
+ f600bcdfc2788659654825a020fb2aa0fcbe7acf9827b97eab25aadd7a20ff51  ./04-delivery/05-task-template.md
+ 0ec18f9ce8589f4c8e222fddc6d15853c949ad2b227381b584e2c81c4c4e47b0  ./04-delivery/06-current-geo-baseline.md
+@@ -105,12 +105,12 @@
+ 7106b3f1df66de6ba41a4d7ca85e291b8b181f78e2b7c0ef91f4fa696d1f9e8b  ./04-delivery/geo-003-baseline/sources.json
+ 316ab24c5f645e18d39c529c7fcbca2260b14a5375cc5ebd799a5b7c6cfc8f40  ./04-delivery/geo-003-baseline/tests.json
+ 9dae298eb77cc0063394bfacea27b02ece69bf2a7dceba637ef1320565810ec7  ./04-delivery/geo-003-baseline/validation.md
+-e47292663195c0ef8073302bd9e7903b1d8188254ade3fc127c508aea28005f3  ./04-delivery/task-manifest.yaml
++0c0ba0110d0ecaae1f8ae7fea29cbd3604f9056120217f20704ec8dd92f12c2e  ./04-delivery/task-manifest.yaml
+ 2c0f8d8ba314039b44e48614481c28e615e996c2e4ed444c8f07362b5cd75de9  ./05-decisions/ADR-001-extend-modular-monolith.md
+ 4e0ec1be59e33c2f3e83ee50abc55ffe35d2d0bf471c19cc2c713b391fc12cee  ./05-decisions/ADR-002-unified-observation-run-model.md
+ 00baab5f8fe68fbaf75e3aa7b07a0cfbd7c510e39b6a70ea462d9ab941330dc7  ./05-decisions/ADR-003-separate-collection-analysis-review.md
+-e1a4d98aa15478c60965ba0a943a3bff2e4dc30774e0050b451350c90796a4ed  ./05-decisions/ADR-004-no-unified-geo-score.md
++8f4f24331d4ea91574e5a4a56c3eacd9d89e193011c48f8d9f5e413198793909  ./05-decisions/ADR-004-no-unified-geo-score.md
+ 6197eb3379ad5c5f99c499ab8b74eac5cf18e6df26a3f5c34c4e9bf83845593b  ./05-decisions/ADR-005-staged-collector-rollout.md
+ c3e9f23a90bd7fc9b47760d53c56fd6f09f73065dff5b19c1040ee5fd608a560  ./05-decisions/GEO-002-architecture-review.md
+ d7a354e0c2ee450fb3fdeec73c2194fb54d76d9f1566608cfe8b3da8bc711b1c  ./CHANGELOG.md
+-8a4ccb5d1daead76547ebac060eaa0eb319b9d6bc5a3d62535522f157e9b954c  ./README.md
++1528adb3f59b917898f48acbedf546c43e0e70ebb5c9657bdb2d7c82e79d2c27  ./README.md
+--- before/frontend/src/shared/api/generated/schema.d.ts
++++ after/frontend/src/shared/api/generated/schema.d.ts
+@@ -2817,6 +2817,38 @@
+          * @description 复核只追加到当前成功分析；expected_run_revision 必填。CONFIRMED 无修正，CORRECTED 有说明与四栏结构化修正。latest Review 整体替换旧修正，原始证据与机器结果保留。
+          */
+         post: operations["reviewGeoObservationRun"];
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++    "/api/v1/geo/overview": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        get: operations["getGeoOverview"];
++        put?: never;
++        post?: never;
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++    "/api/v1/geo/overview/runs": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        get: operations["listGeoOverviewRuns"];
++        put?: never;
++        post?: never;
+         delete?: never;
+         options?: never;
+         head?: never;
+@@ -9421,6 +9453,405 @@
+             /** Run Revision */
+             run_revision: number;
+         };
++        /** GeoOverview */
++        GeoOverview: {
++            /**
++             * As Of
++             * Format: date-time
++             */
++            as_of: string;
++            filters: components["schemas"]["GeoOverviewFilters"];
++            /** Cards */
++            cards: components["schemas"]["GeoOverviewCard"][];
++            /** Metric Cells */
++            metric_cells: components["schemas"]["GeoOverviewCell"][];
++            /** Key Products */
++            key_products: components["schemas"]["GeoOverviewCell"][];
++            /** Risks */
++            risks: components["schemas"]["GeoOverviewRisk"][];
++            /** Recent Batches */
++            recent_batches: components["schemas"]["GeoOverviewBatch"][];
++            open_opportunities: components["schemas"]["GeoOverviewOpportunityPlaceholder"];
++            data_quality: components["schemas"]["GeoOverviewDataQuality"];
++            /** Unavailable Sections */
++            unavailable_sections: ("TRENDS" | "COMPETITOR_SOV" | "INSIGHT_DETAILS" | "OPPORTUNITIES")[];
++        };
++        /** GeoOverviewBatch */
++        GeoOverviewBatch: {
++            /**
++             * Batch Id
++             * Format: uuid
++             */
++            batch_id: string;
++            /**
++             * Created At
++             * Format: date-time
++             */
++            created_at: string;
++            /** Candidate Run Count */
++            candidate_run_count: number;
++            /** Status Counts */
++            status_counts: {
++                [key: string]: number;
++            };
++            drilldown: components["schemas"]["GeoOverviewDrilldown"];
++        };
++        /** GeoOverviewCard */
++        GeoOverviewCard: {
++            /**
++             * Metric Code
++             * @enum {string}
++             */
++            metric_code: "answer_coverage" | "natural_visibility" | "product_mention" | "recommendation_rate" | "top_recommendation_rate" | "owned_source_coverage" | "accurate_claim_rate" | "severe_error_run_rate" | "eligible_runs" | "run_success_rate" | "analysis_run_coverage" | "review_backlog" | "evidence_completeness" | "cost_coverage" | "model_version_coverage";
++            /** Formula Version */
++            formula_version: string;
++            /** Value */
++            value: number | null;
++            /** Numerator */
++            numerator: number;
++            /** Denominator */
++            denominator: number;
++            sample_level: components["schemas"]["SampleLevel"];
++            /** Eligible Run Count */
++            eligible_run_count: number;
++            /** Excluded Run Count */
++            excluded_run_count: number;
++            /** Exclusion Reason Counts */
++            exclusion_reason_counts: components["schemas"]["GeoOverviewExclusion"][];
++            /** Unjudgeable Claim Count */
++            unjudgeable_claim_count: number;
++            /** Unavailable Reason */
++            unavailable_reason: "NO_DENOMINATOR" | null;
++            drilldown: components["schemas"]["GeoOverviewDrilldown"];
++        };
++        /** GeoOverviewCell */
++        GeoOverviewCell: {
++            /** Cell Key */
++            cell_key: string;
++            /**
++             * Subject Id
++             * Format: uuid
++             */
++            subject_id: string;
++            /** Product Id */
++            product_id: string | null;
++            /** Display Name */
++            display_name: string;
++            dimensions: components["schemas"]["GeoOverviewDimensions"];
++            /** Cards */
++            cards: components["schemas"]["GeoOverviewCard"][];
++        };
++        /** GeoOverviewDataQuality */
++        GeoOverviewDataQuality: {
++            /** Candidate Run Count */
++            candidate_run_count: number;
++            /** Eligible Run Count */
++            eligible_run_count: number;
++            /** Excluded Run Count */
++            excluded_run_count: number;
++            /** Exclusion Reason Counts */
++            exclusion_reason_counts: components["schemas"]["GeoOverviewExclusion"][];
++            /** Status Counts */
++            status_counts: {
++                [key: string]: number;
++            };
++            /** Dimension Count */
++            dimension_count: number;
++            /** Cards */
++            cards: components["schemas"]["GeoOverviewCard"][];
++        };
++        /** GeoOverviewDimensions */
++        GeoOverviewDimensions: {
++            /**
++             * Query Topic Id
++             * Format: uuid
++             */
++            query_topic_id: string;
++            /** Query Topic Revision */
++            query_topic_revision: number;
++            /**
++             * Prompt Variant Id
++             * Format: uuid
++             */
++            prompt_variant_id: string;
++            /** Prompt Revision */
++            prompt_revision: number;
++            /**
++             * Collection Profile Id
++             * Format: uuid
++             */
++            collection_profile_id: string;
++            /** Profile Revision */
++            profile_revision: number;
++            /**
++             * Engine Surface Id
++             * Format: uuid
++             */
++            engine_surface_id: string;
++            /** Surface Revision */
++            surface_revision: number;
++            collection_mode: components["schemas"]["GeoCollectionMode"];
++            /** Language Code */
++            language_code: string;
++            /** Region Code */
++            region_code: string;
++            login_state: components["schemas"]["GeoProfileLoginState"];
++            mention_mode: components["schemas"]["GeoPromptMentionMode"];
++            intent_type: components["schemas"]["IntentType"];
++            /** Source Model */
++            source_model: string | null;
++            /** Source Product */
++            source_product: string | null;
++            /** Model Version */
++            model_version: string | null;
++            /** Product Version */
++            product_version: string | null;
++            /** Rule Set Version */
++            rule_set_version: string;
++            /** Analysis Configuration Key */
++            analysis_configuration_key: string;
++            /** Subject Versions */
++            subject_versions: [
++                string,
++                number
++            ][];
++            /** Fact Version Bindings */
++            fact_version_bindings: [
++                string,
++                string
++            ][];
++            /** Window Key */
++            window_key: string;
++        };
++        /** GeoOverviewDrilldown */
++        GeoOverviewDrilldown: {
++            /**
++             * Operation Id
++             * @default listGeoOverviewRuns
++             * @constant
++             */
++            operation_id: "listGeoOverviewRuns";
++            filters: components["schemas"]["GeoOverviewFilters"];
++            /**
++             * Metric Code
++             * @enum {string}
++             */
++            metric_code: "answer_coverage" | "natural_visibility" | "product_mention" | "recommendation_rate" | "top_recommendation_rate" | "owned_source_coverage" | "accurate_claim_rate" | "severe_error_run_rate" | "eligible_runs" | "run_success_rate" | "analysis_run_coverage" | "review_backlog" | "evidence_completeness" | "cost_coverage" | "model_version_coverage";
++            /** Cell Key */
++            cell_key: string | null;
++            /**
++             * Cohort
++             * @enum {string}
++             */
++            cohort: "CANDIDATE" | "DENOMINATOR" | "NUMERATOR" | "EXCLUDED";
++            /** Batch Id */
++            batch_id: string | null;
++        };
++        /** GeoOverviewExclusion */
++        GeoOverviewExclusion: {
++            code: components["schemas"]["MetricExclusion"];
++            /** Run Count */
++            run_count: number;
++        };
++        /** GeoOverviewFilters */
++        GeoOverviewFilters: {
++            /**
++             * Date From
++             * Format: date-time
++             */
++            date_from: string;
++            /**
++             * Date To
++             * Format: date-time
++             */
++            date_to: string;
++            /** Subject Ids */
++            subject_ids?: string[];
++            /** Product Ids */
++            product_ids?: string[];
++            /** Query Topic Ids */
++            query_topic_ids?: string[];
++            /** Prompt Variant Ids */
++            prompt_variant_ids?: string[];
++            /** Engine Surface Ids */
++            engine_surface_ids?: string[];
++            /** Collection Profile Ids */
++            collection_profile_ids?: string[];
++            /** Collection Modes */
++            collection_modes?: components["schemas"]["GeoCollectionMode"][];
++            /** Language Codes */
++            language_codes?: string[];
++            /** Region Codes */
++            region_codes?: string[];
++            /** Login States */
++            login_states?: components["schemas"]["GeoProfileLoginState"][];
++            /** Intent Types */
++            intent_types?: components["schemas"]["IntentType"][];
++            mention_mode?: components["schemas"]["GeoPromptMentionMode"] | null;
++            /**
++             * Review Policy
++             * @default EFFECTIVE
++             * @enum {string}
++             */
++            review_policy: "EFFECTIVE" | "REVIEWED_ONLY";
++        };
++        /** GeoOverviewOpportunityPlaceholder */
++        GeoOverviewOpportunityPlaceholder: {
++            /**
++             * Available
++             * @default false
++             * @constant
++             */
++            available: false;
++            /**
++             * Reason Code
++             * @default NOT_IMPLEMENTED
++             * @constant
++             */
++            reason_code: "NOT_IMPLEMENTED";
++            /** Open Count */
++            open_count?: null;
++            /** Numerator */
++            numerator?: null;
++            /** Denominator */
++            denominator?: null;
++            filters: components["schemas"]["GeoOverviewFilters"];
++        };
++        /** GeoOverviewRisk */
++        GeoOverviewRisk: {
++            /** Cell Key */
++            cell_key: string;
++            /**
++             * Subject Id
++             * Format: uuid
++             */
++            subject_id: string;
++            severe_error: components["schemas"]["GeoOverviewCard"];
++        };
++        /**
++         * MetricExclusion
++         * @enum {string}
++         */
++        MetricExclusion: "RUN_NOT_COMPLETED" | "ANSWER_MISSING_OR_EMPTY" | "CURRENT_ANALYSIS_UNAVAILABLE" | "CURRENT_REVIEW_REQUIRED" | "INTEGRITY_ERROR" | "ADMINISTRATOR_EXCLUDED" | "SUPERSEDED_ATTEMPT" | "DIMENSION_MISMATCH" | "SUBJECT_NOT_APPLICABLE" | "MENTION_MODE_NOT_APPLICABLE" | "INTENT_NOT_APPLICABLE" | "RELIABLE_ORDER_UNAVAILABLE" | "TARGET_RANK_UNAVAILABLE" | "CITATION_OBSERVATION_UNAVAILABLE" | "CITATION_CLASSIFICATION_INCOMPLETE" | "ASSESSABLE_CLAIM_UNAVAILABLE" | "INSUFFICIENT_REPEATS";
++        /**
++         * SampleLevel
++         * @enum {string}
++         */
++        SampleLevel: "NONE" | "OBSERVED" | "REPORTABLE" | "STABLE";
++        /** GeoOverviewRunPage */
++        GeoOverviewRunPage: {
++            /**
++             * As Of
++             * Format: date-time
++             */
++            as_of: string;
++            filters: components["schemas"]["GeoOverviewSampleFilters"];
++            /** Items */
++            items: components["schemas"]["GeoOverviewRunSample"][];
++            /** Total */
++            total: number;
++            /** Page */
++            page: number;
++            /** Page Size */
++            page_size: number;
++        };
++        /** GeoOverviewRunSample */
++        GeoOverviewRunSample: {
++            /**
++             * Run Id
++             * Format: uuid
++             */
++            run_id: string;
++            /**
++             * Batch Id
++             * Format: uuid
++             */
++            batch_id: string;
++            /**
++             * Created At
++             * Format: date-time
++             */
++            created_at: string;
++            status: components["schemas"]["GeoRunStatus"];
++            /** Analysis Revision Id */
++            analysis_revision_id: string | null;
++            /** Review Id */
++            review_id: string | null;
++            /** Numerator */
++            numerator: number;
++            /** Denominator */
++            denominator: number;
++            /** Exclusion Reasons */
++            exclusion_reasons: components["schemas"]["MetricExclusion"][];
++        };
++        /** GeoOverviewSampleFilters */
++        GeoOverviewSampleFilters: {
++            /**
++             * Date From
++             * Format: date-time
++             */
++            date_from: string;
++            /**
++             * Date To
++             * Format: date-time
++             */
++            date_to: string;
++            /** Subject Ids */
++            subject_ids?: string[];
++            /** Product Ids */
++            product_ids?: string[];
++            /** Query Topic Ids */
++            query_topic_ids?: string[];
++            /** Prompt Variant Ids */
++            prompt_variant_ids?: string[];
++            /** Engine Surface Ids */
++            engine_surface_ids?: string[];
++            /** Collection Profile Ids */
++            collection_profile_ids?: string[];
++            /** Collection Modes */
++            collection_modes?: components["schemas"]["GeoCollectionMode"][];
++            /** Language Codes */
++            language_codes?: string[];
++            /** Region Codes */
++            region_codes?: string[];
++            /** Login States */
++            login_states?: components["schemas"]["GeoProfileLoginState"][];
++            /** Intent Types */
++            intent_types?: components["schemas"]["IntentType"][];
++            mention_mode?: components["schemas"]["GeoPromptMentionMode"] | null;
++            /**
++             * Review Policy
++             * @default EFFECTIVE
++             * @enum {string}
++             */
++            review_policy: "EFFECTIVE" | "REVIEWED_ONLY";
++            /**
++             * Metric Code
++             * @enum {string}
++             */
++            metric_code: "answer_coverage" | "natural_visibility" | "product_mention" | "recommendation_rate" | "top_recommendation_rate" | "owned_source_coverage" | "accurate_claim_rate" | "severe_error_run_rate" | "eligible_runs" | "run_success_rate" | "analysis_run_coverage" | "review_backlog" | "evidence_completeness" | "cost_coverage" | "model_version_coverage";
++            /** Cell Key */
++            cell_key?: string | null;
++            /**
++             * Cohort
++             * @default DENOMINATOR
++             * @enum {string}
++             */
++            cohort: "CANDIDATE" | "DENOMINATOR" | "NUMERATOR" | "EXCLUDED";
++            /** Batch Id */
++            batch_id?: string | null;
++            /**
++             * Page
++             * @default 1
++             */
++            page: number;
++            /**
++             * Page Size
++             * @default 20
++             * @enum {integer}
++             */
++            page_size: 10 | 20 | 50;
++        };
+     };
+     responses: {
+         /** @description 业务或校验错误 */
+@@ -16785,4 +17216,99 @@
+             422: components["responses"]["ErrorResponse"];
+         };
+     };
++    getGeoOverview: {
++        parameters: {
++            query: {
++                date_from: string;
++                date_to: string;
++                subject_ids?: string[];
++                product_ids?: string[];
++                query_topic_ids?: string[];
++                prompt_variant_ids?: string[];
++                engine_surface_ids?: string[];
++                collection_profile_ids?: string[];
++                collection_modes?: components["schemas"]["GeoCollectionMode"][];
++                language_codes?: string[];
++                region_codes?: string[];
++                login_states?: components["schemas"]["GeoProfileLoginState"][];
++                intent_types?: components["schemas"]["IntentType"][];
++                mention_mode?: components["schemas"]["GeoPromptMentionMode"] | null;
++                review_policy?: "EFFECTIVE" | "REVIEWED_ONLY";
++            };
++            header?: {
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path?: never;
++            cookie?: never;
++        };
++        requestBody?: never;
++        responses: {
++            /** @description 回答级Overview一致快照 */
++            200: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoOverview"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
++    listGeoOverviewRuns: {
++        parameters: {
++            query: {
++                date_from: string;
++                date_to: string;
++                subject_ids?: string[];
++                product_ids?: string[];
++                query_topic_ids?: string[];
++                prompt_variant_ids?: string[];
++                engine_surface_ids?: string[];
++                collection_profile_ids?: string[];
++                collection_modes?: components["schemas"]["GeoCollectionMode"][];
++                language_codes?: string[];
++                region_codes?: string[];
++                login_states?: components["schemas"]["GeoProfileLoginState"][];
++                intent_types?: components["schemas"]["IntentType"][];
++                mention_mode?: components["schemas"]["GeoPromptMentionMode"] | null;
++                review_policy?: "EFFECTIVE" | "REVIEWED_ONLY";
++                metric_code: "answer_coverage" | "natural_visibility" | "product_mention" | "recommendation_rate" | "top_recommendation_rate" | "owned_source_coverage" | "accurate_claim_rate" | "severe_error_run_rate" | "eligible_runs" | "run_success_rate" | "analysis_run_coverage" | "review_backlog" | "evidence_completeness" | "cost_coverage" | "model_version_coverage";
++                cell_key?: string | null;
++                cohort?: "CANDIDATE" | "DENOMINATOR" | "NUMERATOR" | "EXCLUDED";
++                batch_id?: string | null;
++                page?: number;
++                page_size?: 10 | 20 | 50;
++            };
++            header?: {
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path?: never;
++            cookie?: never;
++        };
++        requestBody?: never;
++        responses: {
++            /** @description 同筛选组成样本；每运行含事件贡献 */
++            200: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoOverviewRunPage"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
+ }
+--- /dev/null
++++ backend/app/routers/geo_overview.py
+@@ -0,0 +1,52 @@
++"""Overview GET及组成样本；事务和聚合属于应用读服务。"""
++
++from typing import Annotated
++
++from fastapi import APIRouter, Depends, Query, Response
++
++from app.deps import DbSession, EngineerUser
++from app.errors import error_responses
++from app.schemas.geo_insights import (
++    GeoOverview,
++    GeoOverviewFilters,
++    GeoOverviewRunPage,
++    GeoOverviewSampleFilters,
++)
++from app.services import geo_overview as service
++from app.services.geo_plan_queries import read_snapshot
++
++router = APIRouter(
++    prefix="/api/v1/geo/overview", tags=["geo-overview"], dependencies=[Depends(read_snapshot)]
++)
++
++
++@router.get(
++    "",
++    response_model=GeoOverview,
++    operation_id="getGeoOverview",
++    responses=error_responses(401, 403, 409, 422),
++)
++def overview(
++    db: DbSession,
++    user: EngineerUser,
++    response: Response,
++    filters: Annotated[GeoOverviewFilters, Query()],
++) -> GeoOverview:
++    response.headers["Cache-Control"] = "no-store"
++    return service.get_overview(db, filters)
++
++
++@router.get(
++    "/runs",
++    response_model=GeoOverviewRunPage,
++    operation_id="listGeoOverviewRuns",
++    responses=error_responses(401, 403, 404, 409, 422),
++)
++def samples(
++    db: DbSession,
++    user: EngineerUser,
++    response: Response,
++    filters: Annotated[GeoOverviewSampleFilters, Query()],
++) -> GeoOverviewRunPage:
++    response.headers["Cache-Control"] = "no-store"
++    return service.list_overview_runs(db, filters)
+--- /dev/null
++++ backend/app/schemas/geo_insights.py
+@@ -0,0 +1,217 @@
++"""回答级 Overview 公共读合同；旧文章关系洞察保持独立。"""
++
++from datetime import UTC
++from typing import Annotated, Literal, Self
++from uuid import UUID
++
++from pydantic import AwareDatetime, BeforeValidator, Field, model_validator
++
++from app.geo_prompt_variants import GeoPromptMentionMode
++from app.schemas.base import ContractModel
++from app.schemas.configuration import IntentType
++from app.schemas.geo_metric_values import MetricExclusion, SampleLevel
++from app.schemas.geo_prompt_variants import PromptLanguage, PromptRegion
++from app.schemas.geo_runs import GeoRunStatus
++from app.schemas.geo_surfaces import GeoCollectionMode, GeoProfileLoginState
++
++Identities = Annotated[list[UUID], Field(max_length=50)]
++OverviewMetric = Literal[
++    "answer_coverage",
++    "natural_visibility",
++    "product_mention",
++    "recommendation_rate",
++    "top_recommendation_rate",
++    "owned_source_coverage",
++    "accurate_claim_rate",
++    "severe_error_run_rate",
++    "eligible_runs",
++    "run_success_rate",
++    "analysis_run_coverage",
++    "review_backlog",
++    "evidence_completeness",
++    "cost_coverage",
++    "model_version_coverage",
++]
++Cohort = Literal["CANDIDATE", "DENOMINATOR", "NUMERATOR", "EXCLUDED"]
++
++
++class GeoOverviewFilters(ContractModel):
++    date_from: AwareDatetime
++    date_to: AwareDatetime
++    subject_ids: Identities = Field(default_factory=list)
++    product_ids: Identities = Field(default_factory=list)
++    query_topic_ids: Identities = Field(default_factory=list)
++    prompt_variant_ids: Identities = Field(default_factory=list)
++    engine_surface_ids: Identities = Field(default_factory=list)
++    collection_profile_ids: Identities = Field(default_factory=list)
++    collection_modes: list[GeoCollectionMode] = Field(default_factory=list, max_length=3)
++    language_codes: list[PromptLanguage] = Field(default_factory=list, max_length=50)
++    region_codes: list[PromptRegion] = Field(default_factory=list, max_length=50)
++    login_states: list[GeoProfileLoginState] = Field(default_factory=list, max_length=3)
++    intent_types: list[IntentType] = Field(default_factory=list, max_length=10)
++    mention_mode: GeoPromptMentionMode | None = None
++    review_policy: Literal["EFFECTIVE", "REVIEWED_ONLY"] = "EFFECTIVE"
++
++    @model_validator(mode="after")
++    def window_and_sets(self) -> Self:
++        if self.date_from >= self.date_to:
++            raise ValueError("时间窗口必须满足 date_from < date_to")
++        self.date_from = self.date_from.astimezone(UTC)
++        self.date_to = self.date_to.astimezone(UTC)
++        for name in (
++            "subject_ids",
++            "product_ids",
++            "query_topic_ids",
++            "prompt_variant_ids",
++            "engine_surface_ids",
++            "collection_profile_ids",
++            "collection_modes",
++            "language_codes",
++            "region_codes",
++            "login_states",
++            "intent_types",
++        ):
++            setattr(self, name, sorted(set(getattr(self, name))))
++        return self
++
++
++class GeoOverviewSampleFilters(GeoOverviewFilters):
++    metric_code: OverviewMetric
++    cell_key: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
++    cohort: Cohort = "DENOMINATOR"
++    batch_id: UUID | None = None
++    page: int = Field(default=1, ge=1)
++    page_size: Annotated[Literal[10, 20, 50], BeforeValidator(int)] = 20
++
++
++class GeoOverviewDrilldown(ContractModel):
++    operation_id: Literal["listGeoOverviewRuns"] = "listGeoOverviewRuns"
++    filters: GeoOverviewFilters
++    metric_code: OverviewMetric
++    cell_key: str | None
++    cohort: Cohort
++    batch_id: UUID | None
++
++
++class GeoOverviewExclusion(ContractModel):
++    code: MetricExclusion
++    run_count: int = Field(ge=0)
++
++
++class GeoOverviewCard(ContractModel):
++    metric_code: OverviewMetric
++    formula_version: str
++    value: float | None
++    numerator: int = Field(ge=0)
++    denominator: int = Field(ge=0)
++    sample_level: SampleLevel
++    eligible_run_count: int = Field(ge=0)
++    excluded_run_count: int = Field(ge=0)
++    exclusion_reason_counts: list[GeoOverviewExclusion]
++    unjudgeable_claim_count: int = Field(ge=0)
++    unavailable_reason: Literal["NO_DENOMINATOR"] | None
++    drilldown: GeoOverviewDrilldown
++
++
++class GeoOverviewDimensions(ContractModel):
++    query_topic_id: UUID
++    query_topic_revision: int
++    prompt_variant_id: UUID
++    prompt_revision: int
++    collection_profile_id: UUID
++    profile_revision: int
++    engine_surface_id: UUID
++    surface_revision: int
++    collection_mode: GeoCollectionMode
++    language_code: str
++    region_code: str
++    login_state: GeoProfileLoginState
++    mention_mode: GeoPromptMentionMode
++    intent_type: IntentType
++    source_model: str | None
++    source_product: str | None
++    model_version: str | None
++    product_version: str | None
++    rule_set_version: str
++    analysis_configuration_key: str
++    subject_versions: list[tuple[UUID, int]]
++    fact_version_bindings: list[tuple[UUID, UUID]]
++    window_key: str
++
++
++class GeoOverviewCell(ContractModel):
++    cell_key: str
++    subject_id: UUID
++    product_id: UUID | None
++    display_name: str
++    dimensions: GeoOverviewDimensions
++    cards: list[GeoOverviewCard]
++
++
++class GeoOverviewRisk(ContractModel):
++    cell_key: str
++    subject_id: UUID
++    severe_error: GeoOverviewCard
++
++
++class GeoOverviewBatch(ContractModel):
++    batch_id: UUID
++    created_at: AwareDatetime
++    candidate_run_count: int = Field(ge=0)
++    status_counts: dict[GeoRunStatus, int]
++    drilldown: GeoOverviewDrilldown
++
++
++class GeoOverviewOpportunityPlaceholder(ContractModel):
++    available: Literal[False] = False
++    reason_code: Literal["NOT_IMPLEMENTED"] = "NOT_IMPLEMENTED"
++    open_count: None = None
++    numerator: None = None
++    denominator: None = None
++    filters: GeoOverviewFilters
++
++
++class GeoOverviewDataQuality(ContractModel):
++    candidate_run_count: int = Field(ge=0)
++    eligible_run_count: int = Field(ge=0)
++    excluded_run_count: int = Field(ge=0)
++    exclusion_reason_counts: list[GeoOverviewExclusion]
++    status_counts: dict[GeoRunStatus, int]
++    dimension_count: int = Field(ge=0)
++    cards: list[GeoOverviewCard]
++
++
++class GeoOverview(ContractModel):
++    as_of: AwareDatetime
++    filters: GeoOverviewFilters
++    cards: list[GeoOverviewCard]
++    metric_cells: list[GeoOverviewCell]
++    key_products: list[GeoOverviewCell]
++    risks: list[GeoOverviewRisk]
++    recent_batches: list[GeoOverviewBatch]
++    open_opportunities: GeoOverviewOpportunityPlaceholder
++    data_quality: GeoOverviewDataQuality
++    unavailable_sections: list[
++        Literal["TRENDS", "COMPETITOR_SOV", "INSIGHT_DETAILS", "OPPORTUNITIES"]
++    ]
++
++
++class GeoOverviewRunSample(ContractModel):
++    run_id: UUID
++    batch_id: UUID
++    created_at: AwareDatetime
++    status: GeoRunStatus
++    analysis_revision_id: UUID | None
++    review_id: UUID | None
++    numerator: int = Field(ge=0)
++    denominator: int = Field(ge=0)
++    exclusion_reasons: list[MetricExclusion]
++
++
++class GeoOverviewRunPage(ContractModel):
++    as_of: AwareDatetime
++    filters: GeoOverviewSampleFilters
++    items: list[GeoOverviewRunSample]
++    total: int = Field(ge=0)
++    page: int
++    page_size: int
+--- /dev/null
++++ backend/app/schemas/geo_metric_values.py
+@@ -0,0 +1,30 @@
++"""回答级指标与公共读模型共享的闭合样本/排除值；公式仍由服务拥有。"""
++
++from enum import StrEnum
++
++
++class SampleLevel(StrEnum):
++    NONE = "NONE"
++    OBSERVED = "OBSERVED"
++    REPORTABLE = "REPORTABLE"
++    STABLE = "STABLE"
++
++
++class MetricExclusion(StrEnum):
++    RUN_NOT_COMPLETED = "RUN_NOT_COMPLETED"
++    ANSWER_MISSING_OR_EMPTY = "ANSWER_MISSING_OR_EMPTY"
++    CURRENT_ANALYSIS_UNAVAILABLE = "CURRENT_ANALYSIS_UNAVAILABLE"
++    CURRENT_REVIEW_REQUIRED = "CURRENT_REVIEW_REQUIRED"
++    INTEGRITY_ERROR = "INTEGRITY_ERROR"
++    ADMINISTRATOR_EXCLUDED = "ADMINISTRATOR_EXCLUDED"
++    SUPERSEDED_ATTEMPT = "SUPERSEDED_ATTEMPT"
++    DIMENSION_MISMATCH = "DIMENSION_MISMATCH"
++    SUBJECT_NOT_APPLICABLE = "SUBJECT_NOT_APPLICABLE"
++    MENTION_MODE_NOT_APPLICABLE = "MENTION_MODE_NOT_APPLICABLE"
++    INTENT_NOT_APPLICABLE = "INTENT_NOT_APPLICABLE"
++    RELIABLE_ORDER_UNAVAILABLE = "RELIABLE_ORDER_UNAVAILABLE"
++    TARGET_RANK_UNAVAILABLE = "TARGET_RANK_UNAVAILABLE"
++    CITATION_OBSERVATION_UNAVAILABLE = "CITATION_OBSERVATION_UNAVAILABLE"
++    CITATION_CLASSIFICATION_INCOMPLETE = "CITATION_CLASSIFICATION_INCOMPLETE"
++    ASSESSABLE_CLAIM_UNAVAILABLE = "ASSESSABLE_CLAIM_UNAVAILABLE"
++    INSUFFICIENT_REPEATS = "INSUFFICIENT_REPEATS"
+--- /dev/null
++++ backend/app/services/geo_overview.py
+@@ -0,0 +1,339 @@
++"""Overview 应用读模型：统一筛选、完整cell、公式及组成样本的唯一组装者。"""
++
++from collections import Counter, defaultdict
++from dataclasses import asdict, dataclass
++from hashlib import sha256
++from typing import cast
++from uuid import UUID
++
++from sqlalchemy.orm import Session
++
++from app.errors import not_found
++from app.schemas.geo_insights import (
++    Cohort,
++    GeoOverview,
++    GeoOverviewBatch,
++    GeoOverviewCard,
++    GeoOverviewCell,
++    GeoOverviewDataQuality,
++    GeoOverviewDimensions,
++    GeoOverviewDrilldown,
++    GeoOverviewExclusion,
++    GeoOverviewFilters,
++    GeoOverviewOpportunityPlaceholder,
++    GeoOverviewRisk,
++    GeoOverviewRunPage,
++    GeoOverviewRunSample,
++    GeoOverviewSampleFilters,
++    OverviewMetric,
++)
++from app.services.geo_metric_inputs import metric_scope_from_snapshot
++from app.services.geo_metric_types import MetricCode, MetricExclusion
++from app.services.geo_metrics import DEFAULT_SAMPLE_POLICY, calculate_metric, metric_eligibility
++from app.services.geo_overview_queries import OverviewInput, load_inputs, selected_subjects
++
++BUSINESS_CODES = (
++    MetricCode.ANSWER_COVERAGE,
++    MetricCode.NATURAL_VISIBILITY,
++    MetricCode.PRODUCT_MENTION,
++    MetricCode.RECOMMENDATION_RATE,
++    MetricCode.TOP_RECOMMENDATION_RATE,
++    MetricCode.OWNED_SOURCE_COVERAGE,
++    MetricCode.ACCURATE_CLAIM_RATE,
++    MetricCode.SEVERE_ERROR_RUN_RATE,
++)
++QUALITY_CODES: tuple[OverviewMetric, ...] = (
++    "eligible_runs",
++    "run_success_rate",
++    "analysis_run_coverage",
++    "review_backlog",
++    "evidence_completeness",
++    "cost_coverage",
++    "model_version_coverage",
++)
++QUALITY_VERSION = "geo-overview-quality-v1"
++
++
++@dataclass(frozen=True)
++class Contribution:
++    source: OverviewInput
++    numerator: int
++    denominator: int
++    reasons: tuple[MetricExclusion, ...] = ()
++
++
++def _drill(
++    filters: GeoOverviewFilters,
++    code: OverviewMetric,
++    *,
++    key: str | None = None,
++    cohort: Cohort = "DENOMINATOR",
++    batch_id: UUID | None = None,
++) -> GeoOverviewDrilldown:
++    return GeoOverviewDrilldown(
++        filters=filters, metric_code=code, cell_key=key, cohort=cohort, batch_id=batch_id
++    )
++
++
++def _generic_reasons(
++    source: OverviewInput, filters: GeoOverviewFilters
++) -> tuple[MetricExclusion, ...]:
++    identity = min(selected_subjects(source.snapshot, filters))
++    scope = metric_scope_from_snapshot(source.snapshot, subject_id=identity)
++    return metric_eligibility(
++        source.metric,
++        metric=MetricCode.ANSWER_COVERAGE,
++        scope=scope,
++        dimensions=source.metric.dimensions,
++    ).exclusion_reasons
++
++
++def _quality(
++    inputs: list[OverviewInput],
++    filters: GeoOverviewFilters,
++) -> dict[OverviewMetric, list[Contribution]]:
++    values: dict[OverviewMetric, list[Contribution]] = {code: [] for code in QUALITY_CODES}
++    for source in inputs:
++        run = source.metric
++        reasons = _generic_reasons(source, filters)
++        completed = run.status == "COMPLETED"
++        collected = run.answer_present
++        # 用户2026-10-03裁决三态终态分母；预算阻断单独显示，不猜成FAILED。
++        terminal = run.status in {"COMPLETED", "FAILED", "CANCELLED"}
++        pairs = {
++            "eligible_runs": (int(not reasons), 1),
++            "run_success_rate": (int(completed), int(terminal)),
++            "analysis_run_coverage": (
++                int(collected and run.current_analysis_available),
++                int(collected),
++            ),
++            "review_backlog": (int(run.review_required and not run.current_review_valid), 1),
++            "evidence_completeness": (int(completed and source.evidence_complete), int(completed)),
++            "cost_coverage": (
++                int(source.cost_amount is not None and source.cost_currency is not None),
++                1,
++            ),
++            "model_version_coverage": (int(collected and source.version_known), int(collected)),
++        }
++        for code in QUALITY_CODES:
++            numerator, denominator = pairs[code]
++            values[code].append(
++                Contribution(
++                    source, numerator, denominator, reasons if code == "eligible_runs" else ()
++                )
++            )
++    return values
++
++
++def _quality_card(
++    code: OverviewMetric,
++    parts: list[Contribution],
++    filters: GeoOverviewFilters,
++) -> GeoOverviewCard:
++    numerator, denominator = sum(p.numerator for p in parts), sum(p.denominator for p in parts)
++    reasons = Counter(reason for part in parts for reason in part.reasons)
++    eligible = numerator if code == "eligible_runs" else denominator
++    return GeoOverviewCard(
++        metric_code=code,
++        formula_version=QUALITY_VERSION,
++        value=numerator / denominator if denominator else None,
++        numerator=numerator,
++        denominator=denominator,
++        sample_level=DEFAULT_SAMPLE_POLICY.level(eligible),
++        eligible_run_count=eligible,
++        excluded_run_count=len(parts) - eligible,
++        exclusion_reason_counts=[
++            GeoOverviewExclusion(code=reason, run_count=count)
++            for reason, count in sorted(reasons.items())
++        ],
++        unjudgeable_claim_count=0,
++        unavailable_reason=None if denominator else "NO_DENOMINATOR",
++        drilldown=_drill(filters, code),
++    )
++
++
++def _cells(
++    inputs: list[OverviewInput],
++    filters: GeoOverviewFilters,
++) -> tuple[list[GeoOverviewCell], dict[tuple[str, OverviewMetric], list[Contribution]]]:
++    groups: dict[str, list[OverviewInput]] = defaultdict(list)
++    metadata: dict[str, tuple[UUID, GeoOverviewDimensions]] = {}
++    for source in inputs:
++        dimensions = GeoOverviewDimensions.model_validate(asdict(source.metric.dimensions))
++        for identity in sorted(selected_subjects(source.snapshot, filters)):
++            scope = metric_scope_from_snapshot(source.snapshot, subject_id=identity)
++            key = sha256(
++                (
++                    dimensions.model_dump_json()
++                    + str(identity)
++                    + ":".join(str(item) for item in sorted(scope.sov_subject_ids))
++                ).encode()
++            ).hexdigest()
++            groups[key].append(source)
++            metadata[key] = (identity, dimensions)
++    cells = []
++    contributions: dict[tuple[str, OverviewMetric], list[Contribution]] = {}
++    for key in sorted(groups):
++        sources = groups[key]
++        identity, dimensions = metadata[key]
++        scope = metric_scope_from_snapshot(sources[0].snapshot, subject_id=identity)
++        subject = next(item for item in sources[0].snapshot.subjects if item.id == identity)
++        cards = []
++        for metric in BUSINESS_CODES:
++            if metric == MetricCode.PRODUCT_MENTION and not scope.is_product:
++                continue
++            code = cast(OverviewMetric, metric.value)
++            result = calculate_metric(
++                [source.metric for source in sources],
++                metric=metric,
++                scope=scope,
++                dimensions=sources[0].metric.dimensions,
++            )
++            cards.append(
++                GeoOverviewCard(
++                    metric_code=code,
++                    formula_version=result.formula_version,
++                    value=result.value,
++                    numerator=result.numerator,
++                    denominator=result.denominator,
++                    sample_level=result.sample_level,
++                    eligible_run_count=result.eligible_run_count,
++                    excluded_run_count=result.excluded_run_count,
++                    exclusion_reason_counts=[
++                        GeoOverviewExclusion(code=reason, run_count=count)
++                        for reason, count in result.exclusion_reason_counts
++                    ],
++                    unjudgeable_claim_count=result.unjudgeable_claim_count,
++                    unavailable_reason=None if result.denominator else "NO_DENOMINATOR",
++                    drilldown=_drill(filters, code, key=key),
++                )
++            )
++            parts = []
++            for source in sources:
++                single = calculate_metric(
++                    [source.metric], metric=metric, scope=scope, dimensions=source.metric.dimensions
++                )
++                reasons = metric_eligibility(
++                    source.metric, metric=metric, scope=scope, dimensions=source.metric.dimensions
++                ).exclusion_reasons
++                parts.append(Contribution(source, single.numerator, single.denominator, reasons))
++            contributions[key, code] = parts
++        cells.append(
++            GeoOverviewCell(
++                cell_key=key,
++                subject_id=identity,
++                product_id=subject.product_id,
++                display_name=subject.display_name,
++                dimensions=dimensions,
++                cards=cards,
++            )
++        )
++    return cells, contributions
++
++
++def get_overview(db: Session, filters: GeoOverviewFilters) -> GeoOverview:
++    as_of, inputs = load_inputs(db, filters)
++    cells, _ = _cells(inputs, filters)
++    quality_parts = _quality(inputs, filters)
++    quality_cards = [_quality_card(code, quality_parts[code], filters) for code in QUALITY_CODES]
++    generic = quality_cards[0]
++    batches: dict[UUID, list[OverviewInput]] = defaultdict(list)
++    for source in inputs:
++        batches[source.metric.batch_id].append(source)
++    recent = sorted(
++        batches.items(), key=lambda pair: (pair[1][0].batch_created_at, pair[0]), reverse=True
++    )[:5]
++    return GeoOverview(
++        as_of=as_of,
++        filters=filters,
++        cards=quality_cards[:2],
++        metric_cells=cells,
++        key_products=[cell for cell in cells if cell.product_id is not None],
++        risks=[
++            GeoOverviewRisk(cell_key=cell.cell_key, subject_id=cell.subject_id, severe_error=card)
++            for cell in cells
++            for card in cell.cards
++            if card.metric_code == "severe_error_run_rate" and card.numerator > 0
++        ],
++        recent_batches=[
++            GeoOverviewBatch(
++                batch_id=identity,
++                created_at=sources[0].batch_created_at,
++                candidate_run_count=len(sources),
++                status_counts=dict(Counter(source.metric.status for source in sources)),
++                drilldown=_drill(filters, "eligible_runs", cohort="CANDIDATE", batch_id=identity),
++            )
++            for identity, sources in recent
++        ],
++        open_opportunities=GeoOverviewOpportunityPlaceholder(filters=filters),
++        data_quality=GeoOverviewDataQuality(
++            candidate_run_count=len(inputs),
++            eligible_run_count=generic.numerator,
++            excluded_run_count=len(inputs) - generic.numerator,
++            exclusion_reason_counts=generic.exclusion_reason_counts,
++            status_counts=dict(Counter(source.metric.status for source in inputs)),
++            dimension_count=len({source.metric.dimensions for source in inputs}),
++            cards=quality_cards,
++        ),
++        unavailable_sections=["TRENDS", "COMPETITOR_SOV", "INSIGHT_DETAILS", "OPPORTUNITIES"],
++    )
++
++
++def list_overview_runs(db: Session, request: GeoOverviewSampleFilters) -> GeoOverviewRunPage:
++    filters = GeoOverviewFilters.model_validate(
++        request.model_dump(include=set(GeoOverviewFilters.model_fields))
++    )
++    as_of, inputs = load_inputs(db, filters)
++    if request.metric_code in QUALITY_CODES:
++        if request.cell_key is not None:
++            raise not_found("Overview组成样本")
++        parts = _quality(inputs, filters)[request.metric_code]
++    else:
++        _, contributions = _cells(inputs, filters)
++        cell_parts = contributions.get((request.cell_key or "", request.metric_code))
++        if cell_parts is None:
++            raise not_found("Overview指标单元")
++        parts = cell_parts
++    selected = [
++        part
++        for part in parts
++        if (request.batch_id is None or part.source.metric.batch_id == request.batch_id)
++        and (
++            request.cohort == "CANDIDATE"
++            or (request.cohort == "DENOMINATOR" and part.denominator > 0)
++            or (request.cohort == "NUMERATOR" and part.numerator > 0)
++            or (
++                request.cohort == "EXCLUDED"
++                and (
++                    bool(part.reasons)
++                    if request.metric_code == "eligible_runs"
++                    else part.denominator == 0
++                )
++            )
++        )
++    ]
++    selected.sort(
++        key=lambda part: (part.source.created_at, part.source.metric.run_id), reverse=True
++    )
++    page = selected[(request.page - 1) * request.page_size : request.page * request.page_size]
++    return GeoOverviewRunPage(
++        as_of=as_of,
++        filters=request,
++        total=len(selected),
++        page=request.page,
++        page_size=request.page_size,
++        items=[
++            GeoOverviewRunSample(
++                run_id=part.source.metric.run_id,
++                batch_id=part.source.metric.batch_id,
++                created_at=part.source.created_at,
++                status=part.source.metric.status,
++                analysis_revision_id=part.source.analysis_id,
++                review_id=part.source.review_id,
++                numerator=part.numerator,
++                denominator=part.denominator,
++                exclusion_reasons=list(part.reasons),
++            )
++            for part in page
++        ],
++    )
+--- /dev/null
++++ backend/app/services/geo_overview_queries.py
+@@ -0,0 +1,304 @@
++"""Overview 同快照批量输入；只读列和 current 结果，不加载凭据或历史最佳分析。"""
++
++from collections.abc import Mapping
++from dataclasses import dataclass
++from datetime import datetime
++from decimal import Decimal
++from typing import Any
++from uuid import UUID
++
++from sqlalchemy import Select, func, select
++from sqlalchemy.orm import Session, aliased
++
++from app.models.geo_analysis import (
++    GeoAnalysisRevision,
++    GeoClaimAssessment,
++    GeoEntityMention,
++    GeoRecommendation,
++    GeoRunReview,
++)
++from app.models.geo_analysis_worker import GeoCitationClassification
++from app.models.geo_answers import GeoAnswerCitation, GeoAnswerSnapshot
++from app.models.geo_files import FileRecord
++from app.models.geo_runs import GeoObservationBatch as Batch
++from app.models.geo_runs import GeoObservationRun as Run
++from app.schemas.base import ContractModel
++from app.schemas.geo_analysis import (
++    GeoAnalysisRevisionOut,
++    GeoAnalysisSelection,
++    GeoClaimAssessmentOut,
++    GeoEntityMentionOut,
++    GeoRecommendationOut,
++    GeoRunReviewOut,
++)
++from app.schemas.geo_answers import GeoAnswerCitationOut, GeoAnswerSnapshotOut
++from app.schemas.geo_insights import GeoOverviewFilters
++from app.schemas.geo_reviews import (
++    GeoAnalysisResult,
++    GeoCitationClassificationOut,
++    GeoReviewHistoryItem,
++    GeoRunAnalysisDetail,
++)
++from app.schemas.geo_runs import GeoRunInputSnapshot, GeoRunStatus
++from app.services.geo_metric_inputs import metric_run_from_snapshot
++from app.services.geo_metric_types import MetricRun
++from app.services.geo_read_projections import incomplete
++
++
++@dataclass(frozen=True)
++class OverviewInput:
++    metric: MetricRun
++    snapshot: GeoRunInputSnapshot
++    created_at: datetime
++    batch_created_at: datetime
++    analysis_id: UUID | None
++    review_id: UUID | None
++    cost_amount: Decimal | None
++    cost_currency: str | None
++    version_known: bool
++    evidence_complete: bool
++
++
++def candidate_query(filters: GeoOverviewFilters) -> Select[Any]:
++    successor = aliased(Run)
++    query = select(
++        Run.id,
++        Run.batch_id,
++        Run.repeat_index,
++        Run.status,
++        Run.input_snapshot,
++        Run.created_at,
++        Run.current_analysis_revision_id,
++        Run.cost_amount,
++        Run.cost_currency,
++    ).where(
++        Run.created_at >= filters.date_from,
++        Run.created_at < filters.date_to,
++        ~select(successor.id).where(successor.previous_attempt_id == Run.id).exists(),
++    )
++    snapshot = Run.input_snapshot
++    fields = (
++        (snapshot["prompt"]["query_topic_id"].as_string(), filters.query_topic_ids),
++        (snapshot["prompt"]["id"].as_string(), filters.prompt_variant_ids),
++        (snapshot["profile"]["surface"]["id"].as_string(), filters.engine_surface_ids),
++        (snapshot["profile"]["id"].as_string(), filters.collection_profile_ids),
++        (snapshot["profile"]["collection_mode"].as_string(), filters.collection_modes),
++        (snapshot["profile"]["language_code"].as_string(), filters.language_codes),
++        (snapshot["profile"]["region_code"].as_string(), filters.region_codes),
++        (snapshot["profile"]["login_state"].as_string(), filters.login_states),
++        (snapshot["prompt"]["intent_type"].as_string(), filters.intent_types),
++    )
++    for field, values in fields:
++        if values:
++            query = query.where(field.in_([str(value) for value in values]))
++    if filters.mention_mode is not None:
++        query = query.where(snapshot["prompt"]["mention_mode"].as_string() == filters.mention_mode)
++    return query.order_by(Run.created_at.desc(), Run.id)
++
++
++def selected_subjects(snapshot: GeoRunInputSnapshot, filters: GeoOverviewFilters) -> set[UUID]:
++    return {
++        subject.id
++        for subject in snapshot.subjects
++        if (not filters.subject_ids or subject.id in filters.subject_ids)
++        and (not filters.product_ids or subject.product_id in filters.product_ids)
++    }
++
++
++def load_inputs(db: Session, filters: GeoOverviewFilters) -> tuple[datetime, list[OverviewInput]]:
++    if db.autoflush or db.connection().get_isolation_level() not in {
++        "REPEATABLE READ",
++        "SERIALIZABLE",
++    }:
++        raise ValueError("Overview必须在禁止autoflush的一致快照读取")
++    as_of = db.scalar(select(func.now()))
++    assert as_of is not None
++    rows = db.execute(candidate_query(filters)).mappings().all()
++    snapshots = {
++        row["id"]: GeoRunInputSnapshot.model_validate(row["input_snapshot"]) for row in rows
++    }
++    # 对象和产品必须命中同一个冻结binding，不通过当前Catalog或答案推断关联。
++    rows = [row for row in rows if selected_subjects(snapshots[row["id"]], filters)]
++    ids = [row["id"] for row in rows]
++    answers = {
++        item.run_id: GeoAnswerSnapshotOut.model_validate(item)
++        for item in db.scalars(select(GeoAnswerSnapshot).where(GeoAnswerSnapshot.run_id.in_(ids)))
++    }
++    citations: dict[UUID, list[GeoAnswerCitationOut]] = {identity: [] for identity in ids}
++    answer_runs = {answer.id: identity for identity, answer in answers.items()}
++    for item in db.scalars(
++        select(GeoAnswerCitation).where(GeoAnswerCitation.answer_snapshot_id.in_(answer_runs))
++    ):
++        citations[answer_runs[item.answer_snapshot_id]].append(
++            GeoAnswerCitationOut.model_validate(item)
++        )
++    current_ids = [
++        row["current_analysis_revision_id"] for row in rows if row["current_analysis_revision_id"]
++    ]
++    analyses = {
++        item.id: GeoAnalysisResult(
++            analysis=GeoAnalysisRevisionOut.model_validate(item),
++            mentions=[],
++            recommendations=[],
++            claims=[],
++            citations=[],
++            citation_classification_complete=False,
++        )
++        for item in db.scalars(
++            select(GeoAnalysisRevision).where(GeoAnalysisRevision.id.in_(current_ids))
++        )
++    }
++    _load_results(db, analyses)
++    reviews = {
++        item.analysis_revision_id: GeoRunReviewOut.model_validate(item)
++        for item in db.scalars(
++            select(GeoRunReview)
++            .where(GeoRunReview.analysis_revision_id.in_(current_ids))
++            .distinct(GeoRunReview.analysis_revision_id)
++            .order_by(
++                GeoRunReview.analysis_revision_id,
++                GeoRunReview.created_at.desc(),
++                GeoRunReview.id.desc(),
++            )
++        )
++    }
++    file_ids = {
++        identity
++        for answer in answers.values()
++        for identity in (answer.screenshot_file_id, answer.raw_payload_file_id)
++        if identity is not None
++    }
++    files = dict(
++        db.execute(select(FileRecord.id, FileRecord.status).where(FileRecord.id.in_(file_ids)))
++        .tuples()
++        .all()
++    )
++    batches = dict(
++        db.execute(
++            select(Batch.id, Batch.created_at).where(
++                Batch.id.in_({row["batch_id"] for row in rows})
++            )
++        )
++        .tuples()
++        .all()
++    )
++    values = [
++        _input(
++            row,
++            snapshots[row["id"]],
++            answers.get(row["id"]),
++            citations[row["id"]],
++            analyses,
++            reviews,
++            files,
++            batches,
++            filters,
++        )
++        for row in rows
++    ]
++    if filters.review_policy == "REVIEWED_ONLY":
++        values = [value for value in values if value.metric.current_review_valid]
++    return as_of, values
++
++
++def _load_results(db: Session, results: dict[UUID, GeoAnalysisResult]) -> None:
++    models: tuple[tuple[Any, type[ContractModel], str], ...] = (
++        (GeoEntityMention, GeoEntityMentionOut, "mentions"),
++        (GeoRecommendation, GeoRecommendationOut, "recommendations"),
++        (GeoClaimAssessment, GeoClaimAssessmentOut, "claims"),
++        (GeoCitationClassification, GeoCitationClassificationOut, "citations"),
++    )
++    for model, schema, field in models:
++        for row in db.scalars(select(model).where(model.analysis_revision_id.in_(results))):
++            getattr(results[row.analysis_revision_id], field).append(schema.model_validate(row))
++
++
++def _input(
++    row: Mapping[Any, Any],
++    snapshot: GeoRunInputSnapshot,
++    answer: GeoAnswerSnapshotOut | None,
++    citations: list[GeoAnswerCitationOut],
++    analyses: dict[UUID, GeoAnalysisResult],
++    reviews: dict[UUID, GeoRunReviewOut],
++    files: dict[UUID, str],
++    batches: dict[UUID, datetime],
++    filters: GeoOverviewFilters,
++) -> OverviewInput:
++    current_id = row["current_analysis_revision_id"]
++    current = analyses.get(current_id)
++    if current_id is not None and (
++        current is None
++        or current.analysis.run_id != row["id"]
++        or current.analysis.status != "COMPLETED"
++        or answer is None
++        or current.analysis.answer_snapshot_id != answer.id
++    ):
++        raise incomplete()
++    if row["batch_id"] not in batches:
++        raise incomplete()
++    review = reviews.get(current_id)
++    if current:
++        current.citation_classification_complete = len(current.citations) == len(citations)
++    detail = GeoRunAnalysisDetail(
++        selection=GeoAnalysisSelection(
++            run_id=row["id"],
++            current_analysis_revision_id=current_id,
++            current_review_id=review.id if review else None,
++        ),
++        revisions=[current] if current else [],
++        reviews=[GeoReviewHistoryItem(review=review, is_current=True)] if review else [],
++        effective_results=None,
++        review_required=bool(current and current.analysis.review_required_reasons and not review),
++        review_gate_passed=bool(
++            current and (not current.analysis.review_required_reasons or review)
++        ),
++        available_actions=[],
++    )
++    evidence = answer is not None and bool(answer.answer_text.strip())
++    if answer:
++        evidence = (
++            evidence
++            and len(citations) == answer.citation_count
++            and all(
++                files.get(identity) == "VERIFIED"
++                for identity in (answer.screenshot_file_id, answer.raw_payload_file_id)
++                if identity is not None
++            )
++        )
++        if snapshot.profile.collection_mode != "API":
++            evidence = evidence and (
++                not snapshot.profile.settings.require_screenshot
++                or answer.screenshot_file_id is not None
++            )
++    integrity = evidence and (
++        answer is not None
++        and answer.raw_payload_summary.finish_reason not in {"LENGTH", "CONTENT_FILTER"}
++    )
++    metric = metric_run_from_snapshot(
++        run_id=row["id"],
++        batch_id=row["batch_id"],
++        repeat_index=row["repeat_index"],
++        status=GeoRunStatus(row["status"]),
++        snapshot=snapshot,
++        answer=answer,
++        citations=citations,
++        analysis_detail=detail,
++        window_key=f"{filters.date_from.isoformat()}/{filters.date_to.isoformat()}",
++        applicable_subject_ids=frozenset(subject.id for subject in snapshot.subjects),
++        # 当前无实质描述/可观察无引用的独立字段，不用mention、能力或搜索信号伪造。
++        described_subject_ids=frozenset(),
++        citation_absence_observable=False,
++        integrity_valid=integrity,
++    )
++    return OverviewInput(
++        metric=metric,
++        snapshot=snapshot,
++        created_at=row["created_at"],
++        batch_created_at=batches[row["batch_id"]],
++        analysis_id=current_id,
++        review_id=review.id if review else None,
++        cost_amount=row["cost_amount"],
++        cost_currency=row["cost_currency"],
++        version_known=bool(answer and answer.source_model and answer.source_version),
++        evidence_complete=evidence,
++    )
+--- /dev/null
++++ backend/tests/integration/test_geo_overview.py
+@@ -0,0 +1,354 @@
++"""真实PG/HTTP Overview：同筛选下钻、current review、RR与固定查询数。"""
++
++from uuid import uuid4
++
++import psycopg
++import pytest
++from sqlalchemy import event, select
++
++from app.models.geo_runs import GeoObservationRun
++from app.models.identity import User
++from tests.integration.geo_answers_support import new_run
++from tests.integration.geo_reviews_support import (
++    analysis_engine,
++    answer_database,
++    harness,
++    plan_database,
++    review_api,
++    run_database,
++)
++from tests.integration.geo_runs_support import batch, run, terminal
++from tests.integration.test_geo_reviews import empty_correction
++from tests.unit.test_geo_run_contract import validate
++
++pytestmark = pytest.mark.integration
++__all__ = [
++    "analysis_engine",
++    "answer_database",
++    "harness",
++    "plan_database",
++    "review_api",
++    "run_database",
++]
++PATH = "/api/v1/geo/overview"
++
++
++@pytest.fixture
++def overview_api(review_api, monkeypatch):
++    # 该夹具明确配置为不要求截图；缺必需截图的反例单独验证。
++    monkeypatch.setitem(
++        review_api.harness.database.runs.input["profile"]["settings"], "require_screenshot", False
++    )
++    return review_api
++
++
++def params(api, case=None, **patch):
++    value = {"date_from": "2020-01-01T00:00:00Z", "date_to": "2100-01-01T00:00:00Z"}
++    if case:
++        value["product_ids"] = next(
++            s["product_id"] for s in case.input["subjects"] if s["product_id"]
++        )
++    else:
++        value["subject_ids"] = str(api.harness.database.runs.plan.subjects[0])
++    return value | patch
++
++
++def overview(api, case=None, **patch):
++    response = api.engineer.get(PATH, params=params(api, case, **patch))
++    assert response.status_code == 200, response.text
++    assert response.headers["Cache-Control"] == "no-store"
++    return response.json()
++
++
++def samples(api, card, **patch):
++    drill = card["drilldown"]
++    query = {k: v for k, v in drill["filters"].items() if v is not None and v != []}
++    query.update(
++        {
++            k: drill[k]
++            for k in ("metric_code", "cell_key", "cohort", "batch_id")
++            if drill[k] is not None
++        }
++    )
++    response = api.engineer.get(PATH + "/runs", params=query | patch)
++    assert response.status_code == 200, response.text
++    return response.json()
++
++
++def test_empty_overview_auth_validation_and_closed_public_payload(overview_api):
++    api = overview_api
++    value = overview(api, subject_ids=str(uuid4()))
++    assert (
++        value["metric_cells"]
++        == value["key_products"]
++        == value["risks"]
++        == value["recent_batches"]
++        == []
++    )
++    assert value["data_quality"]["candidate_run_count"] == 0
++    assert all(c["value"] is None for c in value["cards"] + value["data_quality"]["cards"])
++    assert value["open_opportunities"]["open_count"] is None
++    from pathlib import Path
++
++    import yaml
++
++    from app.main import app
++
++    contract = yaml.safe_load((Path("/contracts") / "openapi.yaml").read_text())
++    for document in (contract, app.openapi()):
++        validate(document, "GeoOverview", value)
++    assert api.anonymous.get(PATH, params=params(api)).status_code == 401
++    for patch in (
++        {"date_from": "2100-01-01T00:00:00Z"},
++        {"collection_modes": "AUTO"},
++        {"language_codes": "bad_value"},
++        {"unknown": "private-canary"},
++    ):
++        response = api.engineer.get(PATH, params=params(api, **patch))
++        assert response.status_code == 422
++        assert "private-canary" not in response.text
++
++
++def test_current_review_and_all_cards_reproduce_from_same_filtered_samples(overview_api):
++    api = overview_api
++    case = api.create()
++    before = overview(api, case)
++    assert before["data_quality"]["eligible_run_count"] == 0
++    assert api.submit(case).status_code == 201
++    value = overview(api, case)
++    assert (
++        value["data_quality"]["candidate_run_count"]
++        == value["data_quality"]["eligible_run_count"]
++        == 1
++    )
++    assert len(value["key_products"]) == 1
++    cards = value["cards"] + value["data_quality"]["cards"] + value["key_products"][0]["cards"]
++    for card in cards:
++        detail = samples(api, card)
++        assert sum(row["numerator"] for row in detail["items"]) == card["numerator"]
++        assert sum(row["denominator"] for row in detail["items"]) == card["denominator"]
++        assert all(row["run_id"] == str(case.run_id) for row in detail["items"])
++        assert card["drilldown"]["filters"] == value["filters"]
++    correction = empty_correction(
++        mentions=[
++            {
++                "subject_id": case.input["subjects"][1]["id"],
++                "mention_count": 0,
++                "first_character_offset": None,
++                "matched_aliases": [],
++            }
++        ]
++    )
++    assert (
++        api.submit(
++            case, decision="CORRECTED", correction_payload=correction, comment="修正虚构提及"
++        ).status_code
++        == 201
++    )
++    current = overview(api, case, review_policy="REVIEWED_ONLY")
++    card = next(
++        c for c in current["key_products"][0]["cards"] if c["metric_code"] == "answer_coverage"
++    )
++    assert (card["numerator"], card["denominator"]) == (0, 1)
++    page = samples(api, card)
++    assert (
++        page["items"][0]["review_id"]
++        == api.detail(case)["analysis"]["selection"]["current_review_id"]
++    )
++    assert samples(api, card, cohort="NUMERATOR")["total"] == 0
++    assert not any(
++        word in str(value)
++        for word in ("answer_text", "fact_excerpt", "lease_token", "comment", "raw_payload")
++    )
++
++
++def test_filters_are_shared_by_cells_products_risks_batches_quality(overview_api):
++    api = overview_api
++    case = api.create()
++    assert api.submit(case).status_code == 201
++    snapshot = api.harness.run(case.run_id).input_snapshot
++    patch = {
++        "subject_ids": snapshot["subjects"][1]["id"],
++        "query_topic_ids": snapshot["prompt"]["query_topic_id"],
++        "prompt_variant_ids": snapshot["prompt"]["id"],
++        "engine_surface_ids": snapshot["profile"]["surface"]["id"],
++        "collection_profile_ids": snapshot["profile"]["id"],
++        "collection_modes": snapshot["profile"]["collection_mode"],
++        "language_codes": snapshot["profile"]["language_code"],
++        "region_codes": snapshot["profile"]["region_code"],
++        "login_states": snapshot["profile"]["login_state"],
++        "intent_types": snapshot["prompt"]["intent_type"],
++        "mention_mode": snapshot["prompt"]["mention_mode"],
++        "review_policy": "REVIEWED_ONLY",
++    }
++    value = overview(api, case, **patch)
++    assert value["data_quality"]["candidate_run_count"] == 1
++    assert value["recent_batches"][0]["candidate_run_count"] == 1
++    for field, incompatible in (
++        ("subject_ids", str(uuid4())),
++        ("product_ids", str(uuid4())),
++        ("query_topic_ids", str(uuid4())),
++        ("prompt_variant_ids", str(uuid4())),
++        ("engine_surface_ids", str(uuid4())),
++        ("collection_profile_ids", str(uuid4())),
++        ("collection_modes", "BROWSER"),
++        ("language_codes", "fr"),
++        ("region_codes", "FR"),
++        ("login_states", "AUTHENTICATED"),
++        ("intent_types", "BRAND"),
++        ("mention_mode", "BRANDED"),
++    ):
++        empty = overview(api, case, **(patch | {field: incompatible}))
++        assert empty["data_quality"]["candidate_run_count"] == 0, field
++        assert empty["key_products"] == empty["risks"] == empty["recent_batches"] == []
++    with api.harness.factory() as db:
++        created = db.scalar(
++            select(GeoObservationRun.created_at).where(GeoObservationRun.id == case.run_id)
++        )
++    assert (
++        overview(api, case, date_to=created.isoformat())["data_quality"]["candidate_run_count"] == 0
++    )
++    assert (
++        overview(api, case, date_from=created.isoformat())["data_quality"]["candidate_run_count"]
++        == 1
++    )
++
++
++def test_repeatable_read_cannot_mix_new_review_between_queries(overview_api):
++    api = overview_api
++    case = api.create()
++    inserted = False
++
++    def after_run(conn, cursor, statement, parameters, context, many):
++        nonlocal inserted
++        if inserted or "FROM geo_observation_runs" not in statement:
++            return
++        inserted = True
++        assert api.submit(case).status_code == 201
++
++    engine = api.harness.factory.kw["bind"]
++    event.listen(engine, "after_cursor_execute", after_run)
++    try:
++        value = overview(api, case)
++    finally:
++        event.remove(engine, "after_cursor_execute", after_run)
++    assert inserted and value["data_quality"]["eligible_run_count"] == 0
++    assert overview(api, case)["data_quality"]["eligible_run_count"] == 1
++
++
++def test_query_count_is_fixed_with_empty_dense_and_review_history(overview_api):
++    api = overview_api
++
++    def capture(**patch):
++        sqls, levels = [], []
++
++        def before(conn, cursor, statement, parameters, context, many):
++            sqls.append(statement)
++            levels.append(conn.get_isolation_level())
++
++        engine = api.harness.factory.kw["bind"]
++        event.listen(engine, "before_cursor_execute", before)
++        try:
++            value = overview(api, **patch)
++        finally:
++            event.remove(engine, "before_cursor_execute", before)
++        assert all(sql.lstrip().startswith("SELECT") for sql in sqls)
++        assert all(level == "REPEATABLE READ" for level in levels)
++        assert not any(
++            word in sql
++            for sql in sqls
++            for word in ("lease_token", "ai_channel_headers", "api_key_encrypted")
++        )
++        return value, len(sqls)
++
++    _, empty = capture(subject_ids=str(uuid4()))
++    case = api.create()
++    for _ in range(3):
++        assert api.submit(case).status_code == 201
++    for _ in range(4):
++        api.create(review_required=False, products=0)
++    value, dense = capture()
++    assert value["data_quality"]["candidate_run_count"] >= 5
++    assert empty == dense == 13
++
++
++def test_new_current_analysis_does_not_reuse_old_review_and_analysis_count_is_run_level(
++    overview_api,
++):
++    api = overview_api
++    case = api.create()
++    assert api.submit(case).status_code == 201
++    api.reanalyze(case)
++    value = overview(api, case)
++    analysis = next(
++        c for c in value["data_quality"]["cards"] if c["metric_code"] == "analysis_run_coverage"
++    )
++    assert (analysis["numerator"], analysis["denominator"]) == (1, 1)
++    assert value["data_quality"]["eligible_run_count"] == 0
++    assert (
++        overview(api, case, review_policy="REVIEWED_ONLY")["data_quality"]["candidate_run_count"]
++        == 0
++    )
++    assert api.submit(case).status_code == 201
++    assert overview(api, case)["data_quality"]["eligible_run_count"] == 1
++
++
++def test_required_screenshot_and_password_gate_are_not_relaxed(review_api):
++    api = review_api
++    case = api.create()
++    assert api.submit(case).status_code == 201
++    value = overview(api, case)
++    assert value["data_quality"]["candidate_run_count"] == 1
++    assert value["data_quality"]["eligible_run_count"] == 0
++    assert any(
++        reason["code"] == "INTEGRITY_ERROR"
++        for reason in value["data_quality"]["exclusion_reason_counts"]
++    )
++    assert api.admin.get(PATH, params=params(api, case)).status_code == 200
++    with api.harness.factory.begin() as db:
++        db.get(User, api.engineer_id).must_change_password = True
++    for endpoint in (PATH, PATH + "/runs"):
++        response = api.engineer.get(
++            endpoint,
++            params=params(api, case, metric_code="eligible_runs")
++            if endpoint.endswith("/runs")
++            else params(api, case),
++        )
++        assert response.status_code == 403
++        assert response.json()["error"]["code"] == "PASSWORD_CHANGE_REQUIRED"
++
++
++def test_latest_attempt_and_cross_page_composition_use_filtered_candidates(overview_api):
++    api = overview_api
++    db = api.harness.database.runs
++    with psycopg.connect(db.url) as conn:
++        start = conn.execute("SELECT now()").fetchone()[0]
++        identity = batch(conn, db)
++        conn.execute(
++            "INSERT INTO geo_batch_subjects(batch_id,subject_id,role) VALUES (%s,%s,'PRIMARY')",
++            (identity, db.plan.subjects[0]),
++        )
++        parent = run(conn, db, identity)
++        terminal(conn, parent, "FAILED")
++        conn.commit()
++        successor = run(conn, db, identity, attempt_no=2, previous_attempt_id=parent)
++        other = [new_run(conn, api.harness.database) for _ in range(11)]
++    value = overview(api, date_from=start.isoformat())
++    card = next(c for c in value["cards"] if c["metric_code"] == "eligible_runs")
++    first = samples(api, card, cohort="CANDIDATE", page_size=10)
++    second = samples(api, card, cohort="CANDIDATE", page_size=10, page=2)
++    rows = first["items"] + second["items"]
++    expected = {str(successor), *(str(item) for item in other)}
++    assert first["total"] == second["total"] == len(expected)
++    assert {item["run_id"] for item in rows} == expected
++    assert len(rows) == len(expected) and str(parent) not in str(rows)
++    excluded = samples(api, card, cohort="EXCLUDED", page_size=20)
++    assert excluded["total"] == value["data_quality"]["excluded_run_count"] == len(expected)
++    assert all(item["exclusion_reasons"] for item in excluded["items"])
++    # 后继全局存在时，原attempt即使落在窗口内也不能重新变成一个样本。
++    with api.harness.factory() as session:
++        created = session.scalar(
++            select(GeoObservationRun.created_at).where(GeoObservationRun.id == successor)
++        )
++    empty = overview(api, date_from=start.isoformat(), date_to=created.isoformat())
++    assert empty["data_quality"]["candidate_run_count"] == 0
+--- /dev/null
++++ backend/tests/unit/test_geo_overview.py
+@@ -0,0 +1,164 @@
++"""Overview 的事件贡献、质量口径及完整cell分栏金标。"""
++
++from dataclasses import replace
++from datetime import UTC, datetime, timedelta
++from uuid import uuid4
++
++import pytest
++from pydantic import ValidationError
++
++from app.schemas.geo_insights import GeoOverviewFilters
++from app.services.geo_metric_inputs import metric_run_from_snapshot
++from app.services.geo_metric_types import MetricCitation, MetricClaim
++from app.services.geo_overview import _cells, _quality, _quality_card
++from app.services.geo_overview_queries import OverviewInput
++from tests.unit.test_geo_metric_inputs import case
++
++
++def source():
++    values = case()
++    values["integrity_valid"] = True
++    values["analysis_detail"].revisions[0].analysis.review_required_reasons = []
++    values["analysis_detail"].selection.current_review_id = None
++    metric = metric_run_from_snapshot(**values)
++    now = datetime.now(UTC)
++    return OverviewInput(
++        metric, values["snapshot"], now, now, uuid4(), None, None, None, False, True
++    )
++
++
++def filters(**patch):
++    return GeoOverviewFilters(
++        date_from=datetime(2026, 1, 1, tzinfo=UTC),
++        date_to=datetime(2027, 1, 1, tzinfo=UTC),
++        **patch,
++    )
++
++
++def test_quality_terminal_denominator_and_current_run_coverage():
++    first = source()
++    values = [first] + [
++        replace(
++            first,
++            metric=replace(
++                first.metric,
++                run_id=uuid4(),
++                status=status,
++                answer_present=collected,
++                current_analysis_available=analysed,
++            ),
++        )
++        for status, collected, analysed in (
++            ("FAILED", True, False),
++            ("PENDING", False, False),
++            ("PENDING", False, False),
++            ("BUDGET_BLOCKED", False, False),
++        )
++    ]
++    parts = _quality(values, filters())
++    success = _quality_card("run_success_rate", parts["run_success_rate"], filters())
++    analysis = _quality_card("analysis_run_coverage", parts["analysis_run_coverage"], filters())
++    assert (success.numerator, success.denominator, success.value) == (1, 2, 0.5)
++    assert (analysis.numerator, analysis.denominator, analysis.value) == (1, 2, 0.5)
++    assert _quality_card("cost_coverage", parts["cost_coverage"], filters()).value == 0
++
++
++def test_claim_event_denominator_is_reproducible_from_run_contributions():
++    value = source()
++    subject = value.snapshot.subjects[0].id
++    value = replace(
++        value,
++        metric=replace(
++            value.metric,
++            claims=(
++                MetricClaim(subject, "ACCURATE", "LOW"),
++                MetricClaim(subject, "INCORRECT", "HIGH"),
++                MetricClaim(subject, "UNJUDGEABLE", "LOW"),
++            ),
++        ),
++    )
++    cells, parts = _cells([value], filters())
++    card = next(c for c in cells[0].cards if c.metric_code == "accurate_claim_rate")
++    assert (card.numerator, card.denominator, card.value, card.sample_level) == (
++        1,
++        2,
++        0.5,
++        "OBSERVED",
++    )
++    assert card.unjudgeable_claim_count == 1
++    pieces = parts[cells[0].cell_key, "accurate_claim_rate"]
++    assert sum(p.numerator for p in pieces) == card.numerator
++    assert sum(p.denominator for p in pieces) == card.denominator
++
++
++@pytest.mark.parametrize(
++    "change", ["collection_mode", "mention_mode", "model_version", "profile_revision"]
++)
++def test_incompatible_dimensions_remain_separate_cells(change):
++    first = source()
++    dimensions = replace(
++        first.metric.dimensions,
++        **{
++            change: {
++                "collection_mode": "MANUAL",
++                "mention_mode": "BRANDED",
++                "model_version": "v2",
++                "profile_revision": first.metric.dimensions.profile_revision + 1,
++            }[change]
++        },
++    )
++    second = replace(
++        first, metric=replace(first.metric, run_id=uuid4(), batch_id=uuid4(), dimensions=dimensions)
++    )
++    cells, _ = _cells([first, second], filters())
++    assert len(cells) == 2
++    assert all(c.denominator <= 1 for cell in cells for c in cell.cards)
++    assert len({cell.cell_key for cell in cells}) == 2
++
++
++def test_no_citation_observation_or_failed_run_is_not_zero_business_result():
++    first = source()
++    failed = replace(
++        first, metric=replace(first.metric, run_id=uuid4(), batch_id=uuid4(), status="FAILED")
++    )
++    cells, _ = _cells([first, failed], filters())
++    coverage = next(c for c in cells[0].cards if c.metric_code == "answer_coverage")
++    citation = next(c for c in cells[0].cards if c.metric_code == "owned_source_coverage")
++    assert (coverage.numerator, coverage.denominator, coverage.excluded_run_count) == (1, 1, 1)
++    assert citation.value is None and citation.denominator == 0
++    assert citation.unavailable_reason == "NO_DENOMINATOR"
++    with_citation = replace(
++        first,
++        metric=replace(
++            first.metric,
++            citations=(MetricCitation("https://example.test/a", "example.test", True),),
++            citation_classification_complete=True,
++        ),
++    )
++    assert (
++        next(
++            c
++            for c in _cells([with_citation], filters())[0][0].cards
++            if c.metric_code == "owned_source_coverage"
++        ).value
++        == 1
++    )
++
++
++def test_filters_normalize_sets_and_reject_invalid_window_and_unknowns():
++    identity = uuid4()
++    assert filters(subject_ids=[identity, identity]).subject_ids == [identity]
++    with pytest.raises(ValidationError):
++        GeoOverviewFilters(
++            date_from=datetime.now(UTC), date_to=datetime.now(UTC) - timedelta(days=1)
++        )
++    for patch in ({"collection_modes": ["AUTO"]}, {"unknown": True}, {"review_policy": "BEST"}):
++        with pytest.raises(ValidationError):
++            filters(**patch)
++
++
++def test_empty_quality_ratios_stay_null():
++    for code, parts in _quality([], filters()).items():
++        card = _quality_card(code, parts, filters())
++        assert card.value is None and card.numerator == card.denominator == 0
++        assert card.sample_level == "NONE"

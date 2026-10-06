@@ -1,0 +1,14 @@
+{
+  "observed_write_paths": [
+    "Makefile",
+    "backend/tests/geo_e2e_environment.py",
+    "backend/tests/geo_e2e_fixture.py",
+    "backend/tests/geo_e2e_provider.py",
+    "backend/tests/geo_e2e_runtime.py",
+    "backend/tests/unit/test_geo_e2e_runtime.py",
+    "deploy/scripts/e2e-environment.py",
+    "deploy/scripts/e2e-geo.sh",
+    "deploy/scripts/e2e-local.sh"
+  ],
+  "source": "完整 custom_tool_call 输入中的 apply_patch 与 ruff format，均在授予路径内；无 backend/app、根合同或Git写入。"
+}

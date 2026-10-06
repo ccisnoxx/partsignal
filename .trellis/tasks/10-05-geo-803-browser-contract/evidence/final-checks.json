@@ -1,0 +1,71 @@
+{
+  "git_diff_check": {
+    "command": "git diff --check",
+    "exit_code": 0,
+    "log": "diff-check.log"
+  },
+  "untracked_maintained_whitespace_checks": [
+    {
+      "path": "browser-collector/tests/contracts/local-adapter.test.mjs",
+      "exit_code": 1,
+      "diagnostic": ""
+    },
+    {
+      "path": "browser-collector/tests/support/adapter-contract.mjs",
+      "exit_code": 1,
+      "diagnostic": ""
+    },
+    {
+      "path": "browser-collector/tests/support/reference-adapter.mjs",
+      "exit_code": 1,
+      "diagnostic": ""
+    },
+    {
+      "path": "deploy/scripts/test-geo-browser-contract.py",
+      "exit_code": 1,
+      "diagnostic": ""
+    },
+    {
+      "path": "tests/browser-fixture/README.md",
+      "exit_code": 1,
+      "diagnostic": ""
+    },
+    {
+      "path": "tests/browser-fixture/fixture.js",
+      "exit_code": 1,
+      "diagnostic": ""
+    },
+    {
+      "path": "tests/browser-fixture/index.html",
+      "exit_code": 1,
+      "diagnostic": ""
+    },
+    {
+      "path": "tests/browser-fixture/server.mjs",
+      "exit_code": 1,
+      "diagnostic": ""
+    },
+    {
+      "path": ".trellis/tasks/10-05-geo-803-browser-contract/prd.md",
+      "exit_code": 1,
+      "diagnostic": ""
+    },
+    {
+      "path": ".trellis/tasks/10-05-geo-803-browser-contract/task.json",
+      "exit_code": 1,
+      "diagnostic": ""
+    },
+    {
+      "path": ".trellis/tasks/10-05-geo-803-browser-contract/implement.md",
+      "exit_code": 1,
+      "diagnostic": ""
+    }
+  ],
+  "scope_audit": "task-change-audit.json",
+  "document_checksums": "document-checksums.json",
+  "owner_containers_remaining": 0,
+  "temporary_output_directories_remaining": 0,
+  "delegation": "未委派；本任务测试基础设施未实质改变公开业务/持久化/权限合同",
+  "ci_static_check": "ci-static-check.json",
+  "manifest_and_task_status": "review"
+}

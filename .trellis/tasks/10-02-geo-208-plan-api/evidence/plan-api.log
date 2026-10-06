@@ -1,0 +1,273 @@
+..FF..                                                                   [100%]
+=================================== FAILURES ===================================
+_____________ test_stale_illegal_transition_and_delete_protection ______________
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55448/partsignal_geo208_3824d85d...935c0203d6c6'), surface=UUID('a3de08ab-20f1-4d24-872c-028ee928b3cf'), name='虚构计划-951016f4-4dc5-4e1a-a6d9-8b143ff9e4f2')
+
+    def test_stale_illegal_transition_and_delete_protection(plans_api: PlansAPI) -> None:
+        api = plans_api
+        original = api.create()
+        illegal = api.action(original, "resume")
+        assert (
+            illegal.status_code == 409 and illegal.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
+        )
+        row = api.action(original, "activate").json()
+        for response in [
+            api.action(original, "pause"),
+            api.action(original, "copy", name="过期副本"),
+            api.api.engineer.patch(f"{PREFIX}/{row['id']}", json=api.payload(expected_revision=0)),
+        ]:
+            assert (
+                response.status_code == 409 and response.json()["error"]["code"] == "REVISION_CONFLICT"
+            )
+        duplicate = api.action(row, "activate")
+        assert (
+            duplicate.status_code == 409
+            and duplicate.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
+        )
+        for state in (row, api.action(row, "pause").json()):
+            response = api.api.engineer.delete(
+                f"{PREFIX}/{state['id']}", params={"expected_revision": state["revision"]}
+            )
+>           assert response.status_code == 409 and response.json()["error"]["code"] == "GEO_PLAN_IN_USE"
+E           AssertionError: assert (409 == 409 and 'REVISION_CONFLICT' == 'GEO_PLAN_IN_USE'
+E            +  where 409 = <Response [409 Conflict]>.status_code
+E             
+E             - GEO_PLAN_IN_USE
+E             + REVISION_CONFLICT)
+
+backend/tests/integration/test_geo_plan_api.py:134: AssertionError
+________ test_preview_draft_saved_with_blockers_and_activation_rechecks ________
+
+self = <sqlalchemy.engine.base.Connection object at 0x110c08c80>
+dialect = <sqlalchemy.dialects.postgresql.psycopg.PGDialect_psycopg object at 0x110b0cef0>
+context = <sqlalchemy.dialects.postgresql.psycopg.PGExecutionContext_psycopg object at 0x110c17980>
+statement = <sqlalchemy.dialects.postgresql.psycopg.PGCompiler_psycopg object at 0x110c16e10>
+parameters = [{'id': UUID('536c8a21-39e4-436c-a01a-ab4ea0a1870d')}]
+
+    def _exec_single_context(
+        self,
+        dialect: Dialect,
+        context: ExecutionContext,
+        statement: Union[str, Compiled],
+        parameters: Optional[_AnyMultiExecuteParams],
+    ) -> CursorResult[Any]:
+        """continue the _execute_context() method for a single DBAPI
+        cursor.execute() or cursor.executemany() call.
+    
+        """
+        if dialect.bind_typing is BindTyping.SETINPUTSIZES:
+            generic_setinputsizes = context._prepare_set_input_sizes()
+    
+            if generic_setinputsizes:
+                try:
+                    dialect.do_set_input_sizes(
+                        context.cursor, generic_setinputsizes, context
+                    )
+                except BaseException as e:
+                    self._handle_dbapi_exception(
+                        e, str(statement), parameters, None, context
+                    )
+    
+        cursor, str_statement, parameters = (
+            context.cursor,
+            context.statement,
+            context.parameters,
+        )
+    
+        effective_parameters: Optional[_AnyExecuteParams]
+    
+        if not context.executemany:
+            effective_parameters = parameters[0]
+        else:
+            effective_parameters = parameters
+    
+        if self._has_events or self.engine._has_events:
+            for fn in self.dispatch.before_cursor_execute:
+                str_statement, effective_parameters = fn(
+                    self,
+                    cursor,
+                    str_statement,
+                    effective_parameters,
+                    context,
+                    context.executemany,
+                )
+    
+        if self._echo:
+            self._log_info(str_statement)
+    
+            stats = context._get_cache_stats()
+    
+            if not self.engine.hide_parameters:
+                self._log_info(
+                    "[%s] %r",
+                    stats,
+                    sql_util._repr_params(
+                        effective_parameters,
+                        batches=10,
+                        ismulti=context.executemany,
+                    ),
+                )
+            else:
+                self._log_info(
+                    "[%s] [SQL parameters hidden due to hide_parameters=True]",
+                    stats,
+                )
+    
+        evt_handled: bool = False
+        try:
+            if context.execute_style is ExecuteStyle.EXECUTEMANY:
+                effective_parameters = cast(
+                    "_CoreMultiExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_executemany:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_executemany(
+                        cursor,
+                        str_statement,
+                        effective_parameters,
+                        context,
+                    )
+            elif not effective_parameters and context.no_parameters:
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute_no_params:
+                        if fn(cursor, str_statement, context):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_execute_no_params(
+                        cursor, str_statement, context
+                    )
+            else:
+                effective_parameters = cast(
+                    "_CoreSingleExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+>                   self.dialect.do_execute(
+                        cursor, str_statement, effective_parameters, context
+                    )
+
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1969: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py:952: in do_execute
+    cursor.execute(statement, parameters)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <psycopg.Cursor [closed] [IDLE] (host=127.0.0.1 port=55448 user=partsignal database=partsignal_geo208_3824d85d69) at 0x1114f0410>
+query = 'UPDATE geo_collection_profiles SET is_active=false WHERE id=%(id)s'
+params = {'id': UUID('536c8a21-39e4-436c-a01a-ab4ea0a1870d')}
+
+    def execute(
+        self,
+        query: Query,
+        params: Params | None = None,
+        *,
+        prepare: bool | None = None,
+        binary: bool | None = None,
+    ) -> Self:
+        """
+        Execute a query or command to the database.
+        """
+        try:
+            with self._conn.lock:
+                self._conn.wait(
+                    self._execute_gen(query, params, prepare=prepare, binary=binary)
+                )
+        except e._NO_TRACEBACK as ex:
+>           raise ex.with_traceback(None)
+E           psycopg.errors.CheckViolation: 有效配置变更revision必须恰好递增一次
+E           CONTEXT:  PL/pgSQL function geo_guard_surface_configuration() line 49 at RAISE
+
+backend/.venv/lib/python3.12/site-packages/psycopg/cursor.py:117: CheckViolation
+
+The above exception was the direct cause of the following exception:
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55448/partsignal_geo208_3824d85d...ab4ea0a1870d'), surface=UUID('1fde45bd-85d1-4530-a12a-183e191e7fe3'), name='虚构计划-e4b5c119-6920-49b6-b9c7-64aff35fa4a2')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x110c211f0>
+
+    def test_preview_draft_saved_with_blockers_and_activation_rechecks(
+        plans_api: PlansAPI, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        api = plans_api
+        with api.api.factory() as db:
+>           db.execute(
+                text("UPDATE geo_collection_profiles SET is_active=false WHERE id=:id"),
+                {"id": api.profile},
+            )
+
+backend/tests/integration/test_geo_plan_api.py:142: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py:2373: in execute
+    return self._execute_internal(
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py:2280: in _execute_internal
+    result = conn.execute(
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1421: in execute
+    return meth(
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/sql/elements.py:526: in _execute_on_connection
+    return connection._execute_clauseelement(
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1643: in _execute_clauseelement
+    ret = self._execute_context(
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1848: in _execute_context
+    return self._exec_single_context(
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1988: in _exec_single_context
+    self._handle_dbapi_exception(
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:2365: in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1969: in _exec_single_context
+    self.dialect.do_execute(
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py:952: in do_execute
+    cursor.execute(statement, parameters)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <psycopg.Cursor [closed] [IDLE] (host=127.0.0.1 port=55448 user=partsignal database=partsignal_geo208_3824d85d69) at 0x1114f0410>
+query = 'UPDATE geo_collection_profiles SET is_active=false WHERE id=%(id)s'
+params = {'id': UUID('536c8a21-39e4-436c-a01a-ab4ea0a1870d')}
+
+    def execute(
+        self,
+        query: Query,
+        params: Params | None = None,
+        *,
+        prepare: bool | None = None,
+        binary: bool | None = None,
+    ) -> Self:
+        """
+        Execute a query or command to the database.
+        """
+        try:
+            with self._conn.lock:
+                self._conn.wait(
+                    self._execute_gen(query, params, prepare=prepare, binary=binary)
+                )
+        except e._NO_TRACEBACK as ex:
+>           raise ex.with_traceback(None)
+E           sqlalchemy.exc.IntegrityError: (psycopg.errors.CheckViolation) 有效配置变更revision必须恰好递增一次
+E           CONTEXT:  PL/pgSQL function geo_guard_surface_configuration() line 49 at RAISE
+E           [SQL: UPDATE geo_collection_profiles SET is_active=false WHERE id=%(id)s]
+E           [parameters: {'id': UUID('536c8a21-39e4-436c-a01a-ab4ea0a1870d')}]
+E           (Background on this error at: https://sqlalche.me/e/20/gkpj)
+
+backend/.venv/lib/python3.12/site-packages/psycopg/cursor.py:117: IntegrityError
+=========================== short test summary info ============================
+FAILED backend/tests/integration/test_geo_plan_api.py::test_stale_illegal_transition_and_delete_protection
+FAILED backend/tests/integration/test_geo_plan_api.py::test_preview_draft_saved_with_blockers_and_activation_rechecks
+2 failed, 4 passed in 2.85s

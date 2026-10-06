@@ -1,0 +1,4 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": "backend/tests/integration/test_geo_answers.py", "reason": "不可变及完整同事务提交反例"}
+{"file": "backend/tests/integration/test_geo_answer_files.py", "reason": "真实HEAD、文件归属与GC交错"}
+{"file": "backend/tests/integration/test_geo_answer_migration_precheck.py", "reason": "迁移旧写锁窗口与55000原子拒绝"}

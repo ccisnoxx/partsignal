@@ -1,0 +1,86 @@
+.F..................................FF.........                          [100%]
+=================================== FAILURES ===================================
+_________ test_public_components_match_pydantic[GeoObservationRunOut] __________
+
+contract = {'components': {'headers': {'RequestIdResponseHeader': {'required': True, 'schema': {'maxLength': 100, 'minLength': 1,.../components/responses/ErrorResponse'}, '403': {'$ref': '#/components/responses/ErrorResponse'}, ...}, ...}}, ...}, ...}
+model = <class 'app.schemas.geo_runs.GeoObservationRunOut'>
+
+    @pytest.mark.parametrize(
+        "model",
+        [
+            schemas.GeoObservationBatchOut,
+            schemas.GeoObservationRunOut,
+            schemas.GeoRunInputSnapshot,
+            schemas.GeoRunCommandErrorCode,
+        ],
+    )
+    def test_public_components_match_pydantic(contract: dict[str, Any], model: type) -> None:
+        component = TypeAdapter(model).json_schema(ref_template="#/components/schemas/{model}")
+        definitions = component.pop("$defs", {})
+>       assert contract["components"]["schemas"][model.__name__] == component
+E       AssertionError: assert {'additionalP...d', ...], ...} == {'additionalP...x', ...], ...}
+E         
+E         Omitting 5 identical items, use -vv to show
+E         Differing items:
+E         {'required': ['provider_status', 'retry_after_seconds', 'id', 'batch_id', 'prompt_variant_id', 'collection_profile_id', ...]} != {'required': ['id', 'batch_id', 'prompt_variant_id', 'collection_profile_id', 'run_cell_key', 'repeat_index', ...]}
+E         Use -v to get more diff
+
+backend/tests/unit/test_geo_run_contract.py:121: AssertionError
+_____________ test_read_components_match_authority[GeoRunListPage] _____________
+
+contract = {'components': {'headers': {'RequestIdResponseHeader': {'required': True, 'schema': {'maxLength': 100, 'minLength': 1,.../components/responses/ErrorResponse'}, '403': {'$ref': '#/components/responses/ErrorResponse'}, ...}, ...}}, ...}, ...}
+model = <class 'app.schemas.geo_read_models.GeoRunListPage'>
+
+    @pytest.mark.parametrize(
+        "model",
+        [read.GeoBatchListPage, read.GeoBatchDetail, read.GeoRunListPage, read.GeoRunDetail],
+    )
+    def test_read_components_match_authority(contract, model):
+        schema = TypeAdapter(model).json_schema(
+            ref_template="#/components/schemas/{model}", mode="serialization"
+        )
+        definitions = schema.pop("$defs", {})
+        assert contract["components"]["schemas"][model.__name__] == schema
+        for name, value in definitions.items():
+>           assert annotations_removed(contract["components"]["schemas"][name]) == annotations_removed(
+                value
+            )
+E           AssertionError: assert {'additionalP...pe': 'object'} == {'additionalP...pe': 'object'}
+E             
+E             Omitting 3 identical items, use -vv to show
+E             Differing items:
+E             {'required': ['provider_status', 'retry_after_seconds', 'workflow_stage', 'primary_task', 'available_actions', 'id', ...]} != {'required': ['workflow_stage', 'primary_task', 'available_actions', 'id', 'batch_id', 'prompt_variant_id', ...]}
+E             Use -v to get more diff
+
+backend/tests/unit/test_geo_read_contract.py:25: AssertionError
+______________ test_read_components_match_authority[GeoRunDetail] ______________
+
+contract = {'components': {'headers': {'RequestIdResponseHeader': {'required': True, 'schema': {'maxLength': 100, 'minLength': 1,.../components/responses/ErrorResponse'}, '403': {'$ref': '#/components/responses/ErrorResponse'}, ...}, ...}}, ...}, ...}
+model = <class 'app.schemas.geo_read_models.GeoRunDetail'>
+
+    @pytest.mark.parametrize(
+        "model",
+        [read.GeoBatchListPage, read.GeoBatchDetail, read.GeoRunListPage, read.GeoRunDetail],
+    )
+    def test_read_components_match_authority(contract, model):
+        schema = TypeAdapter(model).json_schema(
+            ref_template="#/components/schemas/{model}", mode="serialization"
+        )
+        definitions = schema.pop("$defs", {})
+        assert contract["components"]["schemas"][model.__name__] == schema
+        for name, value in definitions.items():
+>           assert annotations_removed(contract["components"]["schemas"][name]) == annotations_removed(
+                value
+            )
+E           AssertionError: assert {'additionalP...pe': 'object'} == {'additionalP...pe': 'object'}
+E             
+E             Omitting 3 identical items, use -vv to show
+E             Differing items:
+E             {'required': ['provider_status', 'retry_after_seconds', 'workflow_stage', 'primary_task', 'available_actions', 'id', ...]} != {'required': ['workflow_stage', 'primary_task', 'available_actions', 'id', 'batch_id', 'prompt_variant_id', ...]}
+E             Use -v to get more diff
+
+backend/tests/unit/test_geo_read_contract.py:25: AssertionError
+=========================== short test summary info ============================
+FAILED backend/tests/unit/test_geo_run_contract.py::test_public_components_match_pydantic[GeoObservationRunOut]
+FAILED backend/tests/unit/test_geo_read_contract.py::test_read_components_match_authority[GeoRunListPage]
+FAILED backend/tests/unit/test_geo_read_contract.py::test_read_components_match_authority[GeoRunDetail]

@@ -1,0 +1,13 @@
+### 子任务执行概览
+
+| `agent_type` | 模型（Agent TOML） | 推理档位 | 执行尝试 | 验收通过 | 独立复核 |
+|---|---|---|---:|---:|---:|
+| `critical_reviewer` | `gpt-6.1-sol` | `xhigh` | 2 | 2 | 2 |
+| `implementer` | `gpt-6.1-sol` | `xhigh` | 1 | 1 | 0 |
+
+计划校验：3/3 通过；执行尝试：3/3 验收通过；独立复核：2；fresh 派发：3；Worker 复用：0；隔离上下文派发：3；父代理 follow-up：0；Worker 中途消息：5；等待调用/超时：0/0；状态轮询：0；未执行 ready task：0；残留活跃 Worker：0；写入观测：1 有写入、2 无写入、0 未知。
+
+**异常：** 无。
+
+模型和推理档位来自 Agent TOML 的固定配置快照，属于配置证据，不表示运行时接口已单独回报并验证这些值。
+验收通过仅按执行记录中的 `task_outcome=accepted` 统计；`final_status` 只表示 Worker 运行时状态。

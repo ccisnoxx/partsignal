@@ -1,0 +1,4 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": "backend/tests/integration/test_geo_read_consistency.py", "reason": "RR并发交错与固定查询数验收"}
+{"file": "backend/tests/integration/test_geo_read_models.py", "reason": "详情证据、筛选分页、latest attempts与权限"}
+{"file": "backend/tests/unit/test_geo_read_contract.py", "reason": "根合同与nullable占位一致性"}

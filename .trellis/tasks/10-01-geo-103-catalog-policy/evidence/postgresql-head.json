@@ -1,0 +1,9 @@
+{
+  "revision": "0044_geo_catalog",
+  "server_version": "16.15",
+  "catalog_tables": [
+    "geo_subject_aliases",
+    "geo_subject_domains",
+    "geo_subjects"
+  ]
+}

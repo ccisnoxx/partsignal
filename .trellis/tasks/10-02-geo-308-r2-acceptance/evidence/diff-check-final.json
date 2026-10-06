@@ -1,0 +1,11 @@
+{
+  "command": [
+    "git",
+    "diff",
+    "--check"
+  ],
+  "exit_code": 0,
+  "started_at": "2026-10-03T07:09:55.674965+00:00",
+  "seconds": 0.03,
+  "log": "diff-check-final.log"
+}

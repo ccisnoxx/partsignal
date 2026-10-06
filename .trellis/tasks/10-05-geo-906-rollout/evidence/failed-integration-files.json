@@ -1,0 +1,9 @@
+[
+  "tests/integration/test_geo_answer_files.py",
+  "tests/integration/test_geo_manual_collection.py",
+  "tests/integration/test_geo_manual_collection_boundaries.py",
+  "tests/integration/test_geo_manual_races.py",
+  "tests/integration/test_geo_r2_immutability.py",
+  "tests/integration/test_geo_read_consistency.py",
+  "tests/integration/test_geo_read_models.py"
+]

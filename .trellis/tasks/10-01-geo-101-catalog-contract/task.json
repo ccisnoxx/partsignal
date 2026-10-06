@@ -1,0 +1,48 @@
+{
+  "id": "geo-101-catalog-contract",
+  "name": "geo-101-catalog-contract",
+  "title": "GEO-101 定义 GEO Catalog 公共契约与数据库合同",
+  "description": "GEO-101 / R1：定义 GeoSubject、Alias、Domain 的公共 Schema、待接线操作及数据库合同；不实现运行时或迁移。",
+  "status": "completed",
+  "dev_type": "contract",
+  "scope": "geo-catalog",
+  "package": "contracts",
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-10-01",
+  "completedAt": "2026-10-01",
+  "branch": "geo/GEO-101",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "contracts/openapi.yaml",
+    "contracts/database.md",
+    "backend/tests/unit/test_geo_catalog_contract.py",
+    "frontend/src/shared/api/generated/schema.d.ts",
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml"
+  ],
+  "notes": "基线129；候选契约158，后端850/前端863单元测试通过；contract-check/lint/typecheck、最终diff/文档完整性通过。fresh critical_reviewer独立只读复核通过，审计digest校验通过。2026-10-01 本会话用户人工审查并接受 GEO-101 的实现与测试证据；manifest=done，Trellis=completed。本次只记录验收，不提交、归档或实施后续任务。",
+  "meta": {
+    "geo_task_id": "GEO-101",
+    "release": "R1",
+    "dependencies": {
+      "GEO-003": "done",
+      "GEO-002": "done"
+    },
+    "validation_record": ".trellis/tasks/10-01-geo-101-catalog-contract/implement.md",
+    "independent_review_audit_id": "20261001T230125Z-geo-101-catalog-contract-0d37d7b0",
+    "independent_review": "accepted_read_only_review",
+    "audit_verification": "passed",
+    "manifest_status": "done",
+    "accepted_at": "2026-10-01",
+    "accepted_by": "本会话用户",
+    "accepted_scope": "GEO-101 Catalog 公共契约、数据库合同及已记录的实现与测试证据；不包含后续运行时或迁移实现。",
+    "acceptance_basis": "用户明确表示：我已经人工审查并接受 GEO-101 的实现与测试证据。"
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "task": "GEO-402",
+  "branch": "geo/GEO-402",
+  "status": "review",
+  "initial_file_count": 6404,
+  "initial_files_changed": [
+    "Makefile",
+    "docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md",
+    "docs/geo-monitoring/03-technical/07-testing-and-quality.md",
+    "docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md",
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "docs/geo-monitoring/README.md",
+    "docs/geo-monitoring/SHA256SUMS"
+  ],
+  "unexpected_initial_changes": [],
+  "manifest_other_tasks_unchanged": true,
+  "dependencies": {
+    "GEO-401": "done",
+    "GEO-005": "done"
+  },
+  "future_tasks": {
+    "GEO-403": "planned",
+    "GEO-404": "planned",
+    "GEO-405": "planned",
+    "GEO-406": "planned",
+    "GEO-803": "planned"
+  },
+  "openapi_database_frontend_alembic_unchanged": true,
+  "alembic_source_head": "0051_geo_manual_collection",
+  "migration_executed": false,
+  "new_source_lines": {
+    "backend/app/geo_fake_server.py": 350,
+    "backend/tests/geo_collector_contract.py": 246,
+    "backend/tests/geo_reference_collector.py": 181,
+    "backend/tests/geo_network_guard.py": 37,
+    "backend/tests/unit/test_geo_fake_provider.py": 215,
+    "backend/tests/unit/test_geo_collector_suite.py": 251,
+    "deploy/scripts/test-geo-collector-contract.py": 69
+  },
+  "doc_sha256_entries_verified": 115,
+  "new_file_whitespace_checked": [
+    "backend/app/geo_fake_server.py",
+    "backend/tests/geo_collector_contract.py",
+    "backend/tests/geo_reference_collector.py",
+    "backend/tests/geo_network_guard.py",
+    "backend/tests/unit/test_geo_fake_provider.py",
+    "backend/tests/unit/test_geo_collector_suite.py",
+    "backend/tests/fixtures/geo_provider/README.md",
+    "deploy/scripts/test-geo-collector-contract.py"
+  ],
+  "git_diff_check_exit_code": 0,
+  "independent_review": false,
+  "delegation": false,
+  "committed": false,
+  "pushed": false
+}

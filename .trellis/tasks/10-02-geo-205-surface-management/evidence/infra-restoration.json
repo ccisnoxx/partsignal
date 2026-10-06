@@ -1,0 +1,21 @@
+{
+  "docker_context": {
+    "command": [
+      "docker",
+      "context",
+      "show"
+    ],
+    "exit_code": 0,
+    "stdout": "default",
+    "stderr": ""
+  },
+  "colima": {
+    "command": [
+      "colima",
+      "status"
+    ],
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "time=\"2026-10-02T10:42:57-07:00\" level=fatal msg=\"colima is not running\""
+  }
+}

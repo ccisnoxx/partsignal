@@ -1,0 +1,22 @@
+UV_CACHE_DIR=.cache/uv uv run --project backend ruff check backend
+I001 [*] Import block is un-sorted or un-formatted
+  --> backend/app/models/__init__.py:3:1
+   |
+ 1 |   """导入全部 ORM 模块以向共享 metadata 注册映射。"""
+ 2 |
+ 3 | / import app.models.ai_generation  # noqa: F401
+ 4 | | import app.models.configuration  # noqa: F401
+ 5 | | import app.models.content  # noqa: F401
+ 6 | | import app.models.geo_catalog  # noqa: F401
+ 7 | | import app.models.geo_prompt_variants  # noqa: F401
+ 8 | | import app.models.geo_files  # noqa: F401
+ 9 | | import app.models.identity  # noqa: F401
+10 | | import app.models.product_facts  # noqa: F401
+11 | | import app.models.publication  # noqa: F401
+   | |_____________________________^
+   |
+help: Organize imports
+
+Found 1 error.
+[*] 1 fixable with the `--fix` option.
+make: *** [lint] Error 1

@@ -1,0 +1,63 @@
+ Container partsignal-geo407-fake-oss-1 Running 
+ Container partsignal-geo407-postgres-1 Running 
+ Container partsignal-geo407-redis-1 Running 
+ Container partsignal-geo407-postgres-1 Waiting 
+ Container partsignal-geo407-postgres-1 Healthy 
+ Container partsignal-geo407-backend-test-run-8cbc6e8faf77 Creating 
+ Container partsignal-geo407-backend-test-run-8cbc6e8faf77 Created 
+.............F
+=================================== FAILURES ===================================
+___________ test_citations_usage_cost_commit_rollback_and_duplicate ____________
+
+worker_graph = WorkerGraph(api=PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_g...a505c86f'), channel=UUID('6ace5dd4-0c27-471f-9209-8700fc975800'), call_id=UUID('9f37330a-806c-4185-a9cd-4818b087adce'))
+local_provider = <app.geo_fake_server.GeoFakeServer object at 0xebabc2c6f260>
+clock = [datetime.datetime(2040, 1, 14, 0, 0, tzinfo=datetime.timezone.utc)]
+
+    def test_citations_usage_cost_commit_rollback_and_duplicate(worker_graph, local_provider, clock):
+        identity = worker_graph.create()
+        lease = geo_runs.claim_collection_run(identity)
+        local_provider.state.configure(
+            worker_graph.call_id,
+            FakeScenario(mode=FakeMode.CITATIONS, partial_usage=True, reported_cost=True),
+        )
+        result = lease.collector.collect(
+            lease.request, before_send=lambda: geo_runs.authorize_send(lease)
+        )
+    
+        def reject(_session):
+            raise RuntimeError("虚构提交故障")
+    
+        event.listen(Session, "before_commit", reject)
+        try:
+            with pytest.raises(RuntimeError):
+                geo_runs.submit_collection_result(lease, result)
+        finally:
+            event.remove(Session, "before_commit", reject)
+        run = row(worker_graph, identity)
+        assert run.external_call_state == "SENT" and run.cost_amount is None
+        assert row(worker_graph, identity, Reservation).state == "SENT"
+        with worker_graph.api.api.factory() as db:
+            assert (
+                db.scalar(select(GeoAnswerSnapshot).where(GeoAnswerSnapshot.run_id == identity)) is None
+            )
+        assert geo_runs.submit_collection_result(lease, result)
+        assert not geo_runs.submit_collection_result(lease, result)
+        detail = worker_graph.api.api.engineer.get(f"/api/v1/geo/observation-runs/{identity}").json()
+        assert detail["answer"]["citation_count"] == 1
+        assert detail["citations"][0]["occurrences"] == [1, 3]
+        assert detail["run"]["prompt_tokens"] == 7 and detail["run"]["total_tokens"] is None
+>       assert detail["run"]["cost_amount"] == "0.001200"
+E       AssertionError: assert '0.0012' == '0.001200'
+E         
+E         - 0.001200
+E         ?       --
+E         + 0.0012
+
+tests/integration/test_geo_collection_admission.py:313: AssertionError
+------------------------------ Captured log call -------------------------------
+WARNING  partsignal.worker:geo_dispatch.py:47 GEO 投递失败 run_id=fd731e5f-4bd4-430c-af9d-2b40695c73c9 error_type=ConnectionError
+=========================== short test summary info ============================
+FAILED tests/integration/test_geo_collection_admission.py::test_citations_usage_cost_commit_rollback_and_duplicate
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 13 passed in 2.72s
+

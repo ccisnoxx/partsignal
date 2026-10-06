@@ -1,0 +1,2 @@
+backend/app/schemas/geo_batch_creation.py:21: error: Incompatible types in assignment (expression has type "Literal['MANUAL_ONLY']", base class "GeoMonitoringPlanConfiguration" defined the type as "GeoPlanScheduleKind")  [assignment]
+Found 1 error in 1 file (checked 128 source files)

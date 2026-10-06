@@ -1,0 +1,47 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend python -m app.tools.contract_check contracts/openapi.yaml
+FastAPI 运行时操作与 OpenAPI 完整契约一致。
+npm --prefix frontend run api:check
+
+> partsignal-frontend-v2@0.1.0 api:check
+> node scripts/check-openapi.mjs
+
+✨ openapi-typescript 7.13.0
+🚀 ../contracts/openapi.yaml → /var/folders/m5/j06tv2sn1hn93d6f33j559jm0000gn/T/partsignal-v2-openapi-ERhtFE/schema.d.ts [317.3ms]
+OpenAPI 类型与根合同一致。
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend ruff check backend
+All checks passed!
+npm --prefix frontend run lint
+
+> partsignal-frontend-v2@0.1.0 lint
+> eslint . --max-warnings 0
+
+
+/Users/sc/PycharmProjects/partsignal/frontend/src/domains/geo-plans/plan-detail.tsx
+  36:3   error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+/Users/sc/PycharmProjects/partsignal/frontend/src/domains/geo-plans/plan-detail.tsx:36:3
+  34 |   const mounted = useRef(true); const inFlight = useRef(false);
+  35 |   const currentPlan = useRef(plan); const blockedRead = useRef(readBlocked);
+> 36 |   currentPlan.current = plan; blockedRead.current = readBlocked;
+     |   ^^^^^^^^^^^^^^^^^^^ Cannot update ref during render
+  37 |   const finalFocus = useRef<HTMLElement | null>(null);
+  38 |   const preview = useRef<HTMLElement | null>(null); const conditions = useRef<HTMLElement | null>(null);
+  39 |   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);                               react-hooks/refs
+  36:31  error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+/Users/sc/PycharmProjects/partsignal/frontend/src/domains/geo-plans/plan-detail.tsx:36:31
+  34 |   const mounted = useRef(true); const inFlight = useRef(false);
+  35 |   const currentPlan = useRef(plan); const blockedRead = useRef(readBlocked);
+> 36 |   currentPlan.current = plan; blockedRead.current = readBlocked;
+     |                               ^^^^^^^^^^^^^^^^^^^ Cannot update ref during render
+  37 |   const finalFocus = useRef<HTMLElement | null>(null);
+  38 |   const preview = useRef<HTMLElement | null>(null); const conditions = useRef<HTMLElement | null>(null);
+  39 |   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);  react-hooks/refs
+
+✖ 2 problems (2 errors, 0 warnings)
+
+make: *** [lint] Error 1

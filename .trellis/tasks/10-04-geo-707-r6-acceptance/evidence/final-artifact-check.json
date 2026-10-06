@@ -1,0 +1,6 @@
+{
+  "unredacted_download_signature_log_files": [],
+  "browser_secret_scan_results": "所有真实栈/GEO/fixture阶段已执行post-run scan且secret_scan=0，最后定向clean",
+  "audit_content_boundary": "PG及真实栈五段审计均断言无正文、处理原因及凭据；只保留最终安全审计截图",
+  "diagnostic_redaction": "artifact-redaction.json记录临时download签名遮蔽与原始/脱敏SHA，不保留未脱敏日志副本"
+}

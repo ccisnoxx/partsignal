@@ -1,0 +1,135 @@
+{
+  "bundle_type": "MULTI_AGENT_AUDIT_BUNDLE",
+  "bundle_version": 1,
+  "audit_id": "20261005T130659Z-geo-browser-scope-adjustment-dd53e77f",
+  "status": "closed",
+  "created_at": "2026-10-05T13:06:59Z",
+  "updated_at": "2026-10-05T13:18:49Z",
+  "closed_at": "2026-10-05T13:18:49Z",
+  "skill_release": "1.6.0",
+  "planner_version": "1.5.1",
+  "repository": {
+    "root": "/Users/sc/PycharmProjects/partsignal",
+    "name": "partsignal",
+    "key": "partsignal-2069b161"
+  },
+  "task": {
+    "name": "geo-browser-scope-adjustment",
+    "slug": "geo-browser-scope-adjustment",
+    "risk": "high"
+  },
+  "retention": {
+    "days": 90,
+    "keep": false,
+    "delete_after": "2027-01-03T13:06:59Z",
+    "extended_for_attention": false
+  },
+  "paths": {
+    "digest_json": "SUBAGENT_EXECUTION_DIGEST.json",
+    "digest_markdown": "SUBAGENT_EXECUTION_DIGEST.md"
+  },
+  "stages": [
+    {
+      "sequence": 1,
+      "name": "review",
+      "slug": "review",
+      "prefix": "01-review",
+      "plan_id": "geo-browser-scope-review",
+      "paths": {
+        "draft": "01-review.draft.json",
+        "plan": "01-review.plan.json",
+        "dispatch_dir": "01-review.dispatches",
+        "execution": "01-review.execution.json",
+        "summary_json": "01-review.summary.json",
+        "summary_text": "01-review.summary.txt"
+      }
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "01-review.dispatches/release-review-a1.json",
+      "kind": "dispatch_json",
+      "size_bytes": 179,
+      "sha256": "dde6a824397e014771a8b1d93672e9c79ca2c1b92f952633570acf4b8c324a9d",
+      "task_name": "geo_scope_release_review",
+      "agent_type": "critical_reviewer"
+    },
+    {
+      "path": "01-review.draft.json",
+      "kind": "draft_plan_json",
+      "size_bytes": 1800,
+      "sha256": "bce52731aebdc4005b92b4ce74818cf0ccd2b179feaecbb1d6dd962ee683c1d0",
+      "schema_version": 5,
+      "plan_id": "geo-browser-scope-review"
+    },
+    {
+      "path": "01-review.execution.json",
+      "kind": "execution_json",
+      "size_bytes": 1664,
+      "sha256": "c9f15d312b64d38d39696a8b25b57b627542c5125dc940715d5561c505d64943",
+      "schema_version": 6,
+      "plan_id": "geo-browser-scope-review"
+    },
+    {
+      "path": "01-review.plan.json",
+      "kind": "generated_plan_json",
+      "size_bytes": 2817,
+      "sha256": "5e0127f1064ad615012eab33e9647bd75ad78a17987afea84e85bee31749ce27",
+      "schema_version": 5,
+      "planner_version": "1.5.1",
+      "plan_id": "geo-browser-scope-review"
+    },
+    {
+      "path": "01-review.summary.json",
+      "kind": "summary_json",
+      "size_bytes": 2999,
+      "sha256": "1f9a469278988b8f4b64a947aeae461c03e662df0cfe3d3b275e19bac956ef12",
+      "schema_version": 3,
+      "plan_id": "geo-browser-scope-review"
+    },
+    {
+      "path": "01-review.summary.txt",
+      "kind": "summary_text",
+      "size_bytes": 2481,
+      "sha256": "f05a526845953a927463d199789909a7b7f7608f1d9b8cca25d3ceede0f91d29"
+    },
+    {
+      "path": "SUBAGENT_EXECUTION_DIGEST.json",
+      "kind": "digest_json",
+      "size_bytes": 1756,
+      "sha256": "03ddd987b2bccdbd17cbf76c754cdfef7712c060ccff1663f6b876aee06c969b",
+      "schema_version": 3,
+      "plan_ids": [
+        "geo-browser-scope-review"
+      ]
+    },
+    {
+      "path": "SUBAGENT_EXECUTION_DIGEST.md",
+      "kind": "digest_markdown",
+      "size_bytes": 865,
+      "sha256": "0314e48362abe4cee3e9a32ea5dd29a8198694a73223a8969957e6bb25e20446"
+    },
+    {
+      "path": "independent-review.md",
+      "kind": "unknown_markdown",
+      "size_bytes": 2135,
+      "sha256": "ab520f3d0f89094b5ece8bb3d5c7cfd2552747776f71c7bf2d79ff208b6d9782"
+    }
+  ],
+  "summary": {
+    "plan_count": 1,
+    "executed_attempt_count": 1,
+    "accepted_attempt_count": 1,
+    "independent_review_count": 1,
+    "attention_required": false,
+    "anomaly_count": 0
+  },
+  "verification": {
+    "status": "passed",
+    "verified_at": "2026-10-05T13:18:49Z",
+    "errors": [],
+    "warnings": [
+      "unclassified audit artifact: independent-review.md"
+    ]
+  }
+}

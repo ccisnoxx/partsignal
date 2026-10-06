@@ -1,0 +1,2017 @@
+--- /dev/null
++++ b/.trellis/tasks/10-03-geo-508-analysis-review-ui/design.md
+@@ -0,0 +1,9 @@
++# GEO-508 设计
++
++只读分析展示和本地复核表单分别拥有展示/输入生命周期。服务端single detail拥有machine/effective/history/current；客户端不从status/reasons推断review资格。历史按显式selection标识当前，其他只能只读。
++
++四栏表单只提交本次明确覆盖的目标，最新review整体替换旧review，不叠加旧correction。严重INCORRECT HIGH/CRITICAL的机器声明逐条显式核对并非空comment才能CONFIRMED/CORRECTED；只是提交交互约束，不新增API状态。事实不足保留UNJUDGEABLE。
++
++编辑起点冻结Run revision和analysis identity；后台刷新不改变提交目标。409/unknown保留输入，禁止自动POST或更新expected_revision重放。unknown仅通过真实历史回读核对；跨账号使用既有principal epoch清理。success后cancel旧query并invalidate现有root，server read重新显示有效结果。
++
++不新增路由/endpoint/DB。分析待处理轮询更新到R4执行器；完整Batch服务器计数只影响读取频率。金标保留独立人工预期，pipeline测试补组合原因门禁而不复制各阶段全断言；质量报告列完整集、版本和覆盖限制。
+--- /dev/null
++++ b/.trellis/tasks/10-03-geo-508-analysis-review-ui/implement.md
+@@ -0,0 +1,78 @@
++# GEO-508 实施与验证记录
++
++## 交付范围
++
++详情展示原文、机器四栏结果、声明事实依据、当前有效投影及只读分析/复核历史。结构化人工复核保持既有 API；严重 INCORRECT HIGH/CRITICAL 声明逐项核对、填写说明及明确选择结论后才发写请求。复核草稿只保存在内存。
++
++原文/引用/机器分析与既有历史不改写；CONFIRMED 确认风险判断，不将错误回答伪装为正确。CORRECTED 追加复核，最新完整载荷替换上一条人工覆盖。新分析 supersede 使旧复核失效的行为由既有服务端维护。
++
++## 合同、事务和数据
++
++OpenAPI、generated schema、database.md 和 Alembic 未改变；当前 head 为 0056_geo_run_review。无需新增 revision、数据回填或破坏性迁移。测试隔离数据库从空库前滚到当前 head；成功及资源清理见真实栈日志。
++
++GEO-507 Application Service 的 RC、User→Batch→Run→Analysis 锁顺序、current-analysis 校验、expected_run_revision 乐观并发、append-only review、run revision 增量、batch 投影与审计原子提交保持。409 GEO_REVIEW_STALE_ANALYSIS/REVISION_CONFLICT 和 422 原样显示。前端冻结起点，显式读取并重新核对；未知结果只读历史，禁止重放不具备幂等保证的 review。
++
++## 安全与页面状态
++
++服务端 available_actions 唯一决定复核入口；沿用 Cookie/CSRF、角色/主体边界。主体 epoch、卸载和同步重复提交保护防止迟到 continuation 污染新主体。未知外部产品事实保留失败或 UNJUDGEABLE。回答作为文本渲染，Unicode 位置按 codepoint 读取。日志/产物沿用 secret scanner，不记录凭据或对象存储 capability。测试仅虚构输入、本地服务，无真实 AI 调用。
++
++沿用 /geo/runs 的 run_id/edit/batch_id URL 和 geo/runs query keys。单 detail 包含机器、有效结果及历史；成功取消旧读取并使 canonical root 失效；COLLECTED/ANALYZING 等执行状态轮询。提供加载、空、错误、权限、冻结、未知、dirty 导航、焦点/键盘与窄屏表现。
++
++## 验证证据
++
++逐项 argv、退出码及完整日志保存在 evidence/*.json 与 *.log。分析器金标 270 项已通过，复核 PG 基线 26 项及新增 R4 严重错误验收 1 项已通过。最终候选在 make verify 中已通过 make lint、make typecheck 和 make test-unit（backend 3341 项 + frontend 124 文件/1170 项）；此前 npm 全量命令也已通过，后续回执修订由28项定向和最终1170项覆盖。真实复核定向 E2E 1 项及 R4→plans 组合2项通过。最终 make e2e 与 verify 续跑已收敛，详见末节最终命令表和复用说明。
++
++首轮基线 E2E 缺 DATABASE_URL（启动前失败）；随后使用任务独占的 PostgreSQL/Redis/对象存储完成原人工流程基线。测试代码首轮类型错误与三处 Python 长行已定位修正；保留原失败和后续验证结果。
++
++## 任务状态与边界
++
++manifest planned→in_progress→review；task.json同步review，completedAt保持null，等待人工接受，主代理不标done。Task Brief、设计、基线快照、任务 diff、金标 JUnit/哈希及独立复核审计归档到本目录。未提交、发布或修改生产数据。
++
++GEO-601 指标资格/汇总、后续洞察/Opportunity、Browser Collector、公共 reanalyze 均留待后续任务；当前 metric_eligible 未计算时保持 null/NOT_IMPLEMENTED。分析器质量及覆盖边界详见 docs/geo-monitoring/04-delivery/09-r4-analysis-acceptance.md。
++
++验证环境：任务专属 Compose project partsignal-geo508-validation；PG 127.0.0.1:55468，Redis 127.0.0.1:56408。基线 E2E 使用 DB 15；最终 E2E 独占 DB 14、integration 使用 DB 15，GEO_RECOVERY_SCAN_SECONDS=5（允许的最小恢复间隔）。确切环境保存在 evidence/validation-env.sh 和 validation-compose.yaml；make verify 的 COMPOSE 命令行覆盖只改变本地验证隔离，不改部署配置。
++
++## 独立复核修订
++
++首轮 critical_reviewer 确认 P2：旧回执仅检查 correction_payload 非 undefined，CORRECTED null/17 可能错误关闭草稿。主代理在 runs.api 的信任边界加上 comment 合同与请求相等、correction_payload 完整结构相等；服务端原样保存已验证请求，因此复用已安装 replaceEqualDeep 不复制四栏 DTO 或业务状态机。追加 API/组件语义负例，27 项定向通过；畸形回执保留 unknown、草稿与 journal，不显示成功或重发。第二个 fresh critical_reviewer 复核确认旧缺口已解除，另指出 Unicode 长度口径问题；按建议改为 codepoint 并添加 2000 emoji 成功例，定向 28 项通过。最后这一小修按明确审查建议完成，未声称第三次独立复核。
++
++首轮 make e2e 返回非零：25 项通过，新增原生刷新保护测试在取消导航后继续等待 reload 完成导致测试超时，计划真实流程另有超时。前者已改用 Playwright 文档定义的 runBeforeUnload 原生离开且显式取消，不等待不可能完成的导航；最新定向真实 R4 E2E 1 项通过并完整清理。第二轮完整重跑新增 R4 流程通过，既有 plans 流程仍失败；原因、修订及组合通过证据见下文。两个非零 make e2e 结果均保留，不将其改写为通过。
++
++既有 manual-submit 回执的 analysis_dispatch 枚举仍为 NOT_IMPLEMENTED（合同沿用早期字段）；实际采集后由已接受分析恢复扫描执行，页面跟随 canonical detail 的分析进度。GEO-508 不改变这一既有公共字段。
++
++## E2E 共库隔离修订
++
++第二轮完整 E2E 的 R4 新流程通过，但既有 plans flow 仍超时。已定位：plans-real-stack.spec.ts 在 375px 检查“暂无监测计划”布局，依赖全库为空；新 R4 flow 先创建自己的计划，canonical suite 同轮共库使此假设失效。测试改为按自身唯一 suffix 筛选，并使用服务端筛选空态“未找到匹配计划”；保留移动端 bounds/overflow 和后续生命周期断言，未改 plans 运行时。组合 R4→plans 真实 E2E 2 项/19.4秒通过，数据库、Redis、端口、存储全部精确清理。首个组合重跑在筛选后仍用旧空态标题失败；精确标题修正后通过，不进行无依据重试。
++
++审计 Bundle 20261004T034920Z-geo-508-79651e93 已关闭并 audit-verify=passed；SUBAGENT_EXECUTION_DIGEST JSON/Markdown 在 evidence。5次执行，4次任务验收通过，2次独立只读复核；1次 implementer role_mismatch 未写入，随后 deep_engineer 完成；残留 active Worker=0。角色/模型证据只来自 Agent TOML，不代表运行时模型确认。
++
++## R4 后的重复消息验收前置条件
++
++首轮 make verify 的 contract/lint/typecheck、3341后端unit/1170前端Vitest、973 PG集成、前后端构建及canonical 27真实E2E均通过；随后GEO enabled失败：duplicate测试CLI仍要求COLLECTED，而R4页面已等待COMPLETED。已读取完整测试装配和唯一调用者，改为只允许COMPLETED；独占环境/实际DB归属、虚构输入/精确回环、broker late-ack/两条SUCCESS回执与30秒截止保持，生产服务无变化。新的定向enabled E2E 1项通过（1项相斥mode按设计skip），重复消息后provider保持1次且Run无变化；测试装配unit30项及Ruff通过。初次verify非零保留，最终完整命令另行记录。
++
++## 最终命令与结果
++
++| 用户指定命令 | 实际结果与最终候选证据 |
++|---|---|
++| git diff --check | 退出0（diff-check-final.json）；任务前像生成的33文件diff及空白检查通过 |
++| make lint | 独立命令退出0；最新候选在verify续跑内再次执行Ruff/ESLint退出0 |
++| make typecheck | 独立命令退出0；最新候选verify内mypy/前端tsc再次退出0 |
++| make test-unit | 独立命令退出0；最新候选verify同目标后端3341、前端124文件1170项通过 |
++| npm --prefix frontend run test | 独立命令退出0；最新候选verify内实际同命令1170项通过 |
++| npm --prefix frontend run typecheck | 独立命令退出0；最新候选verify内实际同命令退出0 |
++| make e2e | 最终make-e2e-candidate.json退出0：canonical27，GEO三mode各1，UI498通过/60模式专属skip；三mode另各有1个相斥skip，敏感扫描通过 |
++| make verify | 首轮无参数退出2（GEO duplicate旧COLLECTED测试前置）；修复后全E2E退出0，verify续跑退出0，精确命令如下 |
++
++```sh
++make verify -o contract-check -o test-integration -o build-frontend -o e2e 'COMPOSE=docker compose -p partsignal-geo508-validation -f .trellis/tasks/10-03-geo-508-analysis-review-ui/evidence/validation-compose.yaml'
++```
++
++`-o`复用已经实际通过且相关输入未变化的目标：合同检查、973项PG集成、前端Docker构建，以及修订后完整make e2e。首轮全门禁输出make-verify.log证明上述前置通过，make-e2e-candidate.log证明最终E2E通过。不是把未执行检查记为通过，也不声称最后再次无参数重跑所有前置。后续唯一后端修订是tests/geo_e2e_runtime.py，integration没有此模块调用，服务/迁移/集成用例/依赖/验证环境未变；测试装配定向unit30与真实enabled流程已通过。后端Docker COPY包括测试入口，所以本次后端镜像重新构建，只有前端构建复用。
++
++续跑实际执行最新lint/typecheck/test-unit、后端build、前端容器fallback/cache/source-map、collector契约194项、fixture/配置门禁、E2E进程与DB生命周期、敏感产物、staging/production部署脚本自检、development/production Compose config，全部退出0。详细复用理由见evidence/validation-reuse.json；命令和原始结果见validation-summary.json与对应JSON/log。
++
++所有指定命令均已实际执行。没有再次执行无参数verify所有前置，原因是复用有效通过证据。未操作生产环境、未使用真实AI平台；金标没有未批准的precision/recall/F1阈值，因此不报告推断的百分比分数。最终Unicode单行与测试入口前置小修未新增独立复核，已自查、定向及完整相关门禁验证，独立审查覆盖详见independent-review.md。
++
++## 交付状态
++
++GEO-508 manifest/task.json均review；GEO-507保持done，其他任务状态未变。33个维护文件完整清单和任务前像diff见evidence/changed-files.json、task-only.diff；既有3218个任务前文件没有缺失，253个合同/generated/后端运行时/迁移文件与前像一致，9个金标输入哈希一致。任务专属Compose测试栈已停止并移除容器/网络，infra-stop.json退出0；未删除数据卷或操作其他服务。R4质量报告位于docs/geo-monitoring/04-delivery/09-r4-analysis-acceptance.md，等待人工验收。
+--- /dev/null
++++ b/.trellis/tasks/10-03-geo-508-analysis-review-ui/prd.md
+@@ -0,0 +1,58 @@
++# GEO-508 分析/复核前端与 R4 金标验收
++
++## 1. 基本信息
++Task ID GEO-508，Release R4，分支 geo/GEO-508。依赖 GEO-507 manifest=done，人工接受记录已核对。planned→in_progress→review；主代理不自行done、不提交或发布。
++
++## 2. 目标
++运行详情可追溯原文→机器分析→人工复核→历史 revision。严重错误需显式逐条人工核对和非空说明，不能无操作默认确认。
++
++## 3. 关联需求
++CAP-GEO-07/08/09/10；AC-ANA-02～07、AC-SEC-02、AC-AUDIT-01/02；Accepted ADR-002/003。
++
++## 4. 必读资料
++用户指定 docs/geo-monitoring README、roadmap、WBS完整508行、guide、template、manifest、PRD、领域/流程/方法与指标、技术/数据/API/前端/Worker/安全/测试以及ADR-002/003。根/前后端AGENTS、Trellis workflow及适用spec；507 prd/design/implement、根contracts、0054～0056迁移、当前服务/Schema/前端/测试。文档只读分析使用独立analyst隔离上下文，结论保存evidence。
++
++## 5. 当前行为
++507已有POST review、current pointer与有效投影、四段机器结果、完整revision/review历史。前端仍显示分析未实现且无review表单。部分307/408 E2E仍冻结COLLECTED/NOT_IMPLEMENTED。284后端定向unit与70前端baseline通过；PG基线与精确输出见evidence。E2E初次缺DATABASE_URL已记录后创建隔离服务。
++
++## 6. 目标行为
++单detail响应绘制原文/证据、提及与推荐、引用分类、声明FactVersion/依据/严重度、机器和effective结果、当前及旧revision/history。CONFIRMED显式确认，CORRECTED四栏结构化修正。严重声明未核对/无说明不发POST。
++
++## 7. 范围内
++详情分析、声明表、四栏修正、只读历史、分析阶段轮询、Vitest和真实Playwright、全部分析金标与R4质量报告、任务状态与证据文档；将新真实流程注册到 deploy/scripts/e2e-local.sh，保持独占资源与清理合同。
++
++## 8. 范围外
++601指标资格/公式/汇总，Opportunity、Browser Collector、公共reanalyze、真实AI、其他任务、无关重构、依赖升级。
++
++## 9. 不变量
++PostgreSQL与服务端current/actions权威；generated DTO唯一；不重算状态机/公式；原Answer/Citation/机器/Review不改删；无事实只能UNJUDGEABLE。严重错误可以人工确认机器判断，不能默认跳过。
++
++## 10. 契约
++不新增OpenAPI/数据库/Alembic；当前head0056_geo_run_review。既有请求、revision与selection原样消费，不创造第二套DTO。
++
++## 11. 后端
++不改运行时服务。507 RC User→Batch→Run→Analysis；插入Review、revision+1、必要状态转换、Batch与审计原子。stale analysis优先409 GEO_REVIEW_STALE_ANALYSIS；旧revision409 REVISION_CONFLICT；422 scope/schema；未知错误保持失败。无自动命令重放。
++
++## 12. 前端
++沿用/geo/runs、run_id和geo/runs query keys。表单RHF，草稿只内存。动作来自analysis.available_actions。单detail不跨API join。冲突保留草稿/冻结提交，显式读取；unknown写结果只读历史核对。principal epoch防迟到命令污染。成功cancel旧读并invalidate root。loading/empty/error/权限/pending/dirty/键盘/响应式。
++
++## 13. 验证
++基线分析/review unit、geo-runs Vitest、PG复核。候选四栏payload、严重错误门禁、409 no replay、unknown/late/权限、dirty与历史；全部502/503/504/505金标及pipeline门禁。真实栈用隔离PG16/Redis和本地模拟，不放宽安全。
++
++## 14. 验收
++原文和机器声明依据可见；修正后机器行不变、effective来自服务端；历史旧分析和复核可展开且不提供写入口；严重INCORRECT HIGH/CRITICAL必须逐条核对并说明；stale拒绝不丢草稿、不自动POST。
++
++## 15. 必须命令
++git diff --check；make lint；make typecheck；make test-unit；npm --prefix frontend run test；npm --prefix frontend run typecheck；make e2e；make verify。按需contract-check、定向gold/PG/真实E2E。evidence/run_check.py保存argv/exit/log，不把未运行写通过。
++
++## 16. 数据和上线
++无迁移/回填/生产操作。复用当前0056 head。前端部署须配套已接受507 API。回滚本任务前端可隐藏review入口，历史保留。测试栈独立项目与DB，精确清理。
++
++## 17. 风险与停止
++严重默认确认、current/superseded混淆、异步覆盖草稿、写未知结果重放、旧E2E冻结行为。只按用户五类条件blocked；测试/环境问题诊断并保留真实证据，不扩展授权。
++
++## 18. 完成证据
++evidence/baseline-files.json与before保存任务前像；baseline/各候选检查JSON/log/XML；task-only.diff与changed-files；R4 acceptance报告；独立fresh reviewer与SUBAGENT_EXECUTION_DIGEST。状态review等待人工。
++
++## 19. 后续
++GEO-601指标、602～607洞察、701以后机会、801以后Browser；均不实施。
+--- /dev/null
++++ b/.trellis/tasks/10-03-geo-508-analysis-review-ui/task.json
+@@ -0,0 +1,64 @@
++{
++  "id": "geo-508-analysis-review-ui",
++  "name": "geo-508-analysis-review-ui",
++  "title": "GEO-508 分析复核前端与 R4 金标验收",
++  "description": "GEO-508/R4 分析复核详情、结构化修正、历史与全金标验收；交付review",
++  "status": "review",
++  "dev_type": "fullstack",
++  "scope": "GEO-508",
++  "package": null,
++  "priority": "P2",
++  "creator": "777",
++  "assignee": "777",
++  "createdAt": "2026-10-03",
++  "completedAt": null,
++  "branch": "geo/GEO-508",
++  "base_branch": "main",
++  "worktree_path": null,
++  "commit": null,
++  "pr_url": null,
++  "subtasks": [],
++  "children": [],
++  "parent": null,
++  "relatedFiles": [
++    "backend/tests/geo_e2e_runtime.py",
++    "backend/tests/integration/geo_analysis_support.py",
++    "backend/tests/integration/test_geo_r4_acceptance.py",
++    "deploy/scripts/e2e-local.sh",
++    "docs/geo-monitoring/03-technical/04-frontend-architecture.md",
++    "docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md",
++    "docs/geo-monitoring/04-delivery/09-r4-analysis-acceptance.md",
++    "docs/geo-monitoring/04-delivery/task-manifest.yaml",
++    "docs/geo-monitoring/README.md",
++    "frontend/src/domains/geo-runs/analysis.test-support.tsx",
++    "frontend/src/domains/geo-runs/manual-editor.tsx",
++    "frontend/src/domains/geo-runs/review-command.ts",
++    "frontend/src/domains/geo-runs/review-fields.tsx",
++    "frontend/src/domains/geo-runs/review.model.test.ts",
++    "frontend/src/domains/geo-runs/review.model.ts",
++    "frontend/src/domains/geo-runs/run-analysis.test.tsx",
++    "frontend/src/domains/geo-runs/run-analysis.tsx",
++    "frontend/src/domains/geo-runs/run-detail.tsx",
++    "frontend/src/domains/geo-runs/run-review.test.tsx",
++    "frontend/src/domains/geo-runs/run-review.tsx",
++    "frontend/src/domains/geo-runs/runs-page.tsx",
++    "frontend/src/domains/geo-runs/runs.api.test.ts",
++    "frontend/src/domains/geo-runs/runs.api.ts",
++    "frontend/src/domains/geo-runs/runs.model.ts",
++    "frontend/tests/e2e/geo-api-real-stack.spec.ts",
++    "frontend/tests/e2e/geo-review-real-stack.spec.ts",
++    "frontend/tests/e2e/geo-review-support.ts",
++    "frontend/tests/e2e/plans-real-stack.spec.ts",
++    "frontend/tests/e2e/runs-real-stack.spec.ts"
++  ],
++  "notes": "GEO-508本地实现与R4金标验收完成，等待人工接受。依赖GEO-507 done；无提交/发布/生产迁移。make e2e最终0；make verify首轮2的旧测试前置已修复，复用未变化的通过证据后续跑0，完整命令与失败处置见implement.md和evidence。",
++  "meta": {
++    "release": "R4",
++    "delivery_state": "review",
++    "acceptance": "pending_human",
++    "validation_summary": "evidence/validation-summary.json",
++    "task_diff": "evidence/task-only.diff",
++    "subagent_digest": "evidence/SUBAGENT_EXECUTION_DIGEST.json",
++    "audit_bundle": "20261004T034920Z-geo-508-79651e93"
++  }
++}
+--- a/backend/tests/geo_e2e_runtime.py
++++ b/backend/tests/geo_e2e_runtime.py
+@@ -300,8 +300,9 @@
+ 
+     with SessionLocal() as db:
+         run = db.get(GeoObservationRun, run_id)
+-        if run is None or run.status != "COLLECTED":
+-            raise ValueError("GEO E2E duplicate 只允许已采集的真实虚构 Run")
++        # R4 页面等待分析完成；重复采集消息必须在最终状态下保持无操作。
++        if run is None or run.status != "COMPLETED":
++            raise ValueError("GEO E2E duplicate 只允许已完成分析的真实虚构 Run")
+         if fictional_input(run.input_snapshot) != run.input_snapshot:
+             raise ValueError("GEO E2E duplicate 冻结分类不符合虚构输入合同")
+         channel = db.scalar(
+--- a/backend/tests/integration/geo_analysis_support.py
++++ b/backend/tests/integration/geo_analysis_support.py
+@@ -30,6 +30,7 @@
+     *,
+     answer_text: str = "  原始回答\r\nA-1\n",
+     citation_urls: tuple[str, ...] = (),
++    fact_body: str = "虚构公开事实",
+ ) -> AnalysisCase:
+     value = deepcopy(db.runs.input)
+     facts = []
+@@ -48,7 +49,7 @@
+                 "status": "ACTIVE",
+                 "revision": 0,
+                 "facts_revision": 0,
+-                "facts_body_markdown": "虚构公开事实",
++                "facts_body_markdown": fact_body,
+             },
+         )
+         insert_row(
+@@ -80,7 +81,7 @@
+                 "version": 1,
+                 "status": "APPROVED",
+                 "classification": "PUBLIC",
+-                "body_markdown": "虚构公开事实",
++                "body_markdown": fact_body,
+                 "change_summary": "测试核验依据",
+                 "revision": 0,
+                 "created_by": db.runs.plan.actor,
+--- /dev/null
++++ b/backend/tests/integration/test_geo_r4_acceptance.py
+@@ -0,0 +1,93 @@
++"""R4 严重参数错误从真实分析、复核到新 revision 的可追溯验收。"""
++
++import pytest
++
++from app.services import geo_analysis_runs
++from tests.integration.geo_reviews_support import (
++    RUNS,
++    analysis_engine,
++    answer_database,
++    harness,
++    plan_database,
++    review_api,
++    run_database,
++)
++
++pytestmark = pytest.mark.integration
++__all__ = [
++    "analysis_engine",
++    "answer_database",
++    "harness",
++    "plan_database",
++    "review_api",
++    "run_database",
++]
++
++
++def test_severe_error_requires_review_and_new_revision_invalidates_old_review(review_api):
++    api = review_api
++    case = api.harness.create(
++        products=1,
++        answer_text="GEO501-0 的供电电压为 5 V。",
++        fact_body="供电电压为 3.3 V。",
++        citation_urls=("https://geo-fixture-owned.test/spec",),
++    )
++    geo_analysis_runs.process_analysis_run(case.run_id)
++    before = api.detail(case)
++    original = before["analysis"]["revisions"][0]
++    claim = original["claims"][0]
++    assert claim["verdict"] == "INCORRECT" and claim["severity"] == "HIGH"
++    assert claim["fact_version_id"] == str(case.facts[0])
++    assert "3.3 V" in claim["fact_excerpt"]
++    assert "HIGH_SEVERITY_INCORRECT" in original["analysis"]["review_required_reasons"]
++    assert before["analysis"]["review_required"]
++    assert before["data_quality"]["metric_eligible"] is False
++
++    first = api.submit(case, comment="已人工核对错误5V声明与批准3.3V事实，确认机器风险判断")
++    assert first.status_code == 201
++    reviewed = api.detail(case)
++    assert reviewed["analysis"]["review_gate_passed"]
++    # 确认风险判断不把错误回答伪装为正确，也不提前实现全指标资格。
++    assert reviewed["analysis"]["effective_results"]["claims"][0] == claim
++    assert reviewed["data_quality"]["metric_eligible"] is None
++    old_payload = api.payload(case)
++    new_id = api.reanalyze(case)
++    current = api.detail(case)
++    assert current["analysis"]["selection"]["current_analysis_revision_id"] == str(new_id)
++    assert current["analysis"]["selection"]["current_review_id"] is None
++    assert current["analysis"]["review_required"]
++    stale = api.engineer.post(f"{RUNS}/{case.run_id}/review", json=old_payload)
++    assert stale.status_code == 409
++    assert stale.json()["error"]["code"] == "GEO_REVIEW_STALE_ANALYSIS"
++    machine = next(
++        row for row in current["analysis"]["revisions"] if row["analysis"]["id"] == str(new_id)
++    )
++    current_claim = machine["claims"][0]
++    correction = {
++        "schema_version": 1,
++        "mentions": [],
++        "recommendations": [],
++        "citations": [],
++        "claims": [
++            {
++                "claim_assessment_id": current_claim["id"],
++                "verdict": "INCORRECT",
++                "severity": "HIGH",
++                "explanation": "人工核验后保留高风险错误，需纠正回答中的供电电压",
++            }
++        ],
++    }
++    second = api.submit(
++        case, decision="CORRECTED", correction_payload=correction, comment="已逐条处理当前严重声明"
++    )
++    assert second.status_code == 201
++    final = api.detail(case)
++    assert final["answer"] == before["answer"]
++    assert final["citations"] == before["citations"]
++    assert original in final["analysis"]["revisions"]
++    assert machine in final["analysis"]["revisions"]
++    assert [row["is_current"] for row in final["analysis"]["reviews"]] == [True, False]
++    assert final["analysis"]["reviews"][1]["review"] == first.json()["review"]
++    effective = final["analysis"]["effective_results"]["claims"][0]
++    assert effective["explanation"] == correction["claims"][0]["explanation"]
++    assert effective["verdict"] == "INCORRECT" and effective["confidence"] is None
+--- a/deploy/scripts/e2e-local.sh
++++ b/deploy/scripts/e2e-local.sh
+@@ -254,6 +254,7 @@
+     tests/e2e/surfaces-real-stack.spec.ts \
+     tests/e2e/plans-real-stack.spec.ts \
+     tests/e2e/runs-real-stack.spec.ts \
++    tests/e2e/geo-review-real-stack.spec.ts \
+     tests/e2e/content-ai-real-stack.spec.ts \
+     tests/e2e/content-review-real-stack.spec.ts \
+     tests/e2e/content-version-detail-real-stack.spec.ts \
+--- a/docs/geo-monitoring/03-technical/04-frontend-architecture.md
++++ b/docs/geo-monitoring/03-technical/04-frontend-architecture.md
+@@ -368,3 +368,16 @@
+ ## GEO-408 / R3 自动采集页面
+ 
+ 详情独立显示 prompt/completion/total tokens、外部调用状态、供应商 HTTP/Retry-After 与实际费用，null 不补零或推算。retry 由服务端 `RETRY` 动作裁决；显式确认绑定 expected_revision，旧 attempt 保留。无幂等键 POST 的未知回执只读取直接后继，不重放；确定拒绝后读取 canonical，再重新确认。命令阻断属于 QueryClient 会话，跨详情关闭/切换/路由卸载保留，仅保存命令身份与阶段。命令继承发起 principal continuation；卸载或导航选择变化后迟到回执不覆盖当前意图。路由和 query key 不新增，详情/列表/完整 Batch 投影在真实成功回执后失效重读。使用与验收边界见 [R3 指南](../04-delivery/08-r3-api-acceptance.md)。
++
++
++## GEO-508 / R4 当前分析与人工复核页面
++
++运行中心沿用 `/geo/runs` 与既有run_id/筛选URL、query keys，单个GeoRunDetail在同一服务端快照中返回原文、机器结果、effective_results和revision/review历史。页面只用selection和is_current识别当前，历史readonly；无额外API join、指标公式或前端状态机。
++
++CONFIRMED是人工确认机器判断，CORRECTED提交本次完整四栏修正。最新Review整体替换，连续修正仅从当前Review的明确payload继承希望保留的修正，不从effective机器字段猜人工修改。HIGH/CRITICAL INCORRECT机器声明必须逐条主动核对并填写非空说明；无默认decision或默认核对。确认风险不意味着原错误已纠正。无FactVersion只能UNJUDGEABLE。
++
++表单绑定编辑起点analysis ID与Run revision；后台刷新不改写草稿。409保留输入且旧上下文禁提交，显式重读后重新核对；unknown写结果只允许读取历史确认，不自动重发。Principal epoch隔离账号切换后的迟到回执，dirty与pending使用现有共享导航保护。成功取消旧读取并失效既有运行/批次root，从服务端重读有效结果。
++
++分析待处理和执行中持续轮询，终态及待复核按既有server workflow调度读取。机器首次位置为Unicode字符位置，浏览器按code points定位。原文按文本、引用只允许既有安全http(s)链接展示，复核草稿不保存到URL或浏览器storage。
++
++R4质量和实际门禁结果见 [R4验收报告](../04-delivery/09-r4-analysis-acceptance.md) 与 [GEO-508实施证据](../../../.trellis/tasks/10-03-geo-508-analysis-review-ui/implement.md)。GEO-601完整指标、Opportunity、Browser及公共重分析入口仍在本任务范围外。
+--- a/docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md
++++ b/docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md
+@@ -193,3 +193,10 @@
+ ## GEO-203 数据契约证据（R1 / done）
+ 
+ CAP-GEO-03 的模式、环境、能力、合规数据与非敏感 Profile 响应由 [Task Brief](../../../.trellis/tasks/10-02-geo-203-surface-profile/prd.md)、[实施证据](../../../.trellis/tasks/10-02-geo-203-surface-profile/implement.md)、test_geo_surface_contract.py 与 test_geo_surfaces_profiles.py 覆盖模式组合、FK、秘密字段缺失和迁移。REQ-GEO-SEC-001 的合规状态与秘密配置数据边界由 GEO-203 实现，GEO-204 已落实上文配置资格基础（review）；管理权限、操作和发送批准仍由 GEO-205/804 及后续执行任务验收，不能把配置资格通过视为实际发送授权。
++
++
++### GEO-508 / R4 分析复核验收切片
++
++CAP-GEO-07/08/09/10 与 AC-ANA-02～07 的运行详情可追溯展示、结构化复核和历史由GEO-508接入。原文、机器、人工有效投影和历史分别可见，严重机器错误逐条主动核对并说明；服务端GEO-507继续拥有权限、revision和当前选择。
++
++全部分析金标、真实PG严重错误→复核→新revision与过期复核验收，以及Vitest/Playwright/完整门禁的实际状态见 [R4质量报告](./09-r4-analysis-acceptance.md) 和 [实施证据](../../../.trellis/tasks/10-03-geo-508-analysis-review-ui/implement.md)。本切片不宣布CAP-GEO-11指标、机会闭环或Browser完成；task-manifest状态仅review，待人工接受。
+--- /dev/null
++++ b/docs/geo-monitoring/04-delivery/09-r4-analysis-acceptance.md
+@@ -0,0 +1,46 @@
++# R4 分析器质量与前端复核验收（GEO-508）
++
++日期：2026-10-03。GEO-508任务状态为review，任务状态以 task-manifest.yaml 为准，等待人工接受。
++
++## 验收口径与输入
++
++分析器为本地 DETERMINISTIC `geo-analysis-v1`，规则版本包括 geo-mentions-v1、geo-recommendations-v1、geo-citations-v1、geo-claims-v1。不使用真实外部AI。原始回答、批准事实、别名与域名字典是显式冻结输入；机器与人工结果分别保留。
++
++已有虚构 JSON 共151个独立场景（共享13、提及28、推荐63、声明47）。共享13跨四阶段复用形成190阶段场景检查，不能称190个独立样本。质量策略未批准precision/recall/F1数值阈值；本次标准为全部既有语义断言通过，不改写金标预期。
++
++输入版本：共享dataset geo-005-v1，fixture/gold=1.0.0；追加集各自version=1.0.0。全部JSON及schema哈希见 [gold-input-sha256.json](../../../.trellis/tasks/10-03-geo-508-analysis-review-ui/evidence/gold-input-sha256.json)。fixture和金标未修改，原文敏感标记校验通过。
++
++## 全部分析金标结果
++
++执行 `uv run --project backend pytest backend/tests/unit/test_geo_analysis.py backend/tests/unit/test_geo_recommendations.py backend/tests/unit/test_geo_citations.py backend/tests/unit/test_geo_claims.py --junitxml=.trellis/tasks/10-03-geo-508-analysis-review-ui/evidence/analysis-gold.xml`，退出0，270 passed。
++
++| 阶段 | JSON场景范围 | 本轮suite结果 | 保护的可观察合同 |
++|---|---|---:|---|
++| 提及 | 共享13+追加28 | 49 passed | 精确型号/后缀、大小写/连字符、Unicode位置、计数/别名、否定、歧义候选 |
++| 推荐 | 共享13+追加63 | 83 passed | 名称出现不等于推荐、四态、可靠rank、条件/引语/否定、无序/冲突复核 |
++| 引用 | 共享13+代码金标 | 66 passed | hostname边界、子域名、IDNA、共享域名、原始去重/位置、分类与修正 |
++| 声明 | 共享13+追加47 | 72 passed | 类型/verdict/severity、同产品批准事实、条件替代、数值冲突、事实不足、受限事实本地化 |
++
++suite数量包括规则边界及安全反例，不能称270个金标独立样本。引用共享13是在一个测试内逐例运行；代码金标与JSON场景计数分开。
++
++`make test-geo-fixtures` 退出0，四组Schema/关系/敏感数据规则全部通过；外部调用0。原始命令/退出码见 [analysis-gold.json](../../../.trellis/tasks/10-03-geo-508-analysis-review-ui/evidence/analysis-gold.json) 与 [fixture-check.json](../../../.trellis/tasks/10-03-geo-508-analysis-review-ui/evidence/fixture-check.json)，JUnit见 [analysis-gold.xml](../../../.trellis/tasks/10-03-geo-508-analysis-review-ui/evidence/analysis-gold.xml)。
++
++## 已知映射与质量限制
++
++- 共享引用金标的subject_ids表示页面内容对象；实际域名归属不能从URL产品路径选一个共享对象。现有test_geo_citations.py明确要求OWNED、subject_id=null且保留品牌/两个产品候选及CITATION_OWNERSHIP_AMBIGUOUS。本次保持该批准行为，不更改金标，也不声称每个局部字段逐字相等。
++- 本地执行器当前无第三方来源类别登记，未匹配的真实输入分类为UNKNOWN；纯规则金标显式装配虚构媒体登记，不代表生产已有该登记能力。
++- 共享prompt injection标记是无可信权限原文；测试证明不会被当工具执行或污染推荐/事实判断，不代表通用提示注入检测或DLP能力。
++- 早期PRD枚举草稿已由GEO-501落地和根OpenAPI四态裁决，页面消费generated类型。无权威事实始终UNJUDGEABLE。
++- 通过Review门禁不等于完整MetricEligibility。必要复核前false；通过后null/METRIC_ELIGIBILITY_NOT_IMPLEMENTED，GEO-601继续拥有完整资格和公式。
++
++## 严重错误与历史纵向验收
++
++新增真实PG `test_geo_r4_acceptance.py` 验证5V回答与3.3V批准事实冲突为INCORRECT/HIGH，HIGH_SEVERITY_INCORRECT进入review gate。人工CONFIRMED保留错误判断及原始回答，不伪装错误已修复；新字典revision重分析使旧Review仅历史，stale提交409；当前CORRECTED追加说明、机器行不变、原Answer/Citation不变。定向1 passed，精确命令见 [r4-severe-pg.json](../../../.trellis/tasks/10-03-geo-508-analysis-review-ui/evidence/r4-severe-pg.json)。
++
++前端最终候选 Vitest 124文件/1170项通过；PG复核基线26项、新增严重错误纵向1项通过，完整PG集成973项通过。最终 `make e2e` 退出0：canonical真实流程27项、GEO enabled/api-disabled/monitoring-disabled各1项、UI矩阵498项通过；UI矩阵60项真实栈专属用例按模式跳过，真实流程已由前述专属入口运行。三个GEO阶段另各有1项相斥模式跳过，不计入通过数。敏感产物扫描与随机数据库/Redis/端口/存储精确清理均通过。
++
++完整命令见 [make-e2e-candidate.json](../../../.trellis/tasks/10-03-geo-508-analysis-review-ui/evidence/make-e2e-candidate.json)。早期失败与修正、verify续跑结果/复用证据、独立复核见本任务 [实施证据](../../../.trellis/tasks/10-03-geo-508-analysis-review-ui/implement.md)。`verify`剩余门禁续跑退出0，复用未变化的合同/973项PG/前端构建和最终完整E2E证据；最新静态/类型/unit、后端构建、collector契约194项、部署与Compose门禁实际执行通过。精确续跑参数与来源见实施证据，不声称无参数verify完整重跑，也不将未执行检查或首轮非零命令改写为通过。
++
++## 交付与后续
++
++OpenAPI/数据库/Alembic无变化，当前head0056_geo_run_review；无历史数据迁移、生产操作或发布。后续GEO-601指标与602～607洞察、701以后机会、801以后Browser不属于本任务。
+--- a/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ b/docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -978,7 +978,7 @@
+   phase: R4
+   release: R4
+   title: 实现分析/复核前端并完成 R4 金标验收
+-  status: planned
++  status: review
+   dependencies:
+   - GEO-507
+   areas:
+@@ -988,6 +988,7 @@
+   deliverables: 详情分析区、声明表、修正表单、历史、E2E 和分析器质量报告。
+   tests: Vitest、Playwright、全部金标。
+   acceptance: 用户可追溯原文→分析→复核，严重错误必须人工处理。
++  review_note: "2026-10-03：GEO-507依赖done已核对；机器/有效分析四栏、FactVersion声明依据、完整替换修正、只读revision/review历史及严重错误逐项人工处理完成。OpenAPI/数据库/Alembic不变，head0056；后端运行时不变。最终unit后端3341/前端1170、PG973、分析金标270及fixture校验通过；make e2e退出0（canonical27、GEO三场景各1、UI498，模式专属跳过明确记录）。首轮verify的旧duplicate测试前置条件已修复；剩余verify门禁续跑0，复用未变化的合同/PG/前端构建/最终e2e证据，精确参数及早期失败见Task Brief/implement.md。两次独立只读复核发现的回执及Unicode问题已修正，审计Bundle校验关闭。状态仅review，等待人工接受；无生产迁移或发布，未实施后续GEO任务。"
+   required_docs:
+   - 01-product/02-geo-core-prd.md
+   - 02-business/02-domain-model.md
+--- a/docs/geo-monitoring/README.md
++++ b/docs/geo-monitoring/README.md
+@@ -343,3 +343,8 @@
+ Task Brief与逐项验证见 [任务记录](../../.trellis/tasks/10-03-geo-506-analysis-worker/prd.md)
+ 和 [实施证据](../../.trellis/tasks/10-03-geo-506-analysis-worker/implement.md)。
+ 交付状态以manifest为准；GEO-507公共分析/复核/current读取、前端详情、指标、Opportunity与Browser均未实现。
++
++
++## GEO-508 / R4 分析复核与金标验收
++
++GEO-508依赖已人工接受的GEO-507，详情接入原文、机器四类结果、声明事实依据、有效人工结果及只读revision/review历史；严重错误需逐条人工核对并说明，最新复核整体替换旧修正。全部分析金标质量口径、已知映射与实际结果见 [R4验收报告](./04-delivery/09-r4-analysis-acceptance.md)，精确门禁、浏览器证据和限制见 [Task Brief](../../.trellis/tasks/10-03-geo-508-analysis-review-ui/prd.md) 与 [实施证据](../../.trellis/tasks/10-03-geo-508-analysis-review-ui/implement.md)。完成后仅review等待人工接受；无新OpenAPI/数据库/Alembic、生产迁移或发布。完整指标、Opportunity和Browser仍由后续任务交付。
+--- /dev/null
++++ b/frontend/src/domains/geo-runs/analysis.test-support.tsx
+@@ -0,0 +1,68 @@
++import { useQuery, QueryClientProvider, type QueryClient } from '@tanstack/react-query';
++import { createMemoryHistory, createRootRoute, createRoute, createRouter, RouterProvider, useRouter } from '@tanstack/react-router';
++import { render } from '@testing-library/react';
++import { createAppQueryClient } from '@/app/query-client';
++import { initializePrincipalEpoch } from '@/app/auth/principal-epoch';
++import type { components } from '@/shared/api/generated/schema';
++import { detail, runId, batchId, asOf } from './runs.test-support';
++import { runDetailOptions } from './runs.api';
++import { RunAnalysis } from './run-analysis';
++import { RunReview } from './run-review';
++
++const analysisId = '10000000-0000-4000-8000-000000000010';
++const claimId = '10000000-0000-4000-8000-000000000011';
++const factId = '10000000-0000-4000-8000-000000000012';
++const reviewId = '10000000-0000-4000-8000-000000000013';
++function analyzedDetail(): components['schemas']['GeoRunDetail'] {
++  const value = detail();
++  value.run = { ...value.run, revision: 7, status: 'NEEDS_REVIEW', workflow_stage: 'REVIEW_REQUIRED', primary_task: 'VIEW_REVIEW' };
++  value.answer!.answer_text = '😀前文 型号A推荐使用，但额定电压为5V。';
++  const machine: components['schemas']['GeoAnalysisResult'] = {
++    analysis: {
++      id: analysisId, run_id: runId, answer_snapshot_id: batchId, revision: 1, status: 'COMPLETED', analyzer_type: 'DETERMINISTIC', analyzer_version: 'r4-1',
++      input_snapshot: { schema_version: 1, answer_sha256: 'b'.repeat(64), subjects: value.run.input_snapshot.subjects, fact_versions: [{ subject_id: runId, fact_version_id: factId }], configuration: { rule_set_version: '1', model_name: null, model_version: null, prompt_template_version: null, prompt_sha256: null, parameters: { temperature: null, top_p: null, max_output_tokens: null, seed: null } } },
++      input_sha256: 'd'.repeat(64), confidence_summary: { mentions: 1, recommendations: 1, claims: 1 }, review_required_reasons: ['SEVERE_INCORRECT_CLAIM'], error_code: null, error_summary: null, created_at: asOf, finished_at: asOf,
++    },
++    mentions: [{ id: batchId, analysis_revision_id: analysisId, subject_id: runId, mention_count: 1, first_character_offset: 4, matched_aliases: ['型号A'], confidence: 1 }],
++    recommendations: [{ id: batchId, analysis_revision_id: analysisId, subject_id: runId, recommendation: 'RECOMMENDED', rank: 1, rationale_excerpt: '推荐使用', confidence: 1 }],
++    claims: [{ id: claimId, analysis_revision_id: analysisId, subject_id: runId, fact_version_id: factId, claim_kind: 'PARAMETER', claim_text: '额定电压为5V', claim_sha256: 'e'.repeat(64), verdict: 'INCORRECT', severity: 'HIGH', fact_excerpt: '额定电压为3.3V', explanation: '回答电压与批准事实不符', confidence: 1 }],
++    citations: [{ analysis_revision_id: analysisId, citation_id: batchId, source_category: 'UNKNOWN', subject_id: null }], citation_classification_complete: true,
++  };
++  value.analysis = {
++    selection: { run_id: runId, current_analysis_revision_id: analysisId, current_review_id: null }, revisions: [machine], reviews: [],
++    effective_results: { mentions: machine.mentions, recommendations: machine.recommendations, claims: machine.claims, citations: machine.citations, citation_classification_complete: true },
++    review_required: true, review_gate_passed: false, available_actions: ['REVIEW'],
++  };
++  return value;
++}
++function reviewReceipt(body?: components['schemas']['GeoRunReviewRequest']): components['schemas']['GeoRunReviewCreated'] {
++  return { run_revision: (body?.expected_run_revision ?? 7) + 1, review: {
++    id: reviewId, run_id: runId, analysis_revision_id: body?.analysis_revision_id ?? analysisId, decision: body?.decision ?? 'CONFIRMED', correction_payload: body?.correction_payload ?? null,
++    comment: body?.comment ?? '已核对严重电压错误', reviewer_id: runId, created_at: asOf,
++  } };
++}
++function response(data: unknown) { return { data, response: Response.json(data) } as never; }
++function failure(code = 'REVISION_CONFLICT', status = 409) {
++  const error = { error: { code, message: '复核上下文已变化', details: {}, request_id: 'review-req' } };
++  return { error, response: Response.json(error, { status }) } as never;
++}
++function renderReview(value = analyzedDetail(), suppliedClient?: QueryClient) {
++  const client = suppliedClient ?? createAppQueryClient();
++  initializePrincipalEpoch(client, 'actor-a');
++  function ReviewRoute() {
++    const router = useRouter();
++    const query = useQuery({ ...runDetailOptions(runId), initialData: value });
++    return <>
++      <button onClick={() => router.history.push(`/geo/runs?run_id=${runId}&q=changed`)}>改变筛选</button>
++      <button onClick={() => router.history.push('/geo/plans')}>去计划</button>
++      {query.data && <RunAnalysis detail={query.data} reviewControl={<RunReview detail={query.data} csrfToken="csrf" blocked={Boolean(query.error) || query.isFetching} readError={query.error} />} />}
++    </>;
++  }
++  const root = createRootRoute();
++  const route = createRoute({ getParentRoute: () => root, path: '/geo/runs', component: ReviewRoute });
++  const plans = createRoute({ getParentRoute: () => root, path: '/geo/plans', component: () => <p>计划页</p> });
++  const router = createRouter({ routeTree: root.addChildren([route, plans]), history: createMemoryHistory({ initialEntries: [`/geo/runs?run_id=${runId}`] }) });
++  const view = render(<QueryClientProvider client={client}><RouterProvider router={router} /></QueryClientProvider>);
++  return { client, router, view };
++}
++export { analyzedDetail, analysisId, claimId, factId, reviewId, reviewReceipt, response, failure, renderReview };
+--- a/frontend/src/domains/geo-runs/manual-editor.tsx
++++ b/frontend/src/domains/geo-runs/manual-editor.tsx
+@@ -460,7 +460,7 @@
+             </Button>
+           </Notice>
+         )}
+-        {completed && <Notice>人工原文已采集并冻结。分析尚未实施。</Notice>}
++        {completed && <Notice>人工原文已采集并冻结。分析与复核进度以运行详情为准。</Notice>}
+         <FormActions>
+           <Button onClick={onClose} type="button" variant="outline">
+             返回运行详情
+--- /dev/null
++++ b/frontend/src/domains/geo-runs/review-command.ts
+@@ -0,0 +1,47 @@
++import type { QueryClient } from '@tanstack/react-query';
++import { capturePrincipalContinuation, type PrincipalContinuation } from '@/app/auth/principal-epoch';
++import type { ReviewRequest } from './review.model';
++
++type ReviewCommand = {
++  owner: PrincipalContinuation;
++  payload: ReviewRequest;
++  phase: 'pending' | 'unknown';
++  error?: unknown;
++};
++type Journal = { commands: Map<string, ReviewCommand>; listeners: Set<() => void> };
++// 无幂等键。pending/unknown 的阻断属于主体会话，关闭详情不能授权重发。
++// 这里仅保存命令现场；运行、analysis 与有效结果仍由单 detail 投影拥有。
++const journals = new WeakMap<QueryClient, Journal>();
++function journal(client: QueryClient) {
++  let value = journals.get(client);
++  if (!value) {
++    value = { commands: new Map(), listeners: new Set() };
++    journals.set(client, value);
++  }
++  return value;
++}
++function readReviewCommand(client: QueryClient, runId: string) {
++  const command = journal(client).commands.get(runId);
++  return command?.owner.isCurrent() ? command : undefined;
++}
++function subscribeReviewCommands(client: QueryClient, listener: () => void) {
++  const value = journal(client);
++  value.listeners.add(listener);
++  return () => { value.listeners.delete(listener); };
++}
++function beginReviewCommand(client: QueryClient, runId: string, payload: ReviewRequest) {
++  if (readReviewCommand(client, runId)) return undefined;
++  const command: ReviewCommand = { owner: capturePrincipalContinuation(client), payload, phase: 'pending' };
++  const value = journal(client);
++  value.commands.set(runId, command);
++  value.listeners.forEach((listener) => listener());
++  return command;
++}
++function finishReviewCommand(client: QueryClient, runId: string, command: ReviewCommand, error?: unknown) {
++  if (!command.owner.isCurrent() || readReviewCommand(client, runId)?.owner !== command.owner) return;
++  const value = journal(client);
++  if (error === undefined) value.commands.delete(runId);
++  else value.commands.set(runId, { ...command, phase: 'unknown', error });
++  value.listeners.forEach((listener) => listener());
++}
++export { beginReviewCommand, finishReviewCommand, readReviewCommand, subscribeReviewCommands };
+--- /dev/null
++++ b/frontend/src/domains/geo-runs/review-fields.tsx
+@@ -0,0 +1,116 @@
++import { useFormContext, useWatch, type FieldErrors, type FieldPathByValue } from 'react-hook-form';
++import { FormField } from '@/design-system/forms/form-field';
++import { FormSection } from '@/design-system/forms/form-layout';
++import { Input } from '@/design-system/primitives/input';
++import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/design-system/primitives/select';
++import { Textarea } from '@/design-system/primitives/textarea';
++import { categories, recommendations, severeClaims, severities, verdicts, type Analysis, type Detail, type ReviewValues } from './review.model';
++
++type TextPath = FieldPathByValue<ReviewValues, string>;
++type CheckPath = FieldPathByValue<ReviewValues, boolean>;
++function ReviewFields({ detail, analysis, disabled }: { detail: Detail; analysis: Analysis; disabled: boolean }) {
++  const { control, setValue } = useFormContext<ReviewValues>();
++  const values = useWatch({ control });
++  const subjects = analysis.analysis.input_snapshot.subjects;
++  const subjectName = (id: string) => subjects.find((row) => row.id === id)?.display_name ?? id;
++  return <div className="min-w-0 space-y-4">
++    <ReviewSelect choices={[['', '请选择结论'], ['CONFIRMED', 'CONFIRMED · 确认机器结论'], ['CORRECTED', 'CORRECTED · 提交修正']]} disabled={disabled} label="复核结论" name="decision" />
++    <ReviewText area label="复核说明" name="comment" />
++    {severeClaims(analysis).length > 0 && <FormSection title="严重错误逐条核对" description="即使确认机器判断，也必须逐条检查原文及事实依据并填写复核说明。核对项不会默认选中。">
++      {severeClaims(analysis).map((row, index) => <div className="space-y-2 break-words text-sm" key={row.id}>
++        <p>{row.claim_text} · {row.verdict} · {row.severity}</p><p>FactVersion：{row.fact_version_id} · {row.fact_excerpt}</p><p>{row.explanation}</p>
++        <ReviewCheck label={`已核对严重声明 ${index + 1}`} name={`checked.${index}`} />
++      </div>)}
++    </FormSection>}
++    {values.decision === 'CORRECTED' && <>
++      <p className="text-sm text-text-secondary">仅勾选“本次修正”的行会提交。最新复核整体替换上一复核；未勾选的旧修正不会保留。已载入当前复核的全部明确字段，可取消本次不保留的修正。</p>
++      <FormSection title="提及修正" description="每个别名一行。正数需有匹配别名；次数改为 0 会清空别名和位置。位置按 Python Unicode codepoint 从 0 计数。">
++        {values.mentions?.map((row, index) => <div className="min-w-0 space-y-3 border-b border-border-subtle pb-3" key={row.subject_id}>
++          <p className="break-words text-sm">{subjectName(row.subject_id ?? '')}</p>
++          <ReviewCheck label={`修正提及 ${index + 1}`} name={`mentions.${index}.enabled`} />
++          <fieldset disabled={!row.enabled || disabled} className="grid min-w-0 gap-3 sm:grid-cols-2">
++            <FormField<ReviewValues, `mentions.${number}.count`> id={`review-mentions.${index}.count`} label={`提及 ${index + 1} 次数`} name={`mentions.${index}.count`} render={({ field, inputId, ...aria }) => <Input {...field} aria-describedby={aria['aria-describedby']} aria-invalid={aria['aria-invalid']} className="min-h-11 sm:min-h-8" id={inputId} inputMode="numeric" onChange={(event) => {
++              field.onChange(event.currentTarget.value);
++              if (event.currentTarget.value === '0') {
++                setValue(`mentions.${index}.offset`, '', { shouldDirty: true, shouldValidate: true });
++                setValue(`mentions.${index}.aliases`, '', { shouldDirty: true, shouldValidate: true });
++              }
++            }} />} />
++            <ReviewText label={`提及 ${index + 1} 首次字符位置`} name={`mentions.${index}.offset`} />
++            <ReviewText area label={`提及 ${index + 1} 匹配别名`} name={`mentions.${index}.aliases`} />
++          </fieldset>
++        </div>)}
++        {!values.mentions?.length && <p className="text-sm">分析快照没有监测对象。</p>}
++      </FormSection>
++      <FormSection title="推荐修正">
++        {values.recommendations?.map((row, index) => <div className="min-w-0 space-y-3 border-b border-border-subtle pb-3" key={row.subject_id}>
++          <p className="break-words text-sm">{subjectName(row.subject_id ?? '')}</p>
++          <ReviewCheck label={`修正推荐 ${index + 1}`} name={`recommendations.${index}.enabled`} />
++          <fieldset disabled={!row.enabled || disabled} className="grid min-w-0 gap-3 sm:grid-cols-2">
++            <ReviewSelect choices={recommendations.map((value) => [value, value])} disabled={disabled || !row.enabled} label={`推荐 ${index + 1} 类型`} name={`recommendations.${index}.recommendation`} />
++            <ReviewText label={`推荐 ${index + 1} 排名`} name={`recommendations.${index}.rank`} />
++            <ReviewText area label={`推荐 ${index + 1} 理由摘录`} name={`recommendations.${index}.excerpt`} />
++          </fieldset>
++        </div>)}
++        {!values.recommendations?.length && <p className="text-sm">分析快照没有监测对象。</p>}
++      </FormSection>
++      <FormSection title="声明修正" description="保留不可变原文和 FactVersion 依据。没有 FactVersion 的声明只能保持 UNJUDGEABLE。">
++        {values.claims?.map((row, index) => {
++          const claim = analysis.claims[index];
++          if (!claim) throw new Error('复核声明不属于当前编辑分析');
++          return <div className="min-w-0 space-y-3 border-b border-border-subtle pb-3" key={row.claim_assessment_id}>
++            <p className="whitespace-pre-wrap break-words text-sm">{claim.claim_text}</p>
++            <p className="break-words text-sm [overflow-wrap:anywhere]">FactVersion：{claim.fact_version_id ?? '无'} · {claim.fact_excerpt ?? '无事实摘录'}</p>
++            <ReviewCheck label={`修正声明 ${index + 1}`} name={`claims.${index}.enabled`} />
++            <fieldset disabled={!row.enabled || disabled} className="grid min-w-0 gap-3 sm:grid-cols-2">
++              <ReviewSelect choices={(claim.fact_version_id === null ? ['UNJUDGEABLE'] : verdicts).map((value) => [value, value])} disabled={disabled || !row.enabled} label={`声明 ${index + 1} 判定`} name={`claims.${index}.verdict`} />
++              <ReviewSelect choices={severities.map((value) => [value, value])} disabled={disabled || !row.enabled} label={`声明 ${index + 1} 严重度`} name={`claims.${index}.severity`} />
++              <ReviewText area label={`声明 ${index + 1} 解释`} name={`claims.${index}.explanation`} />
++            </fieldset>
++          </div>;
++        })}
++        {!values.claims?.length && <p className="text-sm">没有可修正的机器声明。</p>}
++      </FormSection>
++      <FormSection title="引用修正" description="来源分类按引用来源填写。内容关联对象可为空；关联某对象不表示该域名由此对象拥有。">
++        {values.citations?.map((row, index) => <div className="min-w-0 space-y-3 border-b border-border-subtle pb-3" key={row.citation_id}>
++          <p className="break-all text-sm">{detail.citations.find((citation) => citation.id === row.citation_id)?.original_url}</p>
++          <ReviewCheck label={`修正引用 ${index + 1}`} name={`citations.${index}.enabled`} />
++          <fieldset disabled={!row.enabled || disabled} className="grid min-w-0 gap-3 sm:grid-cols-2">
++            <ReviewSelect choices={categories.map((value) => [value, value])} disabled={disabled || !row.enabled} label={`引用 ${index + 1} 来源分类`} name={`citations.${index}.source_category`} />
++            <ReviewSelect choices={[['', '不关联对象'], ...subjects.map((subject): [string, string] => [subject.id, subject.display_name])]} disabled={disabled || !row.enabled} label={`引用 ${index + 1} 内容关联对象`} name={`citations.${index}.subject_id`} />
++          </fieldset>
++        </div>)}
++        {!values.citations?.length && <p className="text-sm">没有原始引用。</p>}
++      </FormSection>
++    </>}
++  </div>;
++}
++function ReviewText({ name, label, area = false }: { name: TextPath; label: string; area?: boolean }) {
++  return <FormField<ReviewValues, TextPath> id={`review-${name}`} label={label} name={name} render={({ field, inputId, ...aria }) => area
++    ? <Textarea {...field} aria-describedby={aria['aria-describedby']} aria-invalid={aria['aria-invalid']} id={inputId} rows={3} />
++    : <Input {...field} aria-describedby={aria['aria-describedby']} aria-invalid={aria['aria-invalid']} className="min-h-11 sm:min-h-8" id={inputId} />} />;
++}
++function ReviewSelect({ name, label, choices, disabled }: { name: TextPath; label: string; choices: readonly (readonly [string, string])[]; disabled: boolean }) {
++  return <FormField<ReviewValues, TextPath> id={`review-${name}`} label={label} name={name} render={({ field, inputId, ...aria }) => <Select disabled={disabled} items={choices.map(([value, text]) => ({ value, label: text }))} onValueChange={(value) => { if (value !== null) field.onChange(value); }} value={field.value}>
++    <SelectTrigger aria-describedby={aria['aria-describedby']} aria-invalid={aria['aria-invalid']} className="min-h-11 w-full sm:min-h-8" id={inputId} onBlur={field.onBlur} ref={field.ref}><SelectValue /></SelectTrigger>
++    <SelectContent>{choices.map(([value, text]) => <SelectItem key={value} value={value}>{text}</SelectItem>)}</SelectContent>
++  </Select>} />;
++}
++function ReviewCheck({ name, label }: { name: CheckPath; label: string }) {
++  const { register, formState: { errors } } = useFormContext<ReviewValues>();
++  const issue = reviewIssues(errors).find((row) => row.id === name);
++  return <div><label className="flex min-h-11 items-center gap-2 text-sm" htmlFor={`review-${name}`}>
++    <input {...register(name)} aria-describedby={issue ? `review-${name}-error` : undefined} aria-invalid={Boolean(issue)} className="size-4 shrink-0 accent-[var(--interaction-primary)]" id={`review-${name}`} type="checkbox" />{label}
++  </label>{issue && <p className="text-xs text-danger" id={`review-${name}-error`} role="alert">{issue.message}</p>}</div>;
++}
++function reviewIssues(errors: FieldErrors<ReviewValues>) {
++  const issues: { id: string; message: string; fieldId: string }[] = [];
++  function visit(value: unknown, path: string) {
++    if (!value || typeof value !== 'object') return;
++    if ('message' in value && typeof value.message === 'string') issues.push({ id: path, message: value.message, fieldId: `review-${path}` });
++    for (const [key, child] of Object.entries(value)) if (!['ref', 'message', 'type', 'types'].includes(key)) visit(child, path ? `${path}.${key}` : key);
++  }
++  visit(errors, '');
++  return issues;
++}
++export { ReviewFields, reviewIssues };
+--- /dev/null
++++ b/frontend/src/domains/geo-runs/review.model.test.ts
+@@ -0,0 +1,76 @@
++import { describe, expect, it } from 'vitest';
++import { analyzedDetail, analysisId, claimId, factId, reviewId, reviewReceipt } from './analysis.test-support';
++import { batchId, runId } from './runs.test-support';
++import { codepointExcerpt, currentAnalysis, reviewFormSchema, reviewPayload, reviewValues } from './review.model';
++
++describe('复核输入与 API 边界', () => {
++  it('四栏结构化修正生成完整替换载荷，未选择行不冒充累计人工修正', () => {
++    const detail = analyzedDetail();
++    const analysis = currentAnalysis(detail)!;
++    const values = reviewValues(detail, analysis);
++    values.decision = 'CORRECTED'; values.comment = '本次明确修正'; values.checked = [true];
++    values.mentions[0] = { enabled: true, subject_id: runId, count: '0', offset: '', aliases: '' };
++    values.recommendations[0] = { enabled: true, subject_id: runId, recommendation: 'CONSIDERED', rank: '2', excerpt: '可考虑使用' };
++    values.claims[0] = { enabled: true, claim_assessment_id: claimId, verdict: 'PARTIAL', severity: 'MEDIUM', explanation: '参数需要纠正' };
++    values.citations[0] = { enabled: true, citation_id: batchId, source_category: 'INDUSTRY_MEDIA', subject_id: '' };
++    expect(reviewFormSchema(analysis).safeParse(values).success).toBe(true);
++    expect(reviewPayload(values, analysisId, 7)).toEqual({
++      analysis_revision_id: analysisId, expected_run_revision: 7, decision: 'CORRECTED', comment: '本次明确修正',
++      correction_payload: { schema_version: 1,
++        mentions: [{ subject_id: runId, mention_count: 0, first_character_offset: null, matched_aliases: [] }],
++        recommendations: [{ subject_id: runId, recommendation: 'CONSIDERED', rank: 2, rationale_excerpt: '可考虑使用' }],
++        claims: [{ claim_assessment_id: claimId, verdict: 'PARTIAL', severity: 'MEDIUM', explanation: '参数需要纠正' }],
++        citations: [{ citation_id: batchId, source_category: 'INDUSTRY_MEDIA', subject_id: null }],
++      },
++    });
++  });
++  it('只继承 current review 明确字段；取消旧修正后不会从 effective 补回', () => {
++    const detail = analyzedDetail();
++    const review = reviewReceipt().review;
++    review.decision = 'CORRECTED';
++    review.correction_payload = { schema_version: 1, mentions: [], recommendations: [], claims: [{ claim_assessment_id: claimId, verdict: 'INCORRECT', severity: 'HIGH', explanation: '上次完整说明' }], citations: [] };
++    detail.analysis.reviews = [{ review, is_current: true }]; detail.analysis.selection.current_review_id = reviewId;
++    const values = reviewValues(detail, currentAnalysis(detail)!);
++    expect(values.claims[0]).toMatchObject({ enabled: true, explanation: '上次完整说明' });
++    expect(values.mentions[0]?.enabled).toBe(false);
++    values.decision = 'CORRECTED'; values.comment = '本次只改引用'; values.checked = [true]; values.claims[0]!.enabled = false; values.citations[0]!.enabled = true;
++    expect(reviewPayload(values, analysisId, 8).correction_payload).toMatchObject({ claims: [], citations: [{ citation_id: batchId }] });
++  });
++  it('严重门禁需要每条显式核对和说明；普通 CONFIRMED 保留 null/空说明许可', () => {
++    const detail = analyzedDetail(); const analysis = currentAnalysis(detail)!;
++    analysis.claims.push({ ...analysis.claims[0]!, id: factId, severity: 'CRITICAL' });
++    const values = reviewValues(detail, analysis); values.decision = 'CONFIRMED';
++    expect(values.checked).toEqual([false, false]);
++    values.checked = [true, false]; values.comment = '已核对';
++    expect(reviewFormSchema(analysis).safeParse(values).success).toBe(false);
++    values.checked = [true, true]; values.comment = '  ';
++    expect(reviewFormSchema(analysis).safeParse(values).success).toBe(false);
++    values.comment = '电压差异已确认';
++    expect(reviewFormSchema(analysis).safeParse(values).success).toBe(true);
++    expect(reviewPayload(values, analysisId, 7).correction_payload).toBeNull();
++    analysis.claims = []; const ordinary = reviewValues(detail, analysis); ordinary.decision = 'CONFIRMED';
++    expect(reviewFormSchema(analysis).safeParse(ordinary).success).toBe(true);
++    expect(reviewPayload(ordinary, analysisId, 7)).toMatchObject({ comment: '', correction_payload: null });
++  });
++  it('正数别名、零清空和无 FactVersion 判定都在表单边界保护', () => {
++    const detail = analyzedDetail(); const analysis = currentAnalysis(detail)!;
++    analysis.claims[0]!.fact_version_id = null; analysis.claims[0]!.verdict = 'UNJUDGEABLE'; analysis.claims[0]!.fact_excerpt = null;
++    const values = reviewValues(detail, analysis); values.decision = 'CORRECTED'; values.comment = '仅无事实判定'; values.claims[0]!.enabled = true;
++    values.claims[0]!.verdict = 'ACCURATE';
++    expect(reviewFormSchema(analysis).safeParse(values).success).toBe(false);
++    values.claims[0]!.verdict = 'UNJUDGEABLE'; values.mentions[0]!.enabled = true; values.mentions[0]!.aliases = '';
++    expect(reviewFormSchema(analysis).safeParse(values).success).toBe(false);
++    values.mentions[0]!.aliases = '型号A'; values.mentions[0]!.count = '0';
++    expect(reviewFormSchema(analysis).safeParse(values).success).toBe(false);
++    values.mentions[0]!.aliases = ''; values.mentions[0]!.offset = '';
++    expect(reviewFormSchema(analysis).safeParse(values).success).toBe(true);
++  });
++  it('选择来自 explicit selection，Unicode offset 不以 UTF-16 切割', () => {
++    const detail = analyzedDetail(); const row = detail.analysis.revisions[0]!;
++    detail.analysis.revisions.unshift({ ...row, analysis: { ...row.analysis, id: factId, revision: 9 } });
++    expect(currentAnalysis(detail)?.analysis.id).toBe(analysisId);
++    expect(codepointExcerpt('😀前文 型号A', 4)).toBe('型号A');
++    detail.analysis.selection.current_analysis_revision_id = null;
++    expect(currentAnalysis(detail)).toBeUndefined();
++  });
++});
+--- /dev/null
++++ b/frontend/src/domains/geo-runs/review.model.ts
+@@ -0,0 +1,105 @@
++import { z } from 'zod';
++import type { components } from '@/shared/api/generated/schema';
++
++type Detail = components['schemas']['GeoRunDetail'];
++type Analysis = components['schemas']['GeoAnalysisResult'];
++type Correction = Extract<components['schemas']['GeoReviewCorrectionPayload'], { schema_version: 1 }>;
++type ReviewRequest = components['schemas']['GeoRunReviewRequest'];
++const decisions = ['CONFIRMED', 'CORRECTED'] as const satisfies readonly components['schemas']['GeoReviewDecision'][];
++const recommendations = ['RECOMMENDED', 'CONSIDERED', 'NOT_RECOMMENDED', 'UNKNOWN'] as const satisfies readonly components['schemas']['GeoRecommendationKind'][];
++const verdicts = ['ACCURATE', 'PARTIAL', 'INCORRECT', 'UNJUDGEABLE'] as const satisfies readonly components['schemas']['GeoClaimVerdict'][];
++const severities = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as const satisfies readonly components['schemas']['GeoClaimSeverity'][];
++const categories = ['OWNED', 'COMPETITOR', 'INDUSTRY_MEDIA', 'DISTRIBUTOR', 'COMMUNITY', 'SOCIAL', 'SEARCH_ENGINE', 'ACADEMIC_OR_INSTITUTIONAL', 'OTHER', 'UNKNOWN'] as const satisfies readonly components['schemas']['GeoSourceCategory'][];
++const text = z.string().refine((value) => Array.from(value).length <= 2000, '最多 2000 字符').refine((value) => !value.includes('\0'), '不能包含空字符');
++const baseSchema = z.object({
++  decision: z.enum(['', ...decisions]), comment: text,
++  checked: z.array(z.boolean()),
++  mentions: z.array(z.object({ enabled: z.boolean(), subject_id: z.string(), count: z.string(), offset: z.string(), aliases: z.string() })),
++  recommendations: z.array(z.object({ enabled: z.boolean(), subject_id: z.string(), recommendation: z.enum(recommendations), rank: z.string(), excerpt: text })),
++  claims: z.array(z.object({ enabled: z.boolean(), claim_assessment_id: z.string(), verdict: z.enum(verdicts), severity: z.enum(severities), explanation: text })),
++  citations: z.array(z.object({ enabled: z.boolean(), citation_id: z.string(), source_category: z.enum(categories), subject_id: z.string() })),
++});
++type ReviewValues = z.infer<typeof baseSchema>;
++function currentAnalysis(detail: Detail) {
++  return detail.analysis.revisions.find((row) => row.analysis.id === detail.analysis.selection.current_analysis_revision_id);
++}
++function severeClaims(analysis: Analysis) {
++  return analysis.claims.filter((row) => row.verdict === 'INCORRECT' && (row.severity === 'HIGH' || row.severity === 'CRITICAL'));
++}
++function currentCorrection(detail: Detail): Correction | null {
++  const payload = detail.analysis.reviews.find((row) => row.review.id === detail.analysis.selection.current_review_id)?.review.correction_payload;
++  return payload && 'schema_version' in payload ? payload : null;
++}
++function reviewValues(detail: Detail, analysis: Analysis): ReviewValues {
++  // 只继承当前 review 的明确修正；effective 包含机器值，不能当累计人工修正。
++  const correction = currentCorrection(detail);
++  return {
++    decision: '', comment: '', checked: severeClaims(analysis).map(() => false),
++    mentions: analysis.analysis.input_snapshot.subjects.map((subject) => {
++      const saved = correction?.mentions.find((row) => row.subject_id === subject.id);
++      const row = saved ?? analysis.mentions.find((item) => item.subject_id === subject.id);
++      return { enabled: Boolean(saved), subject_id: subject.id, count: row ? String(row.mention_count) : '', offset: row?.first_character_offset == null ? '' : String(row.first_character_offset), aliases: row?.matched_aliases.join('\n') ?? '' };
++    }),
++    recommendations: analysis.analysis.input_snapshot.subjects.map((subject) => {
++      const saved = correction?.recommendations.find((row) => row.subject_id === subject.id);
++      const row = saved ?? analysis.recommendations.find((item) => item.subject_id === subject.id);
++      return { enabled: Boolean(saved), subject_id: subject.id, recommendation: row?.recommendation ?? 'UNKNOWN', rank: row?.rank == null ? '' : String(row.rank), excerpt: row?.rationale_excerpt ?? '' };
++    }),
++    claims: analysis.claims.map((claim) => {
++      const saved = correction?.claims.find((row) => row.claim_assessment_id === claim.id);
++      return { enabled: Boolean(saved), claim_assessment_id: claim.id, verdict: saved?.verdict ?? claim.verdict, severity: saved?.severity ?? claim.severity, explanation: saved?.explanation ?? claim.explanation };
++    }),
++    citations: detail.citations.map((citation) => {
++      const saved = correction?.citations.find((row) => row.citation_id === citation.id);
++      const row = saved ?? analysis.citations.find((item) => item.citation_id === citation.id);
++      return { enabled: Boolean(saved), citation_id: citation.id, source_category: row?.source_category ?? 'UNKNOWN', subject_id: row?.subject_id ?? '' };
++    }),
++  };
++}
++function reviewFormSchema(analysis: Analysis) {
++  return baseSchema.superRefine((values, ctx) => {
++    const issue = (path: (string | number)[], message: string) => ctx.addIssue({ code: 'custom', path, message });
++    if (!values.decision) issue(['decision'], '请显式选择复核结论');
++    const serious = severeClaims(analysis);
++    serious.forEach((_, index) => { if (!values.checked[index]) issue(['checked', index], `请逐条核对严重声明 ${index + 1}`); });
++    if ((serious.length || values.decision === 'CORRECTED') && !values.comment.trim()) issue(['comment'], '请填写非空复核说明');
++    if (values.decision !== 'CORRECTED') return;
++    const selected = [...values.mentions, ...values.recommendations, ...values.claims, ...values.citations].some((row) => row.enabled);
++    if (!selected) issue(['decision'], '修正结论至少需要选择一项本次修正');
++    const integer = (value: string, min: number) => /^\d+$/.test(value) && Number.isSafeInteger(Number(value)) && Number(value) >= min && Number(value) <= 2147483647;
++    values.mentions.forEach((row, index) => {
++      if (!row.enabled) return;
++      if (!integer(row.count, 0)) issue(['mentions', index, 'count'], '提及次数必须为非负整数');
++      if (row.offset && !integer(row.offset, 0)) issue(['mentions', index, 'offset'], '字符位置必须为非负整数或空值');
++      const aliases = row.aliases.split('\n').map((item) => item.trim()).filter(Boolean);
++      if (Number(row.count) === 0 && (row.offset || aliases.length)) issue(['mentions', index, 'count'], '次数为 0 时需清空位置和别名');
++      if (Number(row.count) > 0 && !aliases.length) issue(['mentions', index, 'aliases'], '正数提及至少需要一个匹配别名');
++      if (aliases.some((item) => Array.from(item).length > 240 || item.includes('\0'))) issue(['mentions', index, 'aliases'], '每个别名最多 240 字符且不能含空字符');
++    });
++    values.recommendations.forEach((row, index) => {
++      if (row.enabled && row.rank && !integer(row.rank, 1)) issue(['recommendations', index, 'rank'], '排名必须为正整数或空值');
++    });
++    values.claims.forEach((row, index) => {
++      if (!row.enabled) return;
++      if (!row.explanation.trim()) issue(['claims', index, 'explanation'], '请填写声明解释');
++      if (analysis.claims.find((claim) => claim.id === row.claim_assessment_id)?.fact_version_id === null && row.verdict !== 'UNJUDGEABLE') issue(['claims', index, 'verdict'], '没有 FactVersion 依据时只能选择 UNJUDGEABLE');
++    });
++  });
++}
++function reviewPayload(values: ReviewValues, analysisId: string, revision: number): ReviewRequest {
++  if (!values.decision) throw new Error('请显式选择复核结论');
++  const correction: Correction = {
++    schema_version: 1,
++    mentions: values.mentions.filter((row) => row.enabled).map((row) => ({ subject_id: row.subject_id, mention_count: Number(row.count), first_character_offset: row.offset ? Number(row.offset) : null, matched_aliases: row.aliases.split('\n').map((item) => item.trim()).filter(Boolean) })),
++    recommendations: values.recommendations.filter((row) => row.enabled).map((row) => ({ subject_id: row.subject_id, recommendation: row.recommendation, rank: row.rank ? Number(row.rank) : null, rationale_excerpt: row.excerpt.trim() || null })),
++    claims: values.claims.filter((row) => row.enabled).map((row) => ({ claim_assessment_id: row.claim_assessment_id, verdict: row.verdict, severity: row.severity, explanation: row.explanation.trim() })),
++    citations: values.citations.filter((row) => row.enabled).map((row) => ({ citation_id: row.citation_id, source_category: row.source_category, subject_id: row.subject_id || null })),
++  };
++  return { analysis_revision_id: analysisId, expected_run_revision: revision, decision: values.decision, correction_payload: values.decision === 'CORRECTED' ? correction : null, comment: values.comment.trim() };
++}
++// Python offset 按 Unicode codepoint 计数；JS 字符串索引按 UTF-16，不能直接 slice 原文。
++function codepointExcerpt(answer: string, offset: number | null) {
++  return offset === null ? null : Array.from(answer).slice(offset, offset + 80).join('');
++}
++export { categories, codepointExcerpt, currentAnalysis, currentCorrection, decisions, recommendations, reviewFormSchema, reviewPayload, reviewValues, severeClaims, severities, verdicts };
++export type { Analysis, Correction, Detail, ReviewRequest, ReviewValues };
+--- /dev/null
++++ b/frontend/src/domains/geo-runs/run-analysis.test.tsx
+@@ -0,0 +1,47 @@
++import { render, screen, within } from '@testing-library/react';
++import userEvent from '@testing-library/user-event';
++import { describe, expect, it } from 'vitest';
++import { analyzedDetail, analysisId, claimId, factId, reviewReceipt } from './analysis.test-support';
++import { detail } from './runs.test-support';
++import { RunAnalysis } from './run-analysis';
++
++describe('单 detail 分析可追溯展示', () => {
++  it('原机器与有效声明独立显示，FactVersion、摘录、解释和引用分类可追溯', () => {
++    const value = analyzedDetail();
++    value.analysis.effective_results = { ...value.analysis.effective_results!, claims: [{ ...value.analysis.revisions[0]!.claims[0]!, explanation: '人工修正后的解释', severity: 'MEDIUM' }] };
++    render(<RunAnalysis detail={value} />);
++    const machine = screen.getByRole('region', { name: '机器声明结果' });
++    const effective = screen.getByRole('region', { name: '有效声明结果' });
++    expect(machine).toHaveTextContent('额定电压为5V'); expect(machine).toHaveTextContent(factId);
++    expect(machine).toHaveTextContent('额定电压为3.3V'); expect(machine).toHaveTextContent('INCORRECT · HIGH');
++    expect(machine).toHaveTextContent('回答电压与批准事实不符'); expect(machine).not.toHaveTextContent('人工修正后的解释');
++    expect(effective).toHaveTextContent('人工修正后的解释'); expect(effective).toHaveTextContent('MEDIUM');
++    expect(screen.getByRole('region', { name: '机器提及结果' })).toHaveTextContent('原文定位：型号A推荐使用');
++    expect(screen.getByRole('region', { name: '机器引用分类' })).toHaveTextContent('https://example.test/spec');
++  });
++  it('历史 analysis/review 只读，当前标识只来自 selection，不以顺序或 is_current 猜测', async () => {
++    const value = analyzedDetail(); const current = value.analysis.revisions[0]!;
++    value.analysis.revisions.unshift({ ...current, analysis: { ...current.analysis, id: factId, revision: 2 } });
++    const review = reviewReceipt().review;
++    review.decision = 'CORRECTED'; review.comment = '保留历史修正原因'; review.correction_payload = { schema_version: 1, mentions: [], recommendations: [], claims: [{ claim_assessment_id: claimId, verdict: 'INCORRECT', severity: 'HIGH', explanation: '历史修正的解释' }], citations: [] };
++    value.analysis.reviews = [{ review, is_current: true }];
++    // 当前 review pointer 为空，历史 item 的展示旗标不得成为另一份 current owner。
++    value.analysis.selection.current_review_id = null;
++    render(<RunAnalysis detail={value} />);
++    expect(screen.getByRole('region', { name: '当前机器分析' })).toHaveTextContent(analysisId);
++    const history = screen.getByRole('region', { name: '分析与复核历史，只读' });
++    await userEvent.click(within(history).getByText(/复核 CORRECTED · 历史/));
++    expect(history).toHaveTextContent('保留历史修正原因'); expect(history).toHaveTextContent('历史修正的解释');
++    expect(within(history).queryByRole('button')).not.toBeInTheDocument();
++    expect(within(history).queryByRole('textbox')).not.toBeInTheDocument();
++  });
++  it('没有成功分析时保留真实空状态，不选历史revision代替当前或推断指标', () => {
++    const value = detail();
++    render(<RunAnalysis detail={value} />);
++    expect(screen.getByText(/尚无当前成功分析/)).toBeVisible();
++    expect(screen.getByText('尚无分析 revision。')).toBeVisible();
++    expect(screen.getByText('尚无人工复核记录。')).toBeVisible();
++    expect(screen.queryByRole('region', { name: '当前有效结果' })).not.toBeInTheDocument();
++    expect(screen.queryByRole('button', { name: '开始人工复核' })).not.toBeInTheDocument();
++  });
++});
+--- /dev/null
++++ b/frontend/src/domains/geo-runs/run-analysis.tsx
+@@ -0,0 +1,101 @@
++import type { ReactNode } from 'react';
++import type { components } from '@/shared/api/generated/schema';
++import { TableShell } from '@/design-system/data-table/table-shell';
++import { codepointExcerpt, currentAnalysis, type Analysis, type Correction, type Detail } from './review.model';
++import { timestamp } from './runs.model';
++
++type Results = Pick<components['schemas']['GeoReviewedResults'], 'mentions' | 'recommendations' | 'claims' | 'citations' | 'citation_classification_complete'>;
++function RunAnalysis({ detail, reviewControl }: { detail: Detail; reviewControl?: ReactNode }) {
++  const selected = currentAnalysis(detail);
++  const { analysis } = detail;
++  return <section aria-label="分析与人工复核" className="min-w-0 space-y-5 border-t border-border-subtle pt-4">
++    <h3 className="type-section-title">分析与人工复核</h3>
++    <p className="text-sm">需要复核：{analysis.review_required ? '是' : '否'} · 复核门禁：{analysis.review_gate_passed ? '已通过' : '未通过'}。状态以服务端投影为准。</p>
++    {selected ? <>
++      <section aria-label="当前机器分析" className="min-w-0 space-y-3">
++        <h4 className="font-medium">当前机器分析 · Revision {selected.analysis.revision}（只读）</h4>
++        <AnalysisIdentity value={selected} />
++        <AnalysisResults detail={detail} label="机器" results={selected} subjects={selected.analysis.input_snapshot.subjects} />
++      </section>
++      {analysis.effective_results ? <section aria-label="当前有效结果" className="min-w-0 space-y-3 border-t border-border-subtle pt-4">
++        <h4 className="font-medium">当前有效结果（服务端投影）</h4>
++        <p className="break-all text-sm">当前复核 ID：{analysis.selection.current_review_id ?? '无；使用机器结果'}。人工结论不会改写上方机器结果。</p>
++        <AnalysisResults detail={detail} label="有效" results={analysis.effective_results} subjects={selected.analysis.input_snapshot.subjects} />
++      </section> : <p className="text-sm">服务端尚无有效结果。</p>}
++    </> : <p className="text-sm text-text-secondary">{analysis.selection.current_analysis_revision_id ? '服务端当前分析引用不可读取，请重新读取详情。' : '尚无当前成功分析；分析待处理或失败时请查看运行状态及下方历史。'}</p>}
++    {reviewControl}
++    <section aria-label="分析与复核历史，只读" className="min-w-0 space-y-3 border-t border-border-subtle pt-4">
++      <h4 className="font-medium">分析与复核历史（只读）</h4>
++      {!analysis.revisions.length && <p className="text-sm">尚无分析 revision。</p>}
++      {analysis.revisions.map((revision) => <details key={revision.analysis.id} className="min-w-0 space-y-3">
++        <summary className="cursor-pointer break-words text-sm">分析 Revision {revision.analysis.revision} · {revision.analysis.status} · {revision.analysis.id === analysis.selection.current_analysis_revision_id ? '当前' : '历史'} · {timestamp(revision.analysis.created_at)}</summary>
++        <AnalysisIdentity value={revision} />
++        <AnalysisResults detail={detail} label={`历史 ${revision.analysis.revision}`} results={revision} subjects={revision.analysis.input_snapshot.subjects} />
++      </details>)}
++      {!analysis.reviews.length && <p className="text-sm">尚无人工复核记录。</p>}
++      {analysis.reviews.map(({ review }) => <details className="min-w-0 space-y-3" key={review.id}>
++        <summary className="cursor-pointer break-words text-sm">复核 {review.decision} · {review.id === analysis.selection.current_review_id ? '当前' : '历史'} · {timestamp(review.created_at)}</summary>
++        <dl className="space-y-2 break-words text-sm [overflow-wrap:anywhere]">
++          <div><dt>复核 ID / 分析 ID</dt><dd>{review.id} / {review.analysis_revision_id}</dd></div>
++          <div><dt>复核人 ID</dt><dd>{review.reviewer_id}</dd></div>
++          <div><dt>人工复核说明</dt><dd className="whitespace-pre-wrap">{review.comment || '未填写（服务端允许）'}</dd></div>
++        </dl>
++        {review.correction_payload && 'schema_version' in review.correction_payload && <CorrectionHistory correction={review.correction_payload} />}
++        {!review.correction_payload && <p className="text-sm">确认机器结论；没有修正载荷。</p>}
++      </details>)}
++    </section>
++  </section>;
++}
++function AnalysisIdentity({ value }: { value: Analysis }) {
++  const row = value.analysis;
++  return <dl className="grid gap-2 text-sm sm:grid-cols-2">
++    <div className="min-w-0"><dt>分析 ID / 输入 SHA-256</dt><dd className="break-all">{row.id} / {row.input_sha256}</dd></div>
++    <div><dt>分析器 / 版本</dt><dd>{row.analyzer_type} / {row.analyzer_version}</dd></div>
++    <div><dt>分析状态 / 完成时间</dt><dd>{row.status} / {timestamp(row.finished_at)}</dd></div>
++    <div className="min-w-0"><dt>复核原因</dt><dd className="break-words">{row.review_required_reasons.length ? row.review_required_reasons.join('、') : '无'}</dd></div>
++    {row.error_code && <div className="sm:col-span-2" role="alert"><dt>分析失败</dt><dd>{row.error_code} · {row.error_summary}</dd></div>}
++  </dl>;
++}
++function AnalysisResults({ detail, label, results, subjects }: { detail: Detail; label: string; results: Results; subjects: Analysis['analysis']['input_snapshot']['subjects'] }) {
++  const subjectName = (id: string | null) => id === null ? '未关联对象' : `${subjects.find((row) => row.id === id)?.display_name ?? id} (${id})`;
++  return <div className="min-w-0 space-y-4">
++    <section className="min-w-0 space-y-2"><h5 className="text-sm font-medium">提及</h5>
++      {results.mentions.length ? <TableShell regionLabel={`${label}提及结果`}><thead><tr><th>监测对象</th><th>次数 / 首次位置</th><th>匹配别名与原文定位</th></tr></thead><tbody>
++        {results.mentions.map((row) => <tr key={row.subject_id}><td className="max-w-64 break-words [overflow-wrap:anywhere]">{subjectName(row.subject_id)}</td><td>{row.mention_count} / {row.first_character_offset ?? '未记录'}</td><td className="max-w-lg whitespace-pre-wrap break-words"><p>{row.matched_aliases.join('、') || '无匹配别名'}</p>{detail.answer && row.first_character_offset !== null && <p>原文定位：{codepointExcerpt(detail.answer.answer_text, row.first_character_offset)}</p>}</td></tr>)}
++      </tbody></TableShell> : <p className="text-sm">无提及结果。</p>}
++      <p className="text-xs text-text-muted">首次位置为 Python Unicode codepoint，从 0 开始；原文定位按 codepoint 读取。</p>
++    </section>
++    <section className="min-w-0 space-y-2"><h5 className="text-sm font-medium">推荐</h5>
++      {results.recommendations.length ? <TableShell regionLabel={`${label}推荐结果`}><thead><tr><th>监测对象</th><th>推荐 / 排名</th><th>理由摘录</th></tr></thead><tbody>
++        {results.recommendations.map((row) => <tr key={row.subject_id}><td className="max-w-64 break-words [overflow-wrap:anywhere]">{subjectName(row.subject_id)}</td><td>{row.recommendation} / {row.rank ?? '无排名'}</td><td className="max-w-lg whitespace-pre-wrap break-words">{row.rationale_excerpt ?? '无摘录'}</td></tr>)}
++      </tbody></TableShell> : <p className="text-sm">无推荐结果。</p>}
++    </section>
++    <section className="min-w-0 space-y-2"><h5 className="text-sm font-medium">声明与事实依据</h5>
++      {results.claims.length ? <TableShell regionLabel={`${label}声明结果`}><thead><tr><th>对象 / 声明原文</th><th>FactVersion / 事实摘录</th><th>判定 / 严重度 / 解释</th></tr></thead><tbody>
++        {results.claims.map((row) => <tr key={row.id}>
++          <td className="max-w-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere]"><p>{subjectName(row.subject_id)}</p><p>{row.claim_kind} · {row.claim_text}</p><p className="text-xs text-text-muted">声明 ID：{row.id}</p></td>
++          <td className="max-w-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere]"><p>{row.fact_version_id ?? '无 FactVersion；只能 UNJUDGEABLE'}</p><p>{row.fact_excerpt ?? '无事实摘录'}</p></td>
++          <td className="max-w-lg whitespace-pre-wrap break-words"><p>{row.verdict} · {row.severity}</p><p>{row.explanation}</p></td>
++        </tr>)}
++      </tbody></TableShell> : <p className="text-sm">无声明结果。</p>}
++    </section>
++    <section className="min-w-0 space-y-2"><h5 className="text-sm font-medium">引用分类</h5>
++      <p className="text-sm">分类完整性：{results.citation_classification_complete ? '完整' : '不完整'}。来源分类与内容关联对象是独立字段。</p>
++      {results.citations.length ? <TableShell regionLabel={`${label}引用分类`}><thead><tr><th>原始引用</th><th>来源分类</th><th>内容关联对象</th></tr></thead><tbody>
++        {results.citations.map((row) => <tr key={row.citation_id}><td className="max-w-lg break-all">{detail.citations.find((citation) => citation.id === row.citation_id)?.original_url ?? row.citation_id}</td><td>{row.source_category}</td><td className="max-w-64 break-words [overflow-wrap:anywhere]">{subjectName(row.subject_id)}</td></tr>)}
++      </tbody></TableShell> : <p className="text-sm">无引用分类结果。</p>}
++    </section>
++  </div>;
++}
++function CorrectionHistory({ correction }: { correction: Correction }) {
++  return <div className="space-y-2 text-sm [overflow-wrap:anywhere]">
++    <p>本次完整修正载荷；不累计合并上一条复核。</p>
++    <ul className="space-y-2">
++      {correction.mentions.map((row) => <li key={`mention:${row.subject_id}`}>提及 {row.subject_id}：{row.mention_count} 次，位置 {row.first_character_offset ?? '空'}，别名 {row.matched_aliases.join('、') || '空'}</li>)}
++      {correction.recommendations.map((row) => <li key={`recommendation:${row.subject_id}`}>推荐 {row.subject_id}：{row.recommendation}，排名 {row.rank ?? '空'}，摘录 {row.rationale_excerpt ?? '空'}</li>)}
++      {correction.claims.map((row) => <li key={`claim:${row.claim_assessment_id}`}>声明 {row.claim_assessment_id}：{row.verdict} · {row.severity} · {row.explanation}</li>)}
++      {correction.citations.map((row) => <li key={`citation:${row.citation_id}`}>引用 {row.citation_id}：{row.source_category}，关联对象 {row.subject_id ?? '空'}</li>)}
++    </ul>
++  </div>;
++}
++export { CorrectionHistory, RunAnalysis };
+--- a/frontend/src/domains/geo-runs/run-detail.tsx
++++ b/frontend/src/domains/geo-runs/run-detail.tsx
+@@ -4,6 +4,7 @@
+ import { Badge } from '@/design-system/primitives/badge';
+ import { Button } from '@/design-system/primitives/button';
+ import { batchStatusLabels, modeLabels, runCost, runPrimaryLabels, runStatusLabels, timestamp } from './runs.model';
++import { RunAnalysis } from './run-analysis';
+ 
+ type Detail = components['schemas']['GeoRunDetail'];
+ function BatchSummary({ summary }: { summary: components['schemas']['GeoBatchSummary'] }) {
+@@ -67,6 +68,7 @@
+   onEdit,
+   onRefreshEvidence,
+   retryControl,
++  reviewControl,
+   blocked = false,
+ }: {
+   detail: Detail;
+@@ -74,6 +76,7 @@
+   onEdit: () => void;
+   onRefreshEvidence: () => void;
+   retryControl?: React.ReactNode;
++  reviewControl?: React.ReactNode;
+   blocked?: boolean;
+ }) {
+   const { run, answer, data_quality: quality } = detail;
+@@ -206,7 +209,7 @@
+       </section>
+       <section className="space-y-2">
+         <h3 className="type-section-title">原始引用</h3>
+-        <p className="text-sm text-text-secondary">按原始位置展示；来源分类尚未分析。链接在新标签页打开。</p>
++        <p className="text-sm text-text-secondary">按原始位置展示；来源分类见下方机器与有效结果。链接在新标签页打开。</p>
+         {detail.citations.length ? (
+           <TableShell regionLabel="原始引用列表">
+             <thead>
+@@ -250,8 +253,9 @@
+         ))}
+         {!detail.evidence_files.length && <p className="text-sm text-text-secondary">尚无正式提交的证据文件。</p>}
+       </section>
++      <RunAnalysis detail={detail} reviewControl={reviewControl} />
+       <section className="space-y-2 border-t border-border-subtle pt-4">
+-        <h3 className="type-section-title">分析与数据质量</h3>
++        <h3 className="type-section-title">数据质量与后续能力</h3>
+         <p className="text-sm text-text-secondary">评估：{quality.assessment}；指标资格尚未实现。</p>
+         <p className="text-sm">
+           尚未实现：{quality.unavailable_sections.join('、')}。原始采集成功不表示已完成分析或复核。
+--- /dev/null
++++ b/frontend/src/domains/geo-runs/run-review.test.tsx
+@@ -0,0 +1,216 @@
++import { act, screen, waitFor, within } from '@testing-library/react';
++import userEvent from '@testing-library/user-event';
++import { afterEach, describe, expect, it, vi } from 'vitest';
++import { invalidatePrincipalEpoch } from '@/app/auth/principal-epoch';
++import { api } from '@/shared/api/client';
++import { analyzedDetail, analysisId, factId, failure, renderReview, response, reviewReceipt } from './analysis.test-support';
++import { runId } from './runs.test-support';
++import { runKeys } from './runs.api';
++import type { ReviewRequest } from './review.model';
++
++afterEach(() => vi.restoreAllMocks());
++async function choose(label: string, option: string) {
++  await userEvent.click(screen.getByRole('combobox', { name: label }));
++  await userEvent.click(await screen.findByRole('option', { name: option }));
++}
++async function begin(decision = 'CONFIRMED · 确认机器结论') {
++  await userEvent.click(await screen.findByRole('button', { name: '开始人工复核' }));
++  await choose('复核结论', decision);
++}
++async function checked() {
++  await userEvent.type(screen.getByRole('textbox', { name: '复核说明' }), '已核对严重电压错误');
++  await userEvent.click(screen.getByRole('checkbox', { name: '已核对严重声明 1' }));
++}
++describe('人工复核闭环与命令生命周期', () => {
++  it('严重声明未核对或无说明不发送；明确确认携带冻结起点、CSRF、null，双击只发一次', async () => {
++    const value = analyzedDetail();
++    vi.spyOn(api, 'GET').mockResolvedValue(response(value));
++    let release!: (value: never) => void;
++    const post = vi.spyOn(api, 'POST').mockImplementation(() => new Promise((resolve) => { release = resolve; }));
++    renderReview(value); await begin();
++    expect(screen.getByRole('checkbox', { name: '已核对严重声明 1' })).not.toBeChecked();
++    await userEvent.click(screen.getByRole('button', { name: '提交人工复核' }));
++    expect(post).not.toHaveBeenCalled();
++    expect(screen.getByRole('textbox', { name: '复核说明' })).toHaveAttribute('aria-invalid', 'true');
++    await checked();
++    await userEvent.dblClick(screen.getByRole('button', { name: '提交人工复核' }));
++    await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
++    expect(post).toHaveBeenCalledWith('/api/v1/geo/observation-runs/{run_id}/review', {
++      body: { analysis_revision_id: analysisId, expected_run_revision: 7, decision: 'CONFIRMED', correction_payload: null, comment: '已核对严重电压错误' },
++      params: { path: { run_id: runId }, header: { 'X-CSRF-Token': 'csrf' } },
++    });
++    expect(screen.getByRole('textbox', { name: '复核说明' })).toBeDisabled();
++    await act(async () => release(response(reviewReceipt())));
++    expect(await screen.findByText('人工复核已追加；正在读取服务端当前有效结果。')).toBeVisible();
++    expect(screen.queryByRole('form', { name: '人工复核表单' })).not.toBeInTheDocument();
++    expect(screen.getByRole('button', { name: '开始人工复核' })).toHaveFocus();
++  });
++  it('四栏输入提交真实结构化修正，0提及自动清空、引用对象可为空', async () => {
++    const value = analyzedDetail(); vi.spyOn(api, 'GET').mockResolvedValue(response(value));
++    const post = vi.spyOn(api, 'POST').mockImplementation(async (_path, options) => response(reviewReceipt((options as { body: ReviewRequest }).body)));
++    renderReview(value); await begin('CORRECTED · 提交修正'); await checked();
++    await userEvent.click(screen.getByRole('checkbox', { name: '修正提及 1' }));
++    const count = screen.getByRole('textbox', { name: '提及 1 次数' }); await userEvent.clear(count); await userEvent.type(count, '0');
++    expect(screen.getByRole('textbox', { name: '提及 1 匹配别名' })).toHaveValue('');
++    expect(screen.getByRole('textbox', { name: '提及 1 首次字符位置' })).toHaveValue('');
++    await userEvent.click(screen.getByRole('checkbox', { name: '修正推荐 1' }));
++    await choose('推荐 1 类型', 'CONSIDERED');
++    await userEvent.click(screen.getByRole('checkbox', { name: '修正声明 1' }));
++    const explanation = screen.getByRole('textbox', { name: '声明 1 解释' }); await userEvent.clear(explanation); await userEvent.type(explanation, '人工核对参数差异');
++    await userEvent.click(screen.getByRole('checkbox', { name: '修正引用 1' }));
++    await choose('引用 1 来源分类', 'INDUSTRY_MEDIA');
++    await userEvent.click(screen.getByRole('button', { name: '提交人工复核' }));
++    await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
++    expect((post.mock.calls[0]?.[1] as unknown as { body: ReviewRequest }).body).toMatchObject({ correction_payload: { schema_version: 1,
++      mentions: [{ mention_count: 0, first_character_offset: null, matched_aliases: [] }],
++      recommendations: [{ recommendation: 'CONSIDERED', rank: 1, rationale_excerpt: '推荐使用' }],
++      claims: [{ explanation: '人工核对参数差异' }], citations: [{ source_category: 'INDUSTRY_MEDIA', subject_id: null }],
++    } });
++  });
++  it.each(['REVISION_CONFLICT', 'GEO_REVIEW_STALE_ANALYSIS'])('409 %s 保留输入，显式读取后重新核对，不自动重放', async (code) => {
++    const fresh = analyzedDetail(); fresh.run.revision = 9;
++    vi.spyOn(api, 'GET').mockResolvedValue(response(fresh));
++    const post = vi.spyOn(api, 'POST').mockResolvedValue(failure(code));
++    renderReview(); await begin(); await checked();
++    await userEvent.click(screen.getByRole('button', { name: '提交人工复核' }));
++    const read = await screen.findByRole('button', { name: '读取最新复核上下文并保留输入' });
++    expect(screen.getByRole('textbox', { name: '复核说明' })).toHaveValue('已核对严重电压错误');
++    expect(screen.getByRole('button', { name: '提交人工复核' })).toBeDisabled();
++    await userEvent.click(read);
++    await waitFor(() => expect(screen.getByRole('checkbox', { name: '已核对严重声明 1' })).not.toBeChecked());
++    expect(screen.getByRole('textbox', { name: '复核说明' })).toHaveValue('已核对严重电压错误');
++    expect(post).toHaveBeenCalledTimes(1);
++    await userEvent.click(screen.getByRole('button', { name: '提交人工复核' }));
++    expect(post).toHaveBeenCalledTimes(1);
++    await userEvent.click(screen.getByRole('checkbox', { name: '已核对严重声明 1' }));
++    await userEvent.click(screen.getByRole('button', { name: '提交人工复核' }));
++    await waitFor(() => expect(post).toHaveBeenCalledTimes(2));
++    expect((post.mock.calls[1]?.[1] as unknown as { body: ReviewRequest }).body).toMatchObject({ expected_run_revision: 9 });
++  });
++  it.each(['network', '5xx'])('%s 未知结果只读取历史，关闭并重开不恢复提交资格', async (kind) => {
++    const value = analyzedDetail(); const get = vi.spyOn(api, 'GET').mockResolvedValue(response(value));
++    const post = vi.spyOn(api, 'POST');
++    if (kind === 'network') post.mockRejectedValue(new TypeError('连接断开')); else post.mockResolvedValue(failure('INTERNAL_ERROR', 503));
++    const { client, view } = renderReview(value); await begin(); await checked();
++    await userEvent.click(screen.getByRole('button', { name: '提交人工复核' }));
++    await userEvent.click(await screen.findByRole('button', { name: '读取复核历史核对结果' }));
++    await waitFor(() => expect(get).toHaveBeenCalledTimes(1));
++    expect(screen.getByRole('button', { name: '提交人工复核' })).toBeDisabled();
++    view.unmount(); renderReview(value, client);
++    await userEvent.click(await screen.findByRole('button', { name: '查看人工复核提交结果' }));
++    expect(screen.getByRole('button', { name: '提交人工复核' })).toBeDisabled();
++    expect(post).toHaveBeenCalledTimes(1);
++  });
++  it.each([null, 17])('CORRECTED 畸形回执 %j 保留草稿与未知命令，不关闭或重发', async (correction) => {
++    const value = analyzedDetail(); vi.spyOn(api, 'GET').mockResolvedValue(response(value));
++    const post = vi.spyOn(api, 'POST').mockImplementation(async (_path, options) => {
++      const body = (options as { body: ReviewRequest }).body;
++      const receipt = reviewReceipt(body);
++      return response({ ...receipt, review: { ...receipt.review, correction_payload: correction } });
++    });
++    renderReview(value); await begin('CORRECTED · 提交修正'); await checked();
++    await userEvent.click(screen.getByRole('checkbox', { name: '修正声明 1' }));
++    await userEvent.click(screen.getByRole('button', { name: '提交人工复核' }));
++    expect(await screen.findByRole('button', { name: '读取复核历史核对结果' })).toBeVisible();
++    expect(screen.getByRole('textbox', { name: '复核说明' })).toHaveValue('已核对严重电压错误');
++    expect(screen.getByRole('button', { name: '提交人工复核' })).toBeDisabled();
++    expect(screen.queryByText('人工复核已追加；正在读取服务端当前有效结果。')).not.toBeInTheDocument();
++    await userEvent.click(screen.getByRole('button', { name: '提交人工复核' }));
++    expect(post).toHaveBeenCalledTimes(1);
++  });
++  it('后台读取不覆盖草稿；revision变化使旧提交冻结', async () => {
++    const { client } = renderReview(); await begin(); await checked();
++    const editor = screen.getByRole('form', { name: '人工复核表单' });
++    const post = vi.spyOn(api, 'POST');
++    const fresh = analyzedDetail(); fresh.run.revision = 8;
++    act(() => client.setQueryData(runKeys.detail(runId), fresh));
++    expect(within(editor).getByRole('textbox', { name: '复核说明' })).toHaveValue('已核对严重电压错误');
++    expect(post).not.toHaveBeenCalled();
++    await waitFor(() => expect(screen.getByRole('button', { name: '提交人工复核' })).toBeDisabled());
++  });
++  it('review动作撤回立即禁止提交；同状态不凭status/primary任务补动作', async () => {
++    const value = analyzedDetail(); value.analysis.available_actions = [];
++    const { client } = renderReview(value);
++    await screen.findByRole('region', { name: '当前机器分析' });
++    expect(screen.queryByRole('button', { name: '开始人工复核' })).not.toBeInTheDocument();
++    act(() => client.setQueryData(runKeys.detail(runId), analyzedDetail()));
++    await begin(); await checked();
++    const post = vi.spyOn(api, 'POST');
++    act(() => client.setQueryData(runKeys.detail(runId), value));
++    await waitFor(() => expect(screen.getByRole('button', { name: '提交人工复核' })).toBeDisabled());
++    expect(screen.getByRole('textbox', { name: '复核说明' })).toHaveValue('已核对严重电压错误');
++    expect(post).not.toHaveBeenCalled();
++  });
++  it('新的analysis需明确放弃旧目标再重新开始；旧草稿不自动套到新声明', async () => {
++    const fresh = analyzedDetail(); fresh.run.revision = 9;
++    fresh.analysis.selection.current_analysis_revision_id = factId;
++    fresh.analysis.revisions[0]!.analysis.id = factId;
++    vi.spyOn(api, 'GET').mockResolvedValue(response(fresh));
++    const post = vi.spyOn(api, 'POST').mockResolvedValue(failure('GEO_REVIEW_STALE_ANALYSIS'));
++    renderReview(); await begin(); await checked();
++    await userEvent.click(screen.getByRole('button', { name: '提交人工复核' }));
++    await userEvent.click(await screen.findByRole('button', { name: '读取最新复核上下文并保留输入' }));
++    const restart = await screen.findByRole('button', { name: '以最新分析重新开始复核（替换本地草稿）' });
++    expect(screen.getByRole('textbox', { name: '复核说明' })).toHaveValue('已核对严重电压错误');
++    expect(screen.getByRole('button', { name: '提交人工复核' })).toBeDisabled();
++    await userEvent.click(restart);
++    expect(screen.getByRole('textbox', { name: '复核说明' })).toHaveValue('');
++    expect(screen.getByRole('checkbox', { name: '已核对严重声明 1' })).not.toBeChecked();
++    expect(screen.getByRole('form', { name: '人工复核表单' })).toHaveTextContent(`Analysis ${factId} · Run Revision 9`);
++    expect(post).toHaveBeenCalledTimes(1);
++  });
++  it('后台临时读取失败冻结旧资格，显式读取可恢复；403不给无效恢复', async () => {
++    const { client } = renderReview(); await begin(); await checked();
++    const fresh = analyzedDetail(); const get = vi.spyOn(api, 'GET').mockResolvedValue(failure('INTERNAL_ERROR', 503));
++    await act(async () => { await client.refetchQueries({ queryKey: runKeys.detail(runId), exact: true }); });
++    const read = await screen.findByRole('button', { name: '读取最新复核上下文并保留输入' });
++    expect(read).toBeEnabled(); expect(screen.getByRole('button', { name: '提交人工复核' })).toBeDisabled();
++    get.mockResolvedValue(response(fresh)); await userEvent.click(read);
++    await waitFor(() => expect(screen.getByRole('textbox', { name: '复核说明' })).toBeEnabled());
++    get.mockResolvedValue(failure('PERMISSION_DENIED', 403));
++    await act(async () => { await client.refetchQueries({ queryKey: runKeys.detail(runId), exact: true }); });
++    expect(await screen.findByRole('button', { name: '读取最新复核上下文并保留输入' })).toBeDisabled();
++  });
++  it('卸载后迟到网络失败仍保留会话未知命令，重进不会重放', async () => {
++    let reject!: (error: unknown) => void;
++    const post = vi.spyOn(api, 'POST').mockImplementation(() => new Promise((_resolve, fail) => { reject = fail; }));
++    const { client, view } = renderReview(); await begin(); await checked();
++    await userEvent.click(screen.getByRole('button', { name: '提交人工复核' }));
++    await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
++    view.unmount();
++    await act(async () => reject(new TypeError('断开')));
++    renderReview(analyzedDetail(), client);
++    await userEvent.click(await screen.findByRole('button', { name: '查看人工复核提交结果' }));
++    expect(screen.getByRole('button', { name: '提交人工复核' })).toBeDisabled();
++    expect(screen.getByText('原请求说明：已核对严重电压错误')).toBeVisible();
++    expect(post).toHaveBeenCalledTimes(1);
++  });
++  it('dirty阻断站内离开，筛选允许；局部取消也要求明确放弃并返回触发焦点', async () => {
++    const { router } = renderReview(); await begin(); await checked();
++    await userEvent.click(screen.getByRole('button', { name: '改变筛选' }));
++    await waitFor(() => expect(router.state.location.searchStr).toContain('q=changed'));
++    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
++    await userEvent.click(screen.getByRole('button', { name: '去计划' }));
++    expect(await screen.findByRole('dialog')).toHaveTextContent('尚未保存');
++    await userEvent.click(screen.getByRole('button', { name: '继续编辑' }));
++    expect(screen.getByRole('button', { name: '去计划' })).toHaveFocus();
++    await userEvent.click(screen.getByRole('button', { name: '取消本次复核' }));
++    expect(await screen.findByRole('dialog')).toHaveTextContent('放弃本次复核');
++    await userEvent.click(screen.getByRole('button', { name: '放弃本次复核' }));
++    await waitFor(() => expect(screen.getByRole('button', { name: '开始人工复核' })).toHaveFocus());
++  });
++  it('账号 epoch变化清除草稿，迟到成功不污染新主体cache或显示成功', async () => {
++    let release!: (value: never) => void;
++    const post = vi.spyOn(api, 'POST').mockImplementation(() => new Promise((resolve) => { release = resolve; }));
++    const { client } = renderReview(); await begin(); await checked();
++    await userEvent.click(screen.getByRole('button', { name: '提交人工复核' }));
++    await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
++    const invalidate = vi.spyOn(client, 'invalidateQueries');
++    act(() => { invalidatePrincipalEpoch(client, 'actor-b'); client.setQueryData(runKeys.detail(runId), analyzedDetail()); });
++    expect(await screen.findByText('认证主体已变化，旧复核输入已清除。请重新进入运行详情。')).toBeVisible();
++    expect(screen.queryByRole('textbox', { name: '复核说明' })).not.toBeInTheDocument();
++    await act(async () => release(response(reviewReceipt())));
++    expect(invalidate).not.toHaveBeenCalled();
++    expect(screen.queryByText('人工复核已追加；正在读取服务端当前有效结果。')).not.toBeInTheDocument();
++  });
++});
+--- /dev/null
++++ b/frontend/src/domains/geo-runs/run-review.tsx
+@@ -0,0 +1,190 @@
++import { zodResolver } from '@hookform/resolvers/zod';
++import { useQueryClient } from '@tanstack/react-query';
++import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
++import { FormProvider, useForm } from 'react-hook-form';
++import { capturePrincipalContinuation } from '@/app/auth/principal-epoch';
++import { DirtyGuard } from '@/design-system/forms/dirty-guard';
++import { ErrorSummary, FormActions } from '@/design-system/forms/form-layout';
++import { Button } from '@/design-system/primitives/button';
++import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/design-system/primitives/dialog';
++import { beginReviewCommand, finishReviewCommand, readReviewCommand, subscribeReviewCommands } from './review-command';
++import { ReviewFields, reviewIssues } from './review-fields';
++import { currentAnalysis, currentCorrection, reviewFormSchema, reviewPayload, reviewValues, severeClaims, type Analysis, type Detail, type ReviewValues } from './review.model';
++import { runDetailOptions, runKeys, RunRequestError, submitRunReview } from './runs.api';
++import { shouldBlockManualNavigation } from './manual.model';
++import { CorrectionHistory } from './run-analysis';
++
++type Props = { detail: Detail; csrfToken: string | null; blocked: boolean; readError?: unknown };
++function RunReview(props: Props) {
++  const client = useQueryClient();
++  const [started, setStarted] = useState<Detail>();
++  const [message, setMessage] = useState('');
++  const [discard, setDiscard] = useState(false);
++  const trigger = useRef<HTMLButtonElement>(null);
++  const discardTarget = useRef<HTMLElement | null>(null);
++  const command = useSyncExternalStore((listener) => subscribeReviewCommands(client, listener), () => readReviewCommand(client, props.detail.run.id));
++  const offered = props.detail.analysis.available_actions.includes('REVIEW');
++  const selected = currentAnalysis(props.detail);
++  function close() {
++    setStarted(undefined);
++    queueMicrotask(() => trigger.current?.isConnected && trigger.current.focus({ preventScroll: true }));
++  }
++  return <div className="min-w-0 space-y-3">
++    {message && <p role="status" className="text-sm">{message}</p>}
++    {!started && (offered || command) && <Button disabled={props.blocked || (!selected && !command)} onClick={() => { setMessage(''); setStarted(props.detail); }} ref={trigger} type="button" variant="outline">{command ? '查看人工复核提交结果' : '开始人工复核'}</Button>}
++    {started && <ReviewEditor {...props} initial={started} onClose={close} onDiscard={() => { if (document.activeElement instanceof HTMLElement) discardTarget.current = document.activeElement; setDiscard(true); }} onCompleted={() => { setMessage('人工复核已追加；正在读取服务端当前有效结果。'); close(); }} />}
++    <Dialog onOpenChange={setDiscard} open={discard}><DialogContent finalFocus={() => started ? discardTarget.current?.isConnected ? discardTarget.current : null : trigger.current?.isConnected ? trigger.current : null}><DialogHeader><DialogTitle>放弃本次复核？</DialogTitle><DialogDescription>尚未提交的本地修改将丢失。已经发送的请求不会取消，结果未知时仍需读取复核历史。</DialogDescription></DialogHeader><DialogFooter><Button onClick={() => setDiscard(false)} type="button" variant="outline">继续复核</Button><Button onClick={() => { setDiscard(false); close(); }} type="button" variant="destructive">放弃本次复核</Button></DialogFooter></DialogContent></Dialog>
++  </div>;
++}
++function ReviewEditor({ initial, detail, csrfToken, blocked, readError, onClose, onCompleted, onDiscard }: Props & { initial: Detail; onClose: () => void; onCompleted: () => void; onDiscard: () => void }) {
++  const client = useQueryClient();
++  const initialAnalysis = currentAnalysis(initial);
++  if (!initialAnalysis) return <p role="alert">当前分析不可读取；请关闭详情后重新读取复核历史。</p>;
++  return <ReviewForm initial={initial} initialAnalysis={initialAnalysis} latestDetail={detail} csrfToken={csrfToken} blocked={blocked} inaccessible={readError instanceof RunRequestError && [401, 403, 404].includes(readError.status ?? 0)} onClose={onClose} onCompleted={onCompleted} onDiscard={onDiscard} client={client} />;
++}
++function ReviewForm({ initial, initialAnalysis, latestDetail, csrfToken, blocked, inaccessible, onClose, onCompleted, onDiscard, client }: {
++  initial: Detail; initialAnalysis: Analysis; latestDetail: Detail; csrfToken: string | null; blocked: boolean;
++  inaccessible: boolean; onClose: () => void; onCompleted: () => void; onDiscard: () => void; client: ReturnType<typeof useQueryClient>;
++}) {
++  const [context, setContext] = useState(initial);
++  const [analysis, setAnalysis] = useState(initialAnalysis);
++  const [owner] = useState(() => capturePrincipalContinuation(client));
++  const form = useForm<ReviewValues>({ defaultValues: reviewValues(initial, initialAnalysis), resolver: zodResolver(reviewFormSchema(analysis)), mode: 'onChange' });
++  const [frozen, setFrozen] = useState(false);
++  const [operation, setOperation] = useState<'submit' | 'read'>();
++  const [error, setError] = useState<unknown>();
++  const [changedAnalysis, setChangedAnalysis] = useState<Detail>();
++  const [principalLost, setPrincipalLost] = useState(false);
++  const mounted = useRef(false);
++  const working = useRef(false);
++  const title = useRef<HTMLHeadingElement>(null);
++  const command = useSyncExternalStore((listener) => subscribeReviewCommands(client, listener), () => readReviewCommand(client, initial.run.id));
++  useEffect(() => {
++    mounted.current = true;
++    title.current?.focus({ preventScroll: true });
++    return () => { mounted.current = false; };
++  }, []);
++  useEffect(() => client.getQueryCache().subscribe((event) => {
++    if (!owner.isCurrent()) {
++      // 清除旧主体的输入与提示；迟到 continuation 也不能失效新主体的 query。
++      setPrincipalLost(true);
++      form.reset();
++      setError(undefined);
++      setChangedAnalysis(undefined);
++      return;
++    }
++    if (event.type === 'updated' && event.action.type === 'error' && event.query.queryKey[2] === 'detail' && event.query.queryKey[3] === initial.run.id) {
++      setFrozen(true);
++      setError(event.query.state.error);
++    }
++  }), [client, form, initial.run.id, owner]);
++  const outdated = context.run.revision !== latestDetail.run.revision || analysis.analysis.id !== latestDetail.analysis.selection.current_analysis_revision_id;
++  const offered = latestDetail.analysis.available_actions.includes('REVIEW');
++  const busy = Boolean(operation) || command?.phase === 'pending';
++  const unknown = command?.phase === 'unknown';
++  const unavailable = blocked || !offered || frozen || outdated || principalLost || !owner.isCurrent();
++  const guarded = !principalLost && (form.formState.isDirty || busy || Boolean(command));
++  async function submit(values: ReviewValues) {
++    if (working.current || command || unavailable || !csrfToken || !mounted.current || !owner.isCurrent()) return;
++    working.current = true;
++    setOperation('submit'); setError(undefined);
++    let started: ReturnType<typeof beginReviewCommand> = undefined;
++    let dispatched = false;
++    try {
++      owner.assertCurrent();
++      await client.cancelQueries({ queryKey: runKeys.detail(context.run.id), exact: true });
++      if (!mounted.current || !owner.isCurrent()) return;
++      const canonical = client.getQueryData<Detail>(runKeys.detail(context.run.id));
++      if (!canonical || canonical.run.revision !== context.run.revision || canonical.analysis.selection.current_analysis_revision_id !== analysis.analysis.id || !canonical.analysis.available_actions.includes('REVIEW')) {
++        setFrozen(true);
++        throw new Error('编辑起点或复核动作已变化，请显式读取最新上下文并重新核对');
++      }
++      started = beginReviewCommand(client, context.run.id, reviewPayload(values, analysis.analysis.id, context.run.revision));
++      if (!started) return;
++      dispatched = true;
++      await submitRunReview(context.run.id, started.payload, csrfToken);
++      if (!owner.isCurrent()) return;
++      // 成功先取消旧读取，再失效 canonical root；不拼接或猜测有效结果。
++      await client.cancelQueries({ queryKey: runKeys.root() });
++      if (!owner.isCurrent()) return;
++      finishReviewCommand(client, context.run.id, started);
++      void client.invalidateQueries({ queryKey: runKeys.root(), refetchType: 'active' });
++      if (!mounted.current) return;
++      form.reset(values);
++      onCompleted();
++    } catch (failure) {
++      if (!owner.isCurrent()) return;
++      const explicit = failure instanceof RunRequestError && failure.detail && failure.status !== undefined && failure.status >= 400 && failure.status < 500;
++      if (started && dispatched) finishReviewCommand(client, context.run.id, started, explicit ? undefined : failure);
++      if (!mounted.current) return;
++      setError(failure);
++      if (explicit && failure.status !== 422) setFrozen(true);
++    } finally {
++      working.current = false;
++      if (mounted.current && owner.isCurrent()) setOperation(undefined);
++    }
++  }
++  async function reread() {
++    if (working.current || command?.phase === 'pending' || !owner.isCurrent()) return;
++    working.current = true; setOperation('read'); setError(undefined);
++    try {
++      await client.cancelQueries({ queryKey: runKeys.detail(initial.run.id), exact: true });
++      if (!mounted.current || !owner.isCurrent()) return;
++      const fresh = await client.fetchQuery({ ...runDetailOptions(initial.run.id), staleTime: 0 });
++      if (!mounted.current || !owner.isCurrent()) return;
++      if (command) {
++        setError(new Error('已读取真实复核历史。请核对新记录、复核人及说明；读取不能证明原请求结果，原命令仍不会重放。'));
++        return;
++      }
++      const selected = currentAnalysis(fresh);
++      if (!selected || selected.analysis.id !== analysis.analysis.id) { setChangedAnalysis(fresh); setFrozen(true); return; }
++      setContext(fresh);
++      setAnalysis(selected);
++      form.setValue('checked', severeClaims(selected).map(() => false), { shouldDirty: true });
++      form.clearErrors();
++      setFrozen(false);
++    } catch (failure) {
++      if (mounted.current && owner.isCurrent()) { setError(failure); setFrozen(true); }
++    } finally {
++      working.current = false;
++      if (mounted.current && owner.isCurrent()) setOperation(undefined);
++    }
++  }
++  function restart() {
++    if (!changedAnalysis || command || !owner.isCurrent()) return;
++    const selected = currentAnalysis(changedAnalysis);
++    if (!selected || !changedAnalysis.analysis.available_actions.includes('REVIEW')) return;
++    setContext(changedAnalysis); setAnalysis(selected);
++    form.reset(reviewValues(changedAnalysis, selected));
++    setChangedAnalysis(undefined); setFrozen(false); setError(undefined);
++    title.current?.focus({ preventScroll: true });
++  }
++  if (principalLost || !owner.isCurrent()) return <p role="alert">认证主体已变化，旧复核输入已清除。请重新进入运行详情。</p>;
++  const visibleError = error ?? command?.error;
++  return <FormProvider {...form}>
++    <DirtyGuard description={command ? '复核请求可能已写入。离开会丢失本地草稿，请先读取历史核对；本会话不会重放原命令。' : undefined} shouldBlockNavigation={({ current, next }) => shouldBlockManualNavigation(current, next)} when={guarded} />
++    <form aria-label="人工复核表单" className="min-w-0 space-y-4 rounded-lg border border-border-default p-4" noValidate onSubmit={(event) => { event.preventDefault(); void form.handleSubmit(submit)(event); }}>
++      <h4 className="font-medium" ref={title} tabIndex={-1}>人工复核</h4>
++      <p className="break-all text-sm">编辑起点：Analysis {analysis.analysis.id} · Run Revision {context.run.revision}</p>
++      <p aria-live="polite" className="text-sm">{busy ? operation === 'read' ? '正在读取历史…' : '正在提交…' : unknown ? '提交结果未知' : form.formState.isDirty ? '本地未提交' : '尚未修改'}</p>
++      {currentCorrection(context) && <p className="text-sm">当前人工修正已完整载入。提交本次复核会整体替换它；请明确选择希望保留的行。</p>}
++      <fieldset disabled={busy || unknown || unavailable} className="min-w-0"><ReviewFields analysis={analysis} detail={context} disabled={busy || Boolean(unknown) || unavailable} /></fieldset>
++      <ErrorSummary errors={reviewIssues(form.formState.errors)} />
++      {Boolean(visibleError) && <p className="break-words text-sm text-danger" role="alert">{visibleError instanceof Error ? visibleError.message : '复核失败，请核对上下文'}</p>}
++      {(unavailable || command) && <div className="space-y-2 text-sm" role="status">
++        <p>{command ? '提交结果尚未确认，输入已冻结。仅允许读取真实历史，不会自动或手动重放原命令。' : '复核上下文已变化或暂不可用。本地输入保留，显式读取后必须重新核对严重声明。'}</p>
++        {command && <><p className="break-all">原请求：Analysis {command.payload.analysis_revision_id} · Run Revision {command.payload.expected_run_revision} · {command.payload.decision}</p><p className="whitespace-pre-wrap break-words">原请求说明：{command.payload.comment || '空'}</p>{command.payload.correction_payload && 'schema_version' in command.payload.correction_payload && <CorrectionHistory correction={command.payload.correction_payload} />}</>}
++        <Button disabled={busy || inaccessible} onClick={() => void reread()} type="button" variant="outline">{command ? '读取复核历史核对结果' : '读取最新复核上下文并保留输入'}</Button>
++      </div>}
++      {changedAnalysis && <div className="space-y-2 text-sm" role="alert">
++        <p>当前分析已变化，旧分析的修正不可用于新分析。旧草稿仍保留；重新开始会用最新分析替换它。</p>
++        <Button disabled={!currentAnalysis(changedAnalysis) || !changedAnalysis.analysis.available_actions.includes('REVIEW')} onClick={restart} type="button" variant="outline">以最新分析重新开始复核（替换本地草稿）</Button>
++      </div>}
++      <FormActions>
++        <Button disabled={busy} onClick={() => guarded ? onDiscard() : onClose()} type="button" variant="outline">取消本次复核</Button>
++        <Button disabled={busy || Boolean(command) || unavailable || !csrfToken} type="submit">{operation === 'submit' ? '提交中…' : '提交人工复核'}</Button>
++      </FormActions>
++    </form>
++  </FormProvider>;
++}
++export { RunReview };
+--- a/frontend/src/domains/geo-runs/runs-page.tsx
++++ b/frontend/src/domains/geo-runs/runs-page.tsx
+@@ -15,6 +15,7 @@
+ import { batchStatusLabels, runSearchSchema, type Batch, type Run, type RunSearch } from './runs.model';
+ import { BatchSummary, RunDetail } from './run-detail';
+ import { RunRetry } from './run-retry';
++import { RunReview } from './run-review';
+ import { RunFilters } from './run-filters';
+ import { BatchTable, RunTable } from './run-list';
+ 
+@@ -70,7 +71,7 @@
+   }, [search, onSearchChange]);
+   const submitted = useCallback(
+     (id: string) => {
+-      setMessage('原始回答和证据已冻结；已采集，分析尚未实现。');
++      setMessage('原始回答和证据已冻结；采集完成，分析与复核进度以服务端投影为准。');
+       void client.invalidateQueries({
+         queryKey: runKeys.root(),
+         refetchType: 'active',
+@@ -206,6 +207,7 @@
+               {detail.data && (
+                 <RunDetail
+                   blocked={blocked}
++                  reviewControl={<RunReview blocked={Boolean(detail.error) || detail.isFetching} csrfToken={csrfToken} detail={detail.data} readError={detail.error} />}
+                   retryControl={<RunRetry
+                     blocked={Boolean(detail.error) || detail.isFetching}
+                     csrfToken={csrfToken}
+--- a/frontend/src/domains/geo-runs/runs.api.test.ts
++++ b/frontend/src/domains/geo-runs/runs.api.test.ts
+@@ -10,8 +10,12 @@
+   requestError,
+   runPlanNow,
+   retryRun,
++  submitRunReview,
+ } from './runs.api';
+ import type { components } from '@/shared/api/generated/schema';
++import { reviewReceipt } from './analysis.test-support';
++import { analysisId } from './analysis.test-support';
++import { runId } from './runs.test-support';
+ afterEach(() => vi.restoreAllMocks());
+ function poll(options: ReturnType<typeof runListOptions>, stages: components['schemas']['GeoRunWorkflowStage'][]) {
+   const data = {
+@@ -27,7 +31,7 @@
+     expect(
+       poll(runListOptions({}), ['MANUAL_ENTRY_REQUIRED', 'COMPLETED', 'REVIEW_REQUIRED', 'HISTORICAL_FAILURE']),
+     ).toBe(false);
+-    expect(poll(runListOptions({}), ['ANALYSIS_PENDING'])).toBe(false);
++    expect(poll(runListOptions({}), ['ANALYSIS_PENDING'])).toBe(5000);
+     expect(poll(runListOptions({}), ['COLLECTION_IN_PROGRESS'])).toBe(5000);
+     vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+     expect(poll(runListOptions({}), ['QUEUED'])).toBe(5000);
+@@ -67,9 +71,18 @@
+     const interval = options.refetchInterval as (query: unknown) => unknown;
+     expect(interval({ state: { error: new Error('offline'), data: { items: [{ workflow_stage: 'QUEUED' }] } } })).toBe(false);
+     const batchInterval = batchDetailOptions('one').refetchInterval as (query: unknown) => unknown;
+-    const data = { workflow: { workflow_stage: 'IN_PROGRESS' }, summary: { status_counts: { pending: 0, running: 0, analyzing: 0, collected: 1 } } };
++    const data = { workflow: { workflow_stage: 'IN_PROGRESS' }, summary: { pending_manual_count: 0, status_counts: { pending: 0, running: 0, analyzing: 0, collected: 1 } } };
++    expect(batchInterval({ state: { data } })).toBe(5000);
++    data.summary.status_counts.collected = 0;
+     expect(batchInterval({ state: { data } })).toBe(false);
+     data.summary.status_counts.running = 1;
++    expect(batchInterval({ state: { data } })).toBe(5000);
++    data.workflow.workflow_stage = 'MANUAL_ENTRY_REQUIRED';
++    expect(batchInterval({ state: { data } })).toBe(5000);
++    data.summary.status_counts.running = 0;
++    data.summary.status_counts.pending = 2; data.summary.pending_manual_count = 2;
++    expect(batchInterval({ state: { data } })).toBe(false);
++    data.summary.status_counts.collected = 1;
+     expect(batchInterval({ state: { data } })).toBe(5000);
+   });
+   it('retry携带revision与CSRF，没有幂等键或自动重放，畸形成功为未知', async () => {
+@@ -79,6 +92,49 @@
+     expect(post).toHaveBeenCalledWith('/api/v1/geo/observation-runs/{run_id}/retry', {
+       body: { expected_revision: 7 }, params: { path: { run_id: '10000000-0000-4000-8000-000000000001' }, header: { 'X-CSRF-Token': 'csrf' } },
+     });
++  });
++  it('review使用generated请求、冻结analysis/revision与CSRF；畸形回执保持未知，不重放', async () => {
++    const body: components['schemas']['GeoRunReviewRequest'] = { analysis_revision_id: analysisId, expected_run_revision: 7, decision: 'CONFIRMED', correction_payload: null, comment: '' };
++    const post = vi.spyOn(api, 'POST').mockResolvedValue({ data: reviewReceipt(body), response: Response.json({}) } as never);
++    await expect(submitRunReview(runId, body, 'csrf')).resolves.toMatchObject({ run_revision: 8 });
++    expect(post).toHaveBeenCalledWith('/api/v1/geo/observation-runs/{run_id}/review', { body, params: { path: { run_id: runId }, header: { 'X-CSRF-Token': 'csrf' } } });
++    const wrong = reviewReceipt(body); wrong.run_revision = 9;
++    post.mockResolvedValue({ data: wrong, response: Response.json({}) } as never);
++    await expect(submitRunReview(runId, body, 'csrf')).rejects.toMatchObject({ status: undefined });
++    expect(post).toHaveBeenCalledTimes(2);
++  });
++  it.each([null, 17, { schema_version: 1, mentions: [], recommendations: [], claims: [], citations: [] }])('CORRECTED 的畸形或丢失修正回执 %j 保持未知', async (correction) => {
++    const body: components['schemas']['GeoRunReviewRequest'] = {
++      analysis_revision_id: analysisId, expected_run_revision: 7, decision: 'CORRECTED', comment: '已人工核验引用',
++      correction_payload: { schema_version: 1, mentions: [], recommendations: [], claims: [], citations: [{ citation_id: runId, source_category: 'COMMUNITY', subject_id: null }] },
++    };
++    const wrong = { ...reviewReceipt(body), review: { ...reviewReceipt(body).review, correction_payload: correction } };
++    const post = vi.spyOn(api, 'POST').mockResolvedValue({ data: wrong, response: Response.json(wrong) } as never);
++    await expect(submitRunReview(runId, body, 'csrf')).rejects.toMatchObject({ status: undefined });
++    expect(post).toHaveBeenCalledTimes(1);
++  });
++  it('回执键顺序不改变有效写入；说明或 CONFIRMED 载荷不一致不能证明成功', async () => {
++    const body: components['schemas']['GeoRunReviewRequest'] = {
++      analysis_revision_id: analysisId, expected_run_revision: 7, decision: 'CORRECTED', comment: '已核验',
++      correction_payload: { schema_version: 1, mentions: [], recommendations: [], claims: [], citations: [{ citation_id: runId, source_category: 'COMMUNITY', subject_id: null }] },
++    };
++    const correct = reviewReceipt(body);
++    correct.review.correction_payload = { citations: [{ subject_id: null, source_category: 'COMMUNITY', citation_id: runId }], claims: [], recommendations: [], mentions: [], schema_version: 1 };
++    const post = vi.spyOn(api, 'POST').mockResolvedValue({ data: correct, response: Response.json(correct) } as never);
++    await expect(submitRunReview(runId, body, 'csrf')).resolves.toMatchObject({ run_revision: 8 });
++    correct.review.comment = '另一份说明';
++    await expect(submitRunReview(runId, body, 'csrf')).rejects.toMatchObject({ status: undefined });
++    const confirmed = { ...body, decision: 'CONFIRMED' as const, correction_payload: null };
++    correct.review.decision = 'CONFIRMED'; correct.review.comment = confirmed.comment;
++    await expect(submitRunReview(runId, confirmed, 'csrf')).rejects.toMatchObject({ status: undefined });
++    expect(post).toHaveBeenCalledTimes(3);
++  });
++  it('2000 个 Unicode codepoint 的合法说明回执不能误归未知', async () => {
++    const body: components['schemas']['GeoRunReviewRequest'] = { analysis_revision_id: analysisId, expected_run_revision: 7, decision: 'CONFIRMED', correction_payload: null, comment: '😀'.repeat(2000) };
++    const receipt = reviewReceipt(body);
++    const post = vi.spyOn(api, 'POST').mockResolvedValue({ data: receipt, response: Response.json(receipt) } as never);
++    await expect(submitRunReview(runId, body, 'csrf')).resolves.toMatchObject({ review: { comment: body.comment } });
++    expect(post).toHaveBeenCalledTimes(1);
+   });
+   it('列表、完整摘要与详情 query key 相互隔离，选中对象不污染列表 key', () => {
+     expect(runListOptions({ run_id: 'one', edit: 1 }).queryKey).toEqual(runListOptions({}).queryKey);
+--- a/frontend/src/domains/geo-runs/runs.api.ts
++++ b/frontend/src/domains/geo-runs/runs.api.ts
+@@ -1,6 +1,6 @@
+ import { z } from 'zod';
+ import { canonicalUuidSchema } from '@/shared/lib/canonical-uuid';
+-import { queryOptions } from '@tanstack/react-query';
++import { queryOptions, replaceEqualDeep } from '@tanstack/react-query';
+ import { api } from '@/shared/api/client';
+ import type { components } from '@/shared/api/generated/schema';
+ import {
+@@ -180,6 +180,26 @@
+     throw new RunRequestError('新尝试回执不完整，结果未知，请读取尝试链确认');
+   return receipt.data;
+ }
++async function submitRunReview(id: string, body: components['schemas']['GeoRunReviewRequest'], csrfToken: string | null) {
++  const result = await api.POST('/api/v1/geo/observation-runs/{run_id}/review', {
++    body,
++    params: { path: { run_id: id }, header: { 'X-CSRF-Token': csrf(csrfToken) } },
++  });
++  if (!result.data) throw requestError('提交人工复核', result);
++  const receipt = z.object({
++    run_revision: z.number().int().nonnegative(),
++    review: z.object({
++      id: canonicalUuidSchema, run_id: canonicalUuidSchema, analysis_revision_id: canonicalUuidSchema,
++      decision: z.enum(['CONFIRMED', 'CORRECTED']), correction_payload: z.unknown().refine((value) => value !== undefined),
++      comment: z.string().refine((value) => Array.from(value).length <= 2000 && !value.includes('\0')), reviewer_id: canonicalUuidSchema, created_at: z.iso.datetime({ offset: true }),
++    }).strict(),
++  }).strict().safeParse(result.data);
++  // 服务端将 validated 请求原样存入不可变 Review（不改写 correction/comment）。
++  // 回执必须证明本次完整写入；复用 JSON 结构比较，避免维护第二套四栏协议 Schema。
++  if (!receipt.success || receipt.data.review.run_id !== id || receipt.data.review.analysis_revision_id !== body.analysis_revision_id || receipt.data.run_revision !== body.expected_run_revision + 1 || receipt.data.review.decision !== body.decision || receipt.data.review.comment !== body.comment || replaceEqualDeep(body.correction_payload, receipt.data.review.correction_payload) !== body.correction_payload)
++    throw new RunRequestError('复核回执不完整或与编辑起点不一致，结果未知，请读取复核历史核对');
++  return result.data as components['schemas']['GeoRunReviewCreated'];
++}
+ async function createRunUploadIntent(body: components['schemas']['UploadIntentCreate'], csrfToken: string | null) {
+   const result = await api.POST('/api/v1/files/upload-intents', {
+     body,
+@@ -250,4 +270,5 @@
+   RunRequestError,
+   saveManualDraft,
+   submitManualObservation,
++  submitRunReview,
+ };
+--- a/frontend/src/domains/geo-runs/runs.model.ts
++++ b/frontend/src/domains/geo-runs/runs.model.ts
+@@ -217,9 +217,8 @@
+     case 'QUEUED':
+     case 'COLLECTION_IN_PROGRESS':
+     case 'ANALYSIS_IN_PROGRESS':
++    case 'ANALYSIS_PENDING':
+       return 5000;
+-    // R3 尚无分析执行器；已采集结果不持续空轮询，R4接线时更新读取调度。
+-    case 'ANALYSIS_PENDING':
+     case 'MANUAL_ENTRY_REQUIRED':
+     case 'REVIEW_REQUIRED':
+     case 'COMPLETED':
+@@ -237,8 +236,10 @@
+       return 5000;
+     case 'IN_PROGRESS':
+       // 完整服务端计数只用于读取频率，不重建Batch状态或当前页汇总。
+-      return summary.status_counts.pending || summary.status_counts.running || summary.status_counts.analyzing ? 5000 : false;
++      return summary.status_counts.pending || summary.status_counts.running || summary.status_counts.collected || summary.status_counts.analyzing ? 5000 : false;
+     case 'MANUAL_ENTRY_REQUIRED':
++      // 人工待录入可能与已采集/分析中的 cell 并存；仅影响读取频率。
++      return summary.status_counts.running || summary.status_counts.collected || summary.status_counts.analyzing || summary.status_counts.pending > summary.pending_manual_count ? 5000 : false;
+     case 'COMPLETED':
+     case 'PARTIAL':
+     case 'FAILED':
+--- a/frontend/tests/e2e/geo-api-real-stack.spec.ts
++++ b/frontend/tests/e2e/geo-api-real-stack.spec.ts
+@@ -34,11 +34,11 @@
+   const successPlan = await createPlan(page, graph, 'SUCCESS');
+   const success = await createBatch(page, successPlan.plan, successPlan.planName, successPlan.promptName);
+   const region = page.getByRole('region', { name: '运行详情', exact: true });
+-  await expect(region.getByText('已采集', { exact: true })).toBeVisible({ timeout: 30_000 });
++  await expect(region.getByText('已完成', { exact: true }).first()).toBeVisible({ timeout: 30_000 });
+   const collected = await detail(page, success.runId);
+-  expect(collected.run).toMatchObject({ status: 'COLLECTED', workflow_stage: 'ANALYSIS_PENDING', external_call_state: 'COMPLETED', prompt_tokens: 7, completion_tokens: null, total_tokens: null, cost_amount: '0.0012', cost_currency: 'USD' });
++  expect(collected.run).toMatchObject({ status: 'COMPLETED', workflow_stage: 'COMPLETED', external_call_state: 'COMPLETED', prompt_tokens: 7, completion_tokens: null, total_tokens: null, cost_amount: '0.0012', cost_currency: 'USD' });
+   expect(collected.data_quality.assessment).toBe('NOT_IMPLEMENTED');
+-  expect(collected.data_quality.unavailable_sections).toEqual(['ANALYSIS', 'REVIEW', 'METRICS', 'OPPORTUNITIES', 'RETEST']);
++  expect(collected.data_quality.unavailable_sections).toEqual(['METRICS', 'OPPORTUNITIES', 'RETEST']);
+   expect(collected.answer?.web_search_observed).toBeNull();
+   expect(collected.citations.find((citation) => citation.hostname === 'geo-fixture-a.test')?.occurrences).toEqual([1, 3]);
+   await expect(region.locator('pre').filter({ hasText: collected.answer!.answer_text })).toBeVisible();
+@@ -48,7 +48,7 @@
+   await expect(region.getByText(/0\.0012 USD/)).toBeVisible();
+   await expect(region.getByRole('button', { name: '创建新采集尝试', exact: true })).toHaveCount(0);
+   expect(seen.filter((value) => value.run.id === success.runId).some((value) => ['PENDING', 'RUNNING'].includes(value.run.status))).toBe(true);
+-  expect(seen.filter((value) => value.run.id === success.runId).some((value) => value.run.status === 'COLLECTED')).toBe(true);
++  expect(seen.filter((value) => value.run.id === success.runId).some((value) => value.run.status === 'COMPLETED')).toBe(true);
+   expect(await calls(page, success.runId)).toMatchObject({ count: 1 });
+   // 测试控制只重复真实 Celery 稳定 ID，不改状态、不新增业务 API。
+   const repo = resolve(process.cwd(), '..');
+@@ -59,7 +59,7 @@
+   for (const width of [375, 1440]) {
+     await page.setViewportSize({ width, height: 1000 });
+     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+-    await page.screenshot({ path: testInfo.outputPath(`geo408-collected-${width}.png`), fullPage: true });
++    await page.screenshot({ path: testInfo.outputPath(`geo408-analyzed-${width}.png`), fullPage: true });
+   }
+ 
+   for (const failureMode of ['RATE_LIMIT', 'UNKNOWN'] as const) {
+@@ -89,7 +89,7 @@
+     expect(retry).toMatchObject({ batch_id: old.batchId, previous_attempt_id: old.runId, attempt_no: 2 });
+     expect(retry.run_id).not.toBe(old.runId);
+     await expect(page).toHaveURL(new RegExp(`run_id=${retry.run_id}`));
+-    await expect(region.getByText('已采集', { exact: true })).toBeVisible({ timeout: 30_000 });
++    await expect(region.getByText('已完成', { exact: true }).first()).toBeVisible({ timeout: 30_000 });
+     expect(browserWrites.slice(postsBefore)).toEqual([`${runs}/${old.runId}/retry`]);
+     const after = await detail(page, old.runId);
+     for (const field of ['input_snapshot', 'status', 'external_call_state', 'error_code', 'error_summary', 'cost_amount', 'collected_at', 'finished_at'] as const) expect(after.run[field]).toEqual(before.run[field]);
+--- /dev/null
++++ b/frontend/tests/e2e/geo-review-real-stack.spec.ts
+@@ -0,0 +1,143 @@
++/** GEO-508：严重错误从不可变原文、机器分析到追加复核历史的真实页面验收。 */
++import { expect, test, type Page } from '@playwright/test';
++import type { components } from '../../src/shared/api/generated/schema';
++import { api, body, createBatch, detail, login, runs, uiCommand } from './geo-api-support';
++import { reviewConfiguration } from './geo-review-support';
++import { registerCurrentRealStackCookies } from './real-stack-session';
++import { createRealStackRuntimeAudit, type RuntimeCancellation } from './real-stack-runtime';
++
++type Schema = components['schemas'];
++const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jZ1kAAAAASUVORK5CYII=', 'base64');
++test.skip(process.env.PARTSIGNAL_E2E_REAL_STACK !== '1', '只由隔离真实栈入口运行');
++test.setTimeout(180_000);
++test.use({ trace: 'off', video: 'off' });
++test.afterEach(async ({ context }) => registerCurrentRealStackCookies(context, api));
++async function choose(page: Page, label: string, option: string) {
++  await page.getByRole('combobox', { name: label, exact: true }).click();
++  await page.getByRole('option', { name: option, exact: true }).click();
++}
++
++test('严重声明禁止默认确认；人工确认与修正追加且原文、机器结果和历史可追溯', async ({ page }, testInfo) => {
++  const auth = await login(page);
++  const graph = await reviewConfiguration(page, auth.csrf_token);
++  const writes: Schema['GeoRunReviewRequest'][] = [];
++  const apiOrigin = new URL(api).origin;
++  const cancellations: RuntimeCancellation[] = [{ phase: 'flow', method: 'GET', origin: apiOrigin, pathname: runs, reason: 'net::ERR_ABORTED' }];
++  const audit = createRealStackRuntimeAudit({ apiOrigin, getPhase: () => 'flow', allowedCancellations: cancellations });
++  audit.watch(page);
++  // 与既有上传验收一致：仅收到真正的 204 后允许 Chromium 的空响应结束事件。
++  page.on('response', (response) => {
++    const url = new URL(response.url());
++    if (response.status() === 204 && response.request().method() === 'PUT' && url.origin === apiOrigin && /^\/api\/v1\/files\/[0-9a-f-]+\/content$/.test(url.pathname)) {
++      cancellations.push({ phase: 'flow', method: 'PUT', origin: apiOrigin, pathname: url.pathname, reason: 'net::ERR_ABORTED' });
++    }
++  });
++  page.on('request', (request) => {
++    if (request.method() === 'POST' && new URL(request.url()).pathname.endsWith('/review')) {
++      writes.push(request.postDataJSON() as Schema['GeoRunReviewRequest']);
++    }
++  });
++  const { runId } = await createBatch(page, graph.plan, graph.planName, graph.promptName);
++  cancellations.push({ phase: 'flow', method: 'GET', origin: apiOrigin, pathname: `${runs}/${runId}`, reason: 'net::ERR_ABORTED' });
++  await page.getByRole('region', { name: '运行详情', exact: true }).getByRole('button', { name: '人工录入', exact: true }).click();
++  const answer = `${graph.partNumber} 的供电电压为 5 V。\n<script>window.__geoR4Unsafe = true</script>`;
++  await page.getByRole('textbox', { name: '回答原文', exact: true }).fill(answer);
++  await page.getByRole('textbox', { name: '实际采集时间', exact: true }).fill(new Date().toISOString());
++  await page.getByRole('button', { name: '添加引用', exact: true }).click();
++  await page.getByRole('textbox', { name: '引用 1 URL', exact: true }).fill('https://geo-fixture-owned.test/spec');
++  await page.getByRole('textbox', { name: '引用 1 标题', exact: true }).fill('虚构参数来源');
++  await page.getByLabel('上传人工采集截图', { exact: true }).setInputFiles({ name: 'r4-manual.png', mimeType: 'image/png', buffer: png });
++  await expect(page.getByText(/^已校验截图：/)).toBeVisible();
++  const savedDraft = page.waitForResponse((response) => response.request().method() === 'PUT' && new URL(response.url()).pathname === `${runs}/${runId}/manual-draft`);
++  await page.getByRole('button', { name: '保存人工草稿', exact: true }).click();
++  await body(await savedDraft);
++  await uiCommand(page, `${runs}/${runId}/manual-submit`, () => page.getByRole('button', { name: '正式提交人工观测', exact: true }).click(), 201);
++  await expect.poll(async () => (await detail(page, runId)).analysis.selection.current_analysis_revision_id, { timeout: 90_000 }).not.toBeNull();
++  await expect(page.getByRole('region', { name: '当前机器分析', exact: true })).toBeVisible({ timeout: 15_000 });
++  const before = await detail(page, runId);
++  const machine = before.analysis.revisions[0];
++  expect(before.run.status).toBe('NEEDS_REVIEW');
++  expect(machine.claims).toHaveLength(1);
++  expect(machine.claims[0]).toMatchObject({ verdict: 'INCORRECT', severity: 'HIGH', fact_version_id: graph.factId });
++  expect(before.analysis.review_gate_passed).toBe(false);
++  expect(before.answer?.answer_text).toBe(answer);
++  const machineTable = page.getByRole('region', { name: '机器声明结果', exact: true });
++  await expect(machineTable).toContainText('5 V');
++  await expect(machineTable).toContainText('3.3 V');
++  await expect(machineTable).toContainText(graph.factId);
++  expect(await page.evaluate(() => '__geoR4Unsafe' in window)).toBe(false);
++
++  await page.getByRole('button', { name: '开始人工复核', exact: true }).click();
++  const form = page.getByRole('form', { name: '人工复核表单', exact: true });
++  const submit = form.getByRole('button', { name: '提交人工复核', exact: true });
++  const checked = form.getByRole('checkbox', { name: '已核对严重声明 1', exact: true });
++  await expect(checked).not.toBeChecked();
++  await submit.click();
++  await expect(form.getByRole('alert').first()).toBeVisible();
++  expect(writes).toHaveLength(0);
++  await choose(page, '复核结论', 'CONFIRMED · 确认机器结论');
++  const comment = '已对照批准的3.3V事实逐条核对5V原文，确认机器高风险错误判断。';
++  await form.getByRole('textbox', { name: '复核说明', exact: true }).fill(comment);
++  // runBeforeUnload 原生触发离开，不等待被用户取消的导航完成。
++  const unload = page.waitForEvent('dialog', { timeout: 5000 });
++  const closing = page.close({ runBeforeUnload: true });
++  const dialog = await unload;
++  expect(dialog.type()).toBe('beforeunload');
++  await dialog.dismiss();
++  await closing;
++  expect(page.isClosed()).toBe(false);
++  await expect(form.getByRole('textbox', { name: '复核说明', exact: true })).toHaveValue(comment);
++  await submit.click();
++  expect(writes).toHaveLength(0);
++  await checked.focus();
++  await page.keyboard.press('Space');
++  await expect(checked).toBeChecked();
++  await uiCommand(page, `${runs}/${runId}/review`, () => submit.click(), 201);
++  await expect(form).toBeHidden();
++  await expect.poll(async () => (await detail(page, runId)).analysis.review_gate_passed).toBe(true);
++  const confirmed = await detail(page, runId);
++  expect(confirmed.analysis.effective_results?.claims[0]).toEqual(machine.claims[0]);
++  expect(confirmed.analysis.reviews).toHaveLength(1);
++  expect(confirmed.data_quality.metric_eligible).toBeNull();
++  expect(writes[0]).toMatchObject({ analysis_revision_id: machine.analysis.id, expected_run_revision: before.run.revision, decision: 'CONFIRMED', correction_payload: null });
++
++  await page.getByRole('button', { name: '开始人工复核', exact: true }).click();
++  await choose(page, '复核结论', 'CORRECTED · 提交修正');
++  await expect(checked).not.toBeChecked();
++  await checked.check();
++  await form.getByRole('textbox', { name: '复核说明', exact: true }).fill('已人工处理严重声明，保留错误判定并补充修正说明及来源分类。');
++  await form.getByRole('checkbox', { name: '修正声明 1', exact: true }).check();
++  const explanation = '人工核验：批准事实为3.3V，原文5V错误，需要纠正原回答。';
++  await form.getByRole('textbox', { name: '声明 1 解释', exact: true }).fill(explanation);
++  await form.getByRole('checkbox', { name: '修正引用 1', exact: true }).check();
++  await choose(page, '引用 1 来源分类', 'COMMUNITY');
++  await uiCommand(page, `${runs}/${runId}/review`, () => submit.click(), 201);
++  await expect(form).toBeHidden();
++  await expect.poll(async () => (await detail(page, runId)).analysis.reviews.length).toBe(2);
++  const corrected = await detail(page, runId);
++  expect(corrected.answer).toEqual(before.answer);
++  expect(corrected.citations).toEqual(before.citations);
++  expect(corrected.analysis.revisions).toEqual(before.analysis.revisions);
++  expect(corrected.analysis.reviews.map((row) => row.is_current)).toEqual([true, false]);
++  expect(corrected.analysis.reviews[1]).toMatchObject({ review: confirmed.analysis.reviews[0].review, is_current: false });
++  expect(corrected.analysis.effective_results?.claims[0]).toMatchObject({ verdict: 'INCORRECT', severity: 'HIGH', explanation, confidence: null });
++  expect(corrected.analysis.effective_results?.citations[0].source_category).toBe('COMMUNITY');
++  expect(writes).toHaveLength(2);
++  expect(writes[1]).toMatchObject({ analysis_revision_id: machine.analysis.id, expected_run_revision: confirmed.run.revision, decision: 'CORRECTED' });
++
++  await page.reload();
++  const history = page.getByRole('region', { name: '分析与复核历史，只读', exact: true });
++  await history.locator('summary').filter({ hasText: '复核 CONFIRMED · 历史' }).click();
++  await history.locator('summary').filter({ hasText: '复核 CORRECTED · 当前' }).click();
++  await expect(history).toContainText(confirmed.analysis.reviews[0].review.comment);
++  await expect(history).toContainText(explanation);
++  await expect(page.getByRole('region', { name: '有效声明结果', exact: true })).toContainText(explanation);
++  await expect(machineTable).toContainText(machine.claims[0].explanation);
++  await expect(history.getByRole('textbox')).toHaveCount(0);
++  for (const width of [375, 1440]) {
++    await page.setViewportSize({ width, height: 1000 });
++    expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1);
++  }
++  await page.screenshot({ path: testInfo.outputPath('geo508-review-history.png'), fullPage: true });
++  expect(audit.errors).toEqual([]);
++});
+--- /dev/null
++++ b/frontend/tests/e2e/geo-review-support.ts
+@@ -0,0 +1,61 @@
++/** R4 的虚构前置配置；采集提交与复核通过真实页面完成。 */
++import { randomUUID } from 'node:crypto';
++import type { Page } from '@playwright/test';
++import type { components } from '../../src/shared/api/generated/schema';
++import { api, body } from './geo-api-support';
++
++type Schema = components['schemas'];
++export async function reviewConfiguration(page: Page, csrfToken: string) {
++  const suffix = randomUUID().slice(0, 8);
++  const partNumber = `GEOR4-${suffix}`;
++  const headers = { 'X-CSRF-Token': csrfToken };
++  const product = await body<Schema['Product']>(await page.request.post(`${api}/api/v1/products`, {
++    headers, data: { part_number: partNumber, brand: '虚构金标品牌', category: '虚构器件' } satisfies Schema['ProductCreate'],
++  }), 201);
++  const draft = await body<Schema['ProductFactsDraft']>(await page.request.get(`${api}/api/v1/products/${product.id}/facts`));
++  const saved = await body<Schema['ProductFactsDraft']>(await page.request.put(`${api}/api/v1/products/${product.id}/facts`, {
++    headers, data: { expected_revision: draft.revision, body_markdown: '供电电压为 3.3 V。', classification: 'PUBLIC' } satisfies Schema['ProductFactsDraftUpdate'],
++  }));
++  const fact = await body<Schema['FactVersion']>(await page.request.post(`${api}/api/v1/products/${product.id}/fact-review-submissions`, {
++    headers, data: { expected_revision: saved.revision, change_summary: 'GEO-508 虚构前置批准事实' } satisfies Schema['FactReviewSubmissionRequest'],
++  }), 201);
++  await body<Schema['FactVersion']>(await page.request.post(`${api}/api/v1/fact-versions/${fact.id}/approve`, {
++    headers, data: { expected_revision: fact.revision, comment: '批准本地虚构核验依据' } satisfies Schema['CommandRequest'],
++  }));
++  const subject = await body<Schema['GeoSubjectOut']>(await page.request.post(`${api}/api/v1/geo/subjects`, {
++    headers, data: { subject_type: 'OWN_PRODUCT', product_id: product.id, parent_subject_id: null, description: '' } satisfies Schema['GeoOwnProductSubjectCreate'],
++  }), 201);
++  const surface = await body<Schema['GeoEngineSurfaceRead']>(await page.request.post(`${api}/api/v1/geo/engine-surfaces`, {
++    headers, data: {
++      name: `GEO508 ${suffix}`, slug: `geo508-${suffix}`, surface_kind: 'CONSUMER_UI', provider_brand: 'CUSTOM', website_url: null, compliance_status: 'APPROVED',
++      capabilities: { answer_text: true, citations: true, web_search_signal: true, model_version: false, usage: false, cost: false },
++    } satisfies Schema['GeoEngineSurfaceCreate'],
++  }), 201);
++  await body(await page.request.post(`${api}/api/v1/geo/engine-surfaces/${surface.summary.id}/enable`, {
++    headers, data: { expected_revision: surface.summary.revision },
++  }));
++  const profile = await body<Schema['GeoCollectionProfileRead']>(await page.request.post(`${api}/api/v1/geo/collection-profiles`, {
++    headers, data: {
++      name: `GEO508 人工 ${suffix}`, engine_surface_id: surface.summary.id, collection_mode: 'MANUAL', adapter_key: 'manual',
++      language_code: 'zh-CN', region_code: 'CN', ai_channel_id: null, ai_model_id: null, login_state: 'ANONYMOUS', web_search_policy: 'UNKNOWN', settings: { require_screenshot: false },
++    } satisfies Schema['GeoManualProfileCreate'],
++  }), 201);
++  await body(await page.request.post(`${api}/api/v1/geo/collection-profiles/${profile.summary.id}/enable`, {
++    headers, data: { expected_revision: profile.summary.revision },
++  }));
++  const topic = await body<Schema['QueryTopic']>(await page.request.post(`${api}/api/v1/query-topics`, {
++    headers, data: { canonical_question: `GEO508 参数核验 ${suffix}`, intent_type: 'PRODUCT', variants: [`核验${partNumber}供电参数`] },
++  }), 201);
++  const promptName = `请核验 ${partNumber} 的供电电压`;
++  const prompt = await body<Schema['GeoPromptVariantOut']>(await page.request.post(`${api}/api/v1/geo/query-topics/${topic.id}/prompt-variants`, {
++    headers, data: { query_topic_id: topic.id, prompt_text: promptName, mention_mode: 'BRANDED', priority: 'CORE', language_code: 'zh-CN', region_code: 'CN' } satisfies Schema['GeoPromptVariantCreate'],
++  }), 201);
++  const planName = `GEO508 复核 ${suffix}`;
++  const plan = await body<Schema['GeoMonitoringPlanDetail']>(await page.request.post(`${api}/api/v1/geo/monitoring-plans`, {
++    headers, data: {
++      name: planName, description: '', subjects: [{ subject_id: subject.id, role: 'PRIMARY' }], prompt_variant_ids: [prompt.id], collection_profile_ids: [profile.summary.id],
++      repeat_count: 1, schedule_kind: 'MANUAL_ONLY', timezone: 'Asia/Shanghai', cron_expression: null, budget_limit: null, rule_set_revision: 1,
++    } satisfies Schema['GeoMonitoringPlanCreate'],
++  }), 201);
++  return { plan, planName, promptName, partNumber, factId: fact.id };
++}
+--- a/frontend/tests/e2e/plans-real-stack.spec.ts
++++ b/frontend/tests/e2e/plans-real-stack.spec.ts
+@@ -117,7 +117,9 @@
+       await click(); const result = await pending; expect(result.status()).toBe(status);
+       return status === 204 ? undefined as T : result.json() as Promise<T>;
+     };
+-    await engineer.goto('/geo/plans?new=1');
++    // canonical suite 共享本轮隔离 DB；其他 flow 可以已创建自己的计划。
++    // 空态布局只针对本用例的唯一筛选，不能依赖全库尚无计划。
++    await engineer.goto(`/geo/plans?new=1&q=${suffix}`);
+     const planName = `GEO209 计划 ${suffix}`;
+     await engineer.getByRole('textbox', { name: '计划名称', exact: true }).fill(planName);
+     await engineer.getByRole('button', { name: '关闭向导' }).click();
+@@ -151,7 +153,8 @@
+       expect(await engineer.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+       await expect(engineer.getByRole('button', { name: '下一步', exact: true })).toBeVisible();
+       if (width === 375) {
+-        const empty = engineer.getByText('暂无监测计划', { exact: true });
++        const empty = engineer.getByText('未找到匹配计划', { exact: true });
++        await expect(empty).toBeVisible();
+         const bounds = await empty.boundingBox();
+         expect(bounds).not.toBeNull(); expect(bounds!.x).toBeGreaterThanOrEqual(0); expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
+         await engineer.evaluate(() => window.scrollTo(0, 0));
+--- a/frontend/tests/e2e/runs-real-stack.spec.ts
++++ b/frontend/tests/e2e/runs-real-stack.spec.ts
+@@ -338,12 +338,16 @@
+     await page.getByRole('button', { name: '关闭运行详情', exact: true }).click();
+     await page.waitForLoadState('networkidle');
+   }
++  // R4 的后台分析以实际完成投影验收，不能要求瞬时 COLLECTED 持续不变。
++  await expect.poll(async () => (await body<components['schemas']['GeoBatchDetail']>(
++    await page.request.get(`${api}${batches}/${batchId}`),
++  )).summary.status_counts.completed, { timeout: 90_000 }).toBe(3);
+   const final = await body<components['schemas']['GeoBatchDetail']>(
+     await page.request.get(`${api}${batches}/${batchId}`),
+   );
+   expect(final.summary.pending_manual_count).toBe(0);
+-  expect(final.summary.status_counts.collected).toBe(3);
+-  expect(final.summary.status_counts.completed).toBe(0);
++  expect(final.summary.status_counts.collected).toBe(0);
++  expect(final.summary.status_counts.completed).toBe(3);
+   expect(final.summary.cost.unknown_attempt_count).toBe(3);
+   await page.getByRole('button', { name: '批次视图', exact: true }).click();
+   await expect(page.getByRole('heading', { name: '运行中心', exact: true })).toBeVisible();

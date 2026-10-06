@@ -1,0 +1,59 @@
+诊断时数据库Run数=100021；cProfile有额外成本，非P95基准。
+         22386870 function calls (22057045 primitive calls) in 5.646 seconds
+
+   Ordered by: cumulative time
+   List reduced from 1023 to 50 due to restriction <50>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.011    0.011    5.908    5.908 /app/app/services/geo_answer_insights.py:306(get_insights)
+        1    0.030    0.030    5.412    5.412 /app/app/services/geo_answer_insights.py:166(_windows)
+        1    0.083    0.083    3.177    3.177 /app/app/services/geo_overview_queries.py:141(load_inputs)
+        2    0.071    0.036    1.951    0.976 /app/app/services/geo_answer_insights.py:76(_cells)
+      160    0.010    0.000    1.530    0.010 /app/app/services/geo_metrics.py:313(calculate_metrics)
+     1470    0.189    0.000    1.516    0.001 /app/app/services/geo_metrics.py:331(_calculate_metric)
+    16800    0.105    0.000    1.262    0.000 /app/app/services/geo_overview_queries.py:285(_input)
+   353150    0.266    0.000    0.773    0.000 /app/app/services/geo_metrics.py:186(_eligibility)
+    16800    0.126    0.000    0.717    0.000 /app/app/services/geo_metric_inputs.py:22(metric_run_from_snapshot)
+       26    0.257    0.010    0.665    0.026 /opt/venv/lib/python3.12/site-packages/sqlalchemy/orm/loading.py:208(chunks)
+       14    0.000    0.000    0.659    0.047 /opt/venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py:2141(_execute_internal)
+       13    0.000    0.000    0.658    0.051 /opt/venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py:2313(execute)
+       13    0.000    0.000    0.658    0.051 /opt/venv/lib/python3.12/site-packages/sqlalchemy/orm/context.py:296(orm_execute_statement)
+       14    0.000    0.000    0.658    0.047 /opt/venv/lib/python3.12/site-packages/sqlalchemy/sql/elements.py:517(_execute_on_connection)
+       14    0.000    0.000    0.658    0.047 /opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1593(_execute_clauseelement)
+       13    0.000    0.000    0.657    0.051 /opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1377(execute)
+       14    0.000    0.000    0.650    0.046 /opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1793(_execute_context)
+       14    0.000    0.000    0.649    0.046 /opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1852(_exec_single_context)
+       15    0.000    0.000    0.648    0.043 /opt/venv/lib/python3.12/site-packages/psycopg/cursor.py:100(execute)
+       15    0.435    0.029    0.648    0.043 /opt/venv/lib/python3.12/site-packages/psycopg/connection.py:476(wait)
+       14    0.000    0.000    0.648    0.046 /opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py:951(do_execute)
+    80165    0.022    0.000    0.620    0.000 /opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/result.py:565(iterrows)
+        1    0.034    0.034    0.546    0.546 /app/app/services/geo_overview_queries.py:271(_load_results)
+   199291    0.298    0.000    0.522    0.000 {method 'validate_python' of 'pydantic_core._pydantic_core.SchemaValidator' objects}
+   453250    0.157    0.000    0.450    0.000 /app/app/services/geo_metrics.py:135(subject_fact)
+       13    0.061    0.005    0.408    0.031 /opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/result.py:576(_raw_all_rows)
+   320086    0.120    0.000    0.392    0.000 {built-in method builtins.sorted}
+  2284746    0.230    0.000    0.354    0.000 /usr/local/lib/python3.12/uuid.py:268(__hash__)
+    80486    0.018    0.000    0.337    0.000 /opt/venv/lib/python3.12/site-packages/pydantic/main.py:693(model_validate)
+    16800    0.032    0.000    0.305    0.000 /app/app/services/geo_insight_evidence.py:61(freeze_insight_evidence)
+   529025    0.059    0.000    0.294    0.000 {built-in method builtins.next}
+       13    0.000    0.000    0.284    0.022 /opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/cursor.py:2260(_fetchall_impl)
+       13    0.000    0.000    0.284    0.022 /opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/cursor.py:1195(fetchall)
+       13    0.068    0.005    0.284    0.022 /opt/venv/lib/python3.12/site-packages/psycopg/cursor.py:274(fetchall)
+        1    0.003    0.003    0.273    0.273 /app/app/services/geo_insight_details.py:122(summaries)
+   906500    0.133    0.000    0.244    0.000 /app/app/services/geo_metrics.py:136(<genexpr>)
+  1447212    0.171    0.000    0.236    0.000 /usr/local/lib/python3.12/uuid.py:240(__eq__)
+   118805    0.029    0.000    0.231    0.000 /opt/venv/lib/python3.12/site-packages/pydantic/main.py:253(__init__)
+    23520    0.072    0.000    0.219    0.000 /app/app/services/geo_review_projection.py:16(reviewed_results)
+    44245    0.097    0.000    0.216    0.000 /opt/venv/lib/python3.12/site-packages/psycopg/types/json.py:256(load)
+     3103    0.000    0.000    0.213    0.000 /opt/venv/lib/python3.12/site-packages/psycopg/_cursor_base.py:195(_execute_gen)
+   100100    0.072    0.000    0.211    0.000 /app/app/services/geo_metrics.py:220(_events)
+    33710    0.067    0.000    0.208    0.000 /usr/local/lib/python3.12/dataclasses.py:1540(replace)
+        1    0.004    0.004    0.204    0.204 /app/app/services/geo_insight_quality.py:66(data_quality)
+       15    0.000    0.000    0.199    0.013 /opt/venv/lib/python3.12/site-packages/psycopg/_cursor_base.py:461(_convert_query)
+       15    0.000    0.000    0.199    0.013 /opt/venv/lib/python3.12/site-packages/psycopg/_queries.py:59(convert)
+       15    0.000    0.000    0.199    0.013 /opt/venv/lib/python3.12/site-packages/psycopg/_queries.py:94(dump)
+  2787633    0.148    0.000    0.192    0.000 {built-in method builtins.isinstance}
+2327000/2015080    0.152    0.000    0.180    0.000 {built-in method builtins.hash}
+    50750    0.016    0.000    0.179    0.000 /app/app/services/geo_metrics.py:176(metric_eligibility)
+
+

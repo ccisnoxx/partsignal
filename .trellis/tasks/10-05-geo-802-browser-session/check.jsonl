@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "与实际边界匹配的目标验证"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "页面状态与可访问性"}
+{"file": "docs/geo-monitoring/03-technical/07-testing-and-quality.md", "reason": "越权、secret redaction、撤销、恢复"}
+{"file": "docs/geo-monitoring/04-delivery/task-manifest.yaml", "reason": "801 done、802仅review与交付范围"}

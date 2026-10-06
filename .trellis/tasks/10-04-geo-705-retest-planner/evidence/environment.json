@@ -1,0 +1,16 @@
+{
+  "argv": [
+    "docker",
+    "compose",
+    "-f",
+    ".trellis/tasks/10-04-geo-705-retest-planner/evidence/compose.yaml",
+    "up",
+    "-d",
+    "--wait",
+    "postgres",
+    "redis",
+    "fake-oss"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 2.332
+}

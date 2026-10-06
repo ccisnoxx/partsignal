@@ -1,0 +1,22 @@
+# GEO-704 设计
+
+## 所有权与事务
+GEO只写Opportunity及Action；Product/ContentTask/Issue变更由product_facts/content_planning/publication服务拥有。事实修订是导航，不复制已批准事实、不提交事实审核。内容使用现有普通创建服务，内部可传query_topic_id，HTTP普通请求三字段不变。发布服务增加commit=False，默认调用行为不变。
+
+新行动先读不可变机会scope和来源并检查意图，再在User/请求键锁下调用目标服务取得原领域锁且不commit，最后取得Opportunity锁检查最新revision/状态。失败外层整体rollback；任何内层rollback异常不能被恢复成成功。锁序避免Opportunity→Product，遵循评估器Product→Opportunity。目标创建在最终CAS前是未提交状态，失去CAS则目标一起回滚。
+
+## 幂等与快照
+Action保存source_snapshot、request_key_sha256、request_sha256、opportunity_revision_after；创建者+key摘要唯一。请求摘要包含类型、机会ID和完整验证后payload（含expected_revision），不含request ID。同键查询在CAS前，重放可跨机会后续状态，返回首次行动/版本；键不公开。业务资格仍重验账号，重放不再次调用目标。失败无回执，同键可恢复重试。
+
+历史行保留null元数据，无虚构快照。新行动闭合snapshot：schema_version、opportunity_id/revision、trigger_snapshot、全部来源run/analysis/review/role、目标product/topic/fact/platform/article/issue ID和request_id。首trigger不可变；来源取目标操作完成后机会锁内的真实全部集合。状态快照只表示创建时，不随目标完成改写。
+
+## 行动资格与归属
+ACKNOWLEDGED/IN_PROGRESS才可新增；FACT_REVISION对应事实错误，CONTENT_TASK对应业务内容机会，PUBLICATION_REPAIR对应自有引用丢失。DATA_QUALITY/RUN_FAILURE/UNSTABLE不创建内容/事实/发布行动。自有产品scope要求同产品，品牌/竞品scope只接受本来源Run冻结的OWN_PRODUCT；不按当前名称猜产品。内容主题来自机会，不接收客户端任意主题。
+
+发布OPEN_ISSUE要求明确article/kind/description；LINK_ISSUE要求现存OPEN Issue和expected_issue_revision；CREATE_REPAIR调用现有唯一修复服务并选择同产品APPROVED事实，继承平台。发布服务拥有article/issue的产品归属验证。不会访问引用URL或猜测对应Article。
+
+## 生命周期
+追加式Action永不更新删除。创建时目标存在且由原领域持锁验证；普通目标删除接入服务预检与PG防线。已归档ContentTask aggregate由既有管理员永久删除上下文明确删除可保留Action稳定ID及快照，批量读显示MISSING，不回退或换目标。单Article删除有行动引用时明确阻断。Product已由真实Subject/Run历史关系保护。
+
+## API与前端
+三个POST均401/403/404/409/422，CSRF和8..128可打印ASCII Idempotency-Key；响应no-store。详情追加可创建行动类型及行动快照/导航/可用性。导航只由闭合target_type和服务端UUID生成，附source_opportunity_id；不接收任意URL。前端本次只给已有历史行动加链接及缺失提示。

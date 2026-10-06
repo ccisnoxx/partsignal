@@ -1,0 +1,1554 @@
+--- before/backend/app/audit_types.py
++++ current/backend/app/audit_types.py
+@@ -77,6 +77,7 @@
+         "platform_account.deleted",
+         "geo_observation.deleted",
+         "geo_observation_batch.created",
++        "geo_observation_run.retried",
+         "geo_manual_draft.saved",
+         "geo_manual_observation.submitted",
+         "geo_monitoring_plan.created",
+@@ -175,6 +176,8 @@
+     AuditModule.GEO_OBSERVATION: frozenset(
+         {
+             "run_id",
++            "previous_attempt_id",
++            "attempt_no",
+             "draft_revision",
+             "answer_snapshot_id",
+             "article_count",
+--- before/backend/app/main.py
++++ current/backend/app/main.py
+@@ -32,6 +32,7 @@
+ from app.routers.geo_monitoring_plans import router as geo_monitoring_plans_router
+ from app.routers.geo_questions import router as geo_questions_router
+ from app.routers.geo_reads import router as geo_reads_router
++from app.routers.geo_run_commands import router as geo_run_commands_router
+ from app.routers.geo_surface_management import router as geo_surface_management_router
+ from app.routers.identity import router as identity_router
+ from app.routers.observation import router as observation_router
+@@ -335,6 +336,7 @@
+ app.include_router(geo_monitoring_plans_router)
+ app.include_router(geo_batches_router)
+ app.include_router(geo_reads_router)
++app.include_router(geo_run_commands_router)
+ app.include_router(geo_manual_collection_router)
+ app.include_router(geo_surface_management_router)
+ app.include_router(configuration_router)
+--- before/backend/app/services/geo_collection_execution.py
++++ current/backend/app/services/geo_collection_execution.py
+@@ -70,13 +70,16 @@
+     p, frozen = facts.profile, request.profile
+     registration = collector_registry.resolve(frozen.adapter_key)
+     if (
+-        p.revision != frozen.revision
+-        or p.engine_surface_id != frozen.engine_surface_id
+-        or p.ai_channel_id != frozen.ai_channel_id
+-        or p.ai_model_id != frozen.ai_model_id
+-        or p.collection_mode != frozen.collection_mode
+-        or p.adapter_key != frozen.adapter_key
+-        or registration.version != frozen.adapter_version
++        not facts.matches_frozen_profile(
++            revision=frozen.revision,
++            engine_surface_id=frozen.engine_surface_id,
++            collection_mode=frozen.collection_mode,
++            adapter_key=frozen.adapter_key,
++            adapter_version=frozen.adapter_version,
++            ai_channel_id=frozen.ai_channel_id,
++            ai_model_id=frozen.ai_model_id,
++            registry=collector_registry,
++        )
+         or registration.validate_profile(p)
+     ):
+         raise configuration_error()
+--- before/backend/app/services/geo_collection_profiles.py
++++ current/backend/app/services/geo_collection_profiles.py
+@@ -13,6 +13,7 @@
+     CollectorRegistry,
+     EngineSurfaceSnapshot,
+     ModelQualification,
++    UnknownCollectorAdapter,
+     collector_registry,
+     surface_capabilities,
+ )
+@@ -42,6 +43,34 @@
+     profile: CollectionProfileSnapshot
+     surface: EngineSurfaceSnapshot
+     model: ModelQualification | None
++
++    def matches_frozen_profile(
++        self,
++        *,
++        revision: int,
++        engine_surface_id: UUID,
++        collection_mode: GeoCollectionMode,
++        adapter_key: str,
++        adapter_version: str,
++        ai_channel_id: UUID | None,
++        ai_model_id: UUID | None,
++        registry: CollectorRegistry,
++    ) -> bool:
++        """当前资格不能替代冻结身份；读动作与锁内执行共用同一匹配合同。"""
++        p = self.profile
++        try:
++            version = registry.resolve(p.adapter_key).version
++        except UnknownCollectorAdapter:
++            return False
++        return (
++            p.revision == revision
++            and p.engine_surface_id == engine_surface_id
++            and p.collection_mode == collection_mode
++            and p.adapter_key == adapter_key
++            and p.ai_channel_id == ai_channel_id
++            and p.ai_model_id == ai_model_id
++            and version == adapter_version
++        )
+ 
+     def eligibility(
+         self,
+--- before/backend/app/services/geo_dispatch.py
++++ current/backend/app/services/geo_dispatch.py
+@@ -11,7 +11,13 @@
+ from app.config import settings
+ from app.db import SessionLocal
+ from app.models.geo_runs import GeoObservationBatch, GeoObservationRun
+-from app.services.geo_run_lifecycle import database_now, fail_run, lock_run, refresh_batch
++from app.services.geo_run_lifecycle import (
++    database_now,
++    fail_run,
++    lock_run,
++    recover_unsent_run,
++    refresh_batch,
++)
+ 
+ logger = logging.getLogger("partsignal.worker")
+ type RunSender = Callable[[str], object]
+@@ -166,11 +172,11 @@
+     return dispatched
+ 
+ 
+-def fail_expired_collection_runs(*, now: datetime | None = None) -> int:
+-    """GEO-405 保守终止全部过期采集；NOT_STARTED 恢复与迟到结果留 GEO-406。"""
++def recover_expired_collection_runs(*, now: datetime | None = None) -> int:
++    """只有持久化未发送事实可安全恢复；SENT/UNKNOWN 永不自动重发。"""
+     with SessionLocal() as db:
+         scan_time = now if now is not None else database_now(db)
+-    failed = 0
++    recovered = 0
+     for run_id in _scan_candidates(expired=True, now=scan_time):
+         with SessionLocal.begin() as db:
+             candidate = _lock_candidate(db, run_id)
+@@ -184,13 +190,21 @@
+             locked = lock_run(db, run_id)
+             assert locked is not None
+             batch, run = locked
+-            fail_run(
+-                db,
+-                run,
+-                now=scan_time,
+-                code="WORKER_LOST",
+-                summary="采集 Worker 租约过期，禁止自动重发",
+-            )
++            if run.external_call_state == "NOT_STARTED":
++                recover_unsent_run(db, run, scan_time)
++            else:
++                unknown = run.external_call_state in {"SENT", "UNKNOWN"}
++                if unknown:
++                    run.external_call_state = "UNKNOWN"
++                fail_run(
++                    db,
++                    run,
++                    now=scan_time,
++                    code="COLLECTOR_UNKNOWN_OUTCOME" if unknown else "WORKER_LOST",
++                    summary="外部采集结果未知，必须显式创建新尝试"
++                    if unknown
++                    else "采集结果未提交，必须显式创建新尝试",
++                )
+             refresh_batch(db, batch, scan_time)
+-            failed += 1
+-    return failed
++            recovered += 1
++    return recovered
+--- before/backend/app/services/geo_read_projections.py
++++ current/backend/app/services/geo_read_projections.py
+@@ -24,11 +24,12 @@
+ from app.schemas.geo_run_workflow import GeoBatchWorkflowProjection
+ from app.schemas.geo_runs import GeoObservationRunOut
+ from app.schemas.geo_surface_management import GeoProfileActivationBlocker
++from app.schemas.geo_surfaces import GeoCollectionMode
+ from app.services.geo_batch_policy import BatchRunState, batch_workflow, latest_cell_attempts
+ from app.services.geo_collection_profiles import ProfileFacts
+-from app.services.geo_run_policy import RunCommandAvailability, RunState, run_workflow
++from app.services.geo_run_policy import RunCommandAvailability, RunState, retryable, run_workflow
+ 
+-COMMANDS = RunCommandAvailability(manual_entry=True, cancel=False, retry=False)
++COMMANDS = RunCommandAvailability(manual_entry=True, cancel=False, retry=True)
+ 
+ 
+ def incomplete() -> AppError:
+@@ -57,6 +58,17 @@
+         facts.profile.collection_mode == row["collection_mode"]
+         and str(facts.profile.engine_surface_id) == row["surface_id"]
+     )
++    if retryable(state(row)):
++        matches = matches and facts.matches_frozen_profile(
++            revision=row["profile_revision"],
++            engine_surface_id=UUID(row["surface_id"]),
++            collection_mode=GeoCollectionMode(row["collection_mode"]),
++            adapter_key=row["adapter_key"],
++            adapter_version=row["adapter_version"],
++            ai_channel_id=UUID(row["ai_channel_id"]) if row["ai_channel_id"] else None,
++            ai_model_id=UUID(row["ai_model_id"]) if row["ai_model_id"] else None,
++            registry=collector_registry,
++        )
+     blockers = [GeoProfileActivationBlocker(code=b.code, field=b.field) for b in result.blockers]
+     if not matches:
+         blockers.append(
+--- before/backend/app/services/geo_read_queries.py
++++ current/backend/app/services/geo_read_queries.py
+@@ -80,6 +80,11 @@
+         *(getattr(Run, name) for name in fields),
+         Run.input_snapshot["profile"]["collection_mode"].as_string().label("collection_mode"),
+         Run.input_snapshot["profile"]["surface"]["id"].as_string().label("surface_id"),
++        Run.input_snapshot["profile"]["revision"].as_integer().label("profile_revision"),
++        Run.input_snapshot["profile"]["adapter_key"].as_string().label("adapter_key"),
++        Run.input_snapshot["profile"]["adapter_version"].as_string().label("adapter_version"),
++        Run.input_snapshot["profile"]["ai_channel_id"].as_string().label("ai_channel_id"),
++        Run.input_snapshot["profile"]["ai_model_id"].as_string().label("ai_model_id"),
+         GeoAnswerSnapshot.id.label("answer_snapshot_id"),
+         select(successor.id)
+         .where(successor.previous_attempt_id == Run.id)
+--- before/backend/app/services/geo_run_lifecycle.py
++++ current/backend/app/services/geo_run_lifecycle.py
+@@ -16,7 +16,7 @@
+ )
+ from app.schemas.geo_surfaces import GeoCollectionMode
+ from app.services.geo_batch_policy import BatchRunState, batch_status
+-from app.services.geo_run_policy import RunState, run_transition
++from app.services.geo_run_policy import RunState, UnsentLeaseRecovery, run_transition
+ 
+ 
+ def database_now(db: Session) -> datetime:
+@@ -100,6 +100,25 @@
+             GeoBatchStatus.BUDGET_BLOCKED,
+         }:
+             batch.finished_at = now
++        else:
++            # 显式 retry 可将已结束的 Batch 重新投影；Run 历史保持原样。
++            batch.finished_at = None
++
++
++def recover_unsent_run(db: Session, run: GeoObservationRun, now: datetime) -> None:
++    """调用方已锁 Batch/Run；撤销旧 token 与安全恢复必须同次 UPDATE。"""
++    state = run_state(db, run)
++    expiry = run.lease_expires_at
++    assert expiry is not None
++    run.lease_token = None
++    run.lease_expires_at = None
++    run.status = run_transition(
++        state,
++        GeoRunStatus.PENDING,
++        recovery=UnsentLeaseRecovery(expiry, now, lease_revoked=True),
++    ).value
++    run.started_at = None
++    run.revision += 1
+ 
+ 
+ def fail_run(
+--- before/backend/app/services/geo_runs.py
++++ current/backend/app/services/geo_runs.py
+@@ -177,7 +177,9 @@
+         return True
+ 
+ 
+-def submit_collection_failure(lease: CollectionLease, error: CollectorError | None) -> bool:
++def submit_collection_failure(
++    lease: CollectionLease, error: CollectorError | None, *, result_received: bool = False
++) -> bool:
+     with SessionLocal.begin() as db:
+         locked = lock_run(db, lease.request.run_id)
+         if locked is None:
+@@ -186,14 +188,20 @@
+         now = database_now(db)
+         if not owns_lease(run, lease.token, now):
+             return False
+-        if error is not None:
+-            external = error.failure.external_call_state.value
+-            # 回调已持久化 SENT 时，传输异常不能把事实撤回 NOT_STARTED。
+-            if external != "NOT_STARTED" and run.external_call_state != "COMPLETED":
+-                run.external_call_state = external
+-            code, summary = error.failure.code.value, error.failure.message
+-        else:
+-            code, summary = "WORKER_LOST", "采集执行或结果提交失败，禁止自动重发"
++        reported = error.failure.external_call_state.value if error is not None else None
++        code, summary = (
++            (error.failure.code.value, error.failure.message)
++            if error is not None
++            else ("WORKER_LOST", "采集执行或结果提交失败，禁止自动重发")
++        )
++        if result_received or reported == "COMPLETED":
++            run.external_call_state = "COMPLETED"
++        elif run.external_call_state == "SENT" and reported in {None, "NOT_STARTED", "UNKNOWN"}:
++            # SENT 授权已提交但未证实完整接收，包括首字节前崩溃窗口。
++            run.external_call_state = "UNKNOWN"
++            code, summary = "COLLECTOR_UNKNOWN_OUTCOME", "外部采集结果未知，必须显式创建新尝试"
++        elif run.external_call_state not in {"UNKNOWN", "COMPLETED"} and reported is not None:
++            run.external_call_state = reported
+         fail_run(db, run, now=now, code=code, summary=summary)
+         refresh_batch(db, batch, now)
+         return True
+@@ -203,8 +211,10 @@
+     lease = claim_collection_run(run_id)
+     if lease is None:
+         return
++    result_received = False
+     try:
+         result = lease.collector.collect(lease.request, before_send=lambda: authorize_send(lease))
++        result_received = True
+         submit_collection_result(lease, result)
+     except LeaseLost:
+         logger.info("GEO 采集租约失效 run_id=%s", run_id)
+@@ -213,5 +223,5 @@
+         logger.warning("GEO 采集失败 run_id=%s code=%s", run_id, error.failure.code.value)
+     except Exception as error:
+         # 不打印异常正文或 traceback，供应商内容和凭据不能进入 Celery 日志。
+-        submit_collection_failure(lease, None)
++        submit_collection_failure(lease, None, result_received=result_received)
+         logger.error("GEO 采集执行失败 run_id=%s error_type=%s", run_id, type(error).__name__)
+--- before/backend/app/worker.py
++++ current/backend/app/worker.py
+@@ -14,7 +14,7 @@
+     redispatch_pending_generation_jobs,
+ )
+ from app.services.geo_dispatch import (
+-    fail_expired_collection_runs,
++    recover_expired_collection_runs,
+     redispatch_pending_collection_runs,
+ )
+ from app.services.geo_runs import process_collection_run
+@@ -89,4 +89,4 @@
+ 
+ @celery_app.task(name="partsignal.recover_expired_geo_runs")  # type: ignore[untyped-decorator]
+ def recover_expired_geo_runs() -> None:
+-    fail_expired_collection_runs()
++    recover_expired_collection_runs()
+--- before/backend/tests/integration/test_geo_worker.py
++++ current/backend/tests/integration/test_geo_worker.py
+@@ -156,20 +156,23 @@
+     if sent:
+         geo_runs.authorize_send(lease)
+     expired = row(worker_graph, identity).lease_expires_at + timedelta(seconds=1)
+-    assert geo_dispatch.fail_expired_collection_runs(now=expired) >= 1
++    assert geo_dispatch.recover_expired_collection_runs(now=expired) >= 1
+     run = row(worker_graph, identity)
+-    assert run.status == "FAILED" and run.error_code == "WORKER_LOST"
+-    assert run.external_call_state == ("SENT" if sent else "NOT_STARTED")
+-    assert (
+-        geo_dispatch.redispatch_pending_collection_runs(
+-            lambda _: pytest.fail("不得补发"), now=expired
+-        )
+-        == 0
+-    )
++    assert run.status == ("FAILED" if sent else "PENDING")
++    assert run.error_code == ("COLLECTOR_UNKNOWN_OUTCOME" if sent else None)
++    assert run.external_call_state == ("UNKNOWN" if sent else "NOT_STARTED")
++    if sent:
++        assert (
++            geo_dispatch.redispatch_pending_collection_runs(
++                lambda _: pytest.fail("不得补发"), now=expired
++            )
++            == 0
++        )
+     with pytest.raises(geo_runs.LeaseLost):
+         geo_runs.authorize_send(lease)
+     assert geo_runs.submit_collection_failure(lease, None) is False
+-    geo_runs.process_collection_run(identity)
++    if sent:
++        geo_runs.process_collection_run(identity)
+     assert calls(local_provider, worker_graph) == 0
+ 
+ 
+@@ -331,9 +334,9 @@
+         lease.request, before_send=lambda: geo_runs.authorize_send(lease)
+     )
+     expiry = row(worker_graph, identity).lease_expires_at + timedelta(seconds=1)
+-    assert geo_dispatch.fail_expired_collection_runs(now=expiry) == 1
++    assert geo_dispatch.recover_expired_collection_runs(now=expiry) == 1
+     assert not geo_runs.submit_collection_result(lease, result)
+-    assert row(worker_graph, identity).error_code == "WORKER_LOST"
++    assert row(worker_graph, identity).error_code == "COLLECTOR_UNKNOWN_OUTCOME"
+     with worker_graph.api.api.factory() as db:
+         assert (
+             db.scalar(
+--- before/backend/tests/unit/test_contract.py
++++ current/backend/tests/unit/test_contract.py
+@@ -53,9 +53,9 @@
+     contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+     document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+     operations = operation_map(document)
+-    assert len(operations) == 219
+-    assert len({operation["operationId"] for operation in operations.values()}) == 219
+-    assert sum(len(operation["responses"]) for operation in operations.values()) == 1409
++    assert len(operations) == 220
++    assert len({operation["operationId"] for operation in operations.values()}) == 220
++    assert sum(len(operation["responses"]) for operation in operations.values()) == 1416
+ 
+     expected_parameter = {
+         "name": "X-Request-ID",
+@@ -315,6 +315,7 @@
+             "copyGeoMonitoringPlan",
+             "createGeoObservationBatch",
+             "runGeoMonitoringPlanNow",
++            "retryGeoObservationRun",
+         ),
+         ("201", "401", "403", "409", "422", "503"): (
+             "createPlatformLogoCandidate",
+@@ -372,7 +373,7 @@
+         if isinstance(operation, dict) and "operationId" in operation
+     }
+ 
+-    assert len(expected) == 219
++    assert len(expected) == 220
+     assert set(operations) == set(expected)
+     for operation_id, operation in operations.items():
+         responses = operation["responses"]
+@@ -400,7 +401,7 @@
+         "getWorkbench",
+     }
+     assert len(validation_free) == 14
+-    assert sum("422" in statuses for statuses in expected.values()) == 205
++    assert sum("422" in statuses for statuses in expected.values()) == 206
+     assert {
+         operation_id for operation_id, statuses in expected.items() if "422" not in statuses
+     } == validation_free
+--- before/backend/tests/unit/test_runtime_response_metadata.py
++++ current/backend/tests/unit/test_runtime_response_metadata.py
+@@ -647,9 +647,9 @@
+     runtime = app.openapi()
+     operations = _operation_map(runtime)
+ 
+-    assert len(operations) == 219
+-    assert len(set(operations)) == 219
+-    assert sum(len(operation["responses"]) for operation in operations.values()) == 1409
++    assert len(operations) == 220
++    assert len(set(operations)) == 220
++    assert sum(len(operation["responses"]) for operation in operations.values()) == 1416
+     parameter_ref = {"$ref": "#/components/parameters/RequestIdHeader"}
+     header_ref = {"$ref": "#/components/headers/RequestIdResponseHeader"}
+     parameter_schema = {
+@@ -694,10 +694,10 @@
+     augmented = app.openapi()
+     stripped = _strip_request_context_metadata(augmented)
+ 
+-    assert sum(len(operation["responses"]) for operation in _operation_map(raw).values()) == 1190
++    assert sum(len(operation["responses"]) for operation in _operation_map(raw).values()) == 1196
+     assert sum(
+         len(operation["responses"]) for operation in _operation_map(stripped).values()
+-    ) == 1190
++    ) == 1196
+     # 安装版本的 FastAPI 省略 None 默认；这里只移除已声明且显式恢复的 nullable annotation。
+     raw_settings = raw["components"]["schemas"]["GeoApiSettings"]["properties"]
+     stripped_settings = stripped["components"]["schemas"]["GeoApiSettings"]["properties"]
+--- before/contracts/database.md
++++ current/contracts/database.md
+@@ -967,7 +967,7 @@
+ 答案 INSERT 前同事务 flush RUNNING/COMPLETED（revision+1），随后答案和 COLLECTED/清空lease
+ 一起提交（再次实际UPDATE revision+1），继续服从 0050 延迟完整性和不可变守卫。
+ 失败装配禁止中间 autoflush，状态/错误/lease/revision 同次UPDATE；错误摘要只允许固定安全文案。
+-过期扫描将自动 RUNNING 保守 FAILED/WORKER_LOST，不恢复 PENDING，不重发，不改变终态。
++GEO-405 的保守过期失败策略已由下述 GEO-406 按持久化发送事实恢复策略替代。
+ COLLECTED 保持非终态并投影 Batch RUNNING；分析尚未实施。
+ 
+ GEO-405 当前提交仅正文/基本来源/闭合摘要，citation_count=0；非空引用或文件证据明确
+@@ -979,3 +979,28 @@
+ Profile 资格锁使用 FOR NO KEY UPDATE，继续排斥修改/删除而允许答案提交的 FK KEY SHARE；
+ 同事务两次 Run UPDATE 会触发 FK 重验，FOR UPDATE 会与重复 claim 的 Profile→Batch 形成锁环。
+ 扫描默认使用 PG clock_timestamp；显式 now 仅用于定向测试。Redis socket/connect timeout 为5秒。
++
++## GEO-406 发送事实、崩溃恢复与显式尝试合同
++
++继续复用 `0052_geo_profile_tests` head 和 0048 的外发进度、revision、不可变终态、
++同 cell 连续 attempt、`uq_geo_runs_successor` 唯一后继守卫；0050 保证答案与采集成功原子提交。
++没有新 Alembic revision、DDL、数据回填或历史重写。
++
++过期恢复只扫描自动 API 的 RUNNING，按 Batch → Run / SKIP LOCKED 锁内重验期限。
++NOT_STARTED 且无答案时，先撤销旧 token/expiry，清 started_at，再原子恢复原 attempt 为 PENDING，
++实际 UPDATE 的 revision+1。旧 Worker 即使仍存活也不能通过发送前授权。
++SENT/UNKNOWN 则写 FAILED/COLLECTION/COLLECTOR_UNKNOWN_OUTCOME 与 UNKNOWN，清 lease；
++COMPLETED 不回退，失败使用 WORKER_LOST。所有终态不再写入，迟到成功或失败都被拒绝。
++同 attempt 的自动补投递仅允许 PENDING/NOT_STARTED；SENT 在首字节前提交，即使后来 transport
++报告 NOT_STARTED，也不能撤销该持久化事实，未知失败按 UNKNOWN 关闭。完整响应或完整结果
++已收到后提交失败保留 COMPLETED；进程丢失且没有持久化完整响应仍保守 UNKNOWN。
++
++显式 retry 的 service 复用 User → Channel → Model → Surface → Profile → Batch → Run 锁序，
++锁内 expected_revision、无答案/无后继、COLLECTION 失败资格和当前配置资格共同裁决；冻结
++Profile revision/绑定/adapter version 不匹配返回 GEO_PROFILE_CHANGED，要求创建新批次。
++原 Run 不 UPDATE；仅追加同 Batch/cell、完整 input_snapshot、attempt_no+1 的 PENDING/NOT_STARTED
++新 Run。单后继索引裁决竞争，只有 `23505 + uq_geo_runs_successor` 在 INSERT flush 边界映射
++GEO_RUN_HAS_SUCCESSOR，其余完整性错误保持显式失败。重复命令不重放成功回执。
++Batch 按最新 attempts 重建并清除非终态 finished_at；requested_run_count 不增加。
++新 Run、Batch 与 `geo_observation_run.retried` 成功审计同事务提交，审计仅保留 run_id、
++previous_attempt_id、attempt_no。commit 后才投递新 Run UUID，Broker 失败由 PENDING 扫描处理。
+--- before/contracts/openapi.yaml
++++ current/contracts/openapi.yaml
+@@ -7661,6 +7661,63 @@
+           $ref: '#/components/responses/ErrorResponse'
+       description: 管理员固定连接及 answer_text 能力诊断。先预留 revision 并停用，事务外 pinned 出网，完成时重验依赖版本；不创建业务 Run，成功不自动启用。provider
+         失败以安全 test_error 和 FAILED 返回200，过期结果409。诊断仅支持 openai-compatible-chat，采集仍未批准。
++  /api/v1/geo/observation-runs/{run_id}/retry:
++    post:
++      tags:
++      - geo-run-commands
++      summary: Retry Geo Observation Run
++      operationId: retryGeoObservationRun
++      parameters:
++      - name: run_id
++        in: path
++        required: true
++        schema:
++          type: string
++          format: uuid
++          title: Run Id
++      - name: X-CSRF-Token
++        in: header
++        required: true
++        schema:
++          type: string
++          minLength: 32
++          title: X-Csrf-Token
++      - $ref: '#/components/parameters/RequestIdHeader'
++      responses:
++        '201':
++          description: Successful Response
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoRunRetryCreated'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++      security:
++      - sessionCookie: []
++      requestBody:
++        required: true
++        content:
++          application/json:
++            schema:
++              $ref: '#/components/schemas/GeoRunRetryRequest'
++      x-required-account-types:
++      - ADMIN
++      - ENGINEER
++      description: 显式追加同输入采集 attempt；required expected_revision。原尝试不变，已有后继返回409 GEO_RUN_HAS_SUCCESSOR；无自动命令重放。提交后投递稳定Run
++        ID，Broker失败由PENDING扫描恢复。
+ components:
+   securitySchemes:
+     sessionCookie:
+@@ -18590,3 +18647,47 @@
+       - as_of
+       title: GeoRunDetail
+       type: object
++
++    GeoRunRetryRequest:
++      additionalProperties: false
++      properties:
++        expected_revision:
++          minimum: 0
++          title: Expected Revision
++          type: integer
++      required:
++      - expected_revision
++      title: GeoRunRetryRequest
++      type: object
++
++    GeoRunRetryCreated:
++      additionalProperties: false
++      properties:
++        run_id:
++          format: uuid
++          title: Run Id
++          type: string
++        batch_id:
++          format: uuid
++          title: Batch Id
++          type: string
++        previous_attempt_id:
++          format: uuid
++          title: Previous Attempt Id
++          type: string
++        attempt_no:
++          minimum: 1
++          title: Attempt No
++          type: integer
++        created_at:
++          format: date-time
++          title: Created At
++          type: string
++      required:
++      - run_id
++      - batch_id
++      - previous_attempt_id
++      - attempt_no
++      - created_at
++      title: GeoRunRetryCreated
++      type: object
+--- before/docs/geo-monitoring/03-technical/03-api-contract-design.md
++++ current/docs/geo-monitoring/03-technical/03-api-contract-design.md
+@@ -251,7 +251,7 @@
+ 
+ GEO-304 / R2 已新增 GeoRawPayloadSummary、GeoAnswerSnapshotOut、GeoAnswerCitationInput、GeoAnswerCitationOut 四个闭合公共数据组件，无新 HTTP 端点；人工提交由 GEO-305 接线，详情仍由后续任务交付。原始 URL/位置/采集标题保持证据语义，分类/Subject/Article 归 AnalysisRevision。
+ 
+-GEO-301 / R2 已建立根OpenAPI基础数据和闭合快照组件；GEO-302已建立状态与动作策略；GEO-303开放两个批次创建入口。GEO-306已开放五个Batch/Run读取端点；取消、重试、分析与复核操作仍是后续任务设计，尚未开放。公共Run隐藏lease_token；费用未知为null，不返回异常或供应商原始正文。
++GEO-301 / R2 已建立根OpenAPI基础数据和闭合快照组件；GEO-302已建立状态与动作策略；GEO-303开放两个批次创建入口。GEO-306已开放五个Batch/Run读取端点；GEO-406开放显式重试；取消、分析与复核操作仍尚未开放。公共Run隐藏lease_token；费用未知为null，不返回异常或供应商原始正文。
+ 
+ | 方法 | 路径 | operationId |
+ |---|---|---|
+@@ -302,11 +302,11 @@
+ 
+ Run默认 `latest_only=true`，先选每cell最新attempt，再应用状态等筛选；显式false查看历史。Batch状态及筛选从完整最新attempt集合复用GEO-302规则，不依赖持久化状态缓存。状态计数与requested_run_count按cell，attempt_count和费用按全部attempt；未知费用保持未知计数，已知金额按币种分组，不能把未知当零或跨币种相加。完整summary不受run分页影响。当前profile资格与冻结展示分离，模式/Surface绑定变化阻断动作；历史仍可读，监测停用不删除历史。
+ 
+-五个GET均要求ADMIN/ENGINEER共享内部业务权限；created_by只追溯。只读接口不写状态、revision、审计、认证heartbeat，不加行锁。取消/重试命令尚未实现，不返回其可执行动作。精确公共类型和错误集合以根OpenAPI为准。
++五个GET均要求ADMIN/ENGINEER共享内部业务权限；created_by只追溯。只读接口不写状态、revision、审计、认证heartbeat，不加行锁。GEO-406在资格满足时投影RETRY动作，取消仍未实现。精确公共类型和错误集合以根OpenAPI为准。
+ 
+ ### 8.2 人工录入（GEO-305 / R2）
+ 
+-GEO-305 已开放上表三个 `manual-*` 端点，完整路径均带 `/api/v1`。Batch/Run读取由GEO-306开放；其他运行操作仍是后续设计。精确字段及类型以根 OpenAPI 为权威。
++GEO-305 已开放上表三个 `manual-*` 端点，完整路径均带 `/api/v1`。Batch/Run读取由GEO-306开放，显式retry由GEO-406开放；其他运行操作仍是后续设计。精确字段及类型以根 OpenAPI 为权威。
+ 
+ - GET manual-entry：冻结 `input_snapshot`、Run/Batch ID、run_revision、截图要求、当前草稿与独立 draft_revision、当前 collection_blockers 和服务端 workflow/action。未保存为 revision0/null draft；配置停用或监测关闭仍可读取草稿，但没有可写动作。
+ - PUT manual-draft：`{expected_draft_revision,draft}`；可保存未完成的文本、引用和可选证据，首次 revision1，实际修改恰好+1，同值保存保留原版本和时间，不重复审计。Run revision 不变。
+@@ -339,6 +339,22 @@
+ 
+ 稳定错误：409 REVISION_CONFLICT / GEO_MANUAL_MODE_REQUIRED / INVALID_STATE_TRANSITION / GEO_PROFILE_CHANGED / IDEMPOTENCY_CONFLICT；422 GEO_PLAN_PROFILE_INELIGIBLE / GEO_ANSWER_EMPTY / GEO_EVIDENCE_REQUIRED / GEO_SCREENSHOT_REQUIRED / FILE_INTEGRITY_FAILED / VALIDATION_ERROR；403 PERMISSION_DENIED / CSRF_INVALID / PASSWORD_CHANGE_REQUIRED；401 AUTH_REQUIRED；503 DEPENDENCY_UNAVAILABLE。身份和CSRF检查也适用于成功回执重放，未知内部失败不得映射成功。
+ 
++### 8.3 显式采集 retry（GEO-406 / R3）
++
++`POST /api/v1/geo/observation-runs/{run_id}/retry` / `retryGeoObservationRun`：
++
++- 请求闭合为 `{expected_revision}`，只接受非负整数；ADMIN/ENGINEER、session 和 CSRF。
++- 只允许无答案、无后继的 FAILED/BUDGET_BLOCKED 且 error_stage=COLLECTION 的前序。
++  服务锁内重验当前资格与冻结 Profile revision/绑定/adapter version；配置变化要求新建批次。
++- 返回 201 `{run_id,batch_id,previous_attempt_id,attempt_no,created_at}`，为稳定身份回执，
++  不保存后续可变状态。原 attempt 终态、错误、外发事实、输入及证据原样保留。
++- 不使用 Idempotency-Key；同前序唯一后继与行锁禁止分叉，重复命令返回
++  `409 GEO_RUN_HAS_SUCCESSOR`，不能自动重放或创建第二个后继。
++- 其他业务错误为 `409 REVISION_CONFLICT / GEO_RUN_NOT_RETRYABLE / GEO_PROFILE_CHANGED`、
++  `422 GEO_PLAN_PROFILE_INELIGIBLE`；标准 401/403/404/422 沿用公共错误合同。
++  新 Run、Batch 投影及成功审计原子提交，之后才派发稳定新 Run UUID；Broker 失败不撤销回执。
++- 服务端已接线 RETRY 动作；前端只重生成 OpenAPI 类型，自动页面交互仍属后续任务。
++
+ ## 9. 分析与复核 API
+ 
+ ### 9.1 重分析
+--- before/docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md
++++ current/docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md
+@@ -594,9 +594,8 @@
+ 成功只推进到 COLLECTED，基本答案与状态原子提交；不触发分析或伪造完成状态。
+ 提交必须仍为 RUNNING、SENT 且 token/期限有效。Collector 固定失败映射到 COLLECTION；
+ 未经分类的执行/提交异常使用 WORKER_LOST。任何失败都不自动重发。
+-过期扫描按 Batch → Run / SKIP LOCKED，把所有过期自动 RUNNING 保守标记 FAILED/WORKER_LOST，
+-清除 lease，保留外部发送事实，重建 Batch 缓存。NOT_STARTED 安全重入、迟到证据和显式新 attempt
+-由 GEO-406 交付；usage/cost、预算预留/rate limit 属于 GEO-407。
++GEO-405 的保守过期失败策略已由下述 GEO-406 恢复策略替代；usage/cost、预算预留/rate limit
++仍属于 GEO-407。
+ 
+ 生产 registry 的 API approved=false 与工厂 INTERNAL 分类保持。当前 PUBLIC-only Collector
+ 不能使 INTERNAL Run 外发；没有新增外发授权入口。有 budget_limit 的执行明确失败，不能忽略预算。
+@@ -611,3 +610,28 @@
+ Profile 资格锁使用 FOR NO KEY UPDATE，继续排斥修改/删除而允许答案提交的 FK KEY SHARE；
+ 同事务两次 Run UPDATE 会触发 FK 重验，FOR UPDATE 会与重复 claim 的 Profile→Batch 形成锁环。
+ 扫描默认使用 PG clock_timestamp；显式 now 仅用于定向测试。Redis socket/connect timeout 为5秒。
++
++## 当前 R3：GEO-406 at-most-once 恢复
++
++`external_call_state` 是 PostgreSQL 持久化发送事实：NOT_STARTED → SENT → UNKNOWN/COMPLETED，
++数据库禁止外发事实倒退，当前服务只接受有效 SENT 租约的成功提交；终态无出边。首字节前的 SENT 提交
++与过期扫描以 Batch → Run 为串行点，不以 transport 的局部 NOT_STARTED 覆盖持久化 SENT。
++
++`recover_expired_collection_runs` 锁内重验 RUNNING/expiry：NOT_STARTED 且无答案可撤销旧 lease、
++清 started_at、revision+1 后恢复同 attempt 的 PENDING；SENT/UNKNOWN 则终止为
++FAILED/COLLECTOR_UNKNOWN_OUTCOME/UNKNOWN，永不自动重发。完整接收后业务提交失败保留
++COMPLETED，进程丢失且未持久化完整结果仍保守 UNKNOWN。恢复只处理自动 API，不处理 MANUAL。
++发送、结果和失败提交均重验状态、token、期限；终态或旧 token 的迟到结果返回拒绝，
++不追加答案，也不覆盖新 attempt。无需给终态新增迟到证据可写旁路。
++
++显式 `retry_collection_run` 要求 ADMIN/ENGINEER、CSRF、expected_revision、无答案的
++COLLECTION 失败/无后继以及当前配置资格。冻结 Profile revision/绑定/adapter version
++变化要求创建新 Batch；不重新冻结历史输入。User → 配置 → Batch → Run 锁内追加同 cell
++attempt_no+1，原终态完全不变。单后继唯一键禁止分叉；新 Run、Batch 重建及最小成功审计
++原子提交，非终态 Batch 的 finished_at 清空。重复 retry 返回 409，不自动重放。
++事务后只发布新 Run UUID；消息重复由 claim/token 仲裁，Broker 故障由 PENDING 补投递恢复。
++
++验证包含真实 PG、杀死独立 Worker 子进程、发送前/后恢复、旧 token、成功迟到、不同 actor
++并发 retry 与本地 provider 调用计数。实际证据见
++[GEO-406 实施记录](../../../.trellis/tasks/10-03-geo-406-at-most-once/implement.md)。
++生产 registry 批准、数据外发分类及现有安全门禁保持；GEO-407 和自动 UI 不在本次范围。
+--- before/docs/geo-monitoring/03-technical/08-deployment-and-operations.md
++++ current/docs/geo-monitoring/03-technical/08-deployment-and-operations.md
+@@ -366,3 +366,16 @@
+ 安全停止：停 Worker/Beat 或关闭采集开关阻止新发送；已发送请求不重发，过期 lease 保留历史失败。
+ 诊断只记录 Run/Batch ID、固定 code 与异常类型，禁止记录原 prompt/回答/凭据或异常正文。
+ 当前 API 仍未生产批准、INTERNAL 工厂输入仍禁止外发、预算执行尚未完成，不能据此认定 R3 发布完成。
++
++### GEO-406 恢复与人工 retry
++
++无需新增运维参数或迁移，现有 recovery Beat task 改用持久化外发事实：过期 API RUNNING
++只有 NOT_STARTED 且无答案才能撤 lease 并恢复同 attempt 的 PENDING；SENT/UNKNOWN 终止为
++FAILED/COLLECTOR_UNKNOWN_OUTCOME/UNKNOWN，不自动重发。COMPLETED 不回退。
++不要用批量 SQL 把已发送 Run 改回 PENDING，或覆盖/清空其错误、外发状态、输入与终态。
++
++需要再次采集时，由已授权 ADMIN/ENGINEER 读取最新 revision 后调用显式 retry API；
++每个前序至多一个后继，沿原输入追加新 attempt。当前配置变化要求新建批次。
++请求/Worker 丢失响应时先读取同 cell attempts，不能假定调用未发生或反复发送命令。
++Broker 故障不会撤销已提交新 attempt，PENDING 扫描补投递稳定 UUID。
++迟到结果和旧 token 均不覆盖终态。安全停止、日志脱敏、开关及 registry 门禁沿用上述规则。
+--- before/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ current/docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -755,7 +755,7 @@
+   phase: R3
+   release: R3
+   title: 实现 external_call_state 与 at-most-once 恢复
+-  status: planned
++  status: review
+   dependencies:
+   - GEO-405
+   areas:
+@@ -770,6 +770,8 @@
+   - 02-business/03-workflows-and-state-machines.md
+   - 03-technical/01-technical-architecture.md
+   - 04-delivery/04-codex-execution-guide.md
++  review_note: 2026-10-03 GEO-406发送事实、未发送lease恢复、UNKNOWN终止、迟到结果保护和显式单后继retry完成；OpenAPI及generated类型同步，无新Alembic或历史回填。lint/typecheck、后端2999与前端1125单元、全量860集成通过；复核修正后80项Worker/Run/读模型定向通过。独立只读复核发现的RETRY冻结配置动作漂移已修正并验证当前资格恢复反例；生产批准和外发门禁保持。仅进入review，待人工验收，不实施GEO-407及后续任务。
++  validation_record: .trellis/tasks/10-03-geo-406-at-most-once/implement.md
+ - id: GEO-407
+   phase: R3
+   release: R3
+--- before/docs/geo-monitoring/SHA256SUMS
++++ current/docs/geo-monitoring/SHA256SUMS
+@@ -9,12 +9,12 @@
+ 30e1976c61c18150724cf4b89ead9e2d960b0cea729ba377b06c7c384c264899  ./02-business/04-monitoring-methodology-and-metrics.md
+ 90c2a635615b591f0d1a282fb62f289de0fbad030ea2dcb19ce7dd10983b85b2  ./03-technical/01-technical-architecture.md
+ 71ad777c12034ec8d69b0dbfd1457aa1886d24de901c7e4fb3f304f19915812b  ./03-technical/02-data-architecture.md
+-3ad8c855eb54244918d4d6774e40f3b5299f6e51d93befbf490d07b8cd7a41a3  ./03-technical/03-api-contract-design.md
++fd76624de20dfbded7b3b881db1b9707b38bf6e6c672212cbf25864ede7da285  ./03-technical/03-api-contract-design.md
+ 5f8dfd5ce025da9a312e800a4c13e48eb64dee88927e2668c82f81490457bd67  ./03-technical/04-frontend-architecture.md
+-cd84361dc6f660718522ff7014abc25436fd2d4716f180e71235b0d70ca8b347  ./03-technical/05-worker-and-collector-architecture.md
++95a49dda08fe1aabf78806a71810fb7042a1b3fccba3ac7f9c4e552a005f76c3  ./03-technical/05-worker-and-collector-architecture.md
+ 2698d3095cfaeb5857d6bafd3efd633d9d50b813257054e7568d779be35d7dd7  ./03-technical/06-security-and-compliance.md
+ 6637c4b8232d8d3b18d0f396411341af3a772215e7ab59c9e11c1efbdc372e1a  ./03-technical/07-testing-and-quality.md
+-3799a247a40d40d1226247b4b680dd51cc6a319b8d2c8ce5ae078c5a578189d3  ./03-technical/08-deployment-and-operations.md
++19a90ea11840a47c76615ce80d65c7a648dc0474fa407e2dd1c49749c19b5cce  ./03-technical/08-deployment-and-operations.md
+ f8c643e46c1159c51bd2e271e87de1d0e5a0448e2845af01f33bef5e4e1d411b  ./04-delivery/01-implementation-roadmap.md
+ acf0bde87ddfc34ebbc09543c1f2c2c1f496d48f330727b5e943807267eed41c  ./04-delivery/02-work-breakdown-structure.md
+ 7a1e4e0513d68d6c5462126076153405b3beecd47551cf0d4b519cf616e7292d  ./04-delivery/03-requirement-traceability-matrix.md
+@@ -102,7 +102,7 @@
+ 7106b3f1df66de6ba41a4d7ca85e291b8b181f78e2b7c0ef91f4fa696d1f9e8b  ./04-delivery/geo-003-baseline/sources.json
+ 316ab24c5f645e18d39c529c7fcbca2260b14a5375cc5ebd799a5b7c6cfc8f40  ./04-delivery/geo-003-baseline/tests.json
+ 9dae298eb77cc0063394bfacea27b02ece69bf2a7dceba637ef1320565810ec7  ./04-delivery/geo-003-baseline/validation.md
+-b8c89b6d87a00cbb3add3472c1af378c7a4095cdb95af92299461635c27e4747  ./04-delivery/task-manifest.yaml
++dc31f4cf33700040f682fd55956a1fb7c79898e6ea3da03405376ed21f542d73  ./04-delivery/task-manifest.yaml
+ 2c0f8d8ba314039b44e48614481c28e615e996c2e4ed444c8f07362b5cd75de9  ./05-decisions/ADR-001-extend-modular-monolith.md
+ 4e0ec1be59e33c2f3e83ee50abc55ffe35d2d0bf471c19cc2c713b391fc12cee  ./05-decisions/ADR-002-unified-observation-run-model.md
+ 00baab5f8fe68fbaf75e3aa7b07a0cfbd7c510e39b6a70ea462d9ab941330dc7  ./05-decisions/ADR-003-separate-collection-analysis-review.md
+--- /dev/null
++++ current/backend/app/services/geo_run_retries.py
+@@ -0,0 +1,139 @@
++"""显式追加采集尝试；原终态、输入和证据不修改，提交后才投递稳定 ID。"""
++
++from copy import deepcopy
++from uuid import UUID
++
++from sqlalchemy.exc import IntegrityError
++from sqlalchemy.orm import Session
++
++from app.audit import append_audit
++from app.audit_types import AuditEntry, AuditModule, AuditOutcome
++from app.collectors.contracts import CollectionRequest
++from app.collectors.errors import CollectorError
++from app.collectors.registry import collector_registry
++from app.config import settings
++from app.errors import AppError, not_found
++from app.models.geo_runs import GeoObservationRun
++from app.models.identity import User
++from app.schemas.geo_run_retry import GeoRunRetryCreated, GeoRunRetryRequest
++from app.schemas.geo_runs import GeoRunInputSnapshot
++from app.services.geo_collection_execution import lock_configuration
++from app.services.geo_collection_profiles import load_profile_facts
++from app.services.geo_dispatch import dispatch_created_batch
++from app.services.geo_plan_locks import command
++from app.services.geo_run_lifecycle import database_now, lock_run, refresh_batch, run_state
++from app.services.geo_run_policy import require_retryable
++
++
++def retry_collection_run(
++    db: Session,
++    *,
++    run_id: UUID,
++    payload: GeoRunRetryRequest,
++    actor: User,
++    request_id: str,
++) -> GeoRunRetryCreated:
++    with command(db, actor) as current:
++        initial = db.get(GeoObservationRun, run_id)
++        if initial is None:
++            raise not_found("GEO 运行")
++        snapshot = GeoRunInputSnapshot.model_validate(initial.input_snapshot)
++        request = CollectionRequest.from_snapshot(
++            run_id,
++            snapshot,
++            timeout_seconds=120,
++            max_response_bytes=2 * 1024 * 1024,
++            budget_remaining=None,
++        )
++        try:
++            lock_configuration(db, request)
++        except CollectorError:
++            raise AppError("GEO_PLAN_PROFILE_INELIGIBLE", "当前配置不具备采集资格", 422) from None
++        locked = lock_run(db, run_id)
++        assert locked is not None
++        batch, previous = locked
++        if previous.revision != payload.expected_revision:
++            raise AppError("REVISION_CONFLICT", "运行已变更，请重新读取", 409)
++        require_retryable(run_state(db, previous))
++        facts = load_profile_facts(db, [previous.collection_profile_id]).get(
++            previous.collection_profile_id
++        )
++        if facts is None:
++            raise not_found("GEO 采集配置")
++        frozen = request.profile
++        if not facts.matches_frozen_profile(
++            revision=frozen.revision,
++            engine_surface_id=frozen.engine_surface_id,
++            collection_mode=frozen.collection_mode,
++            adapter_key=frozen.adapter_key,
++            adapter_version=frozen.adapter_version,
++            ai_channel_id=frozen.ai_channel_id,
++            ai_model_id=frozen.ai_model_id,
++            registry=collector_registry,
++        ):
++            raise AppError("GEO_PROFILE_CHANGED", "当前采集配置与冻结输入不一致，请创建新批次", 409)
++        eligibility = facts.eligibility(registry=collector_registry, configuration=settings)
++        if not eligibility.eligible:
++            raise AppError(
++                "GEO_PLAN_PROFILE_INELIGIBLE",
++                "当前配置不具备采集资格",
++                422,
++                details={
++                    "blockers": [
++                        {"code": b.code.value, "field": b.field} for b in eligibility.blockers
++                    ]
++                },
++            )
++        successor = GeoObservationRun(
++            batch_id=previous.batch_id,
++            prompt_variant_id=previous.prompt_variant_id,
++            collection_profile_id=previous.collection_profile_id,
++            repeat_index=previous.repeat_index,
++            attempt_no=previous.attempt_no + 1,
++            previous_attempt_id=previous.id,
++            input_snapshot=deepcopy(previous.input_snapshot),
++        )
++        db.add(successor)
++        try:
++            db.flush()
++        except IntegrityError as error:
++            if (
++                getattr(error.orig, "sqlstate", None) == "23505"
++                and getattr(getattr(error.orig, "diag", None), "constraint_name", None)
++                == "uq_geo_runs_successor"
++            ):
++                raise AppError(
++                    "GEO_RUN_HAS_SUCCESSOR", "该尝试已有后继，请查看最新尝试", 409
++                ) from error
++            raise
++        refresh_batch(db, batch, database_now(db))
++        append_audit(
++            db,
++            AuditEntry(
++                actor_id=current.id,
++                business_module=AuditModule.GEO_OBSERVATION,
++                action="geo_observation_run.retried",
++                target_type="GeoObservationRun",
++                target_id=successor.id,
++                request_id=request_id,
++                outcome=AuditOutcome.SUCCESS,
++                result_message="已显式创建新的采集尝试",
++                details={
++                    "facts": {
++                        "run_id": str(successor.id),
++                        "previous_attempt_id": str(previous.id),
++                        "attempt_no": successor.attempt_no,
++                    }
++                },
++            ),
++        )
++        receipt = GeoRunRetryCreated(
++            run_id=successor.id,
++            batch_id=successor.batch_id,
++            previous_attempt_id=previous.id,
++            attempt_no=successor.attempt_no,
++            created_at=successor.created_at,
++        )
++        db.commit()
++    dispatch_created_batch(db, receipt.batch_id)
++    return receipt
+--- /dev/null
++++ current/backend/app/schemas/geo_run_retry.py
+@@ -0,0 +1,20 @@
++"""显式采集重试命令与稳定的新尝试身份；不返回后续可变执行状态。"""
++
++from uuid import UUID
++
++from pydantic import AwareDatetime
++
++from app.schemas.base import ContractModel
++from app.schemas.geo_runs import NonNegative, Positive
++
++
++class GeoRunRetryRequest(ContractModel):
++    expected_revision: NonNegative
++
++
++class GeoRunRetryCreated(ContractModel):
++    run_id: UUID
++    batch_id: UUID
++    previous_attempt_id: UUID
++    attempt_no: Positive
++    created_at: AwareDatetime
+--- /dev/null
++++ current/backend/app/routers/geo_run_commands.py
+@@ -0,0 +1,32 @@
++"""显式重试 HTTP 边界；事务、锁和 ORM 写入属于 Application Service。"""
++
++from uuid import UUID
++
++from fastapi import APIRouter, Request
++
++from app.deps import CsrfProtected, DbSession, EngineerUser
++from app.errors import error_responses
++from app.schemas.geo_run_retry import GeoRunRetryCreated, GeoRunRetryRequest
++from app.services.geo_run_retries import retry_collection_run
++
++router = APIRouter(prefix="/api/v1/geo/observation-runs", tags=["geo-run-commands"])
++
++
++@router.post(
++    "/{run_id}/retry",
++    status_code=201,
++    response_model=GeoRunRetryCreated,
++    operation_id="retryGeoObservationRun",
++    responses=error_responses(401, 403, 404, 409, 422),
++)
++def retry_run(
++    run_id: UUID,
++    payload: GeoRunRetryRequest,
++    request: Request,
++    db: DbSession,
++    user: EngineerUser,
++    _csrf: CsrfProtected,
++) -> GeoRunRetryCreated:
++    return retry_collection_run(
++        db, run_id=run_id, payload=payload, actor=user, request_id=request.state.request_id
++    )
+--- /dev/null
++++ current/backend/tests/integration/test_geo_at_most_once.py
+@@ -0,0 +1,482 @@
++"""GEO-406：真实 PG、被杀死的子进程、本地 provider 和显式重试合同。"""
++
++import os
++import selectors
++import subprocess
++import sys
++from concurrent.futures import ThreadPoolExecutor
++from dataclasses import replace
++from datetime import timedelta
++from threading import Event
++from uuid import UUID, uuid4
++
++import pytest
++from fastapi.testclient import TestClient
++from sqlalchemy import event, func, select
++from sqlalchemy.orm import Session
++
++from app.collectors.errors import CollectorError, CollectorStage
++from app.collectors.registry import collector_registry
++from app.config import settings
++from app.errors import AppError
++from app.geo_fake_server import FakeMode, FakeScenario, running_geo_fake
++from app.main import app
++from app.models.geo_answers import GeoAnswerSnapshot
++from app.models.geo_runs import GeoObservationBatch, GeoObservationRun
++from app.models.geo_surfaces import GeoCollectionProfile
++from app.models.identity import AuditLog, User
++from app.schemas.geo_run_retry import GeoRunRetryRequest
++from app.schemas.geo_runs import GeoExternalCallState, GeoRunErrorCode
++from app.services import geo_dispatch, geo_run_retries, geo_runs
++from app.services.geo_collection_profiles import load_profile_facts
++from tests.integration.geo_plans_support import plans_api as plans_api
++from tests.integration.geo_plans_support import questions_api as questions_api
++from tests.integration.geo_plans_support import questions_engine as questions_engine
++from tests.integration.geo_worker_support import worker_graph as worker_graph
++
++pytestmark = pytest.mark.integration
++
++
++@pytest.fixture
++def local_provider():
++    with running_geo_fake() as server:
++        yield server
++
++
++def row(graph, identity):
++    with graph.api.api.factory() as db:
++        return db.get(GeoObservationRun, identity)
++
++
++def facts(graph, identity):
++    value = row(graph, identity)
++    return {column.name: getattr(value, column.name) for column in value.__table__.columns}
++
++
++def expire(graph, identity):
++    expiry = row(graph, identity).lease_expires_at + timedelta(seconds=1)
++    return geo_dispatch.recover_expired_collection_runs(now=expiry)
++
++
++def retry(graph, identity, *, revision=None, actor_id=None):
++    with graph.api.api.factory() as db:
++        actor = db.get(User, actor_id or graph.api.api.engineer_id)
++        return geo_run_retries.retry_collection_run(
++            db,
++            run_id=identity,
++            payload=GeoRunRetryRequest(
++                expected_revision=revision
++                if revision is not None
++                else row(graph, identity).revision
++            ),
++            actor=actor,
++            request_id=f"geo406-{uuid4()}",
++        )
++
++
++def lose_sent_run(graph):
++    identity = graph.create()
++    lease = geo_runs.claim_collection_run(identity)
++    geo_runs.authorize_send(lease)
++    assert expire(graph, identity) == 1
++    return identity, lease
++
++
++@pytest.mark.parametrize("sent", [False, True])
++def test_killed_worker_recovers_only_before_send(worker_graph, local_provider, sent):
++    identity = worker_graph.create()
++    script = """
++import sys
++from dataclasses import replace
++from types import MappingProxyType
++from uuid import UUID
++from app.collectors.registry import collector_registry
++from app.config import settings
++from app.services.geo_runs import claim_collection_run, authorize_send
++settings.geo_monitoring_enabled = settings.geo_api_collection_enabled = True
++settings.ai_allow_local_http = True
++r = replace(collector_registry.resolve("openai-compatible-chat"), approved=True)
++collector_registry._entries = MappingProxyType({
++    "manual": collector_registry.resolve("manual"), r.key: r
++})
++lease = claim_collection_run(UUID(sys.argv[1]))
++assert lease is not None
++if sys.argv[2] == "sent":
++    lease.collector.collect(lease.request, before_send=lambda: authorize_send(lease))
++print("READY", flush=True)
++sys.stdin.readline()
++"""
++    environment = os.environ | {
++        "DATABASE_URL": worker_graph.api.api.engine.url.render_as_string(hide_password=False),
++    }
++    process = subprocess.Popen(
++        [sys.executable, "-c", script, str(identity), "sent" if sent else "unsent"],
++        env=environment,
++        stdin=subprocess.PIPE,
++        stdout=subprocess.PIPE,
++        stderr=subprocess.PIPE,
++        text=True,
++    )
++    try:
++        with selectors.DefaultSelector() as selector:
++            selector.register(process.stdout, selectors.EVENT_READ)
++            assert selector.select(timeout=10), "隔离Worker未到达崩溃边界"
++        assert process.stdout.readline().strip() == "READY"
++        assert row(worker_graph, identity).status == "RUNNING"
++        assert row(worker_graph, identity).external_call_state == (
++            "SENT" if sent else "NOT_STARTED"
++        )
++        process.kill()
++        assert process.wait(timeout=5) < 0
++    finally:
++        if process.poll() is None:
++            process.kill()
++        process.communicate(timeout=5)
++    assert expire(worker_graph, identity) == 1
++    recovered = row(worker_graph, identity)
++    assert recovered.status == ("FAILED" if sent else "PENDING")
++    assert recovered.external_call_state == ("UNKNOWN" if sent else "NOT_STARTED")
++    assert recovered.lease_token is None and recovered.lease_expires_at is None
++    if not sent:
++        assert recovered.started_at is None
++    before = facts(worker_graph, identity)
++    geo_runs.process_collection_run(identity)
++    assert local_provider.state.snapshot(worker_graph.call_id)["count"] == 1
++    if sent:
++        assert facts(worker_graph, identity) == before
++    else:
++        assert row(worker_graph, identity).status == "COLLECTED"
++        assert row(worker_graph, identity).attempt_no == 1
++
++
++def test_recovery_revokes_old_worker_before_new_claim(worker_graph, local_provider):
++    identity = worker_graph.create()
++    old = geo_runs.claim_collection_run(identity)
++    assert expire(worker_graph, identity) == 1
++    current = geo_runs.claim_collection_run(identity)
++    assert current.token != old.token
++    with pytest.raises(geo_runs.LeaseLost):
++        old.collector.collect(old.request, before_send=lambda: geo_runs.authorize_send(old))
++    assert not geo_runs.submit_collection_failure(old, None)
++    result = current.collector.collect(
++        current.request, before_send=lambda: geo_runs.authorize_send(current)
++    )
++    assert geo_runs.submit_collection_result(current, result)
++    assert local_provider.state.snapshot(worker_graph.call_id)["count"] == 1
++
++
++def test_sent_marker_before_first_byte_is_still_unknown(worker_graph, local_provider):
++    identity, lease = lose_sent_run(worker_graph)
++    assert row(worker_graph, identity).external_call_state == "UNKNOWN"
++    assert row(worker_graph, identity).error_code == "COLLECTOR_UNKNOWN_OUTCOME"
++    assert local_provider.state.snapshot(worker_graph.call_id)["count"] == 0
++    with pytest.raises(geo_runs.LeaseLost):
++        geo_runs.authorize_send(lease)
++    assert geo_dispatch.recover_expired_collection_runs() == 0
++    assert geo_dispatch.redispatch_pending_collection_runs(lambda _: pytest.fail("禁止补发")) == 0
++
++
++@pytest.mark.parametrize("failure", [None, "NOT_STARTED", "UNKNOWN", "COMPLETED"])
++def test_failure_preserves_durable_send_facts(worker_graph, failure):
++    identity = worker_graph.create()
++    lease = geo_runs.claim_collection_run(identity)
++    geo_runs.authorize_send(lease)
++    error = (
++        None
++        if failure is None
++        else CollectorError(
++            GeoRunErrorCode.PROVIDER_TIMEOUT
++            if failure == "NOT_STARTED"
++            else GeoRunErrorCode.PROVIDER_RESPONSE_INVALID
++            if failure == "COMPLETED"
++            else GeoRunErrorCode.COLLECTOR_UNKNOWN_OUTCOME,
++            stage=CollectorStage.SEND
++            if failure == "NOT_STARTED"
++            else CollectorStage.PARSE
++            if failure == "COMPLETED"
++            else CollectorStage.RECEIVE,
++            external_call_state=GeoExternalCallState(failure),
++        )
++    )
++    assert geo_runs.submit_collection_failure(lease, error)
++    run = row(worker_graph, identity)
++    assert run.status == "FAILED"
++    assert run.external_call_state == ("COMPLETED" if failure == "COMPLETED" else "UNKNOWN")
++    assert run.error_code == (
++        "PROVIDER_RESPONSE_INVALID" if failure == "COMPLETED" else "COLLECTOR_UNKNOWN_OUTCOME"
++    )
++    assert not geo_runs.submit_collection_failure(lease, error)
++
++
++def test_full_received_result_commit_failure_keeps_completed(
++    worker_graph, local_provider, monkeypatch
++):
++    identity = worker_graph.create()
++
++    def unavailable(*_args):
++        raise RuntimeError("虚构提交故障")
++
++    monkeypatch.setattr(geo_runs, "submit_collection_result", unavailable)
++    geo_runs.process_collection_run(identity)
++    run = row(worker_graph, identity)
++    assert run.status == "FAILED" and run.external_call_state == "COMPLETED"
++    assert run.error_code == "WORKER_LOST"
++    geo_runs.process_collection_run(identity)
++    assert local_provider.state.snapshot(worker_graph.call_id)["count"] == 1
++
++
++def test_success_late_after_retry_cannot_change_either_attempt(worker_graph, local_provider):
++    identity = worker_graph.create()
++    lease = geo_runs.claim_collection_run(identity)
++    result = lease.collector.collect(
++        lease.request, before_send=lambda: geo_runs.authorize_send(lease)
++    )
++    assert expire(worker_graph, identity) == 1
++    previous = facts(worker_graph, identity)
++    created = retry(worker_graph, identity)
++    successor = facts(worker_graph, created.run_id)
++    assert not geo_runs.submit_collection_result(lease, result)
++    assert not geo_runs.submit_collection_result(replace(lease, token=uuid4()), result)
++    assert facts(worker_graph, identity) == previous
++    assert facts(worker_graph, created.run_id) == successor
++    with worker_graph.api.api.factory() as db:
++        assert (
++            db.scalar(
++                select(func.count())
++                .select_from(GeoAnswerSnapshot)
++                .where(GeoAnswerSnapshot.run_id.in_([identity, created.run_id]))
++            )
++            == 0
++        )
++
++
++def test_concurrent_retry_one_successor_and_original_terminal_unchanged(worker_graph):
++    identity, _ = lose_sent_run(worker_graph)
++    original = facts(worker_graph, identity)
++
++    def create(index):
++        try:
++            return retry(
++                worker_graph,
++                identity,
++                revision=original["revision"],
++                actor_id=worker_graph.api.api.engineer_id
++                if index % 2
++                else worker_graph.api.api.admin_id,
++            )
++        except AppError as error:
++            return error.code
++
++    with ThreadPoolExecutor(max_workers=5) as pool:
++        results = list(pool.map(create, range(5)))
++    assert results.count("GEO_RUN_HAS_SUCCESSOR") == 4
++    created = next(value for value in results if not isinstance(value, str))
++    successor = row(worker_graph, created.run_id)
++    assert successor.input_snapshot == original["input_snapshot"]
++    assert successor.run_cell_key == original["run_cell_key"]
++    assert successor.attempt_no == 2 and successor.previous_attempt_id == identity
++    assert successor.status == "PENDING" and successor.external_call_state == "NOT_STARTED"
++    assert facts(worker_graph, identity) == original
++    with worker_graph.api.api.factory() as db:
++        batch = db.get(GeoObservationBatch, successor.batch_id)
++        assert batch.status == "QUEUED" and batch.finished_at is None
++        assert batch.requested_run_count == 1
++        assert (
++            db.scalar(
++                select(func.count())
++                .select_from(AuditLog)
++                .where(
++                    AuditLog.action == "geo_observation_run.retried",
++                    AuditLog.target_id == str(successor.id),
++                )
++            )
++            == 1
++        )
++
++
++def test_retry_and_audit_failure_roll_back_batch_and_successor(worker_graph, monkeypatch):
++    identity, _ = lose_sent_run(worker_graph)
++    with worker_graph.api.api.factory() as db:
++        before = db.get(GeoObservationBatch, row(worker_graph, identity).batch_id)
++        previous = before.status, before.revision, before.finished_at
++
++    def unavailable(*_args):
++        raise RuntimeError("虚构审计故障")
++
++    monkeypatch.setattr(geo_run_retries, "append_audit", unavailable)
++    with pytest.raises(RuntimeError):
++        retry(worker_graph, identity)
++    with worker_graph.api.api.factory() as db:
++        assert (
++            db.scalar(
++                select(func.count())
++                .select_from(GeoObservationRun)
++                .where(GeoObservationRun.previous_attempt_id == identity)
++            )
++            == 0
++        )
++        after = db.get(GeoObservationBatch, before.id)
++        assert (after.status, after.revision, after.finished_at) == previous
++
++
++def test_retry_api_auth_csrf_revision_actions_and_broker_failure(worker_graph):
++    identity, _ = lose_sent_run(worker_graph)
++    path = f"/api/v1/geo/observation-runs/{identity}"
++    client = worker_graph.api.api.engineer
++    detail = client.get(path).json()
++    assert "RETRY" in detail["run"]["available_actions"]
++    revision = detail["run"]["revision"]
++    assert client.post(path + "/retry", json={}).status_code == 422
++    assert (
++        client.post(path + "/retry", json={"expected_revision": revision - 1}).json()["error"][
++            "code"
++        ]
++        == "REVISION_CONFLICT"
++    )
++    with TestClient(app) as anonymous:
++        assert (
++            anonymous.post(path + "/retry", json={"expected_revision": revision}).status_code == 401
++        )
++    assert (
++        client.post(
++            path + "/retry",
++            json={"expected_revision": revision},
++            headers={"X-CSRF-Token": "x" * 32},
++        ).status_code
++        == 403
++    )
++    created = client.post(path + "/retry", json={"expected_revision": revision})
++    assert created.status_code == 201, created.text
++    child = UUID(created.json()["run_id"])
++    assert row(worker_graph, child).dispatch_attempt_count == 1
++    assert (
++        client.post(path + "/retry", json={"expected_revision": revision}).json()["error"]["code"]
++        == "GEO_RUN_HAS_SUCCESSOR"
++    )
++    detail = client.get(path).json()
++    assert "RETRY" not in detail["run"]["available_actions"]
++    assert len(detail["attempts"]) == 2 and detail["batch"]["summary"]["attempt_count"] == 2
++
++
++def test_expiry_recovery_commit_failure_does_not_revoke_lease(worker_graph):
++    identity = worker_graph.create()
++    geo_runs.claim_collection_run(identity)
++    before = facts(worker_graph, identity)
++
++    def fail(_db):
++        raise RuntimeError("虚构恢复回滚")
++
++    event.listen(Session, "before_commit", fail)
++    try:
++        with pytest.raises(RuntimeError):
++            expire(worker_graph, identity)
++    finally:
++        event.remove(Session, "before_commit", fail)
++    assert facts(worker_graph, identity) == before
++
++
++def test_recovery_wins_race_old_sender_cannot_send(worker_graph, local_provider):
++    identity = worker_graph.create()
++    lease = geo_runs.claim_collection_run(identity)
++    locked, release = Event(), Event()
++
++    def hold_recovery():
++        with worker_graph.api.api.factory.begin() as db:
++            from app.services.geo_run_lifecycle import lock_run, recover_unsent_run, refresh_batch
++
++            batch, run = lock_run(db, identity)
++            recover_unsent_run(db, run, run.lease_expires_at + timedelta(seconds=1))
++            refresh_batch(db, batch, run.created_at)
++            locked.set()
++            assert release.wait(5)
++
++    with ThreadPoolExecutor(max_workers=2) as pool:
++        recovery = pool.submit(hold_recovery)
++        assert locked.wait(5)
++        sending = pool.submit(
++            lease.collector.collect,
++            lease.request,
++            before_send=lambda: geo_runs.authorize_send(lease),
++        )
++        release.set()
++        recovery.result(timeout=5)
++        with pytest.raises(geo_runs.LeaseLost):
++            sending.result(timeout=5)
++    assert local_provider.state.snapshot(worker_graph.call_id)["count"] == 0
++
++
++def test_only_explicit_retry_can_make_second_provider_call(worker_graph, local_provider):
++    identity = worker_graph.create()
++    local_provider.state.configure(worker_graph.call_id, FakeScenario(mode=FakeMode.DISCONNECT))
++    geo_runs.process_collection_run(identity)
++    previous = facts(worker_graph, identity)
++    assert previous["status"] == "FAILED" and previous["external_call_state"] == "UNKNOWN"
++    geo_runs.process_collection_run(identity)
++    assert local_provider.state.snapshot(worker_graph.call_id)["count"] == 1
++    local_provider.state.configure(worker_graph.call_id, FakeScenario())
++    created = retry(worker_graph, identity)
++    geo_runs.process_collection_run(created.run_id)
++    geo_runs.process_collection_run(created.run_id)
++    geo_runs.process_collection_run(identity)
++    assert local_provider.state.snapshot(worker_graph.call_id)["count"] == 2
++    assert facts(worker_graph, identity) == previous
++    assert row(worker_graph, created.run_id).status == "COLLECTED"
++
++
++@pytest.mark.parametrize("change", ["revision", "disabled"])
++def test_retry_rechecks_frozen_profile_and_current_eligibility(worker_graph, change, monkeypatch):
++    identity, _ = lose_sent_run(worker_graph)
++    previous = facts(worker_graph, identity)
++    if change == "revision":
++        with worker_graph.api.api.factory.begin() as db:
++            profile = db.get(GeoCollectionProfile, worker_graph.profile)
++            profile.name += "-已更新"
++            profile.revision += 1
++        path = f"/api/v1/geo/collection-profiles/{worker_graph.profile}"
++        tested = worker_graph.api.api.admin.post(path + "/test", json={"expected_revision": 1})
++        assert tested.status_code == 200, tested.text
++        assert tested.json()["summary"]["last_test_status"] == "PASSED"
++        enabled = worker_graph.api.api.admin.post(
++            path + "/enable", json={"expected_revision": tested.json()["summary"]["revision"]}
++        )
++        assert enabled.status_code == 200, enabled.text
++        assert enabled.json()["summary"]["is_active"] is True
++        with worker_graph.api.api.factory() as db:
++            current_facts = load_profile_facts(db, [worker_graph.profile])[worker_graph.profile]
++            assert current_facts.eligibility(
++                registry=collector_registry, configuration=settings
++            ).eligible
++    else:
++        monkeypatch.setattr(settings, "geo_api_collection_enabled", False)
++    detail = worker_graph.api.api.engineer.get(f"/api/v1/geo/observation-runs/{identity}").json()
++    assert "RETRY" not in detail["run"]["available_actions"]
++    assert detail["run"]["primary_task"] == "VIEW_FAILURE"
++    with pytest.raises(AppError) as caught:
++        retry(worker_graph, identity)
++    assert caught.value.code == (
++        "GEO_PROFILE_CHANGED" if change == "revision" else "GEO_PLAN_PROFILE_INELIGIBLE"
++    )
++    assert facts(worker_graph, identity) == previous
++    with worker_graph.api.api.factory() as db:
++        assert (
++            db.scalar(
++                select(func.count())
++                .select_from(GeoObservationRun)
++                .where(GeoObservationRun.previous_attempt_id == identity)
++            )
++            == 0
++        )
++
++
++def test_recovery_of_persisted_unknown_never_requeues(worker_graph):
++    identity = worker_graph.create()
++    lease = geo_runs.claim_collection_run(identity)
++    geo_runs.authorize_send(lease)
++    with worker_graph.api.api.factory.begin() as db:
++        run = db.get(GeoObservationRun, identity)
++        run.external_call_state = "UNKNOWN"
++        run.revision += 1
++    assert expire(worker_graph, identity) == 1
++    assert row(worker_graph, identity).status == "FAILED"
++    assert row(worker_graph, identity).external_call_state == "UNKNOWN"
++    assert not geo_runs.submit_collection_failure(lease, None)
+--- before/frontend/src/shared/api/generated/schema.d.ts
++++ current/frontend/src/shared/api/generated/schema.d.ts
+@@ -2777,6 +2777,26 @@
+          * @description 管理员固定连接及 answer_text 能力诊断。先预留 revision 并停用，事务外 pinned 出网，完成时重验依赖版本；不创建业务 Run，成功不自动启用。provider 失败以安全 test_error 和 FAILED 返回200，过期结果409。诊断仅支持 openai-compatible-chat，采集仍未批准。
+          */
+         post: operations["testGeoCollectionProfile"];
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++    "/api/v1/geo/observation-runs/{run_id}/retry": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        get?: never;
++        put?: never;
++        /**
++         * Retry Geo Observation Run
++         * @description 显式追加同输入采集 attempt；required expected_revision。原尝试不变，已有后继返回409 GEO_RUN_HAS_SUCCESSOR；无自动命令重放。提交后投递稳定Run ID，Broker失败由PENDING扫描恢复。
++         */
++        post: operations["retryGeoObservationRun"];
+         delete?: never;
+         options?: never;
+         head?: never;
+@@ -8874,6 +8894,36 @@
+              */
+             as_of: string;
+         };
++        /** GeoRunRetryRequest */
++        GeoRunRetryRequest: {
++            /** Expected Revision */
++            expected_revision: number;
++        };
++        /** GeoRunRetryCreated */
++        GeoRunRetryCreated: {
++            /**
++             * Run Id
++             * Format: uuid
++             */
++            run_id: string;
++            /**
++             * Batch Id
++             * Format: uuid
++             */
++            batch_id: string;
++            /**
++             * Previous Attempt Id
++             * Format: uuid
++             */
++            previous_attempt_id: string;
++            /** Attempt No */
++            attempt_no: number;
++            /**
++             * Created At
++             * Format: date-time
++             */
++            created_at: string;
++        };
+     };
+     responses: {
+         /** @description 业务或校验错误 */
+@@ -16166,4 +16216,40 @@
+             422: components["responses"]["ErrorResponse"];
+         };
+     };
++    retryGeoObservationRun: {
++        parameters: {
++            query?: never;
++            header: {
++                "X-CSRF-Token": string;
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path: {
++                run_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["GeoRunRetryRequest"];
++            };
++        };
++        responses: {
++            /** @description Successful Response */
++            201: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoRunRetryCreated"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
+ }

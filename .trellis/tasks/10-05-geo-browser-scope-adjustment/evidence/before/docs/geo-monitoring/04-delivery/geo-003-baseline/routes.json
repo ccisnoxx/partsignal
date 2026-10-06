@@ -1,0 +1,764 @@
+{
+  "api": [
+    {
+      "path": "/api/v1/query-topics",
+      "method": "GET",
+      "operation_id": "listQueryTopics",
+      "response_codes": [
+        "200",
+        "400",
+        "401",
+        "403"
+      ],
+      "parameters": [
+        {
+          "name": "X-Request-ID",
+          "in": "header",
+          "required": false
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/query-topics",
+      "method": "POST",
+      "operation_id": "createQueryTopic",
+      "response_codes": [
+        "201",
+        "400",
+        "401",
+        "403",
+        "422"
+      ],
+      "parameters": [
+        {
+          "name": "X-CSRF-Token",
+          "in": "header",
+          "required": true
+        },
+        {
+          "name": "X-Request-ID",
+          "in": "header",
+          "required": false
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/query-topics/list-items",
+      "method": "GET",
+      "operation_id": "listQueryTopicItems",
+      "response_codes": [
+        "200",
+        "400",
+        "401",
+        "403",
+        "422"
+      ],
+      "parameters": [
+        {
+          "name": "q",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "sort",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "page",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "page_size",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "X-Request-ID",
+          "in": "header",
+          "required": false
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/query-topics/{query_topic_id}",
+      "method": "PATCH",
+      "operation_id": "updateQueryTopic",
+      "response_codes": [
+        "200",
+        "400",
+        "401",
+        "403",
+        "404",
+        "409",
+        "422"
+      ],
+      "parameters": [
+        {
+          "name": "query_topic_id",
+          "in": "path",
+          "required": true
+        },
+        {
+          "name": "X-CSRF-Token",
+          "in": "header",
+          "required": true
+        },
+        {
+          "name": "X-Request-ID",
+          "in": "header",
+          "required": false
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/query-topics/{query_topic_id}",
+      "method": "DELETE",
+      "operation_id": "deleteQueryTopic",
+      "response_codes": [
+        "204",
+        "400",
+        "401",
+        "403",
+        "404",
+        "409",
+        "422"
+      ],
+      "parameters": [
+        {
+          "name": "query_topic_id",
+          "in": "path",
+          "required": true
+        },
+        {
+          "name": "expected_revision",
+          "in": "query",
+          "required": true
+        },
+        {
+          "name": "X-CSRF-Token",
+          "in": "header",
+          "required": true
+        },
+        {
+          "name": "X-Request-ID",
+          "in": "header",
+          "required": false
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/geo-observation-publications",
+      "method": "GET",
+      "operation_id": "listGeoObservationPublications",
+      "response_codes": [
+        "200",
+        "400",
+        "401",
+        "403",
+        "404",
+        "422"
+      ],
+      "parameters": [
+        {
+          "name": "product_id",
+          "in": "query",
+          "required": true
+        },
+        {
+          "name": "X-Request-ID",
+          "in": "header",
+          "required": false
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/geo-observations",
+      "method": "GET",
+      "operation_id": "listGeoObservations",
+      "response_codes": [
+        "200",
+        "400",
+        "401",
+        "403",
+        "409",
+        "422"
+      ],
+      "parameters": [
+        {
+          "name": "page",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "page_size",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "sort_order",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "date_from",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "date_to",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "observation_kind",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "product_id",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "search",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "query_topic_id",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "model_name",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "search_platform",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "publication_search",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "discovered",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "mentioned",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "recommendation",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "has_citation",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "accuracy",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "recorder_search",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "only_mine",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "include_history",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "X-Request-ID",
+          "in": "header",
+          "required": false
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/geo-observations",
+      "method": "POST",
+      "operation_id": "createGeoObservation",
+      "response_codes": [
+        "201",
+        "400",
+        "401",
+        "403",
+        "404",
+        "409",
+        "422"
+      ],
+      "parameters": [
+        {
+          "name": "X-CSRF-Token",
+          "in": "header",
+          "required": true
+        },
+        {
+          "name": "X-Request-ID",
+          "in": "header",
+          "required": false
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/geo-observations/list-items",
+      "method": "GET",
+      "operation_id": "listGeoObservationItems",
+      "response_codes": [
+        "200",
+        "400",
+        "401",
+        "403",
+        "409",
+        "422"
+      ],
+      "parameters": [
+        {
+          "name": "search",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "product_id",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "geo_platform",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "accuracy",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "date_from",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "date_to",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "query_topic_id",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "sort",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "page",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "page_size",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "X-Request-ID",
+          "in": "header",
+          "required": false
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/geo-observations/{observation_id}",
+      "method": "GET",
+      "operation_id": "getGeoObservation",
+      "response_codes": [
+        "200",
+        "400",
+        "401",
+        "403",
+        "404",
+        "409",
+        "422"
+      ],
+      "parameters": [
+        {
+          "name": "observation_id",
+          "in": "path",
+          "required": true
+        },
+        {
+          "name": "X-Request-ID",
+          "in": "header",
+          "required": false
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/geo-observations/{observation_id}",
+      "method": "DELETE",
+      "operation_id": "deleteGeoObservation",
+      "response_codes": [
+        "204",
+        "400",
+        "401",
+        "403",
+        "404",
+        "409",
+        "422"
+      ],
+      "parameters": [
+        {
+          "name": "observation_id",
+          "in": "path",
+          "required": true
+        },
+        {
+          "name": "X-CSRF-Token",
+          "in": "header",
+          "required": true
+        },
+        {
+          "name": "X-Request-ID",
+          "in": "header",
+          "required": false
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/geo-observations/{observation_id}/detail",
+      "method": "GET",
+      "operation_id": "getGeoObservationDetail",
+      "response_codes": [
+        "200",
+        "400",
+        "401",
+        "403",
+        "404",
+        "409",
+        "422"
+      ],
+      "parameters": [
+        {
+          "name": "observation_id",
+          "in": "path",
+          "required": true
+        },
+        {
+          "name": "X-Request-ID",
+          "in": "header",
+          "required": false
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/geo-observations/{observation_id}/correction-context",
+      "method": "GET",
+      "operation_id": "getGeoObservationCorrectionContext",
+      "response_codes": [
+        "200",
+        "400",
+        "401",
+        "403",
+        "404",
+        "409",
+        "422"
+      ],
+      "parameters": [
+        {
+          "name": "observation_id",
+          "in": "path",
+          "required": true
+        },
+        {
+          "name": "X-Request-ID",
+          "in": "header",
+          "required": false
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/geo-metrics",
+      "method": "GET",
+      "operation_id": "getGeoMetrics",
+      "response_codes": [
+        "200",
+        "400",
+        "401",
+        "403",
+        "422"
+      ],
+      "parameters": [
+        {
+          "name": "date_from",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "date_to",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "observation_kind",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "product_id",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "search",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "query_topic_id",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "model_name",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "search_platform",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "publication_search",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "discovered",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "mentioned",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "recommendation",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "has_citation",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "accuracy",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "recorder_search",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "only_mine",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "include_history",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "X-Request-ID",
+          "in": "header",
+          "required": false
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/geo-insights",
+      "method": "GET",
+      "operation_id": "getGeoInsights",
+      "response_codes": [
+        "200",
+        "400",
+        "401",
+        "403",
+        "404",
+        "409",
+        "422"
+      ],
+      "parameters": [
+        {
+          "name": "date_from",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "date_to",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "product_id",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "content_platform_id",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "geo_platform",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "published_article_id",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "query_topic_id",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "X-Request-ID",
+          "in": "header",
+          "required": false
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/geo-insights/optimization-content-tasks",
+      "method": "POST",
+      "operation_id": "createGeoOptimizationContentTask",
+      "response_codes": [
+        "201",
+        "400",
+        "401",
+        "403",
+        "404",
+        "409",
+        "422"
+      ],
+      "parameters": [
+        {
+          "name": "X-CSRF-Token",
+          "in": "header",
+          "required": true
+        },
+        {
+          "name": "Idempotency-Key",
+          "in": "header",
+          "required": true
+        },
+        {
+          "name": "X-Request-ID",
+          "in": "header",
+          "required": false
+        }
+      ]
+    }
+  ],
+  "frontend": [
+    {
+      "file": "frontend/src/routes/_app/geo/insights/index.tsx",
+      "route_ids": [
+        "/_app/geo/insights/"
+      ]
+    },
+    {
+      "file": "frontend/src/routes/_app/geo/insights/print.tsx",
+      "route_ids": [
+        "/_app/geo/insights/print"
+      ]
+    },
+    {
+      "file": "frontend/src/routes/_app/geo/insights/route.tsx",
+      "route_ids": [
+        "/_app/geo/insights"
+      ]
+    },
+    {
+      "file": "frontend/src/routes/_app/geo/observations/$observationId.tsx",
+      "route_ids": [
+        "/_app/geo/observations/$observationId"
+      ]
+    },
+    {
+      "file": "frontend/src/routes/_app/geo/observations/$observationId_.correct.tsx",
+      "route_ids": [
+        "/_app/geo/observations/$observationId_/correct"
+      ]
+    },
+    {
+      "file": "frontend/src/routes/_app/geo/observations/index.tsx",
+      "route_ids": [
+        "/_app/geo/observations/"
+      ]
+    },
+    {
+      "file": "frontend/src/routes/_app/geo/observations/new.tsx",
+      "route_ids": [
+        "/_app/geo/observations/new"
+      ]
+    },
+    {
+      "file": "frontend/src/routes/_app/geo/observations/route.tsx",
+      "route_ids": [
+        "/_app/geo/observations"
+      ]
+    },
+    {
+      "file": "frontend/src/routes/_app/geo/route.tsx",
+      "route_ids": [
+        "/_app/geo"
+      ]
+    },
+    {
+      "file": "frontend/src/routes/_app/geo/topics/index.tsx",
+      "route_ids": [
+        "/_app/geo/topics/"
+      ]
+    },
+    {
+      "file": "frontend/src/routes/_app/geo/topics/route.tsx",
+      "route_ids": [
+        "/_app/geo/topics"
+      ]
+    }
+  ],
+  "query_key_owner": "frontend/src/domains/geo/geo.api.ts",
+  "query_keys_source": "const geoKeys = {\n  insights: () => ['geo', 'insights'] as const,\n  insight: (params: GeoInsightsApiParams) => ['geo', 'insights', params] as const,\n  lists: () => ['geo', 'observations', 'list'] as const,\n  list: (params: GeoObservationListApiParams) => (\n    ['geo', 'observations', 'list', params] as const\n  ),\n  details: () => ['geo', 'observations', 'detail'] as const,\n  detail: (observationId: string) => (\n    ['geo', 'observations', 'detail', observationId.toLowerCase()] as const\n  ),\n  correctionContexts: () => ['geo', 'observations', 'correction-context'] as const,\n  correctionContext: (observationId: string) => (\n    ['geo', 'observations', 'correction-context', observationId.toLowerCase()] as const\n  ),\n  topics: () => ['geo', 'query-topics'] as const,\n  topicOptions: () => ['geo', 'query-topics', 'options'] as const,\n  topicLists: () => ['geo', 'query-topics', 'list'] as const,\n  topicList: (params: ReturnType<typeof queryTopicSearchToApiParams>) => (\n    ['geo', 'query-topics', 'list', params] as const\n  ),\n  publicationCandidates: (productId: string) => (\n    ['geo', 'observation-publications', productId] as const\n  ),\n};",
+  "route_note": "父级 /geo 只有 Outlet；不存在已实现的 GEO Overview 页面。"
+}

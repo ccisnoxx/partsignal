@@ -1,0 +1,4 @@
+contracts/database.md: PASS (exit=0; no-index exit=1 表示文件不同)
+backend/app/services/geo_catalog.py: PASS (exit=1; no-index exit=1 表示文件不同)
+backend/app/services/current_actor.py: PASS (exit=1; no-index exit=1 表示文件不同)
+backend/tests/integration/test_geo_catalog_current_actor.py: PASS (exit=1; no-index exit=1 表示文件不同)

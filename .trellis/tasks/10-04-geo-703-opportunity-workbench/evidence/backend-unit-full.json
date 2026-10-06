@@ -1,0 +1,12 @@
+{
+  "argv": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "pytest",
+    "backend/tests/unit"
+  ],
+  "exit_code": 1,
+  "seconds": 62.35
+}

@@ -1,0 +1,20 @@
+ Container partsignal-geo301-validation-fake-oss-1 Stopping 
+ Container partsignal-geo301-validation-postgres-1 Stopping 
+ Container partsignal-geo301-validation-redis-1 Stopping 
+ Container partsignal-geo301-validation-postgres-1 Stopped 
+ Container partsignal-geo301-validation-postgres-1 Removing 
+ Container partsignal-geo301-validation-postgres-1 Removed 
+ Container partsignal-geo301-validation-redis-1 Stopped 
+ Container partsignal-geo301-validation-redis-1 Removing 
+ Container partsignal-geo301-validation-redis-1 Removed 
+ Container partsignal-geo301-validation-fake-oss-1 Stopped 
+ Container partsignal-geo301-validation-fake-oss-1 Removing 
+ Container partsignal-geo301-validation-fake-oss-1 Removed 
+ Volume partsignal-geo301-validation_geo301-postgres Removing 
+ Network partsignal-geo301-validation_default Removing 
+ Volume partsignal-geo301-validation_geo301-oss Removing 
+ Volume partsignal-geo301-validation_geo301-postgres Removed 
+ Volume partsignal-geo301-validation_geo301-oss Removed 
+ Network partsignal-geo301-validation_default Removed 
+Untagged: partsignal-geo301-backend-test:latest
+Deleted: sha256:2dbbc48138853aa99408baff8d8471ed84b243a939f3f928b693d28da36725c5

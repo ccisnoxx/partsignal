@@ -1,0 +1,45 @@
+E501 Line too long (101 > 100)
+  --> backend/tests/geo_loop_e2e_seed.py:64:101
+   |
+62 |         product = db.get(Product, first.subjects[0].product_id)
+63 |         # 隔离测试使用已初始化管理员执行评估，批次创建者仍可为 ENGINEER。
+64 |         actor = db.scalar(select(User).where(User.username == "admin", User.account_type == "ADMIN"))
+   |                                                                                                     ^
+65 |         if product is None or not product.part_number.startswith("GEO707-") or actor is None:
+66 |             raise ValueError("GEO707 评估缺少本轮虚构产品或创建者")
+   |
+
+E501 Line too long (101 > 100)
+  --> backend/tests/geo_opportunity_e2e_seed.py:57:101
+   |
+55 |         assert batch is not None
+56 |         # 隔离测试使用已初始化管理员执行评估，批次创建者仍可为 ENGINEER。
+57 |         actor = db.scalar(select(User).where(User.username == "admin", User.account_type == "ADMIN"))
+   |                                                                                                     ^
+58 |         assert actor is not None
+59 |         subject_ids = [UUID(row["id"]) for row in run.input_snapshot["subjects"]]
+   |
+
+E501 Line too long (111 > 100)
+   --> backend/tests/integration/test_geo_opportunities.py:466:101
+    |
+464 |         )
+465 |         outcomes = service.evaluate_opportunities(
+466 |             db, filters, actor=db.get(User, api.harness.database.runs.plan.actor), request_id="geo702-evaluate"
+    |                                                                                                     ^^^^^^^^^^^
+467 |         )
+468 |         assert critical(api, outcomes).disposition == "UPDATED"
+    |
+
+E501 Line too long (115 > 100)
+   --> backend/tests/integration/test_geo_opportunities.py:496:101
+    |
+494 |         try:
+495 |             results = service.evaluate_opportunities(
+496 |                 db, filters, actor=db.get(User, api.harness.database.runs.plan.actor), request_id="geo702-evaluate"
+    |                                                                                                     ^^^^^^^^^^^^^^^
+497 |             )
+498 |         finally:
+    |
+
+Found 4 errors.

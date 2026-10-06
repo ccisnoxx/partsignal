@@ -1,0 +1,19 @@
+{
+  "manifest_changed_tasks": [
+    "GEO-603"
+  ],
+  "manifest_status": "review",
+  "dependency_GEO_601": "done",
+  "new_source_whitespace": "passed",
+  "sha_changed_entries": [
+    "./02-business/04-monitoring-methodology-and-metrics.md",
+    "./03-technical/03-api-contract-design.md",
+    "./04-delivery/03-requirement-traceability-matrix.md",
+    "./04-delivery/task-manifest.yaml",
+    "./README.md"
+  ],
+  "preserved_preexisting_hash_mismatch": [
+    "./03-technical/04-frontend-architecture.md"
+  ],
+  "scope_review": "no migrations/dependencies/deploy/env/other-task edits in task-only diff"
+}

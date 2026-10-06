@@ -1,0 +1,37 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend python deploy/scripts/test-geo-browser-contract.py 
+✔ 本地参考Adapter：streaming完整结果 (715.787834ms)
+✔ 本地参考Adapter：paused-stream完整结果 (711.37125ms)
+✔ 本地参考Adapter：early-complete完整结果 (402.187583ms)
+✔ 本地参考Adapter：no-citations完整结果 (347.239959ms)
+✔ 本地参考Adapter：unknown-metadata完整结果 (400.078292ms)
+✔ 本地参考Adapter：sensitive-ui完整结果 (401.421333ms)
+✔ 本地参考Adapter：已登录context (399.192ms)
+✔ 本地参考Adapter：匿名context不继承登录资料 (51.089ms)
+✔ 本地参考Adapter：expired-login稳定失败 (51.253416ms)
+✔ 本地参考Adapter：selector-changed稳定失败 (50.228292ms)
+✔ 本地参考Adapter：challenge稳定失败 (47.720833ms)
+✔ 本地参考Adapter：answer-selector-changed稳定失败 (215.673834ms)
+✔ 本地参考Adapter：duplicate-answer稳定失败 (201.562708ms)
+✔ 本地参考Adapter：challenge-after-send稳定失败 (149.12675ms)
+✔ 本地参考Adapter：login-after-send稳定失败 (148.974125ms)
+✔ 本地参考Adapter：timeout稳定失败 (1224.452375ms)
+✔ 本地参考Adapter：empty-answer稳定失败 (417.098959ms)
+✔ 本地参考Adapter：发送授权拒绝 (93.492459ms)
+✔ 本地参考Adapter：回答大小上限 (406.82325ms)
+✔ 套件拒绝完成信号出现时立即返回的部分答案 (730.746042ms)
+✔ 套件拒绝丢失晚到引用或把重复URL静默合并 (418.755791ms)
+✔ 套件以真实POST记录拒绝发送后自动重复调用 (831.350375ms)
+✔ 套件拒绝吞掉selector失败并伪装成功 (69.387791ms)
+✔ 套件拒绝异常摘要及编码形式敏感值泄漏 (398.778959ms)
+✔ 敏感UI确实存在且登录/临时storage不跨context，未存截图或trace (106.013209ms)
+✔ 非fixture HTTP导航和WebSocket都在发包前被拒绝 (97.930542ms)
+✔ 模拟站多实例、attempt隔离；重复POST不去重且观测不保留正文 (100.07125ms)
+ℹ tests 27
+ℹ suites 0
+ℹ pass 27
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9350.143041
+BROWSER_CONTRACT_RESULT tests=0 typed_results=18 secret_scan=0 external_network=blocked

@@ -416,6 +416,7 @@ def test_seven_constrained_delete_projections_distinguish_empty_and_blocked() ->
                     [],
                     [],
                     [],
+                    [],
                 ]
             ),
         ),

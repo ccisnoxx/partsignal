@@ -1,0 +1,1 @@
+deploy/scripts/e2e-local.sh: line 4: DATABASE_URL: 必须设置本地或 CI PostgreSQL DATABASE_URL

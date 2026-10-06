@@ -1,0 +1,2402 @@
+--- before/.trellis/spec/infra/production-image-delivery.md
++++ after/.trellis/spec/infra/production-image-delivery.md
+@@ -108,7 +108,7 @@
+ 
+ ### 3. Contracts
+ 
+-- manifest producer 与 consumer 的 `REQUIRED_TRACKED_FILES` 必须同时包含 maintenance template 和生产输入检查脚本；Production 自检的全部 manifest 创建路径和 exact-set 断言必须使用相同 9 项集合。
++- manifest producer 与 consumer 的 `REQUIRED_TRACKED_FILES` 必须同时包含 maintenance template 和生产输入检查脚本；Production 自检的全部 manifest 创建路径和 exact-set 断言必须使用相同 10 项集合。
+ - maintenance template 保留 `geo.962850.xyz`、`<HOSTDZIRE_WG_ADDRESS>`、HTTP 到 HTTPS、ACME、TLS、PartSignal security snippet 和 `add_header_inherit merge`。
+ - maintenance template 不得声明 upstream、`proxy_pass`、静态 `root`、`19000`、`19001`、`19080` 或 `/object-storage/`；API/frontend 即使已在同一 loopback 端口启动，也不能通过公网访问。
+ - 停止任何 PartSignal 容器前必须先完成 maintenance write、`nginx -t`、独立 maintenance reload 和公网 `503` 验证；首次验证时间是 60 分钟硬窗口的 T0。
+@@ -138,7 +138,7 @@
+ 
+ - maintenance template 精确包含 host、HTTP/HTTPS listen、ACME、TLS、安全 snippet、`add_header_inherit merge`、固定状态/正文/cache/retry 响应；
+ - maintenance template 不包含 upstream、`proxy_pass`、静态 root、三个应用端口或 `/object-storage/`；
+-- producer、consumer、三组 manifest producer test input 与 manifest exact-set assertion 均包含相同 9 项 tracked files（包含 `check-production-inputs.py`）；
++- producer、consumer、三组 manifest producer test input 与 manifest exact-set assertion 均包含相同 10 项 tracked files（包含 `check-production-inputs.py`）；
+ - `check-nginx-security.mjs` 把 maintenance template 与 Production/Staging template 一起检查，拒绝缺少安全 snippet、缺少 header inheritance 或重复安全头。
+ 
+ ### 7. Wrong vs Correct
+@@ -157,3 +157,24 @@
+ → 独立 reload 授权 → 公网 503/T0 → exact stop + clean-init + real Gate
+ → final template atomic write → nginx -t → 独立 final reload 授权
+ ```
++
++
++## Scenario：未 initialized 的升级 artifact 前向恢复
++
++`prepare-production-data.py recover-upgrade` 是唯一显式接管入口，只接受 UPGRADE_DEPLOYING/UPGRADE_PREPARED。完整命令、批准及维护顺序由 Hostdzire 部署附录拥有；GEO-1007 用户任务对应 delivery GEO-1008 范围。
++
++- 同一维护锁内验证 production runtime/Compose/Browser 边界、失败 release/manifest sha、新 candidate consumer、镜像 ID/RepoDigest；全 project 和全部活动数据 mount 必须停止，Docker 检查失败不能当静默。
++- 固定 allowlist 增加 `deploy/scripts/production_upgrade_recovery.py`（共 10 项），producer/consumer/全部已知调用者一致；旧失败 manifest 通过 state 冻结 sha 认证，不重新按新 checkout 校验旧 tracked files；新 manifest 不能豁免任何检查。
++- 两份 manifest 认证 archive 字节；schema_head 相同，backend/alembic/ 全树（含 SQL）与 alembic.ini 相同，当前迁移树、失败镜像及恢复镜像内迁移树也必须匹配。拒绝链接、路径别名、重复成员；不接受以同名 head 隐藏迁移内容变化。
++- recovery_id 和 approval_ref 必须显式；新 release、实际 artifact 改变，拒绝退回旧/已失败镜像。回执保存 failed/new 全身份与迁移树 digest，不执行 pull/up、不修改数据、不 initialized。
++- 一次原子写把 candidate 绑定修正版、phase=UPGRADE_DEPLOYING，并追加 upgrade_recoveries；previous_candidate 不变。同 ID/同输入在仍 deploying 且全服务 stopped 时只重放，冲突、旧请求或 initialized 阶段拒绝。
++- 完整 deploy 重新通过迁移、readiness；恢复候选 prepared 前权威 Compose/backend 验证既有完整性服务及真实单一 schema head。失败仍 deploying；外部 Gate、activation、bootstrap unknown/failed 不可绕过。历史无 bootstrap attempt 的正常 upgrade 仍兼容。
++- run-locked 的 SIGINT/SIGTERM 转发整个子进程组；有限期限内等退出，必要时 SIGKILL，结束子孙后才释放锁。信号不推进 initialized；突然断电/SIGKILL 仍需现场核对精确进程、容器和状态。
++
++定向验证：`make test-upgrade-recovery`；真实本地且固定 project/network 空闲时 `make test-upgrade-recovery-compose`，信号演练 `python3 deploy/scripts/test-upgrade-recovery-compose.py --sigterm-after-failure`。本地合成运行配置/AI/OSS Gate 不代表生产门禁。
++
++迁移镜像证明明确拒绝 Alembic 树中的 `.pyc/.pyo`，并拒绝两个冻结镜像、runtime 和宿主机环境中的非空 `PYTHONPYCACHEPREFIX`，防止树外 unchecked-hash 缓存改变实际 DDL；隔离探针仍读取原始环境键，不能因 `python -I` 忽略配置而漏检。禁写缓存不等于禁止读取缓存。canonical backend/Dockerfile 在 runtime/test 的 uv sync 后仅清理迁移缓存；历史含缓存镜像保持安全停止，不覆盖旧镜像。真实错误 unchecked-hash 缓存反例由 `test-upgrade-image-cache.py` 验证。
++
++首次 initialized→upgrade 在迁移之前由状态所有者验证 runtime/host 与冻结镜像默认环境不指定非空 PYTHONPYCACHEPREFIX，原子记录与完整 candidate 绑定的 DEFAULT_PYTHON_CACHE_V1 执行策略。恢复必须验证失败执行的既有策略；仅当前配置正常不足以证明历史。历史缺失、unknown 或候选错配均拒绝，不能在同候选重入或恢复时补造历史证明；保留 maintenance，另行设计显式备份 abort/recover。成功恢复绑定新策略，回执保留旧策略。历史 runtime 清除反例已用真实 Docker loader 与接管前状态测试验证。
++
++upgrade 镜像交付顺序：verify-upgrade-entry 通过完整 manifest consumer 并只读判定 phase/candidate → Compose config → registry pull（local不pull）→ frozen image ID/RepoDigest验证 → begin-upgrade 原子证明cache policy与绑定candidate → run/up。入场判定与begin共用状态所有者规则；错误manifest/另一候选在pull前拒绝，registry未缓存镜像不能要求先inspect；pull/identity/policy失败均不开始首次upgrade。clean-init时序保持原合同。
+--- before/Makefile
++++ after/Makefile
+@@ -3,7 +3,7 @@
+ UV_CACHE_DIR ?= $(CURDIR)/.cache/uv
+ UV := UV_CACHE_DIR=$(UV_CACHE_DIR) uv
+ 
+-.PHONY: bootstrap contract-generate contract-check dev dev-infra migrate initialize-accounts lint typecheck test-unit test-integration e2e build build-frontend verify test-deploy-scripts test-frontend-container staging-redeploy-fast down test-geo-fixtures test-geo-collector-contract test-geo-performance test-geo-browser test-geo-browser-contract test-geo-recovery test-geo-recovery-integration test-geo-capacity
++.PHONY: bootstrap contract-generate contract-check dev dev-infra migrate initialize-accounts lint typecheck test-unit test-integration e2e build build-frontend verify test-deploy-scripts test-frontend-container staging-redeploy-fast down test-geo-fixtures test-geo-collector-contract test-geo-performance test-geo-browser test-geo-browser-contract test-geo-recovery test-geo-recovery-integration test-geo-capacity test-upgrade-recovery test-upgrade-recovery-compose
+ 
+ bootstrap:
+ 	@test -f .env || cp .env.example .env
+@@ -95,6 +95,17 @@
+ 	$(UV) run --project backend pytest backend/tests/unit/test_geo_recovery_boundaries.py
+ 	$(UV) run --project backend ruff check deploy/scripts/geo-recovery.py deploy/scripts/geo_recovery_bundle.py deploy/scripts/geo_recovery_environment.py deploy/scripts/test-geo-recovery-integration.py
+ 
++test-upgrade-recovery:
++	python3 deploy/scripts/test-upgrade-recovery.py
++	python3 deploy/scripts/test-upgrade-cache-policy.py
++	python3 deploy/scripts/test-upgrade-registry-order.py
++	python3 deploy/scripts/test-upgrade-signal.py
++
++# 需本地固定 Production project/network 空闲；不接管任何既有资源。
++test-upgrade-recovery-compose:
++	python3 deploy/scripts/test-upgrade-recovery-compose.py
++	python3 deploy/scripts/test-upgrade-image-cache.py
++
+ test-deploy-scripts: test-frontend-container test-geo-recovery
+ 	$(UV) run --project backend python deploy/scripts/test-geo-browser.py
+ 	$(UV) run --project backend python deploy/scripts/test-geo-collector-contract.py
+@@ -106,6 +117,7 @@
+ 	deploy/scripts/test-deploy-staging.sh
+ 	deploy/scripts/test-deploy-production-cleanup.sh
+ 	deploy/scripts/test-deploy-production.sh
++	$(MAKE) test-upgrade-recovery
+ 
+ test-frontend-container: build-frontend
+ 	deploy/scripts/test-frontend-container.sh
+--- before/backend/Dockerfile
++++ after/backend/Dockerfile
+@@ -12,12 +12,15 @@
+ RUN uv sync --no-dev --no-install-project
+ COPY . .
+ RUN uv sync --no-dev
++# Alembic 必须从冻结源码加载，避免同名 revision 的编译缓存改变实际 DDL。
++RUN find alembic -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
+ 
+ ENV PATH="/opt/venv/bin:$PATH"
+ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+ 
+ FROM runtime AS test
+ RUN uv sync --all-extras
++RUN find alembic -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
+ CMD ["pytest", "tests"]
+ 
+ FROM runtime AS production
+--- before/deploy/scripts/check-production-inputs.py
++++ after/deploy/scripts/check-production-inputs.py
+@@ -151,6 +151,9 @@
+     ):
+         raise InputError("PRODUCTION_COMPOSE_OVERLAY_FORBIDDEN")
+     for source in (values, environment):
++        # 迁移证明只接受默认缓存位置，不能让 runtime 改到源码树外。
++        if source.get("PYTHONPYCACHEPREFIX"):
++            raise InputError("PRODUCTION_MIGRATION_CACHE_PREFIX_FORBIDDEN")
+         profiles = source.get("COMPOSE_PROFILES", "").split(",")
+         if any(profile.strip() not in {"", "production-async"} for profile in profiles):
+             raise InputError("PRODUCTION_COMPOSE_PROFILE_FORBIDDEN")
+--- before/deploy/scripts/create-release-manifest.py
++++ after/deploy/scripts/create-release-manifest.py
+@@ -22,6 +22,7 @@
+     "deploy/scripts/check-production-inputs.py",
+     "deploy/scripts/deploy.sh",
+     "deploy/scripts/prepare-production-data.py",
++    "deploy/scripts/production_upgrade_recovery.py",
+     "deploy/scripts/rollback-production-frontend.sh",
+ }
+ REPO_DIGEST_PATTERN = re.compile(r"[^@\s]+@sha256:[0-9a-f]{64}")
+--- before/deploy/scripts/deploy.sh
++++ after/deploy/scripts/deploy.sh
+@@ -92,7 +92,7 @@
+     begin-clean-init "$PARTSIGNAL_CUTOVER_RUN_ID" "$PARTSIGNAL_RELEASE_MANIFEST"
+ else
+   python3 "$script_dir/prepare-production-data.py" \
+-    begin-upgrade "$PARTSIGNAL_RELEASE_MANIFEST"
++    verify-upgrade-entry "$PARTSIGNAL_RELEASE_MANIFEST"
+ fi
+ 
+ docker compose --env-file "$env_file" -f "$compose_file" config --quiet
+@@ -101,6 +101,11 @@
+ fi
+ python3 "$script_dir/prepare-production-data.py" \
+   verify-candidate-images "$PARTSIGNAL_RELEASE_MANIFEST"
++if test "$deploy_mode" = upgrade; then
++  # registry 先交付并核对，再证明执行策略/绑定候选，始终早于 run/up。
++  python3 "$script_dir/prepare-production-data.py" \
++    begin-upgrade "$PARTSIGNAL_RELEASE_MANIFEST"
++fi
+ compose_up -d --wait postgres redis
+ compose_run --rm api \
+   python -m app.cli preflight-production-config
+--- before/deploy/scripts/prepare-production-data.py
++++ after/deploy/scripts/prepare-production-data.py
+@@ -10,16 +10,20 @@
+ import json
+ import os
+ import re
++import signal
+ import stat
+ import subprocess
+ import sys
+ import tempfile
++import time
+ import uuid
+ import warnings
+ from collections.abc import Callable, Iterator
+ from contextlib import contextmanager
+ from pathlib import Path, PurePosixPath
+ from typing import Any
++
++from production_upgrade_recovery import verify_archives
+ 
+ STANDARD_DATA_ROOT = Path("/root/partsignal-data")
+ STANDARD_QUARANTINE_ROOT = Path("/root/partsignal-data-quarantine")
+@@ -57,6 +61,7 @@
+     "deploy/scripts/check-production-inputs.py",
+     "deploy/scripts/deploy.sh",
+     "deploy/scripts/prepare-production-data.py",
++    "deploy/scripts/production_upgrade_recovery.py",
+     "deploy/scripts/rollback-production-frontend.sh",
+ }
+ rename_count = 0
+@@ -416,16 +421,49 @@
+         os.set_inheritable(descriptor, True)
+         environment = os.environ.copy()
+         environment["PARTSIGNAL_MAINTENANCE_LOCK_FD"] = str(descriptor)
++        child = None
++        interrupted = 0
++        deadline = 0.0
++
++        def forward(signum: int, _frame: Any) -> None:
++            nonlocal interrupted, deadline
++            if not interrupted:
++                interrupted = signum
++                deadline = time.monotonic() + 10
++            if child is not None:
++                try:
++                    os.killpg(child.pid, signum)
++                except ProcessLookupError:
++                    pass
++
++        handlers = {s: signal.signal(s, forward) for s in (signal.SIGINT, signal.SIGTERM)}
+         try:
+-            result = subprocess.run(
+-                child_command,
+-                env=environment,
+-                pass_fds=(descriptor,),
+-                check=False,
++            child = subprocess.Popen(
++                child_command, env=environment, pass_fds=(descriptor,),
++                start_new_session=True,
+             )
++            if interrupted:
++                forward(interrupted, None)
++            while True:
++                try:
++                    status = child.wait(timeout=0.2)
++                    break
++                except subprocess.TimeoutExpired:
++                    if interrupted and time.monotonic() >= deadline:
++                        os.killpg(child.pid, signal.SIGKILL)
++                        status = child.wait()
++                        break
++            if interrupted:
++                # 父脚本退出不证明子孙已退出；锁释放前结束整个维护进程组。
++                try:
++                    os.killpg(child.pid, signal.SIGKILL)
++                except ProcessLookupError:
++                    pass
+         finally:
++            for signum, handler in handlers.items():
++                signal.signal(signum, handler)
+             os.set_inheritable(descriptor, False)
+-    return result.returncode
++    return 128 + interrupted if interrupted else status
+ 
+ 
+ def read_bootstrap_credential(
+@@ -1015,28 +1053,58 @@
+     print(f"Production 数据阶段已更新为 {destination}。")
+ 
+ 
+-def begin_upgrade(candidate: dict[str, str]) -> None:
+-    """从已初始化版本开始或续跑同一候选的 Production upgrade。"""
++def upgrade_entry_state(candidate: dict[str, Any]) -> dict[str, Any]:
++    """交付镜像前只读裁决升级资格，不修改阶段或伪造历史策略。"""
+     data_root, _ = configured_roots()
+     state = read_state(data_root)
+     phase = state.get("phase")
+     if phase == "PRODUCTION_INITIALIZED":
+         if state.get("candidate") == candidate:
+             raise DataStateError("当前候选已经初始化，拒绝重复创建 upgrade")
++    elif phase in {"UPGRADE_DEPLOYING", "UPGRADE_PREPARED"}:
++        require_candidate(state, candidate)
++    else:
++        raise DataStateError(f"当前数据阶段不允许 Production upgrade：{phase}")
++    return state
++
++
++def begin_upgrade(candidate: dict[str, str]) -> None:
++    """从已初始化版本开始或续跑同一候选的 Production upgrade。"""
++    data_root, _ = configured_roots()
++    state = upgrade_entry_state(candidate)
++    phase = state["phase"]
++    if phase == "PRODUCTION_INITIALIZED":
++        # 在第一次迁移前记录执行条件；恢复不能把当前检查伪造为历史证明。
++        cache_policy = prove_upgrade_cache_policy(candidate)
+         state["previous_candidate"] = state.get("candidate")
+         state["candidate"] = candidate
++        state["upgrade_migration_cache_policy"] = cache_policy
+         state["phase"] = "UPGRADE_DEPLOYING"
+         atomic_write_state(data_root, state)
+     elif phase in {"UPGRADE_DEPLOYING", "UPGRADE_PREPARED"}:
+-        require_candidate(state, candidate)
+         if phase == "UPGRADE_PREPARED":
+             state["phase"] = "UPGRADE_DEPLOYING"
+             atomic_write_state(data_root, state)
+-    else:
+-        raise DataStateError(f"当前数据阶段不允许 Production upgrade：{phase}")
+     for leaf in RUNTIME_LEAVES:
+         ensure_plain_directory(data_root / leaf, label=f"Production {leaf}")
+     print("Production upgrade 数据所有权与候选绑定校验通过。")
++
++
++def prove_upgrade_cache_policy(candidate: dict[str, Any]) -> dict[str, Any]:
++    """首次 upgrade 入场证明 runtime/host/冻结镜像不改迁移缓存位置。"""
++    validate_recovery_boundary()
++    image = json.loads(subprocess.run(
++        ["docker", "image", "inspect", candidate["backend_image_id"]],
++        check=True, capture_output=True, text=True,
++    ).stdout)
++    if not isinstance(image, list) or len(image) != 1 or image[0].get("Id") != candidate["backend_image_id"]:
++        raise DataStateError("upgrade 迁移缓存策略的冻结镜像身份无效")
++    config = image[0].get("Config")
++    if not isinstance(config, dict) or not isinstance(config.get("Env"), list) or not all(isinstance(value, str) for value in config["Env"]):
++        raise DataStateError("upgrade 迁移缓存策略的镜像环境无法证明")
++    if any(value.partition("=")[0] == "PYTHONPYCACHEPREFIX" and value.partition("=")[2] for value in config["Env"]):
++        raise DataStateError("upgrade 镜像指定树外迁移编译缓存目录")
++    return {"policy": "DEFAULT_PYTHON_CACHE_V1", "candidate": candidate}
+ 
+ 
+ def transition_upgrade(
+@@ -1048,6 +1116,11 @@
+     if state.get("phase") != source:
+         raise DataStateError(f"当前数据阶段不允许该 upgrade 操作：{state.get('phase')}")
+     require_candidate(state, candidate)
++    if state.get("upgrade_recoveries") and state["upgrade_recoveries"][-1]["candidate"] == candidate:
++        if "ai_bootstrap_attempt" in state:
++            require_activation_safe_bootstrap_attempt(state)
++        if destination == "UPGRADE_PREPARED":
++            verify_recovery_database(candidate)
+     state["phase"] = destination
+     atomic_write_state(data_root, state)
+     print(f"Production 数据阶段已更新为 {destination}。")
+@@ -1060,7 +1133,146 @@
+     if state.get("phase") != "UPGRADE_PREPARED":
+         raise DataStateError("Production upgrade 尚未准备完成")
+     require_candidate(state, candidate)
++    if state.get("upgrade_recoveries") and state["upgrade_recoveries"][-1]["candidate"] == candidate:
++        if "ai_bootstrap_attempt" in state:
++            require_activation_safe_bootstrap_attempt(state)
+     print("Production upgrade 候选准备阶段校验通过。")
++
++
++def recover_upgrade(args: argparse.Namespace) -> None:
++    """显式 CAS 前向接管；完整证明后仅原子写状态，不换镜像或触碰数据。"""
++    validate_recovery_boundary()
++    data_root, _ = configured_roots()
++    ensure_plain_directory(data_root, label="活动数据根")
++    state = read_state(data_root)
++    if state.get("phase") not in {"UPGRADE_DEPLOYING", "UPGRADE_PREPARED"}:
++        raise DataStateError("恢复要求未初始化的 UPGRADE_DEPLOYING/UPGRADE_PREPARED")
++    if not re.fullmatch(r"upr_[0-9]{8}_[0-9]{6}", args.recovery_id):
++        raise DataStateError("升级恢复 ID 格式无效")
++    if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9._/-]{0,127}", args.approval_ref):
++        raise DataStateError("升级恢复必须提供低敏精确批准引用")
++    fixed = candidate_from_manifest(args.manifest)
++    history = state.get("upgrade_recoveries", [])
++    repeated = next((r for r in history if r["recovery_id"] == args.recovery_id), None)
++    failed = repeated["failed_candidate"] if repeated else state.get("candidate")
++    if (
++        not isinstance(failed, dict)
++        or failed.get("release_id") != args.failed_release_id
++        or failed.get("manifest_sha256") != args.failed_manifest_sha256
++    ):
++        raise DataStateError("升级恢复失败候选身份与状态不一致")
++    failed_cache_policy = repeated.get("failed_cache_policy") if repeated else state.get("upgrade_migration_cache_policy")
++    if failed_cache_policy != {"policy": "DEFAULT_PYTHON_CACHE_V1", "candidate": failed}:
++        raise DataStateError("失败执行缺少绑定候选的迁移缓存策略证明，拒绝历史推断")
++    if fixed["schema_head"] != failed.get("schema_head"):
++        raise DataStateError("升级恢复只允许相同 schema head")
++    if fixed["release_id"] == failed["release_id"] or fixed == state.get("previous_candidate"):
++        raise DataStateError("升级恢复必须是新的前向修复候选")
++    if all(fixed[f"{role}_image_id"] == failed.get(f"{role}_image_id") for role in ("backend", "frontend")):
++        raise DataStateError("升级恢复要求实际修正 artifact 镜像身份")
++    predecessors = [state.get("previous_candidate"), *(r["failed_candidate"] for r in history)]
++    if any(
++        isinstance(previous, dict) and (
++            fixed["release_id"] == previous.get("release_id")
++            or all(fixed[f"{role}_image_id"] == previous.get(f"{role}_image_id") for role in ("backend", "frontend"))
++        )
++        for previous in predecessors
++    ):
++        raise DataStateError("升级恢复不允许重新启用旧候选或已失败镜像")
++    if "ai_bootstrap_attempt" in state:
++        require_activation_safe_bootstrap_attempt(state)
++    for leaf in RUNTIME_LEAVES:
++        ensure_plain_directory(data_root / leaf, label=f"Production {leaf}")
++    ensure_services_stopped(data_root)
++    verify_candidate_images(fixed)
++    migrations = verify_archives(
++        failed, fixed, failed_manifest=args.failed_manifest, manifest=args.manifest,
++        failed_archive=args.failed_source_archive, archive=args.source_archive,
++        repository=REPOSITORY_ROOT,
++    )
++    # 同名 revision 不证明旧镜像实际提交的 DDL 正确；两端都必须匹配。
++    verify_migration_image(failed, migrations)
++    verify_migration_image(fixed, migrations)
++    receipt = {
++        "recovery_id": args.recovery_id, "approval_ref": args.approval_ref,
++        "failed_candidate": failed, "candidate": fixed,
++        "migration_tree_sha256": migrations,
++        "failed_cache_policy": failed_cache_policy,
++    }
++    if repeated:
++        if repeated != receipt or state.get("candidate") != fixed or state["phase"] != "UPGRADE_DEPLOYING":
++            raise DataStateError("升级恢复重复请求与持久回执或当前阶段冲突")
++        print("升级恢复已记录；重放同一回执，不重新切换候选。")
++        return
++    state["candidate"] = fixed
++    state["upgrade_migration_cache_policy"] = {"policy": "DEFAULT_PYTHON_CACHE_V1", "candidate": fixed}
++    state["phase"] = "UPGRADE_DEPLOYING"
++    state["upgrade_recoveries"] = [*history, receipt]
++    atomic_write_state(data_root, state)
++    print("升级前向恢复候选已显式绑定；仍未初始化，必须重新 deploy 和验收。")
++
++
++def verify_migration_image(candidate: dict[str, Any], expected: str) -> None:
++    """无网络/挂载探针，证明真正执行的镜像迁移内容也与归档一致。"""
++    probe = """import hashlib, json, os
++from pathlib import Path
++root = Path('/app')
++paths = [root/'alembic', root/'alembic.ini', *(root/'alembic').rglob('*')]
++assert not any(p.is_symlink() for p in paths)
++if os.environ.get('PYTHONPYCACHEPREFIX'):
++    print('MIGRATION_CACHE_PREFIX_FORBIDDEN')
++elif any(p.suffix in {'.pyc', '.pyo'} for p in paths):
++    print('MIGRATION_CACHE_FORBIDDEN')
++else:
++    files = {'backend/'+p.relative_to(root).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
++             for p in paths if p.is_file()}
++    print(hashlib.sha256(json.dumps(files, sort_keys=True).encode()).hexdigest())
++"""
++    result = subprocess.run(
++        ["docker", "run", "--rm", "--pull", "never", "--network", "none",
++         "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
++         "--entrypoint", "python", candidate["backend_image_id"], "-I", "-c", probe],
++        check=True, capture_output=True, text=True,
++    )
++    if result.stdout.strip() == "MIGRATION_CACHE_PREFIX_FORBIDDEN":
++        raise DataStateError("恢复镜像指定树外迁移编译缓存目录，拒绝恢复")
++    if result.stdout.strip() == "MIGRATION_CACHE_FORBIDDEN":
++        raise DataStateError("恢复镜像包含迁移编译缓存，拒绝恢复")
++    if result.stdout.strip() != expected:
++        raise DataStateError("恢复镜像内迁移树与 source archive 不一致")
++
++
++def validate_recovery_boundary() -> str:
++    """恢复同样受生产配置/Compose/Browser 边界约束，不另设旁路。"""
++    runtime = os.environ.get("PARTSIGNAL_RUNTIME_ENV_FILE", "")
++    if not runtime or not Path(runtime).is_file():
++        raise DataStateError("升级恢复缺少 Production runtime env")
++    subprocess.run(
++        [sys.executable, str(REPOSITORY_ROOT / "deploy/scripts/check-production-inputs.py"),
++         "--deployment-boundary", runtime], check=True,
++    )
++    return runtime
++
++
++def verify_recovery_database(candidate: dict[str, Any]) -> None:
++    """恢复候选 prepared 前，以固定 Compose/镜像验证真实完整性和 schema。"""
++    verify_candidate_images(candidate)
++    runtime = validate_recovery_boundary()
++    command = [
++        "docker", "compose", "--project-name", PRODUCTION_COMPOSE_PROJECT,
++        "--env-file", runtime, "-f", str(REPOSITORY_ROOT / "deploy/compose.prod.yaml"),
++        "run", "--rm", "--pull", "never", "--no-deps", "api",
++    ]
++    subprocess.run([*command, "python", "-m", "app.cli", "preflight-integrity"], check=True)
++    probe = (
++        "import json; from sqlalchemy import text; from app.db import engine; "
++        "connection=engine.connect(); "
++        "print(json.dumps(list(connection.execute(text('SELECT version_num FROM alembic_version')).scalars()))); "
++        "connection.close(); engine.dispose()"
++    )
++    result = subprocess.run([*command, "python", "-c", probe], check=True, capture_output=True, text=True)
++    if json.loads(result.stdout) != [candidate["schema_head"]]:
++        raise DataStateError("恢复数据库 schema head 与候选 manifest 不一致")
+ 
+ 
+ def restore(run_id: str) -> None:
+@@ -1184,6 +1396,7 @@
+         command_parser.add_argument("manifest")
+     for command in (
+         "begin-upgrade",
++        "verify-upgrade-entry",
+         "verify-candidate-images",
+         "mark-upgrade-prepared",
+         "verify-upgrade-prepared",
+@@ -1193,6 +1406,13 @@
+     ):
+         command_parser = subparsers.add_parser(command)
+         command_parser.add_argument("manifest")
++    recovery_parser = subparsers.add_parser("recover-upgrade")
++    recovery_parser.add_argument("manifest")
++    for field in (
++        "failed-manifest", "failed-source-archive", "source-archive",
++        "failed-release-id", "failed-manifest-sha256", "recovery-id", "approval-ref",
++    ):
++        recovery_parser.add_argument(f"--{field}", required=True)
+     bootstrap_parser = subparsers.add_parser("bootstrap-ai")
+     bootstrap_parser.add_argument("run_id")
+     bootstrap_parser.add_argument("manifest")
+@@ -1264,6 +1484,11 @@
+                 )
+             elif args.command == "begin-upgrade":
+                 begin_upgrade(candidate_from_manifest(args.manifest))
++            elif args.command == "verify-upgrade-entry":
++                upgrade_entry_state(candidate_from_manifest(args.manifest))
++                print("Production upgrade 只读入场资格校验通过。")
++            elif args.command == "recover-upgrade":
++                recover_upgrade(args)
+             elif args.command == "verify-candidate-images":
+                 verify_candidate_images(candidate_from_manifest(args.manifest))
+             elif args.command == "mark-upgrade-prepared":
+--- before/deploy/scripts/test-deploy-production.sh
++++ after/deploy/scripts/test-deploy-production.sh
+@@ -471,7 +471,7 @@
+   '  "image inspect "*)' \
+   '    printf "docker %s\n" "$*" >>"${COMMAND_LOG:-/dev/null}"' \
+   '    case "$*" in *"${MISSING_IMAGE_REFERENCE:-__never__}"*) exit 1 ;; esac' \
+-  '    printf '\''[{"Id":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","RepoDigests":["example@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]}]\n'\''' \
++  '    printf '\''[{"Id":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","RepoDigests":["example@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"],"Config":{"Env":[]}}]\n'\''' \
+   '    ;;' \
+   '  "ps -q --filter label=com.docker.compose.project="*) printf "%s\n" "${DOCKER_PROJECT_IDS:-}" ;;' \
+   '  "ps -q") printf "%s\n" "${DOCKER_RUNNING_IDS:-}" ;;' \
+@@ -506,6 +506,7 @@
+ 
+ 
+ script_path = sys.argv[1]
++sys.path.insert(0, str(Path(script_path).parent))
+ spec = importlib.util.spec_from_file_location("prepare_production_data", script_path)
+ assert spec is not None and spec.loader is not None
+ module = importlib.util.module_from_spec(spec)
+@@ -996,6 +997,7 @@
+     "deploy/scripts/check-production-inputs.py",
+     "deploy/scripts/deploy.sh",
+     "deploy/scripts/prepare-production-data.py",
++    "deploy/scripts/production_upgrade_recovery.py",
+     "deploy/scripts/rollback-production-frontend.sh",
+ }
+ manifest = suite_root / "release-manifest.json"
+@@ -1611,6 +1613,7 @@
+   --tracked-file "$root/deploy/scripts/check-production-inputs.py" \
+   --tracked-file "$root/deploy/scripts/deploy.sh" \
+   --tracked-file "$root/deploy/scripts/prepare-production-data.py" \
++  --tracked-file "$root/deploy/scripts/production_upgrade_recovery.py" \
+   --tracked-file "$root/deploy/scripts/rollback-production-frontend.sh" \
+   --output "$test_dir/v1-manifest.json" >/dev/null 2>"$test_dir/v1-manifest.err"
+ v1_manifest_status=$?
+@@ -1637,6 +1640,7 @@
+   --tracked-file "$root/deploy/scripts/check-production-inputs.py" \
+   --tracked-file "$root/deploy/scripts/deploy.sh" \
+   --tracked-file "$root/deploy/scripts/prepare-production-data.py" \
++  --tracked-file "$root/deploy/scripts/production_upgrade_recovery.py" \
+   --tracked-file "$root/deploy/scripts/rollback-production-frontend.sh" \
+   --output "$test_dir/release-manifest.json" >/dev/null
+ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/manifest.log" \
+@@ -1657,6 +1661,7 @@
+   --tracked-file "$root/deploy/scripts/check-production-inputs.py" \
+   --tracked-file "$root/deploy/scripts/deploy.sh" \
+   --tracked-file "$root/deploy/scripts/prepare-production-data.py" \
++  --tracked-file "$root/deploy/scripts/production_upgrade_recovery.py" \
+   --tracked-file "$root/deploy/scripts/rollback-production-frontend.sh" \
+   --output "$test_dir/release-manifest-next.json" >/dev/null
+ 
+@@ -2470,6 +2475,7 @@
+     "deploy/scripts/check-production-inputs.py",
+     "deploy/scripts/deploy.sh",
+     "deploy/scripts/prepare-production-data.py",
++    "deploy/scripts/production_upgrade_recovery.py",
+     "deploy/scripts/rollback-production-frontend.sh",
+ }
+ PY
+--- before/docs/Hostdzire部署上线流程.md
++++ after/docs/Hostdzire部署上线流程.md
+@@ -50,7 +50,7 @@
+ git diff --check
+ ```
+ 
+-候选必须来自 clean、已推送的 `main`。使用 `git archive` 生成不可覆盖源归档，构建 backend 和 Frontend V2 镜像后，通过 `deploy/scripts/create-release-manifest.py` 冻结完整 commit、源归档 SHA-256、backend/current V2/previous V2 image ID 与非空 RepoDigest、schema head，以及固定 9 项 allowlist 中的 Production Compose、状态/部署/激活/输入检查脚本、Production/maintenance Nginx 模板和安全 snippet 校验和。输入检查脚本为 `deploy/scripts/check-production-inputs.py`，必须按附录一起传入 tracked files。manifest 采用排他创建；部署和激活会复算 tracked files，并要求 `PARTSIGNAL_VERSION` 精确等于 release ID。不得复用 tag、覆盖文件或从 release 目录名推断 Git 状态。
++候选必须来自 clean、已推送的 `main`。使用 `git archive` 生成不可覆盖源归档，构建 backend 和 Frontend V2 镜像后，通过 `deploy/scripts/create-release-manifest.py` 冻结完整 commit、源归档 SHA-256、backend/current V2/previous V2 image ID 与非空 RepoDigest、schema head，以及固定 10 项 allowlist 中的 Production Compose、状态/部署/激活/输入检查脚本、Production/maintenance Nginx 模板和安全 snippet 校验和。输入检查脚本 `check-production-inputs.py` 和迁移归档证明模块 `production_upgrade_recovery.py` 必须按附录一起传入 tracked files。manifest 采用排他创建；部署和激活会复算 tracked files，并要求 `PARTSIGNAL_VERSION` 精确等于 release ID。不得复用 tag、覆盖文件或从 release 目录名推断 Git 状态。
+ 
+ Production 镜像交付模式由 `PARTSIGNAL_IMAGE_DELIVERY_MODE` 显式控制；未设置时默认为 `registry`，按既有顺序 pull 后校验 manifest 中的 image ID 与 RepoDigest。Hostdzire 本地构建候选必须明确设置为 `local`：脚本跳过 pull，但要求候选镜像已存在，并在任何 `docker compose run`/`up` 前完成同一 manifest 的身份校验，同时为相关路径传入 `--pull never`。空值或其他模式，以及任何 V1 镜像仓库，均立即拒绝；不得用手工 Compose 命令绕过该合同。
+ 
+@@ -88,7 +88,8 @@
+ 
+ ## 7. 分层恢复
+ 
+-- Frontend：只切回 manifest 冻结的上一份已验证 V2 image，frontend-only recreate；其他 service、DB 和 Nginx 不变。
++- 未 initialized 的 upgrade artifact 失败：保持公网 maintenance，停止完整项目；在同 schema、同迁移内容且新 manifest/image 全部认证后，按[附录显式前向恢复](./Hostdzire部署附录.md#未初始化升级的显式前向恢复)接管。仍处 UPGRADE_DEPLOYING，需重新 deploy/验收/activate。不能用 frontend rollback、先 activate、手改状态或新候选 begin-upgrade 解锁。
++- Frontend：只在 PRODUCTION_INITIALIZED 切回 manifest 冻结的上一份已验证 V2 image，frontend-only recreate；其他 service、DB 和 Nginx 不变。
+ - Nginx：恢复同一已验证版本的站点和安全 snippet，先 `nginx -t`，再单独授权 reload。
+ - Application：只有上一份 V2 backend 与当前 schema 合同时才可切回。
+ - Data：停止新 Production 写入和全部新 service，把失败数据保留到 `failed-production/`，运行 `prepare-production-data.py restore <run-id>` 按持久阶段续跑并恢复旧三个目录，再按旧 Staging 配置恢复运行态。
+--- before/docs/Hostdzire部署附录.md
++++ after/docs/Hostdzire部署附录.md
+@@ -27,6 +27,7 @@
+   --tracked-file deploy/scripts/activate-production.sh \
+   --tracked-file deploy/scripts/check-production-inputs.py \
+   --tracked-file deploy/scripts/prepare-production-data.py \
++  --tracked-file deploy/scripts/production_upgrade_recovery.py \
+   --tracked-file deploy/scripts/rollback-production-frontend.sh \
+   --tracked-file deploy/nginx/partsignal.conf.template \
+   --tracked-file deploy/nginx/partsignal-security-headers.conf \
+@@ -203,6 +204,40 @@
+ 
+ 脚本只接受当前 Production 状态绑定 manifest 中的 `rollback_frontend` reference、image ID 与 RepoDigest，并在同一维护锁内执行 `--no-deps --no-build --pull never` frontend-only recreate；成功后记录活动 frontend 身份。前后比较 API、Worker、Scheduler、PostgreSQL、Redis container/image、DB revision、Nginx checksum 和 release record；只允许 frontend container/image 变化。V1 不属于 Production 回滚目标。
+ 
++### 未初始化升级的显式前向恢复
++
++只适用于旧版本已 initialized 后的 upgrade，当前 phase 为 UPGRADE_DEPLOYING 或 UPGRADE_PREPARED。clean-init、跨 schema、改变任何迁移 Python/SQL、无完整归档或无法证明静默均停止，由负责人另行设计备份恢复；不把 previous_candidate 直接恢复成 initialized。
++
++1. 保持已验证的公网 maintenance 503。取得绑定目标、失败 release/manifest SHA、新 release/manifest/image、维护窗口、停止/恢复负责人和具体操作的批准。`approval_ref` 只是批准记录引用，不是批准本身；本附录不授予远端操作权限。
++2. 保留失败状态、manifest、archive、迁移/启动日志和容器身份。修正版使用新不可变 release ID 和镜像，走 clean main 候选生产者；不要覆盖旧 tag/manifest/archive。registry 镜像交付如需 pull，须先按本次新身份交付并核对；恢复入口不隐式 pull，也不启动业务服务；仅执行身份检查与无数据离线探针。
++3. 在原维护窗口和维护锁下，使用**已绑定失败版本**的权威 Compose/runtime 停止 api、worker、scheduler、frontend、postgres、redis 和实际遗留 service，等待在途写入结束。恢复入口会核对完整固定 project 及其他运行容器的数据挂载；任一检查不确定即拒绝，不提供 force。
++4. 在修正版 release checkout 执行以下已替换为当次真实输入的精确命令（路径均为绝对普通文件；两个归档名须匹配各 manifest）：
++
++```sh
++PARTSIGNAL_VERSION="$fixed_release_id" \
++PARTSIGNAL_BACKEND_IMAGE="$fixed_backend_repository" \
++PARTSIGNAL_FRONTEND_IMAGE="$fixed_frontend_repository" \
++PARTSIGNAL_DATA_ROOT=/root/partsignal-data \
++PARTSIGNAL_RUNTIME_ENV_FILE=/root/partsignal/shared/.env.production \
++  python3 ./deploy/scripts/prepare-production-data.py recover-upgrade "$fixed_manifest_path" \
++  --failed-release-id "$failed_release_id" \
++  --failed-manifest-sha256 "$failed_manifest_sha256" \
++  --failed-manifest "$failed_manifest_path" \
++  --failed-source-archive "$failed_source_archive" \
++  --source-archive "$fixed_source_archive" \
++  --recovery-id upr_YYYYMMDD_HHMMSS \
++  --approval-ref "$approved_recovery_record_ref"
++```
++
++入口持有固定维护锁，按旧 state manifest sha 认证失败材料，按新 consumer 认证修正版，核对 schema/全部迁移树及旧失败、新修复两个镜像内内容（使用冻结 image ID；缺少旧镜像即停止）；offline probe 无网络、无挂载，不启动业务服务。成功仅原子记录显式接管，仍 UPGRADE_DEPLOYING，保存 failed/new 全身份和迁移 digest。不能重启旧或已失败镜像。
++
++5. 执行既有 `deploy.sh`，全部正常后才 UPGRADE_PREPARED；该恢复候选 prepared 前还须以权威 Compose 的 `--pull never --no-deps` backend 通过既有 preflight-integrity 和真实 alembic_version 检查。然后重新完成真实 AI/OSS Gate、身份、health 及单独 activation 批准，再执行 `activate-production.sh`。最后按独立授权恢复公网 Nginx；恢复入口不自动开放流量。
++6. 再次失败维持 maintenance，保存新失败候选和阶段。完全相同 recovery_id/输入仅在仍 deploying 且全服务停止时重放回执；不同输入、prepared/initialized 或旧请求均拒绝。再次修 artifact 必须新 release、新恢复 ID 与新批准，不能改旧回执。状态原子写前中断仍旧候选、写后中断固定新候选；读取状态后按唯一候选续跑，不手改或删除状态。
++
++run-locked 收到 SIGTERM/SIGINT 会转发子孙并等退出，锁不会在仍有部署子进程时释放。中断不等于 Engine 操作已回滚；核对实际容器、schema 和持久阶段，保留 maintenance。SIGKILL/断电不能运行进程清理，必须现场确认静默。
++
++恢复证据使用[升级恢复模板](./geo-monitoring/04-delivery/geo-1007-upgrade-recovery.template.yaml)，未知保持 null/NOT_VERIFIED。本地测试不证明目标服务器、公网 maintenance、备份、外部服务或批准已就绪。
++
+ ## 10. 数据恢复
+ 
+ 如果 clean-init 或验收失败且决定恢复旧 Staging 数据，先停止新 service 并确认无新写入，保留日志/manifest/container evidence，再运行：
+@@ -221,3 +256,9 @@
+ 切换后检查回环、公网 HTTP、V2 artifact、登录后核心只读流、受控写、真实 AI/OSS、容器健康和资源。HTML/SPA 必须 `no-cache`，hashed assets 必须 immutable，missing asset/`.map` 必须 `404`，JS 无 `sourceMappingURL`，CSP/安全头只由外层 Nginx 持有，且 `/object-storage/` 不存在 Production 代理。
+ 
+ 观察期记录 Nginx 5xx/upstream、API error、restart/OOM、Worker/Scheduler、DB/Redis、AI/OSS 与核心业务结果。V1 源码/pipeline 已按 2026-08-29 开发阶段范围决策在仓库内退役，不代表 Observation Gate 已执行或为 `MET`；2026-08-29 开发任务的 Production Gate 均为 `CANCELLED_BY_SCOPE_DECISION / NOT_APPLICABLE`，不能由本轮继承。quarantine、旧 release/image、fake-oss 和 `.env.staging` 清理仍需破坏性授权。
++
++迁移镜像证明明确拒绝 Alembic 树中的 `.pyc/.pyo`，并拒绝两个冻结镜像、runtime 和宿主机环境中的非空 `PYTHONPYCACHEPREFIX`，防止树外 unchecked-hash 缓存改变实际 DDL；隔离探针仍读取原始环境键，不能因 `python -I` 忽略配置而漏检。禁写缓存不等于禁止读取缓存。canonical backend/Dockerfile 在 runtime/test 的 uv sync 后仅清理迁移缓存；历史含缓存镜像保持安全停止，不覆盖旧镜像。真实错误 unchecked-hash 缓存反例由 `test-upgrade-image-cache.py` 验证。
++
++首次 initialized→upgrade 在迁移之前由状态所有者验证 runtime/host 与冻结镜像默认环境不指定非空 PYTHONPYCACHEPREFIX，原子记录与完整 candidate 绑定的 DEFAULT_PYTHON_CACHE_V1 执行策略。恢复必须验证失败执行的既有策略；仅当前配置正常不足以证明历史。历史缺失、unknown 或候选错配均拒绝，不能在同候选重入或恢复时补造历史证明；保留 maintenance，另行设计显式备份 abort/recover。成功恢复绑定新策略，回执保留旧策略。历史 runtime 清除反例已用真实 Docker loader 与接管前状态测试验证。
++
++upgrade 镜像交付顺序：verify-upgrade-entry 通过完整 manifest consumer 并只读判定 phase/candidate → Compose config → registry pull（local不pull）→ frozen image ID/RepoDigest验证 → begin-upgrade 原子证明cache policy与绑定candidate → run/up。入场判定与begin共用状态所有者规则；错误manifest/另一候选在pull前拒绝，registry未缓存镜像不能要求先inspect；pull/identity/policy失败均不开始首次upgrade。clean-init时序保持原合同。
+--- before/docs/geo-monitoring/03-technical/10-core-rollout-runbook.md
++++ after/docs/geo-monitoring/03-technical/10-core-rollout-runbook.md
+@@ -18,7 +18,7 @@
+ | CRON 禁用与既存治理 | 禁止 CRON Plan 新建/全部写命令/首次 run、PLAN 建批及 scheduled 新窗口，稳定 409；历史配置/状态/快照只读，无写动作且页面明确不调度；MANUAL 入口正常 | GEO-1005 本地实现交付 review；目标/候选历史清点及投影现场证据 NOT_VERIFIED（1010）；不要求自动到期入口 |
+ | Opportunity 显式评估 | ADMIN 经实际受保护入口评估，非管理员/资格关闭拒绝，重复触发去重、来源可追溯；无周期或隐式触发 | GEO-1006 本地实现交付 review；同候选现场实际入口证据 NOT_VERIFIED（1010）；测试 seed 不替代入口 |
+ | 能力真实性 | 现有报告/三类 CSV/API 与页面说明一致；未实现 CSV/UI/重分析/占位明确不可用，无依据无引用不推断 | NOT_VERIFIED；1007 |
+-| 升级失败恢复 | 未 initialized 的 UPGRADE_DEPLOYING/PREPARED artifact 失败可安全前向/阶段恢复；身份/兼容/维护锁/再次失败拒绝演练和独立复核 | NOT_MET；1008；旧同候选重入不足以覆盖新 artifact |
++| 升级失败恢复 | 未 initialized 的 UPGRADE_DEPLOYING/PREPARED artifact 失败可安全前向/阶段恢复；身份/兼容/维护锁/再次失败拒绝演练和独立复核 | 本地修复见 GEO-1007 Trellis（delivery 1008），已 review，待人工接受；固定候选及目标恢复仍 NOT_VERIFIED（1009/1010） |
+ | 固定候选 | clean main=origin/main；commit/archive/release manifest/images/schema/tracked hashes 一致；同候选完整 make verify exit 0，失败/skip/限制明列 | NOT_VERIFIED；1009；旧本地成功日志不替代新候选 |
+ | 目标配置与安全 | 精确目标/入口/权限，API/Worker/Beat 重建实际值一致；API 初始 false、显式评估资格准确；CSRF/SSRF/secret/页面安全及全应用 AI/OSS Gate | NOT_VERIFIED；1010；不输出秘密 |
+ | 目标备份/容量/监控/恢复 | DB/OSS/适用密钥成套备份与隔离扫描；目标规格/代表负载/冻结阈值及告警观察期；目标安全停止、升级失败恢复与恢复后对账 | NOT_VERIFIED；1010；904/905/906 done 不证明现场 |
+@@ -212,7 +212,7 @@
+ 
+ 旧镜像只有明确支持当前 schema 和安全合同才可恢复；单纯切 tag 或 current 链接不等于恢复。Frontend 仅在 **PRODUCTION_INITIALIZED** 使用既有 `rollback-production-frontend.sh`（内部 verify-rollback-frontend/mark-frontend-rollback）与已冻结 V2 镜像的正式流程；backend 不兼容则保留维护并前向修复。
+ 
+-**前滚/部署尚处 UPGRADE_DEPLOYING 或 UPGRADE_PREPARED 时，当前所有者不支持 frontend-only 回滚，也不接受另一候选 begin-upgrade。** 此时可在明确修正配置/环境故障后批准重入同一 immutable candidate；若必须改变 artifact，保持维护/停止、保留现场，需发布所有者明确支持的阶段恢复方案与批准才能继续，不能宣称新候选可以直接接管。不得为解锁回滚先 activation，不手改状态、覆盖 artifact 或直接切镜像。该覆盖缺口必须进入验收，生产准备未解决时停止上线。
++**前滚/部署尚处 UPGRADE_DEPLOYING 或 UPGRADE_PREPARED 时，frontend-only 回滚仍不可用，另一候选 begin-upgrade 仍拒绝。** 环境问题可批准同一 immutable candidate 重入；artifact 修复须按[部署附录显式前向恢复](../../Hostdzire部署附录.md#未初始化升级的显式前向恢复)执行 recover-upgrade。同 schema/全部迁移树（含镜像内内容）一致，全服务停止，旧/新 manifest、archive 和 image 身份完整验证，记录批准和原子候选接管；仍 deploying，重新通过完整 deploy/验收/activate，失败保持 maintenance。跨 schema/修改迁移或证据缺失继续停止。使用[升级恢复证据模板](../04-delivery/geo-1007-upgrade-recovery.template.yaml)；本地演练不代表现场恢复或首发 Go。用户本次称 GEO-1007，delivery 中同范围仍为 GEO-1008，不重编号。
+ 
+ GEO upgrade 不能误用 clean-init 的 quarantine restore。默认不 Alembic downgrade，不删除 tombstone/发送账本/审计历史，不恢复 Redis/Beat 文件冒充业务重放。
+ 
+--- before/docs/geo-monitoring/04-delivery/geo-906-release-record.template.yaml
++++ after/docs/geo-monitoring/04-delivery/geo-906-release-record.template.yaml
+@@ -15,7 +15,7 @@
+   source_archive_sha256: null
+   image_identity_evidence_ref: null
+   tracked_files_evidence_ref: null
+-  expected_schema_head: 0065_geo_observability
++  expected_schema_head: 0066_geo_manual_evaluation
+   observed_schema_head: null
+   # 已 initialized 的候选停止后恢复，必须另有新 release 身份和阶段批准。
+   recovery_candidate_manifest_ref: null
+@@ -67,6 +67,8 @@
+   target_stop_drill_result: NOT_VERIFIED
+   target_recovery_drill_result: NOT_VERIFIED
+   schema_compatible_rollback_ref: null
++  # 未 initialized artifact 接管须完整独立记录，不能用本字段冒充批准或已恢复。
++  upgrade_forward_recovery_record_ref: null
+ manual_acceptance:
+   status: NOT_VERIFIED
+   batch_id: null
+--- before/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ after/docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -1824,7 +1824,7 @@
+   phase: R9A
+   release: V1.0-manual-first
+   title: 闭合升级候选 artifact 失败安全恢复
+-  status: planned
++  status: review
+   dependencies:
+   - GEO-1002
+   - GEO-903
+@@ -1846,7 +1846,8 @@
+   - 05-decisions/ADR-007-manual-first-v1-release-scope.md
+   - 06-reviews/GEO-1001-release-readiness-audit.md
+   audit_source: 06-reviews/GEO-1001-release-readiness-audit.md
+-  scope_note: 后续独立任务；本次 GEO-1002 只登记范围、依赖与验收，不开始实现或生产操作。
++  scope_note: "用户以 GEO-1007 明确执行本恢复范围；记录在 .trellis/tasks/10-05-geo-1007-upgrade-recovery，保留本条 GEO-1008 身份及原 GEO-1007 页面任务，不重编号。任务本地完成后按该 Trellis 记录 review；生产候选/现场 1009/1010 未执行。"
++  review_note: "2026-10-05：用户GEO-1007恢复范围交付review；先状态机/方案与计划，再受控同schema/相同迁移CAS。27项定向测试、真实PG/Compose/镜像缓存/历史runtime反例、两目标构建与串行部署自检通过；5项fresh独立审查推动修复，最后无确认阻断。历史缺失败执行cache-policy证明继续停止，不补造；人工接受、真实registry/历史样本/进行中EngineSIGTERM/目标及1009/1010未验证。详见Trellis implement/evidence。"
+ - id: GEO-1009
+   phase: R9A
+   release: V1.0-manual-first
+--- before/docs/geo-monitoring/SHA256SUMS
++++ after/docs/geo-monitoring/SHA256SUMS
+@@ -19,7 +19,7 @@
+ 10e3e60c5885c23cd36e941d0d46dc2d1e30a01d3b7817b2f1ecf6700151f654  03-technical/07-testing-and-quality.md
+ 95ff451b9d6927240bbf19ba157f22952212178b52089f4053f6644c889fa7b7  03-technical/08-deployment-and-operations.md
+ 0ea92a90c7ba38dcf4db7e81b580814628e6f902b530fdb108939829e0393f29  03-technical/09-backup-recovery-runbook.md
+-f7e768cf81166e450d5dcb96e08b6a9d7f636224e97b68267045a8b07de23955  03-technical/10-core-rollout-runbook.md
++4271dc972d0ad09e5333665cd226bddb51ef69f365e8ff07a961d04e342bca77  03-technical/10-core-rollout-runbook.md
+ 9edd3f79af2d9f91932e9e668b41c6f3e9a38ebe781ec9dc8b6517c135f3ee49  04-delivery/01-implementation-roadmap.md
+ 0c43e4072efeb3b4271cbad3f6e7ff896dcc075530e73f2e98bf2d74c0c48e19  04-delivery/02-work-breakdown-structure.md
+ ff9c5c9426eadc2f53c9df96daccba3761c8a736d1c7c4feb547f39f2b58adbc  04-delivery/03-requirement-traceability-matrix.md
+@@ -116,8 +116,9 @@
+ 7106b3f1df66de6ba41a4d7ca85e291b8b181f78e2b7c0ef91f4fa696d1f9e8b  04-delivery/geo-003-baseline/sources.json
+ 316ab24c5f645e18d39c529c7fcbca2260b14a5375cc5ebd799a5b7c6cfc8f40  04-delivery/geo-003-baseline/tests.json
+ 9dae298eb77cc0063394bfacea27b02ece69bf2a7dceba637ef1320565810ec7  04-delivery/geo-003-baseline/validation.md
+-e047efc782933053f13f46e205e6aff331b4d3e2f8574a1c6857c97d426115cc  04-delivery/geo-906-release-record.template.yaml
+-490bb84f9796f77ba72e0af7a24c89cd1811b51cabd483cb2e41313ecb7bcded  04-delivery/task-manifest.yaml
++f6b154c44770fa16a4f4584e0152aa8cf7e9877828abec1639bc3194141b424d  04-delivery/geo-1007-upgrade-recovery.template.yaml
++ef64491f2e7587136bb3009b8be0059b450b5323760b4bb914a68ae10f8b0a38  04-delivery/geo-906-release-record.template.yaml
++1a06147a1282e760c13975f442bbfa5dd5faf9662983e81af5d7a75cd78b35ce  04-delivery/task-manifest.yaml
+ 2c0f8d8ba314039b44e48614481c28e615e996c2e4ed444c8f07362b5cd75de9  05-decisions/ADR-001-extend-modular-monolith.md
+ 4e0ec1be59e33c2f3e83ee50abc55ffe35d2d0bf471c19cc2c713b391fc12cee  05-decisions/ADR-002-unified-observation-run-model.md
+ 00baab5f8fe68fbaf75e3aa7b07a0cfbd7c510e39b6a70ea462d9ab941330dc7  05-decisions/ADR-003-separate-collection-analysis-review.md
+--- /dev/null
++++ after/deploy/scripts/production_upgrade_recovery.py
+@@ -0,0 +1,115 @@
++"""升级修复的归档证明；不拥有状态、锁或运行服务。"""
++
++from __future__ import annotations
++
++import hashlib
++import json
++import tarfile
++from pathlib import Path, PurePosixPath
++from typing import Any
++
++
++def digest(path: Path) -> str:
++    with path.open("rb") as source:
++        return hashlib.file_digest(source, "sha256").hexdigest()
++
++
++def plain_file(value: str) -> Path:
++    path = Path(value)
++    if not path.is_absolute() or path.is_symlink() or not path.is_file():
++        raise ValueError("恢复材料必须是绝对普通文件")
++    if path.resolve(strict=True) != path:
++        raise ValueError("恢复材料不能包含路径别名")
++    return path
++
++
++def migration_path(name: str) -> bool:
++    return name == "backend/alembic.ini" or name.startswith("backend/alembic/")
++
++
++def archive_migrations(path: Path) -> dict[str, str]:
++    """只读归档成员，不解包；拒绝迁移路径别名、重复和链接。"""
++    result: dict[str, str] = {}
++    seen: set[str] = set()
++    with tarfile.open(path, "r:*") as archive:
++        for member in archive:
++            name = member.name.rstrip("/")
++            parts = PurePosixPath(name).parts
++            if (
++                name.startswith("/")
++                or ".." in parts
++                or str(PurePosixPath(name)) != name
++            ):
++                raise ValueError("source archive 包含路径别名")
++            if not migration_path(name):
++                continue
++            if name in seen:
++                raise ValueError("source archive 包含重复迁移成员")
++            seen.add(name)
++            if member.isdir():
++                continue
++            if not member.isfile():
++                raise ValueError("source archive 迁移成员必须是普通文件")
++            source = archive.extractfile(member)
++            if source is None:
++                raise ValueError("source archive 迁移成员无法读取")
++            with source:
++                result[name] = hashlib.file_digest(source, "sha256").hexdigest()
++    if (
++        "backend/alembic.ini" not in result
++        or "backend/alembic/env.py" not in result
++        or not any(name.startswith("backend/alembic/versions/") for name in result)
++    ):
++        raise ValueError("source archive 缺少完整迁移树")
++    return result
++
++
++def authenticated_archive(
++    manifest: str, archive: str, candidate: dict[str, Any]
++) -> Path:
++    manifest_path = plain_file(manifest)
++    content = manifest_path.read_bytes()
++    if hashlib.sha256(content).hexdigest() != candidate["manifest_sha256"]:
++        raise ValueError("恢复 manifest SHA-256 与冻结候选不一致")
++    payload = json.loads(content)
++    source = payload.get("source_archive")
++    path = plain_file(archive)
++    if (
++        not isinstance(source, dict)
++        or source.get("name") != path.name
++        or source.get("sha256") != digest(path)
++    ):
++        raise ValueError("恢复 source archive 与 manifest 不一致")
++    return path
++
++
++def verify_archives(
++    failed: dict[str, Any],
++    fixed: dict[str, Any],
++    *,
++    failed_manifest: str,
++    manifest: str,
++    failed_archive: str,
++    archive: str,
++    repository: Path,
++) -> str:
++    """证明修复只改变 artifact，不重写已提交或待重入的迁移历史。"""
++    old = archive_migrations(
++        authenticated_archive(failed_manifest, failed_archive, failed)
++    )
++    new = archive_migrations(authenticated_archive(manifest, archive, fixed))
++    if old != new:
++        raise ValueError("恢复候选迁移树与失败候选不一致")
++    paths = [repository / "backend/alembic", repository / "backend/alembic.ini"]
++    paths.extend((repository / "backend/alembic").rglob("*"))
++    current: dict[str, str] = {}
++    for path in paths:
++        if "__pycache__" in path.parts or path.suffix == ".pyc":
++            continue
++        if path.is_symlink():
++            raise ValueError("当前迁移树不能包含符号链接")
++        if path.is_file():
++            current[path.relative_to(repository).as_posix()] = digest(path)
++    if current != new:
++        raise ValueError("当前迁移树与恢复 source archive 不一致")
++    return hashlib.sha256(json.dumps(new, sort_keys=True).encode()).hexdigest()
+--- /dev/null
++++ after/deploy/scripts/test-upgrade-recovery.py
+@@ -0,0 +1,498 @@
++#!/usr/bin/env python3
++"""验证显式升级接管的状态、身份和中断合同。"""
++
++from __future__ import annotations
++
++import hashlib
++import importlib.util
++import io
++import json
++import os
++import signal
++import subprocess
++import sys
++import tarfile
++import tempfile
++import time
++import unittest
++from pathlib import Path
++from types import SimpleNamespace
++from unittest.mock import patch
++
++SCRIPTS = Path(__file__).resolve().parent
++sys.path.insert(0, str(SCRIPTS))
++spec = importlib.util.spec_from_file_location(
++    "production_state", SCRIPTS / "prepare-production-data.py"
++)
++owner = importlib.util.module_from_spec(spec)
++spec.loader.exec_module(owner)
++
++
++class UpgradeRecoveryTests(unittest.TestCase):
++    def setUp(self):
++        self.temporary = tempfile.TemporaryDirectory()
++        self.root = Path(self.temporary.name).resolve()
++        self.live = self.root / "live"
++        for leaf in ("postgres", "redis"):
++            (self.live / leaf).mkdir(parents=True)
++            (self.live / leaf / "history").write_text("不可变历史")
++        self.env = patch.dict(
++            os.environ,
++            {
++                "PARTSIGNAL_ALLOW_NONSTANDARD_DATA_ROOT_FOR_TESTS": "1",
++                "PARTSIGNAL_DATA_ROOT": str(self.live),
++                "PARTSIGNAL_QUARANTINE_ROOT": str(self.root / "quarantine"),
++                "PARTSIGNAL_MAINTENANCE_LOCK_FILE": str(self.root / "lock"),
++            },
++        )
++        self.env.start()
++        self.boundary = patch.object(owner, "validate_recovery_boundary")
++        self.boundary.start()
++        self.image_probe = patch.object(owner, "verify_migration_image")
++        self.image_probe.start()
++        self.cache_policy = patch.object(owner, "prove_upgrade_cache_policy", side_effect=lambda candidate: {"policy": "DEFAULT_PYTHON_CACHE_V1", "candidate": candidate})
++        self.cache_policy.start()
++        self.previous = {"release_id": "previous"}
++        self.repository = self.root / "repository"
++        for name in owner.REQUIRED_TRACKED_FILES:
++            path = self.repository / name
++            path.parent.mkdir(parents=True, exist_ok=True)
++            path.write_bytes((owner.REPOSITORY_ROOT / name).read_bytes())
++        self.migrations = {
++            "backend/alembic.ini": b"[alembic]\n",
++            "backend/alembic/env.py": b"# fixture\n",
++            "backend/alembic/versions/one.py": b"revision='test_head'\n",
++            "backend/alembic/sql/one.sql": b"SELECT 1;\n",
++        }
++        for name, data in self.migrations.items():
++            path = self.repository / name
++            path.parent.mkdir(parents=True, exist_ok=True)
++            path.write_bytes(data)
++        self.repo_patch = patch.object(owner, "REPOSITORY_ROOT", self.repository)
++        self.repo_patch.start()
++        self.failed_manifest = self.manifest("failed", "a")
++        self.fixed_manifest = self.manifest("fixed", "b")
++        self.failed = self.candidate(self.failed_manifest)
++        self.fixed = self.candidate(self.fixed_manifest)
++        self.args = SimpleNamespace(
++            manifest=str(self.fixed_manifest),
++            failed_manifest=str(self.failed_manifest),
++            failed_source_archive=str(self.root / "failed.tar.gz"),
++            source_archive=str(self.root / "fixed.tar.gz"),
++            failed_release_id=self.failed["release_id"],
++            failed_manifest_sha256=self.failed["manifest_sha256"],
++            recovery_id="upr_20261005_120000",
++            approval_ref="local-test/approval-1",
++        )
++        owner.atomic_write_state(
++            self.live,
++            {
++                "schema_version": 1,
++                "data_root": str(self.live),
++                "phase": "PRODUCTION_INITIALIZED",
++                "candidate": self.previous,
++            },
++        )
++
++    def tearDown(self):
++        self.cache_policy.stop()
++        self.image_probe.stop()
++        self.boundary.stop()
++        self.repo_patch.stop()
++        self.env.stop()
++        self.temporary.cleanup()
++
++    def test_original_failure_dead_end(self):
++        owner.begin_upgrade(self.failed)
++        self.assertEqual(owner.read_state(self.live)["phase"], "UPGRADE_DEPLOYING")
++        with self.assertRaisesRegex(owner.DataStateError, "候选不一致"):
++            owner.begin_upgrade(self.fixed)
++        with self.assertRaisesRegex(
++            owner.DataStateError, "要求 PRODUCTION_INITIALIZED"
++        ):
++            owner.verify_rollback_frontend(self.failed)
++        self.assertEqual((self.live / "postgres/history").read_text(), "不可变历史")
++
++    def manifest(self, release, identity):
++        archive = self.root / f"{release}.tar.gz"
++        self.write_archive(archive, self.migrations)
++        payload = {
++            "release_id": release,
++            "commit": identity * 40,
++            "schema_head": "test_head",
++            "source_archive": {
++                "name": archive.name,
++                "sha256": owner.file_sha256(archive),
++            },
++            "images": {
++                role: {
++                    "reference": f"test/{role}:{release}",
++                    "image_id": f"sha256:{identity * 64}",
++                    "repo_digests": [f"test/{role}@sha256:{identity * 64}"],
++                }
++                for role in ("backend", "frontend", "rollback_frontend")
++            },
++            "tracked_files": {
++                name: owner.file_sha256(self.repository / name)
++                for name in owner.REQUIRED_TRACKED_FILES
++            },
++        }
++        path = self.root / f"{release}.json"
++        path.write_text(json.dumps(payload))
++        return path
++
++    def write_archive(self, path, files):
++        with tarfile.open(path, "w:gz") as archive:
++            for name, data in files.items():
++                member = tarfile.TarInfo(name)
++                member.size = len(data)
++                archive.addfile(member, io.BytesIO(data))
++
++    def candidate(self, path):
++        payload = json.loads(path.read_text())
++        os.environ.update(
++            PARTSIGNAL_VERSION=payload["release_id"],
++            PARTSIGNAL_BACKEND_IMAGE="test/backend",
++            PARTSIGNAL_FRONTEND_IMAGE="test/frontend",
++        )
++        return owner.candidate_from_manifest(str(path))
++
++    def recover(self):
++        with (
++            patch.object(owner, "ensure_services_stopped"),
++            patch.object(owner, "verify_candidate_images"),
++        ):
++            with owner.maintenance_lock():
++                owner.recover_upgrade(self.args)
++
++    def deploying(self, phase="UPGRADE_DEPLOYING"):
++        owner.begin_upgrade(self.failed)
++        state = owner.read_state(self.live)
++        state["phase"] = phase
++        owner.atomic_write_state(self.live, state)
++
++    def assert_rejected(self, reason):
++        before = (self.live / owner.STATE_FILE_NAME).read_bytes()
++        with self.assertRaisesRegex((owner.DataStateError, ValueError), reason):
++            self.recover()
++        self.assertEqual((self.live / owner.STATE_FILE_NAME).read_bytes(), before)
++
++    def test_recover_binds_fixed_without_initializing_or_changing_data(self):
++        for phase in ("UPGRADE_DEPLOYING", "UPGRADE_PREPARED"):
++            with self.subTest(phase=phase):
++                self.deploying(phase)
++                self.recover()
++                state = owner.read_state(self.live)
++                self.assertEqual(state["phase"], "UPGRADE_DEPLOYING")
++                self.assertEqual(state["candidate"], self.fixed)
++                self.assertEqual(state["previous_candidate"], self.previous)
++                self.assertEqual(
++                    state["upgrade_recoveries"][-1]["failed_candidate"], self.failed
++                )
++                self.assertEqual(
++                    (self.live / "postgres/history").read_text(), "不可变历史"
++                )
++                owner.atomic_write_state(
++                    self.live,
++                    {
++                        "schema_version": 1,
++                        "data_root": str(self.live),
++                        "phase": "PRODUCTION_INITIALIZED",
++                        "candidate": self.previous,
++                    },
++                )
++
++    def test_repeat_and_conflicting_receipt(self):
++        self.deploying()
++        self.recover()
++        before = (self.live / owner.STATE_FILE_NAME).read_bytes()
++        self.recover()
++        self.assertEqual((self.live / owner.STATE_FILE_NAME).read_bytes(), before)
++        self.args.approval_ref = "different"
++        self.assert_rejected("冲突")
++
++    def test_wrong_failed_identity(self):
++        for field in ("failed_release_id", "failed_manifest_sha256"):
++            with self.subTest(field=field):
++                self.deploying()
++                original = getattr(self.args, field)
++                setattr(self.args, field, "wrong")
++                self.assert_rejected("失败候选身份")
++                setattr(self.args, field, original)
++                state = owner.read_state(self.live)
++                state["phase"] = "PRODUCTION_INITIALIZED"
++                state["candidate"] = self.previous
++                owner.atomic_write_state(self.live, state)
++
++    def test_wrong_phase_and_initialized_replay(self):
++        self.assert_rejected("未初始化")
++        self.deploying()
++        self.recover()
++        state = owner.read_state(self.live)
++        state["phase"] = "UPGRADE_PREPARED"
++        owner.atomic_write_state(self.live, state)
++        self.assert_rejected("冲突")
++        state["phase"] = "PRODUCTION_INITIALIZED"
++        owner.atomic_write_state(self.live, state)
++        self.assert_rejected("未初始化")
++
++    def test_wrong_manifest_environment_and_tracked_hash(self):
++        self.deploying()
++        os.environ["PARTSIGNAL_VERSION"] = "wrong"
++        self.assert_rejected("release ID")
++        os.environ["PARTSIGNAL_VERSION"] = "fixed"
++        (self.repository / "deploy/scripts/deploy.sh").write_text("drift")
++        self.assert_rejected("tracked file 校验失败")
++
++    def test_old_manifest_and_archive_tamper(self):
++        self.deploying()
++        original = self.failed_manifest.read_bytes()
++        self.failed_manifest.write_bytes(original + b" ")
++        self.assert_rejected("manifest SHA-256")
++        self.failed_manifest.write_bytes(original)
++        Path(self.args.failed_source_archive).write_bytes(b"tampered")
++        self.assert_rejected("source archive")
++
++    def test_schema_and_same_artifact_rejected(self):
++        self.deploying()
++        payload = json.loads(self.fixed_manifest.read_text())
++        payload["schema_head"] = "other_head"
++        self.fixed_manifest.write_text(json.dumps(payload))
++        self.assert_rejected("相同 schema")
++        payload["schema_head"] = "test_head"
++        for role in ("backend", "frontend"):
++            payload["images"][role]["image_id"] = self.failed[f"{role}_image_id"]
++        self.fixed_manifest.write_text(json.dumps(payload))
++        self.assert_rejected("修正 artifact")
++
++    def test_changed_migrations_and_local_drift(self):
++        self.deploying()
++        files = dict(self.migrations)
++        files["backend/alembic/sql/one.sql"] = b"DELETE FROM history;"
++        self.write_archive(Path(self.args.source_archive), files)
++        payload = json.loads(self.fixed_manifest.read_text())
++        payload["source_archive"]["sha256"] = owner.file_sha256(
++            Path(self.args.source_archive)
++        )
++        self.fixed_manifest.write_text(json.dumps(payload))
++        self.assert_rejected("迁移树与失败")
++        self.write_archive(Path(self.args.source_archive), self.migrations)
++        payload["source_archive"]["sha256"] = owner.file_sha256(
++            Path(self.args.source_archive)
++        )
++        self.fixed_manifest.write_text(json.dumps(payload))
++        (self.repository / "backend/alembic/env.py").write_text("drift")
++        self.assert_rejected("当前迁移树")
++
++    def test_running_services_and_image_drift(self):
++        self.deploying()
++        for boundary, reason in (
++            ("ensure_services_stopped", "running"),
++            ("verify_candidate_images", "image drift"),
++        ):
++            before = owner.read_state(self.live)
++            with (
++                patch.object(owner, "ensure_services_stopped"),
++                patch.object(owner, "verify_candidate_images"),
++            ):
++                with patch.object(
++                    owner, boundary, side_effect=owner.DataStateError(reason)
++                ):
++                    with self.assertRaisesRegex(owner.DataStateError, reason):
++                        owner.recover_upgrade(self.args)
++            self.assertEqual(owner.read_state(self.live), before)
++
++    def test_interruption_before_and_after_atomic_commit(self):
++        self.deploying()
++        with patch.object(
++            owner, "atomic_write_state", side_effect=OSError("interrupted")
++        ):
++            with self.assertRaisesRegex(OSError, "interrupted"):
++                self.recover()
++        self.assertEqual(owner.read_state(self.live)["candidate"], self.failed)
++        write = owner.atomic_write_state
++
++        def committed_then_interrupted(root, state):
++            write(root, state)
++            raise OSError("after commit")
++
++        with patch.object(
++            owner, "atomic_write_state", side_effect=committed_then_interrupted
++        ):
++            with self.assertRaisesRegex(OSError, "after commit"):
++                self.recover()
++        self.assertEqual(owner.read_state(self.live)["candidate"], self.fixed)
++        self.recover()
++        self.assertEqual(len(owner.read_state(self.live)["upgrade_recoveries"]), 1)
++
++    def test_prepared_requires_database_proof_and_failure_keeps_deploying(self):
++        self.deploying()
++        self.recover()
++        with patch.object(
++            owner,
++            "verify_recovery_database",
++            side_effect=owner.DataStateError("bad database"),
++        ):
++            with self.assertRaisesRegex(owner.DataStateError, "bad database"):
++                owner.transition_upgrade(
++                    "UPGRADE_DEPLOYING", "UPGRADE_PREPARED", self.fixed
++                )
++        self.assertEqual(owner.read_state(self.live)["phase"], "UPGRADE_DEPLOYING")
++        with patch.object(owner, "verify_recovery_database") as proof:
++            owner.transition_upgrade(
++                "UPGRADE_DEPLOYING", "UPGRADE_PREPARED", self.fixed
++            )
++            proof.assert_called_once_with(self.fixed)
++
++    def test_unknown_bootstrap_is_not_bypassed(self):
++        self.deploying()
++        state = owner.read_state(self.live)
++        state["ai_bootstrap_attempt"] = {"status": "STARTED"}
++        owner.atomic_write_state(self.live, state)
++        self.assert_rejected("bootstrap")
++
++    def test_sigterm_parent_holds_lock_until_child_exits(self):
++        self.deploying()
++        child_script = self.root / "child.py"
++        child_script.write_text("""import os, signal, time, subprocess, sys
++from pathlib import Path
++root=Path(os.environ['PARTSIGNAL_DATA_ROOT']).parent
++grand=subprocess.Popen([sys.executable, '-c', "import os,signal,time; from pathlib import Path; r=Path(os.environ['PARTSIGNAL_DATA_ROOT']).parent; signal.signal(signal.SIGTERM, lambda s,f: ((r/'grandterm').touch(),exit(0))); (r/'grandready').touch(); time.sleep(60)"])
++while not (root/'grandready').exists(): time.sleep(0.01)
++def stop(signum, frame):
++    (root/'terminating').touch()
++    while not (root/'release').exists(): time.sleep(0.01)
++    grand.wait(timeout=3)
++    raise SystemExit(143)
++signal.signal(signal.SIGTERM, stop)
++(root/'ready').touch()
++while True: time.sleep(0.01)
++""")
++        process = subprocess.Popen(
++            [
++                sys.executable,
++                str(SCRIPTS / "prepare-production-data.py"),
++                "run-locked",
++                sys.executable,
++                str(child_script),
++            ],
++            stdout=subprocess.PIPE,
++            stderr=subprocess.PIPE,
++        )
++
++        def await_file(name):
++            end = time.monotonic() + 5
++            while not (self.root / name).exists():
++                if time.monotonic() > end:
++                    self.fail(f"missing event: {name}")
++                time.sleep(0.01)
++
++        try:
++            await_file("ready")
++            process.send_signal(signal.SIGTERM)
++            await_file("terminating")
++            await_file("grandterm")
++            with self.assertRaisesRegex(owner.DataStateError, "排他锁"):
++                with owner.maintenance_lock():
++                    pass
++            (self.root / "release").touch()
++            process.communicate(timeout=5)
++            self.assertEqual(process.returncode, 143)
++            with owner.maintenance_lock():
++                pass
++            self.assertEqual(owner.read_state(self.live)["phase"], "UPGRADE_DEPLOYING")
++        finally:
++            (self.root / "release").touch()
++            if process.poll() is None:
++                process.send_signal(signal.SIGTERM)
++                process.communicate(timeout=12)
++
++    def test_duplicate_and_linked_migration_members_rejected(self):
++        from production_upgrade_recovery import archive_migrations
++
++        path = self.root / "bad.tar"
++        for kind in ("duplicate", "link", "alias"):
++            with self.subTest(kind=kind):
++                with tarfile.open(path, "w") as archive:
++                    name = "backend/alembic/env.py"
++                    member = tarfile.TarInfo(name)
++                    if kind == "link":
++                        member.type = tarfile.SYMTYPE
++                        member.linkname = "/etc/passwd"
++                    if kind == "alias":
++                        member.name = "backend/alembic/../alembic/env.py"
++                    archive.addfile(member)
++                    if kind == "duplicate":
++                        archive.addfile(member)
++                with self.assertRaisesRegex(ValueError, "重复|普通文件|路径别名"):
++                    archive_migrations(path)
++
++    def test_prior_artifact_cannot_be_retagged_as_forward_fix(self):
++        self.deploying()
++        state = owner.read_state(self.live)
++        state["previous_candidate"] = {**self.fixed, "release_id": "earlier"}
++        owner.atomic_write_state(self.live, state)
++        self.assert_rejected("旧候选或已失败镜像")
++
++    def test_database_probe_rejects_wrong_head_and_integrity_failure(self):
++        runtime = self.root / "runtime.env"
++        runtime.write_text("fixture")
++        self.boundary.stop()
++        with patch.object(
++            owner, "validate_recovery_boundary", return_value=str(runtime)
++        ):
++            with patch.object(owner, "verify_candidate_images"):
++                with patch.object(
++                    owner.subprocess,
++                    "run",
++                    side_effect=[
++                        subprocess.CompletedProcess([], 0),
++                        subprocess.CompletedProcess([], 0, '["wrong_head"]'),
++                    ],
++                ):
++                    with self.assertRaisesRegex(owner.DataStateError, "schema head"):
++                        owner.verify_recovery_database(self.fixed)
++                with patch.object(
++                    owner.subprocess,
++                    "run",
++                    side_effect=subprocess.CalledProcessError(1, []),
++                ):
++                    with self.assertRaises(subprocess.CalledProcessError):
++                        owner.verify_recovery_database(self.fixed)
++        self.boundary.start()
++
++    def test_production_browser_boundary_failure_does_not_rebind(self):
++        self.deploying()
++        before = owner.read_state(self.live)
++        with patch.object(
++            owner,
++            "validate_recovery_boundary",
++            side_effect=subprocess.CalledProcessError(1, []),
++        ):
++            with self.assertRaises(subprocess.CalledProcessError):
++                self.recover()
++        self.assertEqual(owner.read_state(self.live), before)
++
++    def test_image_migration_mismatch_preserves_failed_candidate(self):
++        self.deploying()
++        before = owner.read_state(self.live)
++        self.image_probe.stop()
++        try:
++            def probe(command, **kwargs):
++                expected = hashlib.sha256(json.dumps({
++                    name: hashlib.sha256(data).hexdigest()
++                    for name, data in self.migrations.items()
++                }, sort_keys=True).encode()).hexdigest()
++                actual = failure if self.failed["backend_image_id"] in command else expected
++                return subprocess.CompletedProcess(command, 0, actual)
++            for failure, error in (("wrong", "镜像内迁移树"), ("MIGRATION_CACHE_PREFIX_FORBIDDEN", "树外迁移编译缓存")):
++                with patch.object(owner.subprocess, "run", side_effect=probe):
++                    with self.assertRaisesRegex(owner.DataStateError, error):
++                        self.recover()
++                self.assertEqual(owner.read_state(self.live), before)
++        finally:
++            self.image_probe.start()
++
++
++if __name__ == "__main__":
++    unittest.main()
+--- /dev/null
++++ after/deploy/scripts/test-upgrade-cache-policy.py
+@@ -0,0 +1,86 @@
++#!/usr/bin/env python3
++"""验证失败执行缓存策略的持久证明，拒绝事后补造历史。"""
++
++import importlib.util
++import json
++import subprocess
++import unittest
++from pathlib import Path
++from unittest.mock import patch
++
++spec = importlib.util.spec_from_file_location(
++    "recovery_fixture", Path(__file__).with_name("test-upgrade-recovery.py")
++)
++fixture = importlib.util.module_from_spec(spec)
++spec.loader.exec_module(fixture)
++owner = fixture.owner
++
++
++class CachePolicyTests(unittest.TestCase):
++    def setUp(self):
++        # 复用已有真实文件/manifest/state 夹具，不重复发现其测试。
++        self.data = fixture.UpgradeRecoveryTests("runTest")
++        self.data.setUp()
++
++    def tearDown(self):
++        self.data.tearDown()
++
++    def inspect(self, values):
++        image = {"Id": self.data.failed["backend_image_id"], "Config": {"Env": values}}
++        return patch.object(owner.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, json.dumps([image])))
++
++    def test_first_entry_records_candidate_bound_proof_atomically(self):
++        self.data.cache_policy.stop()
++        with self.inspect(["PATH=/opt/venv/bin", "PYTHONPYCACHEPREFIX="]):
++            self.data.deploying()
++        self.assertEqual(owner.read_state(self.data.live)["upgrade_migration_cache_policy"], {
++            "policy": "DEFAULT_PYTHON_CACHE_V1", "candidate": self.data.failed,
++        })
++
++    def test_image_prefix_or_unknown_inspection_preserves_initialized(self):
++        self.data.cache_policy.stop()
++        before = owner.read_state(self.data.live)
++        for values in (["PYTHONPYCACHEPREFIX=/opt/cache"], None):
++            with self.inspect(values), self.assertRaises(owner.DataStateError):
++                self.data.deploying()
++            self.assertEqual(owner.read_state(self.data.live), before)
++
++    def test_failed_entry_boundary_does_not_record_proof(self):
++        self.data.cache_policy.stop()
++        before = owner.read_state(self.data.live)
++        with patch.object(owner, "validate_recovery_boundary", side_effect=owner.DataStateError("runtime cache prefix")):
++            with self.assertRaises(owner.DataStateError):
++                self.data.deploying()
++        self.assertEqual(owner.read_state(self.data.live), before)
++
++    def test_historical_missing_wrong_or_unknown_policy_cannot_rebind(self):
++        self.data.deploying()
++        state = owner.read_state(self.data.live)
++        for policy in (None, {"policy": "UNKNOWN", "candidate": self.data.failed},
++                       {"policy": "DEFAULT_PYTHON_CACHE_V1", "candidate": self.data.fixed}):
++            state["upgrade_migration_cache_policy"] = policy
++            owner.atomic_write_state(self.data.live, state)
++            self.data.assert_rejected("失败执行缺少绑定候选的迁移缓存策略证明")
++
++    def test_same_candidate_reentry_cannot_forge_historical_proof(self):
++        self.data.deploying()
++        state = owner.read_state(self.data.live)
++        del state["upgrade_migration_cache_policy"]
++        owner.atomic_write_state(self.data.live, state)
++        owner.begin_upgrade(self.data.failed)
++        self.assertNotIn("upgrade_migration_cache_policy", owner.read_state(self.data.live))
++        self.data.assert_rejected("失败执行缺少绑定候选的迁移缓存策略证明")
++
++    def test_recovery_binds_new_policy_and_keeps_failed_policy_in_receipt(self):
++        self.data.deploying()
++        old = owner.read_state(self.data.live)["upgrade_migration_cache_policy"]
++        self.data.recover()
++        state = owner.read_state(self.data.live)
++        self.assertEqual(state["upgrade_recoveries"][-1]["failed_cache_policy"], old)
++        self.assertEqual(state["upgrade_migration_cache_policy"]["candidate"], self.data.fixed)
++        self.data.recover()
++        self.assertEqual(owner.read_state(self.data.live), state)
++
++
++if __name__ == "__main__":
++    unittest.main()
+--- /dev/null
++++ after/deploy/scripts/test-upgrade-registry-order.py
+@@ -0,0 +1,86 @@
++#!/usr/bin/env python3
++"""真实 shell/状态所有者：registry 未缓存候选须先认证再交付、最后绑定。"""
++
++import importlib.util
++import json
++import os
++import subprocess
++import unittest
++from pathlib import Path
++
++spec = importlib.util.spec_from_file_location(
++    'recovery_fixture', Path(__file__).with_name('test-upgrade-recovery.py')
++)
++fixture = importlib.util.module_from_spec(spec)
++spec.loader.exec_module(fixture)
++
++
++class RegistryUpgradeTests(unittest.TestCase):
++    def setUp(self):
++        self.data = fixture.UpgradeRecoveryTests('runTest')
++        self.data.setUp()
++        self.runtime = self.data.root / 'runtime.env'
++        self.runtime.write_text('APP_ENV=production\n')
++        self.runtime.chmod(0o600)
++        self.bin = self.data.root / 'bin'
++        self.bin.mkdir()
++        self.log = self.data.root / 'docker.jsonl'
++        self.marker = self.data.root / 'pulled'
++        docker = self.bin / 'docker'
++        docker.write_text('''#!/usr/bin/env python3
++import json, os, sys
++from pathlib import Path
++args=sys.argv[1:]
++root=Path(os.environ['PARTSIGNAL_DATA_ROOT'])
++state=lambda:json.loads((root/'.partsignal-production-cutover.json').read_text())
++marker=Path(os.environ['ORDER_PULL_MARKER'])
++with open(os.environ['ORDER_LOG'], 'a') as output: output.write(json.dumps(args)+'\\n')
++if args[:2] == ['image','inspect']:
++    if not marker.exists(): sys.exit(81)
++    print(json.dumps([{'Id':'sha256:'+'b'*64,'Config':{'Env':[]},'RepoDigests':['test/backend@sha256:'+'b'*64,'test/frontend@sha256:'+'b'*64]}]))
++elif args[0] == 'compose' and 'pull' in args:
++    assert state()['phase'] == 'PRODUCTION_INITIALIZED'
++    marker.touch()
++elif args[0] == 'compose' and any(c in args for c in ('run','up')):
++    current=state()
++    assert marker.exists() and current['phase'] == 'UPGRADE_DEPLOYING'
++    assert current['upgrade_migration_cache_policy']['candidate'] == current['candidate']
++''')
++        docker.chmod(0o700)
++        curl = self.bin / 'curl'
++        curl.write_text('#!/bin/sh\nexit 0\n')
++        curl.chmod(0o700)
++        os.environ.update(
++            ENV_FILE=str(self.runtime), PARTSIGNAL_RUNTIME_ENV_FILE=str(self.runtime),
++            PARTSIGNAL_RELEASE_MANIFEST=str(self.data.fixed_manifest),
++            PARTSIGNAL_IMAGE_DELIVERY_MODE='registry', PARTSIGNAL_DEPLOY_MODE='upgrade',
++            ORDER_LOG=str(self.log), ORDER_PULL_MARKER=str(self.marker),
++            PATH=str(self.bin) + os.pathsep + os.environ['PATH'],
++        )
++        self.deploy = self.data.repository / 'deploy/scripts/deploy.sh'
++        self.deploy.chmod(0o700)
++
++    def tearDown(self):
++        self.data.tearDown()
++
++    def test_uncached_registry_candidate_delivers_before_policy_and_run(self):
++        result = subprocess.run([str(self.deploy)], capture_output=True, text=True)
++        self.assertEqual(result.returncode, 0, result.stderr)
++        calls = [json.loads(line) for line in self.log.read_text().splitlines()]
++        pulled = next(i for i, args in enumerate(calls) if args[0] == 'compose' and 'pull' in args)
++        inspected = next(i for i, args in enumerate(calls) if args[:2] == ['image','inspect'])
++        self.assertLess(pulled, inspected)
++        self.assertEqual(fixture.owner.read_state(self.data.live)['phase'], 'UPGRADE_PREPARED')
++
++    def test_bad_manifest_does_not_pull_or_mutate_state(self):
++        before = fixture.owner.read_state(self.data.live)
++        self.data.fixed_manifest.write_text('{}')
++        result = subprocess.run([str(self.deploy)], capture_output=True, text=True)
++        self.assertNotEqual(result.returncode, 0)
++        self.assertFalse(self.marker.exists())
++        self.assertFalse(self.log.exists())
++        self.assertEqual(fixture.owner.read_state(self.data.live), before)
++
++
++if __name__ == '__main__':
++    unittest.main()
+--- /dev/null
++++ after/deploy/scripts/test-upgrade-recovery-compose.py
+@@ -0,0 +1,490 @@
++#!/usr/bin/env python3
++"""仅本地空闲 Engine：权威 Compose、独立 PG16 与真实升级故障演练。"""
++
++from __future__ import annotations
++
++import base64
++import hashlib
++import json
++import os
++import secrets
++import shutil
++import signal
++import subprocess
++import sys
++import tarfile
++import tempfile
++import uuid
++from pathlib import Path
++
++ROOT = Path(__file__).resolve().parents[2]
++SCRIPTS = ROOT / "deploy/scripts"
++PROJECT = "partsignal-staging"
++NETWORKS = {PROJECT + "-" + suffix for suffix in ("internal", "egress", "edge")}
++
++
++def main():
++    def docker(*args, **kwargs):
++        return subprocess.run(
++            ["docker", *args], capture_output=True, text=True, **kwargs
++        )
++
++    endpoint = docker(
++        "context",
++        "inspect",
++        "--format",
++        '{{(index .Endpoints "docker").Host}}',
++        check=True,
++    ).stdout.strip()
++    if os.environ.get("DOCKER_HOST", endpoint).startswith("unix://") is False:
++        raise RuntimeError("演练只允许本地 Unix socket Engine")
++    if docker(
++        "ps",
++        "-aq",
++        "--filter",
++        f"label=com.docker.compose.project={PROJECT}",
++        check=True,
++    ).stdout.strip():
++        raise RuntimeError("固定 Compose project 已占用，禁止接管")
++    if NETWORKS.intersection(
++        docker("network", "ls", "--format", "{{.Name}}", check=True).stdout.splitlines()
++    ):
++        raise RuntimeError("固定 Compose network 已占用，禁止接管")
++    for image in (
++        "partsignal-backend:test",
++        "partsignal-frontend-v2:test",
++        "postgres:16-alpine",
++        "redis:7.4-alpine",
++    ):
++        docker("image", "inspect", image, check=True)
++    cache = ROOT / ".cache"
++    cache.mkdir(exist_ok=True)
++    temporary = tempfile.TemporaryDirectory(prefix="geo1007-compose-", dir=cache)
++    root = Path(temporary.name).resolve()
++    live = root / "live"
++    for leaf in ("postgres", "redis"):
++        (live / leaf).mkdir(parents=True)
++    owner_id = "geo1007-" + uuid.uuid4().hex
++    failed_release, fixed_release = owner_id + "-failed", owner_id + "-fixed"
++    backend = owner_id + "-backend"
++    frontend = owner_id + "-frontend-v2"
++    fixed_ref, failed_ref = (
++        backend + ":" + fixed_release,
++        backend + ":" + failed_release,
++    )
++    image_refs = [
++        fixed_ref,
++        failed_ref,
++        frontend + ":" + fixed_release,
++        frontend + ":" + failed_release,
++    ]
++    runtime = root / "runtime.env"
++    values = dict(
++        line.split("=", 1)
++        for line in (ROOT / ".env.production.example").read_text().splitlines()
++        if line and not line.startswith("#")
++    )
++    for key in (
++        "POSTGRES_PASSWORD",
++        "SESSION_SECRET",
++        "UPLOAD_SIGNING_SECRET",
++        "PARTSIGNAL_SEED_ADMIN_PASSWORD",
++        "PARTSIGNAL_SEED_ENGINEER_PASSWORD",
++    ):
++        values[key] = secrets.token_urlsafe(36)
++    values.update(
++        AI_CREDENTIAL_ENCRYPTION_KEY=base64.b64encode(secrets.token_bytes(32)).decode(),
++        DATABASE_URL=f"postgresql+psycopg://{values['POSTGRES_USER']}:{values['POSTGRES_PASSWORD']}@postgres:5432/{values['POSTGRES_DB']}",
++        OSS_ENDPOINT="https://oss-cn-hangzhou.aliyuncs.com",
++        OSS_BUCKET="geo1007-fixture",
++        OSS_ACCESS_KEY_ID="synthetic-not-a-credential",
++        OSS_ACCESS_KEY_SECRET="synthetic-not-a-secret",
++    )
++    runtime.write_text("".join(f"{key}={value}\n" for key, value in values.items()))
++    runtime.chmod(0o600)
++    environment = {
++        **os.environ,
++        "ENV_FILE": str(runtime),
++        "PARTSIGNAL_RUNTIME_ENV_FILE": str(runtime),
++        "PARTSIGNAL_DATA_ROOT": str(live),
++        "PARTSIGNAL_QUARANTINE_ROOT": str(root / "quarantine"),
++        "PARTSIGNAL_MAINTENANCE_LOCK_FILE": str(root / "maintenance.lock"),
++        "PARTSIGNAL_ALLOW_NONSTANDARD_DATA_ROOT_FOR_TESTS": "1",
++        "PARTSIGNAL_BACKEND_IMAGE": backend,
++        "PARTSIGNAL_FRONTEND_IMAGE": frontend,
++        "PARTSIGNAL_VERSION": fixed_release,
++        "PARTSIGNAL_IMAGE_DELIVERY_MODE": "local",
++        "PARTSIGNAL_DEPLOY_MODE": "upgrade",
++        "COMPOSE_PROJECT_NAME": PROJECT,
++    }
++    compose = [
++        "docker",
++        "compose",
++        "--profile",
++        "production-async",
++        "--env-file",
++        str(runtime),
++        "-f",
++        str(ROOT / "deploy/compose.prod.yaml"),
++    ]
++
++    def run(command, *, expected=0, reason=None):
++        result = subprocess.run(
++            command, env=environment, capture_output=True, text=True
++        )
++        if result.returncode != expected or (reason and reason not in result.stderr):
++            # Docker 输出可能含运行配置；失败报告只给阶段/exit，不回显材料。
++            safe = [
++                line
++                for line in result.stderr.splitlines()
++                if line.startswith("Production 数据状态操作失败：")
++                or line.startswith("Production 部署边界校验失败")
++                or line.startswith("缺少")
++                or line.startswith("Production 候选")
++            ]
++            raise RuntimeError(
++                f"演练命令失败：{command[0:2]} expected={expected}, actual={result.returncode}; {safe}"
++            )
++        return result
++
++    def state():
++        return json.loads((live / ".partsignal-production-cutover.json").read_text())
++
++    def cli(command, manifest, *, expected=0, reason=None, extra=()):
++        return run(
++            [
++                sys.executable,
++                str(SCRIPTS / "prepare-production-data.py"),
++                command,
++                str(manifest),
++                *extra,
++            ],
++            expected=expected,
++            reason=reason,
++        )
++
++    def sql(statement):
++        return run(
++            [
++                *compose,
++                "exec",
++                "-T",
++                "postgres",
++                "psql",
++                "-XAt",
++                "-v",
++                "ON_ERROR_STOP=1",
++                "-U",
++                values["POSTGRES_USER"],
++                "-d",
++                values["POSTGRES_DB"],
++                "-c",
++                statement,
++            ]
++        ).stdout.strip()
++
++    def data_hashes(tables=None):
++        tables = (
++            tables
++            or sql(
++                "SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename NOT IN ('alembic_version','geo_operation_health') ORDER BY tablename"
++            ).splitlines()
++        )
++        return {
++            table: hashlib.sha256(
++                sql(
++                    f"SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)::text)::text,'[]') FROM \"{table}\" t"
++                ).encode()
++            ).hexdigest()
++            for table in tables
++        }
++
++    def snapshot_archive(release):
++        archive = root / f"{release}.tar.gz"
++        with tarfile.open(archive, "w:gz") as output:
++            for path in sorted((ROOT / "backend/alembic").rglob("*")):
++                if (
++                    path.is_file()
++                    and "__pycache__" not in path.parts
++                    and path.suffix != ".pyc"
++                ):
++                    output.add(
++                        path, arcname=path.relative_to(ROOT).as_posix(), recursive=False
++                    )
++            output.add(ROOT / "backend/alembic.ini", arcname="backend/alembic.ini")
++        return archive
++
++    def manifest(release, archive):
++        # 测试夹具不伪装 clean main 候选；producer 仅在明确测试边界跳过 Git source gate。
++        path = root / f"{release}.json"
++        command = [
++            sys.executable,
++            str(SCRIPTS / "create-release-manifest.py"),
++            "--release-id",
++            release,
++            "--commit",
++            "a" * 40,
++            "--source-archive",
++            str(archive),
++            "--backend-image",
++            backend + ":" + release,
++            "--frontend-image",
++            frontend + ":" + release,
++            "--rollback-frontend-image",
++            "partsignal-frontend-v2:test",
++            "--schema-head",
++            "0066_geo_manual_evaluation",
++            "--output",
++            str(path),
++        ]
++        import importlib.util
++
++        spec = importlib.util.spec_from_file_location(
++            "producer", SCRIPTS / "create-release-manifest.py"
++        )
++        module = importlib.util.module_from_spec(spec)
++        spec.loader.exec_module(module)
++        for name in sorted(module.REQUIRED_TRACKED_FILES):
++            command.extend(["--tracked-file", str(ROOT / name)])
++        old = environment.get("PARTSIGNAL_ALLOW_UNVERIFIED_RELEASE_SOURCE_FOR_TESTS")
++        environment["PARTSIGNAL_ALLOW_UNVERIFIED_RELEASE_SOURCE_FOR_TESTS"] = "1"
++        try:
++            run(command)
++        finally:
++            if old is None:
++                environment.pop("PARTSIGNAL_ALLOW_UNVERIFIED_RELEASE_SOURCE_FOR_TESTS")
++            else:
++                environment["PARTSIGNAL_ALLOW_UNVERIFIED_RELEASE_SOURCE_FOR_TESTS"] = (
++                    old
++                )
++        return path
++
++    def interrupted(signum, _frame):
++        raise KeyboardInterrupt(f"演练收到 signal {signum}")
++
++    previous = {
++        s: signal.signal(s, interrupted) for s in (signal.SIGINT, signal.SIGTERM)
++    }
++    started = False
++    try:
++        build = root / "build"
++        shutil.copytree(
++            ROOT / "backend",
++            build,
++            ignore=shutil.ignore_patterns(
++                ".venv",
++                "__pycache__",
++                "*.pyc",
++                ".pytest_cache",
++                ".mypy_cache",
++                ".ruff_cache",
++                "*.egg-info",
++            ),
++        )
++        (build / "Dockerfile").write_text("FROM partsignal-backend:test\nCOPY . /app\nRUN find alembic -type f \\( -name '*.pyc' -o -name '*.pyo' \\) -delete\n")
++        run(["docker", "build", "--pull=false", "-t", fixed_ref, str(build)])
++        (build / "Dockerfile").write_text(
++            f'FROM {fixed_ref}\nCOPY failure.sh /failure.sh\nENTRYPOINT ["/bin/sh", "/failure.sh"]\n'
++        )
++        (build / "failure.sh").write_text("""#!/bin/sh
++if test "$1" = alembic; then
++  "$@" || exit "$?"
++  exit 23
++fi
++if test "$1" = uvicorn; then exit 24; fi
++exec "$@"
++""")
++        run(["docker", "build", "--pull=false", "-t", failed_ref, str(build)])
++        for release in (failed_release, fixed_release):
++            run(
++                [
++                    "docker",
++                    "tag",
++                    "partsignal-frontend-v2:test",
++                    frontend + ":" + release,
++                ]
++            )
++        failed_archive, fixed_archive = (
++            snapshot_archive(failed_release),
++            snapshot_archive(fixed_release),
++        )
++        failed_manifest, fixed_manifest = (
++            manifest(failed_release, failed_archive),
++            manifest(fixed_release, fixed_archive),
++        )
++        run([*compose, "config", "--quiet"])
++        started = True
++        run([*compose, "up", "--pull", "never", "-d", "--wait", "postgres", "redis"])
++        run(
++            [
++                *compose,
++                "run",
++                "--rm",
++                "--pull",
++                "never",
++                "migrate",
++                "alembic",
++                "upgrade",
++                "0065_geo_observability",
++            ]
++        )
++        run(
++            [
++                *compose,
++                "run",
++                "--rm",
++                "--pull",
++                "never",
++                "api",
++                "python",
++                "-m",
++                "app.cli",
++                "initialize-accounts",
++            ]
++        )
++        before = data_hashes()
++        (live / ".partsignal-production-cutover.json").write_text(
++            json.dumps(
++                {
++                    "schema_version": 1,
++                    "data_root": str(live),
++                    "phase": "PRODUCTION_INITIALIZED",
++                    "candidate": {"release_id": "fixture-initialized-0065"},
++                }
++            )
++        )
++        environment.update(
++            PARTSIGNAL_VERSION=failed_release,
++            PARTSIGNAL_RELEASE_MANIFEST=str(failed_manifest),
++        )
++        run([str(SCRIPTS / "deploy.sh")], expected=23)
++        assert state()["phase"] == "UPGRADE_DEPLOYING"
++        assert (
++            sql("SELECT version_num FROM alembic_version")
++            == "0066_geo_manual_evaluation"
++        )
++        assert data_hashes(list(before)) == before, [table for table in before if data_hashes([table]) != {table: before[table]}]
++        print(
++            "真实迁移提交后 artifact exit23：UPGRADE_DEPLOYING；既有表完整行摘要不变",
++            flush=True,
++        )
++        failed_candidate = state()["candidate"]
++        if "--sigterm-after-failure" in sys.argv:
++            os.kill(os.getpid(), signal.SIGTERM)
++        environment["PARTSIGNAL_VERSION"] = fixed_release
++        cli("begin-upgrade", fixed_manifest, expected=2, reason="候选不一致")
++        environment["PARTSIGNAL_VERSION"] = failed_release
++        cli(
++            "verify-rollback-frontend",
++            failed_manifest,
++            expected=2,
++            reason="要求 PRODUCTION_INITIALIZED",
++        )
++        run([*compose, "up", "--pull", "never", "-d", "api"])
++        api_id = run([*compose, "ps", "-aq", "api"]).stdout.strip()
++        assert run(["docker", "wait", api_id]).stdout.strip() == "24"
++        print(
++            "真实启动 artifact exit24；新候选和 frontend rollback 原路径均拒绝",
++            flush=True,
++        )
++        extra = [
++            "--failed-manifest",
++            str(failed_manifest),
++            "--failed-source-archive",
++            str(failed_archive),
++            "--source-archive",
++            str(fixed_archive),
++            "--failed-release-id",
++            failed_release,
++            "--failed-manifest-sha256",
++            failed_candidate["manifest_sha256"],
++            "--recovery-id",
++            "upr_20261005_120000",
++            "--approval-ref",
++            "local-fixture/approval",
++        ]
++        environment.update(
++            PARTSIGNAL_VERSION=fixed_release,
++            PARTSIGNAL_RELEASE_MANIFEST=str(fixed_manifest),
++        )
++        cli(
++            "recover-upgrade",
++            fixed_manifest,
++            expected=2,
++            reason="仍有运行容器",
++            extra=extra,
++        )
++        run(
++            [
++                *compose,
++                "stop",
++                "api",
++                "worker",
++                "scheduler",
++                "frontend",
++                "postgres",
++                "redis",
++            ]
++        )
++        cli("recover-upgrade", fixed_manifest, extra=extra)
++        first_receipt = state()
++        cli("recover-upgrade", fixed_manifest, extra=extra)
++        assert state() == first_receipt and state()["phase"] == "UPGRADE_DEPLOYING"
++        run([str(SCRIPTS / "deploy.sh")])
++        assert state()["phase"] == "UPGRADE_PREPARED"
++        assert data_hashes(list(before)) == before, [table for table in before if data_hashes([table]) != {table: before[table]}]
++        environment["PARTSIGNAL_EXTERNAL_SERVICES_GATE"] = (
++            "MET"  # 仅合成隔离夹具，不是生产批准。
++        )
++        run([str(SCRIPTS / "activate-production.sh")])
++        assert state()["phase"] == "PRODUCTION_INITIALIZED"
++        assert data_hashes(list(before)) == before, [table for table in before if data_hashes([table]) != {table: before[table]}]
++        cli(
++            "recover-upgrade",
++            fixed_manifest,
++            expected=2,
++            reason="未初始化",
++            extra=extra,
++        )
++        print(
++            f"显式接管/重复回执/完整 deploy→activate 通过；{len(before)} 张既有表逐行摘要不变",
++            flush=True,
++        )
++    finally:
++        # 本次启动前证明固定 project/network 空闲，cleanup 只处理精确 project 资源。
++        for signum in previous:
++            signal.signal(signum, signal.SIG_IGN)
++        if started:
++            run([*compose, "down", "--volumes"])
++            assert not docker(
++                "ps",
++                "-aq",
++                "--filter",
++                f"label=com.docker.compose.project={PROJECT}",
++                check=True,
++            ).stdout.strip()
++            assert not NETWORKS.intersection(
++                docker(
++                    "network", "ls", "--format", "{{.Name}}", check=True
++                ).stdout.splitlines()
++            )
++        for reference in image_refs:
++            result = docker("image", "rm", reference)
++            if (
++                result.returncode
++                and docker("image", "inspect", reference).returncode == 0
++            ):
++                raise RuntimeError("本次演练镜像未清理")
++        temporary.cleanup()
++        assert not root.exists()
++        print(
++            "清理确认：本次 container/network/image/temp=0；共享开发 PG 未访问",
++            flush=True,
++        )
++
++
++if __name__ == "__main__":
++    try:
++        main()
++    except KeyboardInterrupt:
++        raise SystemExit(143) from None
+--- /dev/null
++++ after/deploy/scripts/test-upgrade-image-cache.py
+@@ -0,0 +1,214 @@
++#!/usr/bin/env python3
++"""用真实离线镜像验证迁移源码相同、缓存不同的拒绝反例。"""
++
++import hashlib
++import importlib.util
++import json
++import shutil
++import subprocess
++import sys
++import tempfile
++import uuid
++from pathlib import Path
++
++SCRIPTS = Path(__file__).resolve().parent
++ROOT = SCRIPTS.parents[1]
++sys.path.insert(0, str(SCRIPTS))
++spec = importlib.util.spec_from_file_location(
++    "owner", SCRIPTS / "prepare-production-data.py"
++)
++owner = importlib.util.module_from_spec(spec)
++spec.loader.exec_module(owner)
++
++
++def main():
++    endpoint = subprocess.run(
++        [
++            "docker",
++            "context",
++            "inspect",
++            "--format",
++            '{{(index .Endpoints "docker").Host}}',
++        ],
++        check=True,
++        capture_output=True,
++        text=True,
++    ).stdout.strip()
++    if not endpoint.startswith("unix://"):
++        raise RuntimeError("镜像反例只允许本地 Engine")
++    cache = ROOT / ".cache"
++    cache.mkdir(exist_ok=True)
++    refs = [
++        "geo1007-cache-" + uuid.uuid4().hex + suffix
++        for suffix in (":clean", ":poison", ":outside", ":historical")
++    ]
++    boundary_spec = importlib.util.spec_from_file_location(
++        "boundary", SCRIPTS / "check-production-inputs.py"
++    )
++    boundary = importlib.util.module_from_spec(boundary_spec)
++    boundary_spec.loader.exec_module(boundary)
++    for runtime, environment in (
++        ({"APP_ENV": "production", "PYTHONPYCACHEPREFIX": "/opt/cache"}, {}),
++        ({"APP_ENV": "production"}, {"PYTHONPYCACHEPREFIX": "/opt/cache"}),
++    ):
++        try:
++            boundary.check_deployment_boundary(runtime, environment)
++        except boundary.InputError as error:
++            assert str(error) == "PRODUCTION_MIGRATION_CACHE_PREFIX_FORBIDDEN"
++        else:
++            raise AssertionError("runtime/宿主机树外缓存设置被接受")
++    files = {
++        "backend/alembic.ini": hashlib.sha256(
++            (ROOT / "backend/alembic.ini").read_bytes()
++        ).hexdigest()
++    }
++    files.update(
++        {
++            p.relative_to(ROOT).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
++            for p in (ROOT / "backend/alembic").rglob("*")
++            if p.is_file() and "__pycache__" not in p.parts and p.suffix != ".pyc"
++        }
++    )
++    expected = hashlib.sha256(json.dumps(files, sort_keys=True).encode()).hexdigest()
++    with tempfile.TemporaryDirectory(prefix="geo1007-cache-", dir=cache) as temporary:
++        build = Path(temporary)
++        shutil.copytree(
++            ROOT / "backend/alembic",
++            build / "alembic",
++            ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
++        )
++        shutil.copy2(ROOT / "backend/alembic.ini", build / "alembic.ini")
++        try:
++            (build / "Dockerfile").write_text(
++                "FROM partsignal-backend:test\nCOPY . /app\nRUN find alembic -type f \\( -name '*.pyc' -o -name '*.pyo' \\) -delete\n"
++            )
++            subprocess.run(
++                ["docker", "build", "--pull=false", "-t", refs[0], str(build)],
++                check=True,
++                capture_output=True,
++            )
++            clean = json.loads(
++                subprocess.run(
++                    ["docker", "image", "inspect", refs[0]],
++                    check=True,
++                    capture_output=True,
++                    text=True,
++                ).stdout
++            )[0]["Id"]
++            owner.verify_migration_image({"backend_image_id": clean}, expected)
++            (build / "poison.py").write_text("""import importlib.util, marshal
++from pathlib import Path
++source=Path('/app/alembic/versions/0066_geo_manual_evaluation.py')
++cache=Path(importlib.util.cache_from_source(str(source)))
++cache.parent.mkdir(exist_ok=True)
++# unchecked-hash 缓存保持同 revision，却省掉不可变触发器。
++code=compile("revision='0066_geo_manual_evaluation'\\ndef upgrade(): pass\\n", str(source), 'exec')
++cache.write_bytes(importlib.util.MAGIC_NUMBER + (1).to_bytes(4,'little') + b'0'*8 + marshal.dumps(code))
++""")
++            (build / "Dockerfile").write_text(
++                f"FROM {refs[0]}\nCOPY poison.py /tmp/poison.py\nRUN python /tmp/poison.py\n"
++            )
++            subprocess.run(
++                ["docker", "build", "--pull=false", "-t", refs[1], str(build)],
++                check=True,
++                capture_output=True,
++            )
++            poison = json.loads(
++                subprocess.run(
++                    ["docker", "image", "inspect", refs[1]],
++                    check=True,
++                    capture_output=True,
++                    text=True,
++                ).stdout
++            )[0]["Id"]
++            try:
++                owner.verify_migration_image({"backend_image_id": poison}, expected)
++            except owner.DataStateError as error:
++                assert "编译缓存" in str(error)
++            else:
++                raise AssertionError("源码相同但缓存不同的镜像被接受")
++            (build / "poison.py").write_text("""import importlib.util, marshal
++from pathlib import Path
++source=Path('/app/alembic/versions/0066_geo_manual_evaluation.py')
++cache=Path(importlib.util.cache_from_source(str(source)))
++cache.parent.mkdir(parents=True, exist_ok=True)
++code=compile("revision='0066_geo_manual_evaluation'\\ndef upgrade(): return 'CACHE_EXECUTED'\\n", str(source), 'exec')
++cache.write_bytes(importlib.util.MAGIC_NUMBER + (1).to_bytes(4,'little') + b'0'*8 + marshal.dumps(code))
++""")
++            (build / "Dockerfile").write_text(
++                f"FROM {refs[0]}\nENV PYTHONPYCACHEPREFIX=/opt/cache\nCOPY poison.py /tmp/poison.py\nRUN python /tmp/poison.py\n"
++            )
++            subprocess.run(
++                ["docker", "build", "--pull=false", "-t", refs[2], str(build)],
++                check=True, capture_output=True,
++            )
++            outside = json.loads(subprocess.run(
++                ["docker", "image", "inspect", refs[2]],
++                check=True, capture_output=True, text=True,
++            ).stdout)[0]["Id"]
++            loader = """from importlib.machinery import SourceFileLoader
++from pathlib import Path
++assert not list(Path('/app/alembic').rglob('*.pyc'))
++module=SourceFileLoader('revision_probe', '/app/alembic/versions/0066_geo_manual_evaluation.py').load_module()
++assert module.upgrade() == 'CACHE_EXECUTED'
++print('真实 SourceFileLoader 读取树外 unchecked-hash 缓存')
++"""
++            subprocess.run(
++                ["docker", "run", "--rm", "--network", "none", "--read-only",
++                 "--entrypoint", "python", outside, "-c", loader], check=True,
++            )
++            try:
++                owner.verify_migration_image({"backend_image_id": outside}, expected)
++            except owner.DataStateError as error:
++                assert "树外迁移编译缓存" in str(error)
++            else:
++                raise AssertionError("源码树无缓存、树外缓存不同的镜像被接受")
++            (build / "Dockerfile").write_text(
++                f"FROM {refs[0]}\nCOPY poison.py /tmp/poison.py\nRUN PYTHONPYCACHEPREFIX=/opt/cache python /tmp/poison.py\n"
++            )
++            subprocess.run(
++                ["docker", "build", "--pull=false", "-t", refs[3], str(build)],
++                check=True, capture_output=True,
++            )
++            historical = json.loads(subprocess.run(
++                ["docker", "image", "inspect", refs[3]],
++                check=True, capture_output=True, text=True,
++            ).stdout)[0]
++            assert not any(value.startswith("PYTHONPYCACHEPREFIX=") for value in historical["Config"]["Env"])
++            subprocess.run(
++                ["docker", "run", "--rm", "--network", "none", "--read-only",
++                 "-e", "PYTHONPYCACHEPREFIX=/opt/cache", "--entrypoint", "python",
++                 historical["Id"], "-c", loader], check=True,
++            )
++            # 清除当前 runtime 后，镜像探针单独不能证明历史执行策略。
++            owner.verify_migration_image({"backend_image_id": historical["Id"]}, expected)
++            fixture_spec = importlib.util.spec_from_file_location(
++                "policy_fixture", SCRIPTS / "test-upgrade-recovery.py"
++            )
++            fixture = importlib.util.module_from_spec(fixture_spec)
++            fixture_spec.loader.exec_module(fixture)
++            data = fixture.UpgradeRecoveryTests("runTest")
++            data.setUp()
++            try:
++                data.deploying()
++                state = fixture.owner.read_state(data.live)
++                del state["upgrade_migration_cache_policy"]
++                fixture.owner.atomic_write_state(data.live, state)
++                data.assert_rejected("失败执行缺少绑定候选的迁移缓存策略证明")
++            finally:
++                data.tearDown()
++            print(
++                "真实镜像：树内/树外缓存拒绝；历史runtime清除反例要求失败时策略证明，CAS前拒绝且状态/数据保持；不访问数据库"
++            )
++        finally:
++            for reference in reversed(refs):
++                subprocess.run(
++                    ["docker", "image", "rm", reference],
++                    check=True,
++                    capture_output=True,
++                )
++    print("镜像/temp资源已精确清理")
++
++
++if __name__ == "__main__":
++    main()
+--- /dev/null
++++ after/deploy/scripts/test-upgrade-signal.py
+@@ -0,0 +1,87 @@
++#!/usr/bin/env python3
++"""验证忽略 SIGTERM 的维护子孙会在有限期限内被结束。"""
++
++import fcntl
++import json
++import os
++import signal
++import subprocess
++import sys
++import tempfile
++import time
++from pathlib import Path
++
++SCRIPT = Path(__file__).resolve().with_name("prepare-production-data.py")
++
++
++def main():
++    with tempfile.TemporaryDirectory(prefix="geo1007-signal-") as temporary:
++        root = Path(temporary).resolve()
++        lock = root / "maintenance.lock"
++        state = root / "state.json"
++        state.write_text('{"phase":"UPGRADE_DEPLOYING"}')
++        child = root / "child.py"
++        child.write_text("""import json, os, signal, subprocess, sys, time
++from pathlib import Path
++root=Path(os.environ['SIGNAL_FIXTURE_ROOT'])
++signal.signal(signal.SIGTERM, signal.SIG_IGN)
++grand=subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'])
++(root/'ready').write_text(json.dumps([os.getpid(), grand.pid]))
++while True: time.sleep(0.1)
++""")
++        environment = {
++            **os.environ,
++            "SIGNAL_FIXTURE_ROOT": str(root),
++            "PARTSIGNAL_ALLOW_NONSTANDARD_DATA_ROOT_FOR_TESTS": "1",
++            "PARTSIGNAL_MAINTENANCE_LOCK_FILE": str(lock),
++        }
++        process = subprocess.Popen(
++            [sys.executable, str(SCRIPT), "run-locked", sys.executable, str(child)],
++            env=environment,
++            stdout=subprocess.PIPE,
++            stderr=subprocess.PIPE,
++        )
++        descendants = []
++        try:
++            deadline = time.monotonic() + 5
++            while not (root / "ready").exists():
++                if process.poll() is not None or time.monotonic() > deadline:
++                    raise AssertionError("信号夹具未就绪")
++                time.sleep(0.01)
++            descendants = json.loads((root / "ready").read_text())
++            process.send_signal(signal.SIGTERM)
++            with lock.open("r+") as descriptor:
++                try:
++                    fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
++                except BlockingIOError:
++                    pass
++                else:
++                    raise AssertionError("子孙仍存活时维护锁提前释放")
++            process.communicate(timeout=13)
++            assert process.returncode == 143
++            for pid in descendants:
++                status = subprocess.run(
++                    ["ps", "-p", str(pid), "-o", "stat="],
++                    capture_output=True,
++                    text=True,
++                ).stdout.strip()
++                assert not status or status.startswith("Z"), "SIGKILL 后仍有可执行子孙"
++            with lock.open("r+") as descriptor:
++                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
++            assert state.read_text() == '{"phase":"UPGRADE_DEPLOYING"}'
++            print(
++                "SIGTERM ignored：10秒期限内结束整组；退出前锁占用、退出后释放、phase/data未推进"
++            )
++        finally:
++            if process.poll() is None:
++                process.send_signal(signal.SIGTERM)
++                process.communicate(timeout=13)
++            for pid in descendants:
++                try:
++                    os.kill(pid, signal.SIGKILL)
++                except ProcessLookupError:
++                    pass
++
++
++if __name__ == "__main__":
++    main()
+--- /dev/null
++++ after/docs/geo-monitoring/04-delivery/geo-1007-upgrade-recovery.template.yaml
+@@ -0,0 +1,88 @@
++# 低敏证据模板；不是 candidate manifest 或批准。禁止凭据、DSN、正文和原始 dump。
++record_kind: upgrade_artifact_forward_recovery
++task_id: GEO-1007
++delivery_scope_id: GEO-1008
++record_status: TEMPLATE_NOT_EXECUTED
++recorded_at_utc: null
++target:
++  environment_id: null
++  operator: null
++  maintenance_window_ref: null
++  public_maintenance_503_evidence_ref: null
++  stopped_project_and_data_mount_evidence_ref: null
++  maintenance_lock_evidence_ref: null
++authorization:
++  recovery_id: null # upr_YYYYMMDD_HHMMSS；每次显式接管唯一
++  approval_ref: null
++  approver: null
++  approved_at_utc: null
++  exact_operation_ref: null
++failed_candidate:
++  release_id: null
++  manifest_sha256: null
++  protected_manifest_ref: null
++  source_archive_sha256: null
++  phase_at_failure: null
++  schema_head_before_failure: null
++  schema_head_after_failure: null
++  migration_commit_evidence_ref: null
++  artifact_failure_evidence_ref: null
++  offline_failed_image_migration_tree_match_ref: null
++  failed_execution_cache_policy_evidence_ref: null
++  original_new_candidate_rejection_ref: null
++  original_frontend_rollback_rejection_ref: null
++fixed_candidate:
++  release_id: null
++  manifest_sha256: null
++  protected_manifest_ref: null
++  source_archive_sha256: null
++  image_id_and_repo_digest_evidence_ref: null
++  tracked_file_verification_ref: null
++  expected_schema_head: null
++  migration_tree_sha256: null
++  archive_and_current_tree_match_ref: null
++  offline_image_migration_tree_match_ref: null
++execution:
++  recovery_command_evidence_ref: null
++  atomic_state_and_receipt_ref: null
++  phase_after_recovery: null # 必须 UPGRADE_DEPLOYING；此处不代表 initialized
++  repeat_or_interruption_result: NOT_VERIFIED
++  deploy_integrity_and_schema_probe: NOT_VERIFIED
++  deploy_readiness: NOT_VERIFIED
++  external_services_gate_ref: null
++  activation_approval_ref: null
++  activation_result: NOT_VERIFIED
++  public_traffic_approval_ref: null
++  phase_at_completion: null
++data:
++  protected_backup_ref: null
++  existing_table_digest_comparison_ref: null
++  historical_data_integrity_result: NOT_VERIFIED
++counterexamples:
++  wrong_failed_identity: NOT_VERIFIED
++  wrong_manifest_or_tracked_hash: NOT_VERIFIED
++  wrong_image_or_old_artifact: NOT_VERIFIED
++  changed_schema_or_migration_tree: NOT_VERIFIED
++  migration_cache_inside_or_outside_tree: NOT_VERIFIED
++  runtime_or_host_cache_prefix: NOT_VERIFIED
++  historical_runtime_prefix_removed_without_proof: NOT_VERIFIED
++  active_services_or_data_mount: NOT_VERIFIED
++  concurrent_lock: NOT_VERIFIED
++  before_and_after_atomic_interruption: NOT_VERIFIED
++  conflicting_repeat: NOT_VERIFIED
++  sigterm_and_child_lifecycle: NOT_VERIFIED
++  recovery_failure_remains_maintenance: NOT_VERIFIED
++isolation:
++  postgres_and_compose_owner_ref: null
++  fixture_or_target: null
++  cleanup_result: NOT_VERIFIED
++  shared_resources_unchanged_ref: null
++review:
++  independent_review_ref: null
++  unresolved_findings: null
++  human_acceptance: NOT_VERIFIED
++safe_stop:
++  current_phase_and_candidate_ref: null
++  unresolved_input: null
++  recovery_owner: null
++  next_authorized_action: null

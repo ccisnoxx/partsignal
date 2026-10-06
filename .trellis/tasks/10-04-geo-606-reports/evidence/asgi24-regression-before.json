@@ -1,0 +1,13 @@
+{
+  "command": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "pytest",
+    "backend/tests/unit/test_geo_reports.py::test_asgi24_raw_task_cancel_serializes_close_with_active_producer",
+    "-q"
+  ],
+  "exit_code": 1,
+  "duration_seconds": 0.73
+}

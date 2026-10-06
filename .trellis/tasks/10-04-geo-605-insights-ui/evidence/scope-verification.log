@@ -1,0 +1,12 @@
+{
+  "status": "passed",
+  "changed_existing": 12,
+  "new_maintained": 25,
+  "other_manifest_tasks_unchanged": true,
+  "contract_unchanged": {
+    "contracts/openapi.yaml": true,
+    "contracts/database.md": true,
+    "frontend/src/shared/api/generated/schema.d.ts": true
+  },
+  "document_hashes_valid": true
+}

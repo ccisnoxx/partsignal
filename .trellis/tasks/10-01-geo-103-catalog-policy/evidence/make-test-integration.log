@@ -1,0 +1,26 @@
+docker compose --env-file .env.example -p partsignal-geo103-validation -f deploy/compose.dev.yaml -f .trellis/tasks/10-01-geo-103-catalog-policy/evidence/compose-validation.yaml run --rm backend-test
+ Container partsignal-geo103-validation-postgres-1 Running 
+ Container partsignal-geo103-validation-redis-1 Running 
+ Container partsignal-geo103-validation-postgres-1 Waiting 
+ Container partsignal-geo103-validation-redis-1 Waiting 
+ Container partsignal-geo103-validation-redis-1 Healthy 
+ Container partsignal-geo103-validation-postgres-1 Healthy 
+ Container partsignal-geo103-validation-backend-test-run-5280d6ad985c Creating 
+ Container partsignal-geo103-validation-backend-test-run-5280d6ad985c Created 
+........................................................................ [ 16%]
+........................................................................ [ 33%]
+........................................................................ [ 50%]
+........................................................................ [ 67%]
+........................................................................ [ 84%]
+...................................................................      [100%]
+=============================== warnings summary ===============================
+tests/integration/test_geo_catalog.py::test_catalog_metadata_matches_migrated_postgresql
+  /app/tests/integration/test_geo_catalog.py:187: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_catalog.py::test_catalog_metadata_matches_migrated_postgresql
+  /app/tests/integration/test_geo_catalog.py:187: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+    assert compare_metadata(context, Base.metadata) == []
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+427 passed, 2 warnings in 306.64s (0:05:06)

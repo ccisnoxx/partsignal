@@ -1,0 +1,7 @@
+{
+  "command": [
+    "make",
+    "contract-check"
+  ],
+  "exit_code": 0
+}

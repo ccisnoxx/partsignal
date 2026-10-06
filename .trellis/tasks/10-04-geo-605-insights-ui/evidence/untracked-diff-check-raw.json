@@ -1,0 +1,131 @@
+{
+  "status": "failed",
+  "checked": 25,
+  "problems": [
+    {
+      "file": ".trellis/tasks/10-04-geo-605-insights-ui/check.jsonl",
+      "exit_code": 1,
+      "output": ""
+    },
+    {
+      "file": ".trellis/tasks/10-04-geo-605-insights-ui/design.md",
+      "exit_code": 1,
+      "output": ""
+    },
+    {
+      "file": ".trellis/tasks/10-04-geo-605-insights-ui/implement.jsonl",
+      "exit_code": 1,
+      "output": ""
+    },
+    {
+      "file": ".trellis/tasks/10-04-geo-605-insights-ui/implement.md",
+      "exit_code": 1,
+      "output": ""
+    },
+    {
+      "file": ".trellis/tasks/10-04-geo-605-insights-ui/prd.md",
+      "exit_code": 1,
+      "output": ""
+    },
+    {
+      "file": ".trellis/tasks/10-04-geo-605-insights-ui/task.json",
+      "exit_code": 1,
+      "output": ""
+    },
+    {
+      "file": "frontend/src/domains/geo-insights/drilldown.model.ts",
+      "exit_code": 1,
+      "output": ""
+    },
+    {
+      "file": "frontend/src/domains/geo-insights/evidence-sections.test.tsx",
+      "exit_code": 1,
+      "output": ""
+    },
+    {
+      "file": "frontend/src/domains/geo-insights/evidence-sections.tsx",
+      "exit_code": 1,
+      "output": ""
+    },
+    {
+      "file": "frontend/src/domains/geo-insights/insight-drilldown.tsx",
+      "exit_code": 1,
+      "output": ""
+    },
+    {
+      "file": "frontend/src/domains/geo-insights/insight-filters.tsx",
+      "exit_code": 1,
+      "output": ""
+    },
+    {
+      "file": "frontend/src/domains/geo-insights/insight-page-frame.tsx",
+      "exit_code": 1,
+      "output": ""
+    },
+    {
+      "file": "frontend/src/domains/geo-insights/insight-sample-tables.tsx",
+      "exit_code": 1,
+      "output": ""
+    },
+    {
+      "file": "frontend/src/domains/geo-insights/insights-components.tsx",
+      "exit_code": 1,
+      "output": ""
+    },
+    {
+      "file": "frontend/src/domains/geo-insights/insights-page.test.tsx",
+      "exit_code": 1,
+      "output": ""
+    },
+    {
+      "file": "frontend/src/domains/geo-insights/insights-page.tsx",
+      "exit_code": 1,
+      "output": ""
+    },
+    {
+      "file": "frontend/src/domains/geo-insights/insights.api.ts",
+      "exit_code": 1,
+      "output": ""
+    },
+    {
+      "file": "frontend/src/domains/geo-insights/insights.model.test.ts",
+      "exit_code": 1,
+      "output": ""
+    },
+    {
+      "file": "frontend/src/domains/geo-insights/insights.model.ts",
+      "exit_code": 1,
+      "output": ""
+    },
+    {
+      "file": "frontend/src/domains/geo-insights/insights.test-support.ts",
+      "exit_code": 1,
+      "output": ""
+    },
+    {
+      "file": "frontend/src/domains/geo-insights/overview-page.tsx",
+      "exit_code": 1,
+      "output": ""
+    },
+    {
+      "file": "frontend/src/domains/geo-insights/performance-sections.tsx",
+      "exit_code": 1,
+      "output": ""
+    },
+    {
+      "file": "frontend/src/routes/_app/geo/insights/answers.tsx",
+      "exit_code": 1,
+      "output": ""
+    },
+    {
+      "file": "frontend/src/routes/_app/geo/overview.tsx",
+      "exit_code": 1,
+      "output": ""
+    },
+    {
+      "file": "frontend/tests/e2e/insights-real-stack.spec.ts",
+      "exit_code": 1,
+      "output": ""
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "command": [
+    "make",
+    "verify",
+    "-o",
+    "contract-check",
+    "-o",
+    "test-integration",
+    "-o",
+    "build-frontend",
+    "-o",
+    "e2e",
+    "COMPOSE=docker compose -p partsignal-geo508-validation -f .trellis/tasks/10-03-geo-508-analysis-review-ui/evidence/validation-compose.yaml"
+  ],
+  "exit_code": 0
+}

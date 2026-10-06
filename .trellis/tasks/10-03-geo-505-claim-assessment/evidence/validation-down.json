@@ -1,0 +1,13 @@
+{
+  "command": [
+    "docker",
+    "compose",
+    "-p",
+    "partsignal-geo505-validation",
+    "-f",
+    ".trellis/tasks/10-03-geo-505-claim-assessment/evidence/validation-compose.yaml",
+    "down",
+    "--volumes"
+  ],
+  "exit_code": 0
+}

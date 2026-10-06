@@ -1,0 +1,42 @@
+{
+  "new_task_files": [
+    "backend/app/schemas/geo_retests.py",
+    "backend/app/models/geo_retests.py",
+    "backend/app/services/geo_retest_baselines.py",
+    "backend/app/services/geo_retest_comparability.py",
+    "backend/app/services/geo_retests.py",
+    "backend/app/routers/geo_retests.py",
+    "backend/alembic/versions/0061_geo_retests.py",
+    "backend/alembic/sql/0061_geo_retests.sql",
+    "backend/tests/integration/geo_retests_support.py",
+    "backend/tests/integration/test_geo_retests.py",
+    "backend/tests/integration/test_geo_retest_migration.py"
+  ],
+  "modified_existing_task_files": [
+    "backend/app/main.py",
+    "backend/app/models/__init__.py",
+    "backend/app/audit_types.py",
+    "backend/app/services/identity.py",
+    "backend/app/services/geo_plan_locks.py",
+    "backend/app/services/geo_surface_locks.py",
+    "backend/tests/unit/test_contract.py",
+    "backend/tests/unit/test_runtime_response_metadata.py",
+    "backend/tests/unit/test_geo_opportunity_policy.py",
+    "backend/tests/integration/test_migrations.py",
+    "backend/tests/integration/test_geo_admission_migration.py",
+    "backend/tests/integration/test_geo_answer_migration.py",
+    "backend/tests/integration/test_geo_opportunity_action_migration.py",
+    "contracts/openapi.yaml",
+    "contracts/database.md",
+    "frontend/src/shared/api/generated/schema.d.ts",
+    "docs/geo-monitoring/README.md",
+    "docs/geo-monitoring/CHANGELOG.md",
+    "docs/geo-monitoring/02-business/04-monitoring-methodology-and-metrics.md",
+    "docs/geo-monitoring/03-technical/02-data-architecture.md",
+    "docs/geo-monitoring/03-technical/03-api-contract-design.md",
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "docs/geo-monitoring/SHA256SUMS"
+  ],
+  "trellis_task_path": ".trellis/tasks/10-04-geo-705-retest-planner",
+  "preservation_note": "不少既有GEO源码任务开始时已untracked；本清单按实际本次写入范围登记，全部gitdiff不代表GEO-705。"
+}

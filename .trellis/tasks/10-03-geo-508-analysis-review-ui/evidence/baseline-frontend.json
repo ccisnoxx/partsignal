@@ -1,0 +1,12 @@
+{
+  "command": [
+    "npm",
+    "--prefix",
+    "frontend",
+    "run",
+    "test",
+    "--",
+    "src/domains/geo-runs"
+  ],
+  "exit_code": 0
+}

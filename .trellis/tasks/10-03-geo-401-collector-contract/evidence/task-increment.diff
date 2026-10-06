@@ -1,0 +1,1006 @@
+--- baseline/docs/geo-monitoring/README.md
++++ docs/geo-monitoring/README.md
+@@ -256,3 +256,11 @@
+ 
+ 
+ GEO-308 / R2 的并发、已提交聚合不可变与旧文章导航兼容验收见 [R2 试用与验收边界](./04-delivery/07-r2-acceptance.md)、[Task Brief](../../.trellis/tasks/10-02-geo-308-r2-acceptance/prd.md) 和 [实际实施证据](../../.trellis/tasks/10-02-geo-308-r2-acceptance/implement.md)。只补测试与验收文档，不改变根合同或生产状态机；取消仍无公共命令，人工正式提交停在 COLLECTED，分析为 NOT_IMPLEMENTED。当前状态以任务清单为准，不代表生产发布或后续自动采集已经完成。
++
++GEO-401 / R3 已定义内部 `GeoCollector` 同步协议、不可变采集输入/原始结果/估价值对象和
++含显式 send state 的稳定错误。能力与错误目录复用现有权威，不新增 OpenAPI、数据库或
++Alembic；默认仍只登记 manual 元数据。接口包含发送前授权回调，但尚未实现 provider、
++Worker 或 at-most-once 恢复。边界见 [Collector 说明](./03-technical/05-worker-and-collector-architecture.md#当前-r3geo-401-内部采集合同)，
++实际状态与验证见 [Task Brief](../../.trellis/tasks/10-03-geo-401-collector-contract/prd.md)、
++[实施证据](../../.trellis/tasks/10-03-geo-401-collector-contract/implement.md) 和任务清单；
++本地交付为 review，等待人工接受。
+
+--- baseline/docs/geo-monitoring/03-technical/01-technical-architecture.md
++++ docs/geo-monitoring/03-technical/01-technical-architecture.md
+@@ -220,13 +220,19 @@
+ 
+ ```python
+ class GeoCollector(Protocol):
+-    key: str
+-
+-    def capabilities(self) -> CollectorCapabilities: ...
+-    def validate_profile(self, profile: CollectionProfileSnapshot) -> None: ...
++    @property
++    def registration(self) -> CollectorRegistration: ...
++
++    def validate_profile(self, profile: CollectionProfileSnapshot) -> tuple[ProfileBlocker, ...]: ...
+     def estimate(self, request: CollectionRequest) -> CollectionEstimate: ...
+-    def collect(self, request: CollectionRequest) -> CollectedAnswer: ...
+-```
++    def collect(self, request: CollectionRequest, *, before_send: SendAuthorization) -> CollectedAnswer: ...
++```
++
++GEO-401 已建立上述内部同步协议和值对象；能力、key/version 复用 Registry 的唯一元数据。
++详细字段、稳定错误、发送前回调及当前实现限制见
++[Worker/Collector 的 GEO-401 章节](./05-worker-and-collector-architecture.md#当前-r3geo-401-内部采集合同)。
++协议不持有 ORM Session，不新增公共 HTTP 或数据库合同；网络 adapter/Worker 仍属后续任务。
++
+ 
+ `CollectedAnswer` 只包含：
+ 
+
+--- baseline/docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md
++++ docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md
+@@ -451,3 +451,62 @@
+ ```
+ 
+ 命令必须支持 dry-run、限批、稳定输出和非零失败码，不允许批量静默改状态。
++
++## 当前 R3：GEO-401 内部采集合同
++
++`backend/app/collectors/base.py::GeoCollector` 定义同步结构协议，`registration` 复用
++GEO-204 的 `CollectorRegistration`，key/version/模式/六项能力只有一个元数据 owner。
++`validate_profile` 返回既有 `ProfileBlocker` 元组，保持纯配置校验；当前执行资格继续由
++Application Service 的共享 `evaluate_profile` 裁决。`estimate` 无外部 I/O，
++`CollectionEstimate.cost=None` 表示未知，显式零金额仍需币种。默认 Registry 仍只有
++manual 元数据，不登记可执行占位或自动 adapter。
++
++`contracts.py` 定义严格、不可变的 `CollectionRequest`、`CollectionProfile`、
++`CollectionSurface`、`CollectedAnswer`、`CollectedCitation`、`Usage`、`Money` 与
++`RawPayloadSummary`。`CollectionRequest.from_snapshot` 显式转换已校验的
++`GeoRunInputSnapshot`，复制原问题和冻结 Profile/Surface 配置，不传递 API DTO、ORM、
++凭据、事实正文或 subject/别名字典。上文建议结构中的 `subject_snapshot` 不进入实际
++Collector 输入：这些内容属于后续分析上下文，不应被拼接到监测问题或无必要外发。
++输入保留数据分级，但该标记不构成外发授权；凭据和网络客户端的受控构造属于后续 adapter。
++
++回答保留完整原文；未知 source/search/usage/cost 为 None，partial usage 不补算 total。
++已报告的来源文本必须非空且不含 NUL，引用标题允许空串但不含 NUL；非法值显式拒绝，
++不静默清理字符或补值，避免构造不能通过既有 PostgreSQL 证据边界的成功结果。
++引用保留原 URL 和实际位置，要求位置唯一升序；同 URL 不同位置保留给已有提交边界统一
++规范化/去重并保存 occurrences，不进行来源归属分析或网络抓取。安全摘要转换为既有
++GEO-304 四字段闭合 DTO，禁止任意 provider 字符串/秘密键。可选证据 bytes 有既有文件大小
++上限，仅能承载已清理的内容；值对象的结构校验不证明截图裁剪或原始 bytes 已脱敏。
++adapter 必须在实际采集边界完成脱敏与响应大小限制，Application Service 负责文件资格、
++存储与不可变聚合提交。请求/结果 repr 不展示问题、答案、引用或大对象。
++
++`errors.py::CollectorError` 只接收闭合字段，`failure` 为不可变 `CollectorFailure`：
++code 复用 `GeoRunErrorCode` 的 Collector 子集；stage 为
++CONFIGURATION/CONNECT/SEND/RECEIVE/PARSE/EVIDENCE；必须显式提供
++`external_call_state`（NOT_STARTED/SENT/UNKNOWN/COMPLETED），没有默认发送状态。
++message 由 code 映射固定中文安全摘要，不接受底层异常、响应正文或自定义 message。
++所有细阶段映射到 Run 的 COLLECTION，非 Collector 的 Worker/预算/分析/复核错误拒绝。
++错误不新增 HTTP 映射或持久化字段。
++
++| 条件 | retryability | 含义 |
++|---|---|---|
++| CONNECT/SEND、NOT_STARTED，且 TIMEOUT/UNAVAILABLE | SAFE_BEFORE_SEND | 仅说明 transport 确证未发出字节；恢复仍需数据库 lease/token/持久化状态裁决 |
++| 配置、关闭、认证、分级或会话失效 | NOT_RETRYABLE | 先修复配置或取得授权，不直接重发 |
++| 其他已发送/未知/已完整接收的失败 | NEW_ATTEMPT_ONLY | 只允许后续显式新 attempt，同一 attempt 不自动重试 |
++
++CONFIGURATION/CONNECT 必须 NOT_STARTED；RECEIVE 不能 NOT_STARTED；PARSE/EVIDENCE 必须
++COMPLETED。COLLECTOR_UNKNOWN_OUTCOME 只能 SENT/UNKNOWN。provider_status 仅用于完整响应，
++retry_after_seconds 仅用于完整 429，不能解释为同 attempt 自动等待后重发。
++COMPLETED 只表示外部结果已完整接收，不能解释为业务成功、回答有效或已提交数据库。
++
++`collect(request, *, before_send)` 必须接收 `SendAuthorization` 回调。未来 Worker 的回调
++在首次请求字节前，按当前 lease/token/状态/授权执行短事务并原子持久化 SENT；Collector
++不获得 Session 或提交能力。回调失败不能发送；返回后不执行无关等待；一次调用至多发送
++一次，不自动 redirect/retry/发送后切换地址。若回调已保存 SENT 但实际字节未发出，仍按
++数据库保守恢复，不能只用 Collector 的 NOT_STARTED 撤销持久化标记。
++
++GEO-401 只定义协议和值/错误边界，不实现回调、网络 adapter、假 provider、调用计数、
++Worker claim/lease、恢复、预算、机器分析或 Browser；真实 at-most-once 与资源释放必须由
++GEO-404/405/406 的传输和并发测试证明。当前验证见
++[Task Brief](../../../.trellis/tasks/10-03-geo-401-collector-contract/prd.md) 与
++[实施证据](../../../.trellis/tasks/10-03-geo-401-collector-contract/implement.md)，交付状态以
++[任务清单](../04-delivery/task-manifest.yaml) 为准。
+
+--- baseline/docs/geo-monitoring/03-technical/07-testing-and-quality.md
++++ docs/geo-monitoring/03-technical/07-testing-and-quality.md
+@@ -467,3 +467,14 @@
+ 新增 `test_geo_manual_races.py` 使用真实 PostgreSQL 锁等待，确定取消存储 writer / manual-submit、草稿 revision / submit 的两个先后顺序。`test_geo_r2_immutability.py` 在正式提交之后，用新事务攻击冻结聚合并验证整笔 rollback、精确 SQLSTATE/constraint、全行事实相等和原幂等回执。取消 writer 仅测试已有策略及存储，不代表 HTTP/UI 取消已实现。
+ 
+ 既有 `runs-real-stack.spec.ts` 继续证明三次人工采样，并使用 Router 解析后的 URL 状态验收数字形式搜索词，`geo-real-stack.spec.ts` 补充新旧导航、旧筛选书签/历史详情刷新及实际上传对象字节/hash，保留文章更正、工作台指标和优化任务来源验收。`surfaces-real-stack.spec.ts` 使用自己的工程师账号，消除共享 seed 改密污染，保持真实首次改密、CSRF 和只读权限。`questions-real-stack.spec.ts` 的手工导航使用 Router 序列化，固定数值搜索词，避免科学计数法字符串被解析为number后丢失筛选。完整 R2 边界及门禁结果见 [R2 验收](../04-delivery/07-r2-acceptance.md) 与 [实施记录](../../../.trellis/tasks/10-02-geo-308-r2-acceptance/implement.md)；不把 COLLECTED 宣称为分析/复核完成。
++
++## GEO-401 / R3 抽象合同验证边界
++
++`backend/tests/unit/test_geo_collector_contract.py` 离线验证冻结 DTO 到独立不可变值对象的
++转换、三模式闭合配置、原文/unknown/partial usage、金额精度、引用安全及实际位置、闭合
++摘要、错误必填发送状态/阶段组合、发送后禁止 SAFE_BEFORE_SEND、429 仅新 attempt 元数据，
++以及 Protocol 的必填发送回调和 Collector 无 ORM/事务依赖。复用 Registry/Run/Answer 基线。
++这是抽象协议和值对象单元验证，不证明真实 provider 的字节发送次数、网络防线、Worker
++发送隔离、截图裁剪或 raw bytes 脱敏；这些分别由 GEO-402/404/405/406 与 Browser 任务验证。
++没有新增 HTTP、持久化写入或页面旅程，因此不增加数据库迁移或 E2E 用例。指定门禁与
++实际独立复核证据见 [实施记录](../../../.trellis/tasks/10-03-geo-401-collector-contract/implement.md)。
+
+--- baseline/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -641,7 +641,7 @@
+   phase: R3
+   release: R3
+   title: 定义 GeoCollector 协议和稳定错误模型
+-  status: planned
++  status: review
+   dependencies:
+   - GEO-204
+   - GEO-301
+@@ -658,6 +658,9 @@
+   - 02-business/03-workflows-and-state-machines.md
+   - 03-technical/01-technical-architecture.md
+   - 04-delivery/04-codex-execution-guide.md
++  trellis_task: .trellis/tasks/10-03-geo-401-collector-contract
++  validation_record: .trellis/tasks/10-03-geo-401-collector-contract/implement.md
++  review_note: 2026-10-03内部采集Protocol、不可变输入/原始结果/估价值及必填send state的稳定错误已实现；复用GEO-204六能力和既有Run错误目录。抽象定向210、后端2795与前端1121单元及contract/lint/typecheck/diff通过；独立只读复核两项来源空白/NUL缺口已修正并增加13项先失败后通过的回归，审计关闭校验。无OpenAPI/数据库/Alembic改动，不含provider、Worker、真实发送恢复或其他GEO任务。仅review，等待人工接受，精确命令和覆盖边界见实施记录。
+ - id: GEO-402
+   phase: R3
+   release: R3
+
+--- baseline/docs/geo-monitoring/SHA256SUMS
++++ docs/geo-monitoring/SHA256SUMS
+@@ -7,17 +7,17 @@
+ 01f7d5793e6c5f475786ce99ff937a6de5f1b18690e7cd6a846e9194a816e150  ./02-business/02-domain-model.md
+ 13a32973b91c40621afcfda35ecdccf6c8ef5b8e6709607aaa0db30c9d2f7d1b  ./02-business/03-workflows-and-state-machines.md
+ 30e1976c61c18150724cf4b89ead9e2d960b0cea729ba377b06c7c384c264899  ./02-business/04-monitoring-methodology-and-metrics.md
+-2ce491f8dbf89639aabbf59b5afb7a3fd43520e40e7848e4e9e3049c85436689  ./03-technical/01-technical-architecture.md
++90c2a635615b591f0d1a282fb62f289de0fbad030ea2dcb19ce7dd10983b85b2  ./03-technical/01-technical-architecture.md
+ 71ad777c12034ec8d69b0dbfd1457aa1886d24de901c7e4fb3f304f19915812b  ./03-technical/02-data-architecture.md
+ 3ad8c855eb54244918d4d6774e40f3b5299f6e51d93befbf490d07b8cd7a41a3  ./03-technical/03-api-contract-design.md
+ 5f8dfd5ce025da9a312e800a4c13e48eb64dee88927e2668c82f81490457bd67  ./03-technical/04-frontend-architecture.md
+-504aa595621dad9a7dee12cc697911977aa9e6092a907672455281525fa9571a  ./03-technical/05-worker-and-collector-architecture.md
++47c14707268a7691199e8a4402a5f27ae16c9b5d2f1d9ba23c5d3d0d9c718d74  ./03-technical/05-worker-and-collector-architecture.md
+ 2698d3095cfaeb5857d6bafd3efd633d9d50b813257054e7568d779be35d7dd7  ./03-technical/06-security-and-compliance.md
+-1c0ce7b0d258f858fc466d5c3f58b6efcba06212eaae3f4337569867625acc40  ./03-technical/07-testing-and-quality.md
++cd05883eb87d702b0376c3a5339f8a0807c786f479109655ad0cc9d8c4457167  ./03-technical/07-testing-and-quality.md
+ 61a4dd642c6f74b581e95eb2269453be79d71a75fa240269eb001e56f45e2b83  ./03-technical/08-deployment-and-operations.md
+ f8c643e46c1159c51bd2e271e87de1d0e5a0448e2845af01f33bef5e4e1d411b  ./04-delivery/01-implementation-roadmap.md
+ acf0bde87ddfc34ebbc09543c1f2c2c1f496d48f330727b5e943807267eed41c  ./04-delivery/02-work-breakdown-structure.md
+-73ed77167c08a7a7a130608ab75d74ae6dc47360c99b6323aa745443330ca192  ./04-delivery/03-requirement-traceability-matrix.md
++6a4221d78ce16167dadf14b7ddedfff7b9d119b152fcd1ddbc2197285f3aac69  ./04-delivery/03-requirement-traceability-matrix.md
+ 8991d4c1ec5cc872904aa3b10ffbb2f77ca46a4bfda88589d290f7fd92c2f1fb  ./04-delivery/04-codex-execution-guide.md
+ f600bcdfc2788659654825a020fb2aa0fcbe7acf9827b97eab25aadd7a20ff51  ./04-delivery/05-task-template.md
+ 0ec18f9ce8589f4c8e222fddc6d15853c949ad2b227381b584e2c81c4c4e47b0  ./04-delivery/06-current-geo-baseline.md
+@@ -102,7 +102,7 @@
+ 7106b3f1df66de6ba41a4d7ca85e291b8b181f78e2b7c0ef91f4fa696d1f9e8b  ./04-delivery/geo-003-baseline/sources.json
+ 316ab24c5f645e18d39c529c7fcbca2260b14a5375cc5ebd799a5b7c6cfc8f40  ./04-delivery/geo-003-baseline/tests.json
+ 9dae298eb77cc0063394bfacea27b02ece69bf2a7dceba637ef1320565810ec7  ./04-delivery/geo-003-baseline/validation.md
+-1c1fae0b8557dfed9a7f4ae1669b89444d6dc839b74d883b801dd2c22b7689d1  ./04-delivery/task-manifest.yaml
++bda7716a8e1bdb41c6054be99cc9c1ebfa79344b0faac5c4f1a8e1a50deb8caa  ./04-delivery/task-manifest.yaml
+ 2c0f8d8ba314039b44e48614481c28e615e996c2e4ed444c8f07362b5cd75de9  ./05-decisions/ADR-001-extend-modular-monolith.md
+ 4e0ec1be59e33c2f3e83ee50abc55ffe35d2d0bf471c19cc2c713b391fc12cee  ./05-decisions/ADR-002-unified-observation-run-model.md
+ 00baab5f8fe68fbaf75e3aa7b07a0cfbd7c510e39b6a70ea462d9ab941330dc7  ./05-decisions/ADR-003-separate-collection-analysis-review.md
+@@ -110,6 +110,6 @@
+ 6197eb3379ad5c5f99c499ab8b74eac5cf18e6df26a3f5c34c4e9bf83845593b  ./05-decisions/ADR-005-staged-collector-rollout.md
+ c3e9f23a90bd7fc9b47760d53c56fd6f09f73065dff5b19c1040ee5fd608a560  ./05-decisions/GEO-002-architecture-review.md
+ 1889f9cc1ae9f48f00b3c6bc5711586b866aa889c7b682ed3f68a86a01245608  ./CHANGELOG.md
+-28a5a0117ad43b227b2c5e836d32f2811cd7199f415c01168ac76ffa3947a656  ./README.md
++344514b7abac39f92070e9b4a48241fdf045265ac431b4abe6fcf9bef1f627c7  ./README.md
+ 36be92c676c3150e5953f01498418900d3e2bcc1f37a0bda31b9892e57b8a2d0  ./01-product/04-catalog-user-guide.md
+ a80ebe00c833b45a53bf82b140a84b9bb1a20a49bb37688cb233ef6d5e818782  ./04-delivery/07-r2-acceptance.md
+
+--- baseline/docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md
++++ docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md
+@@ -34,7 +34,13 @@
+ `backend/tests/integration/test_geo_profile_eligibility.py`。默认仅 manual，自动测试项是无 I/O
+ 元数据，不是生产 Collector。具体状态与验证见
+ [实施记录](../../../.trellis/tasks/10-02-geo-204-collector-registry/implement.md)。
+-GEO-205 已接线管理接口/页面；GEO-207 的服务端矩阵、当前资格定位和估价覆盖见下节；GEO-401 发送协议仍未实施，不能将整项能力标记完成。
++GEO-205 已接线管理接口/页面；GEO-207 的服务端矩阵、当前资格定位和估价覆盖见下节。
++GEO-401 已定义内部采集值对象、能力/adapter 协议及必填发送状态的稳定错误，支持
++REQ-GEO-RUN-007、REQ-GEO-OPS-002 的合同基础；78 项抽象测试覆盖不可变值、未知值、
++来源/引用证据边界及发送后禁止 SAFE_BEFORE_SEND，见
++`backend/tests/unit/test_geo_collector_contract.py` 和
++[实施记录](../../../.trellis/tasks/10-03-geo-401-collector-contract/implement.md)。
++真实请求计数、lease/token 持久化与恢复仍由 GEO-404/405/406 验收，不能将整项能力标记完成。
+ 
+ ### 2.1 监测对象
+ 
+
+--- /dev/null
++++ backend/app/collectors/contracts.py
+@@ -0,0 +1,253 @@
++"""Collector 内部值对象；公开快照显式转换，不携带 ORM、凭据或分析上下文。"""
++
++from __future__ import annotations
++
++import re
++from decimal import Decimal
++from typing import Annotated, Literal, Self
++from uuid import UUID
++
++from pydantic import ConfigDict, Field, TypeAdapter, ValidationError, field_validator
++from pydantic.dataclasses import dataclass
++
++from app.collectors.registry import CollectorCapability, surface_capabilities
++from app.geo_citation_urls import normalize_citation_url
++from app.schemas.geo_answers import GeoRawPayloadSummary, OriginalText, Position
++from app.schemas.geo_monitoring_plans import PlanBudget
++from app.schemas.geo_prompt_variants import PromptLanguage, PromptRegion, Revision
++from app.schemas.geo_runs import GeoRunDataClassification, GeoRunInputSnapshot, NonEmpty
++from app.schemas.geo_surfaces import (
++    AdapterKey,
++    GeoCollectionMode,
++    GeoCollectionProfileCreate,
++    GeoComplianceStatus,
++    GeoProfileLoginState,
++    GeoSurfaceKind,
++    GeoSurfaceProviderBrand,
++    GeoWebSearchPolicy,
++    Name,
++)
++
++_VALUE_CONFIG = ConfigDict(extra="forbid", strict=True, hide_input_in_errors=True)
++_PROFILE_CONFIG: TypeAdapter[object] = TypeAdapter(GeoCollectionProfileCreate)
++NonNegative = Annotated[int, Field(ge=0)]
++TokenCount = Annotated[int, Field(ge=0, le=2147483647)]
++Duration = Annotated[int, Field(ge=0, le=9223372036854775807)]
++
++
++@dataclass(frozen=True, config=_VALUE_CONFIG)
++class CollectionSurface:
++    id: UUID
++    revision: Revision
++    name: Name
++    surface_kind: GeoSurfaceKind
++    provider_brand: GeoSurfaceProviderBrand
++    compliance_status: GeoComplianceStatus
++    capabilities: frozenset[CollectorCapability]
++
++    def __post_init__(self) -> None:
++        if CollectorCapability.ANSWER_TEXT not in self.capabilities:
++            raise ValueError("观测面必须支持回答正文")
++
++
++@dataclass(frozen=True, config=_VALUE_CONFIG, repr=False)
++class CollectionProfile:
++    id: UUID
++    revision: Revision
++    engine_surface_id: UUID
++    name: Name
++    collection_mode: GeoCollectionMode
++    adapter_key: AdapterKey
++    adapter_version: Annotated[NonEmpty, Field(max_length=100)]
++    ai_channel_id: UUID | None
++    ai_model_id: UUID | None
++    language_code: PromptLanguage
++    region_code: PromptRegion
++    login_state: GeoProfileLoginState
++    web_search_policy: GeoWebSearchPolicy
++    settings: tuple[tuple[str, bool | int | float | None], ...]
++
++    def __post_init__(self) -> None:
++        if len(dict(self.settings)) != len(self.settings):
++            raise ValueError("配置项不得重复")
++        try:
++            # 三模式 settings/引用仍由 GEO-203 的唯一配置合同校验。
++            _PROFILE_CONFIG.validate_python(
++                {
++                    "name": self.name,
++                    "engine_surface_id": self.engine_surface_id,
++                    "collection_mode": self.collection_mode,
++                    "adapter_key": self.adapter_key,
++                    "ai_channel_id": self.ai_channel_id,
++                    "ai_model_id": self.ai_model_id,
++                    "language_code": self.language_code,
++                    "region_code": self.region_code,
++                    "login_state": self.login_state,
++                    "web_search_policy": self.web_search_policy,
++                    "settings": dict(self.settings),
++                }
++            )
++        except ValidationError:
++            raise ValueError("采集配置不符合闭合合同") from None
++
++
++@dataclass(frozen=True, config=_VALUE_CONFIG, repr=False)
++class CollectionRequest:
++    run_id: UUID
++    prompt_text: Annotated[NonEmpty, Field(max_length=8000)]
++    data_classification: GeoRunDataClassification
++    engine_surface: CollectionSurface
++    profile: CollectionProfile
++    timeout_seconds: Annotated[int, Field(gt=0)]
++    max_response_bytes: Annotated[int, Field(gt=0)]
++    budget_remaining: PlanBudget | None
++
++    def __post_init__(self) -> None:
++        if self.profile.engine_surface_id != self.engine_surface.id:
++            raise ValueError("采集配置与观测面身份不一致")
++
++    @classmethod
++    def from_snapshot(
++        cls,
++        run_id: UUID,
++        snapshot: GeoRunInputSnapshot,
++        *,
++        timeout_seconds: int,
++        max_response_bytes: int,
++        budget_remaining: Decimal | None,
++    ) -> Self:
++        """消费已校验的冻结 DTO；复制配置，不传递可变 DTO 或 subject/事实字典。"""
++        profile = snapshot.profile
++        surface = profile.surface
++        return cls(
++            run_id=run_id,
++            prompt_text=snapshot.prompt.prompt_text,
++            data_classification=snapshot.data_classification,
++            engine_surface=CollectionSurface(
++                id=surface.id,
++                revision=surface.revision,
++                name=surface.name,
++                surface_kind=surface.surface_kind,
++                provider_brand=surface.provider_brand,
++                compliance_status=surface.compliance_status,
++                capabilities=surface_capabilities(surface.capabilities.model_dump()),
++            ),
++            profile=CollectionProfile(
++                id=profile.id,
++                revision=profile.revision,
++                engine_surface_id=surface.id,
++                name=profile.name,
++                collection_mode=GeoCollectionMode(profile.collection_mode),
++                adapter_key=profile.adapter_key,
++                adapter_version=profile.adapter_version,
++                ai_channel_id=profile.ai_channel_id,
++                ai_model_id=profile.ai_model_id,
++                language_code=profile.language_code,
++                region_code=profile.region_code,
++                login_state=GeoProfileLoginState(profile.login_state),
++                web_search_policy=profile.web_search_policy,
++                settings=tuple(profile.settings.model_dump().items()),
++            ),
++            timeout_seconds=timeout_seconds,
++            max_response_bytes=max_response_bytes,
++            budget_remaining=budget_remaining,
++        )
++
++
++@dataclass(frozen=True, config=_VALUE_CONFIG, repr=False)
++class CollectedCitation:
++    url: Annotated[str, Field(min_length=1, max_length=2083)]
++    title: Annotated[str, Field(max_length=2000)] | None
++    position: Position
++    extraction_source: Literal["STRUCTURED", "DOM", "TEXT", "MANUAL"]
++
++    def __post_init__(self) -> None:
++        # 只校验原始证据；规范 URL 去重/occurrences 由提交边界拥有，不抓取页面。
++        normalize_citation_url(self.url)
++        if self.title is not None and "\x00" in self.title:
++            raise ValueError("引用标题不能包含 NUL")
++
++
++@dataclass(frozen=True, config=_VALUE_CONFIG)
++class Usage:
++    prompt_tokens: TokenCount | None
++    completion_tokens: TokenCount | None
++    total_tokens: TokenCount | None
++
++
++@dataclass(frozen=True, config=_VALUE_CONFIG)
++class Money:
++    amount: PlanBudget
++    currency: Annotated[str, Field(pattern=re.compile(r"^[A-Z]{3}$(?![\s\S])"))]
++
++
++@dataclass(frozen=True, config=_VALUE_CONFIG)
++class CollectionEstimate:
++    """cost=None 表示未知，Money(0, currency) 才是明确的零费用。"""
++
++    cost: Money | None
++
++
++@dataclass(frozen=True, config=_VALUE_CONFIG)
++class RawPayloadSummary:
++    schema_version: Literal[1] = 1
++    payload_format: Literal["JSON", "TEXT", "DOM"] | None = None
++    payload_bytes: NonNegative | None = None
++    finish_reason: Literal["STOP", "LENGTH", "CONTENT_FILTER", "OTHER"] | None = None
++
++    @field_validator("schema_version", mode="before")
++    @classmethod
++    def integer_version(cls, value: object) -> object:
++        if type(value) is not int:
++            raise ValueError("摘要版本必须为整数")
++        return value
++
++    def __post_init__(self) -> None:
++        # 复制为内部不可变值；公开/持久化摘要的闭合规则仍以 GEO-304 为准。
++        try:
++            self.to_contract()
++        except ValidationError:
++            raise ValueError("原始摘要不符合闭合合同") from None
++
++    def to_contract(self) -> GeoRawPayloadSummary:
++        return GeoRawPayloadSummary(
++            schema_version=self.schema_version,
++            payload_format=self.payload_format,
++            payload_bytes=self.payload_bytes,
++            finish_reason=self.finish_reason,
++        )
++
++
++@dataclass(frozen=True, config=_VALUE_CONFIG, repr=False)
++class CollectedAnswer:
++    answer_text: OriginalText
++    answer_format: Literal["TEXT", "MARKDOWN", "HTML_TEXT"]
++    source_product: Annotated[NonEmpty, Field(max_length=160)] | None
++    source_model: Annotated[NonEmpty, Field(max_length=200)] | None
++    source_version: Annotated[NonEmpty, Field(max_length=200)] | None
++    web_search_observed: bool | None
++    citations: Annotated[tuple[CollectedCitation, ...], Field(max_length=1000)]
++    provider_request_id: Annotated[NonEmpty, Field(max_length=200)] | None
++    usage: Usage | None
++    cost: Money | None
++    duration_ms: Duration
++    raw_payload_summary: RawPayloadSummary
++    screenshot_bytes: Annotated[bytes, Field(min_length=1, max_length=10485760)] | None
++    raw_payload_bytes: Annotated[bytes, Field(min_length=1, max_length=52428800)] | None
++
++    @field_validator("source_product", "source_model", "source_version")
++    @classmethod
++    def valid_source_metadata(cls, value: str | None) -> str | None:
++        if value is not None and (not value.strip() or "\x00" in value):
++            raise ValueError("来源元数据必须非空且不能包含 NUL；未知使用 None")
++        return value
++
++    def __post_init__(self) -> None:
++        positions = tuple(c.position for c in self.citations)
++        if positions != tuple(sorted(set(positions))):
++            raise ValueError("采集引用必须按实际位置升序且不能重复位置")
++        if self.provider_request_id is not None and (
++            self.provider_request_id != self.provider_request_id.strip()
++            or any(ord(c) < 32 or ord(c) == 127 for c in self.provider_request_id)
++        ):
++            raise ValueError("供应商请求标识无效")
+
+--- /dev/null
++++ backend/app/collectors/base.py
+@@ -0,0 +1,58 @@
++"""同步采集 adapter 合同；此模块没有生产 adapter、工厂或网络请求。"""
++
++from typing import Protocol, runtime_checkable
++
++from app.collectors.contracts import CollectedAnswer, CollectionEstimate, CollectionRequest
++from app.collectors.registry import (
++    CollectionProfileSnapshot,
++    CollectorRegistration,
++    ProfileBlocker,
++)
++
++
++class SendAuthorization(Protocol):
++    def __call__(self) -> None:
++        """由 Worker 在短事务内重验当前资格/lease/token 并原子持久化 SENT。
++
++        失败必须阻止发送；返回后不能再执行无关等待。即使后续未发出字节，数据库 SENT
++        仍按保守恢复处理，Collector 的 NOT_STARTED 不能单独撤销持久化发送标记。
++        """
++        ...
++
++
++@runtime_checkable
++class GeoCollector(Protocol):
++    @property
++    def registration(self) -> CollectorRegistration:
++        """key/version/模式/六能力均由 GEO-204 的不可变元数据唯一拥有。
++
++        收集前必须匹配 request 的 adapter_key/adapter_version；不得换 adapter 或版本。
++        能力是可观测性声明，未知搜索/版本/usage/cost 仍须保留 None。
++        """
++        ...
++
++    def validate_profile(self, profile: CollectionProfileSnapshot) -> tuple[ProfileBlocker, ...]:
++        """纯配置校验复用 registration.validate_profile；无网络/事务/测试状态写入。
++
++        当前执行资格由 Application Service 的 evaluate_profile 唯一裁决，校验通过不
++        授予数据外发、预算、网络或 lease 权限。
++        """
++        ...
++
++    def estimate(self, request: CollectionRequest) -> CollectionEstimate:
++        """无外部 I/O；无法报价返回 cost=None，不以零费用伪装未知。"""
++        ...
++
++    def collect(
++        self, request: CollectionRequest, *, before_send: SendAuthorization
++    ) -> CollectedAnswer:
++        """一次 attempt 至多发送一个业务请求，失败抛含显式 send state 的 CollectorError。
++
++        完成 URL/DNS/peer/TLS 与当前授权检查后，在首个请求字节前恰好调用一次
++        before_send；回调失败不能发送。发送后不自动 retry/redirect/切换地址，所有
++        资源在成功或失败时释放。输入使用原 prompt，不附加品牌/事实/分析上下文。
++        原始 bytes 只接受已清理凭据/账号信息的证据，HTML_TEXT 仅作文本。adapter
++        必须限制传输大小；值对象构造校验失败应在 adapter 边界转为稳定异常。
++        结果返回不表示落库成功，事务、文件提交与迟到结果裁决由 Application Service 拥有。
++        """
++        ...
+
+--- /dev/null
++++ backend/app/collectors/errors.py
+@@ -0,0 +1,139 @@
++"""稳定 Collector 异常；发送状态必须显式提供，供应商正文不进入摘要。"""
++
++from enum import StrEnum
++from types import MappingProxyType
++from typing import Annotated
++
++from pydantic import ConfigDict, Field
++from pydantic.dataclasses import dataclass
++
++from app.schemas.geo_runs import GeoExternalCallState, GeoRunErrorCode, GeoRunErrorStage
++
++
++class CollectorStage(StrEnum):
++    CONFIGURATION = "CONFIGURATION"
++    CONNECT = "CONNECT"
++    SEND = "SEND"
++    RECEIVE = "RECEIVE"
++    PARSE = "PARSE"
++    EVIDENCE = "EVIDENCE"
++
++
++class CollectorRetryability(StrEnum):
++    SAFE_BEFORE_SEND = "SAFE_BEFORE_SEND"
++    NEW_ATTEMPT_ONLY = "NEW_ATTEMPT_ONLY"
++    NOT_RETRYABLE = "NOT_RETRYABLE"
++
++
++_MESSAGES = MappingProxyType(
++    {
++        GeoRunErrorCode.COLLECTOR_CONFIGURATION_INVALID: "采集配置无效",
++        GeoRunErrorCode.COLLECTOR_DISABLED: "采集能力已关闭",
++        GeoRunErrorCode.PROVIDER_AUTH_FAILED: "供应商认证失败",
++        GeoRunErrorCode.PROVIDER_RATE_LIMITED: "供应商请求限流",
++        GeoRunErrorCode.PROVIDER_TIMEOUT: "供应商请求超时",
++        GeoRunErrorCode.PROVIDER_UNAVAILABLE: "供应商服务不可用",
++        GeoRunErrorCode.PROVIDER_RESPONSE_INVALID: "供应商回答格式无效",
++        GeoRunErrorCode.PROVIDER_RESPONSE_TOO_LARGE: "供应商回答超过大小限制",
++        GeoRunErrorCode.COLLECTOR_UNKNOWN_OUTCOME: "外部请求结果未知，禁止自动重发",
++        GeoRunErrorCode.DATA_CLASSIFICATION_FORBIDDEN: "数据分级禁止外发",
++        GeoRunErrorCode.PROFILE_NEEDS_REAUTH: "采集会话需要重新认证",
++    }
++)
++_NON_RETRYABLE = frozenset(
++    {
++        GeoRunErrorCode.COLLECTOR_CONFIGURATION_INVALID,
++        GeoRunErrorCode.COLLECTOR_DISABLED,
++        GeoRunErrorCode.PROVIDER_AUTH_FAILED,
++        GeoRunErrorCode.DATA_CLASSIFICATION_FORBIDDEN,
++        GeoRunErrorCode.PROFILE_NEEDS_REAUTH,
++    }
++)
++
++
++@dataclass(
++    frozen=True,
++    config=ConfigDict(extra="forbid", strict=True, hide_input_in_errors=True),
++)
++class CollectorFailure:
++    code: GeoRunErrorCode
++    stage: CollectorStage
++    external_call_state: GeoExternalCallState
++    provider_status: Annotated[int, Field(ge=100, le=599)] | None = None
++    retry_after_seconds: Annotated[int, Field(ge=0)] | None = None
++
++    def __post_init__(self) -> None:
++        if self.code not in _MESSAGES:
++            raise ValueError("错误码不属于 Collector，不能映射分析、业务或 Worker 失败")
++        if self.stage in {CollectorStage.CONFIGURATION, CollectorStage.CONNECT}:
++            if self.external_call_state != GeoExternalCallState.NOT_STARTED:
++                raise ValueError("配置或连接阶段必须确认尚未发送")
++        elif self.stage in {CollectorStage.PARSE, CollectorStage.EVIDENCE}:
++            if self.external_call_state != GeoExternalCallState.COMPLETED:
++                raise ValueError("解析或证据阶段必须已经接收完整外部结果")
++        elif (
++            self.stage == CollectorStage.RECEIVE
++            and self.external_call_state == GeoExternalCallState.NOT_STARTED
++        ):
++            raise ValueError("接收阶段不能声明尚未发送")
++        if (
++            self.code == GeoRunErrorCode.COLLECTOR_UNKNOWN_OUTCOME
++            and self.external_call_state
++            not in {
++                GeoExternalCallState.SENT,
++                GeoExternalCallState.UNKNOWN,
++            }
++        ):
++            raise ValueError("未知外部结果必须处于已发送或未知状态")
++        if (
++            self.provider_status is not None
++            and self.external_call_state != GeoExternalCallState.COMPLETED
++        ):
++            raise ValueError("供应商状态码只用于已完整接收的响应")
++        if self.retry_after_seconds is not None and (
++            self.code != GeoRunErrorCode.PROVIDER_RATE_LIMITED or self.provider_status != 429
++        ):
++            raise ValueError("重试等待时间只用于完整的供应商 429 响应")
++
++    @property
++    def message(self) -> str:
++        return _MESSAGES[self.code]
++
++    @property
++    def retryability(self) -> CollectorRetryability:
++        if self.code in _NON_RETRYABLE:
++            return CollectorRetryability.NOT_RETRYABLE
++        if self.external_call_state == GeoExternalCallState.NOT_STARTED:
++            if self.stage in {CollectorStage.CONNECT, CollectorStage.SEND} and self.code in {
++                GeoRunErrorCode.PROVIDER_TIMEOUT,
++                GeoRunErrorCode.PROVIDER_UNAVAILABLE,
++            }:
++                return CollectorRetryability.SAFE_BEFORE_SEND
++            return CollectorRetryability.NOT_RETRYABLE
++        return CollectorRetryability.NEW_ATTEMPT_ONLY
++
++    @property
++    def run_error_stage(self) -> GeoRunErrorStage:
++        return GeoRunErrorStage.COLLECTION
++
++
++class CollectorError(Exception):
++    """只接受稳定字段；调用方捕获后消费 failure，不记录底层异常或 response body。"""
++
++    def __init__(
++        self,
++        code: GeoRunErrorCode,
++        *,
++        stage: CollectorStage,
++        external_call_state: GeoExternalCallState,
++        provider_status: int | None = None,
++        retry_after_seconds: int | None = None,
++    ) -> None:
++        self.failure = CollectorFailure(
++            code=code,
++            stage=stage,
++            external_call_state=external_call_state,
++            provider_status=provider_status,
++            retry_after_seconds=retry_after_seconds,
++        )
++        super().__init__(self.failure.message)
+
+--- /dev/null
++++ backend/tests/unit/test_geo_collector_contract.py
+@@ -0,0 +1,331 @@
++"""抽象采集边界：不可变原始值、显式发送状态与恢复分类，无 provider I/O。"""
++
++import ast
++import inspect
++from dataclasses import FrozenInstanceError, fields, replace
++from decimal import Decimal
++from pathlib import Path
++from typing import Any, get_type_hints
++from uuid import uuid4
++
++import pytest
++from pydantic import ValidationError
++
++from app.collectors.base import GeoCollector
++from app.collectors.contracts import (
++    CollectedAnswer,
++    CollectedCitation,
++    CollectionEstimate,
++    CollectionRequest,
++    Money,
++    RawPayloadSummary,
++    Usage,
++)
++from app.collectors.errors import (
++    CollectorError,
++)
++from app.collectors.errors import (
++    CollectorRetryability as Retry,
++)
++from app.collectors.errors import (
++    CollectorStage as Stage,
++)
++from app.collectors.registry import CollectorCapability, collector_registry
++from app.schemas.geo_runs import (
++    GeoExternalCallState as State,
++)
++from app.schemas.geo_runs import (
++    GeoRunErrorCode as Code,
++)
++from app.schemas.geo_runs import (
++    GeoRunErrorStage,
++    GeoRunInputSnapshot,
++)
++from tests.unit.test_geo_run_contract import input_snapshot
++
++
++def request(**patch: Any) -> CollectionRequest:
++    return CollectionRequest.from_snapshot(
++        uuid4(),
++        GeoRunInputSnapshot.model_validate(input_snapshot("API")),
++        **{"timeout_seconds": 30, "max_response_bytes": 2097152, "budget_remaining": None, **patch},
++    )
++
++
++def answer(**patch: Any) -> CollectedAnswer:
++    return CollectedAnswer(
++        **{
++            "answer_text": "  原始回答\r\n型号 A-1\n",
++            "answer_format": "MARKDOWN",
++            "source_product": None,
++            "source_model": None,
++            "source_version": None,
++            "web_search_observed": None,
++            "citations": (),
++            "provider_request_id": None,
++            "usage": None,
++            "cost": None,
++            "duration_ms": 0,
++            "raw_payload_summary": RawPayloadSummary(),
++            "screenshot_bytes": None,
++            "raw_payload_bytes": None,
++            **patch,
++        }
++    )
++
++
++def citation(position: int, url: str = "https://example.test/a#part") -> CollectedCitation:
++    return CollectedCitation(url=url, title=None, position=position, extraction_source="STRUCTURED")
++
++
++@pytest.mark.parametrize("mode", ["MANUAL", "API", "BROWSER"])
++def test_request_copies_frozen_configuration_without_analysis_or_credentials(mode: str) -> None:
++    snapshot = GeoRunInputSnapshot.model_validate(input_snapshot(mode))
++    original = snapshot.prompt.prompt_text
++    value = CollectionRequest.from_snapshot(
++        uuid4(), snapshot, timeout_seconds=30, max_response_bytes=2097152, budget_remaining=None
++    )
++    assert value.prompt_text == original
++    assert value.profile.adapter_version == snapshot.profile.adapter_version
++    assert value.profile.engine_surface_id == snapshot.profile.surface.id
++    assert value.data_classification == snapshot.data_classification
++    assert CollectorCapability.ANSWER_TEXT in value.engine_surface.capabilities
++    snapshot.prompt.prompt_text = "后来修改的问题"
++    original_settings = value.profile.settings
++    setting = next(iter(snapshot.profile.settings.model_dump()))
++    setattr(snapshot.profile.settings, setting, None)
++    assert value.prompt_text == original
++    assert isinstance(value.profile.settings, tuple)
++    assert value.profile.settings == original_settings
++    assert {f.name for f in fields(value)}.isdisjoint(
++        {"subjects", "subject_snapshot", "session", "api_key", "headers", "fact_version"}
++    )
++    with pytest.raises(FrozenInstanceError):
++        value.profile.adapter_version = "later"  # type: ignore[misc]
++    assert original not in repr(value)
++
++
++@pytest.mark.parametrize(
++    "patch",
++    [
++        {"timeout_seconds": 0},
++        {"timeout_seconds": True},
++        {"max_response_bytes": 0},
++        {"budget_remaining": Decimal("-0.1")},
++        {"budget_remaining": Decimal("NaN")},
++    ],
++)
++def test_request_rejects_invalid_limits(patch: dict[str, Any]) -> None:
++    with pytest.raises(ValidationError):
++        request(**patch)
++
++
++def test_request_profile_identity_and_closed_settings() -> None:
++    value = request()
++    with pytest.raises(ValidationError):
++        replace(value, profile=replace(value.profile, engine_surface_id=uuid4()))
++    for settings in ((("Cookie", 1),), (("temperature", True),), (("temperature", 1),) * 2):
++        with pytest.raises(ValidationError):
++            replace(value.profile, settings=settings)
++
++
++def test_answer_preserves_original_text_unknown_and_partial_reported_usage() -> None:
++    value = answer(usage=Usage(prompt_tokens=7, completion_tokens=None, total_tokens=None))
++    assert value.answer_text == "  原始回答\r\n型号 A-1\n"
++    assert value.web_search_observed is value.cost is value.source_version is None
++    assert value.usage is not None
++    assert value.usage.total_tokens is None
++    assert value.raw_payload_summary.to_contract().model_dump() == {
++        "schema_version": 1,
++        "payload_format": None,
++        "payload_bytes": None,
++        "finish_reason": None,
++    }
++    assert value.answer_text not in repr(value)
++    with pytest.raises(FrozenInstanceError):
++        value.raw_payload_summary.payload_bytes = 10  # type: ignore[misc]
++
++
++@pytest.mark.parametrize(
++    "patch",
++    [
++        {"answer_text": ""},
++        {"answer_text": "\n\t "},
++        {"answer_text": "a\x00"},
++        {"answer_text": "a" * 1048577},
++        {"web_search_observed": 0},
++        {"duration_ms": True},
++        {"duration_ms": -1},
++        {"source_model": "m" * 201},
++        {"provider_request_id": "request\n"},
++        {"provider_request_id": " request"},
++        {"screenshot_bytes": b""},
++        {"raw_payload_bytes": b""},
++        {"citations": (citation(2), citation(1))},
++        {"citations": (citation(1), citation(1))},
++    ],
++)
++def test_invalid_raw_result_cannot_be_success(patch: dict[str, Any]) -> None:
++    with pytest.raises(ValidationError):
++        answer(**patch)
++
++
++@pytest.mark.parametrize("field", ["source_product", "source_model", "source_version"])
++@pytest.mark.parametrize("value", ["", " \n\t ", "\x00", "model\x00version"])
++def test_source_metadata_cannot_violate_persistence_contract(field: str, value: str) -> None:
++    with pytest.raises(ValidationError):
++        answer(**{field: value})
++
++
++def test_citation_title_rejects_nul_without_normalizing_original_metadata() -> None:
++    with pytest.raises(ValidationError):
++        CollectedCitation(
++            url="https://example.test/a", title="title\x00", position=1,
++            extraction_source="STRUCTURED",
++        )
++    value = answer(source_model=" model version ")
++    assert value.source_model == " model version "
++
++
++def test_original_citation_occurrences_are_preserved_for_persistence_boundary() -> None:
++    value = answer(citations=(citation(1, "HTTPS://EXAMPLE.test:443/a#one"), citation(3)))
++    assert [c.position for c in value.citations] == [1, 3]
++    assert value.citations[0].url == "HTTPS://EXAMPLE.test:443/a#one"
++    for url in ("javascript:alert(1)", "https://user:password@example.test/"):
++        with pytest.raises(ValidationError):
++            citation(1, url)
++
++
++@pytest.mark.parametrize(
++    "patch",
++    [
++        {"Cookie": "synthetic-secret"},
++        {"payload_bytes": 52428801},
++        {"finish_reason": "synthetic-secret"},
++        {"schema_version": True},
++    ],
++)
++def test_summary_is_closed_and_validation_does_not_echo_input(patch: dict[str, Any]) -> None:
++    with pytest.raises(ValidationError) as caught:
++        RawPayloadSummary(**patch)
++    assert "synthetic-secret" not in str(caught.value)
++
++
++def test_cost_unknown_differs_from_explicit_zero_and_usage_is_not_invented() -> None:
++    assert CollectionEstimate(cost=None).cost is None
++    assert CollectionEstimate(cost=Money(amount=Decimal("0"), currency="USD")).cost is not None
++    for value in (Decimal("NaN"), Decimal("-1"), Decimal("1.0000001")):
++        with pytest.raises(ValidationError):
++            Money(amount=value, currency="USD")
++    with pytest.raises(ValidationError):
++        Money(amount=Decimal("1"), currency="usd")
++    with pytest.raises(ValidationError):
++        Usage(prompt_tokens=2147483648, completion_tokens=None, total_tokens=None)
++
++
++@pytest.mark.parametrize("code", [Code.PROVIDER_TIMEOUT, Code.PROVIDER_UNAVAILABLE])
++@pytest.mark.parametrize("stage", [Stage.CONNECT, Stage.SEND])
++def test_only_confirmed_unsent_transient_failure_is_safe(code: Code, stage: Stage) -> None:
++    error = CollectorError(code, stage=stage, external_call_state=State.NOT_STARTED)
++    assert error.failure.retryability == Retry.SAFE_BEFORE_SEND
++    assert error.failure.run_error_stage == GeoRunErrorStage.COLLECTION
++
++
++@pytest.mark.parametrize("state", [State.SENT, State.UNKNOWN, State.COMPLETED])
++@pytest.mark.parametrize(
++    "code",
++    [
++        Code.PROVIDER_TIMEOUT,
++        Code.PROVIDER_UNAVAILABLE,
++        Code.PROVIDER_RESPONSE_INVALID,
++        Code.PROVIDER_RATE_LIMITED,
++        Code.PROVIDER_AUTH_FAILED,
++    ],
++)
++def test_sent_failure_never_allows_same_attempt_resend(code: Code, state: State) -> None:
++    error = CollectorError(code, stage=Stage.RECEIVE, external_call_state=state)
++    assert error.failure.retryability != Retry.SAFE_BEFORE_SEND
++    assert error.failure.external_call_state == state
++
++
++def test_rate_limit_wait_is_new_attempt_metadata_only() -> None:
++    error = CollectorError(
++        Code.PROVIDER_RATE_LIMITED,
++        stage=Stage.RECEIVE,
++        external_call_state=State.COMPLETED,
++        provider_status=429,
++        retry_after_seconds=15,
++    )
++    assert error.failure.retryability == Retry.NEW_ATTEMPT_ONLY
++    assert error.failure.retry_after_seconds == 15
++    assert str(error) == error.failure.message == "供应商请求限流"
++    with pytest.raises(FrozenInstanceError):
++        error.failure.external_call_state = State.NOT_STARTED  # type: ignore[misc]
++
++
++@pytest.mark.parametrize(
++    "code,stage,state,metadata",
++    [
++        (Code.PROVIDER_TIMEOUT, Stage.CONNECT, State.SENT, {}),
++        (Code.PROVIDER_TIMEOUT, Stage.RECEIVE, State.NOT_STARTED, {}),
++        (Code.PROVIDER_RESPONSE_INVALID, Stage.PARSE, State.UNKNOWN, {}),
++        (Code.PROVIDER_RESPONSE_INVALID, Stage.EVIDENCE, State.NOT_STARTED, {}),
++        (Code.COLLECTOR_UNKNOWN_OUTCOME, Stage.SEND, State.NOT_STARTED, {}),
++        (Code.COLLECTOR_UNKNOWN_OUTCOME, Stage.RECEIVE, State.COMPLETED, {}),
++        (Code.ANALYSIS_FAILED, Stage.PARSE, State.COMPLETED, {}),
++        (Code.WORKER_LOST, Stage.RECEIVE, State.UNKNOWN, {}),
++        (Code.PROVIDER_RATE_LIMITED, Stage.RECEIVE, State.SENT, {"provider_status": 429}),
++        (Code.PROVIDER_RATE_LIMITED, Stage.RECEIVE, State.COMPLETED, {"provider_status": True}),
++        (Code.PROVIDER_RATE_LIMITED, Stage.RECEIVE, State.COMPLETED, {"retry_after_seconds": 15}),
++        (Code.PROVIDER_TIMEOUT, Stage.RECEIVE, State.COMPLETED, {"retry_after_seconds": 15}),
++    ],
++)
++def test_inconsistent_or_wrong_owner_error_rejected(
++    code: Code, stage: Stage, state: State, metadata: dict[str, Any]
++) -> None:
++    with pytest.raises(ValidationError):
++        CollectorError(code, stage=stage, external_call_state=state, **metadata)
++
++
++def test_error_requires_explicit_send_state_and_cannot_accept_raw_provider_message() -> None:
++    with pytest.raises(TypeError):
++        CollectorError(Code.PROVIDER_TIMEOUT, stage=Stage.RECEIVE)  # type: ignore[call-arg]
++    with pytest.raises(TypeError):
++        CollectorError(
++            Code.PROVIDER_TIMEOUT,
++            stage=Stage.RECEIVE,
++            external_call_state=State.UNKNOWN,
++            message="Bearer synthetic-secret",  # type: ignore[call-arg]
++        )
++    error = CollectorError(
++        Code.COLLECTOR_UNKNOWN_OUTCOME, stage=Stage.RECEIVE, external_call_state=State.UNKNOWN
++    )
++    with pytest.raises(CollectorError) as caught:
++        raise error from None
++    assert "synthetic-secret" not in repr(caught.value)
++    assert caught.value.failure.retryability == Retry.NEW_ATTEMPT_ONLY
++
++
++def test_protocol_exposes_single_metadata_owner_and_required_send_boundary() -> None:
++    assert get_type_hints(GeoCollector.collect)["request"] is CollectionRequest
++    assert get_type_hints(GeoCollector.collect)["return"] is CollectedAnswer
++    parameter = inspect.signature(GeoCollector.collect).parameters["before_send"]
++    assert parameter.kind == inspect.Parameter.KEYWORD_ONLY
++    assert parameter.default is inspect.Parameter.empty
++    assert not isinstance(collector_registry.resolve("manual"), GeoCollector)
++    assert collector_registry.capabilities("manual") <= frozenset(CollectorCapability)
++
++
++def test_collector_modules_do_not_depend_on_orm_or_transaction_owner() -> None:
++    root = Path(__file__).resolve().parents[2] / "app/collectors"
++    for path in root.glob("*.py"):
++        tree = ast.parse(path.read_text())
++        for node in ast.walk(tree):
++            if isinstance(node, ast.ImportFrom):
++                assert not (node.module or "").startswith(
++                    ("sqlalchemy", "app.db", "app.models", "app.services")
++                )
++            elif isinstance(node, ast.Import):
++                assert all(not n.name.startswith("sqlalchemy") for n in node.names)
++            elif isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
++                assert node.func.attr not in {"commit", "rollback", "flush", "execute"}

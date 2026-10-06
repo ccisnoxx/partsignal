@@ -1,0 +1,6 @@
+{
+  "command": "UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/unit/test_geo_configuration.py backend/tests/unit/test_geo_catalog_contract.py backend/tests/unit/test_geo_prompt_variant_contract.py backend/tests/unit/test_contract.py",
+  "exit_code": 0,
+  "seconds": 12.81,
+  "log": "baseline-unit.log"
+}

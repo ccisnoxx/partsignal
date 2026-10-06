@@ -1,0 +1,36 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_ test_critical_baseline_keeps_nonerror_eligible_run_and_its_revision_identity _
+
+    def test_critical_baseline_keeps_nonerror_eligible_run_and_its_revision_identity():
+        error, accurate = cohort(source(), [True, True])
+        inputs = [with_claim(error), with_claim(accurate, verdict="ACCURATE")]
+        result = results(inputs, "CRITICAL_FACT_ERROR")[0]
+        assert result.triggered and (result.numerator, result.denominator) == (1, 2)
+>       assert {s.run_id for s in result.sources} == {s.metric.run_id for s in inputs}
+E       AssertionError: assert {UUID('a1c1cd...96fddb6bc4f')} == {UUID('3b58f1...96fddb6bc4f')}
+E         
+E         Extra items in the right set:
+E         UUID('3b58f138-8779-407c-99b8-34997b6d6ab5')
+E         Use -v to get more diff
+
+backend/tests/unit/test_geo_opportunity_baseline.py:12: AssertionError
+_ test_repeated_baseline_keeps_full_30_day_eligible_set_with_source_period_roles _
+
+    def test_repeated_baseline_keeps_full_30_day_eligible_set_with_source_period_roles():
+        base = source()
+        inputs = [with_claim(cohort(base, [True], age=age)[0]) for age in (1, 10, 29)]
+        accurate = with_claim(cohort(base, [True], age=2)[0], verdict="ACCURATE")
+        result = results(inputs + [accurate], "REPEATED_FACT_ERROR")[0]
+        assert result.triggered and (result.numerator, result.denominator) == (3, 4)
+>       assert {s.run_id for s in result.sources} == {s.metric.run_id for s in inputs + [accurate]}
+E       AssertionError: assert {UUID('20e6c2...06201494682')} == {UUID('0731f6...06201494682')}
+E         
+E         Extra items in the right set:
+E         UUID('0731f6f7-e302-41a7-8e37-002a9ed6657c')
+E         Use -v to get more diff
+
+backend/tests/unit/test_geo_opportunity_baseline.py:24: AssertionError
+=========================== short test summary info ============================
+FAILED backend/tests/unit/test_geo_opportunity_baseline.py::test_critical_baseline_keeps_nonerror_eligible_run_and_its_revision_identity
+FAILED backend/tests/unit/test_geo_opportunity_baseline.py::test_repeated_baseline_keeps_full_30_day_eligible_set_with_source_period_roles

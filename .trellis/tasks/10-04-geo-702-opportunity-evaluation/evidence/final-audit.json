@@ -1,0 +1,91 @@
+{
+  "baseline_hash_count": 3372,
+  "changed_existing": [
+    ".trellis/tasks/10-04-geo-702-opportunity-evaluation/prd.md",
+    ".trellis/tasks/10-04-geo-702-opportunity-evaluation/task.json",
+    "backend/app/models/__init__.py",
+    "backend/app/models/geo_runs.py",
+    "backend/app/services/geo_catalog_queries.py",
+    "backend/app/services/identity.py",
+    "backend/tests/integration/test_geo_admission_migration.py",
+    "backend/tests/integration/test_geo_answer_migration.py",
+    "backend/tests/integration/test_geo_run_migration.py",
+    "backend/tests/integration/test_migrations.py",
+    "contracts/database.md",
+    "contracts/openapi.yaml",
+    "docs/geo-monitoring/03-technical/02-data-architecture.md",
+    "docs/geo-monitoring/03-technical/03-api-contract-design.md",
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "docs/geo-monitoring/CHANGELOG.md",
+    "docs/geo-monitoring/README.md",
+    "docs/geo-monitoring/SHA256SUMS",
+    "frontend/src/shared/api/generated/schema.d.ts"
+  ],
+  "added_implementation": [
+    "backend/alembic/sql/0059_geo_opportunities.sql",
+    "backend/alembic/versions/0059_geo_opportunities.py",
+    "backend/app/models/geo_opportunities.py",
+    "backend/app/schemas/geo_opportunities.py",
+    "backend/app/services/geo_opportunities.py",
+    "backend/app/services/geo_opportunity_policy.py",
+    "backend/app/services/geo_opportunity_quality_rules.py",
+    "backend/app/services/geo_opportunity_rules.py",
+    "backend/app/services/geo_opportunity_types.py",
+    "backend/tests/integration/test_geo_opportunities.py",
+    "backend/tests/integration/test_geo_opportunity_baseline.py",
+    "backend/tests/integration/test_geo_opportunity_migration.py",
+    "backend/tests/integration/test_geo_opportunity_migration_stop.py",
+    "backend/tests/unit/test_geo_opportunity_baseline.py",
+    "backend/tests/unit/test_geo_opportunity_policy.py",
+    "backend/tests/unit/test_geo_opportunity_rules.py"
+  ],
+  "unexpected_baseline_changes": [],
+  "manifest_other_tasks_unchanged": true,
+  "dependencies": {
+    "GEO-701": "done",
+    "GEO-603": "done",
+    "GEO-604": "done"
+  },
+  "GEO-702": "review",
+  "owned_whitespace_errors": [],
+  "openapi_prefix_preservation": {
+    "openapi_preexisting_prefix_unchanged": true,
+    "prefix_size": 825463,
+    "new_components": [
+      "GeoOpportunityPriority",
+      "GeoOpportunityScope",
+      "GeoOpportunitySourceRole",
+      "GeoOpportunitySourceSnapshot",
+      "GeoOpportunityTriggerSnapshot",
+      "GeoOpportunityStatus",
+      "GeoOpportunityActionType"
+    ]
+  },
+  "validation_summary": {
+    "make_lint": 0,
+    "make_typecheck": 0,
+    "make_test_unit": {
+      "exit_code": 0,
+      "backend_passed": 3623,
+      "frontend_passed": 1222
+    },
+    "make_test_integration": {
+      "exit_code": 0,
+      "passed": 1038,
+      "existing_warnings": 31
+    },
+    "final_702_targeted_post_review": {
+      "exit_code": 0,
+      "passed": 14
+    },
+    "alembic_upgrade_head": 0,
+    "git_diff_check": 0,
+    "contract_check": 0,
+    "docs_sha_check": 0
+  },
+  "cleanup": {
+    "exit_code": 0,
+    "remaining_own_containers": 0
+  },
+  "note": "旧dirty与untracked工作按开始时3372路径SHA保留；19个既有路径及16个实现/测试新文件为本任务范围。完整分母PG在全量收集后新增，最终14项另运行，不合并计算总数。identity无关格式回到原始基线，AST不变；未运行生产。"
+}

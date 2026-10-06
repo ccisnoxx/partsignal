@@ -1,0 +1,31 @@
+{
+  "audit": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T195909Z-geo-505-34a6c7ae",
+  "stage": {
+    "audit_id": "20261003T195909Z-geo-505-34a6c7ae",
+    "audit_dir": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T195909Z-geo-505-34a6c7ae",
+    "sequence": 1,
+    "name": "independent-review",
+    "prefix": "01-independent-review",
+    "paths": {
+      "draft": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T195909Z-geo-505-34a6c7ae/01-independent-review.draft.json",
+      "plan": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T195909Z-geo-505-34a6c7ae/01-independent-review.plan.json",
+      "dispatch_dir": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T195909Z-geo-505-34a6c7ae/01-independent-review.dispatches",
+      "execution": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T195909Z-geo-505-34a6c7ae/01-independent-review.execution.json",
+      "summary_json": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T195909Z-geo-505-34a6c7ae/01-independent-review.summary.json",
+      "summary_text": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T195909Z-geo-505-34a6c7ae/01-independent-review.summary.txt"
+    }
+  },
+  "plan_command": [
+    "/Users/sc/.codex/skills/multi-agent-orchestration/bin/work-plan",
+    "plan",
+    "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T195909Z-geo-505-34a6c7ae/01-independent-review.draft.json",
+    "--output",
+    "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T195909Z-geo-505-34a6c7ae/01-independent-review.plan.json"
+  ],
+  "validate_command": [
+    "/Users/sc/.codex/skills/multi-agent-orchestration/bin/work-plan",
+    "validate",
+    "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T195909Z-geo-505-34a6c7ae/01-independent-review.plan.json"
+  ],
+  "dispatch": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T195909Z-geo-505-34a6c7ae/01-independent-review.dispatches/geo505-review-a1.json"
+}

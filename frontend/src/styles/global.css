@@ -499,6 +499,46 @@
       print-color-adjust: exact;
     }
 
+    .geo-insights-print-shell .geo-report-controls {
+      display: none !important;
+    }
+
+    .geo-insights-print-shell .geo-answer-report {
+      font-size: 9pt;
+    }
+
+    .geo-insights-print-shell .geo-answer-report .ps-table-region {
+      overflow: visible;
+      max-height: none;
+    }
+
+    .geo-insights-print-shell .geo-answer-report .ps-table {
+      table-layout: fixed;
+      width: 100%;
+      min-width: 0;
+      font-size: 8pt;
+    }
+
+    .geo-insights-print-shell .geo-answer-report .ps-table th,
+    .geo-insights-print-shell .geo-answer-report .ps-table td {
+      white-space: normal;
+      overflow-wrap: anywhere;
+      padding: 0.35rem;
+    }
+
+    .geo-insights-print-shell .geo-answer-report .ps-table thead {
+      display: table-header-group;
+    }
+
+    .geo-insights-print-shell .geo-answer-report .ps-table tr {
+      break-inside: avoid-page;
+    }
+
+    .geo-insights-print-shell .geo-answer-report h2,
+    .geo-insights-print-shell .geo-answer-report h3 {
+      break-after: avoid-page;
+    }
+
     .geo-insights-print-shell .geo-insights-print-controls {
       display: none !important;
     }

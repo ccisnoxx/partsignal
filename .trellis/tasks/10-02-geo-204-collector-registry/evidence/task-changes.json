@@ -1,0 +1,22 @@
+{
+  "initial_file_count": 3579,
+  "modified_initial_files": [
+    "docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md",
+    "docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md",
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "docs/geo-monitoring/CHANGELOG.md",
+    "docs/geo-monitoring/README.md",
+    "docs/geo-monitoring/SHA256SUMS"
+  ],
+  "new_files_outside_task": [
+    "backend/app/collectors/__init__.py",
+    "backend/app/collectors/registry.py",
+    "backend/app/services/geo_collection_profiles.py",
+    "backend/app/services/geo_collector_eligibility.py",
+    "backend/tests/integration/test_geo_profile_eligibility.py",
+    "backend/tests/unit/test_geo_collector_registry.py"
+  ],
+  "unexpected_modified_files": [],
+  "unexpected_new_files": [],
+  "unrelated_changes_preserved": true
+}

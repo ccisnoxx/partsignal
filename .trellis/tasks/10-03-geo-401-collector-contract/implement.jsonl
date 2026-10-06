@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/backend/index.md", "reason": "后端模块与规范入口"}
+{"file": ".trellis/spec/backend/ai-configuration-guidelines.md", "reason": "模型事实、未知值、外部服务边界"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "稳定安全错误与 owner"}
+{"file": "docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md", "reason": "采集值、发送状态及 adapter 合同"}
+{"file": "docs/geo-monitoring/05-decisions/ADR-005-staged-collector-rollout.md", "reason": "分阶段 adapter 与发送恢复"}

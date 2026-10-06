@@ -1,0 +1,13 @@
+
+> partsignal-frontend-v2@0.1.0 test
+> vitest run src/domains/audit/audit.model.test.ts
+
+
+ RUN  v4.1.10 /Users/sc/PycharmProjects/partsignal/frontend
+
+
+ Test Files  1 passed (1)
+      Tests  22 passed (22)
+   Start at  18:45:13
+   Duration  448ms (transform 24ms, setup 67ms, import 29ms, tests 13ms, environment 278ms)
+

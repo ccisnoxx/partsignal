@@ -1,0 +1,13 @@
+{
+  "command": [
+    "npx",
+    "--prefix",
+    "frontend",
+    "eslint",
+    "frontend/tests/e2e/geo-review-support.ts",
+    "frontend/tests/e2e/geo-review-real-stack.spec.ts",
+    "frontend/tests/e2e/runs-real-stack.spec.ts",
+    "frontend/tests/e2e/geo-api-real-stack.spec.ts"
+  ],
+  "exit_code": 0
+}

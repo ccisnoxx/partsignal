@@ -1,0 +1,29 @@
+..............
+----------------------------------------------------------------------
+Ran 14 tests in 0.239s
+
+OK
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+升级恢复已记录；重放同一回执，不重新切换候选。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+升级前向恢复候选已显式绑定；仍未初始化，必须重新 deploy 和验收。
+Production 数据阶段已更新为 UPGRADE_PREPARED。
+Production upgrade 数据所有权与候选绑定校验通过。
+升级前向恢复候选已显式绑定；仍未初始化，必须重新 deploy 和验收。
+Production upgrade 数据所有权与候选绑定校验通过。
+升级前向恢复候选已显式绑定；仍未初始化，必须重新 deploy 和验收。
+Production upgrade 数据所有权与候选绑定校验通过。
+升级前向恢复候选已显式绑定；仍未初始化，必须重新 deploy 和验收。
+升级恢复已记录；重放同一回执，不重新切换候选。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+升级前向恢复候选已显式绑定；仍未初始化，必须重新 deploy 和验收。

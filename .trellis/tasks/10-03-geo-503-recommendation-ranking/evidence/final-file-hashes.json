@@ -1,0 +1,15 @@
+{
+  "backend/app/services/geo_analysis.py": "eccfcbbf0f7a161f8b255241e7f3c2e4da366471b0f41a9a60b62785d1a0c770",
+  "backend/app/services/geo_recommendation_rules.py": "735c6176eb8079af0594c1e3d95a034056ba568d00bd9c0688d9391e4e2bc3c3",
+  "backend/tests/fixtures/geo_analysis/README.md": "6c971ccd5589196b790a7fc5fd014ca5f7db07035c06cd6185cd6f838129c6a0",
+  "backend/tests/fixtures/geo_analysis/recommendations-v1.json": "c1f2cf89f9f5239eff4ad4779fd5ee40e2a2112669a0efac708ca34f098a7d61",
+  "backend/tests/fixtures/geo_analysis/recommendations-v1.schema.json": "f068e5da17481ea35d67f95f91794e6073d168a2777387134511e458298d31ac",
+  "backend/tests/geo_fixtures.py": "e256f76e09e04f03c9fbc3091c80e832d3b2e61e20821c4f373fb80e9b2e08c7",
+  "backend/tests/unit/test_geo_recommendations.py": "be612a8a0c53fb86b156f998b42190f35f97fde5711b51730c7cc59e60e77131",
+  "deploy/scripts/check-geo-fixtures.py": "8de033a64a1f627b5f2b0a4003adce0b9b4ea6e63035896f73c60b961e2edad2",
+  "docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md": "cf30785c588eed38cd1797198f7c5a6466984ed85149b33b834bd43554e8ef01",
+  "docs/geo-monitoring/04-delivery/task-manifest.yaml": "b9bf1f7af6e182610f7715bdefb026cabce55d59bda67ffa0b99e41f488385de",
+  "docs/geo-monitoring/CHANGELOG.md": "4b0940dc5c8628e21c3aee4daf69a4631a8f2ef36fe430db07731f1885364a60",
+  "docs/geo-monitoring/README.md": "893e944c88a282cd3b7d0d7de0da49587c8e4c7aa7ab1b343f64b034e0dd3c93",
+  "docs/geo-monitoring/SHA256SUMS": "d6eba5b13b1b061580497200987186315acad61ee412ec6064237f610d6d5b96"
+}

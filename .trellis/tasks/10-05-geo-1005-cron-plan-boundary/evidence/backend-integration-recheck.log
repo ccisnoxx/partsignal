@@ -1,0 +1,13 @@
+ Container partsignal-dev-redis-1 Running 
+ Container partsignal-dev-fake-oss-1 Running 
+ Container partsignal-dev-postgres-1 Running 
+ Container partsignal-dev-redis-1 Waiting 
+ Container partsignal-dev-fake-oss-1 Waiting 
+ Container partsignal-dev-postgres-1 Waiting 
+ Container partsignal-dev-fake-oss-1 Healthy 
+ Container partsignal-dev-redis-1 Healthy 
+ Container partsignal-dev-postgres-1 Healthy 
+ Container partsignal-dev-backend-test-run-ae0afdf0a1c3 Creating 
+ Container partsignal-dev-backend-test-run-ae0afdf0a1c3 Created 
+...........                                                              [100%]
+---------------- generated xml file: /app/.geo1005-targeted.xml ----------------

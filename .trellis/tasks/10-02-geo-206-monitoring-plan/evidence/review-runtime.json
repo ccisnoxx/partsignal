@@ -1,0 +1,13 @@
+{
+  "task_name": "/root/geo206_plan_review",
+  "nickname": "Bernoulli",
+  "runtime_ref_source": "spawn_metadata",
+  "actual_tool": "agents.spawn_agent",
+  "fork_turns": "none",
+  "agent_type": "critical_reviewer",
+  "parent_followup_count": 0,
+  "worker_intermediate_message_count": 0,
+  "wait_call_count": 0,
+  "wait_timeout_count": 0,
+  "status_poll_count": 0
+}

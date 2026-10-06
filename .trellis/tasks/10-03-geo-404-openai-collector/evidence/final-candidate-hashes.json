@@ -1,0 +1,11 @@
+{
+  "backend/app/collectors/openai_compatible.py": "f6131fb110ded252a4795124b88d13ace7d7d5fe06d64dfea0a443e877a1ad07",
+  "backend/app/collectors/openai_response.py": "4d1db6a2e4a34f9df50776ea4251caeffc7ecb15cddc64e82502b1f6d6fd8b41",
+  "backend/app/services/pinned_http.py": "27136d608a462b7bae6167f3472ac9195f8d4baf935bd651a00b1f6dfaf01791",
+  "backend/tests/geo_openai_support.py": "8e43aa07a07b49e503ccee66bb9c5af4a88407a33867676700a60e203a386f18",
+  "backend/tests/unit/test_geo_openai_collector.py": "ac91b2b30c1256cab5fd9c00d2efd0da65a38d1740b7b311a7a1a145f1de7f0f",
+  "backend/tests/unit/test_geo_openai_response.py": "b8e20e550582aeef6e1ffe3ccaa1a02c61abb99c80f76553eb349571676f73cf",
+  "backend/tests/unit/test_geo_openai_network.py": "84c1bf89d3e0979f52dae2f7b7f87685cd6981dba35ea25acb8bb943d7a09f29",
+  "deploy/scripts/test-geo-collector-contract.py": "8a3cf2d6294d543e0e57d084a311de083cd56d58efba00ecd614aa328b099078",
+  "backend/tests/unit/test_geo_collector_contract.py": "6fc5fe851224a150a4b08fcbd74bc8599b8c00de2a5db8436af94f28b9a72f9b"
+}

@@ -1,0 +1,11 @@
+--- initial/docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md
++++ candidate/docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md
+@@ -104,6 +104,8 @@
+ | REQ-GEO-EVIDENCE-004 | 原始证据不可变 | UPDATE 直接 SQL 失败 | GEO-304、308 |
+ | REQ-GEO-EVIDENCE-005 | secret 不进入证据 | API/log/audit/file 扫描无密钥/Cookie | GEO-402、404、904 |
+ 
++GEO-402 已提供本地真实 TCP fake provider 与 Collector 合同套件：生成虚构 API/Header/Cookie canary，验证原值及 URL/JSON/Base64 形式不进入结果、错误、日志与测试产物；故意泄漏驱动和污染文件能使检查失败。证据见 [GEO-402 实施记录](../../../.trellis/tasks/10-03-geo-402-fake-provider/implement.md)。该证据限于本地采集合同，业务 API/audit、生产 adapter 与 Worker 的安全验收仍由后续任务负责，不能据此宣称 REQ-GEO-EVIDENCE-005 全链路完成。
++
+ ### 2.5 分析和复核
+ 
+ | 需求 ID | 需求 | 验收 | 任务 |

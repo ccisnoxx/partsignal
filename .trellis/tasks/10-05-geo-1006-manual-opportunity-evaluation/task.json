@@ -1,0 +1,28 @@
+{
+  "id": "geo-1006-manual-opportunity-evaluation",
+  "name": "geo-1006-manual-opportunity-evaluation",
+  "title": "GEO-1006：管理员手动触发机会评估",
+  "description": "ADMIN 手动机会评估 API、请求幂等、低敏审计及 PostgreSQL/权限验证",
+  "status": "review",
+  "dev_type": null,
+  "scope": "backend-contract",
+  "package": null,
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-10-05",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "本地实现/定向验证与两轮fresh只读复核完成；只置review，待人工接受。审计20261006T051325Z-geo-1006-14f7608a完整性通过，首轮写入证据unknown保留；生产候选与现场未执行。",
+  "meta": {
+    "manifest_id": "GEO-1006"
+  }
+}

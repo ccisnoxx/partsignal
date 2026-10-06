@@ -1,0 +1,19 @@
+{
+  "guard_type": "DISPATCH_CONTRACT_GUARD",
+  "planner_version": "1.5.1",
+  "plan_id": "geo303-independent-review",
+  "task_id": "geo303-review-a1",
+  "status": "passed",
+  "observed_dispatch": {
+    "method": "spawn_agent",
+    "task_name": "geo303_creation_review",
+    "fork_turns": "none",
+    "model_override": null,
+    "reasoning_effort_override": null
+  },
+  "audit_id": "20261002T215936Z-geo-303-3fe30466",
+  "audit_bundle_version": 1,
+  "audit_stage": "01-review",
+  "audit_plan": "01-review.plan.json",
+  "audit_dispatch": "01-review.dispatches/geo303-review-a1.json"
+}

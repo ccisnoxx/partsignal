@@ -1,0 +1,1 @@
+{"tasks": [{"dir": ".trellis/tasks/10-05-geo-804-approved-browser-adapter", "id": "geo-804-approved-browser-adapter", "title": "GEO-804 第一个合规批准的真实界面 Adapter", "status": "deferred", "display_status": "deferred", "priority": "P2", "assignee": "777", "parent": null, "children": [], "package": "browser-collector"}]}

@@ -1,0 +1,1 @@
+仅去除文件末尾空白行；YAML解析值前后严格相等，既有contract/generated验证语义未变。

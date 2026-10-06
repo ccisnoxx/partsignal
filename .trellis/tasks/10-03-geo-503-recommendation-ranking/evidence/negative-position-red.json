@@ -1,0 +1,15 @@
+{
+  "command": [
+    "env",
+    "UV_CACHE_DIR=.cache/uv",
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "pytest",
+    "backend/tests/unit/test_geo_recommendations.py",
+    "-k",
+    "recommend-against or recommend-avoiding or suggest-avoid or position-marker-conflict"
+  ],
+  "exit_code": 1
+}

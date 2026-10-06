@@ -1,0 +1,10 @@
+{"file": ".trellis/tasks/10-02-geo-308-r2-acceptance/prd.md", "reason": "本任务范围、依赖、验收和停止条件"}
+{"file": ".trellis/tasks/10-02-geo-308-r2-acceptance/design.md", "reason": "确定锁等待、完整聚合回滚和兼容验收设计"}
+{"file": "docs/geo-monitoring/04-delivery/task-manifest.yaml", "reason": "GEO-307 done、GEO-308阶段与唯一授权交付"}
+{"file": "docs/geo-monitoring/04-delivery/02-work-breakdown-structure.md", "reason": "GEO-308完整任务行与make verify + GEO E2E要求"}
+{"file": "docs/geo-monitoring/03-technical/07-testing-and-quality.md", "reason": "实际R2验收边界与后续目标区别"}
+{"file": "contracts/database.md", "reason": "0048至0051不可变数据、revision和外键权威"}
+{"file": "contracts/openapi.yaml", "reason": "人工提交/读取和旧文章流程的公共合同"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "测试边界、真实数据库及静态检查"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "真实浏览器、generated类型及测试约定"}
+{"file": ".trellis/spec/infra/e2e-isolation.md", "reason": "隔离PG/Redis/OSS、秘密扫描与清理"}

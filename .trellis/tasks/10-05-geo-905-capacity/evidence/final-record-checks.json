@@ -1,0 +1,17 @@
+{
+  "dependencies_done": [
+    "GEO-607",
+    "GEO-902"
+  ],
+  "task_status": "blocked",
+  "other_manifest_records_unchanged": true,
+  "changed_doc_checksums_passed": [
+    "./03-technical/07-testing-and-quality.md",
+    "./03-technical/08-deployment-and-operations.md",
+    "./04-delivery/task-manifest.yaml",
+    "./CHANGELOG.md",
+    "./README.md",
+    "./04-delivery/12-r8-capacity-hardening.md"
+  ],
+  "owned_patch_whitespace_passed": true
+}

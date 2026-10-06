@@ -1,0 +1,28 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend ruff check backend
+All checks passed!
+npm --prefix frontend run lint
+
+> partsignal-frontend-v2@0.1.0 lint
+> eslint . --max-warnings 0
+
+
+/Users/sc/PycharmProjects/partsignal/frontend/src/domains/geo-insights/insight-filters.tsx
+  2:10  error  'z' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/sc/PycharmProjects/partsignal/frontend/src/domains/geo-insights/insight-page-frame.tsx
+  22:15  error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+/Users/sc/PycharmProjects/partsignal/frontend/src/domains/geo-insights/insight-page-frame.tsx:22:15
+  20 |     <nav aria-label="GEO 分析页面" className="flex flex-wrap gap-4 text-sm"><Link to="/geo/overview" search={base} className="text-primary underline underline-offset-4">总览</Link><Link to="/geo/insights/answers" search={base} className="text-primary underline underline-offset-4">回答洞察</Link><Link to="/geo/insights" className="text-primary underline underline-offset-4">文章关系洞察</Link></nav>
+  21 |     <InsightFilters key={JSON.stringify(base)} search={base} onApply={(next) => onSearchChange(normalizeSearch(next))} />
+> 22 |     {children(open)}
+     |               ^^^^ Cannot access ref value during render
+  23 |     <InsightDrilldown search={search} onSearchChange={onSearchChange} finalFocus={() => focusReturn.current?.isConnected ? focusReturn.current : headerRef.current} />
+  24 |   </section>;
+  25 | }  react-hooks/refs
+
+✖ 2 problems (2 errors, 0 warnings)
+
+make: *** [lint] Error 1

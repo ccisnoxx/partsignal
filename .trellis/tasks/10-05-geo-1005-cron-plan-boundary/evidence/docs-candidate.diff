@@ -1,0 +1,301 @@
+--- a/docs/geo-monitoring/CHANGELOG.md
++++ b/docs/geo-monitoring/CHANGELOG.md
+@@ -1,4 +1,12 @@
+ # 文档包变更记录
++
++## GEO-1005 / V1.0 CRON Plan 边界 — 2026-10-05（review）
++
++- CRON 新建、MANUAL 改 CRON、全部历史 Plan 写命令与首次 run/PLAN 建批及 scheduled 新窗口返回 409 GEO_PLAN_CRON_UNSUPPORTED；守卫由 Plan policy 统一拥有。
++- 历史配置、状态（包括旧 ACTIVE）、revision、关系、Batch/Run/快照只读保留，读模型 UNSUPPORTED_SCHEDULE / VIEW_HISTORY、无写动作；页面不承诺调度，只能新建人工计划。
++- 运行中心创建器也仅选择 MANUAL_ONLY，旧缓存的历史 CRON 投影不可选；MANUAL create/activate/run 和人工 Batch 保持；现有人工 Retest 从冻结基线创建 RETEST，来源可追溯但不执行当前 CRON Plan。
++- 不接线 Beat 到期任务、不降级、不回写/删除历史；已有回执只读重放不再投递。无 DDL/迁移/生产操作。
++- 更新 OpenAPI/数据库合同、PRD、Runbook、能力矩阵及 ADR 澄清。实际验证、独立复核与限制见 [实施记录](../../.trellis/tasks/10-05-geo-1005-cron-plan-boundary/implement.md)。当前生产同候选/历史清点仍 NOT_VERIFIED，发布 NO-GO 保留。
+ 
+ ## GEO-1003 / R9A 生产 Browser 硬禁止 — 2026-10-05（review）
+ 
+--- a/docs/geo-monitoring/SHA256SUMS
++++ b/docs/geo-monitoring/SHA256SUMS
+@@ -1,25 +1,25 @@
+ a13698828ce6facd07deb3b789e9134d363ea26af1e05918a63f1603477bd4fa  00-governance/01-document-governance.md
+ b5906690eb04c8d27911a09722761e7cf4c244ecab2fbe39a55d94c794ee8728  00-governance/02-glossary.md
+ c2712f08697489a04597c9c8da1bc87b0316a6dad321b36bbc2d850377ca63c8  01-product/01-product-vision-and-scope.md
+-dcb2e50c723df8758173ba472a63a6a12b51eed074b2e82a408e56f78980b5f2  01-product/02-geo-core-prd.md
++b1ed9e956eed455178d190b5cfd72e43ee0ae706890e1b5e39ab8d53229c6786  01-product/02-geo-core-prd.md
+ 95637e55031a56bf3e70073207439e2d7cd6f879be9ddaefa1b7edc3192d7751  01-product/03-information-architecture-and-page-spec.md
+ 36be92c676c3150e5953f01498418900d3e2bcc1f37a0bda31b9892e57b8a2d0  01-product/04-catalog-user-guide.md
+-e3004a74f9786ac22ca5b2a623de9b41dd095d6df79ea599ba02dcdf24ac7c83  01-product/05-v1-release-capability-matrix.md
++314ead7e6e4679dd1ebc3a11b9e2bd534e006186881e6a1ef111e1b84d9c4e37  01-product/05-v1-release-capability-matrix.md
+ 45b864ba43a27d184a5161086b4a8332615fd831ec1aad4f908d1705e6bb3594  02-business/01-business-architecture.md
+ 140e16f4dc3d712628c4cbba8bab938848f24c2bf8e0b530fd52b4de5c6c4ec1  02-business/02-domain-model.md
+-c0957fde7fb609dd1746d4d29e4a3f8e14129e685787bf4046c8d8941a314054  02-business/03-workflows-and-state-machines.md
++6f0d7a0f1fa6de0387527657e84ad12e726a35f3ba8c3098582069e38967191c  02-business/03-workflows-and-state-machines.md
+ aeec9d65d22cc1f2640c46968e1923d328ed842bbc086f18e5dc4bd376a4bb02  02-business/04-monitoring-methodology-and-metrics.md
+ 2ecb8425899de5f1ae4f6a1f0b130f93aba201fbc9c084856d6893835d0484e9  02-business/05-manual-geo-observation-sop.md
+-b2349ebacd9ae9240b17204ea6b11116ca51638c6ff36c1f8174a43c7259e1c5  03-technical/01-technical-architecture.md
+-dfa99da7fce0e0ab5678cff7f0aa722565dba13514bf770efceeacdc812de817  03-technical/02-data-architecture.md
++ce09fc392c20e25cc44c5ef73896d7c4abcf22461997e00ab4d46b1f5fe2fa16  03-technical/01-technical-architecture.md
++2fe91ec9b578d928757a082698389ccc1ac2fb6786f5c2c066d5e3daa248e635  03-technical/02-data-architecture.md
+ 22f8976a569a88800331d5f8ad54a83d753450f469bd30b70e4ac79a8f18c2e9  03-technical/03-api-contract-design.md
+ a0291d4a77609a1db741e3adc84d19ab712ac3ffff8c49f8572ac09b1c5327eb  03-technical/04-frontend-architecture.md
+-daf8f8cec2dfb8996c316ca259ae6eea161d944337f340ce9c6180bc9c87c0f5  03-technical/05-worker-and-collector-architecture.md
++56c8b069f03dae75d7ab57d9900174eb4395b11989d244fcd48894a052d8b1e3  03-technical/05-worker-and-collector-architecture.md
+ 596532a0304d246a9051872ebed910156983b9fd2cd146ef234fd6700e07c1eb  03-technical/06-security-and-compliance.md
+ 10e3e60c5885c23cd36e941d0d46dc2d1e30a01d3b7817b2f1ecf6700151f654  03-technical/07-testing-and-quality.md
+ 95ff451b9d6927240bbf19ba157f22952212178b52089f4053f6644c889fa7b7  03-technical/08-deployment-and-operations.md
+-48ee02798a720cd1c74067e040677bf18947e56933521c2d409b4feb81cc4c0e  03-technical/09-backup-recovery-runbook.md
+-df13d35d50290528c9561531c8f62740d5990e8735dee8d36ce0a95f635e757c  03-technical/10-core-rollout-runbook.md
++24a1a9a0c7a8076e3521304053a52f411dc4943a4316f542718f9b507dc1be7c  03-technical/09-backup-recovery-runbook.md
++d8d690fb7c4cacd17071936a9f57672c3de7e50962ce723e37c610fb8e417516  03-technical/10-core-rollout-runbook.md
+ 9edd3f79af2d9f91932e9e668b41c6f3e9a38ebe781ec9dc8b6517c135f3ee49  04-delivery/01-implementation-roadmap.md
+ 0c43e4072efeb3b4271cbad3f6e7ff896dcc075530e73f2e98bf2d74c0c48e19  04-delivery/02-work-breakdown-structure.md
+ ff9c5c9426eadc2f53c9df96daccba3761c8a736d1c7c4feb547f39f2b58adbc  04-delivery/03-requirement-traceability-matrix.md
+@@ -117,15 +117,15 @@
+ 316ab24c5f645e18d39c529c7fcbca2260b14a5375cc5ebd799a5b7c6cfc8f40  04-delivery/geo-003-baseline/tests.json
+ 9dae298eb77cc0063394bfacea27b02ece69bf2a7dceba637ef1320565810ec7  04-delivery/geo-003-baseline/validation.md
+ e047efc782933053f13f46e205e6aff331b4d3e2f8574a1c6857c97d426115cc  04-delivery/geo-906-release-record.template.yaml
+-70523cc5e6cf46093ac9582f2c249b9a4eb37ca368db339bbd548bb184d29c74  04-delivery/task-manifest.yaml
++5a04070ad601361055dd0eb55890f4d697b1af2c6e5890048356a955f562a8d9  04-delivery/task-manifest.yaml
+ 2c0f8d8ba314039b44e48614481c28e615e996c2e4ed444c8f07362b5cd75de9  05-decisions/ADR-001-extend-modular-monolith.md
+ 4e0ec1be59e33c2f3e83ee50abc55ffe35d2d0bf471c19cc2c713b391fc12cee  05-decisions/ADR-002-unified-observation-run-model.md
+ 00baab5f8fe68fbaf75e3aa7b07a0cfbd7c510e39b6a70ea462d9ab941330dc7  05-decisions/ADR-003-separate-collection-analysis-review.md
+ 8f4f24331d4ea91574e5a4a56c3eacd9d89e193011c48f8d9f5e413198793909  05-decisions/ADR-004-no-unified-geo-score.md
+ 6197eb3379ad5c5f99c499ab8b74eac5cf18e6df26a3f5c34c4e9bf83845593b  05-decisions/ADR-005-staged-collector-rollout.md
+ 2fbec827c69bc5ed179ee8752b252ef1419f97392c38b6770c9184fa9ba641ba  05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md
+-4029e4be716aff7605368c51df6b797b55bb5fa9aba293c75a0e76b3943c2259  05-decisions/ADR-007-manual-first-v1-release-scope.md
++d9431452a1e5c033dec86e07e3d40d05af13968de5894c90aa1fc883fba44911  05-decisions/ADR-007-manual-first-v1-release-scope.md
+ c3e9f23a90bd7fc9b47760d53c56fd6f09f73065dff5b19c1040ee5fd608a560  05-decisions/GEO-002-architecture-review.md
+ b949243cf6b9715e2ecad7c36bee3d9e094d76ed9f50dca1bc365da77c956fb3  06-reviews/GEO-1001-release-readiness-audit.md
+-40c124440db341004ca0993431c87ac9bd6603ff118008f2aa05900782725e28  CHANGELOG.md
++4bf765fa4d49d49736ac5b9422a5e63ff2ccdd20f1ee937223b98a1bf944748c  CHANGELOG.md
+ 8cbc60f79a6d232f0504175d9221678ec5b8881849957ddad395fe249c312f58  README.md
+--- a/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ b/docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -1738,7 +1738,7 @@
+   phase: R9A
+   release: V1.0-manual-first
+   title: V1.0 禁止 CRON 假 ACTIVE 并治理既存计划
+-  status: planned
++  status: review
+   dependencies:
+   - GEO-1002
+   - GEO-208
+@@ -1748,9 +1748,9 @@
+   - frontend plan actions
+   - targeted tests
+   - docs
+-  deliverables: 服务端禁止 CRON activate/resume 和通过 ACTIVE update/copy 绕过；读模型/页面披露 V1.0 不自动调度；定义并执行获批的既存 ACTIVE CRON 安全停用/审计路径，历史快照保留。
+-  tests: 策略及 PG API 定向：创建/启用/恢复、ACTIVE MANUAL 改 CRON、复制、并发与既存 ACTIVE 治理；目标计划页面 E2E；证明无到期调度副作用，MANUAL 人工创建正常。
+-  acceptance: 没有可达的 CRON 看似 ACTIVE 但不执行；服务端拒绝与动作投影一致，既存 ACTIVE 不留假运行承诺、不静默改成人工类型或删除历史；不实现 CRON Scheduler；独立只读复核通过。
++  deliverables: 服务端拒绝 CRON Plan 新建、全部历史写命令与首次 run/PLAN 建批及 scheduled 新窗口，409 GEO_PLAN_CRON_UNSUPPORTED；前端仅创建人工计划；历史 CRON 配置/状态/revision/快照只读保留，投影 UNSUPPORTED_SCHEDULE/VIEW_HISTORY 和空动作，明确不自动调度。产品澄清不原地停用、不删除或降级；人工 Retest 仍严格复制不可变基线，保留来源但不执行当前 CRON Plan。
++  tests: 策略及 PG API 定向：CRON 创建/全部历史写命令/首次建批拒绝、各状态 MANUAL 改 CRON、并发首次窗口与历史回执只读重放；目标计划页面测试/E2E；数据库摘要与 Redis/投递拦截证明零副作用，MANUAL create/activate/run 和人工 Batch 正常。
++  acceptance: 新建/启用 CRON 被拒绝；历史 ACTIVE 仅作真实历史值，投影与页面明确当前版本只读、不支持调度，无修改/执行动作；不静默改人工、不删除或回写历史，不接线 CRON Scheduler；MANUAL 正常、零拒绝副作用，独立只读复核通过。
+   required_docs:
+   - 01-product/02-geo-core-prd.md
+   - 01-product/05-v1-release-capability-matrix.md
+@@ -1761,7 +1761,8 @@
+   - 05-decisions/ADR-007-manual-first-v1-release-scope.md
+   - 06-reviews/GEO-1001-release-readiness-audit.md
+   audit_source: 06-reviews/GEO-1001-release-readiness-audit.md
+-  scope_note: 后续独立任务；本次 GEO-1002 只登记范围、依赖与验收，不开始实现或生产操作。
++  scope_note: GEO-1005 按 2026-10-05 产品决策实施；历史只读优先于原停用设想，无迁移、生产操作或发布授权。
++  review_note: "2026-10-05：V1.0 Plan policy/命令/读模型、PLAN/scheduled 首次建批及前端边界完成；历史原值只读，不回填/降级，人工 Retest 保留独立冻结基线合同。后端111单元、30个独立PG/API用例、前端89+5目标用例、桌面真实栈1项、lint/type/contract/生成一致性和文档哈希通过；首轮测试准备/类型失败及纠正保留。fresh独立只读复核无阻断发现，审计Bundle校验通过。详情见Trellis implement/evidence；仅review，待人工接受，不提交/生产操作；GEO-1009/1010完整门禁与现场验证仍未执行。"
+ - id: GEO-1006
+   phase: R9A
+   release: V1.0-manual-first
+--- a/docs/geo-monitoring/03-technical/09-backup-recovery-runbook.md
++++ b/docs/geo-monitoring/03-technical/09-backup-recovery-runbook.md
+@@ -94,7 +94,7 @@
+ | COMPLETED/FAILED/CANCELLED/BUDGET_BLOCKED | 保持不可变；迟到结果不覆盖 |
+ | 已有plan/window | `create_scheduled_batch`按(plan_id,scheduled_for)返回旧回执，唯一约束不包含plan revision；重复/并发不会新建旧窗口 |
+ 
+-不新增生产cron接线，不凭backup去追补全部错过的时间窗口。恢复演练测试实际调用现有工厂验证同窗口并发回放且恰好一条batch，并比对完整DB摘要。生产放开任何consumer前须处理源系统是否仍在运行、备份之后已发送请求是否可确认：备份点之后的外发不在dump中，不能仅凭旧NOT_STARTED保证真实平台未接收。结果不明时保持停止并人工对账，不盲目自动发出。
++V1.0 不新增生产 cron 接线，GEO-1005 禁止 CRON 首次窗口；恢复历史 CRON 配置、状态和快照后仍只读披露，不补跑错过窗口。恢复演练从完整人工冻结输入 INSERT 测试专用的升级前历史批次，再调用现有工厂验证同窗口并发只读回执重放且仍恰好一条该窗口 batch，完整 DB 摘要不变；不绕过版本守卫创建新窗口。生产放开任何consumer前须处理源系统是否仍在运行、备份之后已发送请求是否可确认：备份点之后的外发不在dump中，不能仅凭旧NOT_STARTED保证真实平台未接收。结果不明时保持停止并人工对账，不盲目自动发出。
+ 
+ ## Browser 条件分支
+ 
+--- a/docs/geo-monitoring/03-technical/02-data-architecture.md
++++ b/docs/geo-monitoring/03-technical/02-data-architecture.md
+@@ -153,7 +153,7 @@
+ | created_by/updated_by | UUID | |
+ | created_at/updated_at | timestamptz | |
+ 
+-CRON 配置约束：`schedule_kind=CRON` 时提供有效五字段表达式，`MANUAL_ONLY` 时必须为空。输入解析复用 Celery；数据库 CHECK 保证字段结构，IANA 时区由 PostgreSQL 目录验证。预算为 numeric(14,6) 的有限非负数，NULL 表示未设置上限。
++CRON 配置约束：`schedule_kind=CRON` 时提供有效五字段表达式，`MANUAL_ONLY` 时必须为空。输入解析复用 Celery；数据库 CHECK 保证字段结构，IANA 时区由 PostgreSQL 目录验证。GEO-1005 保留历史 CRON Schema/状态和快照结构，但 V1.0 服务端拒绝新建、全部历史 Plan 写命令、首次 run/PLAN 建批及 scheduled 新窗口（409 GEO_PLAN_CRON_UNSUPPORTED）；不作历史状态迁移。预算为 numeric(14,6) 的有限非负数，NULL 表示未设置上限。
+ 
+ ## 4.3 Join tables
+ 
+--- a/docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md
++++ b/docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md
+@@ -168,7 +168,7 @@
+ 
+ ### 6.1 扫描
+ 
+-Scheduler 按固定频率扫描 ACTIVE CRON 计划，计算应触发窗口。
++以下是延期的目标设计：Scheduler 按固定频率扫描 ACTIVE CRON 计划，计算应触发窗口。V1.0 不注册该 Beat 任务，GEO-1005 拒绝所有 CRON 首次窗口，不承诺到期运行；既有分析/恢复/补投递扫描独立保留。
+ 
+ 每个窗口构造：
+ 
+@@ -176,7 +176,7 @@
+ schedule_identity = sha256(plan_id + canonical_utc_scheduled_for)
+ ```
+ 
+-GEO-301 已定义数据库唯一 `(plan_id, scheduled_for)` 及非空 SHA256 摘要索引；身份不含 plan_revision，计划更新不能使同窗口再次创建。GEO-303内部批次工厂已规范化aware窗口为UTC微秒时间，创建身份使用固定命名空间与计划ID，不含revision；同窗口重放首次批次。仅首次新窗口要求ACTIVE CRON及当前资格。窗口计算、扫描、补跑与调度执行仍为后续任务，按WBS和manifest分配；GEO-402仅建设fake provider与合同套件，工厂不派发Redis或调用Collector。
++GEO-301 已定义数据库唯一 `(plan_id, scheduled_for)` 及非空 SHA256 摘要索引；身份不含 plan_revision，计划更新不能使同窗口再次创建。GEO-303内部批次工厂已规范化aware窗口为UTC微秒时间，创建身份使用固定命名空间与计划ID，不含revision；同窗口重放首次批次。未来调度交付时才可在首次新窗口要求 ACTIVE CRON 及当前资格；V1.0 首次窗口返回 409 GEO_PLAN_CRON_UNSUPPORTED，历史窗口回执只读重放。窗口计算、扫描、补跑与调度执行仍为后续任务，按WBS和manifest分配；GEO-402仅建设fake provider与合同套件，工厂不派发Redis或调用Collector。
+ 
+ ### 6.2 时区和错过窗口
+ 
+--- a/docs/geo-monitoring/03-technical/10-core-rollout-runbook.md
++++ b/docs/geo-monitoring/03-technical/10-core-rollout-runbook.md
+@@ -15,7 +15,7 @@
+ | 范围与任务接受 | ADR-007 Accepted；1002～1009 已人工接受，候选包含全部修复；范围外能力披露 | GEO-1002 交付 review；后续 planned，当前 NOT_MET |
+ | Browser production 硬禁止 | Settings/启动预检/profile-overlay 明确拒绝 true/显式启动，负例通过且独立复核；现场三进程 false、零服务/profile/会话/材料 | NOT_MET / NOT_VERIFIED；1003/1010 |
+ | Catalog 当前身份 | 正确锁序及锁内 active/ADMIN/改密重验；真实 PG 角色变化竞态拒绝且零业务写入，独立复核 | NOT_MET；1004 |
+-| CRON 禁用与既存治理 | 不可 activate/resume 或通过 ACTIVE 更新绕过；既存 ACTIVE CRON 安全治理、审计与明确说明；MANUAL 入口正常 | NOT_MET；1005/1010；不要求自动到期入口 |
++| CRON 禁用与既存治理 | 禁止 CRON Plan 新建/全部写命令/首次 run、PLAN 建批及 scheduled 新窗口，稳定 409；历史配置/状态/快照只读，无写动作且页面明确不调度；MANUAL 入口正常 | GEO-1005 本地实现交付 review；目标/候选历史清点及投影现场证据 NOT_VERIFIED（1010）；不要求自动到期入口 |
+ | Opportunity 显式评估 | ADMIN 经实际受保护入口评估，非管理员/资格关闭拒绝，重复触发去重、来源可追溯；无周期或隐式触发 | NOT_MET；1006/1010；测试 seed 不替代入口 |
+ | 能力真实性 | 现有报告/三类 CSV/API 与页面说明一致；未实现 CSV/UI/重分析/占位明确不可用，无依据无引用不推断 | NOT_VERIFIED；1007 |
+ | 升级失败恢复 | 未 initialized 的 UPGRADE_DEPLOYING/PREPARED artifact 失败可安全前向/阶段恢复；身份/兼容/维护锁/再次失败拒绝演练和独立复核 | NOT_MET；1008；旧同候选重入不足以覆盖新 artifact |
+@@ -91,14 +91,14 @@
+ | GEO_BROWSER_COLLECTION_ENABLED | **false；production 硬禁止 true** | **false；production 硬禁止 true** |
+ | GEO_OPPORTUNITY_EVALUATION_ENABLED | false | GEO-1006 显式入口验收且批准后 true；只授权管理员评估，无自动周期/隐式触发 |
+ | MANUAL Collection | 随总开关不开放新写入 | 启用；无独立 MANUAL 配置键 |
+-| CRON Plan | 不启用 | 禁止 ACTIVE/resume/更新绕过并治理既存 ACTIVE；不实现到期调度 |
++| CRON Plan | 禁止新建/启用 | 历史只读披露、不删除或回写状态；禁止从当前 Plan 首次建批，不接到期调度 |
+ | Opportunity 自动调度 | 不注册周期/隐式触发 | 关闭；不把评估资格开关当自动调度开关 |
+ | GEO_RETENTION_DRY_RUN | true | true；实际删除与期限另需数据负责人批准 |
+ | CELERY_CONCURRENCY | 1 | 1；提升需目标容量证据和批准 |
+ 
+ API/Worker/Beat 从 runtime env_file 读取共享 Settings，设置在启动时生效；编辑文件不证明运行进程已改变。Compose 的 Browser profile/开关还受部署 shell/`--env-file` 影响，必须同时核对实际启动 argv/profile、容器、overlay/mount 与进程配置。仅记录四个布尔值/摘要，不输出完整 `docker compose config`、inspect/env 或秘密路径。
+ 
+-GEO-1003 必须先交付 production 硬禁止的负例和启动边界证据；当前默认 false 尚不足。GEO-1005 必须证明 CRON 非 ACTIVE、不能 resume/更新绕过及既存状态治理；GEO-1006 必须证明评估资格仅经显式管理员入口消费，没有自动周期/隐式触发。
++GEO-1003 必须先交付 production 硬禁止的负例和启动边界证据；当前默认 false 尚不足。GEO-1005 已将 CRON 新建、全部历史 Plan 写命令与首次 run、PLAN 建批及 scheduled 新窗口收口；GEO-1010 必须证明同候选现场命令拒绝、历史只读与 UNSUPPORTED_SCHEDULE 披露，不能把存储 ACTIVE 当作调度可用，也不要求篡改历史为非 ACTIVE；GEO-1006 必须证明评估资格仅经显式管理员入口消费，没有自动周期/隐式触发。
+ 
+ 生产负证据必须绑定同一目标/候选/时点并包含：
+ 
+@@ -109,6 +109,26 @@
+ 5. API 批准 inventory 和模式开关仍关闭；不使用内部 factory 中未批准的 `openai-compatible-chat`。
+ 
+ Browser 清理/恢复仅当服务/profile/overlay 未部署且 PG 总行数 0、受保护库存确认无材料时可记 **N/A**，附上述证据。任何材料存在都先按 802/901/903 保护、撤销、PURGE 或成套恢复；不得为取得“零会话”删除不可变历史。无法证实即 NOT_VERIFIED，停止核心 enable，延期不豁免材料责任。
++
++### 3.1 CRON 历史清点与验证（GEO-1005）
++
++在获准的目标读取权限下，使用只读事务记录低敏计数（不输出名称、表达式、正文或配置）：
++
++```sql
++BEGIN READ ONLY;
++SELECT status, count(*) FROM geo_monitoring_plans
++WHERE schedule_kind = 'CRON' GROUP BY status ORDER BY status;
++SELECT count(*) FROM geo_observation_batches WHERE trigger_type = 'SCHEDULED';
++COMMIT;
++```
++
++同候选 API 列表/详情应把每个 CRON 投影为 UNSUPPORTED_SCHEDULE / VIEW_HISTORY、空 available_actions 和 GEO_PLAN_CRON_UNSUPPORTED run reason；UI 显示历史只读与无自动运行，原存储状态仅作历史字段。未知现场计数为 NOT_VERIFIED，不能填零。无 DELETE/UPDATE/批量停用脚本，不清理或改写历史，也不把 CRON 转为 MANUAL。
++
++负例仅在授权的隔离验证范围调用：合法 CRON create、activate/resume、update/copy/delete/archive、run 与 PLAN Batch 均应明确 409 GEO_PLAN_CRON_UNSUPPORTED，CAS/鉴权失败仍按原合同裁决；前后数据库摘要一致，无 Batch/Run/Redis/成功审计副作用。正例通过 MANUAL create/activate/run 与 AD_HOC 创建证明人工入口正常。不要对目标反复做写探针来代替本地测试。
++
++人工 Retest 保留现有独立入口：严格复制已提交基线，历史 plan_id/CRON 快照仅作来源，trigger_type=RETEST，不执行当前 Plan，不改原计划或快照；可比性/权限/外发门禁继续生效。它不属于本节禁止的 PLAN/scheduled 建批，不应为治理 CRON 而删除或改写基线。
++
++确认 Beat 注册表没有到期建批扫描；现有分析/恢复/补投递仍保留。历史同窗口回执重放仅返回原 batch，不产生执行。恢复备份后同样运行清点及投影验证，不补跑错过窗口。此变更无 DDL/数据回填；代码回退不会改历史，但会重新暴露旧 CRON 写入能力，首发候选不能因此继续开放。
+ 
+ ## 4. MANUAL 正式闭环与内部试用
+ 
+--- a/docs/geo-monitoring/03-technical/01-technical-architecture.md
++++ b/docs/geo-monitoring/03-technical/01-technical-architecture.md
+@@ -36,7 +36,7 @@
+ 
+ ### V1.0 发布约束
+ 
+-[ADR-007](../05-decisions/ADR-007-manual-first-v1-release-scope.md)与[能力矩阵](../01-product/05-v1-release-capability-matrix.md)冻结首发执行范围。现有 API 采集保留，初始试运行默认关闭；production Browser 必须硬禁止（当前尚缺，GEO-1003），不启动服务/profile/会话。CRON 到期入口和 Opportunity 自动周期评估延期，服务端禁止 CRON 假 ACTIVE（GEO-1005），管理员显式评估入口待 GEO-1006。
++[ADR-007](../05-decisions/ADR-007-manual-first-v1-release-scope.md)与[能力矩阵](../01-product/05-v1-release-capability-matrix.md)冻结首发执行范围。现有 API 采集保留，初始试运行默认关闭；production Browser 必须硬禁止（当前尚缺，GEO-1003），不启动服务/profile/会话。CRON 到期入口和 Opportunity 自动周期评估延期，服务端禁止 CRON 创建/全部历史 Plan 写命令、首次 run/PLAN 建批及 scheduled 新窗口，历史保留原值但投影 UNSUPPORTED_SCHEDULE 只读、明确不调度（GEO-1005），管理员显式评估入口待 GEO-1006。
+ 
+ GEO_OPPORTUNITY_EVALUATION_ENABLED 控制评估资格：获批 MANUAL enable 后可 true，但不授权自动调度，不新增虚构的 MANUAL/自动调度环境键。现有确定性分析、租约恢复、补投递及保留扫描继续按资格执行。下面任务名称、容器和监控列表保留完整目标设计，不代表 `partsignal.geo_evaluate_opportunities` 已注册或生产 Scheduler 可创建 CRON 批次。
+ 
+--- a/docs/geo-monitoring/01-product/02-geo-core-prd.md
++++ b/docs/geo-monitoring/01-product/02-geo-core-prd.md
+@@ -434,7 +434,11 @@
+ 
+ ## 9.3 监测计划
+ 
+-V1.0 只承诺人工启动/创建批次。以下调度字段保留目标设计和既有配置模型，当前协议以 OpenAPI 为准；CRON 在 V1.0 禁止 activate/resume 或通过 ACTIVE update 绕过，既存 ACTIVE 必须按 GEO-1005 治理并披露，不能把未来运行时间当作已接线 Scheduler。
++V1.0 只支持人工启动计划/创建批次，当前协议为 `schedule_kind=MANUAL_ONLY`。GEO-1005 在后端拒绝新建 CRON、MANUAL 改 CRON，以及历史 CRON 的全部修改、启用/恢复、复制、删除、归档和首次 run/PLAN 建批，返回稳定 `409 GEO_PLAN_CRON_UNSUPPORTED`；不会静默降级。前端创建/编辑仅提供人工计划。
++
++历史 CRON 只读保留原配置、表达式、状态、revision 与不可变 Batch/Run 快照；旧 ACTIVE 是历史元数据，读模型投影为 UNSUPPORTED_SCHEDULE / VIEW_HISTORY、无写动作，页面明确 V1.0 不调度。已有批次回执重放只读，不创建或重新投递。内部工厂禁止 CRON 首次窗口，不接入 Beat 到期任务；MANUAL create/activate/run 与 AD_HOC 人工 Batch 继续可用。以下字段中的未来调度能力仅为目标设计。
++
++现有 Retest 是人工调用的独立 Batch 命令：从已提交、不可变的基线 Batch 复制严格矩阵，创建 trigger_type=RETEST 的批次。原 plan_id 和 CRON 快照仅作来源追溯，不读取或执行当前 CRON Plan、不改写原计划或快照，不伪装成 SCHEDULED；既有可比性、权限及外发门禁继续裁决。
+ 
+ ### 计划字段
+ 
+@@ -446,14 +450,14 @@
+ | geo_surface_ids | 观测平台范围 |
+ | variant_policy | FIXED、ALL、ROTATE |
+ | repetitions | 同一问题和平台的重复采样次数，默认 3 |
+-| schedule_type | MANUAL、DAILY、WEEKLY、CRON |
++| schedule_type | 目标设计 MANUAL、DAILY、WEEKLY、CRON；V1.0 协议写入仅 MANUAL_ONLY，CRON 只读历史 |
+ | schedule | 运行时间或 Cron 表达式 |
+ | business_timezone | 业务时区，默认 Asia/Shanghai |
+ | collection_mode_policy | 使用平台默认方式或显式选择方式 |
+ | max_cost_per_batch | API 调用批次预算上限 |
+ | max_concurrency | 批次并发限制 |
+ | review_policy | 全量复核、风险复核或抽样复核 |
+-| is_enabled | 是否允许定时触发 |
++| is_enabled | 目标设计是否允许定时触发；V1.0 MANUAL 的 ACTIVE 仅是配置生命周期，不承诺定时运行 |
+ | revision | 修订号 |
+ 
+ ### 创建/编辑交互
+@@ -482,7 +486,7 @@
+ - 立即运行；
+ - 复制计划；
+ - 查看历史；
+-- 查看下次运行时间；
++- 后续调度版本才可查看下次运行时间；V1.0 不提供虚构的到期运行承诺；
+ - 预览运行矩阵。
+ 
+ ### 约束
+--- a/docs/geo-monitoring/01-product/05-v1-release-capability-matrix.md
++++ b/docs/geo-monitoring/01-product/05-v1-release-capability-matrix.md
+@@ -32,12 +32,12 @@
+ | Opportunity 管理员生产评估入口 | not implemented | 目前未接线 Router/运维命令；本次不新增协议 | GEO-1006 必须先交付并验收；V1.0 必需 |
+ | Opportunity 列表/详情、确认/忽略 | available | 现有工作台与服务端状态/证据已实现 | 机会需显式评估产生；保持来源历史 |
+ | 现有 Action API | available | 事实/内容/发布/补测应用服务协调及公共 API 已实现 | 人工调用；AI 仅草稿；GEO-1007/1010 |
+-| 现有 Retest API 与比较/解决 | available | preview/create、冻结基线、可比性门禁及显式解决已实现 | 不可比/未知版本阻断；不承诺因果 |
++| 现有 Retest API 与比较/解决 | available | preview/create、冻结基线、可比性门禁及显式解决已实现 | 不可比/未知版本阻断；不承诺因果；可复现的历史基线即使来自 CRON，人工 RETEST 仍按冻结矩阵执行，保留来源且不运行当前 Plan |
+ | MANUAL 内部试运行 | manual-only | 本地真实栈有证据，生产试用未执行 | GEO-1010；负责人、范围、时长、反馈需签署 |
+ | API Collection 初始试运行 | disabled | 采集/Worker/发送恢复已有实现，生产供应商批准与验收未取得 | 默认 false；后续启用需单独批准与验收 |
+ | Browser production Collection/会话 | disabled | GEO-1003 已实现 Settings/预检/部署入口硬拒绝 true 和会话材料；production Compose 无 Browser；交付 review，现场未知 | GEO-1003 待人工接受＋GEO-1010 零启用/零材料证据 |
+ | Browser 真实界面 Adapter/生产证据采集 | deferred | GEO-804～807 延期；真实 Adapter/证据路径未实现 | ADR-006；801～803 done 保留 |
+-| CRON 到期自动创建批次 | disabled | 内部 scheduled factory 存在，生产扫描未接线；可能假 ACTIVE | GEO-1005 禁止 ACTIVE/resume/绕过并治理既存状态 |
++| CRON Plan 创建/启用及到期建批 | disabled | GEO-1005：CRON Plan 写命令/首次 run、PLAN 建批及 scheduled 新窗口均 409 GEO_PLAN_CRON_UNSUPPORTED；历史仅 UNSUPPORTED_SCHEDULE 只读，无写动作；Beat 无到期入口 | 本地交付 review；GEO-1010 核实同候选与现场历史披露，不原地停用/删除 |
+ | CRON 生产自动调度交付 | deferred | not implemented：无生产到期入口 | 后续重新排期；V1.0 不以自动执行为门禁 |
+ | Opportunity 自动调度 | disabled | 开关是评估资格，不证明自动调度；当前无生产周期入口 | GEO-1006/1007 保持无周期/隐式触发 |
+ | Opportunity 自动周期评估交付 | deferred | not implemented：只有内部 evaluator 与测试/seed 调用 | 后续重新排期；V1.0 不以周期执行为门禁 |
+@@ -55,7 +55,7 @@
+ | MANUAL Collection | 随总开关不开放新写入 | 启用；没有独立 MANUAL 环境键 | 人工采集/创建，确定性分析和复核继续执行 |
+ | GEO_API_COLLECTION_ENABLED | false | false（初始默认） | 保留已有代码，不自动回退到 API |
+ | GEO_BROWSER_COLLECTION_ENABLED | false | production **硬禁止 true** | GEO-1003 实现/本地验证交付 review；现场 GEO-1010 |
+-| CRON Plan | 不启用 | 不得 ACTIVE/resume，既存 ACTIVE 必须治理 | 防假 ACTIVE 尚缺：GEO-1005；不新增 Schema 状态 |
++| CRON Plan | 禁止新建和启用 | 全部历史 CRON Plan 只读，不能从当前 Plan 建批 | GEO-1005 已实现；旧 ACTIVE 原值保留但投影明确不支持；不新增存储状态 |
+ | GEO_OPPORTUNITY_EVALUATION_ENABLED | false | 显式评估获批时 true | 这是资格开关；入口尚缺：GEO-1006 |
+ | Opportunity 自动调度 | 无周期注册/隐式触发 | 关闭 | 不虚构新的已实现环境键；保持人工评估与自动调度分开 |
+ 
+--- a/docs/geo-monitoring/05-decisions/ADR-007-manual-first-v1-release-scope.md
++++ b/docs/geo-monitoring/05-decisions/ADR-007-manual-first-v1-release-scope.md
+@@ -19,7 +19,7 @@
+ 2. V1.0 不包含 Browser 真实界面 Adapter、Browser 生产会话/证据采集、CRON 到期自动创建批次、Opportunity 自动周期评估、Opportunity CSV、Action/Retest 完整页面操作、公共管理员重分析入口，以及不可观测的“无引用”自动推断。
+ 3. [能力矩阵](../01-product/05-v1-release-capability-matrix.md)区分 available、manual-only、disabled、deferred、not implemented，并单列当前实现。available 只表示仓库已有实现，manual-only 限定人工触发；二者均不代表生产已启用。未实现的手动评估入口必须由 GEO-1006 交付后才可作为正式操作入口。
+ 4. GEO Monitoring 按环境启用；MANUAL 初始试运行启用且不新增独立 MANUAL 开关；API Collection 初始试运行默认关闭。生产必须硬拒绝 Browser Collection 启用，同时核实服务/profile 未启用，且无生产会话/会话材料；模板默认 false 不足以放行。
+-5. CRON 自动到期执行延期，V1.0 服务端必须禁止 CRON Plan 进入看似 ACTIVE 但不执行的状态；既存 ACTIVE CRON 要有明确治理路径、用户说明和审计，不删除历史或自动转成手动语义。保存停用配置可以保留；人工执行只允许现有明确人工创建入口，不能伪装为调度成功。GEO-1005 交付前该保证 NOT_MET。
++5. CRON 自动到期执行延期。GEO-1005 的产品澄清：V1.0 拒绝新建、启用和任何 CRON Plan 写命令/首次 run、PLAN 建批及 scheduled 新窗口（409 GEO_PLAN_CRON_UNSUPPORTED），前端仅创建人工计划；历史 CRON 只读保留，不原地停用、不删除、不转为 MANUAL。旧 ACTIVE 只作历史值，服务器与页面投影 UNSUPPORTED_SCHEDULE、无写动作，明确当前版本不调度。历史清点通过只读计数与原审计记录完成，不伪造治理成功审计或执行。MANUAL 人工入口继续可用；已有批次回执只读重放保留。现有 Retest 是人工调用的独立 Batch 命令：从已提交、不可变的基线 Batch 复制严格矩阵，创建 trigger_type=RETEST 的批次。原 plan_id 和 CRON 快照仅作来源追溯，不读取或执行当前 CRON Plan、不改写原计划或快照，不伪装成 SCHEDULED；既有可比性、权限及外发门禁继续裁决。本地实现交付 review，现场同候选验证由 GEO-1010 完成。
+ 6. Opportunity 自动调度关闭；允许管理员显式评估。已有 GEO_OPPORTUNITY_EVALUATION_ENABLED 是评估资格开关，不能当作独立的自动调度开关：MANUAL enable 获批后可设 true，以支持显式评估，但不得登记周期任务或以提交/聚合读请求自动触发。总开关关闭或评估资格关闭时明确拒绝，ENGINEER 不得触发管理员评估。
+ 7. 零引用且缺少可观测依据不等于“确定无引用”。不更改指标分母、current/review 资格、null/UNKNOWN、不可变历史、权限、数据分级、API 外发批准或 at-most-once；内部重分析能力不构成公共入口，分析失败 Run 不因内部重分析成功而回退终态。
+ 8. 增加 R9A 与 GEO-1002～1010，依次闭合范围、安全、能力真实性、升级恢复、候选和现场证据。任务细目及依赖以 [manifest](../04-delivery/task-manifest.yaml) 为准。GEO-1001 是已完成审计输入，不在本轮补造任务接受状态；R0—R8 全部原状态和记录保留。
+--- a/docs/geo-monitoring/02-business/03-workflows-and-state-machines.md
++++ b/docs/geo-monitoring/02-business/03-workflows-and-state-machines.md
+@@ -8,7 +8,7 @@
+ 
+ ## V1.0 执行范围裁决
+ 
+-依据 [ADR-007](../05-decisions/ADR-007-manual-first-v1-release-scope.md)，下列图和状态集合保留原始领域设计，本次不改 Schema/OpenAPI 或运行状态机。V1.0 只承诺人工启动/创建批次；CRON 自动到期创建延期，GEO-1005 必须在命令权威边界禁止 CRON activate/resume、ACTIVE 更新绕过，并治理既存假 ACTIVE，保留历史快照和审计。页面隐藏不构成服务端禁止。
++依据 [ADR-007](../05-decisions/ADR-007-manual-first-v1-release-scope.md)，下列图和存储状态集合保留原始领域设计。V1.0 只承诺人工启动/创建批次；GEO-1005 禁止 CRON 创建、全部历史 Plan 写命令、首次 run/PLAN 建批及 scheduled 新窗口，稳定 409 GEO_PLAN_CRON_UNSUPPORTED。历史 CRON 原状态/快照/审计只读保留；服务器投影 UNSUPPORTED_SCHEDULE / VIEW_HISTORY 与空动作，页面明确不调度，不原地停用或转人工。页面隐藏不构成服务端禁止。
+ 
+ Opportunity 由 ADMIN 显式评估（生产入口待 GEO-1006），不由周期、提交或指标读请求自动触发。Action/Retest 采用现有 API；公开管理员重分析入口不属于 V1.0。确定性分析扫描、租约恢复和 PENDING 补投递继续执行，不能因为禁用业务 CRON 而停整个 Beat。
+ 

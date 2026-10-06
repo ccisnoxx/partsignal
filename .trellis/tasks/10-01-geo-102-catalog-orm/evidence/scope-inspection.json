@@ -1,0 +1,12 @@
+{
+  "frozen_files_checked": 44,
+  "frozen_mismatches": [],
+  "openapi_unchanged_from_task_start": true,
+  "new_source_line_counts": {
+    "backend/app/models/geo_catalog.py": 223,
+    "backend/alembic/versions/0044_geo_catalog.py": 228,
+    "backend/tests/unit/test_geo_catalog_metadata.py": 82,
+    "backend/tests/integration/test_geo_catalog.py": 319,
+    "backend/tests/integration/test_geo_catalog_constraints.py": 465
+  }
+}

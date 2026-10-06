@@ -1,0 +1,5719 @@
+[
+  {
+    "kind": "schema_drift",
+    "pointer": "/paths/~1GeoSubjectAliasCreate/get/responses/200/content/application~1json/schema/properties/language_code/default",
+    "direction": "different",
+    "message": "schema machine shape 漂移",
+    "contract": {
+      "type": "object",
+      "required": [
+        "alias",
+        "alias_kind",
+        "expected_revision"
+      ],
+      "properties": [
+        [
+          "alias",
+          {
+            "type": "string",
+            "maxLength": 240,
+            "minLength": 1,
+            "pattern": "\\S"
+          }
+        ],
+        [
+          "alias_kind",
+          {
+            "type": "string",
+            "enum": [
+              "\"ABBREVIATION\"",
+              "\"LEGACY\"",
+              "\"NAME\"",
+              "\"PART_NUMBER\""
+            ]
+          }
+        ],
+        [
+          "expected_revision",
+          {
+            "type": "integer",
+            "minimum": 0
+          }
+        ],
+        [
+          "is_active",
+          {
+            "type": "boolean",
+            "default": true
+          }
+        ],
+        [
+          "language_code",
+          {
+            "type": [
+              "null",
+              "string"
+            ],
+            "maxLength": 16,
+            "minLength": 2,
+            "pattern": "^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$"
+          }
+        ]
+      ],
+      "additionalProperties": false
+    },
+    "runtime": {
+      "type": "object",
+      "required": [
+        "alias",
+        "alias_kind",
+        "expected_revision"
+      ],
+      "properties": [
+        [
+          "alias",
+          {
+            "type": "string",
+            "maxLength": 240,
+            "minLength": 1,
+            "pattern": "\\S"
+          }
+        ],
+        [
+          "alias_kind",
+          {
+            "type": "string",
+            "enum": [
+              "\"ABBREVIATION\"",
+              "\"LEGACY\"",
+              "\"NAME\"",
+              "\"PART_NUMBER\""
+            ]
+          }
+        ],
+        [
+          "expected_revision",
+          {
+            "type": "integer",
+            "minimum": 0
+          }
+        ],
+        [
+          "is_active",
+          {
+            "type": "boolean",
+            "default": true
+          }
+        ],
+        [
+          "language_code",
+          {
+            "maxLength": 16,
+            "type": [
+              "null",
+              "string"
+            ],
+            "pattern": "^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$",
+            "default": null,
+            "minLength": 2
+          }
+        ]
+      ],
+      "additionalProperties": false
+    },
+    "contract_target": "#/components/schemas/GeoSubjectAliasCreate",
+    "runtime_target": "#/components/schemas/GeoSubjectAliasCreate"
+  },
+  {
+    "kind": "schema_drift",
+    "pointer": "/paths/~1GeoSubjectAliasUpdate/get/responses/200/content/application~1json/schema/minProperties",
+    "direction": "different",
+    "message": "schema machine shape 漂移",
+    "contract": {
+      "type": "object",
+      "minProperties": 2,
+      "required": [
+        "expected_revision"
+      ],
+      "properties": [
+        [
+          "alias",
+          {
+            "type": "string",
+            "maxLength": 240,
+            "minLength": 1,
+            "pattern": "\\S"
+          }
+        ],
+        [
+          "alias_kind",
+          {
+            "type": "string",
+            "enum": [
+              "\"ABBREVIATION\"",
+              "\"LEGACY\"",
+              "\"NAME\"",
+              "\"PART_NUMBER\""
+            ]
+          }
+        ],
+        [
+          "expected_revision",
+          {
+            "type": "integer",
+            "minimum": 0
+          }
+        ],
+        [
+          "is_active",
+          {
+            "type": "boolean"
+          }
+        ],
+        [
+          "language_code",
+          {
+            "type": [
+              "null",
+              "string"
+            ],
+            "maxLength": 16,
+            "minLength": 2,
+            "pattern": "^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$"
+          }
+        ]
+      ],
+      "additionalProperties": false
+    },
+    "runtime": {
+      "type": "object",
+      "required": [
+        "expected_revision"
+      ],
+      "properties": [
+        [
+          "alias",
+          {
+            "type": "string",
+            "maxLength": 240,
+            "minLength": 1,
+            "pattern": "\\S"
+          }
+        ],
+        [
+          "alias_kind",
+          {
+            "type": "string",
+            "enum": [
+              "\"ABBREVIATION\"",
+              "\"LEGACY\"",
+              "\"NAME\"",
+              "\"PART_NUMBER\""
+            ]
+          }
+        ],
+        [
+          "expected_revision",
+          {
+            "type": "integer",
+            "minimum": 0
+          }
+        ],
+        [
+          "is_active",
+          {
+            "type": "boolean"
+          }
+        ],
+        [
+          "language_code",
+          {
+            "maxLength": 16,
+            "type": [
+              "null",
+              "string"
+            ],
+            "pattern": "^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$",
+            "default": null,
+            "minLength": 2
+          }
+        ]
+      ],
+      "additionalProperties": false
+    },
+    "contract_target": "#/components/schemas/GeoSubjectAliasUpdate",
+    "runtime_target": "#/components/schemas/GeoSubjectAliasUpdate"
+  },
+  {
+    "kind": "schema_drift",
+    "pointer": "/paths/~1GeoSubjectCreate/get/responses/200/content/application~1json/schema/oneOf/0/allOf",
+    "direction": "different",
+    "message": "schema machine shape 漂移",
+    "contract": {
+      "discriminator": {
+        "propertyName": "subject_type",
+        "mapping": {
+          "OWN_BRAND": "#/components/schemas/GeoNamedSubjectCreate",
+          "OWN_PRODUCT": "#/components/schemas/GeoOwnProductSubjectCreate",
+          "COMPETITOR_BRAND": "#/components/schemas/GeoNamedSubjectCreate",
+          "COMPETITOR_PRODUCT": "#/components/schemas/GeoNamedSubjectCreate",
+          "REFERENCE_PART": "#/components/schemas/GeoNamedSubjectCreate"
+        }
+      },
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "canonical_name",
+            "display_name",
+            "subject_type"
+          ],
+          "properties": [
+            [
+              "canonical_name",
+              {
+                "type": "string",
+                "maxLength": 240,
+                "minLength": 1,
+                "pattern": "\\S"
+              }
+            ],
+            [
+              "description",
+              {
+                "type": "string",
+                "default": "",
+                "maxLength": 4000
+              }
+            ],
+            [
+              "display_name",
+              {
+                "type": "string",
+                "maxLength": 240,
+                "minLength": 1,
+                "pattern": "\\S"
+              }
+            ],
+            [
+              "parent_subject_id",
+              {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "format": "uuid"
+              }
+            ],
+            [
+              "subject_type",
+              {
+                "type": "string",
+                "enum": [
+                  "\"COMPETITOR_BRAND\"",
+                  "\"COMPETITOR_PRODUCT\"",
+                  "\"OWN_BRAND\"",
+                  "\"REFERENCE_PART\""
+                ]
+              }
+            ]
+          ],
+          "additionalProperties": false,
+          "allOf": [
+            {
+              "if": {
+                "additionalProperties": true,
+                "properties": [
+                  [
+                    "subject_type",
+                    {
+                      "enum": [
+                        "\"COMPETITOR_BRAND\"",
+                        "\"OWN_BRAND\"",
+                        "\"REFERENCE_PART\""
+                      ]
+                    }
+                  ]
+                ]
+              },
+              "then": {
+                "additionalProperties": true,
+                "properties": [
+                  [
+                    "parent_subject_id",
+                    {
+                      "type": "null"
+                    }
+                  ]
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "type": "object",
+          "required": [
+            "product_id",
+            "subject_type"
+          ],
+          "properties": [
+            [
+              "description",
+              {
+                "type": "string",
+                "default": "",
+                "maxLength": 4000
+              }
+            ],
+            [
+              "parent_subject_id",
+              {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "format": "uuid"
+              }
+            ],
+            [
+              "product_id",
+              {
+                "type": "string",
+                "format": "uuid"
+              }
+            ],
+            [
+              "subject_type",
+              {
+                "type": "string",
+                "enum": [
+                  "\"OWN_PRODUCT\""
+                ]
+              }
+            ]
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "runtime": {
+      "discriminator": {
+        "mapping": {
+          "COMPETITOR_BRAND": "#/components/schemas/GeoNamedSubjectCreate",
+          "COMPETITOR_PRODUCT": "#/components/schemas/GeoNamedSubjectCreate",
+          "OWN_BRAND": "#/components/schemas/GeoNamedSubjectCreate",
+          "OWN_PRODUCT": "#/components/schemas/GeoOwnProductSubjectCreate",
+          "REFERENCE_PART": "#/components/schemas/GeoNamedSubjectCreate"
+        },
+        "propertyName": "subject_type"
+      },
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "canonical_name",
+            "display_name",
+            "subject_type"
+          ],
+          "properties": [
+            [
+              "canonical_name",
+              {
+                "type": "string",
+                "maxLength": 240,
+                "minLength": 1,
+                "pattern": "\\S"
+              }
+            ],
+            [
+              "description",
+              {
+                "type": "string",
+                "default": "",
+                "maxLength": 4000
+              }
+            ],
+            [
+              "display_name",
+              {
+                "type": "string",
+                "maxLength": 240,
+                "minLength": 1,
+                "pattern": "\\S"
+              }
+            ],
+            [
+              "parent_subject_id",
+              {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "format": "uuid",
+                "default": null
+              }
+            ],
+            [
+              "subject_type",
+              {
+                "type": "string",
+                "enum": [
+                  "\"COMPETITOR_BRAND\"",
+                  "\"COMPETITOR_PRODUCT\"",
+                  "\"OWN_BRAND\"",
+                  "\"REFERENCE_PART\""
+                ]
+              }
+            ]
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "product_id",
+            "subject_type"
+          ],
+          "properties": [
+            [
+              "description",
+              {
+                "type": "string",
+                "default": "",
+                "maxLength": 4000
+              }
+            ],
+            [
+              "parent_subject_id",
+              {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "format": "uuid",
+                "default": null
+              }
+            ],
+            [
+              "product_id",
+              {
+                "type": "string",
+                "format": "uuid"
+              }
+            ],
+            [
+              "subject_type",
+              {
+                "type": "string",
+                "enum": [
+                  "\"OWN_PRODUCT\""
+                ]
+              }
+            ]
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "contract_target": "#/components/schemas/GeoSubjectCreate",
+    "runtime_target": "#/components/schemas/GeoSubjectCreate"
+  },
+  {
+    "kind": "schema_drift",
+    "pointer": "/paths/~1GeoSubjectListPage/get/responses/200/content/application~1json/schema/properties/items/items",
+    "direction": "different",
+    "message": "schema machine shape 漂移",
+    "contract": {
+      "type": "object",
+      "required": [
+        "items",
+        "page",
+        "page_size",
+        "total"
+      ],
+      "properties": [
+        [
+          "items",
+          {
+            "type": "array",
+            "items": {
+              "discriminator": {
+                "propertyName": "subject_type",
+                "mapping": {
+                  "OWN_BRAND": "#/components/schemas/GeoNamedSubjectOut",
+                  "OWN_PRODUCT": "#/components/schemas/GeoOwnProductSubjectOut",
+                  "COMPETITOR_BRAND": "#/components/schemas/GeoNamedSubjectOut",
+                  "COMPETITOR_PRODUCT": "#/components/schemas/GeoNamedSubjectOut",
+                  "REFERENCE_PART": "#/components/schemas/GeoNamedSubjectOut"
+                }
+              },
+              "oneOf": [
+                {
+                  "type": "object",
+                  "required": [
+                    "aliases",
+                    "available_actions",
+                    "canonical_name",
+                    "created_at",
+                    "created_by",
+                    "deletion",
+                    "description",
+                    "display_name",
+                    "domains",
+                    "id",
+                    "is_active",
+                    "parent",
+                    "parent_subject_id",
+                    "primary_task",
+                    "product",
+                    "product_id",
+                    "references",
+                    "revision",
+                    "subject_type",
+                    "updated_at",
+                    "workflow_stage"
+                  ],
+                  "properties": [
+                    [
+                      "aliases",
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "required": [
+                            "alias",
+                            "alias_kind",
+                            "available_actions",
+                            "created_at",
+                            "id",
+                            "is_active",
+                            "language_code",
+                            "normalized_alias",
+                            "subject_id"
+                          ],
+                          "properties": [
+                            [
+                              "alias",
+                              {
+                                "type": "string",
+                                "maxLength": 240,
+                                "minLength": 1,
+                                "pattern": "\\S"
+                              }
+                            ],
+                            [
+                              "alias_kind",
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "\"ABBREVIATION\"",
+                                  "\"LEGACY\"",
+                                  "\"NAME\"",
+                                  "\"PART_NUMBER\""
+                                ]
+                              }
+                            ],
+                            [
+                              "available_actions",
+                              {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "enum": [
+                                    "\"DELETE\"",
+                                    "\"UPDATE\""
+                                  ]
+                                }
+                              }
+                            ],
+                            [
+                              "created_at",
+                              {
+                                "type": "string",
+                                "format": "date-time"
+                              }
+                            ],
+                            [
+                              "id",
+                              {
+                                "type": "string",
+                                "format": "uuid"
+                              }
+                            ],
+                            [
+                              "is_active",
+                              {
+                                "type": "boolean"
+                              }
+                            ],
+                            [
+                              "language_code",
+                              {
+                                "type": [
+                                  "null",
+                                  "string"
+                                ],
+                                "maxLength": 16,
+                                "minLength": 2,
+                                "pattern": "^[a-z]{2,8}(-[a-z0-9]{1,8})*$"
+                              }
+                            ],
+                            [
+                              "normalized_alias",
+                              {
+                                "type": "string",
+                                "maxLength": 240,
+                                "minLength": 1,
+                                "pattern": "\\S"
+                              }
+                            ],
+                            [
+                              "subject_id",
+                              {
+                                "type": "string",
+                                "format": "uuid"
+                              }
+                            ]
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    ],
+                    [
+                      "available_actions",
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "\"CREATE_ALIAS\"",
+                            "\"CREATE_DOMAIN\"",
+                            "\"DELETE\"",
+                            "\"DISABLE\"",
+                            "\"ENABLE\"",
+                            "\"UPDATE\""
+                          ]
+                        }
+                      }
+                    ],
+                    [
+                      "canonical_name",
+                      {
+                        "type": "string",
+                        "maxLength": 240,
+                        "minLength": 1,
+                        "pattern": "\\S"
+                      }
+                    ],
+                    [
+                      "created_at",
+                      {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    ],
+                    [
+                      "created_by",
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    ],
+                    [
+                      "deletion",
+                      {
+                        "properties": [
+                          [
+                            "blockers",
+                            {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "required": [
+                                  "count",
+                                  "type"
+                                ],
+                                "properties": [
+                                  [
+                                    "count",
+                                    {
+                                      "type": "integer",
+                                      "minimum": 1
+                                    }
+                                  ],
+                                  [
+                                    "type",
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "\"ANALYSIS\"",
+                                        "\"CHILD_SUBJECT\"",
+                                        "\"MONITORING_PLAN\"",
+                                        "\"OBSERVATION_RUN\"",
+                                        "\"OPPORTUNITY\""
+                                      ]
+                                    }
+                                  ]
+                                ],
+                                "additionalProperties": false
+                              }
+                            }
+                          ]
+                        ],
+                        "type": [
+                          "null",
+                          "object"
+                        ],
+                        "required": [
+                          "blockers"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ],
+                    [
+                      "description",
+                      {
+                        "type": "string",
+                        "maxLength": 4000
+                      }
+                    ],
+                    [
+                      "display_name",
+                      {
+                        "type": "string",
+                        "maxLength": 240,
+                        "minLength": 1,
+                        "pattern": "\\S"
+                      }
+                    ],
+                    [
+                      "domains",
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "required": [
+                            "available_actions",
+                            "created_at",
+                            "hostname",
+                            "id",
+                            "is_active",
+                            "relation_type",
+                            "subject_id"
+                          ],
+                          "properties": [
+                            [
+                              "available_actions",
+                              {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "enum": [
+                                    "\"DELETE\""
+                                  ]
+                                }
+                              }
+                            ],
+                            [
+                              "created_at",
+                              {
+                                "type": "string",
+                                "format": "date-time"
+                              }
+                            ],
+                            [
+                              "hostname",
+                              {
+                                "type": "string",
+                                "maxLength": 253,
+                                "minLength": 3,
+                                "pattern": "^(?=.{3,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$",
+                                "not": {
+                                  "pattern": "^(?:[0-9]+\\.){3}[0-9]+$"
+                                }
+                              }
+                            ],
+                            [
+                              "id",
+                              {
+                                "type": "string",
+                                "format": "uuid"
+                              }
+                            ],
+                            [
+                              "is_active",
+                              {
+                                "type": "boolean",
+                                "enum": [
+                                  "true"
+                                ]
+                              }
+                            ],
+                            [
+                              "relation_type",
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "\"DISTRIBUTOR\"",
+                                  "\"OFFICIAL\"",
+                                  "\"OTHER\"",
+                                  "\"OWNED\""
+                                ]
+                              }
+                            ],
+                            [
+                              "subject_id",
+                              {
+                                "type": "string",
+                                "format": "uuid"
+                              }
+                            ]
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    ],
+                    [
+                      "id",
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    ],
+                    [
+                      "is_active",
+                      {
+                        "type": "boolean"
+                      }
+                    ],
+                    [
+                      "parent",
+                      {
+                        "properties": [
+                          [
+                            "display_name",
+                            {
+                              "type": "string",
+                              "maxLength": 240,
+                              "minLength": 1,
+                              "pattern": "\\S"
+                            }
+                          ],
+                          [
+                            "id",
+                            {
+                              "type": "string",
+                              "format": "uuid"
+                            }
+                          ],
+                          [
+                            "is_active",
+                            {
+                              "type": "boolean"
+                            }
+                          ],
+                          [
+                            "subject_type",
+                            {
+                              "type": "string",
+                              "enum": [
+                                "\"COMPETITOR_BRAND\"",
+                                "\"OWN_BRAND\""
+                              ]
+                            }
+                          ]
+                        ],
+                        "type": [
+                          "null",
+                          "object"
+                        ],
+                        "required": [
+                          "display_name",
+                          "id",
+                          "is_active",
+                          "subject_type"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ],
+                    [
+                      "parent_subject_id",
+                      {
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "format": "uuid"
+                      }
+                    ],
+                    [
+                      "primary_task",
+                      {
+                        "type": "string",
+                        "enum": [
+                          "\"ENABLE_SUBJECT\"",
+                          "\"MANAGE_SUBJECT\""
+                        ]
+                      }
+                    ],
+                    [
+                      "product",
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    [
+                      "product_id",
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    [
+                      "references",
+                      {
+                        "type": "object",
+                        "required": [
+                          "analysis_count",
+                          "child_subject_count",
+                          "monitoring_plan_count",
+                          "observation_run_count",
+                          "opportunity_count"
+                        ],
+                        "properties": [
+                          [
+                            "analysis_count",
+                            {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          ],
+                          [
+                            "child_subject_count",
+                            {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          ],
+                          [
+                            "monitoring_plan_count",
+                            {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          ],
+                          [
+                            "observation_run_count",
+                            {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          ],
+                          [
+                            "opportunity_count",
+                            {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          ]
+                        ],
+                        "additionalProperties": false
+                      }
+                    ],
+                    [
+                      "revision",
+                      {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    ],
+                    [
+                      "subject_type",
+                      {
+                        "type": "string",
+                        "enum": [
+                          "\"COMPETITOR_BRAND\"",
+                          "\"COMPETITOR_PRODUCT\"",
+                          "\"OWN_BRAND\"",
+                          "\"REFERENCE_PART\""
+                        ]
+                      }
+                    ],
+                    [
+                      "updated_at",
+                      {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    ],
+                    [
+                      "workflow_stage",
+                      {
+                        "type": "string",
+                        "enum": [
+                          "\"ACTIVE\"",
+                          "\"DISABLED\""
+                        ]
+                      }
+                    ]
+                  ],
+                  "additionalProperties": false,
+                  "allOf": [
+                    {
+                      "if": {
+                        "additionalProperties": true,
+                        "properties": [
+                          [
+                            "parent_subject_id",
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        ]
+                      },
+                      "then": {
+                        "additionalProperties": true,
+                        "properties": [
+                          [
+                            "parent",
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        ]
+                      },
+                      "else": {
+                        "additionalProperties": true,
+                        "properties": [
+                          [
+                            "parent",
+                            {
+                              "type": "object",
+                              "additionalProperties": true
+                            }
+                          ]
+                        ]
+                      }
+                    },
+                    {
+                      "if": {
+                        "additionalProperties": true,
+                        "properties": [
+                          [
+                            "is_active",
+                            {
+                              "enum": [
+                                "true"
+                              ]
+                            }
+                          ]
+                        ]
+                      },
+                      "then": {
+                        "additionalProperties": true,
+                        "properties": [
+                          [
+                            "workflow_stage",
+                            {
+                              "enum": [
+                                "\"ACTIVE\""
+                              ]
+                            }
+                          ]
+                        ]
+                      },
+                      "else": {
+                        "additionalProperties": true,
+                        "properties": [
+                          [
+                            "workflow_stage",
+                            {
+                              "enum": [
+                                "\"DISABLED\""
+                              ]
+                            }
+                          ]
+                        ]
+                      }
+                    },
+                    {
+                      "if": {
+                        "additionalProperties": true,
+                        "properties": [
+                          [
+                            "parent",
+                            {
+                              "type": "object",
+                              "additionalProperties": true
+                            }
+                          ]
+                        ]
+                      },
+                      "then": {
+                        "additionalProperties": true,
+                        "properties": [
+                          [
+                            "parent",
+                            {
+                              "additionalProperties": true,
+                              "properties": [
+                                [
+                                  "subject_type",
+                                  {
+                                    "enum": [
+                                      "\"COMPETITOR_BRAND\""
+                                    ]
+                                  }
+                                ]
+                              ]
+                            }
+                          ]
+                        ]
+                      }
+                    },
+                    {
+                      "if": {
+                        "additionalProperties": true,
+                        "properties": [
+                          [
+                            "subject_type",
+                            {
+                              "enum": [
+                                "\"COMPETITOR_BRAND\"",
+                                "\"OWN_BRAND\"",
+                                "\"REFERENCE_PART\""
+                              ]
+                            }
+                          ]
+                        ]
+                      },
+                      "then": {
+                        "additionalProperties": true,
+                        "properties": [
+                          [
+                            "parent_subject_id",
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        ]
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "aliases",
+                    "available_actions",
+                    "canonical_name",
+                    "created_at",
+                    "created_by",
+                    "deletion",
+                    "description",
+                    "display_name",
+                    "domains",
+                    "id",
+                    "is_active",
+                    "parent",
+                    "parent_subject_id",
+                    "primary_task",
+                    "product",
+                    "product_id",
+                    "references",
+                    "revision",
+                    "subject_type",
+                    "updated_at",
+                    "workflow_stage"
+                  ],
+                  "properties": [
+                    [
+                      "aliases",
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "required": [
+                            "alias",
+                            "alias_kind",
+                            "available_actions",
+                            "created_at",
+                            "id",
+                            "is_active",
+                            "language_code",
+                            "normalized_alias",
+                            "subject_id"
+                          ],
+                          "properties": [
+                            [
+                              "alias",
+                              {
+                                "type": "string",
+                                "maxLength": 240,
+                                "minLength": 1,
+                                "pattern": "\\S"
+                              }
+                            ],
+                            [
+                              "alias_kind",
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "\"ABBREVIATION\"",
+                                  "\"LEGACY\"",
+                                  "\"NAME\"",
+                                  "\"PART_NUMBER\""
+                                ]
+                              }
+                            ],
+                            [
+                              "available_actions",
+                              {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "enum": [
+                                    "\"DELETE\"",
+                                    "\"UPDATE\""
+                                  ]
+                                }
+                              }
+                            ],
+                            [
+                              "created_at",
+                              {
+                                "type": "string",
+                                "format": "date-time"
+                              }
+                            ],
+                            [
+                              "id",
+                              {
+                                "type": "string",
+                                "format": "uuid"
+                              }
+                            ],
+                            [
+                              "is_active",
+                              {
+                                "type": "boolean"
+                              }
+                            ],
+                            [
+                              "language_code",
+                              {
+                                "type": [
+                                  "null",
+                                  "string"
+                                ],
+                                "maxLength": 16,
+                                "minLength": 2,
+                                "pattern": "^[a-z]{2,8}(-[a-z0-9]{1,8})*$"
+                              }
+                            ],
+                            [
+                              "normalized_alias",
+                              {
+                                "type": "string",
+                                "maxLength": 240,
+                                "minLength": 1,
+                                "pattern": "\\S"
+                              }
+                            ],
+                            [
+                              "subject_id",
+                              {
+                                "type": "string",
+                                "format": "uuid"
+                              }
+                            ]
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    ],
+                    [
+                      "available_actions",
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "\"CREATE_ALIAS\"",
+                            "\"CREATE_DOMAIN\"",
+                            "\"DELETE\"",
+                            "\"DISABLE\"",
+                            "\"ENABLE\"",
+                            "\"UPDATE\""
+                          ]
+                        }
+                      }
+                    ],
+                    [
+                      "canonical_name",
+                      {
+                        "type": "string",
+                        "maxLength": 160,
+                        "minLength": 1
+                      }
+                    ],
+                    [
+                      "created_at",
+                      {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    ],
+                    [
+                      "created_by",
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    ],
+                    [
+                      "deletion",
+                      {
+                        "properties": [
+                          [
+                            "blockers",
+                            {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "required": [
+                                  "count",
+                                  "type"
+                                ],
+                                "properties": [
+                                  [
+                                    "count",
+                                    {
+                                      "type": "integer",
+                                      "minimum": 1
+                                    }
+                                  ],
+                                  [
+                                    "type",
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "\"ANALYSIS\"",
+                                        "\"CHILD_SUBJECT\"",
+                                        "\"MONITORING_PLAN\"",
+                                        "\"OBSERVATION_RUN\"",
+                                        "\"OPPORTUNITY\""
+                                      ]
+                                    }
+                                  ]
+                                ],
+                                "additionalProperties": false
+                              }
+                            }
+                          ]
+                        ],
+                        "type": [
+                          "null",
+                          "object"
+                        ],
+                        "required": [
+                          "blockers"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ],
+                    [
+                      "description",
+                      {
+                        "type": "string",
+                        "maxLength": 4000
+                      }
+                    ],
+                    [
+                      "display_name",
+                      {
+                        "type": "string",
+                        "maxLength": 321,
+                        "minLength": 3
+                      }
+                    ],
+                    [
+                      "domains",
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "required": [
+                            "available_actions",
+                            "created_at",
+                            "hostname",
+                            "id",
+                            "is_active",
+                            "relation_type",
+                            "subject_id"
+                          ],
+                          "properties": [
+                            [
+                              "available_actions",
+                              {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "enum": [
+                                    "\"DELETE\""
+                                  ]
+                                }
+                              }
+                            ],
+                            [
+                              "created_at",
+                              {
+                                "type": "string",
+                                "format": "date-time"
+                              }
+                            ],
+                            [
+                              "hostname",
+                              {
+                                "type": "string",
+                                "maxLength": 253,
+                                "minLength": 3,
+                                "pattern": "^(?=.{3,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$",
+                                "not": {
+                                  "pattern": "^(?:[0-9]+\\.){3}[0-9]+$"
+                                }
+                              }
+                            ],
+                            [
+                              "id",
+                              {
+                                "type": "string",
+                                "format": "uuid"
+                              }
+                            ],
+                            [
+                              "is_active",
+                              {
+                                "type": "boolean",
+                                "enum": [
+                                  "true"
+                                ]
+                              }
+                            ],
+                            [
+                              "relation_type",
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "\"DISTRIBUTOR\"",
+                                  "\"OFFICIAL\"",
+                                  "\"OTHER\"",
+                                  "\"OWNED\""
+                                ]
+                              }
+                            ],
+                            [
+                              "subject_id",
+                              {
+                                "type": "string",
+                                "format": "uuid"
+                              }
+                            ]
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    ],
+                    [
+                      "id",
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    ],
+                    [
+                      "is_active",
+                      {
+                        "type": "boolean"
+                      }
+                    ],
+                    [
+                      "parent",
+                      {
+                        "properties": [
+                          [
+                            "display_name",
+                            {
+                              "type": "string",
+                              "maxLength": 240,
+                              "minLength": 1,
+                              "pattern": "\\S"
+                            }
+                          ],
+                          [
+                            "id",
+                            {
+                              "type": "string",
+                              "format": "uuid"
+                            }
+                          ],
+                          [
+                            "is_active",
+                            {
+                              "type": "boolean"
+                            }
+                          ],
+                          [
+                            "subject_type",
+                            {
+                              "type": "string",
+                              "enum": [
+                                "\"COMPETITOR_BRAND\"",
+                                "\"OWN_BRAND\""
+                              ]
+                            }
+                          ]
+                        ],
+                        "type": [
+                          "null",
+                          "object"
+                        ],
+                        "required": [
+                          "display_name",
+                          "id",
+                          "is_active",
+                          "subject_type"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ],
+                    [
+                      "parent_subject_id",
+                      {
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "format": "uuid"
+                      }
+                    ],
+                    [
+                      "primary_task",
+                      {
+                        "type": "string",
+                        "enum": [
+                          "\"ENABLE_SUBJECT\"",
+                          "\"MANAGE_SUBJECT\""
+                        ]
+                      }
+                    ],
+                    [
+                      "product",
+                      {
+                        "type": "object",
+                        "required": [
+                          "brand",
+                          "category",
+                          "id",
+                          "part_number",
+                          "revision"
+                        ],
+                        "properties": [
+                          [
+                            "brand",
+                            {
+                              "type": "string",
+                              "maxLength": 160,
+                              "minLength": 1
+                            }
+                          ],
+                          [
+                            "category",
+                            {
+                              "type": "string",
+                              "maxLength": 160,
+                              "minLength": 1
+                            }
+                          ],
+                          [
+                            "id",
+                            {
+                              "type": "string",
+                              "format": "uuid"
+                            }
+                          ],
+                          [
+                            "part_number",
+                            {
+                              "type": "string",
+                              "maxLength": 160,
+                              "minLength": 1
+                            }
+                          ],
+                          [
+                            "revision",
+                            {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          ]
+                        ],
+                        "additionalProperties": false
+                      }
+                    ],
+                    [
+                      "product_id",
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    ],
+                    [
+                      "references",
+                      {
+                        "type": "object",
+                        "required": [
+                          "analysis_count",
+                          "child_subject_count",
+                          "monitoring_plan_count",
+                          "observation_run_count",
+                          "opportunity_count"
+                        ],
+                        "properties": [
+                          [
+                            "analysis_count",
+                            {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          ],
+                          [
+                            "child_subject_count",
+                            {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          ],
+                          [
+                            "monitoring_plan_count",
+                            {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          ],
+                          [
+                            "observation_run_count",
+                            {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          ],
+                          [
+                            "opportunity_count",
+                            {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          ]
+                        ],
+                        "additionalProperties": false
+                      }
+                    ],
+                    [
+                      "revision",
+                      {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    ],
+                    [
+                      "subject_type",
+                      {
+                        "type": "string",
+                        "enum": [
+                          "\"OWN_PRODUCT\""
+                        ]
+                      }
+                    ],
+                    [
+                      "updated_at",
+                      {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    ],
+                    [
+                      "workflow_stage",
+                      {
+                        "type": "string",
+                        "enum": [
+                          "\"ACTIVE\"",
+                          "\"DISABLED\""
+                        ]
+                      }
+                    ]
+                  ],
+                  "additionalProperties": false,
+                  "allOf": [
+                    {
+                      "if": {
+                        "additionalProperties": true,
+                        "properties": [
+                          [
+                            "parent_subject_id",
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        ]
+                      },
+                      "then": {
+                        "additionalProperties": true,
+                        "properties": [
+                          [
+                            "parent",
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        ]
+                      },
+                      "else": {
+                        "additionalProperties": true,
+                        "properties": [
+                          [
+                            "parent",
+                            {
+                              "type": "object",
+                              "additionalProperties": true
+                            }
+                          ]
+                        ]
+                      }
+                    },
+                    {
+                      "if": {
+                        "additionalProperties": true,
+                        "properties": [
+                          [
+                            "is_active",
+                            {
+                              "enum": [
+                                "true"
+                              ]
+                            }
+                          ]
+                        ]
+                      },
+                      "then": {
+                        "additionalProperties": true,
+                        "properties": [
+                          [
+                            "workflow_stage",
+                            {
+                              "enum": [
+                                "\"ACTIVE\""
+                              ]
+                            }
+                          ]
+                        ]
+                      },
+                      "else": {
+                        "additionalProperties": true,
+                        "properties": [
+                          [
+                            "workflow_stage",
+                            {
+                              "enum": [
+                                "\"DISABLED\""
+                              ]
+                            }
+                          ]
+                        ]
+                      }
+                    },
+                    {
+                      "if": {
+                        "additionalProperties": true,
+                        "properties": [
+                          [
+                            "parent",
+                            {
+                              "type": "object",
+                              "additionalProperties": true
+                            }
+                          ]
+                        ]
+                      },
+                      "then": {
+                        "additionalProperties": true,
+                        "properties": [
+                          [
+                            "parent",
+                            {
+                              "additionalProperties": true,
+                              "properties": [
+                                [
+                                  "subject_type",
+                                  {
+                                    "enum": [
+                                      "\"OWN_BRAND\""
+                                    ]
+                                  }
+                                ]
+                              ]
+                            }
+                          ]
+                        ]
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        [
+          "page",
+          {
+            "type": "integer",
+            "minimum": 1
+          }
+        ],
+        [
+          "page_size",
+          {
+            "type": "integer",
+            "enum": [
+              "10",
+              "20",
+              "50"
+            ]
+          }
+        ],
+        [
+          "total",
+          {
+            "type": "integer",
+            "minimum": 0
+          }
+        ]
+      ],
+      "additionalProperties": false
+    },
+    "runtime": {
+      "type": "object",
+      "required": [
+        "items",
+        "page",
+        "page_size",
+        "total"
+      ],
+      "properties": [
+        [
+          "items",
+          {
+            "type": "array",
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "COMPETITOR_BRAND": "#/components/schemas/GeoNamedSubjectOut",
+                  "COMPETITOR_PRODUCT": "#/components/schemas/GeoNamedSubjectOut",
+                  "OWN_BRAND": "#/components/schemas/GeoNamedSubjectOut",
+                  "OWN_PRODUCT": "#/components/schemas/GeoOwnProductSubjectOut",
+                  "REFERENCE_PART": "#/components/schemas/GeoNamedSubjectOut"
+                },
+                "propertyName": "subject_type"
+              },
+              "oneOf": [
+                {
+                  "type": "object",
+                  "required": [
+                    "aliases",
+                    "available_actions",
+                    "canonical_name",
+                    "created_at",
+                    "created_by",
+                    "deletion",
+                    "description",
+                    "display_name",
+                    "domains",
+                    "id",
+                    "is_active",
+                    "parent",
+                    "parent_subject_id",
+                    "primary_task",
+                    "product",
+                    "product_id",
+                    "references",
+                    "revision",
+                    "subject_type",
+                    "updated_at",
+                    "workflow_stage"
+                  ],
+                  "properties": [
+                    [
+                      "aliases",
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "required": [
+                            "alias",
+                            "alias_kind",
+                            "available_actions",
+                            "created_at",
+                            "id",
+                            "is_active",
+                            "language_code",
+                            "normalized_alias",
+                            "subject_id"
+                          ],
+                          "properties": [
+                            [
+                              "alias",
+                              {
+                                "type": "string",
+                                "maxLength": 240,
+                                "minLength": 1,
+                                "pattern": "\\S"
+                              }
+                            ],
+                            [
+                              "alias_kind",
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "\"ABBREVIATION\"",
+                                  "\"LEGACY\"",
+                                  "\"NAME\"",
+                                  "\"PART_NUMBER\""
+                                ]
+                              }
+                            ],
+                            [
+                              "available_actions",
+                              {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "enum": [
+                                    "\"DELETE\"",
+                                    "\"UPDATE\""
+                                  ]
+                                }
+                              }
+                            ],
+                            [
+                              "created_at",
+                              {
+                                "type": "string",
+                                "format": "date-time"
+                              }
+                            ],
+                            [
+                              "id",
+                              {
+                                "type": "string",
+                                "format": "uuid"
+                              }
+                            ],
+                            [
+                              "is_active",
+                              {
+                                "type": "boolean"
+                              }
+                            ],
+                            [
+                              "language_code",
+                              {
+                                "maxLength": 16,
+                                "type": [
+                                  "null",
+                                  "string"
+                                ],
+                                "minLength": 2,
+                                "pattern": "^[a-z]{2,8}(-[a-z0-9]{1,8})*$"
+                              }
+                            ],
+                            [
+                              "normalized_alias",
+                              {
+                                "type": "string",
+                                "maxLength": 240,
+                                "minLength": 1,
+                                "pattern": "\\S"
+                              }
+                            ],
+                            [
+                              "subject_id",
+                              {
+                                "type": "string",
+                                "format": "uuid"
+                              }
+                            ]
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    ],
+                    [
+                      "available_actions",
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "\"CREATE_ALIAS\"",
+                            "\"CREATE_DOMAIN\"",
+                            "\"DELETE\"",
+                            "\"DISABLE\"",
+                            "\"ENABLE\"",
+                            "\"UPDATE\""
+                          ]
+                        }
+                      }
+                    ],
+                    [
+                      "canonical_name",
+                      {
+                        "type": "string",
+                        "maxLength": 160,
+                        "minLength": 1
+                      }
+                    ],
+                    [
+                      "created_at",
+                      {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    ],
+                    [
+                      "created_by",
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    ],
+                    [
+                      "deletion",
+                      {
+                        "properties": [
+                          [
+                            "blockers",
+                            {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "required": [
+                                  "count",
+                                  "type"
+                                ],
+                                "properties": [
+                                  [
+                                    "count",
+                                    {
+                                      "type": "integer",
+                                      "minimum": 1
+                                    }
+                                  ],
+                                  [
+                                    "type",
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "\"ANALYSIS\"",
+                                        "\"CHILD_SUBJECT\"",
+                                        "\"MONITORING_PLAN\"",
+                                        "\"OBSERVATION_RUN\"",
+                                        "\"OPPORTUNITY\""
+                                      ]
+                                    }
+                                  ]
+                                ],
+                                "additionalProperties": false
+                              }
+                            }
+                          ]
+                        ],
+                        "type": [
+                          "null",
+                          "object"
+                        ],
+                        "required": [
+                          "blockers"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ],
+                    [
+                      "description",
+                      {
+                        "type": "string",
+                        "maxLength": 4000
+                      }
+                    ],
+                    [
+                      "display_name",
+                      {
+                        "type": "string",
+                        "maxLength": 321,
+                        "minLength": 3
+                      }
+                    ],
+                    [
+                      "domains",
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "required": [
+                            "available_actions",
+                            "created_at",
+                            "hostname",
+                            "id",
+                            "is_active",
+                            "relation_type",
+                            "subject_id"
+                          ],
+                          "properties": [
+                            [
+                              "available_actions",
+                              {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "enum": [
+                                    "\"DELETE\""
+                                  ]
+                                }
+                              }
+                            ],
+                            [
+                              "created_at",
+                              {
+                                "type": "string",
+                                "format": "date-time"
+                              }
+                            ],
+                            [
+                              "hostname",
+                              {
+                                "type": "string",
+                                "maxLength": 253,
+                                "minLength": 3,
+                                "pattern": "^(?=.{3,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$"
+                              }
+                            ],
+                            [
+                              "id",
+                              {
+                                "type": "string",
+                                "format": "uuid"
+                              }
+                            ],
+                            [
+                              "is_active",
+                              {
+                                "type": "boolean",
+                                "enum": [
+                                  "true"
+                                ]
+                              }
+                            ],
+                            [
+                              "relation_type",
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "\"DISTRIBUTOR\"",
+                                  "\"OFFICIAL\"",
+                                  "\"OTHER\"",
+                                  "\"OWNED\""
+                                ]
+                              }
+                            ],
+                            [
+                              "subject_id",
+                              {
+                                "type": "string",
+                                "format": "uuid"
+                              }
+                            ]
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    ],
+                    [
+                      "id",
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    ],
+                    [
+                      "is_active",
+                      {
+                        "type": "boolean"
+                      }
+                    ],
+                    [
+                      "parent",
+                      {
+                        "properties": [
+                          [
+                            "display_name",
+                            {
+                              "type": "string",
+                              "maxLength": 240,
+                              "minLength": 1,
+                              "pattern": "\\S"
+                            }
+                          ],
+                          [
+                            "id",
+                            {
+                              "type": "string",
+                              "format": "uuid"
+                            }
+                          ],
+                          [
+                            "is_active",
+                            {
+                              "type": "boolean"
+                            }
+                          ],
+                          [
+                            "subject_type",
+                            {
+                              "type": "string",
+                              "enum": [
+                                "\"COMPETITOR_BRAND\"",
+                                "\"OWN_BRAND\""
+                              ]
+                            }
+                          ]
+                        ],
+                        "type": [
+                          "null",
+                          "object"
+                        ],
+                        "required": [
+                          "display_name",
+                          "id",
+                          "is_active",
+                          "subject_type"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ],
+                    [
+                      "parent_subject_id",
+                      {
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "format": "uuid"
+                      }
+                    ],
+                    [
+                      "primary_task",
+                      {
+                        "type": "string",
+                        "enum": [
+                          "\"ENABLE_SUBJECT\"",
+                          "\"MANAGE_SUBJECT\""
+                        ]
+                      }
+                    ],
+                    [
+                      "product",
+                      {
+                        "type": "object",
+                        "required": [
+                          "brand",
+                          "category",
+                          "id",
+                          "part_number",
+                          "revision"
+                        ],
+                        "properties": [
+                          [
+                            "brand",
+                            {
+                              "type": "string",
+                              "maxLength": 160,
+                              "minLength": 1
+                            }
+                          ],
+                          [
+                            "category",
+                            {
+                              "type": "string",
+                              "maxLength": 160,
+                              "minLength": 1
+                            }
+                          ],
+                          [
+                            "id",
+                            {
+                              "type": "string",
+                              "format": "uuid"
+                            }
+                          ],
+                          [
+                            "part_number",
+                            {
+                              "type": "string",
+                              "maxLength": 160,
+                              "minLength": 1
+                            }
+                          ],
+                          [
+                            "revision",
+                            {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          ]
+                        ],
+                        "additionalProperties": false
+                      }
+                    ],
+                    [
+                      "product_id",
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    ],
+                    [
+                      "references",
+                      {
+                        "type": "object",
+                        "required": [
+                          "analysis_count",
+                          "child_subject_count",
+                          "monitoring_plan_count",
+                          "observation_run_count",
+                          "opportunity_count"
+                        ],
+                        "properties": [
+                          [
+                            "analysis_count",
+                            {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          ],
+                          [
+                            "child_subject_count",
+                            {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          ],
+                          [
+                            "monitoring_plan_count",
+                            {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          ],
+                          [
+                            "observation_run_count",
+                            {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          ],
+                          [
+                            "opportunity_count",
+                            {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          ]
+                        ],
+                        "additionalProperties": false
+                      }
+                    ],
+                    [
+                      "revision",
+                      {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    ],
+                    [
+                      "subject_type",
+                      {
+                        "type": "string",
+                        "enum": [
+                          "\"OWN_PRODUCT\""
+                        ]
+                      }
+                    ],
+                    [
+                      "updated_at",
+                      {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    ],
+                    [
+                      "workflow_stage",
+                      {
+                        "type": "string",
+                        "enum": [
+                          "\"ACTIVE\"",
+                          "\"DISABLED\""
+                        ]
+                      }
+                    ]
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "aliases",
+                    "available_actions",
+                    "canonical_name",
+                    "created_at",
+                    "created_by",
+                    "deletion",
+                    "description",
+                    "display_name",
+                    "domains",
+                    "id",
+                    "is_active",
+                    "parent",
+                    "parent_subject_id",
+                    "primary_task",
+                    "product",
+                    "product_id",
+                    "references",
+                    "revision",
+                    "subject_type",
+                    "updated_at",
+                    "workflow_stage"
+                  ],
+                  "properties": [
+                    [
+                      "aliases",
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "required": [
+                            "alias",
+                            "alias_kind",
+                            "available_actions",
+                            "created_at",
+                            "id",
+                            "is_active",
+                            "language_code",
+                            "normalized_alias",
+                            "subject_id"
+                          ],
+                          "properties": [
+                            [
+                              "alias",
+                              {
+                                "type": "string",
+                                "maxLength": 240,
+                                "minLength": 1,
+                                "pattern": "\\S"
+                              }
+                            ],
+                            [
+                              "alias_kind",
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "\"ABBREVIATION\"",
+                                  "\"LEGACY\"",
+                                  "\"NAME\"",
+                                  "\"PART_NUMBER\""
+                                ]
+                              }
+                            ],
+                            [
+                              "available_actions",
+                              {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "enum": [
+                                    "\"DELETE\"",
+                                    "\"UPDATE\""
+                                  ]
+                                }
+                              }
+                            ],
+                            [
+                              "created_at",
+                              {
+                                "type": "string",
+                                "format": "date-time"
+                              }
+                            ],
+                            [
+                              "id",
+                              {
+                                "type": "string",
+                                "format": "uuid"
+                              }
+                            ],
+                            [
+                              "is_active",
+                              {
+                                "type": "boolean"
+                              }
+                            ],
+                            [
+                              "language_code",
+                              {
+                                "maxLength": 16,
+                                "type": [
+                                  "null",
+                                  "string"
+                                ],
+                                "minLength": 2,
+                                "pattern": "^[a-z]{2,8}(-[a-z0-9]{1,8})*$"
+                              }
+                            ],
+                            [
+                              "normalized_alias",
+                              {
+                                "type": "string",
+                                "maxLength": 240,
+                                "minLength": 1,
+                                "pattern": "\\S"
+                              }
+                            ],
+                            [
+                              "subject_id",
+                              {
+                                "type": "string",
+                                "format": "uuid"
+                              }
+                            ]
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    ],
+                    [
+                      "available_actions",
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "\"CREATE_ALIAS\"",
+                            "\"CREATE_DOMAIN\"",
+                            "\"DELETE\"",
+                            "\"DISABLE\"",
+                            "\"ENABLE\"",
+                            "\"UPDATE\""
+                          ]
+                        }
+                      }
+                    ],
+                    [
+                      "canonical_name",
+                      {
+                        "type": "string",
+                        "maxLength": 240,
+                        "minLength": 1,
+                        "pattern": "\\S"
+                      }
+                    ],
+                    [
+                      "created_at",
+                      {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    ],
+                    [
+                      "created_by",
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    ],
+                    [
+                      "deletion",
+                      {
+                        "properties": [
+                          [
+                            "blockers",
+                            {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "required": [
+                                  "count",
+                                  "type"
+                                ],
+                                "properties": [
+                                  [
+                                    "count",
+                                    {
+                                      "type": "integer",
+                                      "minimum": 1
+                                    }
+                                  ],
+                                  [
+                                    "type",
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "\"ANALYSIS\"",
+                                        "\"CHILD_SUBJECT\"",
+                                        "\"MONITORING_PLAN\"",
+                                        "\"OBSERVATION_RUN\"",
+                                        "\"OPPORTUNITY\""
+                                      ]
+                                    }
+                                  ]
+                                ],
+                                "additionalProperties": false
+                              }
+                            }
+                          ]
+                        ],
+                        "type": [
+                          "null",
+                          "object"
+                        ],
+                        "required": [
+                          "blockers"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ],
+                    [
+                      "description",
+                      {
+                        "type": "string",
+                        "maxLength": 4000
+                      }
+                    ],
+                    [
+                      "display_name",
+                      {
+                        "type": "string",
+                        "maxLength": 240,
+                        "minLength": 1,
+                        "pattern": "\\S"
+                      }
+                    ],
+                    [
+                      "domains",
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "required": [
+                            "available_actions",
+                            "created_at",
+                            "hostname",
+                            "id",
+                            "is_active",
+                            "relation_type",
+                            "subject_id"
+                          ],
+                          "properties": [
+                            [
+                              "available_actions",
+                              {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "enum": [
+                                    "\"DELETE\""
+                                  ]
+                                }
+                              }
+                            ],
+                            [
+                              "created_at",
+                              {
+                                "type": "string",
+                                "format": "date-time"
+                              }
+                            ],
+                            [
+                              "hostname",
+                              {
+                                "type": "string",
+                                "maxLength": 253,
+                                "minLength": 3,
+                                "pattern": "^(?=.{3,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$"
+                              }
+                            ],
+                            [
+                              "id",
+                              {
+                                "type": "string",
+                                "format": "uuid"
+                              }
+                            ],
+                            [
+                              "is_active",
+                              {
+                                "type": "boolean",
+                                "enum": [
+                                  "true"
+                                ]
+                              }
+                            ],
+                            [
+                              "relation_type",
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "\"DISTRIBUTOR\"",
+                                  "\"OFFICIAL\"",
+                                  "\"OTHER\"",
+                                  "\"OWNED\""
+                                ]
+                              }
+                            ],
+                            [
+                              "subject_id",
+                              {
+                                "type": "string",
+                                "format": "uuid"
+                              }
+                            ]
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    ],
+                    [
+                      "id",
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    ],
+                    [
+                      "is_active",
+                      {
+                        "type": "boolean"
+                      }
+                    ],
+                    [
+                      "parent",
+                      {
+                        "properties": [
+                          [
+                            "display_name",
+                            {
+                              "type": "string",
+                              "maxLength": 240,
+                              "minLength": 1,
+                              "pattern": "\\S"
+                            }
+                          ],
+                          [
+                            "id",
+                            {
+                              "type": "string",
+                              "format": "uuid"
+                            }
+                          ],
+                          [
+                            "is_active",
+                            {
+                              "type": "boolean"
+                            }
+                          ],
+                          [
+                            "subject_type",
+                            {
+                              "type": "string",
+                              "enum": [
+                                "\"COMPETITOR_BRAND\"",
+                                "\"OWN_BRAND\""
+                              ]
+                            }
+                          ]
+                        ],
+                        "type": [
+                          "null",
+                          "object"
+                        ],
+                        "required": [
+                          "display_name",
+                          "id",
+                          "is_active",
+                          "subject_type"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ],
+                    [
+                      "parent_subject_id",
+                      {
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "format": "uuid"
+                      }
+                    ],
+                    [
+                      "primary_task",
+                      {
+                        "type": "string",
+                        "enum": [
+                          "\"ENABLE_SUBJECT\"",
+                          "\"MANAGE_SUBJECT\""
+                        ]
+                      }
+                    ],
+                    [
+                      "product",
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    [
+                      "product_id",
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    [
+                      "references",
+                      {
+                        "type": "object",
+                        "required": [
+                          "analysis_count",
+                          "child_subject_count",
+                          "monitoring_plan_count",
+                          "observation_run_count",
+                          "opportunity_count"
+                        ],
+                        "properties": [
+                          [
+                            "analysis_count",
+                            {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          ],
+                          [
+                            "child_subject_count",
+                            {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          ],
+                          [
+                            "monitoring_plan_count",
+                            {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          ],
+                          [
+                            "observation_run_count",
+                            {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          ],
+                          [
+                            "opportunity_count",
+                            {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          ]
+                        ],
+                        "additionalProperties": false
+                      }
+                    ],
+                    [
+                      "revision",
+                      {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    ],
+                    [
+                      "subject_type",
+                      {
+                        "type": "string",
+                        "enum": [
+                          "\"COMPETITOR_BRAND\"",
+                          "\"COMPETITOR_PRODUCT\"",
+                          "\"OWN_BRAND\"",
+                          "\"REFERENCE_PART\""
+                        ]
+                      }
+                    ],
+                    [
+                      "updated_at",
+                      {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    ],
+                    [
+                      "workflow_stage",
+                      {
+                        "type": "string",
+                        "enum": [
+                          "\"ACTIVE\"",
+                          "\"DISABLED\""
+                        ]
+                      }
+                    ]
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          }
+        ],
+        [
+          "page",
+          {
+            "type": "integer",
+            "minimum": 1
+          }
+        ],
+        [
+          "page_size",
+          {
+            "type": "integer",
+            "enum": [
+              "10",
+              "20",
+              "50"
+            ]
+          }
+        ],
+        [
+          "total",
+          {
+            "type": "integer",
+            "minimum": 0
+          }
+        ]
+      ],
+      "additionalProperties": false
+    },
+    "contract_target": "#/components/schemas/GeoSubjectListPage",
+    "runtime_target": "#/components/schemas/GeoSubjectListPage"
+  },
+  {
+    "kind": "schema_drift",
+    "pointer": "/paths/~1GeoSubjectOut/get/responses/200/content/application~1json/schema/oneOf/0/allOf",
+    "direction": "different",
+    "message": "schema machine shape 漂移",
+    "contract": {
+      "discriminator": {
+        "propertyName": "subject_type",
+        "mapping": {
+          "OWN_BRAND": "#/components/schemas/GeoNamedSubjectOut",
+          "OWN_PRODUCT": "#/components/schemas/GeoOwnProductSubjectOut",
+          "COMPETITOR_BRAND": "#/components/schemas/GeoNamedSubjectOut",
+          "COMPETITOR_PRODUCT": "#/components/schemas/GeoNamedSubjectOut",
+          "REFERENCE_PART": "#/components/schemas/GeoNamedSubjectOut"
+        }
+      },
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "aliases",
+            "available_actions",
+            "canonical_name",
+            "created_at",
+            "created_by",
+            "deletion",
+            "description",
+            "display_name",
+            "domains",
+            "id",
+            "is_active",
+            "parent",
+            "parent_subject_id",
+            "primary_task",
+            "product",
+            "product_id",
+            "references",
+            "revision",
+            "subject_type",
+            "updated_at",
+            "workflow_stage"
+          ],
+          "properties": [
+            [
+              "aliases",
+              {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "alias",
+                    "alias_kind",
+                    "available_actions",
+                    "created_at",
+                    "id",
+                    "is_active",
+                    "language_code",
+                    "normalized_alias",
+                    "subject_id"
+                  ],
+                  "properties": [
+                    [
+                      "alias",
+                      {
+                        "type": "string",
+                        "maxLength": 240,
+                        "minLength": 1,
+                        "pattern": "\\S"
+                      }
+                    ],
+                    [
+                      "alias_kind",
+                      {
+                        "type": "string",
+                        "enum": [
+                          "\"ABBREVIATION\"",
+                          "\"LEGACY\"",
+                          "\"NAME\"",
+                          "\"PART_NUMBER\""
+                        ]
+                      }
+                    ],
+                    [
+                      "available_actions",
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "\"DELETE\"",
+                            "\"UPDATE\""
+                          ]
+                        }
+                      }
+                    ],
+                    [
+                      "created_at",
+                      {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    ],
+                    [
+                      "id",
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    ],
+                    [
+                      "is_active",
+                      {
+                        "type": "boolean"
+                      }
+                    ],
+                    [
+                      "language_code",
+                      {
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "maxLength": 16,
+                        "minLength": 2,
+                        "pattern": "^[a-z]{2,8}(-[a-z0-9]{1,8})*$"
+                      }
+                    ],
+                    [
+                      "normalized_alias",
+                      {
+                        "type": "string",
+                        "maxLength": 240,
+                        "minLength": 1,
+                        "pattern": "\\S"
+                      }
+                    ],
+                    [
+                      "subject_id",
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    ]
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            ],
+            [
+              "available_actions",
+              {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "\"CREATE_ALIAS\"",
+                    "\"CREATE_DOMAIN\"",
+                    "\"DELETE\"",
+                    "\"DISABLE\"",
+                    "\"ENABLE\"",
+                    "\"UPDATE\""
+                  ]
+                }
+              }
+            ],
+            [
+              "canonical_name",
+              {
+                "type": "string",
+                "maxLength": 240,
+                "minLength": 1,
+                "pattern": "\\S"
+              }
+            ],
+            [
+              "created_at",
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ],
+            [
+              "created_by",
+              {
+                "type": "string",
+                "format": "uuid"
+              }
+            ],
+            [
+              "deletion",
+              {
+                "properties": [
+                  [
+                    "blockers",
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "count",
+                          "type"
+                        ],
+                        "properties": [
+                          [
+                            "count",
+                            {
+                              "type": "integer",
+                              "minimum": 1
+                            }
+                          ],
+                          [
+                            "type",
+                            {
+                              "type": "string",
+                              "enum": [
+                                "\"ANALYSIS\"",
+                                "\"CHILD_SUBJECT\"",
+                                "\"MONITORING_PLAN\"",
+                                "\"OBSERVATION_RUN\"",
+                                "\"OPPORTUNITY\""
+                              ]
+                            }
+                          ]
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  ]
+                ],
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "required": [
+                  "blockers"
+                ],
+                "additionalProperties": false
+              }
+            ],
+            [
+              "description",
+              {
+                "type": "string",
+                "maxLength": 4000
+              }
+            ],
+            [
+              "display_name",
+              {
+                "type": "string",
+                "maxLength": 240,
+                "minLength": 1,
+                "pattern": "\\S"
+              }
+            ],
+            [
+              "domains",
+              {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "available_actions",
+                    "created_at",
+                    "hostname",
+                    "id",
+                    "is_active",
+                    "relation_type",
+                    "subject_id"
+                  ],
+                  "properties": [
+                    [
+                      "available_actions",
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "\"DELETE\""
+                          ]
+                        }
+                      }
+                    ],
+                    [
+                      "created_at",
+                      {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    ],
+                    [
+                      "hostname",
+                      {
+                        "type": "string",
+                        "maxLength": 253,
+                        "minLength": 3,
+                        "pattern": "^(?=.{3,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$",
+                        "not": {
+                          "pattern": "^(?:[0-9]+\\.){3}[0-9]+$"
+                        }
+                      }
+                    ],
+                    [
+                      "id",
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    ],
+                    [
+                      "is_active",
+                      {
+                        "type": "boolean",
+                        "enum": [
+                          "true"
+                        ]
+                      }
+                    ],
+                    [
+                      "relation_type",
+                      {
+                        "type": "string",
+                        "enum": [
+                          "\"DISTRIBUTOR\"",
+                          "\"OFFICIAL\"",
+                          "\"OTHER\"",
+                          "\"OWNED\""
+                        ]
+                      }
+                    ],
+                    [
+                      "subject_id",
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    ]
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            ],
+            [
+              "id",
+              {
+                "type": "string",
+                "format": "uuid"
+              }
+            ],
+            [
+              "is_active",
+              {
+                "type": "boolean"
+              }
+            ],
+            [
+              "parent",
+              {
+                "properties": [
+                  [
+                    "display_name",
+                    {
+                      "type": "string",
+                      "maxLength": 240,
+                      "minLength": 1,
+                      "pattern": "\\S"
+                    }
+                  ],
+                  [
+                    "id",
+                    {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  ],
+                  [
+                    "is_active",
+                    {
+                      "type": "boolean"
+                    }
+                  ],
+                  [
+                    "subject_type",
+                    {
+                      "type": "string",
+                      "enum": [
+                        "\"COMPETITOR_BRAND\"",
+                        "\"OWN_BRAND\""
+                      ]
+                    }
+                  ]
+                ],
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "required": [
+                  "display_name",
+                  "id",
+                  "is_active",
+                  "subject_type"
+                ],
+                "additionalProperties": false
+              }
+            ],
+            [
+              "parent_subject_id",
+              {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "format": "uuid"
+              }
+            ],
+            [
+              "primary_task",
+              {
+                "type": "string",
+                "enum": [
+                  "\"ENABLE_SUBJECT\"",
+                  "\"MANAGE_SUBJECT\""
+                ]
+              }
+            ],
+            [
+              "product",
+              {
+                "type": "null"
+              }
+            ],
+            [
+              "product_id",
+              {
+                "type": "null"
+              }
+            ],
+            [
+              "references",
+              {
+                "type": "object",
+                "required": [
+                  "analysis_count",
+                  "child_subject_count",
+                  "monitoring_plan_count",
+                  "observation_run_count",
+                  "opportunity_count"
+                ],
+                "properties": [
+                  [
+                    "analysis_count",
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  ],
+                  [
+                    "child_subject_count",
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  ],
+                  [
+                    "monitoring_plan_count",
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  ],
+                  [
+                    "observation_run_count",
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  ],
+                  [
+                    "opportunity_count",
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  ]
+                ],
+                "additionalProperties": false
+              }
+            ],
+            [
+              "revision",
+              {
+                "type": "integer",
+                "minimum": 0
+              }
+            ],
+            [
+              "subject_type",
+              {
+                "type": "string",
+                "enum": [
+                  "\"COMPETITOR_BRAND\"",
+                  "\"COMPETITOR_PRODUCT\"",
+                  "\"OWN_BRAND\"",
+                  "\"REFERENCE_PART\""
+                ]
+              }
+            ],
+            [
+              "updated_at",
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ],
+            [
+              "workflow_stage",
+              {
+                "type": "string",
+                "enum": [
+                  "\"ACTIVE\"",
+                  "\"DISABLED\""
+                ]
+              }
+            ]
+          ],
+          "additionalProperties": false,
+          "allOf": [
+            {
+              "if": {
+                "additionalProperties": true,
+                "properties": [
+                  [
+                    "parent_subject_id",
+                    {
+                      "type": "null"
+                    }
+                  ]
+                ]
+              },
+              "then": {
+                "additionalProperties": true,
+                "properties": [
+                  [
+                    "parent",
+                    {
+                      "type": "null"
+                    }
+                  ]
+                ]
+              },
+              "else": {
+                "additionalProperties": true,
+                "properties": [
+                  [
+                    "parent",
+                    {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  ]
+                ]
+              }
+            },
+            {
+              "if": {
+                "additionalProperties": true,
+                "properties": [
+                  [
+                    "is_active",
+                    {
+                      "enum": [
+                        "true"
+                      ]
+                    }
+                  ]
+                ]
+              },
+              "then": {
+                "additionalProperties": true,
+                "properties": [
+                  [
+                    "workflow_stage",
+                    {
+                      "enum": [
+                        "\"ACTIVE\""
+                      ]
+                    }
+                  ]
+                ]
+              },
+              "else": {
+                "additionalProperties": true,
+                "properties": [
+                  [
+                    "workflow_stage",
+                    {
+                      "enum": [
+                        "\"DISABLED\""
+                      ]
+                    }
+                  ]
+                ]
+              }
+            },
+            {
+              "if": {
+                "additionalProperties": true,
+                "properties": [
+                  [
+                    "parent",
+                    {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  ]
+                ]
+              },
+              "then": {
+                "additionalProperties": true,
+                "properties": [
+                  [
+                    "parent",
+                    {
+                      "additionalProperties": true,
+                      "properties": [
+                        [
+                          "subject_type",
+                          {
+                            "enum": [
+                              "\"COMPETITOR_BRAND\""
+                            ]
+                          }
+                        ]
+                      ]
+                    }
+                  ]
+                ]
+              }
+            },
+            {
+              "if": {
+                "additionalProperties": true,
+                "properties": [
+                  [
+                    "subject_type",
+                    {
+                      "enum": [
+                        "\"COMPETITOR_BRAND\"",
+                        "\"OWN_BRAND\"",
+                        "\"REFERENCE_PART\""
+                      ]
+                    }
+                  ]
+                ]
+              },
+              "then": {
+                "additionalProperties": true,
+                "properties": [
+                  [
+                    "parent_subject_id",
+                    {
+                      "type": "null"
+                    }
+                  ]
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "type": "object",
+          "required": [
+            "aliases",
+            "available_actions",
+            "canonical_name",
+            "created_at",
+            "created_by",
+            "deletion",
+            "description",
+            "display_name",
+            "domains",
+            "id",
+            "is_active",
+            "parent",
+            "parent_subject_id",
+            "primary_task",
+            "product",
+            "product_id",
+            "references",
+            "revision",
+            "subject_type",
+            "updated_at",
+            "workflow_stage"
+          ],
+          "properties": [
+            [
+              "aliases",
+              {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "alias",
+                    "alias_kind",
+                    "available_actions",
+                    "created_at",
+                    "id",
+                    "is_active",
+                    "language_code",
+                    "normalized_alias",
+                    "subject_id"
+                  ],
+                  "properties": [
+                    [
+                      "alias",
+                      {
+                        "type": "string",
+                        "maxLength": 240,
+                        "minLength": 1,
+                        "pattern": "\\S"
+                      }
+                    ],
+                    [
+                      "alias_kind",
+                      {
+                        "type": "string",
+                        "enum": [
+                          "\"ABBREVIATION\"",
+                          "\"LEGACY\"",
+                          "\"NAME\"",
+                          "\"PART_NUMBER\""
+                        ]
+                      }
+                    ],
+                    [
+                      "available_actions",
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "\"DELETE\"",
+                            "\"UPDATE\""
+                          ]
+                        }
+                      }
+                    ],
+                    [
+                      "created_at",
+                      {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    ],
+                    [
+                      "id",
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    ],
+                    [
+                      "is_active",
+                      {
+                        "type": "boolean"
+                      }
+                    ],
+                    [
+                      "language_code",
+                      {
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "maxLength": 16,
+                        "minLength": 2,
+                        "pattern": "^[a-z]{2,8}(-[a-z0-9]{1,8})*$"
+                      }
+                    ],
+                    [
+                      "normalized_alias",
+                      {
+                        "type": "string",
+                        "maxLength": 240,
+                        "minLength": 1,
+                        "pattern": "\\S"
+                      }
+                    ],
+                    [
+                      "subject_id",
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    ]
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            ],
+            [
+              "available_actions",
+              {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "\"CREATE_ALIAS\"",
+                    "\"CREATE_DOMAIN\"",
+                    "\"DELETE\"",
+                    "\"DISABLE\"",
+                    "\"ENABLE\"",
+                    "\"UPDATE\""
+                  ]
+                }
+              }
+            ],
+            [
+              "canonical_name",
+              {
+                "type": "string",
+                "maxLength": 160,
+                "minLength": 1
+              }
+            ],
+            [
+              "created_at",
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ],
+            [
+              "created_by",
+              {
+                "type": "string",
+                "format": "uuid"
+              }
+            ],
+            [
+              "deletion",
+              {
+                "properties": [
+                  [
+                    "blockers",
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "count",
+                          "type"
+                        ],
+                        "properties": [
+                          [
+                            "count",
+                            {
+                              "type": "integer",
+                              "minimum": 1
+                            }
+                          ],
+                          [
+                            "type",
+                            {
+                              "type": "string",
+                              "enum": [
+                                "\"ANALYSIS\"",
+                                "\"CHILD_SUBJECT\"",
+                                "\"MONITORING_PLAN\"",
+                                "\"OBSERVATION_RUN\"",
+                                "\"OPPORTUNITY\""
+                              ]
+                            }
+                          ]
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  ]
+                ],
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "required": [
+                  "blockers"
+                ],
+                "additionalProperties": false
+              }
+            ],
+            [
+              "description",
+              {
+                "type": "string",
+                "maxLength": 4000
+              }
+            ],
+            [
+              "display_name",
+              {
+                "type": "string",
+                "maxLength": 321,
+                "minLength": 3
+              }
+            ],
+            [
+              "domains",
+              {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "available_actions",
+                    "created_at",
+                    "hostname",
+                    "id",
+                    "is_active",
+                    "relation_type",
+                    "subject_id"
+                  ],
+                  "properties": [
+                    [
+                      "available_actions",
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "\"DELETE\""
+                          ]
+                        }
+                      }
+                    ],
+                    [
+                      "created_at",
+                      {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    ],
+                    [
+                      "hostname",
+                      {
+                        "type": "string",
+                        "maxLength": 253,
+                        "minLength": 3,
+                        "pattern": "^(?=.{3,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$",
+                        "not": {
+                          "pattern": "^(?:[0-9]+\\.){3}[0-9]+$"
+                        }
+                      }
+                    ],
+                    [
+                      "id",
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    ],
+                    [
+                      "is_active",
+                      {
+                        "type": "boolean",
+                        "enum": [
+                          "true"
+                        ]
+                      }
+                    ],
+                    [
+                      "relation_type",
+                      {
+                        "type": "string",
+                        "enum": [
+                          "\"DISTRIBUTOR\"",
+                          "\"OFFICIAL\"",
+                          "\"OTHER\"",
+                          "\"OWNED\""
+                        ]
+                      }
+                    ],
+                    [
+                      "subject_id",
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    ]
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            ],
+            [
+              "id",
+              {
+                "type": "string",
+                "format": "uuid"
+              }
+            ],
+            [
+              "is_active",
+              {
+                "type": "boolean"
+              }
+            ],
+            [
+              "parent",
+              {
+                "properties": [
+                  [
+                    "display_name",
+                    {
+                      "type": "string",
+                      "maxLength": 240,
+                      "minLength": 1,
+                      "pattern": "\\S"
+                    }
+                  ],
+                  [
+                    "id",
+                    {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  ],
+                  [
+                    "is_active",
+                    {
+                      "type": "boolean"
+                    }
+                  ],
+                  [
+                    "subject_type",
+                    {
+                      "type": "string",
+                      "enum": [
+                        "\"COMPETITOR_BRAND\"",
+                        "\"OWN_BRAND\""
+                      ]
+                    }
+                  ]
+                ],
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "required": [
+                  "display_name",
+                  "id",
+                  "is_active",
+                  "subject_type"
+                ],
+                "additionalProperties": false
+              }
+            ],
+            [
+              "parent_subject_id",
+              {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "format": "uuid"
+              }
+            ],
+            [
+              "primary_task",
+              {
+                "type": "string",
+                "enum": [
+                  "\"ENABLE_SUBJECT\"",
+                  "\"MANAGE_SUBJECT\""
+                ]
+              }
+            ],
+            [
+              "product",
+              {
+                "type": "object",
+                "required": [
+                  "brand",
+                  "category",
+                  "id",
+                  "part_number",
+                  "revision"
+                ],
+                "properties": [
+                  [
+                    "brand",
+                    {
+                      "type": "string",
+                      "maxLength": 160,
+                      "minLength": 1
+                    }
+                  ],
+                  [
+                    "category",
+                    {
+                      "type": "string",
+                      "maxLength": 160,
+                      "minLength": 1
+                    }
+                  ],
+                  [
+                    "id",
+                    {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  ],
+                  [
+                    "part_number",
+                    {
+                      "type": "string",
+                      "maxLength": 160,
+                      "minLength": 1
+                    }
+                  ],
+                  [
+                    "revision",
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  ]
+                ],
+                "additionalProperties": false
+              }
+            ],
+            [
+              "product_id",
+              {
+                "type": "string",
+                "format": "uuid"
+              }
+            ],
+            [
+              "references",
+              {
+                "type": "object",
+                "required": [
+                  "analysis_count",
+                  "child_subject_count",
+                  "monitoring_plan_count",
+                  "observation_run_count",
+                  "opportunity_count"
+                ],
+                "properties": [
+                  [
+                    "analysis_count",
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  ],
+                  [
+                    "child_subject_count",
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  ],
+                  [
+                    "monitoring_plan_count",
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  ],
+                  [
+                    "observation_run_count",
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  ],
+                  [
+                    "opportunity_count",
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  ]
+                ],
+                "additionalProperties": false
+              }
+            ],
+            [
+              "revision",
+              {
+                "type": "integer",
+                "minimum": 0
+              }
+            ],
+            [
+              "subject_type",
+              {
+                "type": "string",
+                "enum": [
+                  "\"OWN_PRODUCT\""
+                ]
+              }
+            ],
+            [
+              "updated_at",
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ],
+            [
+              "workflow_stage",
+              {
+                "type": "string",
+                "enum": [
+                  "\"ACTIVE\"",
+                  "\"DISABLED\""
+                ]
+              }
+            ]
+          ],
+          "additionalProperties": false,
+          "allOf": [
+            {
+              "if": {
+                "additionalProperties": true,
+                "properties": [
+                  [
+                    "parent_subject_id",
+                    {
+                      "type": "null"
+                    }
+                  ]
+                ]
+              },
+              "then": {
+                "additionalProperties": true,
+                "properties": [
+                  [
+                    "parent",
+                    {
+                      "type": "null"
+                    }
+                  ]
+                ]
+              },
+              "else": {
+                "additionalProperties": true,
+                "properties": [
+                  [
+                    "parent",
+                    {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  ]
+                ]
+              }
+            },
+            {
+              "if": {
+                "additionalProperties": true,
+                "properties": [
+                  [
+                    "is_active",
+                    {
+                      "enum": [
+                        "true"
+                      ]
+                    }
+                  ]
+                ]
+              },
+              "then": {
+                "additionalProperties": true,
+                "properties": [
+                  [
+                    "workflow_stage",
+                    {
+                      "enum": [
+                        "\"ACTIVE\""
+                      ]
+                    }
+                  ]
+                ]
+              },
+              "else": {
+                "additionalProperties": true,
+                "properties": [
+                  [
+                    "workflow_stage",
+                    {
+                      "enum": [
+                        "\"DISABLED\""
+                      ]
+                    }
+                  ]
+                ]
+              }
+            },
+            {
+              "if": {
+                "additionalProperties": true,
+                "properties": [
+                  [
+                    "parent",
+                    {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  ]
+                ]
+              },
+              "then": {
+                "additionalProperties": true,
+                "properties": [
+                  [
+                    "parent",
+                    {
+                      "additionalProperties": true,
+                      "properties": [
+                        [
+                          "subject_type",
+                          {
+                            "enum": [
+                              "\"OWN_BRAND\""
+                            ]
+                          }
+                        ]
+                      ]
+                    }
+                  ]
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "runtime": {
+      "discriminator": {
+        "mapping": {
+          "COMPETITOR_BRAND": "#/components/schemas/GeoNamedSubjectOut",
+          "COMPETITOR_PRODUCT": "#/components/schemas/GeoNamedSubjectOut",
+          "OWN_BRAND": "#/components/schemas/GeoNamedSubjectOut",
+          "OWN_PRODUCT": "#/components/schemas/GeoOwnProductSubjectOut",
+          "REFERENCE_PART": "#/components/schemas/GeoNamedSubjectOut"
+        },
+        "propertyName": "subject_type"
+      },
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "aliases",
+            "available_actions",
+            "canonical_name",
+            "created_at",
+            "created_by",
+            "deletion",
+            "description",
+            "display_name",
+            "domains",
+            "id",
+            "is_active",
+            "parent",
+            "parent_subject_id",
+            "primary_task",
+            "product",
+            "product_id",
+            "references",
+            "revision",
+            "subject_type",
+            "updated_at",
+            "workflow_stage"
+          ],
+          "properties": [
+            [
+              "aliases",
+              {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "alias",
+                    "alias_kind",
+                    "available_actions",
+                    "created_at",
+                    "id",
+                    "is_active",
+                    "language_code",
+                    "normalized_alias",
+                    "subject_id"
+                  ],
+                  "properties": [
+                    [
+                      "alias",
+                      {
+                        "type": "string",
+                        "maxLength": 240,
+                        "minLength": 1,
+                        "pattern": "\\S"
+                      }
+                    ],
+                    [
+                      "alias_kind",
+                      {
+                        "type": "string",
+                        "enum": [
+                          "\"ABBREVIATION\"",
+                          "\"LEGACY\"",
+                          "\"NAME\"",
+                          "\"PART_NUMBER\""
+                        ]
+                      }
+                    ],
+                    [
+                      "available_actions",
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "\"DELETE\"",
+                            "\"UPDATE\""
+                          ]
+                        }
+                      }
+                    ],
+                    [
+                      "created_at",
+                      {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    ],
+                    [
+                      "id",
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    ],
+                    [
+                      "is_active",
+                      {
+                        "type": "boolean"
+                      }
+                    ],
+                    [
+                      "language_code",
+                      {
+                        "maxLength": 16,
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "minLength": 2,
+                        "pattern": "^[a-z]{2,8}(-[a-z0-9]{1,8})*$"
+                      }
+                    ],
+                    [
+                      "normalized_alias",
+                      {
+                        "type": "string",
+                        "maxLength": 240,
+                        "minLength": 1,
+                        "pattern": "\\S"
+                      }
+                    ],
+                    [
+                      "subject_id",
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    ]
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            ],
+            [
+              "available_actions",
+              {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "\"CREATE_ALIAS\"",
+                    "\"CREATE_DOMAIN\"",
+                    "\"DELETE\"",
+                    "\"DISABLE\"",
+                    "\"ENABLE\"",
+                    "\"UPDATE\""
+                  ]
+                }
+              }
+            ],
+            [
+              "canonical_name",
+              {
+                "type": "string",
+                "maxLength": 160,
+                "minLength": 1
+              }
+            ],
+            [
+              "created_at",
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ],
+            [
+              "created_by",
+              {
+                "type": "string",
+                "format": "uuid"
+              }
+            ],
+            [
+              "deletion",
+              {
+                "properties": [
+                  [
+                    "blockers",
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "count",
+                          "type"
+                        ],
+                        "properties": [
+                          [
+                            "count",
+                            {
+                              "type": "integer",
+                              "minimum": 1
+                            }
+                          ],
+                          [
+                            "type",
+                            {
+                              "type": "string",
+                              "enum": [
+                                "\"ANALYSIS\"",
+                                "\"CHILD_SUBJECT\"",
+                                "\"MONITORING_PLAN\"",
+                                "\"OBSERVATION_RUN\"",
+                                "\"OPPORTUNITY\""
+                              ]
+                            }
+                          ]
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  ]
+                ],
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "required": [
+                  "blockers"
+                ],
+                "additionalProperties": false
+              }
+            ],
+            [
+              "description",
+              {
+                "type": "string",
+                "maxLength": 4000
+              }
+            ],
+            [
+              "display_name",
+              {
+                "type": "string",
+                "maxLength": 321,
+                "minLength": 3
+              }
+            ],
+            [
+              "domains",
+              {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "available_actions",
+                    "created_at",
+                    "hostname",
+                    "id",
+                    "is_active",
+                    "relation_type",
+                    "subject_id"
+                  ],
+                  "properties": [
+                    [
+                      "available_actions",
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "\"DELETE\""
+                          ]
+                        }
+                      }
+                    ],
+                    [
+                      "created_at",
+                      {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    ],
+                    [
+                      "hostname",
+                      {
+                        "type": "string",
+                        "maxLength": 253,
+                        "minLength": 3,
+                        "pattern": "^(?=.{3,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$"
+                      }
+                    ],
+                    [
+                      "id",
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    ],
+                    [
+                      "is_active",
+                      {
+                        "type": "boolean",
+                        "enum": [
+                          "true"
+                        ]
+                      }
+                    ],
+                    [
+                      "relation_type",
+                      {
+                        "type": "string",
+                        "enum": [
+                          "\"DISTRIBUTOR\"",
+                          "\"OFFICIAL\"",
+                          "\"OTHER\"",
+                          "\"OWNED\""
+                        ]
+                      }
+                    ],
+                    [
+                      "subject_id",
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    ]
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            ],
+            [
+              "id",
+              {
+                "type": "string",
+                "format": "uuid"
+              }
+            ],
+            [
+              "is_active",
+              {
+                "type": "boolean"
+              }
+            ],
+            [
+              "parent",
+              {
+                "properties": [
+                  [
+                    "display_name",
+                    {
+                      "type": "string",
+                      "maxLength": 240,
+                      "minLength": 1,
+                      "pattern": "\\S"
+                    }
+                  ],
+                  [
+                    "id",
+                    {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  ],
+                  [
+                    "is_active",
+                    {
+                      "type": "boolean"
+                    }
+                  ],
+                  [
+                    "subject_type",
+                    {
+                      "type": "string",
+                      "enum": [
+                        "\"COMPETITOR_BRAND\"",
+                        "\"OWN_BRAND\""
+                      ]
+                    }
+                  ]
+                ],
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "required": [
+                  "display_name",
+                  "id",
+                  "is_active",
+                  "subject_type"
+                ],
+                "additionalProperties": false
+              }
+            ],
+            [
+              "parent_subject_id",
+              {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "format": "uuid"
+              }
+            ],
+            [
+              "primary_task",
+              {
+                "type": "string",
+                "enum": [
+                  "\"ENABLE_SUBJECT\"",
+                  "\"MANAGE_SUBJECT\""
+                ]
+              }
+            ],
+            [
+              "product",
+              {
+                "type": "object",
+                "required": [
+                  "brand",
+                  "category",
+                  "id",
+                  "part_number",
+                  "revision"
+                ],
+                "properties": [
+                  [
+                    "brand",
+                    {
+                      "type": "string",
+                      "maxLength": 160,
+                      "minLength": 1
+                    }
+                  ],
+                  [
+                    "category",
+                    {
+                      "type": "string",
+                      "maxLength": 160,
+                      "minLength": 1
+                    }
+                  ],
+                  [
+                    "id",
+                    {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  ],
+                  [
+                    "part_number",
+                    {
+                      "type": "string",
+                      "maxLength": 160,
+                      "minLength": 1
+                    }
+                  ],
+                  [
+                    "revision",
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  ]
+                ],
+                "additionalProperties": false
+              }
+            ],
+            [
+              "product_id",
+              {
+                "type": "string",
+                "format": "uuid"
+              }
+            ],
+            [
+              "references",
+              {
+                "type": "object",
+                "required": [
+                  "analysis_count",
+                  "child_subject_count",
+                  "monitoring_plan_count",
+                  "observation_run_count",
+                  "opportunity_count"
+                ],
+                "properties": [
+                  [
+                    "analysis_count",
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  ],
+                  [
+                    "child_subject_count",
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  ],
+                  [
+                    "monitoring_plan_count",
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  ],
+                  [
+                    "observation_run_count",
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  ],
+                  [
+                    "opportunity_count",
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  ]
+                ],
+                "additionalProperties": false
+              }
+            ],
+            [
+              "revision",
+              {
+                "type": "integer",
+                "minimum": 0
+              }
+            ],
+            [
+              "subject_type",
+              {
+                "type": "string",
+                "enum": [
+                  "\"OWN_PRODUCT\""
+                ]
+              }
+            ],
+            [
+              "updated_at",
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ],
+            [
+              "workflow_stage",
+              {
+                "type": "string",
+                "enum": [
+                  "\"ACTIVE\"",
+                  "\"DISABLED\""
+                ]
+              }
+            ]
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "aliases",
+            "available_actions",
+            "canonical_name",
+            "created_at",
+            "created_by",
+            "deletion",
+            "description",
+            "display_name",
+            "domains",
+            "id",
+            "is_active",
+            "parent",
+            "parent_subject_id",
+            "primary_task",
+            "product",
+            "product_id",
+            "references",
+            "revision",
+            "subject_type",
+            "updated_at",
+            "workflow_stage"
+          ],
+          "properties": [
+            [
+              "aliases",
+              {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "alias",
+                    "alias_kind",
+                    "available_actions",
+                    "created_at",
+                    "id",
+                    "is_active",
+                    "language_code",
+                    "normalized_alias",
+                    "subject_id"
+                  ],
+                  "properties": [
+                    [
+                      "alias",
+                      {
+                        "type": "string",
+                        "maxLength": 240,
+                        "minLength": 1,
+                        "pattern": "\\S"
+                      }
+                    ],
+                    [
+                      "alias_kind",
+                      {
+                        "type": "string",
+                        "enum": [
+                          "\"ABBREVIATION\"",
+                          "\"LEGACY\"",
+                          "\"NAME\"",
+                          "\"PART_NUMBER\""
+                        ]
+                      }
+                    ],
+                    [
+                      "available_actions",
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "\"DELETE\"",
+                            "\"UPDATE\""
+                          ]
+                        }
+                      }
+                    ],
+                    [
+                      "created_at",
+                      {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    ],
+                    [
+                      "id",
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    ],
+                    [
+                      "is_active",
+                      {
+                        "type": "boolean"
+                      }
+                    ],
+                    [
+                      "language_code",
+                      {
+                        "maxLength": 16,
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "minLength": 2,
+                        "pattern": "^[a-z]{2,8}(-[a-z0-9]{1,8})*$"
+                      }
+                    ],
+                    [
+                      "normalized_alias",
+                      {
+                        "type": "string",
+                        "maxLength": 240,
+                        "minLength": 1,
+                        "pattern": "\\S"
+                      }
+                    ],
+                    [
+                      "subject_id",
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    ]
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            ],
+            [
+              "available_actions",
+              {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "\"CREATE_ALIAS\"",
+                    "\"CREATE_DOMAIN\"",
+                    "\"DELETE\"",
+                    "\"DISABLE\"",
+                    "\"ENABLE\"",
+                    "\"UPDATE\""
+                  ]
+                }
+              }
+            ],
+            [
+              "canonical_name",
+              {
+                "type": "string",
+                "maxLength": 240,
+                "minLength": 1,
+                "pattern": "\\S"
+              }
+            ],
+            [
+              "created_at",
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ],
+            [
+              "created_by",
+              {
+                "type": "string",
+                "format": "uuid"
+              }
+            ],
+            [
+              "deletion",
+              {
+                "properties": [
+                  [
+                    "blockers",
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "count",
+                          "type"
+                        ],
+                        "properties": [
+                          [
+                            "count",
+                            {
+                              "type": "integer",
+                              "minimum": 1
+                            }
+                          ],
+                          [
+                            "type",
+                            {
+                              "type": "string",
+                              "enum": [
+                                "\"ANALYSIS\"",
+                                "\"CHILD_SUBJECT\"",
+                                "\"MONITORING_PLAN\"",
+                                "\"OBSERVATION_RUN\"",
+                                "\"OPPORTUNITY\""
+                              ]
+                            }
+                          ]
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  ]
+                ],
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "required": [
+                  "blockers"
+                ],
+                "additionalProperties": false
+              }
+            ],
+            [
+              "description",
+              {
+                "type": "string",
+                "maxLength": 4000
+              }
+            ],
+            [
+              "display_name",
+              {
+                "type": "string",
+                "maxLength": 240,
+                "minLength": 1,
+                "pattern": "\\S"
+              }
+            ],
+            [
+              "domains",
+              {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "available_actions",
+                    "created_at",
+                    "hostname",
+                    "id",
+                    "is_active",
+                    "relation_type",
+                    "subject_id"
+                  ],
+                  "properties": [
+                    [
+                      "available_actions",
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "\"DELETE\""
+                          ]
+                        }
+                      }
+                    ],
+                    [
+                      "created_at",
+                      {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    ],
+                    [
+                      "hostname",
+                      {
+                        "type": "string",
+                        "maxLength": 253,
+                        "minLength": 3,
+                        "pattern": "^(?=.{3,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$"
+                      }
+                    ],
+                    [
+                      "id",
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    ],
+                    [
+                      "is_active",
+                      {
+                        "type": "boolean",
+                        "enum": [
+                          "true"
+                        ]
+                      }
+                    ],
+                    [
+                      "relation_type",
+                      {
+                        "type": "string",
+                        "enum": [
+                          "\"DISTRIBUTOR\"",
+                          "\"OFFICIAL\"",
+                          "\"OTHER\"",
+                          "\"OWNED\""
+                        ]
+                      }
+                    ],
+                    [
+                      "subject_id",
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    ]
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            ],
+            [
+              "id",
+              {
+                "type": "string",
+                "format": "uuid"
+              }
+            ],
+            [
+              "is_active",
+              {
+                "type": "boolean"
+              }
+            ],
+            [
+              "parent",
+              {
+                "properties": [
+                  [
+                    "display_name",
+                    {
+                      "type": "string",
+                      "maxLength": 240,
+                      "minLength": 1,
+                      "pattern": "\\S"
+                    }
+                  ],
+                  [
+                    "id",
+                    {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  ],
+                  [
+                    "is_active",
+                    {
+                      "type": "boolean"
+                    }
+                  ],
+                  [
+                    "subject_type",
+                    {
+                      "type": "string",
+                      "enum": [
+                        "\"COMPETITOR_BRAND\"",
+                        "\"OWN_BRAND\""
+                      ]
+                    }
+                  ]
+                ],
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "required": [
+                  "display_name",
+                  "id",
+                  "is_active",
+                  "subject_type"
+                ],
+                "additionalProperties": false
+              }
+            ],
+            [
+              "parent_subject_id",
+              {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "format": "uuid"
+              }
+            ],
+            [
+              "primary_task",
+              {
+                "type": "string",
+                "enum": [
+                  "\"ENABLE_SUBJECT\"",
+                  "\"MANAGE_SUBJECT\""
+                ]
+              }
+            ],
+            [
+              "product",
+              {
+                "type": "null"
+              }
+            ],
+            [
+              "product_id",
+              {
+                "type": "null"
+              }
+            ],
+            [
+              "references",
+              {
+                "type": "object",
+                "required": [
+                  "analysis_count",
+                  "child_subject_count",
+                  "monitoring_plan_count",
+                  "observation_run_count",
+                  "opportunity_count"
+                ],
+                "properties": [
+                  [
+                    "analysis_count",
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  ],
+                  [
+                    "child_subject_count",
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  ],
+                  [
+                    "monitoring_plan_count",
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  ],
+                  [
+                    "observation_run_count",
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  ],
+                  [
+                    "opportunity_count",
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  ]
+                ],
+                "additionalProperties": false
+              }
+            ],
+            [
+              "revision",
+              {
+                "type": "integer",
+                "minimum": 0
+              }
+            ],
+            [
+              "subject_type",
+              {
+                "type": "string",
+                "enum": [
+                  "\"COMPETITOR_BRAND\"",
+                  "\"COMPETITOR_PRODUCT\"",
+                  "\"OWN_BRAND\"",
+                  "\"REFERENCE_PART\""
+                ]
+              }
+            ],
+            [
+              "updated_at",
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ],
+            [
+              "workflow_stage",
+              {
+                "type": "string",
+                "enum": [
+                  "\"ACTIVE\"",
+                  "\"DISABLED\""
+                ]
+              }
+            ]
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "contract_target": "#/components/schemas/GeoSubjectOut",
+    "runtime_target": "#/components/schemas/GeoSubjectOut"
+  },
+  {
+    "kind": "schema_drift",
+    "pointer": "/paths/~1GeoSubjectUpdate/get/responses/200/content/application~1json/schema/oneOf/0/allOf",
+    "direction": "different",
+    "message": "schema machine shape 漂移",
+    "contract": {
+      "discriminator": {
+        "propertyName": "subject_type",
+        "mapping": {
+          "OWN_BRAND": "#/components/schemas/GeoNamedSubjectUpdate",
+          "OWN_PRODUCT": "#/components/schemas/GeoOwnProductSubjectUpdate",
+          "COMPETITOR_BRAND": "#/components/schemas/GeoNamedSubjectUpdate",
+          "COMPETITOR_PRODUCT": "#/components/schemas/GeoNamedSubjectUpdate",
+          "REFERENCE_PART": "#/components/schemas/GeoNamedSubjectUpdate"
+        }
+      },
+      "oneOf": [
+        {
+          "type": "object",
+          "minProperties": 3,
+          "required": [
+            "expected_revision",
+            "subject_type"
+          ],
+          "properties": [
+            [
+              "canonical_name",
+              {
+                "type": "string",
+                "maxLength": 240,
+                "minLength": 1,
+                "pattern": "\\S"
+              }
+            ],
+            [
+              "description",
+              {
+                "type": "string",
+                "maxLength": 4000
+              }
+            ],
+            [
+              "display_name",
+              {
+                "type": "string",
+                "maxLength": 240,
+                "minLength": 1,
+                "pattern": "\\S"
+              }
+            ],
+            [
+              "expected_revision",
+              {
+                "type": "integer",
+                "minimum": 0
+              }
+            ],
+            [
+              "parent_subject_id",
+              {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "format": "uuid"
+              }
+            ],
+            [
+              "subject_type",
+              {
+                "type": "string",
+                "enum": [
+                  "\"COMPETITOR_BRAND\"",
+                  "\"COMPETITOR_PRODUCT\"",
+                  "\"OWN_BRAND\"",
+                  "\"REFERENCE_PART\""
+                ]
+              }
+            ]
+          ],
+          "additionalProperties": false,
+          "allOf": [
+            {
+              "if": {
+                "additionalProperties": true,
+                "properties": [
+                  [
+                    "subject_type",
+                    {
+                      "enum": [
+                        "\"COMPETITOR_BRAND\"",
+                        "\"OWN_BRAND\"",
+                        "\"REFERENCE_PART\""
+                      ]
+                    }
+                  ]
+                ]
+              },
+              "then": {
+                "additionalProperties": true,
+                "properties": [
+                  [
+                    "parent_subject_id",
+                    {
+                      "type": "null"
+                    }
+                  ]
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "type": "object",
+          "minProperties": 3,
+          "required": [
+            "expected_revision",
+            "subject_type"
+          ],
+          "properties": [
+            [
+              "description",
+              {
+                "type": "string",
+                "maxLength": 4000
+              }
+            ],
+            [
+              "expected_revision",
+              {
+                "type": "integer",
+                "minimum": 0
+              }
+            ],
+            [
+              "parent_subject_id",
+              {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "format": "uuid"
+              }
+            ],
+            [
+              "subject_type",
+              {
+                "type": "string",
+                "enum": [
+                  "\"OWN_PRODUCT\""
+                ]
+              }
+            ]
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "runtime": {
+      "discriminator": {
+        "mapping": {
+          "COMPETITOR_BRAND": "#/components/schemas/GeoNamedSubjectUpdate",
+          "COMPETITOR_PRODUCT": "#/components/schemas/GeoNamedSubjectUpdate",
+          "OWN_BRAND": "#/components/schemas/GeoNamedSubjectUpdate",
+          "OWN_PRODUCT": "#/components/schemas/GeoOwnProductSubjectUpdate",
+          "REFERENCE_PART": "#/components/schemas/GeoNamedSubjectUpdate"
+        },
+        "propertyName": "subject_type"
+      },
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "expected_revision",
+            "subject_type"
+          ],
+          "properties": [
+            [
+              "canonical_name",
+              {
+                "type": "string",
+                "maxLength": 240,
+                "minLength": 1,
+                "pattern": "\\S"
+              }
+            ],
+            [
+              "description",
+              {
+                "type": "string",
+                "maxLength": 4000
+              }
+            ],
+            [
+              "display_name",
+              {
+                "type": "string",
+                "maxLength": 240,
+                "minLength": 1,
+                "pattern": "\\S"
+              }
+            ],
+            [
+              "expected_revision",
+              {
+                "type": "integer",
+                "minimum": 0
+              }
+            ],
+            [
+              "parent_subject_id",
+              {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "format": "uuid",
+                "default": null
+              }
+            ],
+            [
+              "subject_type",
+              {
+                "type": "string",
+                "enum": [
+                  "\"COMPETITOR_BRAND\"",
+                  "\"COMPETITOR_PRODUCT\"",
+                  "\"OWN_BRAND\"",
+                  "\"REFERENCE_PART\""
+                ]
+              }
+            ]
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "expected_revision",
+            "subject_type"
+          ],
+          "properties": [
+            [
+              "description",
+              {
+                "type": "string",
+                "maxLength": 4000
+              }
+            ],
+            [
+              "expected_revision",
+              {
+                "type": "integer",
+                "minimum": 0
+              }
+            ],
+            [
+              "parent_subject_id",
+              {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "format": "uuid",
+                "default": null
+              }
+            ],
+            [
+              "subject_type",
+              {
+                "type": "string",
+                "enum": [
+                  "\"OWN_PRODUCT\""
+                ]
+              }
+            ]
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "contract_target": "#/components/schemas/GeoSubjectUpdate",
+    "runtime_target": "#/components/schemas/GeoSubjectUpdate"
+  }
+]

@@ -1,0 +1,7 @@
+{
+  "command": [
+    "make",
+    "test-geo-fixtures"
+  ],
+  "exit_code": 0
+}

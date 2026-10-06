@@ -1,0 +1,21 @@
+--- before/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -153,7 +153,7 @@
+   phase: R1
+   release: R1
+   title: 实现 GEO Catalog ORM 与 Alembic
+-  status: planned
++  status: review
+   dependencies:
+   - GEO-101
+   areas:
+@@ -162,6 +162,9 @@
+   deliverables: 新增 geo_subjects/aliases/domains、约束、索引和模型注册。
+   tests: 迁移、metadata、约束、直接 SQL 反例。
+   acceptance: 当前 head 可前滚，OWN_PRODUCT 唯一和父子约束生效。
++  trellis_task: .trellis/tasks/10-01-geo-102-catalog-orm
++  validation_record: .trellis/tasks/10-01-geo-102-catalog-orm/implement.md
++  review_note: 三表ORM与0044前滚已实现；PostgreSQL迁移、metadata、SQL反例及唯一并发77项，后端855/前端863项单元与427项完整集成通过；独立只读复核及执行审计通过，等待人工验收。Schema/Service/API/UI仍未实施。
+   required_docs:
+   - 01-product/02-geo-core-prd.md
+   - 02-business/02-domain-model.md

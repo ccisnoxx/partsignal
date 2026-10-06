@@ -1,0 +1,13 @@
+
+> partsignal-frontend-v2@0.1.0 test
+> vitest run src/domains/geo-plans/plans.model.test.ts src/domains/geo-plans/plans-page.test.tsx
+
+
+ RUN  v4.1.10 /Users/sc/PycharmProjects/partsignal/frontend
+
+
+ Test Files  2 passed (2)
+      Tests  12 passed (12)
+   Start at  13:05:12
+   Duration  2.26s (transform 1.38s, setup 108ms, import 1.84s, tests 1.01s, environment 449ms)
+

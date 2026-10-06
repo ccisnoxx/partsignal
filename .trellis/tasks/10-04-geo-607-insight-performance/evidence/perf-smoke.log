@@ -1,0 +1,9 @@
+ Container geo607-validation-postgres-1 Running 
+ Container geo607-validation-redis-1 Running 
+ Container geo607-validation-fake-oss-1 Running 
+ Container geo607-validation-postgres-1 Waiting 
+ Container geo607-validation-postgres-1 Healthy 
+ Container geo607-validation-backend-test-run-3002916819a7 Creating 
+ Container geo607-validation-backend-test-run-3002916819a7 Created 
+.                                                                        [100%]
+1 passed in 9.98s

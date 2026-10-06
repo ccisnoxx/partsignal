@@ -1,0 +1,7 @@
+# GEO-705 设计
+
+基线显式选择首次机会trigger.sources的当前窗口来源batch。复制整批attempt1矩阵，保留非合格cell，不按答案好坏择样、不将后继attempt重复计数。首次trigger完整值/来源/窗口留在snapshot；实际来源的analysis/review身份不跟随current pointer。基线冻结只在成功POST事务完成，preview只读。
+
+运行输入/plan/rule使用既有不可变历史逐项复制；当前资源仅用于资格和差异检查，不能替代原输入。Profile/Surface/Variant/主题/Subject变化按既有完整语义比对；原repeat和role集合不可调整。模型比较采用baseline来源的最新attempt Answer及当前Profile的最新已保存观测；已知version变化阻断；任何cell缺少可证明的来源版本、来源身份或最新观测版本也返回MODEL_VERSION_UNKNOWN并阻断，不能假定平台提供版本。创建不访问外部平台。
+
+资源先于Opportunity锁，继承Plan稳定UUID锁序，复测专用FOR NO KEY UPDATE。baseline/new batch的来源Batch FK仍隐式取KEY SHARE；来源人工复核持Batch并第二次写Run会重查Variant/Profile FK，因此复测资源锁须允许KEY SHARE，避免配置→Batch与Batch→配置锁环。配置修改/删除仍被阻止，其他Plan/Profile命令默认锁模式不变。不显式锁已有Batch/Run。首次来源与root输入不可变，latest观测仅是当时门禁事实。baseline唯一opportunity+batch由Opportunity序列化和PG唯一双重保证；actor/key unique plus advisory保证重复请求。新请求CAS成功推进revision，重复原请求先重放且不新增审计。0061复制守卫和不可变关系保护旁路writer，成功审计同事务。

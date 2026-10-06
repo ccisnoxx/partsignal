@@ -1,0 +1,267 @@
+"""身份、审计、健康检查和公共命令 Schema。"""
+
+from __future__ import annotations
+
+import uuid
+from datetime import datetime
+from enum import StrEnum
+from typing import Any, Literal
+
+from pydantic import Field, HttpUrl, field_validator
+
+from app.audit_types import AuditModule, AuditOutcome, AuditSafeValue
+from app.schemas.base import ContractModel, require_unique_items
+
+
+class AccountType(StrEnum):
+    ADMIN = "ADMIN"
+    ENGINEER = "ENGINEER"
+
+
+class UserStatus(StrEnum):
+    ENABLED = "ENABLED"
+    DISABLED = "DISABLED"
+
+
+UserBulkStatusFailureCode = Literal[
+    "NOT_FOUND",
+    "REVISION_CONFLICT",
+    "LAST_ADMIN_REQUIRED",
+    "INVALID_STATE_TRANSITION",
+]
+
+
+class DeletionBlockerType(StrEnum):
+    """受约束物理删除的稳定直接引用类型。"""
+
+    FACT_VERSION = "FACT_VERSION"
+    CONTENT_TASK = "CONTENT_TASK"
+    GEO_OBSERVATION = "GEO_OBSERVATION"
+    GEO_SUBJECT = "GEO_SUBJECT"
+    GEO_PROMPT_VARIANT = "GEO_PROMPT_VARIANT"
+    CONTENT_VERSION = "CONTENT_VERSION"
+    GENERATION_JOB = "GENERATION_JOB"
+    PUBLISHED_ARTICLE = "PUBLISHED_ARTICLE"
+    PLATFORM_PROFILE = "PLATFORM_PROFILE"
+    PLATFORM_ACCOUNT = "PLATFORM_ACCOUNT"
+    PUBLICATION_WORK = "PUBLICATION_WORK"
+    PROTECTED_CONTENT_VERSION = "PROTECTED_CONTENT_VERSION"
+    PUBLISHED_CONTENT_ISSUE = "PUBLISHED_CONTENT_ISSUE"
+    GEO_OPTIMIZATION_SOURCE = "GEO_OPTIMIZATION_SOURCE"
+    USER_BUSINESS_HISTORY = "USER_BUSINESS_HISTORY"
+
+
+class DeletionBlocker(ContractModel):
+    type: DeletionBlockerType
+    count: int = Field(ge=1)
+
+
+class DeletionProjection(ContractModel):
+    """当前操作者和业务阶段下的直接删除阻断投影。"""
+
+    blockers: list[DeletionBlocker]
+
+
+class UserOut(ContractModel):
+    id: uuid.UUID
+    username: str
+    display_name: str
+    account_type: AccountType
+    is_active: bool
+    must_change_password: bool
+    workflow_stage: Literal["FIRST_PASSWORD_CHANGE", "ACTIVE", "DISABLED"]
+    primary_task: Literal["MANAGE_LOGIN_SECURITY", "MANAGE_USER", "ENABLE_USER"]
+    available_actions: list[
+        Literal["UPDATE", "RESET_PASSWORD", "ENABLE", "DISABLE", "DELETE"]
+    ]
+    deletion: DeletionProjection | None
+    revision: int
+    created_at: datetime
+
+
+class UserSummary(ContractModel):
+    user_total: int = Field(ge=0)
+    enabled_total: int = Field(ge=0)
+    disabled_total: int = Field(ge=0)
+    must_change_password_total: int = Field(ge=0)
+    admin_total: int = Field(ge=0)
+
+
+class UserList(ContractModel):
+    items: list[UserOut]
+    page: int
+    page_size: int
+    total: int
+    summary: UserSummary
+
+
+class LoginRequest(ContractModel):
+    username: str = Field(min_length=1)
+    password: str = Field(min_length=8)
+
+
+class AuthSession(ContractModel):
+    user: UserOut
+    csrf_token: str = Field(min_length=1, max_length=256)
+    session_binding: str = Field(min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$")
+
+
+class CsrfToken(ContractModel):
+    csrf_token: str = Field(min_length=1, max_length=256)
+
+
+class SignedUrl(ContractModel):
+    """对象存储签名 URL 及其失效时间。"""
+
+    url: HttpUrl
+    expires_at: datetime
+
+
+class UserCreate(ContractModel):
+    username: str = Field(min_length=3)
+    display_name: str = Field(min_length=1)
+    temporary_password: str = Field(min_length=12)
+    account_type: AccountType
+
+
+class UserUpdate(ContractModel):
+    expected_revision: int = Field(ge=0)
+    display_name: str = Field(min_length=1)
+    account_type: AccountType
+    is_active: bool
+
+
+class ResetPasswordRequest(ContractModel):
+    temporary_password: str = Field(min_length=8)
+    expected_revision: int = Field(ge=0)
+
+
+class ChangePasswordRequest(ContractModel):
+    old_password: str = Field(min_length=8)
+    new_password: str = Field(min_length=8)
+
+
+class UserBulkStatusItem(ContractModel):
+    user_id: uuid.UUID
+    expected_revision: int = Field(ge=0)
+
+
+class UserBulkStatusRequest(ContractModel):
+    items: list[UserBulkStatusItem] = Field(min_length=1, max_length=100)
+    status: UserStatus
+
+    @field_validator("items")
+    @classmethod
+    def validate_unique_user_ids(cls, items: list[UserBulkStatusItem]) -> list[UserBulkStatusItem]:
+        """批量状态命令只允许每个用户出现一次。"""
+        require_unique_items([item.user_id for item in items])
+        return items
+
+
+class UserBulkStatusFailure(ContractModel):
+    user_id: uuid.UUID
+    code: UserBulkStatusFailureCode
+    message: str
+
+
+class UserBulkStatusResult(ContractModel):
+    succeeded: list[UserOut]
+    failures: list[UserBulkStatusFailure]
+
+
+class ErrorDetail(ContractModel):
+    """统一 API 错误信封中的错误字段。"""
+
+    code: str
+    message: str
+    details: dict[str, Any] = Field(..., json_schema_extra={"default": {}})
+    request_id: str
+
+
+class ErrorEnvelope(ContractModel):
+    """统一 API 错误响应的唯一 wire schema。"""
+
+    error: ErrorDetail
+
+
+class AuditActor(ContractModel):
+    """审计操作者的当前用户目录投影，不表示事发时快照。"""
+
+    id: uuid.UUID
+    display_name: str
+    account_type: AccountType
+
+
+class AuditLogOut(ContractModel):
+    id: uuid.UUID
+    actor_id: uuid.UUID | None
+    actor: AuditActor | None
+    business_module: AuditModule
+    action: str
+    target_type: str
+    target_id: str | None
+    outcome: AuditOutcome
+    primary_task: Literal["VIEW_LOG_DETAIL"]
+    request_id: str
+    created_at: datetime
+
+
+class AuditChange(ContractModel):
+    field: str
+    before: AuditSafeValue = None
+    after: AuditSafeValue = None
+
+
+class AuditRelatedEntry(ContractModel):
+    status: Literal["AVAILABLE", "MISSING", "UNSUPPORTED"]
+    kind: str | None
+    parent_id: str | None
+
+
+class AuditLogDetail(AuditLogOut):
+    changes: list[AuditChange]
+    facts: dict[str, AuditSafeValue]
+    result_message: str
+    error_code: str | None
+    related_entry: AuditRelatedEntry
+
+
+class AuditLogList(ContractModel):
+    items: list[AuditLogOut]
+    page: int
+    page_size: int
+    total: int
+
+
+class AuditLogFilterOptions(ContractModel):
+    actions: list[str]
+    target_types: list[str]
+
+
+class HealthResponse(ContractModel):
+    status: Literal["ok"]
+    checks: dict[str, str] | None = None
+
+
+class CommandRequest(ContractModel):
+    expected_revision: int = Field(ge=0)
+    comment: str
+
+
+class RequestChangesCommand(ContractModel):
+    """退回命令必须携带可读意见，不能只提交空白字符。"""
+
+    expected_revision: int = Field(ge=0)
+    comment: str = Field(min_length=1)
+
+    @field_validator("comment")
+    @classmethod
+    def validate_comment(cls, value: str) -> str:
+        trimmed = value.strip()
+        if not trimmed:
+            raise ValueError("退回意见不能为空")
+        return trimmed
+
+
+class RevisionRequest(ContractModel):
+    expected_revision: int = Field(ge=0)

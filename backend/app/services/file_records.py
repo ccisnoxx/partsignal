@@ -10,18 +10,21 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import false, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.db import SessionLocal
 from app.errors import AppError, not_found
 from app.models.configuration import PlatformProfile
+from app.models.geo_answers import GeoAnswerSnapshot
 from app.models.geo_files import FileRecord, GeoObservationAttachment
+from app.models.geo_manual_collection import GeoManualDraft
 from app.models.identity import User
 from app.models.publication import PublicationAttachment
 from app.schemas.geo_files import UploadInstruction, UploadIntent, UploadIntentCreate
 from app.schemas.publication import FileRecordOut
+from app.services.geo_ops_runtime import observe
 from app.services.storage import (
     EvidenceStorage,
     StorageObjectMissing,
@@ -32,6 +35,16 @@ from app.services.storage import (
 UNCONFIRMED_RETENTION = timedelta(hours=24)
 DETACHED_RETENTION = timedelta(days=7)
 FILE_CLEANUP_BATCH_SIZE = 100
+# SQL 限批前过滤与持锁后的重验共用全部实际外键，避免已引用旧文件占满每轮扫描。
+FILE_REFERENCES = (
+    (PlatformProfile, PlatformProfile.logo_file_id),
+    (PublicationAttachment, PublicationAttachment.file_id),
+    (GeoObservationAttachment, GeoObservationAttachment.file_id),
+    (GeoAnswerSnapshot, GeoAnswerSnapshot.raw_payload_file_id),
+    (GeoAnswerSnapshot, GeoAnswerSnapshot.screenshot_file_id),
+    (GeoManualDraft, GeoManualDraft.raw_payload_file_id),
+    (GeoManualDraft, GeoManualDraft.screenshot_file_id),
+)
 
 logger = logging.getLogger("partsignal.worker")
 
@@ -44,6 +57,7 @@ class FileCleanupResult:
     deleted: int
     retry: int
     failed: int
+    dry_run: bool = False
 
 MAX_SIZES = {
     "EVIDENCE": 50 * 1024 * 1024,
@@ -130,6 +144,7 @@ def prepare_file_upload(*, db: Session, file_id: uuid.UUID, actor: User) -> int:
     return size_limit
 
 
+@observe("storage_write", "STORAGE")
 def upload_file_content(
     *, db: Session, file_id: uuid.UUID, actor: User, data: bytes
 ) -> None:
@@ -239,11 +254,7 @@ def file_is_referenced(db: Session, file_id: uuid.UUID) -> bool:
     """实时检查当前 Schema 中全部 FileRecord 外键。"""
     return any(
         db.scalar(select(func.count()).select_from(model).where(column == file_id))
-        for model, column in (
-            (PlatformProfile, PlatformProfile.logo_file_id),
-            (PublicationAttachment, PublicationAttachment.file_id),
-            (GeoObservationAttachment, GeoObservationAttachment.file_id),
-        )
+        for model, column in FILE_REFERENCES
     )
 
 
@@ -266,45 +277,54 @@ def _claim_file_cleanup(
     *,
     now: datetime,
     batch_size: int,
+    dry_run: bool = False,
+    raw_before: datetime | None = None,
+    unreferenced_before: datetime | None = None,
 ) -> list[tuple[uuid.UUID, str]]:
     """限批次声明无引用的到期文件，返回待删对象。"""
+    raw_file = (FileRecord.category == "EVIDENCE") & (FileRecord.content_type == "text/plain")
+    unscheduled = (FileRecord.status == "VERIFIED") & FileRecord.cleanup_after.is_(None)
+    query = (
+        select(FileRecord)
+        .where(
+            or_(
+                FileRecord.status == "DELETING",
+                (FileRecord.status == "PENDING") & (FileRecord.upload_expires_at <= now),
+                FileRecord.status.in_(("FAILED", "ABORTED")),
+                (FileRecord.status == "VERIFIED") & (FileRecord.cleanup_after <= now),
+                unscheduled & raw_file & (FileRecord.verified_at <= raw_before)
+                if raw_before is not None else false(),
+                unscheduled & ~raw_file & (FileRecord.verified_at <= unreferenced_before)
+                if unreferenced_before is not None else false(),
+            )
+        )
+        .where(~or_(*(
+            select(1).select_from(model).where(column == FileRecord.id)
+            .correlate(FileRecord).exists()
+            for model, column in FILE_REFERENCES
+        )))
+        .order_by(
+            func.coalesce(FileRecord.cleanup_after, FileRecord.verified_at,
+                          FileRecord.upload_expires_at, FileRecord.created_at),
+            FileRecord.id,
+        )
+        .limit(batch_size)
+        .execution_options(populate_existing=True)
+    )
+    if not dry_run:
+        query = query.with_for_update(skip_locked=True)
     due_files = list(
         db.scalars(
-            select(FileRecord)
-            .where(
-                or_(
-                    FileRecord.status == "DELETING",
-                    (
-                        (FileRecord.status == "PENDING")
-                        & (FileRecord.upload_expires_at <= now)
-                    ),
-                    FileRecord.status.in_(("FAILED", "ABORTED")),
-                    (
-                        (FileRecord.status == "VERIFIED")
-                        & (FileRecord.cleanup_after.is_not(None))
-                        & (FileRecord.cleanup_after <= now)
-                    ),
-                )
-            )
-            .order_by(
-                func.coalesce(
-                    FileRecord.cleanup_after,
-                    FileRecord.upload_expires_at,
-                    FileRecord.created_at,
-                ),
-                FileRecord.id,
-            )
-            .limit(batch_size)
-            .with_for_update(skip_locked=True)
+            query
         )
     )
     claimed: list[tuple[uuid.UUID, str]] = []
     for file in due_files:
         if file_is_referenced(db, file.id):
-            if file.status == "VERIFIED":
+            if file.status == "VERIFIED" and not dry_run:
                 file.cleanup_after = None
             continue
-        if file.status != "DELETING":
+        if file.status != "DELETING" and not dry_run:
             file.status = "DELETING"
         claimed.append((file.id, file.object_key))
     return claimed
@@ -315,11 +335,29 @@ def cleanup_file_records(
     now: datetime | None = None,
     storage: EvidenceStorage | None = None,
     batch_size: int = FILE_CLEANUP_BATCH_SIZE,
+    dry_run: bool = False,
+    raw_before: datetime | None = None,
+    unreferenced_before: datetime | None = None,
 ) -> FileCleanupResult:
     """先提交删除声明，再幂等删除对象并保留数据库墓碑。"""
+    if type(batch_size) is not int or not 1 <= batch_size <= 1000:
+        raise ValueError("文件清理批量必须为1至1000")
     scan_time = now or datetime.now(UTC)
+    if any(value is not None and value.utcoffset() is None
+           for value in (scan_time, raw_before, unreferenced_before)):
+        raise ValueError("文件清理时间必须包含时区")
     with SessionLocal.begin() as db:
-        claimed = _claim_file_cleanup(db, now=scan_time, batch_size=batch_size)
+        if dry_run:
+            db.connection(execution_options={"isolation_level": "REPEATABLE READ"})
+        claimed = _claim_file_cleanup(
+            db, now=scan_time, batch_size=batch_size, dry_run=dry_run,
+            raw_before=raw_before, unreferenced_before=unreferenced_before,
+        )
+
+    if dry_run or not claimed:
+        result = FileCleanupResult(len(claimed), 0, 0, 0, dry_run)
+        logger.info("文件清理预览/空批次 dry_run=%s selected=%s", dry_run, len(claimed))
+        return result
 
     object_storage = storage or get_evidence_storage()
     deleted = 0
@@ -335,6 +373,10 @@ def cleanup_file_records(
             file = db.scalar(
                 select(FileRecord).where(FileRecord.id == file_id).with_for_update()
             )
+            if file is not None and file.status == "DELETED":
+                # 两轮扫描可能重试同一墓碑；存储删除幂等，完成事实不能被当成失败。
+                deleted += 1
+                continue
             if file is None or file.status != "DELETING":
                 logger.error("文件删除状态异常 file_id=%s", file_id)
                 continue

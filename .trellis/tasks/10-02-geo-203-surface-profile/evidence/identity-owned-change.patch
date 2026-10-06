@@ -1,0 +1,19 @@
+--- 已知本次增量前/backend/app/services/identity.py
++++ 本次/backend/app/services/identity.py
+@@ -25,6 +25,7 @@
+ from app.models.geo_catalog import GeoSubject
+ from app.models.geo_files import FileRecord, GeoObservation
+ from app.models.geo_prompt_variants import GeoPromptVariant
++from app.models.geo_surfaces import GeoCollectionProfile, GeoEngineSurface
+ from app.models.identity import (
+     SessionRecord,
+     User,
+@@ -92,6 +93,8 @@
+         GeoObservation.tested_by,
+         GeoSubject.created_by,
+         GeoPromptVariant.created_by,
++        GeoEngineSurface.created_by,
++        GeoCollectionProfile.created_by,
+         FileRecord.uploader_id,
+         FactVersion.created_by,
+         FactVersion.approved_by,

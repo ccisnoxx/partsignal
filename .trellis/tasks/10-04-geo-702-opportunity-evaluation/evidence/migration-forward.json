@@ -1,0 +1,15 @@
+{
+  "argv": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "alembic",
+    "-c",
+    "backend/alembic.ini",
+    "upgrade",
+    "head"
+  ],
+  "exit_code": 1,
+  "seconds": 1.0
+}

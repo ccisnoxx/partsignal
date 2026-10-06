@@ -1,0 +1,12 @@
+{
+  "docker_context": {
+    "exit_code": 0,
+    "output": "default"
+  },
+  "colima_status": {
+    "exit_code": 1,
+    "output": "time=\"2026-10-02T08:32:25-07:00\" level=fatal msg=\"colima is not running\"",
+    "expected": "not running"
+  },
+  "cleanup_evidence": "environment-cleanup.log/json"
+}

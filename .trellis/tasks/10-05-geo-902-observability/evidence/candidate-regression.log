@@ -1,0 +1,3629 @@
+..........................................................FFFFFFFFFFFFFF [ 90%]
+F.FFF.F.                                                                 [100%]
+=================================== FAILURES ===================================
+__________ test_entry_draft_revision_noop_conflict_and_file_retention __________
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+>           yield
+
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:101: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:250: in handle_request
+    resp = self._pool.handle_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py:256: in handle_request
+    raise exc from None
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py:236: in handle_request
+    response = connection.handle_request(
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:101: in handle_request
+    raise exc
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:78: in handle_request
+    stream = self._connect(request)
+             ^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:124: in _connect
+    stream = self._network_backend.connect_tcp(**kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_backends/sync.py:207: in connect_tcp
+    with map_exceptions(exc_map):
+         ^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+map = {<class 'TimeoutError'>: <class 'httpcore.ConnectTimeout'>, <class 'OSError'>: <class 'httpcore.ConnectError'>}
+
+    @contextlib.contextmanager
+    def map_exceptions(map: ExceptionMapping) -> typing.Iterator[None]:
+        try:
+            yield
+        except Exception as exc:  # noqa: PIE786
+            for from_exc, to_exc in map.items():
+                if isinstance(exc, from_exc):
+>                   raise to_exc(exc) from exc
+E                   httpcore.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+backend/.venv/lib/python3.12/site-packages/httpcore/_exceptions.py:14: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x11184d580>
+object_key = 'geo305/0774bbb8-aab1-4997-b753-68c1b9430f43'
+data = b'fixture-redacted-screenshot'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+>           response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+
+backend/app/services/storage.py:131: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/httpx/_api.py:345: in put
+    return request(
+backend/.venv/lib/python3.12/site-packages/httpx/_api.py:109: in request
+    return client.request(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:914: in send
+    response = self._send_handling_auth(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:249: in handle_request
+    with map_httpcore_exceptions():
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+            yield
+        except Exception as exc:
+            mapped_exc = None
+    
+            for from_exc, to_exc in HTTPCORE_EXC_MAP.items():
+                if not isinstance(exc, from_exc):
+                    continue
+                # We want to map to the most specific exception we can find.
+                # Eg if `exc` is an `httpcore.ReadTimeout`, we want to map to
+                # `httpx.ReadTimeout`, not just `httpx.TimeoutException`.
+                if mapped_exc is None or issubclass(to_exc, mapped_exc):
+                    mapped_exc = to_exc
+    
+            if mapped_exc is None:  # pragma: no cover
+                raise
+    
+            message = str(exc)
+>           raise mapped_exc(message) from exc
+E           httpx.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:118: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55432/partsignal_geo208_35f5639b...dd4dc303ac61'), surface=UUID('2d510e0a-6f95-497a-a4ac-5a2b296d9e36'), name='虚构计划-54a9441a-d6a3-4739-bf36-449a22fbae0f')
+
+    def test_entry_draft_revision_noop_conflict_and_file_retention(plans_api):
+        api = plans_api
+        run = batch_run(api)[0]
+        context = api.api.engineer.get(prefix(run) + "/manual-entry")
+        assert context.status_code == 200, context.text
+        assert context.json()["draft_revision"] == 0 and context.json()["draft"] is None
+        assert context.json()["available_actions"] == ["ENTER_MANUAL_OBSERVATION"]
+>       f, _ = evidence(api)
+               ^^^^^^^^^^^^^
+
+backend/tests/integration/test_geo_manual_collection.py:147: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/tests/integration/test_geo_manual_collection.py:70: in evidence
+    storage.put(key, data, content_type=kind, sha256=digest)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x11184d580>
+object_key = 'geo305/0774bbb8-aab1-4997-b753-68c1b9430f43'
+data = b'fixture-redacted-screenshot'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+            response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+            response.raise_for_status()
+        except (httpx.HTTPStatusError, httpx.RequestError) as error:
+>           raise StorageUnavailable("开发对象存储 PUT 请求失败") from error
+E           app.services.storage.StorageUnavailable: 开发对象存储 PUT 请求失败
+
+backend/app/services/storage.py:139: StorageUnavailable
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_identity_audit, 创建身份、会话和审计表。
+INFO  [alembic.runtime.migration] Running upgrade 0001_identity_audit -> 0002_product_facts, 创建规范化产品事实和不可变事实版本。
+INFO  [alembic.runtime.migration] Running upgrade 0002_product_facts -> 0003_content_planning, 创建目标问题、平台规则版本和内容任务。
+INFO  [alembic.runtime.migration] Running upgrade 0003_content_planning -> 0004_content_production, 创建 PostgreSQL 权威生成作业和不可变 Markdown 内容版本。
+INFO  [alembic.runtime.migration] Running upgrade 0004_content_production -> 0005_content_review, 创建追加式内容审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0005_content_review -> 0006_publication, 创建平台账号、人工发布记录和状态事件。
+INFO  [alembic.runtime.migration] Running upgrade 0006_publication -> 0007_geo_observation, 创建追加式 GEO 观测及引用关联。
+INFO  [alembic.runtime.migration] Running upgrade 0007_geo_observation -> 0008_files, 创建文件生命周期、附件关联并补加证据文件外键。
+INFO  [alembic.runtime.migration] Running upgrade 0008_files -> 0009_config_center, 迁移账号类型、配置中心与真实 AI 生成字段。
+INFO  [alembic.runtime.migration] Running upgrade 0009_config_center -> 0010_user_cleanup, 清理旧版职责账号并强制既有内容工程师改密。
+INFO  [alembic.runtime.migration] Running upgrade 0010_user_cleanup -> 0011_generation_reliability, 增加生成作业补投递诊断字段与到期扫描索引。
+INFO  [alembic.runtime.migration] Running upgrade 0011_generation_reliability -> 0012_ai_data_classification, 为生成输入增加显式数据分级与责任人记录。
+INFO  [alembic.runtime.migration] Running upgrade 0012_ai_data_classification -> 0013_publication_closure, 增加发布异常待办、修复任务来源和发布平台一致性门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0013_publication_closure -> 0014_platform_prompt_ownership, 将当前 Prompt 所有权从平台类型迁移到具体平台。
+INFO  [alembic.runtime.migration] Running upgrade 0014_platform_prompt_ownership -> 0015_platform_rule_draft_editing, 允许按修订号编辑平台规则草稿，并继续冻结已激活或退役正文。
+INFO  [alembic.runtime.migration] Running upgrade 0015_platform_rule_draft_editing -> 0016_fact_review_cleanup, 允许受约束删除事实版本时清理其从属审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0016_fact_review_cleanup -> 0017_content_humanization, 增加全局自然化 Prompt，并让现有 AI 作业承载自然化修订。
+INFO  [alembic.runtime.migration] Running upgrade 0017_content_humanization -> 0018_manual_geo_observation, 增加产品级人工 GEO 观测，并保留旧模型观测历史。
+INFO  [alembic.runtime.migration] Running upgrade 0018_manual_geo_observation -> 0019_product_driven_tasks, 允许新内容任务直接围绕产品创建，同时保留历史目标问题关联。
+INFO  [alembic.runtime.migration] Running upgrade 0019_product_driven_tasks -> 0020_platform_branding_task_list, 为具体平台增加官网与单一来源 Logo。
+INFO  [alembic.runtime.migration] Running upgrade 0020_platform_branding_task_list -> 0021_ai_channel_model_management, 补齐 AI 渠道身份字段与使用统计索引。
+INFO  [alembic.runtime.migration] Running upgrade 0021_ai_channel_model_management -> 0022_geo_observation_insights, 补充人工 GEO 逐篇阶段事实与问题主题约束。
+INFO  [alembic.runtime.migration] Running upgrade 0022_geo_observation_insights -> 0023_platform_management, 增加具体平台启停状态与管理聚合索引。
+INFO  [alembic.runtime.migration] Running upgrade 0023_platform_management -> 0024_audit_outcome, 补齐审计模块、命令结果和安全结果说明。
+INFO  [alembic.runtime.migration] Running upgrade 0024_audit_outcome -> 0025_markdown_facts, 将结构化产品事实收敛为 Markdown，并让内容任务直接绑定平台。
+INFO  [alembic.runtime.migration] Running upgrade 0025_markdown_facts -> 0026_publication_account_dedup, 补齐发布账号修订约束，并阻止同平台规范化账号标识重复。
+INFO  [alembic.runtime.migration] Running upgrade 0026_publication_account_dedup -> 0027_audit_user_delete_guard, 只允许受约束用户删除把匹配审计操作者置空。
+INFO  [alembic.runtime.migration] Running upgrade 0027_audit_user_delete_guard -> 0028_platform_logo_lifecycle, 增加平台 Logo 的未引用保留、幂等删除状态与数据库门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0028_platform_logo_lifecycle -> 0029_geo_evidence_management, 收敛人工 GEO 独立事实，并为完整更正链删除增加事务门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0029_geo_evidence_management -> 0030_publication_record_delete, 为从未公开的发布聚合增加事务级受控删除门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0030_publication_record_delete -> 0031_reusable_platform_prompts, 把平台私有 Prompt 收敛为可复用模板和平台当前绑定。
+INFO  [alembic.runtime.migration] Running upgrade 0031_reusable_platform_prompts -> 0032_content_task_idempotency, 为普通内容任务创建增加持久化请求键幂等约束。
+INFO  [alembic.runtime.migration] Running upgrade 0032_content_task_idempotency -> 0033_task_owned_history_delete, 允许受控删除已取消任务自有的未批准生产历史。
+INFO  [alembic.runtime.migration] Running upgrade 0033_task_owned_history_delete -> 0034_publication_redesign, 以发布工作、首次核验成果和发布后内容问题替换旧发布记录。
+INFO  [alembic.runtime.migration] Running upgrade 0034_publication_redesign -> 0035_business_workflow, 建立事实提交、内容单主线、发布版本快照与 GEO 来源合同。
+INFO  [alembic.runtime.migration] Running upgrade 0035_business_workflow -> 0036_remove_section_url, 删除没有稳定业务含义的发布栏目地址。
+INFO  [alembic.runtime.migration] Running upgrade 0036_remove_section_url -> 0037_simplify_deletion_lifecycle, 收缩任务、配置与审计的删除生命周期。
+INFO  [alembic.runtime.migration] Running upgrade 0037_simplify_deletion_lifecycle -> 0038_published_article_delete, 允许受控删除无 GEO 引用的发布成果聚合。
+INFO  [alembic.runtime.migration] Running upgrade 0038_published_article_delete -> 0039_article_delete_platform, 允许归档任务在删除失效平台的发布成果后转为已取消。
+INFO  [alembic.runtime.migration] Running upgrade 0039_article_delete_platform -> 0040_content_draft_management, 允许当前人工未审核草稿受控保存和彻底删除。
+INFO  [alembic.runtime.migration] Running upgrade 0040_content_draft_management -> 0041_content_task_list, 补齐内容任务列表的稳定更新时间与排序索引。
+INFO  [alembic.runtime.migration] Running upgrade 0041_content_task_list -> 0042_content_version_detail, 记录内容版本自身的真实更新时间。
+INFO  [alembic.runtime.migration] Running upgrade 0042_content_version_detail -> 0043_geo_platform_identity, 冻结发布工作的平台 UUID，避免配置删除后 GEO 历史失去身份。
+INFO  [alembic.runtime.migration] Running upgrade 0043_geo_platform_identity -> 0044_geo_catalog, 新增 GEO Catalog 三表；冻结本 revision，不读取运行时 ORM。
+INFO  [alembic.runtime.migration] Running upgrade 0044_geo_catalog -> 0045_geo_prompt_variants, 仅新增问题变体，冻结规范化及历史锁存，不回填旧问题数组。
+INFO  [alembic.runtime.migration] Running upgrade 0045_geo_prompt_variants -> 0046_geo_surfaces_profiles, 新增观测配置与闭合JSON合同；不回填旧GEO或实现运行资格。
+INFO  [alembic.runtime.migration] Running upgrade 0046_geo_surfaces_profiles -> 0047_geo_monitoring_plans, 仅增加计划配置聚合；不创建批次、运行或改写历史观测。
+INFO  [alembic.runtime.migration] Running upgrade 0047_geo_monitoring_plans -> 0048_geo_batches_runs, 新增独立回答级 Batch/Run，冻结 DDL 与快照/写入守卫，不迁移旧 GEO。
+INFO  [alembic.runtime.migration] Running upgrade 0048_geo_batches_runs -> 0049_geo_batch_creation, 创建幂等与批次主体引用；不修改已冻结的 Batch/Run 输入。
+INFO  [alembic.runtime.migration] Running upgrade 0049_geo_batch_creation -> 0050_geo_answer_evidence, 新增不可变原始回答、引用和受控文件关系；不实现采集命令。
+INFO  [alembic.runtime.migration] Running upgrade 0050_geo_answer_evidence -> 0051_geo_manual_collection, 人工草稿和不可变提交身份；不回填或修改已提交证据。
+INFO  [alembic.runtime.migration] Running upgrade 0051_geo_manual_collection -> 0052_geo_profile_tests, API Profile 当前诊断资格与依赖失效；不修改业务历史。
+INFO  [alembic.runtime.migration] Running upgrade 0052_geo_profile_tests -> 0053_geo_collection_admission, 加法保存预算预留与发送限速事实，历史 Run 和原始证据保持不变。
+INFO  [alembic.runtime.migration] Running upgrade 0053_geo_collection_admission -> 0054_geo_analysis_contract, 分析输入/结果、追加复核与限定 current pointer；不回填历史证据。
+INFO  [alembic.runtime.migration] Running upgrade 0054_geo_analysis_contract -> 0055_geo_analysis_worker, 分析执行租约与引用结果；不回填或重写已有 revision。
+INFO  [alembic.runtime.migration] Running upgrade 0055_geo_analysis_worker -> 0056_geo_run_review, 受控人工复核发布；历史机器结果与Review不回填、不改写。
+INFO  [alembic.runtime.migration] Running upgrade 0056_geo_run_review -> 0057_geo_insight_indexes, GEO-607：洞察日期候选索引，不改变历史数据或业务约束。
+INFO  [alembic.runtime.migration] Running upgrade 0057_geo_insight_indexes -> 0058_geo_rule_configuration, GEO-701：当前规则配置和不可变 revision 历史，不回填既有评估。
+INFO  [alembic.runtime.migration] Running upgrade 0058_geo_rule_configuration -> 0059_geo_opportunities, GEO-702：机会、追加来源/行动/评估及真实 Batch 来源外键。
+INFO  [alembic.runtime.migration] Running upgrade 0059_geo_opportunities -> 0060_geo_opportunity_actions, GEO-704：行动来源快照、幂等回执与目标生命周期保护。
+INFO  [alembic.runtime.migration] Running upgrade 0060_geo_opportunity_actions -> 0061_geo_retests, GEO-705：严格复测冻结基线、幂等回执和提交时矩阵验证。
+INFO  [alembic.runtime.migration] Running upgrade 0061_geo_retests -> 0062_geo_opportunity_decisions, GEO-706：加法保存显式处理和不可变比较证据，不回填历史。
+INFO  [alembic.runtime.migration] Running upgrade 0062_geo_opportunity_decisions -> 0063_geo_browser_sessions, GEO-802：仅增加受保护会话引用、撤销事实与审计动作。
+INFO  [alembic.runtime.migration] Running upgrade 0063_geo_browser_sessions -> 0064_geo_retention, GEO 终态草稿清理墓碑；不改已提交证据、不回填历史。
+INFO  [alembic.runtime.migration] Running upgrade 0064_geo_retention -> 0065_geo_observability, GEO有限运行健康元数据；加法迁移，不回填或修改业务历史。
+_____________ test_submit_freezes_all_once_replay_and_no_analysis ______________
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+>           yield
+
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:101: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:250: in handle_request
+    resp = self._pool.handle_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py:256: in handle_request
+    raise exc from None
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py:236: in handle_request
+    response = connection.handle_request(
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:101: in handle_request
+    raise exc
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:78: in handle_request
+    stream = self._connect(request)
+             ^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:124: in _connect
+    stream = self._network_backend.connect_tcp(**kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_backends/sync.py:207: in connect_tcp
+    with map_exceptions(exc_map):
+         ^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+map = {<class 'TimeoutError'>: <class 'httpcore.ConnectTimeout'>, <class 'OSError'>: <class 'httpcore.ConnectError'>}
+
+    @contextlib.contextmanager
+    def map_exceptions(map: ExceptionMapping) -> typing.Iterator[None]:
+        try:
+            yield
+        except Exception as exc:  # noqa: PIE786
+            for from_exc, to_exc in map.items():
+                if isinstance(exc, from_exc):
+>                   raise to_exc(exc) from exc
+E                   httpcore.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+backend/.venv/lib/python3.12/site-packages/httpcore/_exceptions.py:14: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x1116969c0>
+object_key = 'geo305/05e21bdb-60e8-4332-8085-22bc588bb925'
+data = b'fixture-redacted-screenshot'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+>           response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+
+backend/app/services/storage.py:131: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/httpx/_api.py:345: in put
+    return request(
+backend/.venv/lib/python3.12/site-packages/httpx/_api.py:109: in request
+    return client.request(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:914: in send
+    response = self._send_handling_auth(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:249: in handle_request
+    with map_httpcore_exceptions():
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+            yield
+        except Exception as exc:
+            mapped_exc = None
+    
+            for from_exc, to_exc in HTTPCORE_EXC_MAP.items():
+                if not isinstance(exc, from_exc):
+                    continue
+                # We want to map to the most specific exception we can find.
+                # Eg if `exc` is an `httpcore.ReadTimeout`, we want to map to
+                # `httpx.ReadTimeout`, not just `httpx.TimeoutException`.
+                if mapped_exc is None or issubclass(to_exc, mapped_exc):
+                    mapped_exc = to_exc
+    
+            if mapped_exc is None:  # pragma: no cover
+                raise
+    
+            message = str(exc)
+>           raise mapped_exc(message) from exc
+E           httpx.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:118: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55432/partsignal_geo208_35f5639b...bb6e9c2ac554'), surface=UUID('6372293e-174e-4371-90df-09ae276625b8'), name='虚构计划-f201b10d-8895-42bc-b01b-59615a427fdd')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x11171c0e0>
+
+    def test_submit_freezes_all_once_replay_and_no_analysis(plans_api, monkeypatch):
+        api = plans_api
+        run = batch_run(api)[0]
+>       f, _ = evidence(api)
+               ^^^^^^^^^^^^^
+
+backend/tests/integration/test_geo_manual_collection.py:174: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/tests/integration/test_geo_manual_collection.py:70: in evidence
+    storage.put(key, data, content_type=kind, sha256=digest)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x1116969c0>
+object_key = 'geo305/05e21bdb-60e8-4332-8085-22bc588bb925'
+data = b'fixture-redacted-screenshot'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+            response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+            response.raise_for_status()
+        except (httpx.HTTPStatusError, httpx.RequestError) as error:
+>           raise StorageUnavailable("开发对象存储 PUT 请求失败") from error
+E           app.services.storage.StorageUnavailable: 开发对象存储 PUT 请求失败
+
+backend/app/services/storage.py:139: StorageUnavailable
+____________ test_submit_failure_is_atomic[empty-GEO_ANSWER_EMPTY] _____________
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+>           yield
+
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:101: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:250: in handle_request
+    resp = self._pool.handle_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py:256: in handle_request
+    raise exc from None
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py:236: in handle_request
+    response = connection.handle_request(
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:101: in handle_request
+    raise exc
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:78: in handle_request
+    stream = self._connect(request)
+             ^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:124: in _connect
+    stream = self._network_backend.connect_tcp(**kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_backends/sync.py:207: in connect_tcp
+    with map_exceptions(exc_map):
+         ^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+map = {<class 'TimeoutError'>: <class 'httpcore.ConnectTimeout'>, <class 'OSError'>: <class 'httpcore.ConnectError'>}
+
+    @contextlib.contextmanager
+    def map_exceptions(map: ExceptionMapping) -> typing.Iterator[None]:
+        try:
+            yield
+        except Exception as exc:  # noqa: PIE786
+            for from_exc, to_exc in map.items():
+                if isinstance(exc, from_exc):
+>                   raise to_exc(exc) from exc
+E                   httpcore.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+backend/.venv/lib/python3.12/site-packages/httpcore/_exceptions.py:14: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x11171f620>
+object_key = 'geo305/6fe268ff-5048-4c59-83c6-404e38845d59'
+data = b'fixture-redacted-screenshot'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+>           response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+
+backend/app/services/storage.py:131: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/httpx/_api.py:345: in put
+    return request(
+backend/.venv/lib/python3.12/site-packages/httpx/_api.py:109: in request
+    return client.request(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:914: in send
+    response = self._send_handling_auth(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:249: in handle_request
+    with map_httpcore_exceptions():
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+            yield
+        except Exception as exc:
+            mapped_exc = None
+    
+            for from_exc, to_exc in HTTPCORE_EXC_MAP.items():
+                if not isinstance(exc, from_exc):
+                    continue
+                # We want to map to the most specific exception we can find.
+                # Eg if `exc` is an `httpcore.ReadTimeout`, we want to map to
+                # `httpx.ReadTimeout`, not just `httpx.TimeoutException`.
+                if mapped_exc is None or issubclass(to_exc, mapped_exc):
+                    mapped_exc = to_exc
+    
+            if mapped_exc is None:  # pragma: no cover
+                raise
+    
+            message = str(exc)
+>           raise mapped_exc(message) from exc
+E           httpx.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:118: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55432/partsignal_geo208_35f5639b...7f08b24b8cac'), surface=UUID('916e2f68-1f61-4923-bd43-046f77fd9397'), name='虚构计划-e51d1da4-31ac-412d-80db-bb60b3ff3cbc')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x111737bf0>
+case = 'empty', code = 'GEO_ANSWER_EMPTY'
+
+    @pytest.mark.parametrize(
+        "case,code",
+        [
+            ("empty", "GEO_ANSWER_EMPTY"),
+            ("no_evidence", "GEO_EVIDENCE_REQUIRED"),
+            ("raw_only", "GEO_SCREENSHOT_REQUIRED"),
+            ("missing", "FILE_INTEGRITY_FAILED"),
+            ("owner", "PERMISSION_DENIED"),
+            ("public", "FILE_INTEGRITY_FAILED"),
+            ("future", "VALIDATION_ERROR"),
+            ("before", "VALIDATION_ERROR"),
+            ("revision", "REVISION_CONFLICT"),
+            ("object_missing", "FILE_INTEGRITY_FAILED"),
+            ("object_changed", "FILE_INTEGRITY_FAILED"),
+            ("storage", "DEPENDENCY_UNAVAILABLE"),
+        ],
+    )
+    def test_submit_failure_is_atomic(plans_api, monkeypatch, case, code):
+        api = plans_api
+        run = batch_run(api)[0]
+>       f, key = evidence(
+            api,
+            screenshot=case != "raw_only",
+            owner=api.api.admin_id if case == "owner" else None,
+            access="PUBLIC" if case == "public" else "INTERNAL",
+        )
+
+backend/tests/integration/test_geo_manual_collection.py:250: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/tests/integration/test_geo_manual_collection.py:70: in evidence
+    storage.put(key, data, content_type=kind, sha256=digest)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x11171f620>
+object_key = 'geo305/6fe268ff-5048-4c59-83c6-404e38845d59'
+data = b'fixture-redacted-screenshot'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+            response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+            response.raise_for_status()
+        except (httpx.HTTPStatusError, httpx.RequestError) as error:
+>           raise StorageUnavailable("开发对象存储 PUT 请求失败") from error
+E           app.services.storage.StorageUnavailable: 开发对象存储 PUT 请求失败
+
+backend/app/services/storage.py:139: StorageUnavailable
+_______ test_submit_failure_is_atomic[no_evidence-GEO_EVIDENCE_REQUIRED] _______
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+>           yield
+
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:101: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:250: in handle_request
+    resp = self._pool.handle_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py:256: in handle_request
+    raise exc from None
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py:236: in handle_request
+    response = connection.handle_request(
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:101: in handle_request
+    raise exc
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:78: in handle_request
+    stream = self._connect(request)
+             ^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:124: in _connect
+    stream = self._network_backend.connect_tcp(**kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_backends/sync.py:207: in connect_tcp
+    with map_exceptions(exc_map):
+         ^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+map = {<class 'TimeoutError'>: <class 'httpcore.ConnectTimeout'>, <class 'OSError'>: <class 'httpcore.ConnectError'>}
+
+    @contextlib.contextmanager
+    def map_exceptions(map: ExceptionMapping) -> typing.Iterator[None]:
+        try:
+            yield
+        except Exception as exc:  # noqa: PIE786
+            for from_exc, to_exc in map.items():
+                if isinstance(exc, from_exc):
+>                   raise to_exc(exc) from exc
+E                   httpcore.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+backend/.venv/lib/python3.12/site-packages/httpcore/_exceptions.py:14: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x11158eb70>
+object_key = 'geo305/1d78b235-4af3-4add-a26b-edf36379e915'
+data = b'fixture-redacted-screenshot'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+>           response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+
+backend/app/services/storage.py:131: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/httpx/_api.py:345: in put
+    return request(
+backend/.venv/lib/python3.12/site-packages/httpx/_api.py:109: in request
+    return client.request(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:914: in send
+    response = self._send_handling_auth(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:249: in handle_request
+    with map_httpcore_exceptions():
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+            yield
+        except Exception as exc:
+            mapped_exc = None
+    
+            for from_exc, to_exc in HTTPCORE_EXC_MAP.items():
+                if not isinstance(exc, from_exc):
+                    continue
+                # We want to map to the most specific exception we can find.
+                # Eg if `exc` is an `httpcore.ReadTimeout`, we want to map to
+                # `httpx.ReadTimeout`, not just `httpx.TimeoutException`.
+                if mapped_exc is None or issubclass(to_exc, mapped_exc):
+                    mapped_exc = to_exc
+    
+            if mapped_exc is None:  # pragma: no cover
+                raise
+    
+            message = str(exc)
+>           raise mapped_exc(message) from exc
+E           httpx.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:118: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55432/partsignal_geo208_35f5639b...db71244d531d'), surface=UUID('00503e26-e353-4670-9eb8-364cca7d3e06'), name='虚构计划-c72322da-7a29-469e-848c-a5986abf145b')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1117c15e0>
+case = 'no_evidence', code = 'GEO_EVIDENCE_REQUIRED'
+
+    @pytest.mark.parametrize(
+        "case,code",
+        [
+            ("empty", "GEO_ANSWER_EMPTY"),
+            ("no_evidence", "GEO_EVIDENCE_REQUIRED"),
+            ("raw_only", "GEO_SCREENSHOT_REQUIRED"),
+            ("missing", "FILE_INTEGRITY_FAILED"),
+            ("owner", "PERMISSION_DENIED"),
+            ("public", "FILE_INTEGRITY_FAILED"),
+            ("future", "VALIDATION_ERROR"),
+            ("before", "VALIDATION_ERROR"),
+            ("revision", "REVISION_CONFLICT"),
+            ("object_missing", "FILE_INTEGRITY_FAILED"),
+            ("object_changed", "FILE_INTEGRITY_FAILED"),
+            ("storage", "DEPENDENCY_UNAVAILABLE"),
+        ],
+    )
+    def test_submit_failure_is_atomic(plans_api, monkeypatch, case, code):
+        api = plans_api
+        run = batch_run(api)[0]
+>       f, key = evidence(
+            api,
+            screenshot=case != "raw_only",
+            owner=api.api.admin_id if case == "owner" else None,
+            access="PUBLIC" if case == "public" else "INTERNAL",
+        )
+
+backend/tests/integration/test_geo_manual_collection.py:250: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/tests/integration/test_geo_manual_collection.py:70: in evidence
+    storage.put(key, data, content_type=kind, sha256=digest)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x11158eb70>
+object_key = 'geo305/1d78b235-4af3-4add-a26b-edf36379e915'
+data = b'fixture-redacted-screenshot'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+            response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+            response.raise_for_status()
+        except (httpx.HTTPStatusError, httpx.RequestError) as error:
+>           raise StorageUnavailable("开发对象存储 PUT 请求失败") from error
+E           app.services.storage.StorageUnavailable: 开发对象存储 PUT 请求失败
+
+backend/app/services/storage.py:139: StorageUnavailable
+_______ test_submit_failure_is_atomic[raw_only-GEO_SCREENSHOT_REQUIRED] ________
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+>           yield
+
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:101: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:250: in handle_request
+    resp = self._pool.handle_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py:256: in handle_request
+    raise exc from None
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py:236: in handle_request
+    response = connection.handle_request(
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:101: in handle_request
+    raise exc
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:78: in handle_request
+    stream = self._connect(request)
+             ^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:124: in _connect
+    stream = self._network_backend.connect_tcp(**kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_backends/sync.py:207: in connect_tcp
+    with map_exceptions(exc_map):
+         ^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+map = {<class 'TimeoutError'>: <class 'httpcore.ConnectTimeout'>, <class 'OSError'>: <class 'httpcore.ConnectError'>}
+
+    @contextlib.contextmanager
+    def map_exceptions(map: ExceptionMapping) -> typing.Iterator[None]:
+        try:
+            yield
+        except Exception as exc:  # noqa: PIE786
+            for from_exc, to_exc in map.items():
+                if isinstance(exc, from_exc):
+>                   raise to_exc(exc) from exc
+E                   httpcore.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+backend/.venv/lib/python3.12/site-packages/httpcore/_exceptions.py:14: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x11148fe90>
+object_key = 'geo305/680f4c6b-2029-4cb4-a4e2-2b8734194541'
+data = b'fixture-redacted-answer'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+>           response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+
+backend/app/services/storage.py:131: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/httpx/_api.py:345: in put
+    return request(
+backend/.venv/lib/python3.12/site-packages/httpx/_api.py:109: in request
+    return client.request(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:914: in send
+    response = self._send_handling_auth(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:249: in handle_request
+    with map_httpcore_exceptions():
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+            yield
+        except Exception as exc:
+            mapped_exc = None
+    
+            for from_exc, to_exc in HTTPCORE_EXC_MAP.items():
+                if not isinstance(exc, from_exc):
+                    continue
+                # We want to map to the most specific exception we can find.
+                # Eg if `exc` is an `httpcore.ReadTimeout`, we want to map to
+                # `httpx.ReadTimeout`, not just `httpx.TimeoutException`.
+                if mapped_exc is None or issubclass(to_exc, mapped_exc):
+                    mapped_exc = to_exc
+    
+            if mapped_exc is None:  # pragma: no cover
+                raise
+    
+            message = str(exc)
+>           raise mapped_exc(message) from exc
+E           httpx.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:118: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55432/partsignal_geo208_35f5639b...c66f0a040279'), surface=UUID('2c9771ec-2149-4e8b-8d76-920275cbd6b3'), name='虚构计划-e5173349-9a33-43b7-b72e-b03558db19d1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x11148ed80>
+case = 'raw_only', code = 'GEO_SCREENSHOT_REQUIRED'
+
+    @pytest.mark.parametrize(
+        "case,code",
+        [
+            ("empty", "GEO_ANSWER_EMPTY"),
+            ("no_evidence", "GEO_EVIDENCE_REQUIRED"),
+            ("raw_only", "GEO_SCREENSHOT_REQUIRED"),
+            ("missing", "FILE_INTEGRITY_FAILED"),
+            ("owner", "PERMISSION_DENIED"),
+            ("public", "FILE_INTEGRITY_FAILED"),
+            ("future", "VALIDATION_ERROR"),
+            ("before", "VALIDATION_ERROR"),
+            ("revision", "REVISION_CONFLICT"),
+            ("object_missing", "FILE_INTEGRITY_FAILED"),
+            ("object_changed", "FILE_INTEGRITY_FAILED"),
+            ("storage", "DEPENDENCY_UNAVAILABLE"),
+        ],
+    )
+    def test_submit_failure_is_atomic(plans_api, monkeypatch, case, code):
+        api = plans_api
+        run = batch_run(api)[0]
+>       f, key = evidence(
+            api,
+            screenshot=case != "raw_only",
+            owner=api.api.admin_id if case == "owner" else None,
+            access="PUBLIC" if case == "public" else "INTERNAL",
+        )
+
+backend/tests/integration/test_geo_manual_collection.py:250: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/tests/integration/test_geo_manual_collection.py:70: in evidence
+    storage.put(key, data, content_type=kind, sha256=digest)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x11148fe90>
+object_key = 'geo305/680f4c6b-2029-4cb4-a4e2-2b8734194541'
+data = b'fixture-redacted-answer'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+            response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+            response.raise_for_status()
+        except (httpx.HTTPStatusError, httpx.RequestError) as error:
+>           raise StorageUnavailable("开发对象存储 PUT 请求失败") from error
+E           app.services.storage.StorageUnavailable: 开发对象存储 PUT 请求失败
+
+backend/app/services/storage.py:139: StorageUnavailable
+_________ test_submit_failure_is_atomic[missing-FILE_INTEGRITY_FAILED] _________
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+>           yield
+
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:101: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:250: in handle_request
+    resp = self._pool.handle_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py:256: in handle_request
+    raise exc from None
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py:236: in handle_request
+    response = connection.handle_request(
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:101: in handle_request
+    raise exc
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:78: in handle_request
+    stream = self._connect(request)
+             ^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:124: in _connect
+    stream = self._network_backend.connect_tcp(**kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_backends/sync.py:207: in connect_tcp
+    with map_exceptions(exc_map):
+         ^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+map = {<class 'TimeoutError'>: <class 'httpcore.ConnectTimeout'>, <class 'OSError'>: <class 'httpcore.ConnectError'>}
+
+    @contextlib.contextmanager
+    def map_exceptions(map: ExceptionMapping) -> typing.Iterator[None]:
+        try:
+            yield
+        except Exception as exc:  # noqa: PIE786
+            for from_exc, to_exc in map.items():
+                if isinstance(exc, from_exc):
+>                   raise to_exc(exc) from exc
+E                   httpcore.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+backend/.venv/lib/python3.12/site-packages/httpcore/_exceptions.py:14: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x1114b4e00>
+object_key = 'geo305/d4ba36ba-e0fe-4269-aeae-92aeccc4ba46'
+data = b'fixture-redacted-screenshot'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+>           response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+
+backend/app/services/storage.py:131: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/httpx/_api.py:345: in put
+    return request(
+backend/.venv/lib/python3.12/site-packages/httpx/_api.py:109: in request
+    return client.request(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:914: in send
+    response = self._send_handling_auth(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:249: in handle_request
+    with map_httpcore_exceptions():
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+            yield
+        except Exception as exc:
+            mapped_exc = None
+    
+            for from_exc, to_exc in HTTPCORE_EXC_MAP.items():
+                if not isinstance(exc, from_exc):
+                    continue
+                # We want to map to the most specific exception we can find.
+                # Eg if `exc` is an `httpcore.ReadTimeout`, we want to map to
+                # `httpx.ReadTimeout`, not just `httpx.TimeoutException`.
+                if mapped_exc is None or issubclass(to_exc, mapped_exc):
+                    mapped_exc = to_exc
+    
+            if mapped_exc is None:  # pragma: no cover
+                raise
+    
+            message = str(exc)
+>           raise mapped_exc(message) from exc
+E           httpx.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:118: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55432/partsignal_geo208_35f5639b...380875cf626f'), surface=UUID('bb6c2972-0e21-4497-bb25-1d5811d47de1'), name='虚构计划-59f9c66a-edc8-4d2e-9a16-3b57fa732c9f')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1114b73e0>
+case = 'missing', code = 'FILE_INTEGRITY_FAILED'
+
+    @pytest.mark.parametrize(
+        "case,code",
+        [
+            ("empty", "GEO_ANSWER_EMPTY"),
+            ("no_evidence", "GEO_EVIDENCE_REQUIRED"),
+            ("raw_only", "GEO_SCREENSHOT_REQUIRED"),
+            ("missing", "FILE_INTEGRITY_FAILED"),
+            ("owner", "PERMISSION_DENIED"),
+            ("public", "FILE_INTEGRITY_FAILED"),
+            ("future", "VALIDATION_ERROR"),
+            ("before", "VALIDATION_ERROR"),
+            ("revision", "REVISION_CONFLICT"),
+            ("object_missing", "FILE_INTEGRITY_FAILED"),
+            ("object_changed", "FILE_INTEGRITY_FAILED"),
+            ("storage", "DEPENDENCY_UNAVAILABLE"),
+        ],
+    )
+    def test_submit_failure_is_atomic(plans_api, monkeypatch, case, code):
+        api = plans_api
+        run = batch_run(api)[0]
+>       f, key = evidence(
+            api,
+            screenshot=case != "raw_only",
+            owner=api.api.admin_id if case == "owner" else None,
+            access="PUBLIC" if case == "public" else "INTERNAL",
+        )
+
+backend/tests/integration/test_geo_manual_collection.py:250: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/tests/integration/test_geo_manual_collection.py:70: in evidence
+    storage.put(key, data, content_type=kind, sha256=digest)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x1114b4e00>
+object_key = 'geo305/d4ba36ba-e0fe-4269-aeae-92aeccc4ba46'
+data = b'fixture-redacted-screenshot'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+            response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+            response.raise_for_status()
+        except (httpx.HTTPStatusError, httpx.RequestError) as error:
+>           raise StorageUnavailable("开发对象存储 PUT 请求失败") from error
+E           app.services.storage.StorageUnavailable: 开发对象存储 PUT 请求失败
+
+backend/app/services/storage.py:139: StorageUnavailable
+____________ test_submit_failure_is_atomic[owner-PERMISSION_DENIED] ____________
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+>           yield
+
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:101: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:250: in handle_request
+    resp = self._pool.handle_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py:256: in handle_request
+    raise exc from None
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py:236: in handle_request
+    response = connection.handle_request(
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:101: in handle_request
+    raise exc
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:78: in handle_request
+    stream = self._connect(request)
+             ^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:124: in _connect
+    stream = self._network_backend.connect_tcp(**kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_backends/sync.py:207: in connect_tcp
+    with map_exceptions(exc_map):
+         ^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+map = {<class 'TimeoutError'>: <class 'httpcore.ConnectTimeout'>, <class 'OSError'>: <class 'httpcore.ConnectError'>}
+
+    @contextlib.contextmanager
+    def map_exceptions(map: ExceptionMapping) -> typing.Iterator[None]:
+        try:
+            yield
+        except Exception as exc:  # noqa: PIE786
+            for from_exc, to_exc in map.items():
+                if isinstance(exc, from_exc):
+>                   raise to_exc(exc) from exc
+E                   httpcore.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+backend/.venv/lib/python3.12/site-packages/httpcore/_exceptions.py:14: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x1113e85f0>
+object_key = 'geo305/fc326c48-7874-41be-8e7e-94b5f52c624d'
+data = b'fixture-redacted-screenshot'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+>           response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+
+backend/app/services/storage.py:131: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/httpx/_api.py:345: in put
+    return request(
+backend/.venv/lib/python3.12/site-packages/httpx/_api.py:109: in request
+    return client.request(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:914: in send
+    response = self._send_handling_auth(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:249: in handle_request
+    with map_httpcore_exceptions():
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+            yield
+        except Exception as exc:
+            mapped_exc = None
+    
+            for from_exc, to_exc in HTTPCORE_EXC_MAP.items():
+                if not isinstance(exc, from_exc):
+                    continue
+                # We want to map to the most specific exception we can find.
+                # Eg if `exc` is an `httpcore.ReadTimeout`, we want to map to
+                # `httpx.ReadTimeout`, not just `httpx.TimeoutException`.
+                if mapped_exc is None or issubclass(to_exc, mapped_exc):
+                    mapped_exc = to_exc
+    
+            if mapped_exc is None:  # pragma: no cover
+                raise
+    
+            message = str(exc)
+>           raise mapped_exc(message) from exc
+E           httpx.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:118: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55432/partsignal_geo208_35f5639b...740950f4707e'), surface=UUID('d604a8e3-12f9-457c-97eb-90d99ec3841b'), name='虚构计划-a487295d-17bf-4af3-bbee-84c1a6aabd23')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x111420f20>
+case = 'owner', code = 'PERMISSION_DENIED'
+
+    @pytest.mark.parametrize(
+        "case,code",
+        [
+            ("empty", "GEO_ANSWER_EMPTY"),
+            ("no_evidence", "GEO_EVIDENCE_REQUIRED"),
+            ("raw_only", "GEO_SCREENSHOT_REQUIRED"),
+            ("missing", "FILE_INTEGRITY_FAILED"),
+            ("owner", "PERMISSION_DENIED"),
+            ("public", "FILE_INTEGRITY_FAILED"),
+            ("future", "VALIDATION_ERROR"),
+            ("before", "VALIDATION_ERROR"),
+            ("revision", "REVISION_CONFLICT"),
+            ("object_missing", "FILE_INTEGRITY_FAILED"),
+            ("object_changed", "FILE_INTEGRITY_FAILED"),
+            ("storage", "DEPENDENCY_UNAVAILABLE"),
+        ],
+    )
+    def test_submit_failure_is_atomic(plans_api, monkeypatch, case, code):
+        api = plans_api
+        run = batch_run(api)[0]
+>       f, key = evidence(
+            api,
+            screenshot=case != "raw_only",
+            owner=api.api.admin_id if case == "owner" else None,
+            access="PUBLIC" if case == "public" else "INTERNAL",
+        )
+
+backend/tests/integration/test_geo_manual_collection.py:250: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/tests/integration/test_geo_manual_collection.py:70: in evidence
+    storage.put(key, data, content_type=kind, sha256=digest)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x1113e85f0>
+object_key = 'geo305/fc326c48-7874-41be-8e7e-94b5f52c624d'
+data = b'fixture-redacted-screenshot'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+            response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+            response.raise_for_status()
+        except (httpx.HTTPStatusError, httpx.RequestError) as error:
+>           raise StorageUnavailable("开发对象存储 PUT 请求失败") from error
+E           app.services.storage.StorageUnavailable: 开发对象存储 PUT 请求失败
+
+backend/app/services/storage.py:139: StorageUnavailable
+_________ test_submit_failure_is_atomic[public-FILE_INTEGRITY_FAILED] __________
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+>           yield
+
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:101: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:250: in handle_request
+    resp = self._pool.handle_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py:256: in handle_request
+    raise exc from None
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py:236: in handle_request
+    response = connection.handle_request(
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:101: in handle_request
+    raise exc
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:78: in handle_request
+    stream = self._connect(request)
+             ^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:124: in _connect
+    stream = self._network_backend.connect_tcp(**kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_backends/sync.py:207: in connect_tcp
+    with map_exceptions(exc_map):
+         ^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+map = {<class 'TimeoutError'>: <class 'httpcore.ConnectTimeout'>, <class 'OSError'>: <class 'httpcore.ConnectError'>}
+
+    @contextlib.contextmanager
+    def map_exceptions(map: ExceptionMapping) -> typing.Iterator[None]:
+        try:
+            yield
+        except Exception as exc:  # noqa: PIE786
+            for from_exc, to_exc in map.items():
+                if isinstance(exc, from_exc):
+>                   raise to_exc(exc) from exc
+E                   httpcore.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+backend/.venv/lib/python3.12/site-packages/httpcore/_exceptions.py:14: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x10ff205c0>
+object_key = 'geo305/96401601-fac7-4857-ac28-4fd46bf3e0fd'
+data = b'fixture-redacted-screenshot'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+>           response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+
+backend/app/services/storage.py:131: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/httpx/_api.py:345: in put
+    return request(
+backend/.venv/lib/python3.12/site-packages/httpx/_api.py:109: in request
+    return client.request(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:914: in send
+    response = self._send_handling_auth(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:249: in handle_request
+    with map_httpcore_exceptions():
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+            yield
+        except Exception as exc:
+            mapped_exc = None
+    
+            for from_exc, to_exc in HTTPCORE_EXC_MAP.items():
+                if not isinstance(exc, from_exc):
+                    continue
+                # We want to map to the most specific exception we can find.
+                # Eg if `exc` is an `httpcore.ReadTimeout`, we want to map to
+                # `httpx.ReadTimeout`, not just `httpx.TimeoutException`.
+                if mapped_exc is None or issubclass(to_exc, mapped_exc):
+                    mapped_exc = to_exc
+    
+            if mapped_exc is None:  # pragma: no cover
+                raise
+    
+            message = str(exc)
+>           raise mapped_exc(message) from exc
+E           httpx.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:118: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55432/partsignal_geo208_35f5639b...358b5eb44769'), surface=UUID('a0b82e0b-3e66-4283-98f8-0c9492b5a0fc'), name='虚构计划-5cf382da-4a95-4776-a5a8-c7e6c5a9570b')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1113e8fe0>
+case = 'public', code = 'FILE_INTEGRITY_FAILED'
+
+    @pytest.mark.parametrize(
+        "case,code",
+        [
+            ("empty", "GEO_ANSWER_EMPTY"),
+            ("no_evidence", "GEO_EVIDENCE_REQUIRED"),
+            ("raw_only", "GEO_SCREENSHOT_REQUIRED"),
+            ("missing", "FILE_INTEGRITY_FAILED"),
+            ("owner", "PERMISSION_DENIED"),
+            ("public", "FILE_INTEGRITY_FAILED"),
+            ("future", "VALIDATION_ERROR"),
+            ("before", "VALIDATION_ERROR"),
+            ("revision", "REVISION_CONFLICT"),
+            ("object_missing", "FILE_INTEGRITY_FAILED"),
+            ("object_changed", "FILE_INTEGRITY_FAILED"),
+            ("storage", "DEPENDENCY_UNAVAILABLE"),
+        ],
+    )
+    def test_submit_failure_is_atomic(plans_api, monkeypatch, case, code):
+        api = plans_api
+        run = batch_run(api)[0]
+>       f, key = evidence(
+            api,
+            screenshot=case != "raw_only",
+            owner=api.api.admin_id if case == "owner" else None,
+            access="PUBLIC" if case == "public" else "INTERNAL",
+        )
+
+backend/tests/integration/test_geo_manual_collection.py:250: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/tests/integration/test_geo_manual_collection.py:70: in evidence
+    storage.put(key, data, content_type=kind, sha256=digest)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x10ff205c0>
+object_key = 'geo305/96401601-fac7-4857-ac28-4fd46bf3e0fd'
+data = b'fixture-redacted-screenshot'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+            response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+            response.raise_for_status()
+        except (httpx.HTTPStatusError, httpx.RequestError) as error:
+>           raise StorageUnavailable("开发对象存储 PUT 请求失败") from error
+E           app.services.storage.StorageUnavailable: 开发对象存储 PUT 请求失败
+
+backend/app/services/storage.py:139: StorageUnavailable
+____________ test_submit_failure_is_atomic[future-VALIDATION_ERROR] ____________
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+>           yield
+
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:101: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:250: in handle_request
+    resp = self._pool.handle_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py:256: in handle_request
+    raise exc from None
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py:236: in handle_request
+    response = connection.handle_request(
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:101: in handle_request
+    raise exc
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:78: in handle_request
+    stream = self._connect(request)
+             ^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:124: in _connect
+    stream = self._network_backend.connect_tcp(**kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_backends/sync.py:207: in connect_tcp
+    with map_exceptions(exc_map):
+         ^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+map = {<class 'TimeoutError'>: <class 'httpcore.ConnectTimeout'>, <class 'OSError'>: <class 'httpcore.ConnectError'>}
+
+    @contextlib.contextmanager
+    def map_exceptions(map: ExceptionMapping) -> typing.Iterator[None]:
+        try:
+            yield
+        except Exception as exc:  # noqa: PIE786
+            for from_exc, to_exc in map.items():
+                if isinstance(exc, from_exc):
+>                   raise to_exc(exc) from exc
+E                   httpcore.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+backend/.venv/lib/python3.12/site-packages/httpcore/_exceptions.py:14: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x1117374a0>
+object_key = 'geo305/d29934ce-4b58-4a98-b5b6-d2111c99ee07'
+data = b'fixture-redacted-screenshot'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+>           response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+
+backend/app/services/storage.py:131: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/httpx/_api.py:345: in put
+    return request(
+backend/.venv/lib/python3.12/site-packages/httpx/_api.py:109: in request
+    return client.request(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:914: in send
+    response = self._send_handling_auth(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:249: in handle_request
+    with map_httpcore_exceptions():
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+            yield
+        except Exception as exc:
+            mapped_exc = None
+    
+            for from_exc, to_exc in HTTPCORE_EXC_MAP.items():
+                if not isinstance(exc, from_exc):
+                    continue
+                # We want to map to the most specific exception we can find.
+                # Eg if `exc` is an `httpcore.ReadTimeout`, we want to map to
+                # `httpx.ReadTimeout`, not just `httpx.TimeoutException`.
+                if mapped_exc is None or issubclass(to_exc, mapped_exc):
+                    mapped_exc = to_exc
+    
+            if mapped_exc is None:  # pragma: no cover
+                raise
+    
+            message = str(exc)
+>           raise mapped_exc(message) from exc
+E           httpx.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:118: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55432/partsignal_geo208_35f5639b...6f81fa24c235'), surface=UUID('85b5e200-48f4-468f-acd3-f13f2de44dd4'), name='虚构计划-a6a694db-4258-4402-abf4-a42acbdf3693')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x111388590>
+case = 'future', code = 'VALIDATION_ERROR'
+
+    @pytest.mark.parametrize(
+        "case,code",
+        [
+            ("empty", "GEO_ANSWER_EMPTY"),
+            ("no_evidence", "GEO_EVIDENCE_REQUIRED"),
+            ("raw_only", "GEO_SCREENSHOT_REQUIRED"),
+            ("missing", "FILE_INTEGRITY_FAILED"),
+            ("owner", "PERMISSION_DENIED"),
+            ("public", "FILE_INTEGRITY_FAILED"),
+            ("future", "VALIDATION_ERROR"),
+            ("before", "VALIDATION_ERROR"),
+            ("revision", "REVISION_CONFLICT"),
+            ("object_missing", "FILE_INTEGRITY_FAILED"),
+            ("object_changed", "FILE_INTEGRITY_FAILED"),
+            ("storage", "DEPENDENCY_UNAVAILABLE"),
+        ],
+    )
+    def test_submit_failure_is_atomic(plans_api, monkeypatch, case, code):
+        api = plans_api
+        run = batch_run(api)[0]
+>       f, key = evidence(
+            api,
+            screenshot=case != "raw_only",
+            owner=api.api.admin_id if case == "owner" else None,
+            access="PUBLIC" if case == "public" else "INTERNAL",
+        )
+
+backend/tests/integration/test_geo_manual_collection.py:250: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/tests/integration/test_geo_manual_collection.py:70: in evidence
+    storage.put(key, data, content_type=kind, sha256=digest)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x1117374a0>
+object_key = 'geo305/d29934ce-4b58-4a98-b5b6-d2111c99ee07'
+data = b'fixture-redacted-screenshot'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+            response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+            response.raise_for_status()
+        except (httpx.HTTPStatusError, httpx.RequestError) as error:
+>           raise StorageUnavailable("开发对象存储 PUT 请求失败") from error
+E           app.services.storage.StorageUnavailable: 开发对象存储 PUT 请求失败
+
+backend/app/services/storage.py:139: StorageUnavailable
+____________ test_submit_failure_is_atomic[before-VALIDATION_ERROR] ____________
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+>           yield
+
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:101: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:250: in handle_request
+    resp = self._pool.handle_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py:256: in handle_request
+    raise exc from None
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py:236: in handle_request
+    response = connection.handle_request(
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:101: in handle_request
+    raise exc
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:78: in handle_request
+    stream = self._connect(request)
+             ^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:124: in _connect
+    stream = self._network_backend.connect_tcp(**kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_backends/sync.py:207: in connect_tcp
+    with map_exceptions(exc_map):
+         ^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+map = {<class 'TimeoutError'>: <class 'httpcore.ConnectTimeout'>, <class 'OSError'>: <class 'httpcore.ConnectError'>}
+
+    @contextlib.contextmanager
+    def map_exceptions(map: ExceptionMapping) -> typing.Iterator[None]:
+        try:
+            yield
+        except Exception as exc:  # noqa: PIE786
+            for from_exc, to_exc in map.items():
+                if isinstance(exc, from_exc):
+>                   raise to_exc(exc) from exc
+E                   httpcore.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+backend/.venv/lib/python3.12/site-packages/httpcore/_exceptions.py:14: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x1105dd7c0>
+object_key = 'geo305/95ff91a0-26a8-44ad-bb29-2a53c610a9f6'
+data = b'fixture-redacted-screenshot'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+>           response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+
+backend/app/services/storage.py:131: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/httpx/_api.py:345: in put
+    return request(
+backend/.venv/lib/python3.12/site-packages/httpx/_api.py:109: in request
+    return client.request(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:914: in send
+    response = self._send_handling_auth(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:249: in handle_request
+    with map_httpcore_exceptions():
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+            yield
+        except Exception as exc:
+            mapped_exc = None
+    
+            for from_exc, to_exc in HTTPCORE_EXC_MAP.items():
+                if not isinstance(exc, from_exc):
+                    continue
+                # We want to map to the most specific exception we can find.
+                # Eg if `exc` is an `httpcore.ReadTimeout`, we want to map to
+                # `httpx.ReadTimeout`, not just `httpx.TimeoutException`.
+                if mapped_exc is None or issubclass(to_exc, mapped_exc):
+                    mapped_exc = to_exc
+    
+            if mapped_exc is None:  # pragma: no cover
+                raise
+    
+            message = str(exc)
+>           raise mapped_exc(message) from exc
+E           httpx.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:118: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55432/partsignal_geo208_35f5639b...9fa0e0db9af5'), surface=UUID('1c627bd0-88bc-4bb4-8dbb-01bc1707b663'), name='虚构计划-8ddcb928-778b-4ac4-88bc-aac6f8c9b7be')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x11133cb60>
+case = 'before', code = 'VALIDATION_ERROR'
+
+    @pytest.mark.parametrize(
+        "case,code",
+        [
+            ("empty", "GEO_ANSWER_EMPTY"),
+            ("no_evidence", "GEO_EVIDENCE_REQUIRED"),
+            ("raw_only", "GEO_SCREENSHOT_REQUIRED"),
+            ("missing", "FILE_INTEGRITY_FAILED"),
+            ("owner", "PERMISSION_DENIED"),
+            ("public", "FILE_INTEGRITY_FAILED"),
+            ("future", "VALIDATION_ERROR"),
+            ("before", "VALIDATION_ERROR"),
+            ("revision", "REVISION_CONFLICT"),
+            ("object_missing", "FILE_INTEGRITY_FAILED"),
+            ("object_changed", "FILE_INTEGRITY_FAILED"),
+            ("storage", "DEPENDENCY_UNAVAILABLE"),
+        ],
+    )
+    def test_submit_failure_is_atomic(plans_api, monkeypatch, case, code):
+        api = plans_api
+        run = batch_run(api)[0]
+>       f, key = evidence(
+            api,
+            screenshot=case != "raw_only",
+            owner=api.api.admin_id if case == "owner" else None,
+            access="PUBLIC" if case == "public" else "INTERNAL",
+        )
+
+backend/tests/integration/test_geo_manual_collection.py:250: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/tests/integration/test_geo_manual_collection.py:70: in evidence
+    storage.put(key, data, content_type=kind, sha256=digest)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x1105dd7c0>
+object_key = 'geo305/95ff91a0-26a8-44ad-bb29-2a53c610a9f6'
+data = b'fixture-redacted-screenshot'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+            response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+            response.raise_for_status()
+        except (httpx.HTTPStatusError, httpx.RequestError) as error:
+>           raise StorageUnavailable("开发对象存储 PUT 请求失败") from error
+E           app.services.storage.StorageUnavailable: 开发对象存储 PUT 请求失败
+
+backend/app/services/storage.py:139: StorageUnavailable
+__________ test_submit_failure_is_atomic[revision-REVISION_CONFLICT] ___________
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+>           yield
+
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:101: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:250: in handle_request
+    resp = self._pool.handle_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py:256: in handle_request
+    raise exc from None
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py:236: in handle_request
+    response = connection.handle_request(
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:101: in handle_request
+    raise exc
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:78: in handle_request
+    stream = self._connect(request)
+             ^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:124: in _connect
+    stream = self._network_backend.connect_tcp(**kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_backends/sync.py:207: in connect_tcp
+    with map_exceptions(exc_map):
+         ^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+map = {<class 'TimeoutError'>: <class 'httpcore.ConnectTimeout'>, <class 'OSError'>: <class 'httpcore.ConnectError'>}
+
+    @contextlib.contextmanager
+    def map_exceptions(map: ExceptionMapping) -> typing.Iterator[None]:
+        try:
+            yield
+        except Exception as exc:  # noqa: PIE786
+            for from_exc, to_exc in map.items():
+                if isinstance(exc, from_exc):
+>                   raise to_exc(exc) from exc
+E                   httpcore.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+backend/.venv/lib/python3.12/site-packages/httpcore/_exceptions.py:14: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x11133d820>
+object_key = 'geo305/b6c60d42-b092-4213-a7d6-f161eb60c6cc'
+data = b'fixture-redacted-screenshot'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+>           response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+
+backend/app/services/storage.py:131: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/httpx/_api.py:345: in put
+    return request(
+backend/.venv/lib/python3.12/site-packages/httpx/_api.py:109: in request
+    return client.request(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:914: in send
+    response = self._send_handling_auth(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:249: in handle_request
+    with map_httpcore_exceptions():
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+            yield
+        except Exception as exc:
+            mapped_exc = None
+    
+            for from_exc, to_exc in HTTPCORE_EXC_MAP.items():
+                if not isinstance(exc, from_exc):
+                    continue
+                # We want to map to the most specific exception we can find.
+                # Eg if `exc` is an `httpcore.ReadTimeout`, we want to map to
+                # `httpx.ReadTimeout`, not just `httpx.TimeoutException`.
+                if mapped_exc is None or issubclass(to_exc, mapped_exc):
+                    mapped_exc = to_exc
+    
+            if mapped_exc is None:  # pragma: no cover
+                raise
+    
+            message = str(exc)
+>           raise mapped_exc(message) from exc
+E           httpx.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:118: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55432/partsignal_geo208_35f5639b...d7b042854acc'), surface=UUID('a5681251-ea44-425c-80f0-e9248dac43bc'), name='虚构计划-4805f98d-9cfc-4fe7-afcd-4084ce29caf4')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x11129bc50>
+case = 'revision', code = 'REVISION_CONFLICT'
+
+    @pytest.mark.parametrize(
+        "case,code",
+        [
+            ("empty", "GEO_ANSWER_EMPTY"),
+            ("no_evidence", "GEO_EVIDENCE_REQUIRED"),
+            ("raw_only", "GEO_SCREENSHOT_REQUIRED"),
+            ("missing", "FILE_INTEGRITY_FAILED"),
+            ("owner", "PERMISSION_DENIED"),
+            ("public", "FILE_INTEGRITY_FAILED"),
+            ("future", "VALIDATION_ERROR"),
+            ("before", "VALIDATION_ERROR"),
+            ("revision", "REVISION_CONFLICT"),
+            ("object_missing", "FILE_INTEGRITY_FAILED"),
+            ("object_changed", "FILE_INTEGRITY_FAILED"),
+            ("storage", "DEPENDENCY_UNAVAILABLE"),
+        ],
+    )
+    def test_submit_failure_is_atomic(plans_api, monkeypatch, case, code):
+        api = plans_api
+        run = batch_run(api)[0]
+>       f, key = evidence(
+            api,
+            screenshot=case != "raw_only",
+            owner=api.api.admin_id if case == "owner" else None,
+            access="PUBLIC" if case == "public" else "INTERNAL",
+        )
+
+backend/tests/integration/test_geo_manual_collection.py:250: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/tests/integration/test_geo_manual_collection.py:70: in evidence
+    storage.put(key, data, content_type=kind, sha256=digest)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x11133d820>
+object_key = 'geo305/b6c60d42-b092-4213-a7d6-f161eb60c6cc'
+data = b'fixture-redacted-screenshot'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+            response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+            response.raise_for_status()
+        except (httpx.HTTPStatusError, httpx.RequestError) as error:
+>           raise StorageUnavailable("开发对象存储 PUT 请求失败") from error
+E           app.services.storage.StorageUnavailable: 开发对象存储 PUT 请求失败
+
+backend/app/services/storage.py:139: StorageUnavailable
+_____ test_submit_failure_is_atomic[object_missing-FILE_INTEGRITY_FAILED] ______
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+>           yield
+
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:101: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:250: in handle_request
+    resp = self._pool.handle_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py:256: in handle_request
+    raise exc from None
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py:236: in handle_request
+    response = connection.handle_request(
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:101: in handle_request
+    raise exc
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:78: in handle_request
+    stream = self._connect(request)
+             ^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:124: in _connect
+    stream = self._network_backend.connect_tcp(**kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_backends/sync.py:207: in connect_tcp
+    with map_exceptions(exc_map):
+         ^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+map = {<class 'TimeoutError'>: <class 'httpcore.ConnectTimeout'>, <class 'OSError'>: <class 'httpcore.ConnectError'>}
+
+    @contextlib.contextmanager
+    def map_exceptions(map: ExceptionMapping) -> typing.Iterator[None]:
+        try:
+            yield
+        except Exception as exc:  # noqa: PIE786
+            for from_exc, to_exc in map.items():
+                if isinstance(exc, from_exc):
+>                   raise to_exc(exc) from exc
+E                   httpcore.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+backend/.venv/lib/python3.12/site-packages/httpcore/_exceptions.py:14: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x1113626f0>
+object_key = 'geo305/5d25b2b9-d35c-45a2-be76-14ac1aefe1e3'
+data = b'fixture-redacted-screenshot'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+>           response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+
+backend/app/services/storage.py:131: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/httpx/_api.py:345: in put
+    return request(
+backend/.venv/lib/python3.12/site-packages/httpx/_api.py:109: in request
+    return client.request(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:914: in send
+    response = self._send_handling_auth(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:249: in handle_request
+    with map_httpcore_exceptions():
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+            yield
+        except Exception as exc:
+            mapped_exc = None
+    
+            for from_exc, to_exc in HTTPCORE_EXC_MAP.items():
+                if not isinstance(exc, from_exc):
+                    continue
+                # We want to map to the most specific exception we can find.
+                # Eg if `exc` is an `httpcore.ReadTimeout`, we want to map to
+                # `httpx.ReadTimeout`, not just `httpx.TimeoutException`.
+                if mapped_exc is None or issubclass(to_exc, mapped_exc):
+                    mapped_exc = to_exc
+    
+            if mapped_exc is None:  # pragma: no cover
+                raise
+    
+            message = str(exc)
+>           raise mapped_exc(message) from exc
+E           httpx.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:118: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55432/partsignal_geo208_35f5639b...7134ff706d00'), surface=UUID('deca27a3-aa0b-4729-bba2-074f44781a4a'), name='虚构计划-a241a01a-65d9-45ae-a009-4544886aabe3')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x11129b9e0>
+case = 'object_missing', code = 'FILE_INTEGRITY_FAILED'
+
+    @pytest.mark.parametrize(
+        "case,code",
+        [
+            ("empty", "GEO_ANSWER_EMPTY"),
+            ("no_evidence", "GEO_EVIDENCE_REQUIRED"),
+            ("raw_only", "GEO_SCREENSHOT_REQUIRED"),
+            ("missing", "FILE_INTEGRITY_FAILED"),
+            ("owner", "PERMISSION_DENIED"),
+            ("public", "FILE_INTEGRITY_FAILED"),
+            ("future", "VALIDATION_ERROR"),
+            ("before", "VALIDATION_ERROR"),
+            ("revision", "REVISION_CONFLICT"),
+            ("object_missing", "FILE_INTEGRITY_FAILED"),
+            ("object_changed", "FILE_INTEGRITY_FAILED"),
+            ("storage", "DEPENDENCY_UNAVAILABLE"),
+        ],
+    )
+    def test_submit_failure_is_atomic(plans_api, monkeypatch, case, code):
+        api = plans_api
+        run = batch_run(api)[0]
+>       f, key = evidence(
+            api,
+            screenshot=case != "raw_only",
+            owner=api.api.admin_id if case == "owner" else None,
+            access="PUBLIC" if case == "public" else "INTERNAL",
+        )
+
+backend/tests/integration/test_geo_manual_collection.py:250: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/tests/integration/test_geo_manual_collection.py:70: in evidence
+    storage.put(key, data, content_type=kind, sha256=digest)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x1113626f0>
+object_key = 'geo305/5d25b2b9-d35c-45a2-be76-14ac1aefe1e3'
+data = b'fixture-redacted-screenshot'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+            response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+            response.raise_for_status()
+        except (httpx.HTTPStatusError, httpx.RequestError) as error:
+>           raise StorageUnavailable("开发对象存储 PUT 请求失败") from error
+E           app.services.storage.StorageUnavailable: 开发对象存储 PUT 请求失败
+
+backend/app/services/storage.py:139: StorageUnavailable
+_____ test_submit_failure_is_atomic[object_changed-FILE_INTEGRITY_FAILED] ______
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+>           yield
+
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:101: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:250: in handle_request
+    resp = self._pool.handle_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py:256: in handle_request
+    raise exc from None
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py:236: in handle_request
+    response = connection.handle_request(
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:101: in handle_request
+    raise exc
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:78: in handle_request
+    stream = self._connect(request)
+             ^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:124: in _connect
+    stream = self._network_backend.connect_tcp(**kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_backends/sync.py:207: in connect_tcp
+    with map_exceptions(exc_map):
+         ^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+map = {<class 'TimeoutError'>: <class 'httpcore.ConnectTimeout'>, <class 'OSError'>: <class 'httpcore.ConnectError'>}
+
+    @contextlib.contextmanager
+    def map_exceptions(map: ExceptionMapping) -> typing.Iterator[None]:
+        try:
+            yield
+        except Exception as exc:  # noqa: PIE786
+            for from_exc, to_exc in map.items():
+                if isinstance(exc, from_exc):
+>                   raise to_exc(exc) from exc
+E                   httpcore.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+backend/.venv/lib/python3.12/site-packages/httpcore/_exceptions.py:14: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x11133c350>
+object_key = 'geo305/0a3f30d5-51d3-448b-af76-e2054b09bb68'
+data = b'fixture-redacted-screenshot'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+>           response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+
+backend/app/services/storage.py:131: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/httpx/_api.py:345: in put
+    return request(
+backend/.venv/lib/python3.12/site-packages/httpx/_api.py:109: in request
+    return client.request(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:914: in send
+    response = self._send_handling_auth(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:249: in handle_request
+    with map_httpcore_exceptions():
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+            yield
+        except Exception as exc:
+            mapped_exc = None
+    
+            for from_exc, to_exc in HTTPCORE_EXC_MAP.items():
+                if not isinstance(exc, from_exc):
+                    continue
+                # We want to map to the most specific exception we can find.
+                # Eg if `exc` is an `httpcore.ReadTimeout`, we want to map to
+                # `httpx.ReadTimeout`, not just `httpx.TimeoutException`.
+                if mapped_exc is None or issubclass(to_exc, mapped_exc):
+                    mapped_exc = to_exc
+    
+            if mapped_exc is None:  # pragma: no cover
+                raise
+    
+            message = str(exc)
+>           raise mapped_exc(message) from exc
+E           httpx.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:118: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55432/partsignal_geo208_35f5639b...e2572dab3cd8'), surface=UUID('c6afcf79-41bd-4b17-a4a1-791e8f73d574'), name='虚构计划-4c395f7a-140a-490e-b5d9-40325d1b750a')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1112fb290>
+case = 'object_changed', code = 'FILE_INTEGRITY_FAILED'
+
+    @pytest.mark.parametrize(
+        "case,code",
+        [
+            ("empty", "GEO_ANSWER_EMPTY"),
+            ("no_evidence", "GEO_EVIDENCE_REQUIRED"),
+            ("raw_only", "GEO_SCREENSHOT_REQUIRED"),
+            ("missing", "FILE_INTEGRITY_FAILED"),
+            ("owner", "PERMISSION_DENIED"),
+            ("public", "FILE_INTEGRITY_FAILED"),
+            ("future", "VALIDATION_ERROR"),
+            ("before", "VALIDATION_ERROR"),
+            ("revision", "REVISION_CONFLICT"),
+            ("object_missing", "FILE_INTEGRITY_FAILED"),
+            ("object_changed", "FILE_INTEGRITY_FAILED"),
+            ("storage", "DEPENDENCY_UNAVAILABLE"),
+        ],
+    )
+    def test_submit_failure_is_atomic(plans_api, monkeypatch, case, code):
+        api = plans_api
+        run = batch_run(api)[0]
+>       f, key = evidence(
+            api,
+            screenshot=case != "raw_only",
+            owner=api.api.admin_id if case == "owner" else None,
+            access="PUBLIC" if case == "public" else "INTERNAL",
+        )
+
+backend/tests/integration/test_geo_manual_collection.py:250: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/tests/integration/test_geo_manual_collection.py:70: in evidence
+    storage.put(key, data, content_type=kind, sha256=digest)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x11133c350>
+object_key = 'geo305/0a3f30d5-51d3-448b-af76-e2054b09bb68'
+data = b'fixture-redacted-screenshot'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+            response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+            response.raise_for_status()
+        except (httpx.HTTPStatusError, httpx.RequestError) as error:
+>           raise StorageUnavailable("开发对象存储 PUT 请求失败") from error
+E           app.services.storage.StorageUnavailable: 开发对象存储 PUT 请求失败
+
+backend/app/services/storage.py:139: StorageUnavailable
+________ test_submit_failure_is_atomic[storage-DEPENDENCY_UNAVAILABLE] _________
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+>           yield
+
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:101: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:250: in handle_request
+    resp = self._pool.handle_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py:256: in handle_request
+    raise exc from None
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py:236: in handle_request
+    response = connection.handle_request(
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:101: in handle_request
+    raise exc
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:78: in handle_request
+    stream = self._connect(request)
+             ^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:124: in _connect
+    stream = self._network_backend.connect_tcp(**kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_backends/sync.py:207: in connect_tcp
+    with map_exceptions(exc_map):
+         ^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+map = {<class 'TimeoutError'>: <class 'httpcore.ConnectTimeout'>, <class 'OSError'>: <class 'httpcore.ConnectError'>}
+
+    @contextlib.contextmanager
+    def map_exceptions(map: ExceptionMapping) -> typing.Iterator[None]:
+        try:
+            yield
+        except Exception as exc:  # noqa: PIE786
+            for from_exc, to_exc in map.items():
+                if isinstance(exc, from_exc):
+>                   raise to_exc(exc) from exc
+E                   httpcore.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+backend/.venv/lib/python3.12/site-packages/httpcore/_exceptions.py:14: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x11129a900>
+object_key = 'geo305/281dba9c-207a-46b1-aa5b-2822d7f3bbde'
+data = b'fixture-redacted-screenshot'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+>           response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+
+backend/app/services/storage.py:131: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/httpx/_api.py:345: in put
+    return request(
+backend/.venv/lib/python3.12/site-packages/httpx/_api.py:109: in request
+    return client.request(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:914: in send
+    response = self._send_handling_auth(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:249: in handle_request
+    with map_httpcore_exceptions():
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+            yield
+        except Exception as exc:
+            mapped_exc = None
+    
+            for from_exc, to_exc in HTTPCORE_EXC_MAP.items():
+                if not isinstance(exc, from_exc):
+                    continue
+                # We want to map to the most specific exception we can find.
+                # Eg if `exc` is an `httpcore.ReadTimeout`, we want to map to
+                # `httpx.ReadTimeout`, not just `httpx.TimeoutException`.
+                if mapped_exc is None or issubclass(to_exc, mapped_exc):
+                    mapped_exc = to_exc
+    
+            if mapped_exc is None:  # pragma: no cover
+                raise
+    
+            message = str(exc)
+>           raise mapped_exc(message) from exc
+E           httpx.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:118: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55432/partsignal_geo208_35f5639b...2d76d965524d'), surface=UUID('f0f92d38-8bc2-4ca5-95a7-4787322e79ff'), name='虚构计划-ad0233fb-68c7-451e-a623-d44989c9970c')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x11129a9c0>
+case = 'storage', code = 'DEPENDENCY_UNAVAILABLE'
+
+    @pytest.mark.parametrize(
+        "case,code",
+        [
+            ("empty", "GEO_ANSWER_EMPTY"),
+            ("no_evidence", "GEO_EVIDENCE_REQUIRED"),
+            ("raw_only", "GEO_SCREENSHOT_REQUIRED"),
+            ("missing", "FILE_INTEGRITY_FAILED"),
+            ("owner", "PERMISSION_DENIED"),
+            ("public", "FILE_INTEGRITY_FAILED"),
+            ("future", "VALIDATION_ERROR"),
+            ("before", "VALIDATION_ERROR"),
+            ("revision", "REVISION_CONFLICT"),
+            ("object_missing", "FILE_INTEGRITY_FAILED"),
+            ("object_changed", "FILE_INTEGRITY_FAILED"),
+            ("storage", "DEPENDENCY_UNAVAILABLE"),
+        ],
+    )
+    def test_submit_failure_is_atomic(plans_api, monkeypatch, case, code):
+        api = plans_api
+        run = batch_run(api)[0]
+>       f, key = evidence(
+            api,
+            screenshot=case != "raw_only",
+            owner=api.api.admin_id if case == "owner" else None,
+            access="PUBLIC" if case == "public" else "INTERNAL",
+        )
+
+backend/tests/integration/test_geo_manual_collection.py:250: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/tests/integration/test_geo_manual_collection.py:70: in evidence
+    storage.put(key, data, content_type=kind, sha256=digest)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x11129a900>
+object_key = 'geo305/281dba9c-207a-46b1-aa5b-2822d7f3bbde'
+data = b'fixture-redacted-screenshot'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+            response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+            response.raise_for_status()
+        except (httpx.HTTPStatusError, httpx.RequestError) as error:
+>           raise StorageUnavailable("开发对象存储 PUT 请求失败") from error
+E           app.services.storage.StorageUnavailable: 开发对象存储 PUT 请求失败
+
+backend/app/services/storage.py:139: StorageUnavailable
+_ test_optional_screenshot_still_requires_evidence_and_submission_can_include_unsaved_edits _
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+>           yield
+
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:101: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:250: in handle_request
+    resp = self._pool.handle_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py:256: in handle_request
+    raise exc from None
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py:236: in handle_request
+    response = connection.handle_request(
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:101: in handle_request
+    raise exc
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:78: in handle_request
+    stream = self._connect(request)
+             ^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:124: in _connect
+    stream = self._network_backend.connect_tcp(**kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_backends/sync.py:207: in connect_tcp
+    with map_exceptions(exc_map):
+         ^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+map = {<class 'TimeoutError'>: <class 'httpcore.ConnectTimeout'>, <class 'OSError'>: <class 'httpcore.ConnectError'>}
+
+    @contextlib.contextmanager
+    def map_exceptions(map: ExceptionMapping) -> typing.Iterator[None]:
+        try:
+            yield
+        except Exception as exc:  # noqa: PIE786
+            for from_exc, to_exc in map.items():
+                if isinstance(exc, from_exc):
+>                   raise to_exc(exc) from exc
+E                   httpcore.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+backend/.venv/lib/python3.12/site-packages/httpcore/_exceptions.py:14: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x1112aa7e0>
+object_key = 'geo305/0f675b00-ca47-45be-8ab4-f3010f68b25c'
+data = b'fixture-redacted-answer'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+>           response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+
+backend/app/services/storage.py:131: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/httpx/_api.py:345: in put
+    return request(
+backend/.venv/lib/python3.12/site-packages/httpx/_api.py:109: in request
+    return client.request(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:914: in send
+    response = self._send_handling_auth(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:249: in handle_request
+    with map_httpcore_exceptions():
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+            yield
+        except Exception as exc:
+            mapped_exc = None
+    
+            for from_exc, to_exc in HTTPCORE_EXC_MAP.items():
+                if not isinstance(exc, from_exc):
+                    continue
+                # We want to map to the most specific exception we can find.
+                # Eg if `exc` is an `httpcore.ReadTimeout`, we want to map to
+                # `httpx.ReadTimeout`, not just `httpx.TimeoutException`.
+                if mapped_exc is None or issubclass(to_exc, mapped_exc):
+                    mapped_exc = to_exc
+    
+            if mapped_exc is None:  # pragma: no cover
+                raise
+    
+            message = str(exc)
+>           raise mapped_exc(message) from exc
+E           httpx.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:118: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55432/partsignal_geo208_35f5639b...5361dc7cf6e6'), surface=UUID('410be6de-7c0c-428b-ac31-f5acc8584595'), name='虚构计划-e8953bb1-09b1-4762-924c-41ed374da4d4')
+
+    def test_optional_screenshot_still_requires_evidence_and_submission_can_include_unsaved_edits(
+        plans_api,
+    ):
+        api = plans_api
+        run = batch_run(api, screenshot=False)[0]
+>       f, _ = evidence(api, screenshot=False)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+backend/tests/integration/test_geo_manual_collection.py:291: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/tests/integration/test_geo_manual_collection.py:70: in evidence
+    storage.put(key, data, content_type=kind, sha256=digest)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x1112aa7e0>
+object_key = 'geo305/0f675b00-ca47-45be-8ab4-f3010f68b25c'
+data = b'fixture-redacted-answer'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+            response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+            response.raise_for_status()
+        except (httpx.HTTPStatusError, httpx.RequestError) as error:
+>           raise StorageUnavailable("开发对象存储 PUT 请求失败") from error
+E           app.services.storage.StorageUnavailable: 开发对象存储 PUT 请求失败
+
+backend/app/services/storage.py:139: StorageUnavailable
+___________ test_audit_failure_rolls_back_freeze_and_preserves_draft ___________
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+>           yield
+
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:101: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:250: in handle_request
+    resp = self._pool.handle_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py:256: in handle_request
+    raise exc from None
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py:236: in handle_request
+    response = connection.handle_request(
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:101: in handle_request
+    raise exc
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:78: in handle_request
+    stream = self._connect(request)
+             ^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:124: in _connect
+    stream = self._network_backend.connect_tcp(**kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_backends/sync.py:207: in connect_tcp
+    with map_exceptions(exc_map):
+         ^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+map = {<class 'TimeoutError'>: <class 'httpcore.ConnectTimeout'>, <class 'OSError'>: <class 'httpcore.ConnectError'>}
+
+    @contextlib.contextmanager
+    def map_exceptions(map: ExceptionMapping) -> typing.Iterator[None]:
+        try:
+            yield
+        except Exception as exc:  # noqa: PIE786
+            for from_exc, to_exc in map.items():
+                if isinstance(exc, from_exc):
+>                   raise to_exc(exc) from exc
+E                   httpcore.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+backend/.venv/lib/python3.12/site-packages/httpcore/_exceptions.py:14: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x111421fd0>
+object_key = 'geo305/e4f2ffd1-0f7c-44da-a859-5cfa0538b8f2'
+data = b'fixture-redacted-screenshot'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+>           response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+
+backend/app/services/storage.py:131: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/httpx/_api.py:345: in put
+    return request(
+backend/.venv/lib/python3.12/site-packages/httpx/_api.py:109: in request
+    return client.request(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:914: in send
+    response = self._send_handling_auth(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:249: in handle_request
+    with map_httpcore_exceptions():
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+            yield
+        except Exception as exc:
+            mapped_exc = None
+    
+            for from_exc, to_exc in HTTPCORE_EXC_MAP.items():
+                if not isinstance(exc, from_exc):
+                    continue
+                # We want to map to the most specific exception we can find.
+                # Eg if `exc` is an `httpcore.ReadTimeout`, we want to map to
+                # `httpx.ReadTimeout`, not just `httpx.TimeoutException`.
+                if mapped_exc is None or issubclass(to_exc, mapped_exc):
+                    mapped_exc = to_exc
+    
+            if mapped_exc is None:  # pragma: no cover
+                raise
+    
+            message = str(exc)
+>           raise mapped_exc(message) from exc
+E           httpx.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:118: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55432/partsignal_geo208_35f5639b...91f6897c2b8a'), surface=UUID('0e9e79a9-0a3d-457d-93c1-25c2d0b9b9d5'), name='虚构计划-08b2012c-bf3c-4b0d-9b17-5fb2cfed75a1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1114542c0>
+
+    def test_audit_failure_rolls_back_freeze_and_preserves_draft(plans_api, monkeypatch):
+        api = plans_api
+        run = batch_run(api)[0]
+>       f, _ = evidence(api)
+               ^^^^^^^^^^^^^
+
+backend/tests/integration/test_geo_manual_collection.py:319: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/tests/integration/test_geo_manual_collection.py:70: in evidence
+    storage.put(key, data, content_type=kind, sha256=digest)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x111421fd0>
+object_key = 'geo305/e4f2ffd1-0f7c-44da-a859-5cfa0538b8f2'
+data = b'fixture-redacted-screenshot'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+            response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+            response.raise_for_status()
+        except (httpx.HTTPStatusError, httpx.RequestError) as error:
+>           raise StorageUnavailable("开发对象存储 PUT 请求失败") from error
+E           app.services.storage.StorageUnavailable: 开发对象存储 PUT 请求失败
+
+backend/app/services/storage.py:139: StorageUnavailable
+_________________ test_concurrent_submit_is_exactly_once[True] _________________
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+>           yield
+
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:101: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:250: in handle_request
+    resp = self._pool.handle_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py:256: in handle_request
+    raise exc from None
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py:236: in handle_request
+    response = connection.handle_request(
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:101: in handle_request
+    raise exc
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:78: in handle_request
+    stream = self._connect(request)
+             ^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:124: in _connect
+    stream = self._network_backend.connect_tcp(**kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_backends/sync.py:207: in connect_tcp
+    with map_exceptions(exc_map):
+         ^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+map = {<class 'TimeoutError'>: <class 'httpcore.ConnectTimeout'>, <class 'OSError'>: <class 'httpcore.ConnectError'>}
+
+    @contextlib.contextmanager
+    def map_exceptions(map: ExceptionMapping) -> typing.Iterator[None]:
+        try:
+            yield
+        except Exception as exc:  # noqa: PIE786
+            for from_exc, to_exc in map.items():
+                if isinstance(exc, from_exc):
+>                   raise to_exc(exc) from exc
+E                   httpcore.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+backend/.venv/lib/python3.12/site-packages/httpcore/_exceptions.py:14: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x1114567e0>
+object_key = 'geo305/8eeac09b-701c-4034-bc3e-e252989c48b3'
+data = b'fixture-redacted-screenshot'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+>           response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+
+backend/app/services/storage.py:131: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/httpx/_api.py:345: in put
+    return request(
+backend/.venv/lib/python3.12/site-packages/httpx/_api.py:109: in request
+    return client.request(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:914: in send
+    response = self._send_handling_auth(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:249: in handle_request
+    with map_httpcore_exceptions():
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+            yield
+        except Exception as exc:
+            mapped_exc = None
+    
+            for from_exc, to_exc in HTTPCORE_EXC_MAP.items():
+                if not isinstance(exc, from_exc):
+                    continue
+                # We want to map to the most specific exception we can find.
+                # Eg if `exc` is an `httpcore.ReadTimeout`, we want to map to
+                # `httpx.ReadTimeout`, not just `httpx.TimeoutException`.
+                if mapped_exc is None or issubclass(to_exc, mapped_exc):
+                    mapped_exc = to_exc
+    
+            if mapped_exc is None:  # pragma: no cover
+                raise
+    
+            message = str(exc)
+>           raise mapped_exc(message) from exc
+E           httpx.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:118: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55432/partsignal_geo208_35f5639b...2ddc89de3747'), surface=UUID('e42f328b-459b-49a9-807e-61b2f95c9588'), name='虚构计划-af7020a6-18ba-42e4-a37b-1715416e6410')
+same_key = True
+
+    @pytest.mark.parametrize("same_key", [True, False])
+    def test_concurrent_submit_is_exactly_once(plans_api, same_key):
+        api = plans_api
+        run = batch_run(api)[0]
+>       f, _ = evidence(api)
+               ^^^^^^^^^^^^^
+
+backend/tests/integration/test_geo_manual_collection.py:346: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/tests/integration/test_geo_manual_collection.py:70: in evidence
+    storage.put(key, data, content_type=kind, sha256=digest)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x1114567e0>
+object_key = 'geo305/8eeac09b-701c-4034-bc3e-e252989c48b3'
+data = b'fixture-redacted-screenshot'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+            response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+            response.raise_for_status()
+        except (httpx.HTTPStatusError, httpx.RequestError) as error:
+>           raise StorageUnavailable("开发对象存储 PUT 请求失败") from error
+E           app.services.storage.StorageUnavailable: 开发对象存储 PUT 请求失败
+
+backend/app/services/storage.py:139: StorageUnavailable
+________________ test_concurrent_submit_is_exactly_once[False] _________________
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+>           yield
+
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:101: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:250: in handle_request
+    resp = self._pool.handle_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py:256: in handle_request
+    raise exc from None
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py:236: in handle_request
+    response = connection.handle_request(
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:101: in handle_request
+    raise exc
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:78: in handle_request
+    stream = self._connect(request)
+             ^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:124: in _connect
+    stream = self._network_backend.connect_tcp(**kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_backends/sync.py:207: in connect_tcp
+    with map_exceptions(exc_map):
+         ^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+map = {<class 'TimeoutError'>: <class 'httpcore.ConnectTimeout'>, <class 'OSError'>: <class 'httpcore.ConnectError'>}
+
+    @contextlib.contextmanager
+    def map_exceptions(map: ExceptionMapping) -> typing.Iterator[None]:
+        try:
+            yield
+        except Exception as exc:  # noqa: PIE786
+            for from_exc, to_exc in map.items():
+                if isinstance(exc, from_exc):
+>                   raise to_exc(exc) from exc
+E                   httpcore.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+backend/.venv/lib/python3.12/site-packages/httpcore/_exceptions.py:14: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x109e61a60>
+object_key = 'geo305/bd2758ca-457c-45d2-9ff8-4bcba6552c0e'
+data = b'fixture-redacted-screenshot'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+>           response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+
+backend/app/services/storage.py:131: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/httpx/_api.py:345: in put
+    return request(
+backend/.venv/lib/python3.12/site-packages/httpx/_api.py:109: in request
+    return client.request(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:914: in send
+    response = self._send_handling_auth(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:249: in handle_request
+    with map_httpcore_exceptions():
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+            yield
+        except Exception as exc:
+            mapped_exc = None
+    
+            for from_exc, to_exc in HTTPCORE_EXC_MAP.items():
+                if not isinstance(exc, from_exc):
+                    continue
+                # We want to map to the most specific exception we can find.
+                # Eg if `exc` is an `httpcore.ReadTimeout`, we want to map to
+                # `httpx.ReadTimeout`, not just `httpx.TimeoutException`.
+                if mapped_exc is None or issubclass(to_exc, mapped_exc):
+                    mapped_exc = to_exc
+    
+            if mapped_exc is None:  # pragma: no cover
+                raise
+    
+            message = str(exc)
+>           raise mapped_exc(message) from exc
+E           httpx.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:118: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55432/partsignal_geo208_35f5639b...1a50542bc3c2'), surface=UUID('442a8b6a-b164-4241-87b6-f25b8b5ce896'), name='虚构计划-64427a11-45dd-4a23-8525-0f84454cbabd')
+same_key = False
+
+    @pytest.mark.parametrize("same_key", [True, False])
+    def test_concurrent_submit_is_exactly_once(plans_api, same_key):
+        api = plans_api
+        run = batch_run(api)[0]
+>       f, _ = evidence(api)
+               ^^^^^^^^^^^^^
+
+backend/tests/integration/test_geo_manual_collection.py:346: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/tests/integration/test_geo_manual_collection.py:70: in evidence
+    storage.put(key, data, content_type=kind, sha256=digest)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x109e61a60>
+object_key = 'geo305/bd2758ca-457c-45d2-9ff8-4bcba6552c0e'
+data = b'fixture-redacted-screenshot'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+            response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+            response.raise_for_status()
+        except (httpx.HTTPStatusError, httpx.RequestError) as error:
+>           raise StorageUnavailable("开发对象存储 PUT 请求失败") from error
+E           app.services.storage.StorageUnavailable: 开发对象存储 PUT 请求失败
+
+backend/app/services/storage.py:139: StorageUnavailable
+______________________ test_sql_final_facts_are_immutable ______________________
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+>           yield
+
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:101: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:250: in handle_request
+    resp = self._pool.handle_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py:256: in handle_request
+    raise exc from None
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py:236: in handle_request
+    response = connection.handle_request(
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:101: in handle_request
+    raise exc
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:78: in handle_request
+    stream = self._connect(request)
+             ^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:124: in _connect
+    stream = self._network_backend.connect_tcp(**kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_backends/sync.py:207: in connect_tcp
+    with map_exceptions(exc_map):
+         ^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+map = {<class 'TimeoutError'>: <class 'httpcore.ConnectTimeout'>, <class 'OSError'>: <class 'httpcore.ConnectError'>}
+
+    @contextlib.contextmanager
+    def map_exceptions(map: ExceptionMapping) -> typing.Iterator[None]:
+        try:
+            yield
+        except Exception as exc:  # noqa: PIE786
+            for from_exc, to_exc in map.items():
+                if isinstance(exc, from_exc):
+>                   raise to_exc(exc) from exc
+E                   httpcore.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+backend/.venv/lib/python3.12/site-packages/httpcore/_exceptions.py:14: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x1114f5af0>
+object_key = 'geo305/89dcf462-719d-4ddc-87dc-a8c9e9d6808b'
+data = b'fixture-redacted-screenshot'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+>           response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+
+backend/app/services/storage.py:131: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/httpx/_api.py:345: in put
+    return request(
+backend/.venv/lib/python3.12/site-packages/httpx/_api.py:109: in request
+    return client.request(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:914: in send
+    response = self._send_handling_auth(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:249: in handle_request
+    with map_httpcore_exceptions():
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+            yield
+        except Exception as exc:
+            mapped_exc = None
+    
+            for from_exc, to_exc in HTTPCORE_EXC_MAP.items():
+                if not isinstance(exc, from_exc):
+                    continue
+                # We want to map to the most specific exception we can find.
+                # Eg if `exc` is an `httpcore.ReadTimeout`, we want to map to
+                # `httpx.ReadTimeout`, not just `httpx.TimeoutException`.
+                if mapped_exc is None or issubclass(to_exc, mapped_exc):
+                    mapped_exc = to_exc
+    
+            if mapped_exc is None:  # pragma: no cover
+                raise
+    
+            message = str(exc)
+>           raise mapped_exc(message) from exc
+E           httpx.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:118: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55432/partsignal_geo208_35f5639b...6285f783e7b5'), surface=UUID('d67d143d-2d7a-49bf-a5b4-8db725b1329f'), name='虚构计划-8a74db7b-47d0-423a-885c-6582b9df9a1a')
+
+    def test_sql_final_facts_are_immutable(plans_api):
+        api = plans_api
+        run = batch_run(api)[0]
+>       f, _ = evidence(api)
+               ^^^^^^^^^^^^^
+
+backend/tests/integration/test_geo_manual_collection.py:424: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/tests/integration/test_geo_manual_collection.py:70: in evidence
+    storage.put(key, data, content_type=kind, sha256=digest)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x1114f5af0>
+object_key = 'geo305/89dcf462-719d-4ddc-87dc-a8c9e9d6808b'
+data = b'fixture-redacted-screenshot'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+            response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+            response.raise_for_status()
+        except (httpx.HTTPStatusError, httpx.RequestError) as error:
+>           raise StorageUnavailable("开发对象存储 PUT 请求失败") from error
+E           app.services.storage.StorageUnavailable: 开发对象存储 PUT 请求失败
+
+backend/app/services/storage.py:139: StorageUnavailable
+=========================== short test summary info ============================
+FAILED backend/tests/integration/test_geo_manual_collection.py::test_entry_draft_revision_noop_conflict_and_file_retention
+FAILED backend/tests/integration/test_geo_manual_collection.py::test_submit_freezes_all_once_replay_and_no_analysis
+FAILED backend/tests/integration/test_geo_manual_collection.py::test_submit_failure_is_atomic[empty-GEO_ANSWER_EMPTY]
+FAILED backend/tests/integration/test_geo_manual_collection.py::test_submit_failure_is_atomic[no_evidence-GEO_EVIDENCE_REQUIRED]
+FAILED backend/tests/integration/test_geo_manual_collection.py::test_submit_failure_is_atomic[raw_only-GEO_SCREENSHOT_REQUIRED]
+FAILED backend/tests/integration/test_geo_manual_collection.py::test_submit_failure_is_atomic[missing-FILE_INTEGRITY_FAILED]
+FAILED backend/tests/integration/test_geo_manual_collection.py::test_submit_failure_is_atomic[owner-PERMISSION_DENIED]
+FAILED backend/tests/integration/test_geo_manual_collection.py::test_submit_failure_is_atomic[public-FILE_INTEGRITY_FAILED]
+FAILED backend/tests/integration/test_geo_manual_collection.py::test_submit_failure_is_atomic[future-VALIDATION_ERROR]
+FAILED backend/tests/integration/test_geo_manual_collection.py::test_submit_failure_is_atomic[before-VALIDATION_ERROR]
+FAILED backend/tests/integration/test_geo_manual_collection.py::test_submit_failure_is_atomic[revision-REVISION_CONFLICT]
+FAILED backend/tests/integration/test_geo_manual_collection.py::test_submit_failure_is_atomic[object_missing-FILE_INTEGRITY_FAILED]
+FAILED backend/tests/integration/test_geo_manual_collection.py::test_submit_failure_is_atomic[object_changed-FILE_INTEGRITY_FAILED]
+FAILED backend/tests/integration/test_geo_manual_collection.py::test_submit_failure_is_atomic[storage-DEPENDENCY_UNAVAILABLE]
+FAILED backend/tests/integration/test_geo_manual_collection.py::test_optional_screenshot_still_requires_evidence_and_submission_can_include_unsaved_edits
+FAILED backend/tests/integration/test_geo_manual_collection.py::test_audit_failure_rolls_back_freeze_and_preserves_draft
+FAILED backend/tests/integration/test_geo_manual_collection.py::test_concurrent_submit_is_exactly_once[True]
+FAILED backend/tests/integration/test_geo_manual_collection.py::test_concurrent_submit_is_exactly_once[False]
+FAILED backend/tests/integration/test_geo_manual_collection.py::test_sql_final_facts_are_immutable
+19 failed, 61 passed in 27.00s

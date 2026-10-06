@@ -1,0 +1,22 @@
+{
+  "AGENTS.md": "dc12b4adb341c38c80aedc0a797940f4dc2a86b6af4d45c9220c7ff16cd382cd",
+  "backend/AGENTS.md": "84e10d6b995d92d5b248f0c272ba623533b91305eef38907550e0048dfc17ec8",
+  ".trellis/spec/backend/index.md": "2d344e5582395b8174b0c8c9004bc83bb64a2da03560947456cc12cd22ba0daa",
+  ".trellis/tasks/10-02-geo-207-run-matrix/prd.md": "e71a62fbd3993131f1efac0d747de437884f74e09b359ad6ba5de3cba8ba02f6",
+  ".trellis/tasks/10-02-geo-207-run-matrix/design.md": "57937792b0a531bbf8adc2d7df198d81261ec1b71e7d98a428bda23f2df1124e",
+  "backend/app/services/geo_plans.py": "2ef4dea95b360d1bf74ba93e7331a1e9f32be5f804f1717c71d8d7785868597c",
+  "backend/app/schemas/geo_plan_preview.py": "d9958fe8bdfb6cc2239d984cf5f40617c2b62d1e319c5059ed37074be3931602",
+  "backend/app/services/geo_collection_profiles.py": "315f1a2f8804cb10a2702a12ded6fe9e2025e8f33a5508f4530128d14702b8dc",
+  "backend/app/services/geo_collector_eligibility.py": "b1af954b6a1a912a940440eaea87ef862e6b166eab3b6c7e2afd8070cac4cbbb",
+  "backend/app/collectors/registry.py": "db8d486d5c6951e02c7a05526e06c949edba59a0a6d5292b748a89d875cd81e6",
+  "backend/app/schemas/geo_monitoring_plans.py": "aa7c15ab57bb4b9d5f124ddca25c75bd089cdeca230ec045c0479c89f945b858",
+  "backend/tests/unit/test_geo_run_matrix.py": "54a382998a2487df5a39ae2c196755d98c6f785628d2715093f845ceacef7c31",
+  "backend/tests/unit/test_geo_plan_preview_contract.py": "1a205997a256671c4d80ff47b673a94675ef5a231c4ef37d427d79ce3a60952d",
+  "backend/tests/integration/test_geo_plan_preview.py": "1b21fd4a5ab151b8235dab29b311fabd8ba853ec627a3f29783779e629238155",
+  "contracts/openapi.yaml": "d8f878faecc06421f229d9cb6b2d64acda347797448ab61b73bbbbc3464f91a8",
+  "contracts/database.md": "f8c118fbd9db3bac1072976eff0533158ea08333b67e71dde3af5a774e7c6e46",
+  "frontend/src/shared/api/generated/schema.d.ts": "1f656796800d1fcb163323d0b70487ef6c923d26d873ffce383bf3f885b07206",
+  "docs/geo-monitoring/03-technical/03-api-contract-design.md": "7e39869b4be278daa580e86247363e017942c9600b74e46582c8185be4f09265",
+  "docs/geo-monitoring/02-business/02-domain-model.md": "2b4bc4afd9d768df82122cb1922451065937caa39427d463be82a5ed40858dd1",
+  "docs/geo-monitoring/04-delivery/task-manifest.yaml": "323d2d32cd13fbb7771ad64a3868b4c6fbd12730fc103f36f3e63e361e5a94e3"
+}

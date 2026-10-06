@@ -1,0 +1,12 @@
+{
+  "command": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "ruff",
+    "check",
+    "backend/tests/geo_e2e_runtime.py"
+  ],
+  "exit_code": 0
+}

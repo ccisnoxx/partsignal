@@ -1,0 +1,53 @@
+[
+  {
+    "command": "git diff --check",
+    "exit": 0,
+    "evidence": "git-diff-check.log"
+  },
+  {
+    "command": "make lint",
+    "exit": 0,
+    "evidence": "lint.log"
+  },
+  {
+    "command": "make typecheck",
+    "exit": 0,
+    "evidence": "typecheck.log"
+  },
+  {
+    "command": "make test-unit",
+    "exit": 0,
+    "evidence": "test-unit.log"
+  },
+  {
+    "command": "make test-deploy-scripts",
+    "exit": 0,
+    "evidence": "test-deploy-scripts.log"
+  },
+  {
+    "command": "make contract-check",
+    "exit": 0,
+    "evidence": "contract-check.log"
+  },
+  {
+    "command": "make test-geo-browser",
+    "exit": 0,
+    "evidence": "runtime.log"
+  },
+  {
+    "command": "docker build --target production -t partsignal-geo801-backend:test backend",
+    "exit": 0,
+    "evidence": "backend-image.log"
+  },
+  {
+    "command": "docker build -t partsignal-browser-collector:geo801 browser-collector",
+    "exit": 0,
+    "evidence": "browser-image-final.log"
+  },
+  {
+    "command": "shasum -a 256 -c SHA256SUMS（docs/geo-monitoring）",
+    "exit": 1,
+    "classification": "唯一核心PRD摘要差异任务前已存在，本任务4项更新摘要通过",
+    "evidence": "doc-sha256.log"
+  }
+]

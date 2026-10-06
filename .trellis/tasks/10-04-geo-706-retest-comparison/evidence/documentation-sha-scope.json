@@ -1,0 +1,50 @@
+{
+  "updated_entries": [
+    {
+      "path": "docs/geo-monitoring/01-product/03-information-architecture-and-page-spec.md",
+      "sha256": "95637e55031a56bf3e70073207439e2d7cd6f879be9ddaefa1b7edc3192d7751"
+    },
+    {
+      "path": "docs/geo-monitoring/02-business/04-monitoring-methodology-and-metrics.md",
+      "sha256": "aeec9d65d22cc1f2640c46968e1923d328ed842bbc086f18e5dc4bd376a4bb02"
+    },
+    {
+      "path": "docs/geo-monitoring/03-technical/02-data-architecture.md",
+      "sha256": "47c19614dc6ccc3a06738a8d7fc350915801f6ccd1f92d8de9dd3c827df5b899"
+    },
+    {
+      "path": "docs/geo-monitoring/03-technical/03-api-contract-design.md",
+      "sha256": "22f8976a569a88800331d5f8ad54a83d753450f469bd30b70e4ac79a8f18c2e9"
+    },
+    {
+      "path": "docs/geo-monitoring/03-technical/04-frontend-architecture.md",
+      "sha256": "a0291d4a77609a1db741e3adc84d19ab712ac3ffff8c49f8572ac09b1c5327eb"
+    },
+    {
+      "path": "docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md",
+      "sha256": "68af0a0f980344dd0170a85207231b0f671a4151f775fbf7a1519bb2d138edfb"
+    },
+    {
+      "path": "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+      "sha256": "11c4c090cb56ccf010f837548e9eeb35ef44942a05a0d09b2ef243adcdfc9fab"
+    },
+    {
+      "path": "docs/geo-monitoring/CHANGELOG.md",
+      "sha256": "01a4700a410e6d6abafc4051d84919bec0798279f0db8e1a28bf34d46b38afa5"
+    },
+    {
+      "path": "docs/geo-monitoring/README.md",
+      "sha256": "ac1a950b2edd5b7021c58daf5af26c4aae9232dd515aa0313803fe5115e14deb"
+    }
+  ],
+  "updated_entry_count": 9,
+  "preexisting_mismatches": [
+    {
+      "path": "docs/geo-monitoring/01-product/02-geo-core-prd.md",
+      "index_sha256": "44d54c96622be90ace3165fad8cd99208c3e56be8b38ae954196518ab3b47131",
+      "initial_sha256": "cbcbdb4bf180d2669cac61a3b5160fb2baff743a1360492bf42fde00f0571e2f"
+    }
+  ],
+  "unrelated_entries_preserved": true,
+  "whole_tree_verified": false
+}

@@ -1,0 +1,36 @@
+--- initial/docs/geo-monitoring/SHA256SUMS
++++ candidate/docs/geo-monitoring/SHA256SUMS
+@@ -11,13 +11,13 @@
+ 71ad777c12034ec8d69b0dbfd1457aa1886d24de901c7e4fb3f304f19915812b  ./03-technical/02-data-architecture.md
+ 3ad8c855eb54244918d4d6774e40f3b5299f6e51d93befbf490d07b8cd7a41a3  ./03-technical/03-api-contract-design.md
+ 5f8dfd5ce025da9a312e800a4c13e48eb64dee88927e2668c82f81490457bd67  ./03-technical/04-frontend-architecture.md
+-47c14707268a7691199e8a4402a5f27ae16c9b5d2f1d9ba23c5d3d0d9c718d74  ./03-technical/05-worker-and-collector-architecture.md
++d653c779bf9dfc6fcc7020cd89851cd667569d407171c18ed3abe4df1c3a1434  ./03-technical/05-worker-and-collector-architecture.md
+ 2698d3095cfaeb5857d6bafd3efd633d9d50b813257054e7568d779be35d7dd7  ./03-technical/06-security-and-compliance.md
+-cd05883eb87d702b0376c3a5339f8a0807c786f479109655ad0cc9d8c4457167  ./03-technical/07-testing-and-quality.md
++f4e1ac7be909fe219a27d9863c34672e4faf9794227a6f14972be9be836dc0f5  ./03-technical/07-testing-and-quality.md
+ 61a4dd642c6f74b581e95eb2269453be79d71a75fa240269eb001e56f45e2b83  ./03-technical/08-deployment-and-operations.md
+ f8c643e46c1159c51bd2e271e87de1d0e5a0448e2845af01f33bef5e4e1d411b  ./04-delivery/01-implementation-roadmap.md
+ acf0bde87ddfc34ebbc09543c1f2c2c1f496d48f330727b5e943807267eed41c  ./04-delivery/02-work-breakdown-structure.md
+-6a4221d78ce16167dadf14b7ddedfff7b9d119b152fcd1ddbc2197285f3aac69  ./04-delivery/03-requirement-traceability-matrix.md
++7a1e4e0513d68d6c5462126076153405b3beecd47551cf0d4b519cf616e7292d  ./04-delivery/03-requirement-traceability-matrix.md
+ 8991d4c1ec5cc872904aa3b10ffbb2f77ca46a4bfda88589d290f7fd92c2f1fb  ./04-delivery/04-codex-execution-guide.md
+ f600bcdfc2788659654825a020fb2aa0fcbe7acf9827b97eab25aadd7a20ff51  ./04-delivery/05-task-template.md
+ 0ec18f9ce8589f4c8e222fddc6d15853c949ad2b227381b584e2c81c4c4e47b0  ./04-delivery/06-current-geo-baseline.md
+@@ -102,7 +102,7 @@
+ 7106b3f1df66de6ba41a4d7ca85e291b8b181f78e2b7c0ef91f4fa696d1f9e8b  ./04-delivery/geo-003-baseline/sources.json
+ 316ab24c5f645e18d39c529c7fcbca2260b14a5375cc5ebd799a5b7c6cfc8f40  ./04-delivery/geo-003-baseline/tests.json
+ 9dae298eb77cc0063394bfacea27b02ece69bf2a7dceba637ef1320565810ec7  ./04-delivery/geo-003-baseline/validation.md
+-5c8fa7eb9976c4171f8a60ab2d21a7634465c1581a16dd6e5d30c29936e37971  ./04-delivery/task-manifest.yaml
++ad49523e7891a21091ee9d9d8e43832ee0a932a380a02d6c750fc98c305dc922  ./04-delivery/task-manifest.yaml
+ 2c0f8d8ba314039b44e48614481c28e615e996c2e4ed444c8f07362b5cd75de9  ./05-decisions/ADR-001-extend-modular-monolith.md
+ 4e0ec1be59e33c2f3e83ee50abc55ffe35d2d0bf471c19cc2c713b391fc12cee  ./05-decisions/ADR-002-unified-observation-run-model.md
+ 00baab5f8fe68fbaf75e3aa7b07a0cfbd7c510e39b6a70ea462d9ab941330dc7  ./05-decisions/ADR-003-separate-collection-analysis-review.md
+@@ -110,6 +110,6 @@
+ 6197eb3379ad5c5f99c499ab8b74eac5cf18e6df26a3f5c34c4e9bf83845593b  ./05-decisions/ADR-005-staged-collector-rollout.md
+ c3e9f23a90bd7fc9b47760d53c56fd6f09f73065dff5b19c1040ee5fd608a560  ./05-decisions/GEO-002-architecture-review.md
+ 1889f9cc1ae9f48f00b3c6bc5711586b866aa889c7b682ed3f68a86a01245608  ./CHANGELOG.md
+-344514b7abac39f92070e9b4a48241fdf045265ac431b4abe6fcf9bef1f627c7  ./README.md
++9b293298b0f54f297aa03c2e905b90011a408760e40e81ce9b5f423773533ba7  ./README.md
+ 36be92c676c3150e5953f01498418900d3e2bcc1f37a0bda31b9892e57b8a2d0  ./01-product/04-catalog-user-guide.md
+ a80ebe00c833b45a53bf82b140a84b9bb1a20a49bb37688cb233ef6d5e818782  ./04-delivery/07-r2-acceptance.md

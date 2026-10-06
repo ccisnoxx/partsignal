@@ -25,7 +25,9 @@ python3 deploy/scripts/create-release-manifest.py \
   --tracked-file deploy/nginx/partsignal-maintenance.conf.template \
   --tracked-file deploy/scripts/deploy.sh \
   --tracked-file deploy/scripts/activate-production.sh \
+  --tracked-file deploy/scripts/check-production-inputs.py \
   --tracked-file deploy/scripts/prepare-production-data.py \
+  --tracked-file deploy/scripts/production_upgrade_recovery.py \
   --tracked-file deploy/scripts/rollback-production-frontend.sh \
   --tracked-file deploy/nginx/partsignal.conf.template \
   --tracked-file deploy/nginx/partsignal-security-headers.conf \
@@ -47,6 +49,8 @@ python3 deploy/scripts/create-release-manifest.py \
 ```sh
 set -eu
 ps_env=/root/partsignal/shared/.env.production
+
+python3 ./deploy/scripts/check-production-inputs.py --deployment-boundary "$ps_env"
 test -f "$ps_env"
 test ! -L "$ps_env"
 test "$(stat -c '%a' "$ps_env")" = 600
@@ -200,6 +204,40 @@ COMPOSE_FILE=deploy/compose.prod.yaml \
 
 脚本只接受当前 Production 状态绑定 manifest 中的 `rollback_frontend` reference、image ID 与 RepoDigest，并在同一维护锁内执行 `--no-deps --no-build --pull never` frontend-only recreate；成功后记录活动 frontend 身份。前后比较 API、Worker、Scheduler、PostgreSQL、Redis container/image、DB revision、Nginx checksum 和 release record；只允许 frontend container/image 变化。V1 不属于 Production 回滚目标。
 
+### 未初始化升级的显式前向恢复
+
+只适用于旧版本已 initialized 后的 upgrade，当前 phase 为 UPGRADE_DEPLOYING 或 UPGRADE_PREPARED。clean-init、跨 schema、改变任何迁移 Python/SQL、无完整归档或无法证明静默均停止，由负责人另行设计备份恢复；不把 previous_candidate 直接恢复成 initialized。
+
+1. 保持已验证的公网 maintenance 503。取得绑定目标、失败 release/manifest SHA、新 release/manifest/image、维护窗口、停止/恢复负责人和具体操作的批准。`approval_ref` 只是批准记录引用，不是批准本身；本附录不授予远端操作权限。
+2. 保留失败状态、manifest、archive、迁移/启动日志和容器身份。修正版使用新不可变 release ID 和镜像，走 clean main 候选生产者；不要覆盖旧 tag/manifest/archive。registry 镜像交付如需 pull，须先按本次新身份交付并核对；恢复入口不隐式 pull，也不启动业务服务；仅执行身份检查与无数据离线探针。
+3. 在原维护窗口和维护锁下，使用**已绑定失败版本**的权威 Compose/runtime 停止 api、worker、scheduler、frontend、postgres、redis 和实际遗留 service，等待在途写入结束。恢复入口会核对完整固定 project 及其他运行容器的数据挂载；任一检查不确定即拒绝，不提供 force。
+4. 在修正版 release checkout 执行以下已替换为当次真实输入的精确命令（路径均为绝对普通文件；两个归档名须匹配各 manifest）：
+
+```sh
+PARTSIGNAL_VERSION="$fixed_release_id" \
+PARTSIGNAL_BACKEND_IMAGE="$fixed_backend_repository" \
+PARTSIGNAL_FRONTEND_IMAGE="$fixed_frontend_repository" \
+PARTSIGNAL_DATA_ROOT=/root/partsignal-data \
+PARTSIGNAL_RUNTIME_ENV_FILE=/root/partsignal/shared/.env.production \
+  python3 ./deploy/scripts/prepare-production-data.py recover-upgrade "$fixed_manifest_path" \
+  --failed-release-id "$failed_release_id" \
+  --failed-manifest-sha256 "$failed_manifest_sha256" \
+  --failed-manifest "$failed_manifest_path" \
+  --failed-source-archive "$failed_source_archive" \
+  --source-archive "$fixed_source_archive" \
+  --recovery-id upr_YYYYMMDD_HHMMSS \
+  --approval-ref "$approved_recovery_record_ref"
+```
+
+入口持有固定维护锁，按旧 state manifest sha 认证失败材料，按新 consumer 认证修正版，核对 schema/全部迁移树及旧失败、新修复两个镜像内内容（使用冻结 image ID；缺少旧镜像即停止）；offline probe 无网络、无挂载，不启动业务服务。成功仅原子记录显式接管，仍 UPGRADE_DEPLOYING，保存 failed/new 全身份和迁移 digest。不能重启旧或已失败镜像。
+
+5. 执行既有 `deploy.sh`，全部正常后才 UPGRADE_PREPARED；该恢复候选 prepared 前还须以权威 Compose 的 `--pull never --no-deps` backend 通过既有 preflight-integrity 和真实 alembic_version 检查。然后重新完成真实 AI/OSS Gate、身份、health 及单独 activation 批准，再执行 `activate-production.sh`。最后按独立授权恢复公网 Nginx；恢复入口不自动开放流量。
+6. 再次失败维持 maintenance，保存新失败候选和阶段。完全相同 recovery_id/输入仅在仍 deploying 且全服务停止时重放回执；不同输入、prepared/initialized 或旧请求均拒绝。再次修 artifact 必须新 release、新恢复 ID 与新批准，不能改旧回执。状态原子写前中断仍旧候选、写后中断固定新候选；读取状态后按唯一候选续跑，不手改或删除状态。
+
+run-locked 收到 SIGTERM/SIGINT 会转发子孙并等退出，锁不会在仍有部署子进程时释放。中断不等于 Engine 操作已回滚；核对实际容器、schema 和持久阶段，保留 maintenance。SIGKILL/断电不能运行进程清理，必须现场确认静默。
+
+恢复证据使用[升级恢复模板](./geo-monitoring/04-delivery/geo-1007-upgrade-recovery.template.yaml)，未知保持 null/NOT_VERIFIED。本地测试不证明目标服务器、公网 maintenance、备份、外部服务或批准已就绪。
+
 ## 10. 数据恢复
 
 如果 clean-init 或验收失败且决定恢复旧 Staging 数据，先停止新 service 并确认无新写入，保留日志/manifest/container evidence，再运行：
@@ -218,3 +256,9 @@ PARTSIGNAL_QUARANTINE_ROOT=/root/partsignal-data-quarantine \
 切换后检查回环、公网 HTTP、V2 artifact、登录后核心只读流、受控写、真实 AI/OSS、容器健康和资源。HTML/SPA 必须 `no-cache`，hashed assets 必须 immutable，missing asset/`.map` 必须 `404`，JS 无 `sourceMappingURL`，CSP/安全头只由外层 Nginx 持有，且 `/object-storage/` 不存在 Production 代理。
 
 观察期记录 Nginx 5xx/upstream、API error、restart/OOM、Worker/Scheduler、DB/Redis、AI/OSS 与核心业务结果。V1 源码/pipeline 已按 2026-08-29 开发阶段范围决策在仓库内退役，不代表 Observation Gate 已执行或为 `MET`；2026-08-29 开发任务的 Production Gate 均为 `CANCELLED_BY_SCOPE_DECISION / NOT_APPLICABLE`，不能由本轮继承。quarantine、旧 release/image、fake-oss 和 `.env.staging` 清理仍需破坏性授权。
+
+迁移镜像证明明确拒绝 Alembic 树中的 `.pyc/.pyo`，并拒绝两个冻结镜像、runtime 和宿主机环境中的非空 `PYTHONPYCACHEPREFIX`，防止树外 unchecked-hash 缓存改变实际 DDL；隔离探针仍读取原始环境键，不能因 `python -I` 忽略配置而漏检。禁写缓存不等于禁止读取缓存。canonical backend/Dockerfile 在 runtime/test 的 uv sync 后仅清理迁移缓存；历史含缓存镜像保持安全停止，不覆盖旧镜像。真实错误 unchecked-hash 缓存反例由 `test-upgrade-image-cache.py` 验证。
+
+首次 initialized→upgrade 在迁移之前由状态所有者验证 runtime/host 与冻结镜像默认环境不指定非空 PYTHONPYCACHEPREFIX，原子记录与完整 candidate 绑定的 DEFAULT_PYTHON_CACHE_V1 执行策略。恢复必须验证失败执行的既有策略；仅当前配置正常不足以证明历史。历史缺失、unknown 或候选错配均拒绝，不能在同候选重入或恢复时补造历史证明；保留 maintenance，另行设计显式备份 abort/recover。成功恢复绑定新策略，回执保留旧策略。历史 runtime 清除反例已用真实 Docker loader 与接管前状态测试验证。
+
+upgrade 镜像交付顺序：verify-upgrade-entry 通过完整 manifest consumer 并只读判定 phase/candidate → Compose config → registry pull（local不pull）→ frozen image ID/RepoDigest验证 → begin-upgrade 原子证明cache policy与绑定candidate → run/up。入场判定与begin共用状态所有者规则；错误manifest/另一候选在pull前拒绝，registry未缓存镜像不能要求先inspect；pull/identity/policy失败均不开始首次upgrade。clean-init时序保持原合同。

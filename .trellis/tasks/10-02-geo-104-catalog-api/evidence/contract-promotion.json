@@ -1,0 +1,9 @@
+{
+  "catalog_path_items_identical": true,
+  "extension_removed": true,
+  "existing_path_items_identical": true,
+  "changed_schema_names": [
+    "DeletionBlockerType"
+  ],
+  "added_operation_count": 12
+}

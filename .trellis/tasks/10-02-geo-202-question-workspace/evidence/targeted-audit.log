@@ -1,0 +1,34 @@
+
+> partsignal-frontend-v2@0.1.0 test
+> vitest run src/domains/audit/audit.model.test.ts
+
+
+ RUN  v4.1.10 /Users/sc/PycharmProjects/partsignal/frontend
+
+ ❯ src/domains/audit/audit.model.test.ts (16 tests | 1 failed) 13ms
+     × 问题变体审计按登记类型跳转详情，已删除资源不显示入口 2ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/domains/audit/audit.model.test.ts > 系统审计 model > 问题变体审计按登记类型跳转详情，已删除资源不显示入口
+AssertionError: expected '创建 GEO 问题变体' to be '创建问题变体' // Object.is equality
+
+Expected: "创建问题变体"
+Received: "创建 GEO 问题变体"
+
+ ❯ src/domains/audit/audit.model.test.ts:315:45
+    313|       href: `/geo/questions?variant_id=${runtimeLog.target_id}`, label…
+    314|     });
+    315|     expect(auditActionLabel(detail.action)).toBe('创建问题变体');
+       |                                             ^
+    316|     const missing = parseAuditLogDetailResponse(runtimeDetail({
+    317|       action: 'geo_prompt_variant.deleted', target_type: 'GeoPromptVar…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 15 passed (16)
+   Start at  06:32:38
+   Duration  350ms (transform 23ms, setup 47ms, import 27ms, tests 13ms, environment 205ms)
+

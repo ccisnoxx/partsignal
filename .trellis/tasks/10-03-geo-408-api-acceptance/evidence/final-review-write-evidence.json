@@ -1,0 +1,5 @@
+{
+  "tool_call_count": 27,
+  "observed_write_paths": [],
+  "evidence": "完整custom tool输入核对，只有读取、内存hash/patch还原及查询结果，不含写工具、文件写入、服务启动或Git修改；独立最终报告也明确只读。"
+}

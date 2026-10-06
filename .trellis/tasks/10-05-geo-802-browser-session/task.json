@@ -1,0 +1,41 @@
+{
+  "id": "geo-802-browser-session",
+  "name": "geo-802-browser-session",
+  "title": "GEO-802 浏览器会话加密引用和撤销流程",
+  "description": "浏览器会话加密引用、人工导入/健康/撤销、安全访问与审计",
+  "status": "completed",
+  "dev_type": "fullstack",
+  "scope": "GEO-802",
+  "package": null,
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-10-05",
+  "completedAt": "2026-10-05",
+  "branch": "geo/GEO-802",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "backend/app/services/geo_browser_sessions.py",
+    "contracts/openapi.yaml",
+    "contracts/database.md"
+  ],
+  "notes": "实现与本地验证完成；独立复核问题已修正，审计关闭校验。待人工验收，不自行done，不提交或上线。 2026-10-05 本会话用户已人工审查并接受GEO-802的实现与测试证据；本次仅记录验收，manifest=done、Trellis=completed，不修改其他任务状态、不实施后续任务，不提交、推送或归档。",
+  "meta": {
+    "alembic_revision": "0063_geo_browser_sessions",
+    "review_evidence": "evidence/independent-review.md",
+    "audit_id": "20261005T084954Z-geo-802-95ef7b23",
+    "manifest_status": "done",
+    "delivery_status": "done",
+    "accepted_at": "2026-10-05",
+    "accepted_by": "本会话用户",
+    "accepted_scope": "GEO-802浏览器会话加密引用和撤销流程的实现与已记录测试证据；不包含后续任务。",
+    "acceptance_basis": "用户明确表示：我已经人工审查并接受 GEO-802 的实现与测试证据。",
+    "validation_record": ".trellis/tasks/10-05-geo-802-browser-session/implement.md"
+  }
+}

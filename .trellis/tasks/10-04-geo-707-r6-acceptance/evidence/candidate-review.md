@@ -1,0 +1,9 @@
+# GEO-707 独立候选复核
+
+critical_reviewer /root/candidate_review；fresh、只读，未观察到写入，主代理接受其具体源码/合同/证据复核交付。未确认需要修正的候选缺陷。四个核心运行时/审计model文件的本轮diff反向应用后SHA256与初始匹配；90个相关OpenAPI/Alembic/规则/事务文件哈希未改变，无新revision。数据库合同当时仅末尾707段。全部已定稿evaluator调用者显式request_id，未进入fingerprint。
+
+真实CREATED单次opened，replay/UPDATED/旁路唯一键败者/SUPPRESSED/未触发不opened；原权限、User/Catalog/advisory/Opportunity锁序和统一rollback不变。append_audit仅add不commit；minimal facts revision/status，前端只登记已证实的retest字段，未知字段/复杂值/原型拒绝保留。PG实际规则、幂等行动、发布完成、严格复测、实际分析和必要publicreview、RECOVERED不自动关闭、显式RETESTresolve及五段脱敏审计断言覆盖实质风险。
+
+边界：审计失败注入在append_audit入口，没有直接注入PG审计INSERT/commit失败；后者依现有同事务commit和command异常rollback。PG准备采集事实与已批准稿，不能证明采集/编辑/审批页面；本次独立review未读取正在编写的浏览器四个文件，不代表其或完整R6门禁通过。主代理另行实测和自查。
+
+永久审计读兼容风险已在数据库合同、设计、Brief和R6报告补充：写入opened后，停止写入可以回退evaluator增量，必须保留后端动作登记与前端消费登记或前向修复，不删除历史。本任务无生产发布。

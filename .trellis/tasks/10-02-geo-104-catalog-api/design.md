@@ -1,0 +1,13 @@
+# GEO-104 设计
+
+复用GEO-103纯策略/投影，命令与读取按稳定职责分开。geo_subjects.py继续作为纯projector；geo_catalog_queries.py拥有一致批量查询；geo_catalog.py拥有写命令；geo_catalog_locks.py拥有固定锁序和锁后revision/身份复核。
+
+写服务获取Product（OWN_PRODUCT）、品牌（目标是品牌时参与此阶段，以及旧/新品牌）、Subject、子项锁。初读身份只供锁集合，目标行populate_existing强制刷新；锁后revision与父绑定漂移拒绝REVISION_CONFLICT，不在锁序之后追锁新品牌。成功投影在持锁事务里形成后commit；一切异常root rollback。命中指定业务flush错误才转AppError，commit/audit错误不猜测。
+
+读服务在身份读取前设置REPEATABLE READ并关闭autoflush；只读请求的认证last_seen按既有session生命周期不提交，也不能在资源SELECT前自动UPDATE会话而产生写锁/序列化故障。批量加载Product、父级、全部Alias/Domain和CHILD_SUBJECT计数；总数/页items同一快照。未来域尚无表，根合同允许明确零；新增业务引用必须同时接入计数/FK/Subject锁和反例，禁止自动探测缺表并静默降级。
+
+Product投影/删除统一增加包括停用身份的GEO_SUBJECT直接引用；User业务历史统计增加created_by，延用既有身份生命周期锁/FK边界。Catalog写不修改Product/User。Catalog审计使用既有CONFIGURATION模块、动作白名单及受控revision/is_active事实；不保存名称、别名、hostname、description或事实正文。
+
+无新DDL/Alembic、历史迁移或外部调用；无Catalog前端页面。新增12操作直接使用真实Schema/依赖和error_responses，禁止runtime overlay/豁免。
+
+搜索 q 与当前Product/显示名称使用同一 NFKC、Unicode空白折叠及casefold键。PostgreSQL16 lower不等于完整Unicode casefold，所以在同一RR快照按已有结构筛选批量读取并按500行分批处理 id/display_name/当前Product型号品牌；只保存匹配UUID列表，以单个UUID ARRAY绑定回现有SQL count/page及字典规范键条件。搜索不删除型号分隔符/后缀，Product或显示名称读取不施加Catalog写入的240字符键上限，不新增持久化名称副本。该q查询扫描结构筛选后的名称行，成本随其数量增长，尚无大规模性能基准；不是每行查询。

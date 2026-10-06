@@ -1,0 +1,4 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend mypy --config-file backend/pyproject.toml backend/app
+backend/app/schemas/geo_monitoring_plans.py:93: error: Incompatible types (expression has type "Callable[[dict[str, object]], None]", TypedDict item "json_schema_extra" has type "JsonDict | Callable[[JsonDict], None] | Callable[[JsonDict, type[Any]], None] | None")  [typeddict-item]
+Found 1 error in 1 file (checked 109 source files)
+make: *** [typecheck] Error 1

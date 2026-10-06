@@ -1,0 +1,542 @@
+--- before/contracts/openapi.yaml
++++ after/contracts/openapi.yaml
+@@ -5052,7 +5052,7 @@
+       enum: [ENABLED, DISABLED]
+     DeletionBlockerType:
+       type: string
+-      enum: [FACT_VERSION, CONTENT_TASK, GEO_OBSERVATION, GEO_SUBJECT, CONTENT_VERSION, GENERATION_JOB, PUBLISHED_ARTICLE, PLATFORM_PROFILE, PLATFORM_ACCOUNT, PUBLICATION_WORK, PROTECTED_CONTENT_VERSION, PUBLISHED_CONTENT_ISSUE, GEO_OPTIMIZATION_SOURCE, USER_BUSINESS_HISTORY]
++      enum: [FACT_VERSION, CONTENT_TASK, GEO_OBSERVATION, GEO_SUBJECT, GEO_PROMPT_VARIANT, CONTENT_VERSION, GENERATION_JOB, PUBLISHED_ARTICLE, PLATFORM_PROFILE, PLATFORM_ACCOUNT, PUBLICATION_WORK, PROTECTED_CONTENT_VERSION, PUBLISHED_CONTENT_ISSUE, GEO_OPTIMIZATION_SOURCE, USER_BUSINESS_HISTORY]
+     DeletionBlocker:
+       type: object
+       additionalProperties: false
+@@ -10606,3 +10606,156 @@
+           items:
+             $ref: '#/components/schemas/GeoSubjectDeletionBlocker'
+       description: 删除预检 conflict 的 details；数据库 FK 最终冲突的 details 为 {}，不在 rollback 后猜测引用数。
++    GeoPromptMentionMode:
++      enum:
++      - BRANDED
++      - UNBRANDED
++      type: string
++    GeoPromptPriority:
++      enum:
++      - CORE
++      - STANDARD
++      - EXPLORATORY
++      type: string
++    GeoPromptVariantCreate:
++      additionalProperties: false
++      properties:
++        query_topic_id:
++          format: uuid
++          type: string
++        prompt_text:
++          maxLength: 8000
++          minLength: 1
++          pattern: ^[^\x00]*[^\s\x00][^\x00]*$
++          type: string
++        mention_mode:
++          $ref: '#/components/schemas/GeoPromptMentionMode'
++        language_code:
++          maxLength: 16
++          minLength: 2
++          pattern: ^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$
++          type: string
++        region_code:
++          maxLength: 2
++          minLength: 2
++          pattern: ^[A-Za-z]{2}$
++          type: string
++        priority:
++          $ref: '#/components/schemas/GeoPromptPriority'
++      required:
++      - query_topic_id
++      - prompt_text
++      - mention_mode
++      - language_code
++      - region_code
++      - priority
++      type: object
++      description: GEO-201 组件，GEO-202 接线端点。语言/地区/模式/优先级必须显式提供；文本 NFKC 与 Unicode 空白折叠，保留大小写、标点与型号后缀。创建者由服务端身份确定。
++    GeoPromptVariantUpdate:
++      additionalProperties: false
++      minProperties: 2
++      properties:
++        expected_revision:
++          minimum: 0
++          type: integer
++        prompt_text:
++          maxLength: 8000
++          minLength: 1
++          pattern: ^[^\x00]*[^\s\x00][^\x00]*$
++          type: string
++        mention_mode:
++          $ref: '#/components/schemas/GeoPromptMentionMode'
++        language_code:
++          maxLength: 16
++          minLength: 2
++          pattern: ^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$
++          type: string
++        region_code:
++          maxLength: 2
++          minLength: 2
++          pattern: ^[A-Za-z]{2}$
++          type: string
++        priority:
++          $ref: '#/components/schemas/GeoPromptPriority'
++      required:
++      - expected_revision
++      type: object
++      description: 仅未引用变体允许编辑。PATCH 只写显式字段；必须携带 expected_revision。历史后只能停用，新语义创建新变体。
++    GeoPromptVariantRevisionRequest:
++      additionalProperties: false
++      properties:
++        expected_revision:
++          minimum: 0
++          type: integer
++      required:
++      - expected_revision
++      type: object
++    GeoPromptVariantOut:
++      additionalProperties: false
++      properties:
++        id:
++          format: uuid
++          type: string
++        query_topic_id:
++          format: uuid
++          type: string
++        prompt_text:
++          maxLength: 8000
++          minLength: 1
++          pattern: ^[^\x00]*[^\s\x00][^\x00]*$
++          type: string
++        mention_mode:
++          $ref: '#/components/schemas/GeoPromptMentionMode'
++        language_code:
++          maxLength: 16
++          minLength: 2
++          pattern: ^[a-z]{2,8}(-[a-z0-9]{1,8})*$
++          type: string
++        region_code:
++          maxLength: 2
++          minLength: 2
++          pattern: ^[A-Z]{2}$
++          type: string
++        priority:
++          $ref: '#/components/schemas/GeoPromptPriority'
++        is_active:
++          type: boolean
++        revision:
++          minimum: 0
++          type: integer
++        first_referenced_at:
++          anyOf:
++          - format: date-time
++            type: string
++          - type: 'null'
++        created_by:
++          format: uuid
++          type: string
++        created_at:
++          format: date-time
++          type: string
++        updated_at:
++          format: date-time
++          type: string
++      required:
++      - id
++      - query_topic_id
++      - prompt_text
++      - mention_mode
++      - language_code
++      - region_code
++      - priority
++      - is_active
++      - revision
++      - first_referenced_at
++      - created_by
++      - created_at
++      - updated_at
++      type: object
++      description: 首次引用标记由真实运行消费者同事务设置且不可清除。内部 generated normalized_hash 不作为可写或公共字段。
++    GeoPromptVariantErrorCode:
++      type: string
++      enum:
++      - GEO_PROMPT_VARIANT_EXISTS
++      - GEO_PROMPT_VARIANT_IN_USE
++      - GEO_PROMPT_VARIANT_IMMUTABLE
+--- before/contracts/database.md
++++ after/contracts/database.md
+@@ -10,9 +10,49 @@
+ - JSONB is limited to immutable generation snapshots, structured generation output, and audit details. Editable product facts use one Markdown body on `products`; platform rules and normalized fact subgraphs no longer exist after `0025`.
+ - Review records, publication work events, publication verifications, observations, and audit logs cannot be modified in place。`0027` 仅在物理删除停用用户时允许把匹配 `audit_logs.actor_id` 置空；`0029` 允许管理员按完整更正链删除人工 GEO 观测；`0037` 允许普通删除未成功发布的任务聚合，并允许管理员永久删除已归档任务聚合。发布与 GEO 历史在保留期间仍禁止原地改写，删除只能从显式业务命令进入。
+ 
++## GEO PromptVariant 合同（GEO-201 / R1）
++
++`0045_geo_prompt_variants` 在 0044 后仅 expand 一张表。复用 `query_topics`，不迁移或替换其旧 `variants` 数组，不回填历史观测，也不创建 Batch/Run。数据库要求 UTF8。
++
++| 字段 | 类型 / 默认 | 合同 |
++|---|---|---|
++| id | UUID NOT NULL | pk_geo_prompt_variants |
++| query_topic_id | UUID NOT NULL | fk_geo_prompt_variants_topic → query_topics.id RESTRICT |
++| prompt_text | text NOT NULL | NFKC + Unicode 空白折叠，1..8000 字符，保留大小写、标点含义、连字符与型号后缀；拒绝 NUL |
++| normalized_hash | varchar(64) GENERATED ALWAYS STORED NOT NULL | geo_prompt_text_hash(prompt_text)，UTF8 SHA-256 hex；客户端不可写 |
++| mention_mode | varchar(16) NOT NULL | BRANDED / UNBRANDED |
++| language_code | varchar(16) NOT NULL | 2..16 字符，小写语言标签，^[a-z]{2,8}(-[a-z0-9]{1,8})*$ |
++| region_code | varchar(16) NOT NULL | 两位大写 ASCII 代码；只验证格式，不推断注册真实性 |
++| priority | varchar(16) NOT NULL | CORE / STANDARD / EXPLORATORY |
++| is_active | boolean NOT NULL DEFAULT true | 停用仍占唯一键 |
++| revision | integer NOT NULL DEFAULT 0 | 有效变更恰好 +1，no-op 不递增 |
++| first_referenced_at | timestamptz NULL | 内部不可逆首次运行引用锁存，>= created_at |
++| created_by | UUID NOT NULL | fk_geo_prompt_variants_creator → users.id RESTRICT，来自服务端操作者 |
++| created_at / updated_at | timestamptz NOT NULL DEFAULT now() | 创建追溯不可变；有效变更由 Application Service 写 updated_at，单调不减 |
++
++`uq_geo_prompt_variants_identity UNIQUE(query_topic_id,normalized_hash,mention_mode,language_code,region_code)` 包括停用行，不包括 priority。`ix_geo_prompt_variants_topic_active(query_topic_id,is_active)` 与 `ix_geo_prompt_variants_created_by(created_by)` 支持读取与删除预检。CHECK 名称为 `ck_geo_prompt_variants_` + `prompt` / `mention_mode` / `language` / `region` / `priority` / `revision_nonnegative` / `reference_time`。
++
++`geo_normalize_prompt_text` 冻结 NFKC 与 Python Unicode whitespace 的 29 个码点集合。保存 canonical prompt_text，以 generated hash 防伪；不使用大小写折叠或型号去后缀。NFKC 会规范全角标点。`geo_prompt_text_hash` 固定 UTF8 转换，避免 PostgreSQL convert_to 的 STABLE 属性阻止生成列；函数不会受会话编码参数影响。
++
++`geo_prompt_variant_guard` 保护 INSERT/UPDATE/DELETE：创建必须 revision=0、首次引用空；id/topic/creator/created_at 不可改；首次引用只能在活动且语义未变的行上设置；标记不能清除或改写。已引用后五项语义配置冻结，只允许 active→disabled（重复停用为 no-op），不允许删除或重新启用。新问题必须新建变体。历史门禁采用本任务明确的更严格要求；不是修改历史后仅影响未来。
++
++未来真实运行创建者必须与其真实引用 FK（RESTRICT）一起接入：Application Service 按 User→QueryTopic→PromptVariant 顺序锁定，锁后校验角色、归属、活动和 expected_revision，设置 first_referenced_at、revision+1、updated_at 并冻结输入，与运行记录及成功审计同事务提交。后续消费者不得只写 FK 而遗漏锁存；运行引用失败时锁存同事务回滚。首次引用标记自身不是 Run，GEO-201 的测试验证锁存边界，不宣称真实 Run 已实现。
++
++QueryTopic 删除预检/投影包括全部变体（含停用），`GEO_PROMPT_VARIANT` 为公共 deletion blocker；旧引用摘要三个计数字段保持原合同。User 删除计入 created_by 并沿用 USER_BUSINESS_HISTORY。不存在新的前端路由、URL 状态或 query key。
++
++| 稳定数据库失败 | 后续应用映射义务（GEO-202 接线） |
++|---|---|
++| 23505 + uq_geo_prompt_variants_identity | 409 GEO_PROMPT_VARIANT_EXISTS |
++| 历史删除预检；23514 + ck_geo_prompt_variants_history | DELETE: 409 GEO_PROMPT_VARIANT_IN_USE；编辑/启用: 409 GEO_PROMPT_VARIANT_IMMUTABLE |
++| 锁后 expected_revision 不符 | 409 REVISION_CONFLICT，不自动重放 |
++| 23503 + fk_geo_prompt_variants_topic / creator | QueryTopic / User 删除冲突，现有 IN_USE 语义 |
++| 23514 + initial / identity / revision_step / updated_at | 写入者合同错误，不能吞错或伪装成功 |
++
++未知 SQLSTATE / constraint 保持显式失败。无新 HTTP 端点或审计动作；本任务只冻结组件与持久化边界。唯一键仲裁并发创建；行锁与触发器仲裁引用/编辑交错。no-op 不改 updated_at，不凭空递增 revision。降级主动 SQLSTATE 55000 失败，事务 DDL 保留全部数据与 revision；恢复使用前向修复，不允许 DROP 历史表。
++
+ ## GEO Catalog 合同（GEO-101 / R1；GEO-102 ORM/Alembic；GEO-103 Schema/策略）
+ 
+-本节冻结 GeoSubject/Alias/Domain 合同。GEO-102 已实现三表 ORM、模型注册及 `0044_geo_catalog`，当前源码 head 从 `0043_geo_platform_identity` 前滚；这不表示生产数据库已迁移。GEO-103 已实现 Schema、规范化、真实父子/别名歧义与无 I/O 的 stage/actions/deletion/当前 Product 投影；GEO-104 CRUD Application Service/Router 已接线并完成验收。公共 Schema 和标准操作分别见 `contracts/openapi.yaml` 的 `components.schemas.Geo*Subject*` 与 `paths./api/v1/geo/subjects`。既有文章关系 GEO、Product/FactVersion 与历史迁移均保持独立。
++本节冻结 GeoSubject/Alias/Domain 合同。GEO-102 已实现三表 ORM、模型注册及 `0044_geo_catalog`，Catalog revision 从 `0043_geo_platform_identity` 前滚（当前 head 为 0045 PromptVariant）；这不表示生产数据库已迁移。GEO-103 已实现 Schema、规范化、真实父子/别名歧义与无 I/O 的 stage/actions/deletion/当前 Product 投影；GEO-104 CRUD Application Service/Router 已接线并完成验收。公共 Schema 和标准操作分别见 `contracts/openapi.yaml` 的 `components.schemas.Geo*Subject*` 与 `paths./api/v1/geo/subjects`。既有文章关系 GEO、Product/FactVersion 与历史迁移均保持独立。
+ 
+ ### 身份、归属与规范化
+ 
+--- before/frontend/src/domains/content/content-task-lifecycle.tsx
++++ after/frontend/src/domains/content/content-task-lifecycle.tsx
+@@ -284,6 +284,7 @@
+   CONTENT_TASK: '内容任务',
+   GEO_OBSERVATION: 'GEO 观测',
+   GEO_SUBJECT: 'GEO 监测对象',
++  GEO_PROMPT_VARIANT: 'GEO 问题变体',
+   CONTENT_VERSION: '内容版本',
+   GENERATION_JOB: '运行中的生成作业',
+   PUBLISHED_ARTICLE: '已发布成果',
+--- before/frontend/src/app/auth/auth-provider.tsx
++++ after/frontend/src/app/auth/auth-provider.tsx
+@@ -103,6 +103,7 @@
+   'CONTENT_TASK',
+   'GEO_OBSERVATION',
+   'GEO_SUBJECT',
++  'GEO_PROMPT_VARIANT',
+   'CONTENT_VERSION',
+   'GENERATION_JOB',
+   'PUBLISHED_ARTICLE',
+--- before/frontend/src/shared/api/generated/schema.d.ts
++++ after/frontend/src/shared/api/generated/schema.d.ts
+@@ -2305,7 +2305,7 @@
+         /** @enum {string} */
+         UserStatus: "ENABLED" | "DISABLED";
+         /** @enum {string} */
+-        DeletionBlockerType: "FACT_VERSION" | "CONTENT_TASK" | "GEO_OBSERVATION" | "GEO_SUBJECT" | "CONTENT_VERSION" | "GENERATION_JOB" | "PUBLISHED_ARTICLE" | "PLATFORM_PROFILE" | "PLATFORM_ACCOUNT" | "PUBLICATION_WORK" | "PROTECTED_CONTENT_VERSION" | "PUBLISHED_CONTENT_ISSUE" | "GEO_OPTIMIZATION_SOURCE" | "USER_BUSINESS_HISTORY";
++        DeletionBlockerType: "FACT_VERSION" | "CONTENT_TASK" | "GEO_OBSERVATION" | "GEO_SUBJECT" | "GEO_PROMPT_VARIANT" | "CONTENT_VERSION" | "GENERATION_JOB" | "PUBLISHED_ARTICLE" | "PLATFORM_PROFILE" | "PLATFORM_ACCOUNT" | "PUBLICATION_WORK" | "PROTECTED_CONTENT_VERSION" | "PUBLISHED_CONTENT_ISSUE" | "GEO_OPTIMIZATION_SOURCE" | "USER_BUSINESS_HISTORY";
+         DeletionBlocker: {
+             type: components["schemas"]["DeletionBlockerType"];
+             count: number;
+@@ -5922,6 +5922,55 @@
+         GeoSubjectInUseDetails: {
+             references: components["schemas"]["GeoSubjectDeletionBlocker"][];
+         };
++        /** @enum {string} */
++        GeoPromptMentionMode: "BRANDED" | "UNBRANDED";
++        /** @enum {string} */
++        GeoPromptPriority: "CORE" | "STANDARD" | "EXPLORATORY";
++        /** @description GEO-201 组件，GEO-202 接线端点。语言/地区/模式/优先级必须显式提供；文本 NFKC 与 Unicode 空白折叠，保留大小写、标点与型号后缀。创建者由服务端身份确定。 */
++        GeoPromptVariantCreate: {
++            /** Format: uuid */
++            query_topic_id: string;
++            prompt_text: string;
++            mention_mode: components["schemas"]["GeoPromptMentionMode"];
++            language_code: string;
++            region_code: string;
++            priority: components["schemas"]["GeoPromptPriority"];
++        };
++        /** @description 仅未引用变体允许编辑。PATCH 只写显式字段；必须携带 expected_revision。历史后只能停用，新语义创建新变体。 */
++        GeoPromptVariantUpdate: {
++            expected_revision: number;
++            prompt_text?: string;
++            mention_mode?: components["schemas"]["GeoPromptMentionMode"];
++            language_code?: string;
++            region_code?: string;
++            priority?: components["schemas"]["GeoPromptPriority"];
++        };
++        GeoPromptVariantRevisionRequest: {
++            expected_revision: number;
++        };
++        /** @description 首次引用标记由真实运行消费者同事务设置且不可清除。内部 generated normalized_hash 不作为可写或公共字段。 */
++        GeoPromptVariantOut: {
++            /** Format: uuid */
++            id: string;
++            /** Format: uuid */
++            query_topic_id: string;
++            prompt_text: string;
++            mention_mode: components["schemas"]["GeoPromptMentionMode"];
++            language_code: string;
++            region_code: string;
++            priority: components["schemas"]["GeoPromptPriority"];
++            is_active: boolean;
++            revision: number;
++            first_referenced_at: string | null;
++            /** Format: uuid */
++            created_by: string;
++            /** Format: date-time */
++            created_at: string;
++            /** Format: date-time */
++            updated_at: string;
++        };
++        /** @enum {string} */
++        GeoPromptVariantErrorCode: "GEO_PROMPT_VARIANT_EXISTS" | "GEO_PROMPT_VARIANT_IN_USE" | "GEO_PROMPT_VARIANT_IMMUTABLE";
+     };
+     responses: {
+         /** @description 业务或校验错误 */
+--- before/backend/app/models/__init__.py
++++ after/backend/app/models/__init__.py
+@@ -5,6 +5,7 @@
+ import app.models.content  # noqa: F401
+ import app.models.geo_catalog  # noqa: F401
+ import app.models.geo_files  # noqa: F401
++import app.models.geo_prompt_variants  # noqa: F401
+ import app.models.identity  # noqa: F401
+ import app.models.product_facts  # noqa: F401
+ import app.models.publication  # noqa: F401
+--- before/backend/app/schemas/common.py
++++ after/backend/app/schemas/common.py
+@@ -38,6 +38,7 @@
+     CONTENT_TASK = "CONTENT_TASK"
+     GEO_OBSERVATION = "GEO_OBSERVATION"
+     GEO_SUBJECT = "GEO_SUBJECT"
++    GEO_PROMPT_VARIANT = "GEO_PROMPT_VARIANT"
+     CONTENT_VERSION = "CONTENT_VERSION"
+     GENERATION_JOB = "GENERATION_JOB"
+     PUBLISHED_ARTICLE = "PUBLISHED_ARTICLE"
+--- before/backend/app/services/content_planning.py
++++ after/backend/app/services/content_planning.py
+@@ -14,6 +14,7 @@
+ from app.models.configuration import PlatformProfile, PlatformPrompt, PlatformType, QueryTopic
+ from app.models.content import ContentTask, ContentTaskGeoSource
+ from app.models.geo_files import GeoObservation
++from app.models.geo_prompt_variants import GeoPromptVariant
+ from app.models.identity import User
+ from app.models.product_facts import FactVersion, Product
+ from app.schemas.configuration import (
+@@ -35,6 +36,7 @@
+     ("CONTENT_TASK", "内容任务"),
+     ("GEO_OPTIMIZATION_SOURCE", "GEO 优化来源"),
+     ("GEO_OBSERVATION", "GEO 观测"),
++    ("GEO_PROMPT_VARIANT", "GEO 问题变体"),
+ )
+ 
+ 
+@@ -80,6 +82,10 @@
+             GeoObservation.query_topic_id.label("resource_id"),
+             literal("GEO_OBSERVATION").label("blocker_type"),
+         ).where(GeoObservation.query_topic_id.in_(topic_ids)),
++        select(
++            GeoPromptVariant.query_topic_id.label("resource_id"),
++            literal("GEO_PROMPT_VARIANT").label("blocker_type"),
++        ).where(GeoPromptVariant.query_topic_id.in_(topic_ids)),
+     ).subquery()
+     return {
+         (resource_id, blocker_type): int(count)
+--- before/backend/app/services/identity.py
++++ after/backend/app/services/identity.py
+@@ -24,6 +24,7 @@
+ from app.models.content import ContentReviewRecord, ContentTask, ContentVersion
+ from app.models.geo_catalog import GeoSubject
+ from app.models.geo_files import FileRecord, GeoObservation
++from app.models.geo_prompt_variants import GeoPromptVariant
+ from app.models.identity import (
+     SessionRecord,
+     User,
+@@ -90,6 +91,7 @@
+         ContentReviewRecord.actor_id,
+         GeoObservation.tested_by,
+         GeoSubject.created_by,
++        GeoPromptVariant.created_by,
+         FileRecord.uploader_id,
+         FactVersion.created_by,
+         FactVersion.approved_by,
+--- before/backend/tests/integration/test_migrations.py
++++ after/backend/tests/integration/test_migrations.py
+@@ -326,7 +326,7 @@
+ 
+         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+             cursor.execute("SELECT version_num FROM alembic_version")
+-            assert cursor.fetchone() == ("0044_geo_catalog",)
++            assert cursor.fetchone() == ("0045_geo_prompt_variants",)
+             cursor.execute(
+                 "SELECT tablename FROM pg_tables "
+                 "WHERE schemaname = 'public' AND tablename = ANY(%s)",
+@@ -484,10 +484,10 @@
+             text=True,
+         )
+         assert downgrade.returncode != 0
+-        assert "0044 GEO Catalog 无法安全降级" in downgrade.stdout + downgrade.stderr
++        assert "0045 GEO PromptVariant 无法安全降级" in downgrade.stdout + downgrade.stderr
+         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+             cursor.execute("SELECT version_num FROM alembic_version")
+-            assert cursor.fetchone() == ("0044_geo_catalog",)
++            assert cursor.fetchone() == ("0045_geo_prompt_variants",)
+ 
+ 
+ @pytest.mark.integration
+--- before/backend/tests/integration/test_geo_catalog.py
++++ after/backend/tests/integration/test_geo_catalog.py
+@@ -138,7 +138,7 @@
+                 (ids["observation"], ids["topic"], ids["product"], ids["actor"]),
+             )
+             before = legacy_snapshot(connection, ids)
+-        run_alembic(env, backend_dir, "head")
++        run_alembic(env, backend_dir, "0044_geo_catalog")
+         with psycopg.connect(url) as connection:
+             for key, kind in [
+                 ("own_brand", "OWN_BRAND"),
+--- before/docs/geo-monitoring/CHANGELOG.md
++++ after/docs/geo-monitoring/CHANGELOG.md
+@@ -1,4 +1,12 @@
+ # 文档包变更记录
++
++## GEO-201 PromptVariant 契约与数据模型 — 2026-10-02（review）
++
++- 确认 GEO-003、GEO-101 均 done，按 planned→in_progress→review 交付；本地原已位于 geo/GEO-201，保留共享工作树，未提交或自行 done。
++- 新增一张 geo_prompt_variants，复用 QueryTopic；公共 closed Schema、BRANDED/UNBRANDED、语言、地区、CORE/STANDARD/EXPLORATORY、revision 及 generated types 一致，无 GEO-202 operation 或页面。
++- 0045 只 expand，不回填旧 variants 或改写旧 GEO；UTF8 SHA-256 generated hash、NFKC/Unicode 空白规范化、含停用的五维 UNIQUE、RESTRICT FK 及命名历史/revision 守卫。按当前任务要求收紧历史变体为只能停用，真实消费者未来必须同事务锁存+快照+RESTRICT 引用。
++- QueryTopic/User 删除预检计入新表；既有前端仅同步 blocker。27 项初始定向、后端980/前端926单元、481 PostgreSQL 集成及指定合同/静态检查通过，复核后时间守卫补测的最终定向28项通过。独立只读复核无确认阻断问题；coverage gap 与审计证据见 implement.md。
++- 隔离 PostgreSQL 16 前滚与安全拒绝降级验证通过；无生产迁移、真实 AI/采集或回答级 Run。未运行 E2E/完整 verify/浏览器矩阵，不能声称这些门禁通过。
+ 
+ ## GEO-106 Catalog 纵向验收和产品引导 — 2026-10-02（review）
+ 
+--- before/docs/geo-monitoring/README.md
++++ after/docs/geo-monitoring/README.md
+@@ -29,6 +29,8 @@
+ GEO-105 / R1 已实现 `/configuration/geo-entities` 监测对象与竞品工作台，已于 2026-10-02 经用户接受，状态为 `done`。页面支持搜索筛选、详情、五类身份、别名/域名、启停与服务端删除阻断；ENGINEER 只读，409 与后台刷新失败保留草稿，写命令不自动重放。实现范围、指定验证、独立复核修正和浏览器布局/键盘证据见 [Task Brief](../../.trellis/tasks/10-02-geo-105-catalog-ui/prd.md) 与 [实施证据](../../.trellis/tasks/10-02-geo-105-catalog-ui/implement.md)。无公共 API/数据库语义变更、Alembic revision 或外部调用；GEO-106 的真实 API 纵向验收和产品引导已进入实施，状态与证据见下文。
+ 
+ GEO-106 / R1 已完成本地验证，当前为 `review`，只补真实 API Catalog 纵向验收、产品事实不变证据和 [Catalog 使用指南](./01-product/04-catalog-user-guide.md)，不新增运行时能力。Catalog 验收通过；完整门禁仍有未修改上传测试/编辑器焦点断言失败，当前域名搜索缺口已在指南说明。范围及逐项验证见 [Task Brief](../../.trellis/tasks/10-02-geo-106-catalog-acceptance/prd.md) 和 [实施记录](../../.trellis/tasks/10-02-geo-106-catalog-acceptance/implement.md)。
++
++GEO-201 / R1 已新增问题变体合同、ORM 与 `0045_geo_prompt_variants`，复用 QueryTopic，明确 BRANDED/UNBRANDED、语言、地区、优先级及 revision。历史引用后只能停用，首次引用不可逆；无 GEO-202 端点或回答级 Run。交付状态与逐项验证见 [Task Brief](../../.trellis/tasks/10-02-geo-201-prompt-variant/prd.md) 和 [实施证据](../../.trellis/tasks/10-02-geo-201-prompt-variant/implement.md)。
+ 
+ ## 1. 文档包用途
+ 
+--- before/docs/geo-monitoring/SHA256SUMS
++++ after/docs/geo-monitoring/SHA256SUMS
+@@ -1,15 +1,15 @@
+ 0ec5e67515fa5c383612130415bfc70185a607ac65006fcc932dd750c137bbde  ./00-governance/01-document-governance.md
+ b5906690eb04c8d27911a09722761e7cf4c244ecab2fbe39a55d94c794ee8728  ./00-governance/02-glossary.md
+ 670367ab19f32e811ec651a5be24a9ca062699f1fec60571c97b055ac7f1fb15  ./01-product/01-product-vision-and-scope.md
+-5c60a5f297e13455c54f9f3c67ed35de5d3cab38f975cf8bfcbba866422674ab  ./01-product/02-geo-core-prd.md
++ec0fdeee9676b701a88d637899aaee564ec4dec9a1623060b56206e658d5ec65  ./01-product/02-geo-core-prd.md
+ 7ea6985cdc63749a10c73b801f69349dc2f0ac797b9aa87622723f26b988bcbe  ./01-product/03-information-architecture-and-page-spec.md
+ 3892c8f83318ee460de04960a5162b4d777db06eb731a5999cdee946cd8042e3  ./02-business/01-business-architecture.md
+-849b60afd66a9e714a43e3611ec546d9c58205bd25204c8c9851306e971037f7  ./02-business/02-domain-model.md
++a0495264dae41230acc2674a5853f12afe0040772e864e293174e26ccc99b039  ./02-business/02-domain-model.md
+ ecd00edfdb3bd3dc1e301206d4988774d0a6b425dae5eb6cd71459da3716b0b2  ./02-business/03-workflows-and-state-machines.md
+ 30e1976c61c18150724cf4b89ead9e2d960b0cea729ba377b06c7c384c264899  ./02-business/04-monitoring-methodology-and-metrics.md
+ 2ce491f8dbf89639aabbf59b5afb7a3fd43520e40e7848e4e9e3049c85436689  ./03-technical/01-technical-architecture.md
+-ce835e7cc3ccff2932c92de8f3d4025f44b92c8a9007483fc936304fabf5b0b8  ./03-technical/02-data-architecture.md
+-b92692cae4be389ec1ba2d1878c2c21f124ecd01f109f28ee2836540fb5ec288  ./03-technical/03-api-contract-design.md
++85d86486287b5f5af463911516b57c498957b8bae722e3bae808c1300d00fb28  ./03-technical/02-data-architecture.md
++bc52e91ccd131b416a01123a0e58d0bcf5fe79500c3d377b1dc01003a9ec8a09  ./03-technical/03-api-contract-design.md
+ 6f2a403d3c2c044b73d5d0db068a703c8b304fb13b4240797cc8647195b15283  ./03-technical/04-frontend-architecture.md
+ e79eacbf9f64dd314e64d2bff61d53e95e369208143fc4cda64ff99f50f7e3e4  ./03-technical/05-worker-and-collector-architecture.md
+ 2698d3095cfaeb5857d6bafd3efd633d9d50b813257054e7568d779be35d7dd7  ./03-technical/06-security-and-compliance.md
+@@ -102,13 +102,13 @@
+ 7106b3f1df66de6ba41a4d7ca85e291b8b181f78e2b7c0ef91f4fa696d1f9e8b  ./04-delivery/geo-003-baseline/sources.json
+ 316ab24c5f645e18d39c529c7fcbca2260b14a5375cc5ebd799a5b7c6cfc8f40  ./04-delivery/geo-003-baseline/tests.json
+ 9dae298eb77cc0063394bfacea27b02ece69bf2a7dceba637ef1320565810ec7  ./04-delivery/geo-003-baseline/validation.md
+-161536345448b390cb41ba1af918e73e7f14a1b13da75c10b3917ae7e4a6d924  ./04-delivery/task-manifest.yaml
++20ea1a1281ce4a1f41bfd6adc2e30184e88545d2c939b8c1698d3d6b47c14b30  ./04-delivery/task-manifest.yaml
+ 2c0f8d8ba314039b44e48614481c28e615e996c2e4ed444c8f07362b5cd75de9  ./05-decisions/ADR-001-extend-modular-monolith.md
+ 4e0ec1be59e33c2f3e83ee50abc55ffe35d2d0bf471c19cc2c713b391fc12cee  ./05-decisions/ADR-002-unified-observation-run-model.md
+ 00baab5f8fe68fbaf75e3aa7b07a0cfbd7c510e39b6a70ea462d9ab941330dc7  ./05-decisions/ADR-003-separate-collection-analysis-review.md
+ 09d2ba6a3d8f07ca61309d0a9d4a557c30a1d16853d73139e15b43ca6f1303bb  ./05-decisions/ADR-004-no-unified-geo-score.md
+ 6197eb3379ad5c5f99c499ab8b74eac5cf18e6df26a3f5c34c4e9bf83845593b  ./05-decisions/ADR-005-staged-collector-rollout.md
+ c3e9f23a90bd7fc9b47760d53c56fd6f09f73065dff5b19c1040ee5fd608a560  ./05-decisions/GEO-002-architecture-review.md
+-32c8ec6d9027f71b1ec96aea0cf2bfed82626b096a22840c2b896b299efc4da4  ./CHANGELOG.md
+-1ee9b8ef8ad10a47c68d2e6b984307646aea774f23e6208e642c48f8a5b1656c  ./README.md
++f51241bc0ca3d627e33bf014dba56dbe4f5ca6e1a9360575cce4aa017cc03cc9  ./CHANGELOG.md
++3ff63f536faf9e84fc9549a0053a4008c25003edb7e3d6d7c94bc937602f34e4  ./README.md
+ 36be92c676c3150e5953f01498418900d3e2bcc1f37a0bda31b9892e57b8a2d0  ./01-product/04-catalog-user-guide.md
+--- before/docs/geo-monitoring/03-technical/02-data-architecture.md
++++ after/docs/geo-monitoring/03-technical/02-data-architecture.md
+@@ -97,8 +97,9 @@
+ | compliance_status | varchar(24) | NOT_REVIEWED/APPROVED/REJECTED/SUSPENDED |
+ | capabilities | JSONB | 不可变受控布尔能力集合，更新按 revision |
+ | is_active | boolean | 默认 true |
+-| revision | integer | |
+-| created_by | UUID | |
++| revision | integer | 有效变更恰好 +1，初始 0 |
++| first_referenced_at | timestamptz nullable | 不可逆首次引用锁存 |
++| created_by | UUID | users.id RESTRICT |
+ | created_at/updated_at | timestamptz | |
+ 
+ `capabilities` 初始键：
+@@ -152,6 +153,8 @@
+ 
+ ## 4.1 `geo_prompt_variants`
+ 
++GEO-201 / R1 已实现该表，权威字段、规范化、命名约束和历史锁存见 [数据库合同](../../../contracts/database.md#geo-promptvariant-合同geo-201--r1)。新字段 `first_referenced_at` 为不可逆的内部运行引用标记；已引用后只能停用，不能编辑、重新启用或删除，后续新语义使用新变体。本阶段不创建 Run、不回填旧 QueryTopic.variants。
++
+ | 字段 | 类型 | 约束 |
+ |---|---|---|
+ | id | UUID | PK |
+@@ -244,7 +247,7 @@
+ |---|---|---|
+ | id | UUID | PK |
+ | batch_id | UUID | FK batches CASCADE 仅未开始聚合删除 |
+-| prompt_variant_id | UUID nullable | 历史配置删除后 SET NULL |
++| prompt_variant_id | UUID | FK geo_prompt_variants.id RESTRICT；GEO-201 历史语义禁止删除，后续建 Run 时同事务锁存 |
+ | collection_profile_id | UUID nullable | SET NULL |
+ | repeat_index | integer | >=1 |
+ | attempt_no | integer | >=1 |
+--- before/docs/geo-monitoring/03-technical/03-api-contract-design.md
++++ after/docs/geo-monitoring/03-technical/03-api-contract-design.md
+@@ -137,6 +137,8 @@
+ 
+ ## 5. 问题变体 API
+ 
++GEO-201 只冻结 OpenAPI 组件 `GeoPromptVariantCreate/Update/RevisionRequest/Out`、模式/优先级枚举和稳定错误码；下列端点由 GEO-202 实现，当前无路径或路由。语言、地区、模式、优先级必须显式提供，创建者由服务端决定。PATCH 只写显式字段，已引用变体只能停用；新语义需创建新变体。`normalized_hash` 为内部生成列，首次引用标记只读。
++
+ | 方法 | 路径 | operationId |
+ |---|---|---|
+ | GET | `/geo/prompt-variants` | `listGeoPromptVariants` |
+--- before/docs/geo-monitoring/01-product/02-geo-core-prd.md
++++ after/docs/geo-monitoring/01-product/02-geo-core-prd.md
+@@ -395,6 +395,8 @@
+ | revision | 乐观锁修订号 |
+ 
+ ### 问题变体
++
++GEO-201 / R1 冻结实际文本、BRANDED/UNBRANDED、语言、地区、CORE/STANDARD/EXPLORATORY 优先级及 revision；复用 QueryTopic。首次运行引用后只能停用，不能修改语义、删除或重新启用；新语义创建新变体，运行快照保持不可变。CRUD/工作区和真实运行接入分别属于后续任务。
+ 
+ 每个主题至少一个变体。变体字段包括：
+ 
+--- before/docs/geo-monitoring/02-business/02-domain-model.md
++++ after/docs/geo-monitoring/02-business/02-domain-model.md
+@@ -156,8 +156,8 @@
+ 2. 语言和地区必须显式保存，不能从文本猜测后静默改写；
+ 3. 点名属性由创建者明确选择；
+ 4. 同一主题下完全相同的规范文本、语言、地区和点名属性唯一；
+-5. 被批次引用后修改只影响未来运行，历史使用快照；
+-6. 有历史运行时停用而非删除。
++5. GEO-201 / R1 按执行要求收紧：首次运行引用后冻结语义，只能停用；新语义创建新变体，历史仍保存快照；
++6. 内部 `first_referenced_at` 不可清除/改写，有历史运行时不可删除或重新启用。
+ 
+ ## 3.3 GeoEngineSurface / GeoCollectionProfile 聚合
+ 

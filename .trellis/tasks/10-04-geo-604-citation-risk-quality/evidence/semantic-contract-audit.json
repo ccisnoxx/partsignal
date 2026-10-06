@@ -1,0 +1,18 @@
+{
+  "new_paths": [
+    "/api/v1/geo/insights/citations",
+    "/api/v1/geo/insights/claims",
+    "/api/v1/geo/insights/quality/runs"
+  ],
+  "changed_paths": [
+    "/api/v1/geo/insights/runs"
+  ],
+  "new_schema_count": 19,
+  "changed_schema_count": 5,
+  "deleted_paths": [],
+  "legacy_contracts_unchanged": true,
+  "database_append_only": true,
+  "other_tasks_unchanged": true,
+  "geo604_status": "review",
+  "dependencies_done": true
+}

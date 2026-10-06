@@ -1,0 +1,14 @@
+{
+  "Makefile": "6f365dc0fecb9729897baa02f1c0310d2e72970270a22391aa43960937f25946",
+  ".env.example": "d77596da722d74c3c933a7981bc788bc1b4ced66607995d13d9b82eb5011a593",
+  ".env.production.example": "4c9e776698c5a7fe599d66978c6ff2dd03e9d8a9faeec4c8b5a4a8a89ef10616",
+  "backend/app/config.py": "1b08b925f4a51a37f7a60ac37f3f5bbb43299991fa03d48b3d43f60ecea0bead",
+  "backend/app/worker.py": "00dbef12cb90987a88532de95a06fbe5910b01f982615d18567fe34bc9465d9a",
+  "backend/app/services/geo_read_queries.py": "6e5653005f55657bcf610b0bb8f595018691533d6edf99b604b763830ab027b3",
+  "backend/tests/unit/test_geo_worker_configuration.py": "67d9aa4e72459d91b6b896faff6ca9f51a985d6fd249aa225e736095140afb19",
+  "deploy/compose.dev.yaml": "6a6ca0911fbb9cd29a8a42f7775ca878953627a8a7e25b4c8ee187f0066571cd",
+  "deploy/compose.prod.yaml": "a528433f97e1bf75914b98082c03a2a1fedca72eb73252c5cff1c3c66f3a40c2",
+  "deploy/compose.staging.yaml": "1980a080a67ee70fafce7d877df6a195f48b1d750d994f21c41c627de56d5e1a",
+  "backend/tests/performance/test_geo_capacity.py": "3d948ed2b1b53be5968d181b39af4cca7b19273c0b77194beeb43102eda4ab56",
+  "backend/tests/performance/test_geo_worker_capacity.py": "15f1775157e88129a369e96b0cd73fffc09b106a128f41560eb55fa01af983f1"
+}

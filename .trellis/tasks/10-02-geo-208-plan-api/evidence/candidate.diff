@@ -1,0 +1,3993 @@
+--- a/contracts/openapi.yaml
++++ b/contracts/openapi.yaml
+@@ -6247,6 +6247,511 @@
+         - NOT_FOUND
+         '409':
+         - REVISION_CONFLICT
++  /api/v1/geo/monitoring-plans:
++    get:
++      tags:
++      - geo-plans
++      operationId: listGeoMonitoringPlans
++      parameters:
++      - name: q
++        in: query
++        required: false
++        schema:
++          anyOf:
++          - type: string
++            maxLength: 200
++            pattern: ^[^\x00]*$
++          - type: 'null'
++          title: Q
++      - name: status
++        in: query
++        required: false
++        schema:
++          anyOf:
++          - $ref: '#/components/schemas/GeoMonitoringPlanStatus'
++          - type: 'null'
++          title: Status
++      - name: schedule_kind
++        in: query
++        required: false
++        schema:
++          anyOf:
++          - $ref: '#/components/schemas/GeoPlanScheduleKind'
++          - type: 'null'
++          title: Schedule Kind
++      - name: sort
++        in: query
++        required: false
++        schema:
++          type: string
++          enum:
++          - UPDATED_DESC
++          - NAME_ASC
++          default: UPDATED_DESC
++          title: Sort
++      - name: page
++        in: query
++        required: false
++        schema:
++          type: integer
++          minimum: 1
++          default: 1
++          title: Page
++      - name: page_size
++        in: query
++        required: false
++        schema:
++          type: integer
++          enum:
++          - 10
++          - 20
++          - 50
++          default: 20
++          title: Page Size
++      - &id001
++        $ref: '#/components/parameters/RequestIdHeader'
++      responses:
++        '200':
++          description: Successful Response
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoMonitoringPlanListPage'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++      security:
++      - sessionCookie: []
++    post:
++      tags:
++      - geo-plans
++      operationId: createGeoMonitoringPlan
++      parameters:
++      - &id002
++        name: X-CSRF-Token
++        in: header
++        required: true
++        schema:
++          type: string
++          minLength: 32
++          title: X-Csrf-Token
++      - *id001
++      responses:
++        '201':
++          description: Successful Response
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoMonitoringPlanDetail'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++      security:
++      - sessionCookie: []
++      requestBody:
++        required: true
++        content:
++          application/json:
++            schema:
++              $ref: '#/components/schemas/GeoMonitoringPlanCreate'
++  /api/v1/geo/monitoring-plans/preview:
++    post:
++      tags:
++      - geo-plans
++      operationId: previewGeoMonitoringPlan
++      parameters:
++      - *id002
++      - *id001
++      responses:
++        '200':
++          description: Successful Response
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoMonitoringPlanPreview'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++      security:
++      - sessionCookie: []
++      requestBody:
++        required: true
++        content:
++          application/json:
++            schema:
++              $ref: '#/components/schemas/GeoMonitoringPlanCreate'
++  /api/v1/geo/monitoring-plans/{plan_id}:
++    get:
++      tags:
++      - geo-plans
++      operationId: getGeoMonitoringPlan
++      parameters:
++      - &id003
++        name: plan_id
++        in: path
++        required: true
++        schema:
++          type: string
++          format: uuid
++          title: Plan Id
++      - *id001
++      responses:
++        '200':
++          description: Successful Response
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoMonitoringPlanDetail'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++      security:
++      - sessionCookie: []
++    patch:
++      tags:
++      - geo-plans
++      operationId: updateGeoMonitoringPlan
++      parameters:
++      - *id003
++      - *id002
++      - *id001
++      responses:
++        '200':
++          description: Successful Response
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoMonitoringPlanDetail'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++      security:
++      - sessionCookie: []
++      requestBody:
++        required: true
++        content:
++          application/json:
++            schema:
++              $ref: '#/components/schemas/GeoMonitoringPlanUpdate'
++    delete:
++      tags:
++      - geo-plans
++      operationId: deleteGeoMonitoringPlan
++      parameters:
++      - *id003
++      - name: expected_revision
++        in: query
++        required: true
++        schema:
++          type: integer
++          minimum: 0
++          title: Expected Revision
++      - *id002
++      - *id001
++      responses:
++        '204':
++          description: Successful Response
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++      security:
++      - sessionCookie: []
++  /api/v1/geo/monitoring-plans/{plan_id}/activate:
++    post:
++      tags:
++      - geo-plans
++      operationId: activateGeoMonitoringPlan
++      parameters:
++      - *id003
++      - *id002
++      - *id001
++      responses:
++        '200':
++          description: Successful Response
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoMonitoringPlanDetail'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++      security:
++      - sessionCookie: []
++      requestBody:
++        required: true
++        content:
++          application/json:
++            schema:
++              $ref: '#/components/schemas/GeoMonitoringPlanRevisionRequest'
++  /api/v1/geo/monitoring-plans/{plan_id}/pause:
++    post:
++      tags:
++      - geo-plans
++      operationId: pauseGeoMonitoringPlan
++      parameters:
++      - *id003
++      - *id002
++      - *id001
++      responses:
++        '200':
++          description: Successful Response
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoMonitoringPlanDetail'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++      security:
++      - sessionCookie: []
++      requestBody:
++        required: true
++        content:
++          application/json:
++            schema:
++              $ref: '#/components/schemas/GeoMonitoringPlanRevisionRequest'
++  /api/v1/geo/monitoring-plans/{plan_id}/resume:
++    post:
++      tags:
++      - geo-plans
++      operationId: resumeGeoMonitoringPlan
++      parameters:
++      - *id003
++      - *id002
++      - *id001
++      responses:
++        '200':
++          description: Successful Response
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoMonitoringPlanDetail'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++      security:
++      - sessionCookie: []
++      requestBody:
++        required: true
++        content:
++          application/json:
++            schema:
++              $ref: '#/components/schemas/GeoMonitoringPlanRevisionRequest'
++  /api/v1/geo/monitoring-plans/{plan_id}/archive:
++    post:
++      tags:
++      - geo-plans
++      operationId: archiveGeoMonitoringPlan
++      parameters:
++      - *id003
++      - *id002
++      - *id001
++      responses:
++        '200':
++          description: Successful Response
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoMonitoringPlanDetail'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++      security:
++      - sessionCookie: []
++      requestBody:
++        required: true
++        content:
++          application/json:
++            schema:
++              $ref: '#/components/schemas/GeoMonitoringPlanRevisionRequest'
++  /api/v1/geo/monitoring-plans/{plan_id}/copy:
++    post:
++      tags:
++      - geo-plans
++      operationId: copyGeoMonitoringPlan
++      parameters:
++      - *id003
++      - *id002
++      - *id001
++      responses:
++        '201':
++          description: Successful Response
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoMonitoringPlanDetail'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++      security:
++      - sessionCookie: []
++      requestBody:
++        required: true
++        content:
++          application/json:
++            schema:
++              $ref: '#/components/schemas/GeoMonitoringPlanCopy'
++  /api/v1/geo/monitoring-plans/{plan_id}/run:
++    post:
++      tags:
++      - geo-plans
++      operationId: runGeoMonitoringPlanNow
++      parameters:
++      - *id003
++      - name: Idempotency-Key
++        in: header
++        required: true
++        schema:
++          type: string
++          minLength: 1
++          maxLength: 160
++          pattern: ^[\x21-\x7E]+$
++          title: Idempotency-Key
++      - *id002
++      - *id001
++      responses:
++        '501':
++          $ref: '#/components/responses/ErrorResponse'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++      security:
++      - sessionCookie: []
++      requestBody:
++        required: true
++        content:
++          application/json:
++            schema:
++              $ref: '#/components/schemas/GeoMonitoringPlanRevisionRequest'
+ components:
+   securitySchemes:
+     sessionCookie:
+@@ -14315,3 +14820,272 @@
+       - warnings
+       title: GeoMonitoringPlanPreview
+       type: object
++
++    GeoPlanAction:
++      enum:
++      - UPDATE
++      - PREVIEW
++      - ACTIVATE
++      - PAUSE
++      - RESUME
++      - ARCHIVE
++      - COPY
++      - CREATE_REVISION
++      - DELETE
++      title: GeoPlanAction
++      type: string
++    GeoPlanWorkflowStage:
++      enum:
++      - CONFIGURATION_REQUIRED
++      - READY
++      - ACTIVE
++      - PAUSED
++      - ARCHIVED
++      title: GeoPlanWorkflowStage
++      type: string
++    GeoPlanPrimaryTask:
++      enum:
++      - COMPLETE_CONFIGURATION
++      - ACTIVATE
++      - VIEW_RUNTIME
++      - RESUME
++      - VIEW_HISTORY
++      title: GeoPlanPrimaryTask
++      type: string
++    GeoPlanDeletion:
++      additionalProperties: false
++      properties:
++        blockers:
++          type: array
++          items:
++            enum:
++            - PLAN_NOT_DISABLED
++            - ARCHIVED
++            type: string
++          title: Blockers
++      required:
++      - blockers
++      title: GeoPlanDeletion
++      type: object
++    GeoPlanRunEntry:
++      additionalProperties: false
++      properties:
++        available:
++          const: false
++          title: Available
++          type: boolean
++        reason_code:
++          const: NOT_IMPLEMENTED
++          title: Reason Code
++          type: string
++      required:
++      - available
++      - reason_code
++      title: GeoPlanRunEntry
++      type: object
++    GeoMonitoringPlanCopy:
++      additionalProperties: false
++      properties:
++        expected_revision:
++          type: integer
++          minimum: 0
++          title: Expected Revision
++        name:
++          maxLength: 200
++          minLength: 1
++          pattern: ^[^\s\x00](?:[^\x00]*[^\s\x00])?$
++          title: Name
++          type: string
++      required:
++      - expected_revision
++      - name
++      title: GeoMonitoringPlanCopy
++      type: object
++    GeoMonitoringPlanDetail:
++      additionalProperties: false
++      allOf:
++      - else:
++          properties:
++            cron_expression:
++              type: 'null'
++        if:
++          properties:
++            schedule_kind:
++              const: CRON
++          required:
++          - schedule_kind
++        then:
++          properties:
++            cron_expression:
++              type: string
++          required:
++          - cron_expression
++      properties:
++        name:
++          maxLength: 200
++          minLength: 1
++          pattern: ^[^\s\x00](?:[^\x00]*[^\s\x00])?$
++          title: Name
++          type: string
++        description:
++          default: ''
++          pattern: ^[^\x00]*$
++          title: Description
++          type: string
++        subjects:
++          contains:
++            properties:
++              role:
++                const: PRIMARY
++            required:
++            - role
++          description: subject_id 在集合内唯一；至少一个 PRIMARY，不由对象类型推断角色。
++          items:
++            $ref: '#/components/schemas/GeoPlanSubject'
++          minContains: 1
++          minItems: 1
++          title: Subjects
++          type: array
++          uniqueItems: true
++        prompt_variant_ids:
++          items:
++            format: uuid
++            type: string
++          minItems: 1
++          title: Prompt Variant Ids
++          type: array
++          uniqueItems: true
++        collection_profile_ids:
++          items:
++            format: uuid
++            type: string
++          minItems: 1
++          title: Collection Profile Ids
++          type: array
++          uniqueItems: true
++        repeat_count:
++          default: 3
++          maximum: 10
++          minimum: 1
++          title: Repeat Count
++          type: integer
++        schedule_kind:
++          $ref: '#/components/schemas/GeoPlanScheduleKind'
++          default: MANUAL_ONLY
++        cron_expression:
++          anyOf:
++          - maxLength: 120
++            minLength: 9
++            pattern: ^(?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+))(?:,(?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+)))* (?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+))(?:,(?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+)))* (?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+))(?:,(?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+)))* (?:\*(?:/[0-9]+)?|(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC])-(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC])(?:/[0-9]+)?|(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC]))(?:,(?:\*(?:/[0-9]+)?|(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC])-(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC])(?:/[0-9]+)?|(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC])))*
++              (?:\*(?:/[0-9]+)?|(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT])-(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT])(?:/[0-9]+)?|(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT]))(?:,(?:\*(?:/[0-9]+)?|(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT])-(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT])(?:/[0-9]+)?|(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT])))*$(?![\s\S])
++            type: string
++          - type: 'null'
++          title: Cron Expression
++        timezone:
++          default: Asia/Shanghai
++          maxLength: 64
++          minLength: 1
++          title: Timezone
++          type: string
++        budget_limit:
++          anyOf:
++          - pattern: ^(?:0|[1-9][0-9]{0,7})(?:\.[0-9]{1,6})?$(?![\s\S])
++            type: string
++          - type: 'null'
++          title: Budget Limit
++        rule_set_revision:
++          default: 1
++          minimum: 1
++          title: Rule Set Revision
++          type: integer
++        id:
++          format: uuid
++          title: Id
++          type: string
++        status:
++          $ref: '#/components/schemas/GeoMonitoringPlanStatus'
++        revision:
++          minimum: 0
++          title: Revision
++          type: integer
++        created_by:
++          format: uuid
++          title: Created By
++          type: string
++        updated_by:
++          format: uuid
++          title: Updated By
++          type: string
++        created_at:
++          format: date-time
++          title: Created At
++          type: string
++        updated_at:
++          format: date-time
++          title: Updated At
++          type: string
++        preview:
++          $ref: '#/components/schemas/GeoMonitoringPlanPreview'
++        workflow_stage:
++          $ref: '#/components/schemas/GeoPlanWorkflowStage'
++        primary_task:
++          $ref: '#/components/schemas/GeoPlanPrimaryTask'
++        available_actions:
++          type: array
++          items:
++            $ref: '#/components/schemas/GeoPlanAction'
++          title: Available Actions
++        deletion:
++          $ref: '#/components/schemas/GeoPlanDeletion'
++        run_entry:
++          $ref: '#/components/schemas/GeoPlanRunEntry'
++      required:
++      - name
++      - subjects
++      - prompt_variant_ids
++      - collection_profile_ids
++      - id
++      - status
++      - revision
++      - created_by
++      - updated_by
++      - created_at
++      - updated_at
++      - preview
++      - workflow_stage
++      - primary_task
++      - available_actions
++      - deletion
++      - run_entry
++      title: GeoMonitoringPlanDetail
++      type: object
++    GeoMonitoringPlanListPage:
++      additionalProperties: false
++      properties:
++        items:
++          type: array
++          items:
++            $ref: '#/components/schemas/GeoMonitoringPlanDetail'
++          title: Items
++        total:
++          type: integer
++          minimum: 0
++          title: Total
++        page:
++          type: integer
++          minimum: 1
++          title: Page
++        page_size:
++          type: integer
++          enum:
++          - 10
++          - 20
++          - 50
++          title: Page Size
++      required:
++      - items
++      - total
++      - page
++      - page_size
++      title: GeoMonitoringPlanListPage
++      type: object
+--- a/contracts/database.md
++++ b/contracts/database.md
+@@ -12,7 +12,7 @@
+ 
+ ## GEO MonitoringPlan 合同（GEO-206 / R1）
+ 
+-`0047_geo_monitoring_plans` 从 `0046_geo_surfaces_profiles` 仅新增四表、完整性/归档守卫和时区目录函数。不回填旧 QueryTopic/GeoObservation，不创建 Batch/Run，不执行调度或外部采集。公司内部单租户共享配置，created_by/updated_by 是服务端追溯，不是用户私有归属。Plan 的业务命令、权限/CAS/审计由 GEO-208 接入；矩阵、当前资源活动和运行资格由 GEO-207 接入。
++`0047_geo_monitoring_plans` 从 `0046_geo_surfaces_profiles` 仅新增四表、完整性/归档守卫和时区目录函数。不回填旧 QueryTopic/GeoObservation，不创建 Batch/Run，不执行调度或外部采集。公司内部单租户共享配置，created_by/updated_by 是服务端追溯，不是用户私有归属。GEO-208 已接线 Plan 命令、权限/CAS/审计；矩阵、当前资源活动和运行资格复用 GEO-207。无新表/列/Alembic revision。
+ 
+ ### geo_monitoring_plans
+ 
+@@ -26,7 +26,7 @@
+ | timezone | varchar(64) Asia/Shanghai | IANA 名称；Schema ZoneInfo、数据库 pg_timezone_names 精确存在校验 |
+ | budget_limit | numeric(14,6) NULL | 有限且非负；NULL 表示未设置上限，不表示已知费用为零 |
+ | rule_set_revision | integer 1 | >=1，配置选择；未来批次冻结，不是分析结果或规则表实现 |
+-| revision | integer 0 | >=0；未来Application Service在完整配置变化时CAS并恰好+1 |
++| revision | integer 0 | >=0；Application Service在实际配置/状态变化时CAS并恰好+1，no-op不变 |
+ | created_by / updated_by | UUID NOT NULL | fk_geo_monitoring_plans_creator / updater → users.id RESTRICT |
+ | created_at / updated_at | timestamptz now() | 创建追溯不可变，UTC |
+ 
+@@ -45,9 +45,9 @@
+ ### 提交完整性、版本和并发
+ 
+ - `geo_monitoring_plan_complete` 与三个 `<table>_complete` 为 `DEFERRABLE INITIALLY DEFERRED` constraint triggers；事务提交时每个现存Plan必须至少一个PRIMARY、一个prompt、一个profile，分别以 `23514 + ck_geo_monitoring_plans_primary_required / prompt_required / profile_required` 拒绝。创建/替换关系可暂时为空；不允许将未完整草稿提交。`SET CONSTRAINTS ALL IMMEDIATE` 可在同事务提前验收最终集合。
+-- `<table>_guard` 在关系写前锁父Plan，再执行父行同值UPDATE建立MVCC写冲突；不自动改变逻辑revision/updated_at/审计。这样READ COMMITTED串行后重验最终集合，REPEATABLE READ并发旧快照写入失败为40001，不能写偏斜删除不同最后PRIMARY。未来命令仍须自行持锁、CAS、一次更新聚合revision；本任务没有自动重试或并发成功兜底。
++- `<table>_guard` 在关系写前锁父Plan，再执行父行同值UPDATE建立MVCC写冲突；不自动改变逻辑revision/updated_at/审计。这样READ COMMITTED串行后重验最终集合，REPEATABLE READ并发旧快照写入失败为40001，不能写偏斜删除不同最后PRIMARY。GEO-208命令自行持锁、CAS、一次更新聚合revision；本任务没有自动重试或并发成功兜底。
+ - `geo_monitoring_plan_guard` 要求INSERT为DISABLED/revision0，禁止改id/created_by/created_at；归档行禁止实际UPDATE与DELETE，归档关系任何写入均以 `23514 + ck_geo_monitoring_plans_archived` 拒绝。关系plan_id不可原地改动（membership_identity）；显式删除/新建完成迁移。完整状态转换、资格门禁和no-op判定属于GEO-208，不由该数据守卫推导可用动作。
+-- 引用写入与现有删除命令通过资源FK KEY SHARE和资源行锁仲裁；未来Plan命令应先按现有User/资源锁序，再锁Plan，稳定UUID顺序锁集合。本任务不新增Router/Plan事务入口。
++- 引用写入与现有删除命令通过资源FK KEY SHARE和资源行锁仲裁；GEO-208 Plan命令先锁User，再按现有资源锁序锁旧/新集合并集，最后锁Plan；稳定UUID顺序，资格与配置身份锁后重验。
+ 
+ ### 删除投影与错误边界
+ 
+@@ -60,7 +60,17 @@
+ | Profile持锁引用预检；DELETE 23503 + fk_geo_monitoring_plan_profiles_profile | 409 GEO_PROFILE_IN_USE；预检含blockers，FK回滚后details={} |
+ | User计划追溯引用 | 409 USER_IN_USE，沿用USER_BUSINESS_HISTORY |
+ 
+-只有上述命令边界/精确约束允许映射；未知SQLSTATE/constraint原样失败，业务/成功审计整体回滚。GEO-208后续登记Plan完整性/状态/版本错误映射，本任务不伪造可调用端点。0047 downgrade主动55000拒绝删配置；恢复使用前向修复或迁移前PostgreSQL备份，无破坏性数据迁移。
++只有上述命令边界/精确约束允许映射；未知SQLSTATE/constraint原样失败，业务/成功审计整体回滚。GEO-208登记下述Plan命令边界。0047 downgrade主动55000拒绝删配置；恢复使用前向修复或迁移前PostgreSQL备份，无破坏性数据迁移。
++
++### GEO-208 命令、快照与审计
++
++ADMIN/ENGINEER 管理内部共享配置，创建/复制强制 DISABLED/revision0，服务器创建与更新身份。PATCH 完整替换配置；忽略集合顺序的 no-op 不改 revision/updated_at/updated_by 或审计。DISABLED/PAUSED 可保存存在且结构完整但当前不可运行的资源选择；ACTIVE 实际修改与 activate/resume 必须通过共享资格。状态转换只允许 DISABLED→ACTIVE、ACTIVE→PAUSED、PAUSED→ACTIVE、非归档→ARCHIVED；重复命令明确拒绝。ACTIVE 归档在同事务内先暂停，无可见中间态、一次 revision 和一条归档审计。ARCHIVED 只读/复制。DELETE 仅 DISABLED，保留审计 tombstone；当前未建 Batch 表，不伪造历史引用。
++
++命令要求 READ COMMITTED，User FOR NO KEY UPDATE→Channel→Model→Product→品牌Subject→Subject→QueryTopic→Variant→Surface→Profile→Plan。资源取旧/新配置并集且各组 UUID 排序；锁后重验 Subject 父身份、Variant 主题、Profile 绑定/revision 与 Plan revision/配置。漂移返回 409 REVISION_CONFLICT，不扩大锁集、不自动重放。运行资格读取非敏感当前列，不加载凭据正文。读请求在认证前建立 REPEATABLE READ、禁 autoflush；详情7次/列表非空页8次应用批量 SELECT，空页2次，与页内Plan数量无关。
++
++业务 flush 后只对四项 Plan 完整性 constraint triggers 执行 SET CONSTRAINTS … IMMEDIATE，再追加最小白名单成功审计并 commit。新增八个 `geo_monitoring_plan.*` 成功动作，CONFIGURATION 模块、GeoMonitoringPlan target；facts 仅 status/revision，不存名称、description、问题、settings 或秘密。审计失败/未知完整性失败整体回滚。精确 `23514 + ck_geo_monitoring_plans_archived` 映射 409 GEO_PLAN_ARCHIVED；三种 required 完整性约束映射 422 GEO_PLAN_EMPTY；三个 membership 资源FK的 `23503` 映射 422 GEO_PLAN_REFERENCE_INVALID；其他异常原样失败。非法转换/资格失败/非DISABLED删除分别409 INVALID_STATE_TRANSITION / GEO_PLAN_PROFILE_INELIGIBLE（明确预算超出为GEO_PLAN_BUDGET_EXCEEDED）/GEO_PLAN_IN_USE。
++
++`/run` 接受 required expected_revision、Idempotency-Key，通过身份/锁/revision/归档边界后501 NOT_IMPLEMENTED；不保存命令或幂等结果、不创建Batch/Run、不写成功审计、不投递Redis。重复相同key仍501。Plan配置更新只写自身四表，配置引用不标记历史首次运行；已创建Batch冻结由GEO-303实现并独立验证，GEO-208不提供伪造快照证明。
+ 
+ ## GEO EngineSurface / CollectionProfile 合同（GEO-203 / R1）
+ 
+--- a/backend/app/main.py
++++ b/backend/app/main.py
+@@ -27,6 +27,7 @@
+ from app.routers.configuration import router as configuration_router
+ from app.routers.files import router as files_router
+ from app.routers.geo_catalog import router as geo_catalog_router
++from app.routers.geo_monitoring_plans import router as geo_monitoring_plans_router
+ from app.routers.geo_questions import router as geo_questions_router
+ from app.routers.geo_surface_management import router as geo_surface_management_router
+ from app.routers.identity import router as identity_router
+@@ -326,6 +327,7 @@
+ app.include_router(identity_router)
+ app.include_router(geo_catalog_router)
+ app.include_router(geo_questions_router)
++app.include_router(geo_monitoring_plans_router)
+ app.include_router(geo_surface_management_router)
+ app.include_router(configuration_router)
+ app.include_router(product_facts_router)
+--- a/backend/app/audit_types.py
++++ b/backend/app/audit_types.py
+@@ -76,6 +76,14 @@
+         "platform_profile.deleted",
+         "platform_account.deleted",
+         "geo_observation.deleted",
++        "geo_monitoring_plan.created",
++        "geo_monitoring_plan.updated",
++        "geo_monitoring_plan.activated",
++        "geo_monitoring_plan.paused",
++        "geo_monitoring_plan.resumed",
++        "geo_monitoring_plan.archived",
++        "geo_monitoring_plan.copied",
++        "geo_monitoring_plan.deleted",
+         "geo_prompt_variant.created",
+         "geo_prompt_variant.updated",
+         "geo_prompt_variant.enabled",
+--- a/backend/app/services/audit_logs.py
++++ b/backend/app/services/audit_logs.py
+@@ -23,6 +23,7 @@
+ from app.models.content import ContentTask, ContentVersion
+ from app.models.geo_catalog import GeoSubject
+ from app.models.geo_files import GeoObservation
++from app.models.geo_monitoring_plans import GeoMonitoringPlan
+ from app.models.geo_prompt_variants import GeoPromptVariant
+ from app.models.geo_surfaces import GeoCollectionProfile, GeoEngineSurface
+ from app.models.identity import AuditLog, User
+@@ -291,6 +292,9 @@
+     if target_type == "GeoObservation":
+         observation = db.get(GeoObservation, target_id) if target_id is not None else None
+         return _availability(target_type, observation)
++    if target_type == "GeoMonitoringPlan":
++        plan = db.get(GeoMonitoringPlan, target_id) if target_id is not None else None
++        return _availability(target_type, plan)
+     if target_type == "GeoPromptVariant":
+         variant = db.get(GeoPromptVariant, target_id) if target_id is not None else None
+         return _availability(target_type, variant)
+--- a/backend/app/services/geo_plans.py
++++ b/backend/app/services/geo_plans.py
+@@ -366,29 +366,7 @@
+     if db.connection().get_isolation_level() not in {"REPEATABLE READ", "SERIALIZABLE"}:
+         raise ValueError("计划预览必须在 REPEATABLE READ 或 SERIALIZABLE 一致快照中读取")
+     selection = PlanMatrixSelection.from_configuration(configuration)
+-    subjects = dict(
+-        db.execute(
+-            select(GeoSubject.id, GeoSubject.is_active)
+-            .where(GeoSubject.id.in_(selection.subject_ids))
+-            .execution_options(autoflush=False)
+-        )
+-        .tuples()
+-        .all()
+-    )
+-    rows = db.execute(
+-        select(
+-            GeoPromptVariant.id,
+-            GeoPromptVariant.revision,
+-            GeoPromptVariant.is_active,
+-            GeoPromptVariant.language_code,
+-            GeoPromptVariant.region_code,
+-            GeoPromptVariant.prompt_text,
+-        )
+-        .where(GeoPromptVariant.id.in_(selection.prompt_variant_ids))
+-        .execution_options(autoflush=False)
+-    ).all()
+-    prompts = {row.id: PromptFacts(*row) for row in rows}
+-    profiles = load_profile_facts(db, selection.collection_profile_ids)
++    subjects, prompts, profiles = load_matrix_facts(db, [selection])
+     return (
+         RunMatrixBuilder(registry)
+         .build(
+@@ -407,3 +385,36 @@
+         )
+         .preview()
+     )
++
++
++def load_matrix_facts(
++    db: Session, selections: list[PlanMatrixSelection]
++) -> tuple[dict[UUID, bool], dict[UUID, PromptFacts], dict[UUID, ProfileFacts]]:
++    """读模型批量共享三次查询；命令调用前必须锁定所选资源及资格依赖。"""
++    subject_ids = {identity for s in selections for identity in s.subject_ids}
++    prompt_ids = {identity for s in selections for identity in s.prompt_variant_ids}
++    profile_ids = {identity for s in selections for identity in s.collection_profile_ids}
++    subjects = dict(
++        db.execute(
++            select(GeoSubject.id, GeoSubject.is_active)
++            .where(GeoSubject.id.in_(subject_ids))
++            .execution_options(autoflush=False)
++        )
++        .tuples()
++        .all()
++    )
++    rows = db.execute(
++        select(
++            GeoPromptVariant.id,
++            GeoPromptVariant.revision,
++            GeoPromptVariant.is_active,
++            GeoPromptVariant.language_code,
++            GeoPromptVariant.region_code,
++            GeoPromptVariant.prompt_text,
++        )
++        .where(GeoPromptVariant.id.in_(prompt_ids))
++        .execution_options(autoflush=False)
++    ).all()
++    prompts = {row.id: PromptFacts(*row) for row in rows}
++    profiles = load_profile_facts(db, tuple(profile_ids))
++    return subjects, prompts, profiles
+--- a/backend/tests/unit/test_geo_monitoring_plan_contract.py
++++ b/backend/tests/unit/test_geo_monitoring_plan_contract.py
+@@ -83,7 +83,7 @@
+         not {"run_count", "last_batch_id", "next_run_at", "lease", "answer", "spent_cost"}
+         & response.keys()
+     )
+-    assert not any("monitoring-plans" in path for path in contract["paths"])
++    assert "/api/v1/geo/monitoring-plans" in contract["paths"]
+ 
+ 
+ @pytest.mark.parametrize(
+--- a/backend/tests/unit/test_geo_plan_preview_contract.py
++++ b/backend/tests/unit/test_geo_plan_preview_contract.py
+@@ -32,7 +32,7 @@
+     payload = build(matrix_inputs()).preview().model_dump(mode="json")
+     validator.validate(payload)
+     assert payload["estimated_cost"]["value"] is None
+-    assert not any("monitoring-plans" in path for path in contract["paths"])
++    assert "/api/v1/geo/monitoring-plans" in contract["paths"]
+     assert (
+         not {"run_count", "estimated_cost"}
+         & components["GeoMonitoringPlanCreate"]["properties"].keys()
+--- a/frontend/src/shared/api/generated/schema.d.ts
++++ b/frontend/src/shared/api/generated/schema.d.ts
+@@ -2475,6 +2475,150 @@
+         put?: never;
+         /** Disable Profile */
+         post: operations["disableGeoCollectionProfile"];
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++    "/api/v1/geo/monitoring-plans": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        get: operations["listGeoMonitoringPlans"];
++        put?: never;
++        post: operations["createGeoMonitoringPlan"];
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++    "/api/v1/geo/monitoring-plans/preview": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        get?: never;
++        put?: never;
++        post: operations["previewGeoMonitoringPlan"];
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++    "/api/v1/geo/monitoring-plans/{plan_id}": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        get: operations["getGeoMonitoringPlan"];
++        put?: never;
++        post?: never;
++        delete: operations["deleteGeoMonitoringPlan"];
++        options?: never;
++        head?: never;
++        patch: operations["updateGeoMonitoringPlan"];
++        trace?: never;
++    };
++    "/api/v1/geo/monitoring-plans/{plan_id}/activate": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        get?: never;
++        put?: never;
++        post: operations["activateGeoMonitoringPlan"];
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++    "/api/v1/geo/monitoring-plans/{plan_id}/pause": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        get?: never;
++        put?: never;
++        post: operations["pauseGeoMonitoringPlan"];
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++    "/api/v1/geo/monitoring-plans/{plan_id}/resume": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        get?: never;
++        put?: never;
++        post: operations["resumeGeoMonitoringPlan"];
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++    "/api/v1/geo/monitoring-plans/{plan_id}/archive": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        get?: never;
++        put?: never;
++        post: operations["archiveGeoMonitoringPlan"];
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++    "/api/v1/geo/monitoring-plans/{plan_id}/copy": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        get?: never;
++        put?: never;
++        post: operations["copyGeoMonitoringPlan"];
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++    "/api/v1/geo/monitoring-plans/{plan_id}/run": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        get?: never;
++        put?: never;
++        post: operations["runGeoMonitoringPlanNow"];
+         delete?: never;
+         options?: never;
+         head?: never;
+@@ -7225,6 +7369,135 @@
+             /** Warnings */
+             warnings: components["schemas"]["GeoPlanPreviewWarning"][];
+         };
++        /**
++         * GeoPlanAction
++         * @enum {string}
++         */
++        GeoPlanAction: "UPDATE" | "PREVIEW" | "ACTIVATE" | "PAUSE" | "RESUME" | "ARCHIVE" | "COPY" | "CREATE_REVISION" | "DELETE";
++        /**
++         * GeoPlanWorkflowStage
++         * @enum {string}
++         */
++        GeoPlanWorkflowStage: "CONFIGURATION_REQUIRED" | "READY" | "ACTIVE" | "PAUSED" | "ARCHIVED";
++        /**
++         * GeoPlanPrimaryTask
++         * @enum {string}
++         */
++        GeoPlanPrimaryTask: "COMPLETE_CONFIGURATION" | "ACTIVATE" | "VIEW_RUNTIME" | "RESUME" | "VIEW_HISTORY";
++        /** GeoPlanDeletion */
++        GeoPlanDeletion: {
++            /** Blockers */
++            blockers: ("PLAN_NOT_DISABLED" | "ARCHIVED")[];
++        };
++        /** GeoPlanRunEntry */
++        GeoPlanRunEntry: {
++            /**
++             * Available
++             * @constant
++             */
++            available: false;
++            /**
++             * Reason Code
++             * @constant
++             */
++            reason_code: "NOT_IMPLEMENTED";
++        };
++        /** GeoMonitoringPlanCopy */
++        GeoMonitoringPlanCopy: {
++            /** Expected Revision */
++            expected_revision: number;
++            /** Name */
++            name: string;
++        };
++        /** GeoMonitoringPlanDetail */
++        GeoMonitoringPlanDetail: {
++            /** Name */
++            name: string;
++            /**
++             * Description
++             * @default
++             */
++            description: string;
++            /**
++             * Subjects
++             * @description subject_id 在集合内唯一；至少一个 PRIMARY，不由对象类型推断角色。
++             */
++            subjects: components["schemas"]["GeoPlanSubject"][];
++            /** Prompt Variant Ids */
++            prompt_variant_ids: string[];
++            /** Collection Profile Ids */
++            collection_profile_ids: string[];
++            /**
++             * Repeat Count
++             * @default 3
++             */
++            repeat_count: number;
++            /** @default MANUAL_ONLY */
++            schedule_kind: components["schemas"]["GeoPlanScheduleKind"];
++            /** Cron Expression */
++            cron_expression?: string | null;
++            /**
++             * Timezone
++             * @default Asia/Shanghai
++             */
++            timezone: string;
++            /** Budget Limit */
++            budget_limit?: string | null;
++            /**
++             * Rule Set Revision
++             * @default 1
++             */
++            rule_set_revision: number;
++            /**
++             * Id
++             * Format: uuid
++             */
++            id: string;
++            status: components["schemas"]["GeoMonitoringPlanStatus"];
++            /** Revision */
++            revision: number;
++            /**
++             * Created By
++             * Format: uuid
++             */
++            created_by: string;
++            /**
++             * Updated By
++             * Format: uuid
++             */
++            updated_by: string;
++            /**
++             * Created At
++             * Format: date-time
++             */
++            created_at: string;
++            /**
++             * Updated At
++             * Format: date-time
++             */
++            updated_at: string;
++            preview: components["schemas"]["GeoMonitoringPlanPreview"];
++            workflow_stage: components["schemas"]["GeoPlanWorkflowStage"];
++            primary_task: components["schemas"]["GeoPlanPrimaryTask"];
++            /** Available Actions */
++            available_actions: components["schemas"]["GeoPlanAction"][];
++            deletion: components["schemas"]["GeoPlanDeletion"];
++            run_entry: components["schemas"]["GeoPlanRunEntry"];
++        } & unknown;
++        /** GeoMonitoringPlanListPage */
++        GeoMonitoringPlanListPage: {
++            /** Items */
++            items: components["schemas"]["GeoMonitoringPlanDetail"][];
++            /** Total */
++            total: number;
++            /** Page */
++            page: number;
++            /**
++             * Page Size
++             * @enum {integer}
++             */
++            page_size: 10 | 20 | 50;
++        };
+     };
+     responses: {
+         /** @description 业务或校验错误 */
+@@ -13724,4 +13997,409 @@
+             422: components["responses"]["ErrorResponse"];
+         };
+     };
++    listGeoMonitoringPlans: {
++        parameters: {
++            query?: {
++                q?: string | null;
++                status?: components["schemas"]["GeoMonitoringPlanStatus"] | null;
++                schedule_kind?: components["schemas"]["GeoPlanScheduleKind"] | null;
++                sort?: "UPDATED_DESC" | "NAME_ASC";
++                page?: number;
++                page_size?: 10 | 20 | 50;
++            };
++            header?: {
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path?: never;
++            cookie?: never;
++        };
++        requestBody?: never;
++        responses: {
++            /** @description Successful Response */
++            200: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoMonitoringPlanListPage"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
++    createGeoMonitoringPlan: {
++        parameters: {
++            query?: never;
++            header: {
++                "X-CSRF-Token": string;
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path?: never;
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["GeoMonitoringPlanCreate"];
++            };
++        };
++        responses: {
++            /** @description Successful Response */
++            201: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoMonitoringPlanDetail"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
++    previewGeoMonitoringPlan: {
++        parameters: {
++            query?: never;
++            header: {
++                "X-CSRF-Token": string;
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path?: never;
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["GeoMonitoringPlanCreate"];
++            };
++        };
++        responses: {
++            /** @description Successful Response */
++            200: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoMonitoringPlanPreview"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
++    getGeoMonitoringPlan: {
++        parameters: {
++            query?: never;
++            header?: {
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path: {
++                plan_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody?: never;
++        responses: {
++            /** @description Successful Response */
++            200: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoMonitoringPlanDetail"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
++    deleteGeoMonitoringPlan: {
++        parameters: {
++            query: {
++                expected_revision: number;
++            };
++            header: {
++                "X-CSRF-Token": string;
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path: {
++                plan_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody?: never;
++        responses: {
++            /** @description Successful Response */
++            204: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content?: never;
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
++    updateGeoMonitoringPlan: {
++        parameters: {
++            query?: never;
++            header: {
++                "X-CSRF-Token": string;
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path: {
++                plan_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["GeoMonitoringPlanUpdate"];
++            };
++        };
++        responses: {
++            /** @description Successful Response */
++            200: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoMonitoringPlanDetail"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
++    activateGeoMonitoringPlan: {
++        parameters: {
++            query?: never;
++            header: {
++                "X-CSRF-Token": string;
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path: {
++                plan_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["GeoMonitoringPlanRevisionRequest"];
++            };
++        };
++        responses: {
++            /** @description Successful Response */
++            200: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoMonitoringPlanDetail"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
++    pauseGeoMonitoringPlan: {
++        parameters: {
++            query?: never;
++            header: {
++                "X-CSRF-Token": string;
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path: {
++                plan_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["GeoMonitoringPlanRevisionRequest"];
++            };
++        };
++        responses: {
++            /** @description Successful Response */
++            200: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoMonitoringPlanDetail"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
++    resumeGeoMonitoringPlan: {
++        parameters: {
++            query?: never;
++            header: {
++                "X-CSRF-Token": string;
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path: {
++                plan_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["GeoMonitoringPlanRevisionRequest"];
++            };
++        };
++        responses: {
++            /** @description Successful Response */
++            200: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoMonitoringPlanDetail"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
++    archiveGeoMonitoringPlan: {
++        parameters: {
++            query?: never;
++            header: {
++                "X-CSRF-Token": string;
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path: {
++                plan_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["GeoMonitoringPlanRevisionRequest"];
++            };
++        };
++        responses: {
++            /** @description Successful Response */
++            200: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoMonitoringPlanDetail"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
++    copyGeoMonitoringPlan: {
++        parameters: {
++            query?: never;
++            header: {
++                "X-CSRF-Token": string;
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path: {
++                plan_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["GeoMonitoringPlanCopy"];
++            };
++        };
++        responses: {
++            /** @description Successful Response */
++            201: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoMonitoringPlanDetail"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
++    runGeoMonitoringPlanNow: {
++        parameters: {
++            query?: never;
++            header: {
++                "Idempotency-Key": string;
++                "X-CSRF-Token": string;
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path: {
++                plan_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["GeoMonitoringPlanRevisionRequest"];
++            };
++        };
++        responses: {
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++            501: components["responses"]["ErrorResponse"];
++        };
++    };
+ }
+--- a/docs/geo-monitoring/README.md
++++ b/docs/geo-monitoring/README.md
+@@ -221,7 +221,9 @@
+ | R6 机会与复测闭环 | 异常可转化为任务，任务完成后可发起严格同口径复测 |
+ | R7 浏览器试点与生产硬化 | 在合规批准下完成一个真实界面采集试点及完整运维门禁 |
+ 
+-GEO-207 / R1 已实现服务端 RunMatrixBuilder、当前资源与共享 Profile 资格定位、三模式数量及 known/unknown 费用覆盖，当前交付状态见 [任务清单](./04-delivery/task-manifest.yaml)。10×3×3 准确返回90，未知费用保持 null；默认没有生产估价实现。预览组件与 generated 类型以根 OpenAPI 为权威，仍无 Plan API、Batch/Run 或外部采集。范围和逐项验证见 [Task Brief](../../.trellis/tasks/10-02-geo-207-run-matrix/prd.md) 与 [实施证据](../../.trellis/tasks/10-02-geo-207-run-matrix/implement.md)，具体估价与预算语义见 [API设计](./03-technical/03-api-contract-design.md#62-geomonitoringplanpreview)。
++GEO-207 / R1 已实现服务端 RunMatrixBuilder、当前资源与共享 Profile 资格定位、三模式数量及 known/unknown 费用覆盖，当前交付状态见 [任务清单](./04-delivery/task-manifest.yaml)。10×3×3 准确返回90，未知费用保持 null；默认没有生产估价实现。预览组件与 generated 类型以根 OpenAPI 为权威，GEO-208已接入Plan API；仍无Batch/Run或外部采集。范围和逐项验证见 [Task Brief](../../.trellis/tasks/10-02-geo-207-run-matrix/prd.md) 与 [实施证据](../../.trellis/tasks/10-02-geo-207-run-matrix/implement.md)，具体估价与预算语义见 [API设计](./03-technical/03-api-contract-design.md#62-geomonitoringplanpreview)。
++
++GEO-208 / R1已实现Plan CRUD、preview、activate/pause/resume/archive/copy与run-now的501命令占位；完整读模型、typed动作/revision和原子最小审计以根合同为准。没有Plan页面、Batch/Run、调度或外部采集；当前等待人工验收，见[Task Brief](../../.trellis/tasks/10-02-geo-208-plan-api/prd.md)与[实施证据](../../.trellis/tasks/10-02-geo-208-plan-api/implement.md)。
+ 
+ ## 6. 首个建议执行任务
+ 
+--- a/docs/geo-monitoring/CHANGELOG.md
++++ b/docs/geo-monitoring/CHANGELOG.md
+@@ -1,4 +1,12 @@
+ # 文档包变更记录
++
++## GEO-208 Plan命令、查询、状态机与API — 2026-10-02（review）
++
++- GEO-207依赖done；12个标准Plan操作、完整typed读模型、服务端动作/revision/资格与同事务审计已接线，状态等待人工验收。
++- 新建/复制DISABLED revision0、集合顺序no-op稳定、ACTIVE实际修改重验资格、归档只读；锁旧/新资源并集后锁Plan，锁后重验版本与身份漂移。
++- GET/preview认证前RR禁autoflush，列表批量查询；审计仅status/revision，业务失败或审计失败整体回滚，未知数据库异常不冒充业务错误。
++- run-now只接受命令边界后501，无成功审计/幂等结果/Batch/Run/dispatch；默认费用仍unknown，不实施GEO-209/301/303。
++- 根OpenAPI/generated与数据库语义合同同步；无新Alembic revision、历史迁移或生产操作，head仍0047。实际测试、独立复核和环境清理见[GEO-208实施记录](../../.trellis/tasks/10-02-geo-208-plan-api/implement.md)。
+ 
+ ## GEO-207 服务端运行矩阵预览和费用覆盖 — 2026-10-02（review）
+ 
+--- a/docs/geo-monitoring/SHA256SUMS
++++ b/docs/geo-monitoring/SHA256SUMS
+@@ -4,12 +4,12 @@
+ 813055a6ecd380b1362f697dba8006a0bedd22d8261aa6e090841eb82bb03f6a  ./01-product/02-geo-core-prd.md
+ 7ea6985cdc63749a10c73b801f69349dc2f0ac797b9aa87622723f26b988bcbe  ./01-product/03-information-architecture-and-page-spec.md
+ 3892c8f83318ee460de04960a5162b4d777db06eb731a5999cdee946cd8042e3  ./02-business/01-business-architecture.md
+-1d85f1327b959975394aecbc528cbbf3a6208921ddad41ef1b175c0fd8c13703  ./02-business/02-domain-model.md
+-ecd00edfdb3bd3dc1e301206d4988774d0a6b425dae5eb6cd71459da3716b0b2  ./02-business/03-workflows-and-state-machines.md
++e50dc90af397f16f9bb56b4f14eda400a0fd00ffb8aeb9e2c9f2f7e219bae24c  ./02-business/02-domain-model.md
++549e42da9c19371acfd0e2383579eb2232688066c503e1322b092f30422f1451  ./02-business/03-workflows-and-state-machines.md
+ 30e1976c61c18150724cf4b89ead9e2d960b0cea729ba377b06c7c384c264899  ./02-business/04-monitoring-methodology-and-metrics.md
+ 2ce491f8dbf89639aabbf59b5afb7a3fd43520e40e7848e4e9e3049c85436689  ./03-technical/01-technical-architecture.md
+ fb71186470e732b6642cb970cbff9af28e4c821e955ab25b5ffd6c0bd2cc20c0  ./03-technical/02-data-architecture.md
+-c3375c4a2c10e55ae6f2e3a91f81b337f044de08ed61c72b197859cd2c875512  ./03-technical/03-api-contract-design.md
++f985e9c046b06c6a1b684bcda79e94dc96d3a1e7d1c3ade6324f348ca5437841  ./03-technical/03-api-contract-design.md
+ 364b95b01a9e57572d5844e11f9858be120eb24a85cce5577a4c6561797bba2f  ./03-technical/04-frontend-architecture.md
+ 1474ab5f413927669a0b4029399034cb8956eecbe282a174423203835d45e1bb  ./03-technical/05-worker-and-collector-architecture.md
+ 2698d3095cfaeb5857d6bafd3efd633d9d50b813257054e7568d779be35d7dd7  ./03-technical/06-security-and-compliance.md
+@@ -17,7 +17,7 @@
+ 61a4dd642c6f74b581e95eb2269453be79d71a75fa240269eb001e56f45e2b83  ./03-technical/08-deployment-and-operations.md
+ f8c643e46c1159c51bd2e271e87de1d0e5a0448e2845af01f33bef5e4e1d411b  ./04-delivery/01-implementation-roadmap.md
+ acf0bde87ddfc34ebbc09543c1f2c2c1f496d48f330727b5e943807267eed41c  ./04-delivery/02-work-breakdown-structure.md
+-f8f5eccc23a3254adb62d69d990063367f9f91ea89c12fcc06e14189d89b3fa1  ./04-delivery/03-requirement-traceability-matrix.md
++70f080e2e95585e333e3af0bb3ae59841e21f70fa679a5c5fb4f87080829b18d  ./04-delivery/03-requirement-traceability-matrix.md
+ 8991d4c1ec5cc872904aa3b10ffbb2f77ca46a4bfda88589d290f7fd92c2f1fb  ./04-delivery/04-codex-execution-guide.md
+ f600bcdfc2788659654825a020fb2aa0fcbe7acf9827b97eab25aadd7a20ff51  ./04-delivery/05-task-template.md
+ 0ec18f9ce8589f4c8e222fddc6d15853c949ad2b227381b584e2c81c4c4e47b0  ./04-delivery/06-current-geo-baseline.md
+@@ -102,13 +102,13 @@
+ 7106b3f1df66de6ba41a4d7ca85e291b8b181f78e2b7c0ef91f4fa696d1f9e8b  ./04-delivery/geo-003-baseline/sources.json
+ 316ab24c5f645e18d39c529c7fcbca2260b14a5375cc5ebd799a5b7c6cfc8f40  ./04-delivery/geo-003-baseline/tests.json
+ 9dae298eb77cc0063394bfacea27b02ece69bf2a7dceba637ef1320565810ec7  ./04-delivery/geo-003-baseline/validation.md
+-5f3005fcd5aed932604058c0dd8f4577a7828f8d0ffefa57c9414c4e3b92b8f9  ./04-delivery/task-manifest.yaml
++d87f46cd583d55c45b8f0d507848910a01a16fc6239490d99937c93e0db277f7  ./04-delivery/task-manifest.yaml
+ 2c0f8d8ba314039b44e48614481c28e615e996c2e4ed444c8f07362b5cd75de9  ./05-decisions/ADR-001-extend-modular-monolith.md
+ 4e0ec1be59e33c2f3e83ee50abc55ffe35d2d0bf471c19cc2c713b391fc12cee  ./05-decisions/ADR-002-unified-observation-run-model.md
+ 00baab5f8fe68fbaf75e3aa7b07a0cfbd7c510e39b6a70ea462d9ab941330dc7  ./05-decisions/ADR-003-separate-collection-analysis-review.md
+ 09d2ba6a3d8f07ca61309d0a9d4a557c30a1d16853d73139e15b43ca6f1303bb  ./05-decisions/ADR-004-no-unified-geo-score.md
+ 6197eb3379ad5c5f99c499ab8b74eac5cf18e6df26a3f5c34c4e9bf83845593b  ./05-decisions/ADR-005-staged-collector-rollout.md
+ c3e9f23a90bd7fc9b47760d53c56fd6f09f73065dff5b19c1040ee5fd608a560  ./05-decisions/GEO-002-architecture-review.md
+-676e4edb71d061461b08162f4fa35c0074e03da2568e1a13ef9eab20c1b8218d  ./CHANGELOG.md
+-7ec493ac2f1cf6636f7bbadd9cca07f5a9660c6204f1c382dab46bfee1e3be12  ./README.md
++630b745eeaa9c0d65f30ea70a2a2fd29388998758ff9014cdad4201401739ad4  ./CHANGELOG.md
++bb4fe2ad88a61678614736b042c6be782c07fbed7f349f5658e92b1fa55ca0cd  ./README.md
+ 36be92c676c3150e5953f01498418900d3e2bcc1f37a0bda31b9892e57b8a2d0  ./01-product/04-catalog-user-guide.md
+--- a/docs/geo-monitoring/02-business/02-domain-model.md
++++ b/docs/geo-monitoring/02-business/02-domain-model.md
+@@ -182,9 +182,9 @@
+ 
+ ## 3.4 GeoMonitoringPlan 聚合
+ 
+-GEO-206 / R1 已实现配置数据组件、四表 ORM 和 `0047_geo_monitoring_plans`，当前等待人工验收；字段与数据库防线以 [根 OpenAPI](../../../contracts/openapi.yaml) 和 [数据库合同](../../../contracts/database.md#geo-monitoringplan-合同geo-206--r1) 为权威。角色独立于 Subject 类型，配置至少一个 PRIMARY、prompt、profile；repeat 为 1..10、默认 3，revision 初始 0，rule_set_revision 默认 1。Cron 与 IANA 时区经输入边界校验，预算有限且非负或未设置。关系唯一且阻止删除资源，归档配置及关系只读；配置引用不设置历史首次运行标记。下面描述最终业务能力；GEO-207 实现资源活动/矩阵检查，命令资格接线仍由 GEO-208 负责，不生成批次或保存运行状态。
+-
+-GEO-207 已新增内部 RunMatrixBuilder 与只读预览，按明确问题变体、采集配置和重复次数计算请求数量，停用或缺失资源返回阻断；估价 coverage 和 unknown/null 语义见 [API设计](../03-technical/03-api-contract-design.md#62-geomonitoringplanpreview)。尚无 Plan 命令/API 或 Batch/Run 创建；预览不授予执行资格。
++GEO-206 / R1 已实现配置数据组件、四表 ORM 和 `0047_geo_monitoring_plans`，已人工接受 done；字段与数据库防线以 [根 OpenAPI](../../../contracts/openapi.yaml) 和 [数据库合同](../../../contracts/database.md#geo-monitoringplan-合同geo-206--r1) 为权威。角色独立于 Subject 类型，配置至少一个 PRIMARY、prompt、profile；repeat 为 1..10、默认 3，revision 初始 0，rule_set_revision 默认 1。Cron 与 IANA 时区经输入边界校验，预算有限且非负或未设置。关系唯一且阻止删除资源，归档配置及关系只读；配置引用不设置历史首次运行标记。下面描述最终业务能力；GEO-207 实现资源活动/矩阵检查，GEO-208 已接线命令资格，不生成批次或保存运行状态。
++
++GEO-207 已新增内部 RunMatrixBuilder 与只读预览，按明确问题变体、采集配置和重复次数计算请求数量，停用或缺失资源返回阻断；估价 coverage 和 unknown/null 语义见 [API设计](../03-technical/03-api-contract-design.md#62-geomonitoringplanpreview)。GEO-208 已接线Plan命令/API，创建/复制为DISABLED、实际变更revision+1、归档只读；暂停/禁用可保存可修复阻断，ACTIVE修改及启用/恢复重新检查资格。当前无Batch/Run创建；预览不授予执行资格。
+ 
+ ### 目的
+ 
+--- a/docs/geo-monitoring/02-business/03-workflows-and-state-machines.md
++++ b/docs/geo-monitoring/02-business/03-workflows-and-state-machines.md
+@@ -49,6 +49,12 @@
+ | PAUSED | 恢复或归档 | UPDATE, PREVIEW, RESUME, RUN_NOW, ARCHIVE |
+ | ARCHIVED | 查看历史 | VIEW_HISTORY, COPY |
+ 
++### 1.2 GEO-208 当前交付边界
++
++上表与流程图描述最终运行能力。GEO-208保留四态和合法转换；当前run-now为501命令占位，available_actions没有RUN_NOW，run_entry明确NOT_IMPLEMENTED。创建/复制都是DISABLED；结构完整且资源存在即可保存DISABLED/PAUSED，preview阻断保留给修复；ACTIVATE/RESUME只在当前无阻断时投影，命令仍锁内重新裁决。ACTIVE实际修改复用同一资格规则，状态保持ACTIVE、revision+1；同值配置（含集合重排）不改变revision/时间/审计。活动配置UPDATE由CREATE_REVISION动作表达，不创建第二套历史配置表。
++
++当前资源动作：非归档有PREVIEW/COPY/ARCHIVE；DISABLED有UPDATE/DELETE及合格时ACTIVATE；ACTIVE有PAUSE/CREATE_REVISION；PAUSED有UPDATE及合格时RESUME；ARCHIVED仅COPY。workflow_stage与primary_task由服务端typed投影，VIEW_RUNTIME/VIEW_HISTORY不代表尚未实施的运行/历史API已经可用。ACTIVE归档同事务内先暂停后归档，仅一次版本和一条审计，无可见中间态。非法或重复转换409，归档写入409 GEO_PLAN_ARCHIVED。实际Batch冻结和运行状态机留后续任务。
++
+ ## 2. 批次创建流程
+ 
+ ```mermaid
+--- a/docs/geo-monitoring/03-technical/03-api-contract-design.md
++++ b/docs/geo-monitoring/03-technical/03-api-contract-design.md
+@@ -178,7 +178,7 @@
+ 
+ ## 6. 监测计划 API
+ 
+-GEO-206 交付 `GeoMonitoringPlanCreate/Update/Out/RevisionRequest`、状态/关系/调度枚举和 generated 类型。Create/Update 是完整配置，Update 另需 expected_revision；创建者、身份、状态与逻辑 revision 不接受客户端写入，预算 JSON 输入/输出均为非负十进制字符串（最多8位整数/6位小数）或 NULL，内部使用 Decimal；拒绝数字、符号、前导零、指数和尾随字符。GEO-207 新增下述预览数据组件和内部只读服务；仍无 Plan 路径或动作读模型，下表由 GEO-208 接线。既有 Subject/Prompt/Profile 的删除读模型已接入真实 MONITORING_PLAN 阻断，沿既有权限和 CSRF，不新增外部调用。
++GEO-206 交付 `GeoMonitoringPlanCreate/Update/Out/RevisionRequest`、状态/关系/调度枚举和 generated 类型。Create/Update 是完整配置，Update 另需 expected_revision；创建者、身份、状态与逻辑 revision 不接受客户端写入，预算 JSON 输入/输出均为非负十进制字符串（最多8位整数/6位小数）或 NULL，内部使用 Decimal；拒绝数字、符号、前导零、指数和尾随字符。GEO-207 提供下述预览数据组件与内部只读服务；GEO-208 已接线下表12个操作及typed详情/列表/动作读模型，当前等待人工验收。既有 Subject/Prompt/Profile 的删除读模型已接入真实 MONITORING_PLAN 阻断，沿既有权限和 CSRF，不新增外部调用。
+ 
+ | 方法 | 路径 | operationId |
+ |---|---|---|
+@@ -194,6 +194,12 @@
+ | POST | `/geo/monitoring-plans/{id}/run` | `runGeoMonitoringPlanNow` |
+ | POST | `/geo/monitoring-plans/{id}/copy` | `copyGeoMonitoringPlan` |
+ | DELETE | `/geo/monitoring-plans/{id}` | `deleteGeoMonitoringPlan` |
++
++GEO-208 当前命令以 session 和 CSRF 保护，ADMIN/ENGINEER 管理内部共享Plan；服务端拥有状态、revision、追溯和资格裁决。PATCH 完整替换配置而非集合片段；请求不可写 status/creator/revision。所有已存在Plan命令必须 expected_revision，DELETE 为 required query，其余 body。实际配置/状态变化恰好+1；集合顺序 no-op不变；stale409 REVISION_CONFLICT，无自动重放。合法状态与锁协议见[数据库合同](../../../contracts/database.md#geo-208-命令快照与审计)。DISABLED/PAUSED允许保存可修复的运行阻断，引用不存在仍422；activate/resume与ACTIVE实际修改必须锁内重验当前资格。复制请求另需name，返回新DISABLED/revision0，不改变源；ARCHIVED只读/复制。DELETE仅DISABLED，204空响应，审计保留。
++
++详情 `GeoMonitoringPlanDetail` 包含完整配置、preview、workflow_stage、primary_task、available_actions、deletion与run_entry；列表items使用同一模型，不返回未实施的last_batch/运行健康/成功率。列表q为名称字面子串，status/schedule_kind为闭合筛选，sort为UPDATED_DESC/NAME_ASC，page从1、page_size=10/20/50（默认20），稳定UUID次序。GET/preview在认证前RR且禁autoflush，不写心跳；count/page/关系/资格共享快照且固定批量查询。
++
++run_entry 固定 `{available: false, reason_code: NOT_IMPLEMENTED}`，不投影RUN_NOW。`POST /geo/monitoring-plans/{id}/run` 只建立命令边界：required expected_revision与1..160字节可见ASCII Idempotency-Key，先裁决权限、revision、ARCHIVED边界，随后501标准错误。无成功响应、Batch/Run/幂等存储/dispatch或成功审计；key重放仍501。完整执行及快照冻结由GEO-303实施，计划向导由GEO-209实施。
+ 
+ ### 6.1 预览请求
+ 
+--- a/docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md
++++ b/docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md
+@@ -56,7 +56,7 @@
+ 组件/真实序列化见 `test_geo_plan_preview_contract.py`；当前列/无写/一致 RR 快照见
+ `backend/tests/integration/test_geo_plan_preview.py`。默认无估价实现，未知费用不补零。
+ 状态与完整验证见 [GEO-207 实施记录](../../../.trellis/tasks/10-02-geo-207-run-matrix/implement.md)。
+-Plan API/向导、执行预算与批次冻结仍分别属于 GEO-208/209、GEO-407、GEO-303。
++GEO-208已接线Plan API和服务端状态机，覆盖REQ-GEO-PLAN-001/003/005、AC-PLAN-04与AC-AUDIT-01；真实PostgreSQL生命周期/审计回滚/并发/权限和RR批量读证据见[实施记录](../../../.trellis/tasks/10-02-geo-208-plan-api/implement.md)。Plan向导、执行预算与真实批次冻结仍分别属于GEO-209、GEO-407、GEO-303，REQ-GEO-PLAN-004尚不能宣称完成。
+ 
+ | 需求 ID | 需求 | 验收 | 任务 |
+ |---|---|---|---|
+--- a/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ b/docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -423,7 +423,7 @@
+   phase: R1
+   release: R1
+   title: 实现 Plan 命令、查询、状态机和 API
+-  status: planned
++  status: review
+   dependencies:
+   - GEO-207
+   areas:
+@@ -438,6 +438,9 @@
+   - 02-business/03-workflows-and-state-machines.md
+   - 03-technical/01-technical-architecture.md
+   - 04-delivery/04-codex-execution-guide.md
++  trellis_task: .trellis/tasks/10-02-geo-208-plan-api
++  validation_record: .trellis/tasks/10-02-geo-208-plan-api/implement.md
++  review_note: 12个Plan操作、状态机/revision/原子审计及真实PostgreSQL并发与权限证据已完成本地验证；2026-10-02进入review等待人工验收。run-now仅501占位，无Batch/Run或真实快照冻结，不自行done。
+ - id: GEO-209
+   phase: R1
+   release: R1
+--- a/backend/tests/unit/test_contract.py
++++ b/backend/tests/unit/test_contract.py
+@@ -53,9 +53,9 @@
+     contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+     document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+     operations = operation_map(document)
+-    assert len(operations) == 197
+-    assert len({operation["operationId"] for operation in operations.values()}) == 197
+-    assert sum(len(operation["responses"]) for operation in operations.values()) == 1258
++    assert len(operations) == 209
++    assert len({operation["operationId"] for operation in operations.values()}) == 209
++    assert sum(len(operation["responses"]) for operation in operations.values()) == 1336
+ 
+     expected_parameter = {
+         "name": "X-Request-ID",
+@@ -148,6 +148,8 @@
+             "listGeoPromptVariants",
+             "listGeoEngineSurfaces",
+             "listGeoCollectionProfiles",
++            "listGeoMonitoringPlans",
++            "previewGeoMonitoringPlan",
+         ),
+         ("201", "401", "403", "422"): (
+             "createQueryTopic",
+@@ -184,6 +186,7 @@
+             "getGeoPromptVariant",
+             "getGeoEngineSurface",
+             "getGeoCollectionProfile",
++            "getGeoMonitoringPlan",
+         ),
+         ("200", "401", "403", "409", "422"): (
+             "putContentHumanizationPrompt",
+@@ -198,6 +201,7 @@
+             "createProduct",
+             "createPlatformPrompt",
+             "createPlatformType",
++            "createGeoMonitoringPlan",
+         ),
+         ("200", "401", "403", "404", "409", "422"): (
+             "updateUser",
+@@ -278,6 +282,11 @@
+             "deleteGeoSubjectAlias",
+             "createGeoSubjectDomain",
+             "deleteGeoSubjectDomain",
++            "updateGeoMonitoringPlan",
++            "activateGeoMonitoringPlan",
++            "pauseGeoMonitoringPlan",
++            "resumeGeoMonitoringPlan",
++            "archiveGeoMonitoringPlan",
+         ),
+         ("201", "401", "403", "404", "409", "422"): (
+             "submitProductFactReview",
+@@ -297,6 +306,7 @@
+             "createGeoPromptVariant",
+             "createGeoEngineSurface",
+             "createGeoCollectionProfile",
++            "copyGeoMonitoringPlan",
+         ),
+         ("201", "401", "403", "409", "422", "503"): (
+             "createPlatformLogoCandidate",
+@@ -327,6 +337,7 @@
+             "deleteGeoPromptVariant",
+             "deleteGeoEngineSurface",
+             "deleteGeoCollectionProfile",
++            "deleteGeoMonitoringPlan",
+         ),
+         ("204", "401", "403", "404", "408", "409", "413", "422", "503"): (
+             "uploadFileContent",
+@@ -334,6 +345,7 @@
+         ("200", "401", "403", "404", "409", "422", "503"): (
+             "completeFileUpload",
+         ),
++        ("401", "403", "404", "409", "422", "501"): ("runGeoMonitoringPlanNow",),
+         ("200", "401", "403", "404", "409", "422", "502", "504"): (
+             "discoverAIChannelModels",
+         ),
+@@ -350,7 +362,7 @@
+         if isinstance(operation, dict) and "operationId" in operation
+     }
+ 
+-    assert len(expected) == 197
++    assert len(expected) == 209
+     assert set(operations) == set(expected)
+     for operation_id, operation in operations.items():
+         responses = operation["responses"]
+@@ -378,7 +390,7 @@
+         "getWorkbench",
+     }
+     assert len(validation_free) == 14
+-    assert sum("422" in statuses for statuses in expected.values()) == 183
++    assert sum("422" in statuses for statuses in expected.values()) == 195
+     assert {
+         operation_id for operation_id, statuses in expected.items() if "422" not in statuses
+     } == validation_free
+--- a/backend/tests/unit/test_runtime_response_metadata.py
++++ b/backend/tests/unit/test_runtime_response_metadata.py
+@@ -645,9 +645,9 @@
+     runtime = app.openapi()
+     operations = _operation_map(runtime)
+ 
+-    assert len(operations) == 197
+-    assert len(set(operations)) == 197
+-    assert sum(len(operation["responses"]) for operation in operations.values()) == 1258
++    assert len(operations) == 209
++    assert len(set(operations)) == 209
++    assert sum(len(operation["responses"]) for operation in operations.values()) == 1336
+     parameter_ref = {"$ref": "#/components/parameters/RequestIdHeader"}
+     header_ref = {"$ref": "#/components/headers/RequestIdResponseHeader"}
+     parameter_schema = {
+@@ -692,10 +692,10 @@
+     augmented = app.openapi()
+     stripped = _strip_request_context_metadata(augmented)
+ 
+-    assert sum(len(operation["responses"]) for operation in _operation_map(raw).values()) == 1061
++    assert sum(len(operation["responses"]) for operation in _operation_map(raw).values()) == 1127
+     assert sum(
+         len(operation["responses"]) for operation in _operation_map(stripped).values()
+-    ) == 1061
++    ) == 1127
+     # 安装版本的 FastAPI 省略 None 默认；这里只移除已声明且显式恢复的两处 annotation。
+     raw_settings = raw["components"]["schemas"]["GeoApiSettings"]["properties"]
+     stripped_settings = stripped["components"]["schemas"]["GeoApiSettings"]["properties"]
+--- a/backend/app/routers/geo_monitoring_plans.py
++++ b/backend/app/routers/geo_monitoring_plans.py
+@@ -0,0 +1,284 @@
++"""监测计划HTTP边界；不拥有事务、行锁或ORM写入。"""
++
++from typing import Annotated, Literal
++from uuid import UUID
++
++from fastapi import APIRouter, Depends, Header, Query, Request
++from pydantic import BeforeValidator
++
++from app.deps import CsrfProtected, DbSession, EngineerUser
++from app.errors import error_responses
++from app.schemas.geo_monitoring_plans import (
++    GeoMonitoringPlanCreate,
++    GeoMonitoringPlanRevisionRequest,
++    GeoMonitoringPlanStatus,
++    GeoMonitoringPlanUpdate,
++    GeoPlanScheduleKind,
++)
++from app.schemas.geo_plan_management import (
++    GeoMonitoringPlanCopy,
++    GeoMonitoringPlanDetail,
++    GeoMonitoringPlanListPage,
++)
++from app.schemas.geo_plan_preview import GeoMonitoringPlanPreview
++from app.services import geo_plan_commands as commands
++from app.services import geo_plan_queries as queries
++from app.services.geo_plans import preview_plan
++
++router = APIRouter(prefix="/api/v1/geo/monitoring-plans", tags=["geo-plans"])
++
++
++@router.get(
++    "",
++    response_model=GeoMonitoringPlanListPage,
++    operation_id="listGeoMonitoringPlans",
++    dependencies=[Depends(queries.read_snapshot)],
++    responses=error_responses(401, 403, 422),
++)
++def list_plans(
++    db: DbSession,
++    user: EngineerUser,
++    q: Annotated[str | None, Query(max_length=200, pattern=r"^[^\x00]*$")] = None,
++    status: GeoMonitoringPlanStatus | None = None,
++    schedule_kind: GeoPlanScheduleKind | None = None,
++    sort: Literal["UPDATED_DESC", "NAME_ASC"] = "UPDATED_DESC",
++    page: int = Query(1, ge=1),
++    page_size: Annotated[Literal[10, 20, 50], BeforeValidator(int), Query()] = 20,
++) -> GeoMonitoringPlanListPage:
++    return queries.list_plans(
++        db,
++        q=q,
++        status=status,
++        schedule_kind=schedule_kind,
++        sort=sort,
++        page=page,
++        page_size=page_size,
++    )
++
++
++@router.post(
++    "",
++    response_model=GeoMonitoringPlanDetail,
++    status_code=201,
++    operation_id="createGeoMonitoringPlan",
++    responses=error_responses(401, 403, 409, 422),
++)
++def create_plan(
++    payload: GeoMonitoringPlanCreate,
++    request: Request,
++    db: DbSession,
++    user: EngineerUser,
++    _csrf: CsrfProtected,
++) -> GeoMonitoringPlanDetail:
++    return commands.create_plan(
++        db=db, payload=payload, actor=user, request_id=request.state.request_id
++    )
++
++
++@router.post(
++    "/preview",
++    response_model=GeoMonitoringPlanPreview,
++    operation_id="previewGeoMonitoringPlan",
++    dependencies=[Depends(queries.read_snapshot)],
++    responses=error_responses(401, 403, 422),
++)
++def preview(
++    payload: GeoMonitoringPlanCreate, db: DbSession, user: EngineerUser, _csrf: CsrfProtected
++) -> GeoMonitoringPlanPreview:
++    return preview_plan(db, payload)
++
++
++@router.get(
++    "/{plan_id}",
++    response_model=GeoMonitoringPlanDetail,
++    operation_id="getGeoMonitoringPlan",
++    dependencies=[Depends(queries.read_snapshot)],
++    responses=error_responses(401, 403, 404, 422),
++)
++def get_plan(plan_id: UUID, db: DbSession, user: EngineerUser) -> GeoMonitoringPlanDetail:
++    return queries.get_plan(db, plan_id)
++
++
++@router.patch(
++    "/{plan_id}",
++    response_model=GeoMonitoringPlanDetail,
++    operation_id="updateGeoMonitoringPlan",
++    responses=error_responses(401, 403, 404, 409, 422),
++)
++def update_plan(
++    plan_id: UUID,
++    payload: GeoMonitoringPlanUpdate,
++    request: Request,
++    db: DbSession,
++    user: EngineerUser,
++    _csrf: CsrfProtected,
++) -> GeoMonitoringPlanDetail:
++    return commands.update_plan(
++        db=db, plan_id=plan_id, payload=payload, actor=user, request_id=request.state.request_id
++    )
++
++
++@router.post(
++    "/{plan_id}/activate",
++    response_model=GeoMonitoringPlanDetail,
++    operation_id="activateGeoMonitoringPlan",
++    responses=error_responses(401, 403, 404, 409, 422),
++)
++def activate(
++    plan_id: UUID,
++    payload: GeoMonitoringPlanRevisionRequest,
++    request: Request,
++    db: DbSession,
++    user: EngineerUser,
++    _csrf: CsrfProtected,
++) -> GeoMonitoringPlanDetail:
++    return commands.change_status(
++        db=db,
++        plan_id=plan_id,
++        expected_revision=payload.expected_revision,
++        operation="activate",
++        actor=user,
++        request_id=request.state.request_id,
++    )
++
++
++@router.post(
++    "/{plan_id}/pause",
++    response_model=GeoMonitoringPlanDetail,
++    operation_id="pauseGeoMonitoringPlan",
++    responses=error_responses(401, 403, 404, 409, 422),
++)
++def pause(
++    plan_id: UUID,
++    payload: GeoMonitoringPlanRevisionRequest,
++    request: Request,
++    db: DbSession,
++    user: EngineerUser,
++    _csrf: CsrfProtected,
++) -> GeoMonitoringPlanDetail:
++    return commands.change_status(
++        db=db,
++        plan_id=plan_id,
++        expected_revision=payload.expected_revision,
++        operation="pause",
++        actor=user,
++        request_id=request.state.request_id,
++    )
++
++
++@router.post(
++    "/{plan_id}/resume",
++    response_model=GeoMonitoringPlanDetail,
++    operation_id="resumeGeoMonitoringPlan",
++    responses=error_responses(401, 403, 404, 409, 422),
++)
++def resume(
++    plan_id: UUID,
++    payload: GeoMonitoringPlanRevisionRequest,
++    request: Request,
++    db: DbSession,
++    user: EngineerUser,
++    _csrf: CsrfProtected,
++) -> GeoMonitoringPlanDetail:
++    return commands.change_status(
++        db=db,
++        plan_id=plan_id,
++        expected_revision=payload.expected_revision,
++        operation="resume",
++        actor=user,
++        request_id=request.state.request_id,
++    )
++
++
++@router.post(
++    "/{plan_id}/archive",
++    response_model=GeoMonitoringPlanDetail,
++    operation_id="archiveGeoMonitoringPlan",
++    responses=error_responses(401, 403, 404, 409, 422),
++)
++def archive(
++    plan_id: UUID,
++    payload: GeoMonitoringPlanRevisionRequest,
++    request: Request,
++    db: DbSession,
++    user: EngineerUser,
++    _csrf: CsrfProtected,
++) -> GeoMonitoringPlanDetail:
++    return commands.change_status(
++        db=db,
++        plan_id=plan_id,
++        expected_revision=payload.expected_revision,
++        operation="archive",
++        actor=user,
++        request_id=request.state.request_id,
++    )
++
++
++@router.post(
++    "/{plan_id}/copy",
++    response_model=GeoMonitoringPlanDetail,
++    status_code=201,
++    operation_id="copyGeoMonitoringPlan",
++    responses=error_responses(401, 403, 404, 409, 422),
++)
++def copy(
++    plan_id: UUID,
++    payload: GeoMonitoringPlanCopy,
++    request: Request,
++    db: DbSession,
++    user: EngineerUser,
++    _csrf: CsrfProtected,
++) -> GeoMonitoringPlanDetail:
++    return commands.copy_plan(
++        db=db, plan_id=plan_id, payload=payload, actor=user, request_id=request.state.request_id
++    )
++
++
++@router.delete(
++    "/{plan_id}",
++    status_code=204,
++    operation_id="deleteGeoMonitoringPlan",
++    responses=error_responses(401, 403, 404, 409, 422),
++)
++def delete_plan(
++    plan_id: UUID,
++    expected_revision: Annotated[int, Query(ge=0)],
++    request: Request,
++    db: DbSession,
++    user: EngineerUser,
++    _csrf: CsrfProtected,
++) -> None:
++    commands.delete_plan(
++        db=db,
++        plan_id=plan_id,
++        expected_revision=expected_revision,
++        actor=user,
++        request_id=request.state.request_id,
++    )
++
++
++@router.post(
++    "/{plan_id}/run",
++    status_code=501,
++    response_model=None,
++    operation_id="runGeoMonitoringPlanNow",
++    responses=error_responses(401, 403, 404, 409, 422, 501),
++)
++def run_now(
++    plan_id: UUID,
++    payload: GeoMonitoringPlanRevisionRequest,
++    db: DbSession,
++    user: EngineerUser,
++    _csrf: CsrfProtected,
++    idempotency_key: Annotated[
++        str,
++        Header(alias="Idempotency-Key", min_length=1, max_length=160, pattern=r"^[\x21-\x7E]+$"),
++    ],
++) -> None:
++    commands.run_now(
++        db=db,
++        plan_id=plan_id,
++        expected_revision=payload.expected_revision,
++        idempotency_key=idempotency_key,
++        actor=user,
++    )
+--- a/backend/app/schemas/geo_plan_management.py
++++ b/backend/app/schemas/geo_plan_management.py
+@@ -0,0 +1,71 @@
++"""Plan 命令与读模型；运行健康留给后续批次能力。"""
++
++from enum import StrEnum
++from typing import Literal
++
++from pydantic import Field
++
++from app.schemas.base import ContractModel
++from app.schemas.geo_monitoring_plans import (
++    GeoMonitoringPlanOut,
++    GeoMonitoringPlanRevisionRequest,
++    PlanName,
++)
++from app.schemas.geo_plan_preview import GeoMonitoringPlanPreview
++
++
++class GeoPlanAction(StrEnum):
++    UPDATE = "UPDATE"
++    PREVIEW = "PREVIEW"
++    ACTIVATE = "ACTIVATE"
++    PAUSE = "PAUSE"
++    RESUME = "RESUME"
++    ARCHIVE = "ARCHIVE"
++    COPY = "COPY"
++    CREATE_REVISION = "CREATE_REVISION"
++    DELETE = "DELETE"
++
++
++class GeoPlanWorkflowStage(StrEnum):
++    CONFIGURATION_REQUIRED = "CONFIGURATION_REQUIRED"
++    READY = "READY"
++    ACTIVE = "ACTIVE"
++    PAUSED = "PAUSED"
++    ARCHIVED = "ARCHIVED"
++
++
++class GeoPlanPrimaryTask(StrEnum):
++    COMPLETE_CONFIGURATION = "COMPLETE_CONFIGURATION"
++    ACTIVATE = "ACTIVATE"
++    VIEW_RUNTIME = "VIEW_RUNTIME"
++    RESUME = "RESUME"
++    VIEW_HISTORY = "VIEW_HISTORY"
++
++
++class GeoPlanDeletion(ContractModel):
++    blockers: list[Literal["PLAN_NOT_DISABLED", "ARCHIVED"]]
++
++
++class GeoPlanRunEntry(ContractModel):
++    available: Literal[False]
++    reason_code: Literal["NOT_IMPLEMENTED"]
++
++
++class GeoMonitoringPlanCopy(GeoMonitoringPlanRevisionRequest):
++    name: PlanName
++
++
++class GeoMonitoringPlanDetail(GeoMonitoringPlanOut):
++    preview: GeoMonitoringPlanPreview
++    workflow_stage: GeoPlanWorkflowStage
++    primary_task: GeoPlanPrimaryTask
++    available_actions: list[GeoPlanAction]
++    deletion: GeoPlanDeletion
++    run_entry: GeoPlanRunEntry
++
++
++class GeoMonitoringPlanListPage(ContractModel):
++    items: list[GeoMonitoringPlanDetail]
++    total: int = Field(ge=0)
++    page: int = Field(ge=1)
++    page_size: Literal[10, 20, 50]
+--- a/backend/app/services/geo_plan_commands.py
++++ b/backend/app/services/geo_plan_commands.py
+@@ -0,0 +1,299 @@
++"""计划配置与生命周期命令的事务 owner；不持久化执行或快照。"""
++
++from datetime import UTC, datetime
++from typing import NoReturn
++from uuid import UUID, uuid4
++
++from sqlalchemy import delete, text
++from sqlalchemy.exc import IntegrityError
++from sqlalchemy.orm import Session
++
++from app.audit import append_audit
++from app.audit_types import AuditEntry, AuditModule, AuditOutcome
++from app.errors import AppError
++from app.models.geo_monitoring_plans import (
++    GeoMonitoringPlan,
++    GeoMonitoringPlanProfile,
++    GeoMonitoringPlanPrompt,
++    GeoMonitoringPlanSubject,
++)
++from app.models.identity import User
++from app.schemas.geo_monitoring_plans import (
++    GeoMonitoringPlanConfiguration,
++    GeoMonitoringPlanCreate,
++    GeoMonitoringPlanUpdate,
++)
++from app.schemas.geo_monitoring_plans import GeoMonitoringPlanStatus as Status
++from app.schemas.geo_plan_management import GeoMonitoringPlanCopy, GeoMonitoringPlanDetail
++from app.schemas.geo_plan_preview import GeoMonitoringPlanPreview
++from app.services.geo_plan_locks import command, lock_plan, lock_resources
++from app.services.geo_plan_policy import PlanTransition, require_mutable, transition
++from app.services.geo_plan_queries import CONFIGURATION_FIELDS, plan_detail, previews
++
++
++def _configuration(value: GeoMonitoringPlanConfiguration) -> GeoMonitoringPlanConfiguration:
++    fields = value.model_dump(exclude={"expected_revision"})
++    fields["subjects"] = sorted(fields["subjects"], key=lambda s: s["subject_id"])
++    for name in ("prompt_variant_ids", "collection_profile_ids"):
++        fields[name] = sorted(fields[name])
++    return GeoMonitoringPlanConfiguration.model_validate(fields)
++
++
++def _require_references(preview: GeoMonitoringPlanPreview) -> None:
++    missing = [
++        b
++        for b in preview.blockers
++        if b.code in {"SUBJECT_NOT_FOUND", "PROMPT_NOT_FOUND", "PROFILE_NOT_FOUND"}
++    ]
++    if missing:
++        raise AppError(
++            "GEO_PLAN_REFERENCE_INVALID",
++            "计划引用的资源不存在",
++            422,
++            {"blockers": [b.model_dump(mode="json") for b in missing]},
++        )
++
++
++def _require_eligible(preview: GeoMonitoringPlanPreview) -> None:
++    if preview.blockers:
++        code = (
++            "GEO_PLAN_BUDGET_EXCEEDED"
++            if any(b.code == "BUDGET_EXCEEDED" for b in preview.blockers)
++            else "GEO_PLAN_PROFILE_INELIGIBLE"
++        )
++        raise AppError(
++            code,
++            "计划当前不具备运行资格，请修正阻断项",
++            409,
++            {"blockers": [b.model_dump(mode="json") for b in preview.blockers]},
++        )
++
++
++def _flush_business(db: Session) -> None:
++    try:
++        db.flush()
++        # 只提前裁决本聚合的提交完整性；审计错误不得误分类为配置错误。
++        db.execute(
++            text(
++                "SET CONSTRAINTS geo_monitoring_plan_complete, "
++                "geo_monitoring_plan_subjects_complete, "
++                "geo_monitoring_plan_prompts_complete, "
++                "geo_monitoring_plan_profiles_complete IMMEDIATE"
++            )
++        )
++    except IntegrityError as error:
++        pair = (
++            getattr(error.orig, "sqlstate", None),
++            getattr(getattr(error.orig, "diag", None), "constraint_name", None),
++        )
++        if pair == ("23514", "ck_geo_monitoring_plans_archived"):
++            mapped = AppError("GEO_PLAN_ARCHIVED", "归档计划只读，请复制为新计划", 409)
++        elif pair in {
++            ("23514", "ck_geo_monitoring_plans_" + name + "_required")
++            for name in ("primary", "prompt", "profile")
++        }:
++            mapped = AppError("GEO_PLAN_EMPTY", "计划至少需要一个 PRIMARY、问题变体和采集配置", 422)
++        elif pair in {
++            ("23503", "fk_geo_monitoring_plan_" + name + "_" + label)
++            for name, label in (
++                ("subjects", "subject"),
++                ("prompts", "prompt"),
++                ("profiles", "profile"),
++            )
++        }:
++            mapped = AppError("GEO_PLAN_REFERENCE_INVALID", "计划引用的资源不存在", 422)
++        else:
++            raise
++        db.rollback()
++        raise mapped from error
++
++
++def _memberships(
++    db: Session, plan: GeoMonitoringPlan, value: GeoMonitoringPlanConfiguration
++) -> None:
++    db.add_all(
++        [
++            GeoMonitoringPlanSubject(plan_id=plan.id, subject_id=s.subject_id, role=s.role)
++            for s in value.subjects
++        ]
++    )
++    db.add_all(
++        [
++            GeoMonitoringPlanPrompt(plan_id=plan.id, prompt_variant_id=p)
++            for p in value.prompt_variant_ids
++        ]
++    )
++    db.add_all(
++        [
++            GeoMonitoringPlanProfile(plan_id=plan.id, collection_profile_id=p)
++            for p in value.collection_profile_ids
++        ]
++    )
++
++
++def _audit(db: Session, plan: GeoMonitoringPlan, actor: User, request_id: str, action: str) -> None:
++    append_audit(
++        db,
++        AuditEntry(
++            actor_id=actor.id,
++            business_module=AuditModule.CONFIGURATION,
++            action="geo_monitoring_plan." + action,
++            target_type="GeoMonitoringPlan",
++            target_id=plan.id,
++            request_id=request_id,
++            outcome=AuditOutcome.SUCCESS,
++            result_message="GEO 监测计划配置已变更",
++            details={"facts": {"revision": plan.revision, "status": plan.status}},
++        ),
++    )
++
++
++def _finish(
++    db: Session,
++    plan: GeoMonitoringPlan,
++    value: GeoMonitoringPlanConfiguration,
++    preview: GeoMonitoringPlanPreview,
++    actor: User,
++    request_id: str,
++    action: str | None,
++) -> GeoMonitoringPlanDetail:
++    if action is not None:
++        _flush_business(db)
++        _audit(db, plan, actor, request_id, action)
++    db.flush()
++    result = plan_detail(plan, value, preview)
++    db.commit()
++    return result
++
++
++def _changed(plan: GeoMonitoringPlan, actor: User) -> None:
++    plan.revision += 1
++    plan.updated_at = max(datetime.now(UTC), plan.updated_at)
++    plan.updated_by = actor.id
++
++
++def _create(
++    db: Session, value: GeoMonitoringPlanConfiguration, actor: User, request_id: str, action: str
++) -> GeoMonitoringPlanDetail:
++    preview = previews(db, [value])[0]
++    _require_references(preview)
++    plan = GeoMonitoringPlan(
++        id=uuid4(),
++        **{name: getattr(value, name) for name in CONFIGURATION_FIELDS},
++        status="DISABLED",
++        revision=0,
++        created_by=actor.id,
++        updated_by=actor.id,
++    )
++    db.add(plan)
++    db.flush()
++    _memberships(db, plan, value)
++    return _finish(db, plan, value, preview, actor, request_id, action)
++
++
++def create_plan(
++    *, db: Session, payload: GeoMonitoringPlanCreate, actor: User, request_id: str
++) -> GeoMonitoringPlanDetail:
++    with command(db, actor) as current:
++        value = _configuration(payload)
++        lock_resources(db, [value])
++        return _create(db, value, current, request_id, "created")
++
++
++def update_plan(
++    *, db: Session, plan_id: UUID, payload: GeoMonitoringPlanUpdate, actor: User, request_id: str
++) -> GeoMonitoringPlanDetail:
++    with command(db, actor) as current:
++        value = _configuration(payload)
++        plan, before = lock_plan(db, plan_id, payload.expected_revision, value)
++        require_mutable(Status(plan.status))
++        preview = previews(db, [value])[0]
++        _require_references(preview)
++        changed = value != before
++        if changed:
++            if plan.status == Status.ACTIVE:
++                _require_eligible(preview)
++            for name in CONFIGURATION_FIELDS:
++                setattr(plan, name, getattr(value, name))
++            if any(
++                getattr(value, name) != getattr(before, name)
++                for name in ("subjects", "prompt_variant_ids", "collection_profile_ids")
++            ):
++                for model in (
++                    GeoMonitoringPlanSubject,
++                    GeoMonitoringPlanPrompt,
++                    GeoMonitoringPlanProfile,
++                ):
++                    db.execute(delete(model).where(model.plan_id == plan.id))
++                _memberships(db, plan, value)
++            _changed(plan, current)
++        return _finish(
++            db, plan, value, preview, current, request_id, "updated" if changed else None
++        )
++
++
++def change_status(
++    *,
++    db: Session,
++    plan_id: UUID,
++    expected_revision: int,
++    operation: PlanTransition,
++    actor: User,
++    request_id: str,
++) -> GeoMonitoringPlanDetail:
++    with command(db, actor) as current:
++        plan, value = lock_plan(db, plan_id, expected_revision)
++        target = transition(Status(plan.status), operation)
++        preview = previews(db, [value])[0]
++        if target == Status.ACTIVE:
++            _require_eligible(preview)
++        if target == Status.ARCHIVED and plan.status == Status.ACTIVE:
++            # ACTIVE归档在同一事务内先暂停，不产生可见中间态或第二条成功审计。
++            plan.status = Status.PAUSED
++            db.flush()
++        plan.status = target
++        _changed(plan, current)
++        actions = {
++            "activate": "activated",
++            "pause": "paused",
++            "resume": "resumed",
++            "archive": "archived",
++        }
++        return _finish(db, plan, value, preview, current, request_id, actions[operation])
++
++
++def copy_plan(
++    *, db: Session, plan_id: UUID, payload: GeoMonitoringPlanCopy, actor: User, request_id: str
++) -> GeoMonitoringPlanDetail:
++    with command(db, actor) as current:
++        _, source = lock_plan(db, plan_id, payload.expected_revision)
++        value = GeoMonitoringPlanConfiguration.model_validate(
++            source.model_dump() | {"name": payload.name}
++        )
++        return _create(db, value, current, request_id, "copied")
++
++
++def delete_plan(
++    *, db: Session, plan_id: UUID, expected_revision: int, actor: User, request_id: str
++) -> None:
++    with command(db, actor) as current:
++        plan, _ = lock_plan(db, plan_id, expected_revision)
++        require_mutable(Status(plan.status))
++        if plan.status != Status.DISABLED:
++            raise AppError(
++                "GEO_PLAN_IN_USE", "只能删除尚未启用的 DISABLED 计划；其他计划请归档", 409
++            )
++        db.delete(plan)
++        _flush_business(db)
++        _audit(db, plan, current, request_id, "deleted")
++        db.commit()
++
++
++def run_now(
++    *, db: Session, plan_id: UUID, expected_revision: int, idempotency_key: str, actor: User
++) -> NoReturn:
++    with command(db, actor):
++        plan, _ = lock_plan(db, plan_id, expected_revision)
++        require_mutable(Status(plan.status))
++        # GEO-303尚未实施，不保存命令或幂等结果，不写成功审计、不返回伪造资源。
++        raise AppError("NOT_IMPLEMENTED", "立即运行将在批次创建能力交付后开放", 501)
+--- a/backend/app/services/geo_plan_locks.py
++++ b/backend/app/services/geo_plan_locks.py
+@@ -0,0 +1,151 @@
++"""Plan 命令锁序；初读只确定锁集合，所有可变身份都在锁后重验。"""
++
++from collections.abc import Iterator, Sequence
++from contextlib import contextmanager
++from uuid import UUID
++
++from sqlalchemy import select
++from sqlalchemy.orm import Session
++
++from app.deps import assert_account_types
++from app.errors import AppError, not_found
++from app.models.configuration import QueryTopic
++from app.models.geo_catalog import GeoSubject
++from app.models.geo_monitoring_plans import GeoMonitoringPlan
++from app.models.geo_prompt_variants import GeoPromptVariant
++from app.models.geo_surfaces import GeoCollectionProfile, GeoEngineSurface
++from app.models.identity import SessionRecord, User
++from app.models.product_facts import Product
++from app.schemas.common import AccountType
++from app.schemas.geo_monitoring_plans import GeoMonitoringPlanConfiguration
++from app.services.geo_catalog_locks import BRAND_TYPES
++from app.services.geo_plan_queries import configurations
++from app.services.geo_surface_locks import lock_bindings
++
++
++def revision_conflict() -> AppError:
++    return AppError("REVISION_CONFLICT", "监测计划或所选配置已被其他请求修改", 409)
++
++
++@contextmanager
++def command(db: Session, actor: User) -> Iterator[User]:
++    """复用 User 非键更新锁与 heartbeat 舍弃规则，不持有 Session 写锁。"""
++    db.autoflush = False
++    try:
++        if db.connection().get_isolation_level() != "READ COMMITTED":
++            raise ValueError("计划写命令要求 READ COMMITTED 并在行锁后读取当前资格")
++        for record in list(db.dirty):
++            if isinstance(record, SessionRecord) and record.user_id == actor.id:
++                db.expire(record, ["last_seen_at"])
++        current = db.scalar(
++            select(User)
++            .where(User.id == actor.id)
++            .with_for_update(key_share=True)
++            .execution_options(populate_existing=True)
++        )
++        if current is None or not current.is_active:
++            raise AppError("AUTH_REQUIRED", "账号已停用或不存在", 401)
++        if current.must_change_password:
++            raise AppError("PASSWORD_CHANGE_REQUIRED", "必须先修改临时密码", 403)
++        assert_account_types(current, (AccountType.ADMIN, AccountType.ENGINEER))
++        yield current
++    except Exception:
++        db.rollback()
++        raise
++
++
++def lock_resources(db: Session, values: Sequence[GeoMonitoringPlanConfiguration]) -> None:
++    subject_ids = {s.subject_id for value in values for s in value.subjects}
++    prompt_ids = {p for value in values for p in value.prompt_variant_ids}
++    profile_ids = {p for value in values for p in value.collection_profile_ids}
++    s, p, v = GeoSubject, GeoCollectionProfile, GeoPromptVariant
++    subjects_before = db.execute(
++        select(s.id, s.subject_type, s.product_id, s.parent_subject_id).where(s.id.in_(subject_ids))
++    ).all()
++    profiles_before = db.execute(
++        select(p.id, p.engine_surface_id, p.ai_channel_id, p.ai_model_id, p.revision).where(
++            p.id.in_(profile_ids)
++        )
++    ).all()
++    prompts_before = db.execute(select(v.id, v.query_topic_id).where(v.id.in_(prompt_ids))).all()
++    # 只读取模型绑定ID，lock_bindings不会加载凭据正文。
++    lock_bindings(db, tuple((row.ai_channel_id, row.ai_model_id) for row in profiles_before))
++    products = {row.product_id for row in subjects_before if row.product_id is not None}
++    db.execute(
++        select(Product.id).where(Product.id.in_(products)).order_by(Product.id).with_for_update()
++    ).all()
++    brands = {row.parent_subject_id for row in subjects_before if row.parent_subject_id is not None}
++    brands |= {row.id for row in subjects_before if row.subject_type in BRAND_TYPES}
++    db.execute(
++        select(s.id)
++        .where(s.id.in_(brands), s.subject_type.in_(BRAND_TYPES))
++        .order_by(s.id)
++        .with_for_update()
++    ).all()
++    subjects_after = db.execute(
++        select(s.id, s.subject_type, s.product_id, s.parent_subject_id)
++        .where(s.id.in_(subject_ids))
++        .order_by(s.id)
++        .with_for_update()
++    ).all()
++    topics = {row.query_topic_id for row in prompts_before}
++    db.execute(
++        select(QueryTopic.id)
++        .where(QueryTopic.id.in_(topics))
++        .order_by(QueryTopic.id)
++        .with_for_update()
++    ).all()
++    prompts_after = db.execute(
++        select(v.id, v.query_topic_id).where(v.id.in_(prompt_ids)).order_by(v.id).with_for_update()
++    ).all()
++    surfaces = {row.engine_surface_id for row in profiles_before}
++    db.execute(
++        select(GeoEngineSurface.id)
++        .where(GeoEngineSurface.id.in_(surfaces))
++        .order_by(GeoEngineSurface.id)
++        .with_for_update()
++    ).all()
++    profiles_after = db.execute(
++        select(p.id, p.engine_surface_id, p.ai_channel_id, p.ai_model_id, p.revision)
++        .where(p.id.in_(profile_ids))
++        .order_by(p.id)
++        .with_for_update()
++    ).all()
++    if (set(subjects_before), set(prompts_before), set(profiles_before)) != (
++        set(subjects_after),
++        set(prompts_after),
++        set(profiles_after),
++    ):
++        raise revision_conflict()
++
++
++def lock_plan(
++    db: Session,
++    plan_id: UUID,
++    expected_revision: int,
++    desired: GeoMonitoringPlanConfiguration | None = None,
++) -> tuple[GeoMonitoringPlan, GeoMonitoringPlanConfiguration]:
++    initial = db.scalar(
++        select(GeoMonitoringPlan)
++        .where(GeoMonitoringPlan.id == plan_id)
++        .execution_options(populate_existing=True)
++    )
++    if initial is None:
++        raise not_found("监测计划")
++    before = configurations(db, [initial])[plan_id]
++    observed_revision = initial.revision
++    lock_resources(db, [before] + ([desired] if desired is not None else []))
++    plan = db.scalar(
++        select(GeoMonitoringPlan)
++        .where(GeoMonitoringPlan.id == plan_id)
++        .with_for_update()
++        .execution_options(populate_existing=True)
++    )
++    if plan is None:
++        raise not_found("监测计划")
++    if plan.revision != expected_revision or plan.revision != observed_revision:
++        raise revision_conflict()
++    current = configurations(db, [plan])[plan_id]
++    if current != before:
++        raise revision_conflict()
++    return plan, current
+--- a/backend/app/services/geo_plan_policy.py
++++ b/backend/app/services/geo_plan_policy.py
+@@ -0,0 +1,76 @@
++"""计划生命周期与动作的唯一策略；不把预览结果当授权。"""
++
++from typing import Literal
++
++from app.errors import AppError
++from app.schemas.geo_monitoring_plans import GeoMonitoringPlanStatus as Status
++from app.schemas.geo_plan_management import (
++    GeoPlanAction as Action,
++)
++from app.schemas.geo_plan_management import (
++    GeoPlanDeletion,
++)
++from app.schemas.geo_plan_management import (
++    GeoPlanPrimaryTask as Task,
++)
++from app.schemas.geo_plan_management import (
++    GeoPlanWorkflowStage as Stage,
++)
++
++type PlanTransition = Literal["activate", "pause", "resume", "archive"]
++
++
++def require_mutable(status: Status) -> None:
++    if status == Status.ARCHIVED:
++        raise AppError("GEO_PLAN_ARCHIVED", "归档计划只读，请复制为新计划", 409)
++
++
++def transition(status: Status, command: PlanTransition) -> Status:
++    require_mutable(status)
++    targets = {
++        "activate": {Status.DISABLED: Status.ACTIVE},
++        "pause": {Status.ACTIVE: Status.PAUSED},
++        "resume": {Status.PAUSED: Status.ACTIVE},
++        "archive": dict.fromkeys((Status.DISABLED, Status.PAUSED, Status.ACTIVE), Status.ARCHIVED),
++    }
++    result = targets[command].get(status)
++    if result is None:
++        raise AppError("INVALID_STATE_TRANSITION", "当前计划状态不允许此操作", 409)
++    return result
++
++
++def projection(
++    status: Status, *, eligible: bool
++) -> tuple[Stage, Task, list[Action], GeoPlanDeletion]:
++    if status == Status.ARCHIVED:
++        return (
++            Stage.ARCHIVED,
++            Task.VIEW_HISTORY,
++            [Action.COPY],
++            GeoPlanDeletion(blockers=["ARCHIVED"]),
++        )
++    actions = [Action.PREVIEW, Action.COPY, Action.ARCHIVE]
++    if status == Status.ACTIVE:
++        actions += [Action.PAUSE, Action.CREATE_REVISION]
++        stage, task = Stage.ACTIVE, Task.VIEW_RUNTIME
++    else:
++        actions += [Action.UPDATE]
++        if status == Status.DISABLED:
++            actions += [Action.DELETE]
++            stage, task = (
++                (Stage.READY, Task.ACTIVATE)
++                if eligible
++                else (Stage.CONFIGURATION_REQUIRED, Task.COMPLETE_CONFIGURATION)
++            )
++            if eligible:
++                actions += [Action.ACTIVATE]
++        else:
++            stage, task = Stage.PAUSED, Task.RESUME if eligible else Task.COMPLETE_CONFIGURATION
++            if eligible:
++                actions += [Action.RESUME]
++    return (
++        stage,
++        task,
++        actions,
++        GeoPlanDeletion(blockers=[] if status == Status.DISABLED else ["PLAN_NOT_DISABLED"]),
++    )
+--- a/backend/app/services/geo_plan_queries.py
++++ b/backend/app/services/geo_plan_queries.py
+@@ -0,0 +1,203 @@
++"""计划完整配置和动作读模型；页内关系与资格事实固定批量读取。"""
++
++from collections.abc import Sequence
++from typing import Literal
++from uuid import UUID
++
++from sqlalchemy import func, select
++from sqlalchemy.orm import Session
++
++from app.config import settings
++from app.deps import DbSession
++from app.errors import not_found
++from app.models.geo_monitoring_plans import (
++    GeoMonitoringPlan,
++    GeoMonitoringPlanProfile,
++    GeoMonitoringPlanPrompt,
++    GeoMonitoringPlanSubject,
++)
++from app.schemas.geo_monitoring_plans import (
++    GeoMonitoringPlanConfiguration,
++    GeoPlanScheduleKind,
++)
++from app.schemas.geo_monitoring_plans import GeoMonitoringPlanStatus as Status
++from app.schemas.geo_plan_management import (
++    GeoMonitoringPlanDetail,
++    GeoMonitoringPlanListPage,
++    GeoPlanRunEntry,
++)
++from app.schemas.geo_plan_preview import GeoMonitoringPlanPreview
++from app.services.geo_collector_eligibility import GeoRuntimeSwitches
++from app.services.geo_plan_policy import projection
++from app.services.geo_plans import PlanMatrixSelection, RunMatrixBuilder, load_matrix_facts
++
++CONFIGURATION_FIELDS = (
++    "name",
++    "description",
++    "repeat_count",
++    "schedule_kind",
++    "cron_expression",
++    "timezone",
++    "budget_limit",
++    "rule_set_revision",
++)
++METADATA_FIELDS = (
++    "id",
++    "status",
++    "revision",
++    "created_by",
++    "updated_by",
++    "created_at",
++    "updated_at",
++)
++
++
++def read_snapshot(db: DbSession) -> None:
++    """认证前建立 RR，禁止读取中的身份 heartbeat 隐式写入。"""
++    db.autoflush = False
++    db.connection(execution_options={"isolation_level": "REPEATABLE READ"})
++
++
++def configurations(
++    db: Session, plans: Sequence[GeoMonitoringPlan]
++) -> dict[UUID, GeoMonitoringPlanConfiguration]:
++    ids = [plan.id for plan in plans]
++    if not ids:
++        return {}
++    subjects: dict[UUID, list[dict[str, object]]] = {identity: [] for identity in ids}
++    prompts: dict[UUID, list[UUID]] = {identity: [] for identity in ids}
++    profiles: dict[UUID, list[UUID]] = {identity: [] for identity in ids}
++    for plan_id, subject_id, role in db.execute(
++        select(
++            GeoMonitoringPlanSubject.plan_id,
++            GeoMonitoringPlanSubject.subject_id,
++            GeoMonitoringPlanSubject.role,
++        )
++        .where(GeoMonitoringPlanSubject.plan_id.in_(ids))
++        .order_by(GeoMonitoringPlanSubject.subject_id)
++        .execution_options(autoflush=False)
++    ):
++        subjects[plan_id].append({"subject_id": subject_id, "role": role})
++    for plan_id, prompt_id in db.execute(
++        select(GeoMonitoringPlanPrompt.plan_id, GeoMonitoringPlanPrompt.prompt_variant_id)
++        .where(GeoMonitoringPlanPrompt.plan_id.in_(ids))
++        .order_by(GeoMonitoringPlanPrompt.prompt_variant_id)
++        .execution_options(autoflush=False)
++    ):
++        prompts[plan_id].append(prompt_id)
++    for plan_id, profile_id in db.execute(
++        select(GeoMonitoringPlanProfile.plan_id, GeoMonitoringPlanProfile.collection_profile_id)
++        .where(GeoMonitoringPlanProfile.plan_id.in_(ids))
++        .order_by(GeoMonitoringPlanProfile.collection_profile_id)
++        .execution_options(autoflush=False)
++    ):
++        profiles[plan_id].append(profile_id)
++    return {
++        plan.id: GeoMonitoringPlanConfiguration.model_validate(
++            {name: getattr(plan, name) for name in CONFIGURATION_FIELDS}
++            | {
++                "subjects": subjects[plan.id],
++                "prompt_variant_ids": prompts[plan.id],
++                "collection_profile_ids": profiles[plan.id],
++            }
++        )
++        for plan in plans
++    }
++
++
++def previews(
++    db: Session, values: Sequence[GeoMonitoringPlanConfiguration]
++) -> list[GeoMonitoringPlanPreview]:
++    if not values:
++        return []
++    selections = [PlanMatrixSelection.from_configuration(value) for value in values]
++    subjects, prompts, profiles = load_matrix_facts(db, selections)
++    switches = GeoRuntimeSwitches(
++        settings.environment,
++        settings.geo_monitoring_enabled,
++        settings.geo_api_collection_enabled,
++        settings.geo_browser_collection_enabled,
++    )
++    builder = RunMatrixBuilder()
++    return [
++        builder.build(
++            selection, subjects=subjects, prompts=prompts, profiles=profiles, switches=switches
++        ).preview()
++        for selection in selections
++    ]
++
++
++def plan_detail(
++    plan: GeoMonitoringPlan,
++    value: GeoMonitoringPlanConfiguration,
++    preview: GeoMonitoringPlanPreview,
++) -> GeoMonitoringPlanDetail:
++    stage, task, actions, deletion = projection(Status(plan.status), eligible=not preview.blockers)
++    return GeoMonitoringPlanDetail.model_validate(
++        value.model_dump()
++        | {name: getattr(plan, name) for name in METADATA_FIELDS}
++        | {
++            "preview": preview,
++            "workflow_stage": stage,
++            "primary_task": task,
++            "available_actions": actions,
++            "deletion": deletion,
++            "run_entry": GeoPlanRunEntry(available=False, reason_code="NOT_IMPLEMENTED"),
++        }
++    )
++
++
++def details(db: Session, plans: Sequence[GeoMonitoringPlan]) -> list[GeoMonitoringPlanDetail]:
++    values = configurations(db, plans)
++    results = previews(db, list(values.values()))
++    return [
++        plan_detail(plan, values[plan.id], preview)
++        for plan, preview in zip(plans, results, strict=True)
++    ]
++
++
++def get_plan(db: Session, plan_id: UUID) -> GeoMonitoringPlanDetail:
++    plan = db.scalar(
++        select(GeoMonitoringPlan)
++        .where(GeoMonitoringPlan.id == plan_id)
++        .execution_options(populate_existing=True, autoflush=False)
++    )
++    if plan is None:
++        raise not_found("监测计划")
++    return details(db, [plan])[0]
++
++
++def list_plans(
++    db: Session,
++    *,
++    q: str | None,
++    status: Status | None,
++    schedule_kind: GeoPlanScheduleKind | None,
++    sort: Literal["UPDATED_DESC", "NAME_ASC"],
++    page: int,
++    page_size: Literal[10, 20, 50],
++) -> GeoMonitoringPlanListPage:
++    query = select(GeoMonitoringPlan)
++    if q is not None and q.strip():
++        query = query.where(GeoMonitoringPlan.name.icontains(q.strip(), autoescape=True))
++    if status is not None:
++        query = query.where(GeoMonitoringPlan.status == status)
++    if schedule_kind is not None:
++        query = query.where(GeoMonitoringPlan.schedule_kind == schedule_kind)
++    total = db.scalar(
++        select(func.count()).select_from(query.subquery()).execution_options(autoflush=False)
++    )
++    order = (
++        GeoMonitoringPlan.updated_at.desc()
++        if sort == "UPDATED_DESC"
++        else GeoMonitoringPlan.name.asc()
++    )
++    plans = db.scalars(
++        query.order_by(order, GeoMonitoringPlan.id)
++        .offset((page - 1) * page_size)
++        .limit(page_size)
++        .execution_options(populate_existing=True, autoflush=False)
++    ).all()
++    return GeoMonitoringPlanListPage(
++        items=details(db, plans), total=total, page=page, page_size=page_size
++    )
+--- a/backend/tests/integration/geo_plans_support.py
++++ b/backend/tests/integration/geo_plans_support.py
+@@ -0,0 +1,119 @@
++"""Plan API 使用真实PostgreSQL与虚构主数据，不创建回答级运行。"""
++
++from collections.abc import Iterator
++from dataclasses import dataclass
++from uuid import UUID, uuid4
++
++import pytest
++from sqlalchemy import Engine, create_engine
++
++from app.config import settings
++from app.models.geo_catalog import GeoSubject
++from app.models.geo_prompt_variants import GeoPromptVariant
++from app.models.geo_surfaces import GeoCollectionProfile, GeoEngineSurface
++from tests.integration.geo_questions_support import QuestionsAPI
++from tests.integration.geo_questions_support import questions_api as questions_api
++from tests.integration.test_migrations import run_alembic, temporary_database
++
++PREFIX = "/api/v1/geo/monitoring-plans"
++
++
++@pytest.fixture(scope="module")
++def questions_engine() -> Iterator[Engine]:
++    with temporary_database("partsignal_geo208") as (url, env, backend_dir):
++        run_alembic(env, backend_dir, "head")
++        engine = create_engine(url.replace("postgresql://", "postgresql+psycopg://", 1))
++        try:
++            yield engine
++        finally:
++            engine.dispose()
++
++
++@dataclass
++class PlansAPI:
++    api: QuestionsAPI
++    subject: UUID
++    prompt: UUID
++    profile: UUID
++    surface: UUID
++    name: str
++
++    def payload(self, **values: object) -> dict:
++        return {
++            "name": self.name,
++            "description": "虚构内部说明，不进入审计",
++            "subjects": [{"subject_id": str(self.subject), "role": "PRIMARY"}],
++            "prompt_variant_ids": [str(self.prompt)],
++            "collection_profile_ids": [str(self.profile)],
++            **values,
++        }
++
++    def create(self, **values: object) -> dict:
++        result = self.api.engineer.post(PREFIX, json=self.payload(**values))
++        assert result.status_code == 201, result.text
++        return result.json()
++
++    def action(self, plan: dict, action: str, **values: object):
++        return self.api.engineer.post(
++            f"{PREFIX}/{plan['id']}/{action}",
++            json={"expected_revision": plan["revision"], **values},
++        )
++
++
++@pytest.fixture
++def plans_api(questions_api: QuestionsAPI, monkeypatch: pytest.MonkeyPatch) -> PlansAPI:
++    monkeypatch.setattr(settings, "geo_monitoring_enabled", True)
++    with questions_api.factory() as db:
++        subject = GeoSubject(
++            subject_type="OWN_BRAND",
++            canonical_name="虚构Plan品牌",
++            normalized_name="虚构plan品牌",
++            display_name="虚构Plan品牌",
++            is_active=True,
++            created_by=questions_api.admin_id,
++        )
++        prompt = GeoPromptVariant(
++            query_topic_id=questions_api.topic,
++            prompt_text="虚构Plan问题",
++            mention_mode="UNBRANDED",
++            language_code="zh-hans",
++            region_code="CN",
++            priority="CORE",
++            created_by=questions_api.engineer_id,
++        )
++        surface = GeoEngineSurface(
++            name="虚构人工平台",
++            slug=f"plan-{uuid4()}",
++            surface_kind="MANUAL_SITE",
++            provider_brand="CUSTOM",
++            is_active=True,
++            created_by=questions_api.admin_id,
++            capabilities={
++                "answer_text": True,
++                "citations": False,
++                "web_search_signal": False,
++                "model_version": False,
++                "usage": False,
++                "cost": False,
++            },
++        )
++        db.add_all([subject, prompt, surface])
++        db.flush()
++        profile = GeoCollectionProfile(
++            engine_surface_id=surface.id,
++            name="虚构人工配置",
++            collection_mode="MANUAL",
++            adapter_key="manual",
++            language_code="zh-hans",
++            region_code="CN",
++            login_state="ANONYMOUS",
++            web_search_policy="UNKNOWN",
++            settings_json={},
++            is_active=True,
++            created_by=questions_api.admin_id,
++        )
++        db.add(profile)
++        db.commit()
++        return PlansAPI(
++            questions_api, subject.id, prompt.id, profile.id, surface.id, f"虚构计划-{uuid4()}"
++        )
+--- a/backend/tests/integration/test_geo_plan_api.py
++++ b/backend/tests/integration/test_geo_plan_api.py
+@@ -0,0 +1,265 @@
++"""真实会话下的 Plan 生命周期、公开读模型、权限与安全占位。"""
++
++from copy import deepcopy
++from uuid import uuid4
++
++import pytest
++from sqlalchemy import select, text
++
++from app.config import settings
++from app.models.identity import AuditLog
++from tests.integration.geo_plans_support import PREFIX, PlansAPI
++from tests.integration.geo_plans_support import plans_api as plans_api
++from tests.integration.geo_plans_support import questions_api as questions_api
++from tests.integration.geo_plans_support import questions_engine as questions_engine
++from tests.unit.test_geo_surface_contract import contract as contract
++from tests.unit.test_geo_surface_contract import validate
++
++pytestmark = pytest.mark.integration
++
++
++def logs(api: PlansAPI, identity: str) -> list[AuditLog]:
++    with api.api.factory() as db:
++        return list(db.scalars(select(AuditLog).where(AuditLog.target_id == identity)))
++
++
++def test_crud_noop_revision_lifecycle_and_audit(plans_api: PlansAPI, contract: dict) -> None:
++    api = plans_api
++    row = api.create()
++    validate(contract, "GeoMonitoringPlanDetail", row)
++    path = f"{PREFIX}/{row['id']}"
++    assert row["status"] == "DISABLED" and row["revision"] == 0
++    assert row["workflow_stage"] == "READY"
++    assert {"ACTIVATE", "UPDATE", "DELETE"} <= set(row["available_actions"])
++    assert row["run_entry"] == {"available": False, "reason_code": "NOT_IMPLEMENTED"}
++    noop = api.api.engineer.patch(path, json=api.payload(expected_revision=0))
++    assert noop.status_code == 200 and noop.json() == row
++    assert len(logs(api, row["id"])) == 1
++    for operation, status in [("activate", "ACTIVE"), ("pause", "PAUSED"), ("resume", "ACTIVE")]:
++        result = api.action(row, operation)
++        assert result.status_code == 200, result.text
++        after = result.json()
++        assert after["status"] == status and after["revision"] == row["revision"] + 1
++        assert after["created_by"] == row["created_by"]
++        row = after
++    changed = api.api.admin.patch(path, json=api.payload(name="活动配置新版", expected_revision=3))
++    assert changed.status_code == 200, changed.text
++    row = changed.json()
++    assert row["status"] == "ACTIVE" and row["revision"] == 4
++    assert row["updated_by"] == str(api.api.admin_id)
++    assert row["created_by"] == str(api.api.engineer_id)
++    archived = api.action(row, "archive")
++    assert archived.status_code == 200, archived.text
++    row = archived.json()
++    assert row["status"] == "ARCHIVED" and row["revision"] == 5
++    assert row["available_actions"] == ["COPY"] and row["primary_task"] == "VIEW_HISTORY"
++    assert api.api.engineer.get(path).json() == row
++    events = logs(api, row["id"])
++    assert [event.action for event in sorted(events, key=lambda item: item.created_at)] == [
++        "geo_monitoring_plan." + action
++        for action in ("created", "activated", "paused", "resumed", "updated", "archived")
++    ]
++    for entry in events:
++        assert entry.details.keys() == {"facts"}
++        assert entry.details["facts"].keys() == {"revision", "status"}
++        assert api.name not in str(entry.details)
++        assert "虚构内部说明" not in str(entry.details)
++    validate(contract, "GeoMonitoringPlanDetail", row)
++
++
++def test_archived_readonly_copy_and_disabled_deletion(plans_api: PlansAPI) -> None:
++    api = plans_api
++    row = api.action(api.create(), "archive").json()
++    path = f"{PREFIX}/{row['id']}"
++    for response in [
++        api.api.engineer.patch(path, json=api.payload(expected_revision=1)),
++        *(api.action(row, op) for op in ("activate", "pause", "resume", "archive")),
++        api.api.engineer.delete(path, params={"expected_revision": 1}),
++        api.api.engineer.post(
++            f"{path}/run", json={"expected_revision": 1}, headers={"Idempotency-Key": "208-key"}
++        ),
++    ]:
++        assert (
++            response.status_code == 409 and response.json()["error"]["code"] == "GEO_PLAN_ARCHIVED"
++        )
++    assert api.api.engineer.get(path).json() == row and len(logs(api, row["id"])) == 2
++    copy = api.api.admin.post(f"{path}/copy", json={"expected_revision": 1, "name": "新草稿"})
++    assert copy.status_code == 201, copy.text
++    copied = copy.json()
++    assert copied["id"] != row["id"] and copied["status"] == "DISABLED" and copied["revision"] == 0
++    assert copied["created_by"] == copied["updated_by"] == str(api.api.admin_id)
++    for name in ("subjects", "prompt_variant_ids", "collection_profile_ids", "repeat_count"):
++        assert copied[name] == row[name]
++    assert api.api.engineer.get(path).json() == row
++    delete = api.api.engineer.delete(f"{PREFIX}/{copied['id']}", params={"expected_revision": 0})
++    assert delete.status_code == 204 and delete.content == b""
++    assert api.api.engineer.get(f"{PREFIX}/{copied['id']}").status_code == 404
++    assert len(logs(api, copied["id"])) == 2
++    with api.api.factory() as db:
++        for suffix in ("subjects", "prompts", "profiles"):
++            assert (
++                db.scalar(
++                    text(f"SELECT count(*) FROM geo_monitoring_plan_{suffix} WHERE plan_id=:id"),
++                    {"id": copied["id"]},
++                )
++                == 0
++            )
++
++
++def test_stale_illegal_transition_and_delete_protection(plans_api: PlansAPI) -> None:
++    api = plans_api
++    original = api.create()
++    illegal = api.action(original, "resume")
++    assert (
++        illegal.status_code == 409 and illegal.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
++    )
++    row = api.action(original, "activate").json()
++    for response in [
++        api.action(original, "pause"),
++        api.action(original, "copy", name="过期副本"),
++        api.api.engineer.patch(f"{PREFIX}/{row['id']}", json=api.payload(expected_revision=0)),
++    ]:
++        assert (
++            response.status_code == 409 and response.json()["error"]["code"] == "REVISION_CONFLICT"
++        )
++    duplicate = api.action(row, "activate")
++    assert (
++        duplicate.status_code == 409
++        and duplicate.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
++    )
++    for index in range(2):
++        state = row if index == 0 else api.action(row, "pause").json()
++        response = api.api.engineer.delete(
++            f"{PREFIX}/{state['id']}", params={"expected_revision": state["revision"]}
++        )
++        assert response.status_code == 409 and response.json()["error"]["code"] == "GEO_PLAN_IN_USE"
++
++
++def test_preview_draft_saved_with_blockers_and_activation_rechecks(
++    plans_api: PlansAPI, monkeypatch: pytest.MonkeyPatch
++) -> None:
++    api = plans_api
++    with api.api.factory() as db:
++        db.execute(
++            text(
++                "UPDATE geo_collection_profiles SET is_active=false, "
++                "revision=revision+1 WHERE id=:id"
++            ),
++            {"id": api.profile},
++        )
++        db.commit()
++    preview = api.api.engineer.post(f"{PREFIX}/preview", json=api.payload())
++    assert preview.status_code == 200 and preview.json()["blockers"]
++    row = api.create()
++    assert row["preview"] == preview.json() and "ACTIVATE" not in row["available_actions"]
++    blocked = api.action(row, "activate")
++    assert (
++        blocked.status_code == 409
++        and blocked.json()["error"]["code"] == "GEO_PLAN_PROFILE_INELIGIBLE"
++    )
++    with api.api.factory() as db:
++        db.execute(
++            text(
++                "UPDATE geo_collection_profiles SET is_active=true, "
++                "revision=revision+1 WHERE id=:id"
++            ),
++            {"id": api.profile},
++        )
++        db.commit()
++    row = api.action(row, "activate").json()
++    monkeypatch.setattr(settings, "geo_monitoring_enabled", False)
++    changed = api.api.engineer.patch(
++        f"{PREFIX}/{row['id']}", json=api.payload(name="不得保存的活动修改", expected_revision=1)
++    )
++    assert (
++        changed.status_code == 409
++        and changed.json()["error"]["code"] == "GEO_PLAN_PROFILE_INELIGIBLE"
++    )
++    paused = api.action(row, "pause").json()
++    assert paused["status"] == "PAUSED" and "RESUME" not in paused["available_actions"]
++    saved = api.api.engineer.patch(
++        f"{PREFIX}/{row['id']}", json=api.payload(name="可修复暂停配置", expected_revision=2)
++    )
++    assert saved.status_code == 200 and saved.json()["revision"] == 3
++
++
++def test_missing_reference_validation_and_server_metadata(plans_api: PlansAPI) -> None:
++    api = plans_api
++    for field in ("prompt_variant_ids", "collection_profile_ids"):
++        response = api.api.engineer.post(PREFIX, json=api.payload(**{field: [str(uuid4())]}))
++        assert (
++            response.status_code == 422
++            and response.json()["error"]["code"] == "GEO_PLAN_REFERENCE_INVALID"
++        )
++    for values in (
++        {"subjects": []},
++        {"status": "ACTIVE"},
++        {"revision": 99},
++        {"created_by": str(api.api.admin_id)},
++        {"api_key": "secret-208-marker"},
++    ):
++        response = api.api.engineer.post(PREFIX, json=api.payload(**values))
++        assert response.status_code == 422 and "secret-208-marker" not in response.text
++    assert api.api.engineer.get(f"{PREFIX}/{uuid4()}").status_code == 404
++
++
++def test_csrf_auth_permissions_and_run_placeholder(plans_api: PlansAPI) -> None:
++    api = plans_api
++    row = api.create()
++    path = f"{PREFIX}/{row['id']}"
++    before = deepcopy(row)
++    assert api.api.engineer.post(f"{path}/run", json={"expected_revision": 0}).status_code == 422
++    for _ in range(2):
++        result = api.api.engineer.post(
++            f"{path}/run", json={"expected_revision": 0}, headers={"Idempotency-Key": "208-command"}
++        )
++        assert result.status_code == 501 and result.json()["error"]["code"] == "NOT_IMPLEMENTED"
++    assert api.api.engineer.get(path).json() == before and len(logs(api, row["id"])) == 1
++    csrf = api.api.engineer.headers.pop("X-CSRF-Token")
++    try:
++        assert api.api.engineer.post(f"{PREFIX}/preview", json=api.payload()).status_code == 422
++        assert api.action(row, "activate").status_code == 422
++        denied = api.api.engineer.patch(
++            path,
++            json=api.payload(expected_revision=0),
++            headers={"X-CSRF-Token": "wrong-but-long-enough-token-32-bytes"},
++        )
++        assert denied.status_code == 403
++    finally:
++        api.api.engineer.headers["X-CSRF-Token"] = csrf
++    with api.api.factory() as db:
++        db.execute(
++            text("UPDATE users SET must_change_password=true, revision=revision+1 WHERE id=:id"),
++            {"id": api.api.engineer_id},
++        )
++        db.commit()
++    for response in (
++        api.api.engineer.get(PREFIX),
++        api.api.engineer.get(path),
++        api.api.engineer.post(PREFIX, json=api.payload()),
++        api.action(row, "activate"),
++    ):
++        assert response.status_code == 403
++    api.api.engineer.cookies.clear()
++    assert api.api.engineer.get(PREFIX).status_code == 401
++
++
++def test_audit_detail_recognizes_plan_and_retains_deleted_tombstone(plans_api: PlansAPI) -> None:
++    from app.services.audit_logs import get_audit_log
++
++    api = plans_api
++    row = api.create()
++    entry = logs(api, row["id"])[0]
++    with api.api.factory() as db:
++        detail = get_audit_log(db, entry.id)
++        assert detail.related_entry.kind == "GeoMonitoringPlan"
++        assert detail.related_entry.status == "AVAILABLE"
++        assert api.name not in detail.model_dump_json()
++    assert (
++        api.api.engineer.delete(
++            f"{PREFIX}/{row['id']}", params={"expected_revision": 0}
++        ).status_code
++        == 204
++    )
++    with api.api.factory() as db:
++        assert get_audit_log(db, entry.id).related_entry.status == "MISSING"
+--- a/backend/tests/integration/test_geo_plan_transactions.py
++++ b/backend/tests/integration/test_geo_plan_transactions.py
+@@ -0,0 +1,179 @@
++"""Plan 与最小审计同事务提交；失败不留下配置、关系或成功记录。"""
++
++from uuid import UUID, uuid4
++
++import pytest
++from sqlalchemy import select, text
++
++from app.errors import AppError
++from app.models.geo_monitoring_plans import GeoMonitoringPlan, GeoMonitoringPlanProfile
++from app.models.identity import User
++from app.schemas.geo_monitoring_plans import GeoMonitoringPlanCreate, GeoMonitoringPlanUpdate
++from app.services import geo_plan_commands as commands
++from tests.integration.geo_plans_support import PREFIX, PlansAPI
++from tests.integration.geo_plans_support import plans_api as plans_api
++from tests.integration.geo_plans_support import questions_api as questions_api
++from tests.integration.geo_plans_support import questions_engine as questions_engine
++
++pytestmark = pytest.mark.integration
++
++
++def state(api: PlansAPI, identity: str) -> tuple[dict, list[dict]]:
++    with api.api.factory() as db:
++        row = dict(
++            db.execute(text("SELECT * FROM geo_monitoring_plans WHERE id=:id"), {"id": identity})
++            .mappings()
++            .one()
++        )
++        audits = [
++            dict(entry)
++            for entry in db.execute(
++                text("SELECT * FROM audit_logs WHERE target_id=:id ORDER BY created_at"),
++                {"id": identity},
++            ).mappings()
++        ]
++        return row, audits
++
++
++@pytest.mark.parametrize("operation", ["update", "archive", "delete"])
++def test_audit_failure_rolls_back_every_business_write(
++    plans_api: PlansAPI, monkeypatch: pytest.MonkeyPatch, operation: str
++) -> None:
++    api = plans_api
++    row = api.create()
++    before = state(api, row["id"])
++
++    def fail(*args, **kwargs):
++        raise RuntimeError("测试审计边界故障")
++
++    monkeypatch.setattr(commands, "append_audit", fail)
++    with api.api.factory() as db:
++        actor = db.get(User, api.api.engineer_id)
++        with pytest.raises(RuntimeError, match="审计边界故障"):
++            if operation == "update":
++                commands.update_plan(
++                    db=db,
++                    plan_id=UUID(row["id"]),
++                    payload=GeoMonitoringPlanUpdate.model_validate(
++                        api.payload(name="不得留下", expected_revision=0)
++                    ),
++                    actor=actor,
++                    request_id="geo208-audit-failure",
++                )
++            elif operation == "archive":
++                commands.change_status(
++                    db=db,
++                    plan_id=UUID(row["id"]),
++                    expected_revision=0,
++                    operation="archive",
++                    actor=actor,
++                    request_id="geo208-audit-failure",
++                )
++            else:
++                commands.delete_plan(
++                    db=db,
++                    plan_id=UUID(row["id"]),
++                    expected_revision=0,
++                    actor=actor,
++                    request_id="geo208-audit-failure",
++                )
++        assert not db.in_transaction()
++    assert state(api, row["id"]) == before
++    assert api.api.engineer.get(f"{PREFIX}/{row['id']}").json() == row
++
++
++def test_create_partial_memberships_failure_rolls_back_aggregate(
++    plans_api: PlansAPI, monkeypatch: pytest.MonkeyPatch
++) -> None:
++    api = plans_api
++    original = commands._memberships
++
++    def fail(db, plan, value):
++        original(db, plan, value)
++        db.flush()
++        raise RuntimeError("测试关系写入后故障")
++
++    monkeypatch.setattr(commands, "_memberships", fail)
++    with api.api.factory() as db, pytest.raises(RuntimeError, match="关系写入后故障"):
++        commands.create_plan(
++            db=db,
++            payload=GeoMonitoringPlanCreate.model_validate(api.payload()),
++            actor=db.get(User, api.api.engineer_id),
++            request_id="geo208-create-partial",
++        )
++    with api.api.factory() as db:
++        assert (
++            db.scalar(select(GeoMonitoringPlan).where(GeoMonitoringPlan.name == api.name)) is None
++        )
++        assert (
++            db.scalar(
++                text("SELECT count(*) FROM audit_logs WHERE request_id='geo208-create-partial'")
++            )
++            == 0
++        )
++
++
++def test_precise_fk_mapping_and_unknown_integrity_failure(plans_api: PlansAPI) -> None:
++    from sqlalchemy.exc import IntegrityError
++
++    api = plans_api
++    row = api.create()
++    before = state(api, row["id"])
++    with api.api.factory() as db:
++        db.add(GeoMonitoringPlanProfile(plan_id=UUID(row["id"]), collection_profile_id=uuid4()))
++        with pytest.raises(AppError) as caught:
++            commands._flush_business(db)
++        assert caught.value.code == "GEO_PLAN_REFERENCE_INVALID"
++    with api.api.factory() as db:
++        plan = db.get(GeoMonitoringPlan, UUID(row["id"]))
++        plan.repeat_count = 0
++        with pytest.raises(IntegrityError):
++            commands._flush_business(db)
++        db.rollback()
++    assert state(api, row["id"]) == before
++
++
++def test_active_memberships_replace_atomically_without_history_marker(plans_api: PlansAPI) -> None:
++    api = plans_api
++    row = api.action(api.create(), "activate").json()
++    extra = api.api.create(prompt_text="虚构第二个计划问题")
++    changed = api.api.engineer.patch(
++        f"{PREFIX}/{row['id']}",
++        json=api.payload(
++            repeat_count=7,
++            prompt_variant_ids=[str(api.prompt), extra["id"]],
++            expected_revision=1,
++        ),
++    )
++    assert changed.status_code == 200, changed.text
++    after = changed.json()
++    assert after["status"] == "ACTIVE" and after["revision"] == 2
++    assert after["preview"]["run_count"] == 14 and after["repeat_count"] == 7
++    before_noop = state(api, row["id"])
++    noop = api.api.engineer.patch(
++        f"{PREFIX}/{row['id']}",
++        json=api.payload(
++            repeat_count=7,
++            prompt_variant_ids=list(reversed(after["prompt_variant_ids"])),
++            expected_revision=2,
++        ),
++    )
++    assert noop.status_code == 200 and noop.json() == after
++    assert state(api, row["id"]) == before_noop
++    with api.api.factory() as db:
++        assert (
++            db.scalar(
++                text("SELECT count(*) FROM geo_monitoring_plan_prompts WHERE plan_id=:id"),
++                {"id": row["id"]},
++            )
++            == 2
++        )
++        prompt = db.scalar(
++            text("SELECT first_referenced_at FROM geo_prompt_variants WHERE id=:id"),
++            {"id": api.prompt},
++        )
++        surface = db.scalar(
++            text("SELECT first_referenced_at FROM geo_engine_surfaces WHERE id=:id"),
++            {"id": api.surface},
++        )
++        assert prompt is None and surface is None
+--- a/backend/tests/integration/test_geo_plan_reads.py
++++ b/backend/tests/integration/test_geo_plan_reads.py
+@@ -0,0 +1,107 @@
++"""分页和资格投影批量查询，认证前建立一致快照，GET无隐式写入。"""
++
++from uuid import UUID, uuid4
++
++import pytest
++from sqlalchemy import event, text
++
++from app.models.identity import User
++from app.schemas.geo_monitoring_plans import GeoMonitoringPlanCreate
++from app.services import geo_plan_commands as commands
++from tests.integration.geo_plans_support import PREFIX, PlansAPI
++from tests.integration.geo_plans_support import plans_api as plans_api
++from tests.integration.geo_plans_support import questions_api as questions_api
++from tests.integration.geo_plans_support import questions_engine as questions_engine
++
++pytestmark = pytest.mark.integration
++
++
++def test_filters_literal_search_stable_pagination(plans_api: PlansAPI) -> None:
++    api = plans_api
++    prefix = f"list-{uuid4()}"
++    rows = [api.create(name=f"{prefix}-{index:02}") for index in range(12)]
++    options = {"q": prefix, "sort": "NAME_ASC", "page_size": 10}
++    first = api.api.engineer.get(PREFIX, params=options).json()
++    second = api.api.engineer.get(PREFIX, params=options | {"page": 2}).json()
++    assert first["total"] == second["total"] == 12
++    assert [item["id"] for item in first["items"] + second["items"]] == [row["id"] for row in rows]
++    assert api.api.engineer.get(PREFIX, params=options | {"page": 9}).json()["items"] == []
++    assert api.api.engineer.get(PREFIX, params=options | {"status": "ACTIVE"}).json()["total"] == 0
++    assert (
++        api.api.engineer.get(PREFIX, params=options | {"schedule_kind": "CRON"}).json()["total"]
++        == 0
++    )
++    unique = api.create(name=f"{prefix}%_字面")
++    literal = api.api.engineer.get(PREFIX, params={"q": f"{prefix}%_"}).json()
++    assert [item["id"] for item in literal["items"]] == [unique["id"]]
++    for params in ({"page_size": 11}, {"page": 0}, {"q": "\x00"}, {"sort": "INVALID"}):
++        assert api.api.engineer.get(PREFIX, params=params).status_code == 422
++
++
++def test_query_cost_constant_with_page_size_and_no_sensitive_reads(plans_api: PlansAPI) -> None:
++    api = plans_api
++    api.create()
++    statements: list[str] = []
++
++    def collect(conn, cursor, statement, params, context, many):
++        statements.append(statement)
++
++    event.listen(api.api.engine, "before_cursor_execute", collect)
++    try:
++        assert api.api.engineer.get(PREFIX, params={"q": api.name}).status_code == 200
++        cost = len(statements)
++        for _ in range(11):
++            api.create()
++        statements.clear()
++        result = api.api.engineer.get(PREFIX, params={"q": api.name})
++        assert len(result.json()["items"]) == 12 and len(statements) == cost
++        assert all(sql.lstrip().startswith("SELECT") for sql in statements)
++        assert not any(
++            "base_url" in sql or "request_parameters" in sql or "ai_channel_headers" in sql
++            for sql in statements
++        )
++        assert len([sql for sql in statements if "FROM geo_monitoring_plans" in sql]) == 2
++    finally:
++        event.remove(api.api.engine, "before_cursor_execute", collect)
++
++
++def test_count_page_memberships_and_eligibility_share_snapshot(plans_api: PlansAPI) -> None:
++    api = plans_api
++    row = api.create()
++    inserted = False
++
++    def insert_after_count(conn, cursor, statement, params, context, many):
++        nonlocal inserted
++        if inserted or "count(*)" not in statement or "geo_monitoring_plans" not in statement:
++            return
++        inserted = True
++        with api.api.factory() as db:
++            commands.create_plan(
++                db=db,
++                payload=GeoMonitoringPlanCreate.model_validate(api.payload()),
++                actor=db.get(User, api.api.admin_id),
++                request_id="geo208-between-read",
++            )
++            db.execute(
++                text(
++                    "UPDATE geo_collection_profiles SET is_active=false, "
++                    "revision=revision+1 WHERE id=:id"
++                ),
++                {"id": api.profile},
++            )
++            db.commit()
++
++    event.listen(api.api.engine, "after_cursor_execute", insert_after_count)
++    try:
++        result = api.api.engineer.get(PREFIX, params={"q": api.name}).json()
++    finally:
++        event.remove(api.api.engine, "after_cursor_execute", insert_after_count)
++    assert inserted and result["total"] == 1 and result["items"] == [row]
++    next_read = api.api.engineer.get(PREFIX, params={"q": api.name}).json()
++    assert next_read["total"] == 2 and all(
++        item["preview"]["blockers"] for item in next_read["items"]
++    )
++    assert (
++        api.api.engineer.get(f"{PREFIX}/{UUID(row['id'])}").json()["workflow_stage"]
++        == "CONFIGURATION_REQUIRED"
++    )
+--- a/backend/tests/integration/test_geo_plan_concurrency.py
++++ b/backend/tests/integration/test_geo_plan_concurrency.py
+@@ -0,0 +1,157 @@
++"""两个真实事务：等待后重验版本、资格、资源绑定及当前身份。"""
++
++from collections.abc import Callable
++from concurrent.futures import Future, ThreadPoolExecutor
++from queue import Queue
++from time import monotonic, sleep
++from uuid import UUID
++
++import pytest
++from sqlalchemy import select, text
++from sqlalchemy.orm import Session
++
++from app.errors import AppError
++from app.models.identity import User
++from app.schemas.geo_monitoring_plans import GeoMonitoringPlanUpdate
++from app.services import geo_plan_commands as commands
++from app.services.geo_plan_locks import lock_plan
++from tests.integration.geo_plans_support import PlansAPI
++from tests.integration.geo_plans_support import plans_api as plans_api
++from tests.integration.geo_plans_support import questions_api as questions_api
++from tests.integration.geo_plans_support import questions_engine as questions_engine
++from tests.integration.test_geo_plan_transactions import state
++
++pytestmark = pytest.mark.integration
++
++
++def start(
++    pool: ThreadPoolExecutor, api: PlansAPI, operation: Callable[[Session], object]
++) -> tuple[Future, int]:
++    ready: Queue[int] = Queue()
++
++    def execute():
++        with api.api.factory() as db:
++            db.execute(text("SET LOCAL statement_timeout='8s'"))
++            ready.put(db.execute(text("SELECT pg_backend_pid()")).scalar_one())
++            try:
++                return operation(db)
++            except AppError as error:
++                return error
++
++    future = pool.submit(execute)
++    return future, ready.get(timeout=5)
++
++
++def wait_blocked(api: PlansAPI, pid: int) -> None:
++    deadline = monotonic() + 5
++    with api.api.engine.connect() as conn:
++        while monotonic() < deadline:
++            if conn.execute(
++                text("SELECT cardinality(pg_blocking_pids(:pid))>0"), {"pid": pid}
++            ).scalar_one():
++                return
++            sleep(0.01)
++    pytest.fail("没有观测到预期 PostgreSQL 行锁等待")
++
++
++def test_revision_rechecked_after_resource_lock_wait(plans_api: PlansAPI) -> None:
++    api = plans_api
++    row = api.create()
++    identity = UUID(row["id"])
++    with ThreadPoolExecutor(max_workers=1) as pool, api.api.factory() as first:
++        lock_plan(first, identity, 0)
++        future, pid = start(
++            pool,
++            api,
++            lambda db: commands.update_plan(
++                db=db,
++                plan_id=identity,
++                payload=GeoMonitoringPlanUpdate.model_validate(
++                    api.payload(name="失败者", expected_revision=0)
++                ),
++                actor=db.get(User, api.api.engineer_id),
++                request_id="geo208-cas-loser",
++            ),
++        )
++        wait_blocked(api, pid)
++        commands.update_plan(
++            db=first,
++            plan_id=identity,
++            payload=GeoMonitoringPlanUpdate.model_validate(
++                api.payload(name="赢家", expected_revision=0)
++            ),
++            actor=first.get(User, api.api.admin_id),
++            request_id="geo208-cas-winner",
++        )
++        loser = future.result(timeout=10)
++    assert isinstance(loser, AppError) and loser.code == "REVISION_CONFLICT"
++    after = state(api, row["id"])
++    assert after[0]["revision"] == 1 and after[0]["name"] == "赢家" and len(after[1]) == 2
++
++
++@pytest.mark.parametrize("resource", ["surface", "profile"])
++def test_profile_disable_or_edit_while_activation_waits_is_rejected(
++    plans_api: PlansAPI, resource: str
++) -> None:
++    api = plans_api
++    row = api.create()
++    before = state(api, row["id"])
++    with ThreadPoolExecutor(max_workers=1) as pool, api.api.factory() as first:
++        # 真实Profile命令先锁Surface；Plan必须遵循同序且重读当前事实。
++        first.execute(
++            text("SELECT id FROM geo_engine_surfaces WHERE id=:id FOR UPDATE"), {"id": api.surface}
++        )
++        future, pid = start(
++            pool,
++            api,
++            lambda db: commands.change_status(
++                db=db,
++                plan_id=UUID(row["id"]),
++                expected_revision=0,
++                operation="activate",
++                actor=db.get(User, api.api.engineer_id),
++                request_id="geo208-profile-wait",
++            ),
++        )
++        wait_blocked(api, pid)
++        table = "geo_engine_surfaces" if resource == "surface" else "geo_collection_profiles"
++        first.execute(
++            text(f"UPDATE {table} SET is_active=false, revision=revision+1 WHERE id=:id"),
++            {"id": api.surface if resource == "surface" else api.profile},
++        )
++        first.commit()
++        denied = future.result(timeout=10)
++    assert isinstance(denied, AppError)
++    assert denied.code == (
++        "REVISION_CONFLICT" if resource == "profile" else "GEO_PLAN_PROFILE_INELIGIBLE"
++    )
++    assert state(api, row["id"]) == before
++
++
++def test_account_disabled_while_command_waits_cannot_write(plans_api: PlansAPI) -> None:
++    api = plans_api
++    row = api.create()
++    before = state(api, row["id"])
++    with ThreadPoolExecutor(max_workers=1) as pool, api.api.factory() as first:
++        first.execute(select(User.id).where(User.id == api.api.engineer_id).with_for_update())
++        future, pid = start(
++            pool,
++            api,
++            lambda db: commands.change_status(
++                db=db,
++                plan_id=UUID(row["id"]),
++                expected_revision=0,
++                operation="activate",
++                actor=db.get(User, api.api.engineer_id),
++                request_id="geo208-actor-wait",
++            ),
++        )
++        wait_blocked(api, pid)
++        first.execute(
++            text("UPDATE users SET is_active=false, revision=revision+1 WHERE id=:id"),
++            {"id": api.api.engineer_id},
++        )
++        first.commit()
++        denied = future.result(timeout=10)
++    assert isinstance(denied, AppError) and denied.code == "AUTH_REQUIRED"
++    assert state(api, row["id"]) == before
+--- a/backend/tests/unit/test_geo_plan_management.py
++++ b/backend/tests/unit/test_geo_plan_management.py
+@@ -0,0 +1,82 @@
++"""合法/非法Plan转换及公共读模型的可满足合同。"""
++
++from pathlib import Path
++
++import pytest
++import yaml
++from pydantic import TypeAdapter
++
++from app.errors import AppError
++from app.schemas.geo_monitoring_plans import GeoMonitoringPlanStatus as Status
++from app.schemas.geo_plan_management import (
++    GeoMonitoringPlanCopy,
++    GeoMonitoringPlanDetail,
++    GeoMonitoringPlanListPage,
++)
++from app.services.geo_plan_policy import projection, transition
++
++
++@pytest.mark.parametrize("state", list(Status))
++@pytest.mark.parametrize("command", ["activate", "pause", "resume", "archive"])
++def test_transition_table(state, command):
++    allowed = {
++        ("DISABLED", "activate"): "ACTIVE",
++        ("ACTIVE", "pause"): "PAUSED",
++        ("PAUSED", "resume"): "ACTIVE",
++        ("DISABLED", "archive"): "ARCHIVED",
++        ("PAUSED", "archive"): "ARCHIVED",
++        ("ACTIVE", "archive"): "ARCHIVED",
++    }
++    if (state, command) in allowed:
++        assert transition(state, command) == allowed[state, command]
++    else:
++        with pytest.raises(AppError) as caught:
++            transition(state, command)
++        assert caught.value.code == (
++            "GEO_PLAN_ARCHIVED" if state == "ARCHIVED" else "INVALID_STATE_TRANSITION"
++        )
++
++
++@pytest.mark.parametrize("eligible", [True, False])
++@pytest.mark.parametrize("state", list(Status))
++def test_actions_follow_state_and_eligibility(state, eligible):
++    stage, task, actions, deletion = projection(state, eligible=eligible)
++    assert "RUN_NOW" not in actions
++    assert ("DELETE" in actions) == (state == "DISABLED")
++    assert ("ACTIVATE" in actions) == (state == "DISABLED" and eligible)
++    assert ("RESUME" in actions) == (state == "PAUSED" and eligible)
++    if state == "ARCHIVED":
++        assert actions == ["COPY"] and stage == "ARCHIVED" and task == "VIEW_HISTORY"
++        assert deletion.blockers == ["ARCHIVED"]
++    elif state == "ACTIVE":
++        assert "CREATE_REVISION" in actions and "UPDATE" not in actions
++    elif not eligible:
++        assert task == "COMPLETE_CONFIGURATION"
++
++
++def test_new_components_match_public_shape():
++    contract = yaml.safe_load(
++        (Path(__file__).resolve().parents[3] / "contracts/openapi.yaml").read_text()
++    )
++    for model in (GeoMonitoringPlanDetail, GeoMonitoringPlanCopy, GeoMonitoringPlanListPage):
++        actual = TypeAdapter(model).json_schema(
++            ref_template="#/components/schemas/{model}", mode="serialization"
++        )
++        actual.pop("$defs", None)
++        expected = contract["components"]["schemas"][model.__name__]
++        # FastAPI的公开响应移除可空字段的None默认值，206未接线组件仍保留它。
++        for name in ("cron_expression", "budget_limit"):
++            if name in actual["properties"]:
++                actual["properties"][name].pop("default", None)
++        assert actual == expected
++    paths = contract["paths"]
++    operations = [
++        op
++        for path, item in paths.items()
++        if "/geo/monitoring-plans" in path
++        for op in item.values()
++    ]
++    assert len(operations) == 12
++    run = paths["/api/v1/geo/monitoring-plans/{plan_id}/run"]["post"]
++    assert not any(code.startswith("2") for code in run["responses"])
++    assert "501" in run["responses"]

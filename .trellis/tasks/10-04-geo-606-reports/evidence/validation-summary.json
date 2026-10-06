@@ -1,0 +1,214 @@
+{
+  "checks": [
+    {
+      "label": "make-lint-delivery",
+      "command": [
+        "make",
+        "lint"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 26.88,
+      "result": "后端 lint/格式和前端 ESLint"
+    },
+    {
+      "label": "make-typecheck-final",
+      "command": [
+        "make",
+        "typecheck"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 11.55,
+      "result": "后端/前端类型检查"
+    },
+    {
+      "label": "make-test-unit-final-source",
+      "command": [
+        "make",
+        "test-unit"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 105.78,
+      "result": "后端 3553；前端 128 文件、1197 项"
+    },
+    {
+      "label": "make-test-integration-final",
+      "command": [
+        "make",
+        "test-integration",
+        "COMPOSE=docker compose -p geo606-validation -f .trellis/tasks/10-04-geo-606-reports/evidence/validation-compose.yaml"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 600.0,
+      "result": "PostgreSQL 集成 1004 项，25 条既有 SQLAlchemy warning"
+    },
+    {
+      "label": "frontend-test",
+      "command": [
+        "npm",
+        "--prefix",
+        "frontend",
+        "run",
+        "test"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 33.05,
+      "result": "前端 128 文件、1197 项"
+    },
+    {
+      "label": "frontend-typecheck-delivery",
+      "command": [
+        "npm",
+        "--prefix",
+        "frontend",
+        "run",
+        "typecheck"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 10.85,
+      "result": "最终前端类型检查"
+    },
+    {
+      "label": "make-e2e",
+      "command": [
+        "env",
+        "DATABASE_URL=postgresql+psycopg://partsignal:partsignal_dev@127.0.0.1:55469/partsignal",
+        "REDIS_URL=redis://127.0.0.1:56409/14",
+        "make",
+        "e2e"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 758.45,
+      "result": "完整门禁退出 0：canonical 28；GEO 三阶段各 1；页面 498/条件跳过 64"
+    },
+    {
+      "label": "canonical-e2e-delivery",
+      "command": [
+        "env",
+        "DATABASE_URL=postgresql+psycopg://partsignal:partsignal_dev@127.0.0.1:55469/partsignal",
+        "REDIS_URL=redis://127.0.0.1:56409/14",
+        "deploy/scripts/e2e-local.sh"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 316.89,
+      "result": "最终默认选择含报告：canonical 29，secret scan clean"
+    },
+    {
+      "label": "make-contract-check-final",
+      "command": [
+        "make",
+        "contract-check"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 4.1,
+      "result": "OpenAPI/generated 同步和运行时合同"
+    },
+    {
+      "label": "asgi24-backend-target",
+      "command": [
+        "env",
+        "APP_ENV=test",
+        "DATABASE_URL=postgresql+psycopg://partsignal:partsignal_dev@127.0.0.1:55469/partsignal",
+        "REDIS_URL=redis://127.0.0.1:56409/15",
+        "uv",
+        "run",
+        "--project",
+        "backend",
+        "pytest",
+        "--import-mode=importlib",
+        "backend/tests/unit/test_geo_reports.py",
+        "backend/tests/integration/test_geo_reports.py",
+        "-q"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 8.99,
+      "result": "CSV 后端 35 单元 + 9 PostgreSQL 集成"
+    },
+    {
+      "label": "report-front-final",
+      "command": [
+        "npm",
+        "--prefix",
+        "frontend",
+        "run",
+        "test",
+        "--",
+        "src/domains/geo-reports"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 2.54,
+      "result": "最终报告组件 4 项"
+    },
+    {
+      "label": "report-print-e2e-candidate",
+      "command": [
+        "env",
+        "DATABASE_URL=postgresql+psycopg://partsignal:partsignal_dev@127.0.0.1:55469/partsignal",
+        "REDIS_URL=redis://127.0.0.1:56409/14",
+        "PARTSIGNAL_E2E_SPEC=tests/e2e/reports-real-stack.spec.ts",
+        "deploy/scripts/e2e-local.sh"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 76.33,
+      "result": "报告真实栈定向 1 项"
+    },
+    {
+      "label": "git-diff-check-final",
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 0.04,
+      "result": "最终文档/状态后空白检查通过"
+    },
+    {
+      "label": "task-validate-final",
+      "command": [
+        "python3",
+        ".trellis/scripts/task.py",
+        "validate",
+        ".trellis/tasks/10-04-geo-606-reports"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 0.04,
+      "result": "所有上下文入口有效；两项32KiB截断提示已通过直接完整读取规避"
+    },
+    {
+      "label": "scope-audit-final",
+      "command": [
+        "uv",
+        "run",
+        "--project",
+        "backend",
+        "python",
+        ".trellis/tasks/10-04-geo-606-reports/evidence/verify_scope.py"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 1.14,
+      "result": "34个maintained文件；6GET/3Schema；保留旧合同；无迁移；所有文档hash匹配"
+    },
+    {
+      "label": "test-infra-cleanup",
+      "command": [
+        "docker",
+        "compose",
+        "-p",
+        "geo606-validation",
+        "-f",
+        ".trellis/tasks/10-04-geo-606-reports/evidence/validation-compose.yaml",
+        "down",
+        "-v"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 0.44,
+      "result": "独立geo606-validation容器/网络/卷清理退出0"
+    }
+  ],
+  "remaining_required_checks": [],
+  "limitations": [
+    "未执行真实 OS 打印机/对话框；以真实栈 window.print、打印 CSS 和 A4 PDF 验证",
+    "未执行 GEO-607 的 100k Run 数据库/P95 性能门禁",
+    "机会未建模，CSV 显式 501 NOT_IMPLEMENTED；不伪造空成功"
+  ]
+}

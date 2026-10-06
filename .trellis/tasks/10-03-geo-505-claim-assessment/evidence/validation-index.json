@@ -1,0 +1,418 @@
+[
+  {
+    "record": "baseline-integration.json",
+    "command": [
+      "docker",
+      "compose",
+      "-p",
+      "partsignal-geo505-validation",
+      "-f",
+      ".trellis/tasks/10-03-geo-505-claim-assessment/evidence/validation-compose.yaml",
+      "run",
+      "--rm",
+      "backend-test",
+      "pytest",
+      "tests/integration/test_geo_analysis.py",
+      "tests/integration/test_geo_analysis_input.py"
+    ],
+    "exit_code": 0
+  },
+  {
+    "record": "baseline-unit.json",
+    "command": [
+      "env",
+      "UV_CACHE_DIR=.cache/uv",
+      "uv",
+      "run",
+      "--project",
+      "backend",
+      "pytest",
+      "backend/tests/unit/test_geo_analysis_contract.py",
+      "backend/tests/unit/test_geo_analysis.py",
+      "backend/tests/unit/test_geo_recommendations.py",
+      "backend/tests/unit/test_geo_fixtures.py"
+    ],
+    "exit_code": 0
+  },
+  {
+    "record": "claims-integration-first.json",
+    "command": [
+      "docker",
+      "compose",
+      "-p",
+      "partsignal-geo505-validation",
+      "-f",
+      ".trellis/tasks/10-03-geo-505-claim-assessment/evidence/validation-compose.yaml",
+      "run",
+      "--rm",
+      "backend-test",
+      "pytest",
+      "tests/integration/test_geo_claims.py"
+    ],
+    "exit_code": 0
+  },
+  {
+    "record": "claims-unit-context-fixed.json",
+    "command": [
+      "env",
+      "UV_CACHE_DIR=.cache/uv",
+      "uv",
+      "run",
+      "--project",
+      "backend",
+      "pytest",
+      "backend/tests/unit/test_geo_claims.py"
+    ],
+    "exit_code": 0
+  },
+  {
+    "record": "claims-unit-first.json",
+    "command": [
+      "env",
+      "UV_CACHE_DIR=.cache/uv",
+      "uv",
+      "run",
+      "--project",
+      "backend",
+      "pytest",
+      "backend/tests/unit/test_geo_claims.py"
+    ],
+    "exit_code": 1
+  },
+  {
+    "record": "claims-unit-fixed.json",
+    "command": [
+      "env",
+      "UV_CACHE_DIR=.cache/uv",
+      "uv",
+      "run",
+      "--project",
+      "backend",
+      "pytest",
+      "backend/tests/unit/test_geo_claims.py"
+    ],
+    "exit_code": 0
+  },
+  {
+    "record": "claims-unit-review-fix.json",
+    "command": [
+      "env",
+      "UV_CACHE_DIR=.cache/uv",
+      "uv",
+      "run",
+      "--project",
+      "backend",
+      "pytest",
+      "backend/tests/unit/test_geo_claims.py"
+    ],
+    "exit_code": 1
+  },
+  {
+    "record": "claims-unit-second.json",
+    "command": [
+      "env",
+      "UV_CACHE_DIR=.cache/uv",
+      "uv",
+      "run",
+      "--project",
+      "backend",
+      "pytest",
+      "backend/tests/unit/test_geo_claims.py"
+    ],
+    "exit_code": 1
+  },
+  {
+    "record": "claims-unit-third.json",
+    "command": [
+      "env",
+      "UV_CACHE_DIR=.cache/uv",
+      "uv",
+      "run",
+      "--project",
+      "backend",
+      "pytest",
+      "backend/tests/unit/test_geo_claims.py"
+    ],
+    "exit_code": 0
+  },
+  {
+    "record": "final-context-fixtures.json",
+    "command": [
+      "make",
+      "test-geo-fixtures"
+    ],
+    "exit_code": 0
+  },
+  {
+    "record": "final-context-lint.json",
+    "command": [
+      "make",
+      "lint"
+    ],
+    "exit_code": 0
+  },
+  {
+    "record": "final-context-pg.json",
+    "command": [
+      "docker",
+      "compose",
+      "-p",
+      "partsignal-geo505-validation",
+      "-f",
+      ".trellis/tasks/10-03-geo-505-claim-assessment/evidence/validation-compose.yaml",
+      "run",
+      "--rm",
+      "backend-test",
+      "pytest",
+      "tests/integration/test_geo_claims.py",
+      "tests/integration/test_geo_analysis.py",
+      "tests/integration/test_geo_analysis_input.py"
+    ],
+    "exit_code": 0
+  },
+  {
+    "record": "final-context-typecheck.json",
+    "command": [
+      "make",
+      "typecheck"
+    ],
+    "exit_code": 0
+  },
+  {
+    "record": "final-context-unit.json",
+    "command": [
+      "env",
+      "UV_CACHE_DIR=.cache/uv",
+      "uv",
+      "run",
+      "--project",
+      "backend",
+      "pytest",
+      "backend/tests/unit/test_geo_claims.py",
+      "backend/tests/unit/test_geo_analysis.py",
+      "backend/tests/unit/test_geo_analysis_contract.py",
+      "backend/tests/unit/test_geo_fixtures.py"
+    ],
+    "exit_code": 0
+  },
+  {
+    "record": "final-diff-check.json",
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "exit_code": 0
+  },
+  {
+    "record": "final-document-sha-fixed.json",
+    "command": [
+      "env",
+      "UV_CACHE_DIR=.cache/uv",
+      "uv",
+      "run",
+      "--project",
+      "backend",
+      "python",
+      "-c",
+      "from pathlib import Path; import hashlib; p=Path(\"docs/geo-monitoring/SHA256SUMS\"); rows=[line.split(\"  \",1) for line in p.read_text().splitlines()]; assert all(hashlib.sha256((p.parent/name).read_bytes()).hexdigest()==sha for sha,name in rows); print(f\"文档SHA256通过：{len(rows)}文件\")"
+    ],
+    "exit_code": 0
+  },
+  {
+    "record": "final-document-sha.json",
+    "command": [
+      "env",
+      "UV_CACHE_DIR=.cache/uv",
+      "uv",
+      "run",
+      "--project",
+      "backend",
+      "python",
+      "-c",
+      "from pathlib import Path; import hashlib; p=Path(\"docs/geo-monitoring/SHA256SUMS\"); rows=[line.split(\"  \",1) for line in p.read_text().splitlines()]; assert all(hashlib.sha256((p.parent/name).read_bytes()).hexdigest()==sha for sha,name in rows); print(f\"文档SHA256通过：{len(rows)}文件\")"
+    ],
+    "exit_code": 1
+  },
+  {
+    "record": "final-fixtures.json",
+    "command": [
+      "make",
+      "test-geo-fixtures"
+    ],
+    "exit_code": 0
+  },
+  {
+    "record": "final-lint.json",
+    "command": [
+      "make",
+      "lint"
+    ],
+    "exit_code": 0
+  },
+  {
+    "record": "final-targeted-pg.json",
+    "command": [
+      "docker",
+      "compose",
+      "-p",
+      "partsignal-geo505-validation",
+      "-f",
+      ".trellis/tasks/10-03-geo-505-claim-assessment/evidence/validation-compose.yaml",
+      "run",
+      "--rm",
+      "backend-test",
+      "pytest",
+      "tests/integration/test_geo_claims.py",
+      "tests/integration/test_geo_analysis.py",
+      "tests/integration/test_geo_analysis_input.py"
+    ],
+    "exit_code": 0
+  },
+  {
+    "record": "final-targeted-unit.json",
+    "command": [
+      "env",
+      "UV_CACHE_DIR=.cache/uv",
+      "uv",
+      "run",
+      "--project",
+      "backend",
+      "pytest",
+      "backend/tests/unit/test_geo_claims.py",
+      "backend/tests/unit/test_geo_analysis.py",
+      "backend/tests/unit/test_geo_analysis_contract.py",
+      "backend/tests/unit/test_geo_fixtures.py"
+    ],
+    "exit_code": 0
+  },
+  {
+    "record": "final-typecheck.json",
+    "command": [
+      "make",
+      "typecheck"
+    ],
+    "exit_code": 0
+  },
+  {
+    "record": "final-unit.json",
+    "command": [
+      "make",
+      "test-unit"
+    ],
+    "exit_code": 0
+  },
+  {
+    "record": "gate-contract.json",
+    "command": [
+      "make",
+      "contract-check"
+    ],
+    "exit_code": 0
+  },
+  {
+    "record": "gate-fixtures.json",
+    "command": [
+      "make",
+      "test-geo-fixtures"
+    ],
+    "exit_code": 0
+  },
+  {
+    "record": "gate-integration.json",
+    "command": [
+      "make",
+      "test-integration",
+      "COMPOSE=docker compose -p partsignal-geo505-validation -f /Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-03-geo-505-claim-assessment/evidence/validation-compose.yaml"
+    ],
+    "exit_code": 0
+  },
+  {
+    "record": "gate-lint.json",
+    "command": [
+      "make",
+      "lint"
+    ],
+    "exit_code": 0
+  },
+  {
+    "record": "gate-typecheck.json",
+    "command": [
+      "make",
+      "typecheck"
+    ],
+    "exit_code": 0
+  },
+  {
+    "record": "gate-unit.json",
+    "command": [
+      "make",
+      "test-unit"
+    ],
+    "exit_code": 0
+  },
+  {
+    "record": "review-context-red.json",
+    "command": [
+      "env",
+      "UV_CACHE_DIR=.cache/uv",
+      "uv",
+      "run",
+      "--project",
+      "backend",
+      "pytest",
+      "backend/tests/unit/test_geo_claims.py",
+      "-k",
+      "review_comma or review-comma or each_replacement_keeps"
+    ],
+    "exit_code": 1
+  },
+  {
+    "record": "review-regressions-red.json",
+    "command": [
+      "env",
+      "UV_CACHE_DIR=.cache/uv",
+      "uv",
+      "run",
+      "--project",
+      "backend",
+      "pytest",
+      "backend/tests/unit/test_geo_claims.py",
+      "-k",
+      "review or later_replacement or unmonitored_product"
+    ],
+    "exit_code": 1
+  },
+  {
+    "record": "validation-down.json",
+    "command": [
+      "docker",
+      "compose",
+      "-p",
+      "partsignal-geo505-validation",
+      "-f",
+      ".trellis/tasks/10-03-geo-505-claim-assessment/evidence/validation-compose.yaml",
+      "down",
+      "--volumes"
+    ],
+    "exit_code": 0
+  },
+  {
+    "record": "validation-up.json",
+    "command": [
+      "docker",
+      "compose",
+      "-p",
+      "partsignal-geo505-validation",
+      "-f",
+      ".trellis/tasks/10-03-geo-505-claim-assessment/evidence/validation-compose.yaml",
+      "up",
+      "--build",
+      "-d",
+      "postgres",
+      "redis",
+      "fake-oss"
+    ],
+    "exit_code": 0
+  }
+]

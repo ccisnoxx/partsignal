@@ -1,0 +1,38 @@
+{
+  "status": "PASSED",
+  "tracked_files": {
+    "deploy/scripts/create-release-manifest.py": [
+      "deploy/compose.prod.yaml",
+      "deploy/nginx/partsignal-maintenance.conf.template",
+      "deploy/nginx/partsignal-security-headers.conf",
+      "deploy/nginx/partsignal.conf.template",
+      "deploy/scripts/activate-production.sh",
+      "deploy/scripts/check-production-inputs.py",
+      "deploy/scripts/deploy.sh",
+      "deploy/scripts/prepare-production-data.py",
+      "deploy/scripts/rollback-production-frontend.sh"
+    ],
+    "deploy/scripts/prepare-production-data.py": [
+      "deploy/compose.prod.yaml",
+      "deploy/nginx/partsignal-maintenance.conf.template",
+      "deploy/nginx/partsignal-security-headers.conf",
+      "deploy/nginx/partsignal.conf.template",
+      "deploy/scripts/activate-production.sh",
+      "deploy/scripts/check-production-inputs.py",
+      "deploy/scripts/deploy.sh",
+      "deploy/scripts/prepare-production-data.py",
+      "deploy/scripts/rollback-production-frontend.sh"
+    ],
+    "docs/Hostdzire部署附录.md": [
+      "deploy/compose.prod.yaml",
+      "deploy/nginx/partsignal-maintenance.conf.template",
+      "deploy/nginx/partsignal-security-headers.conf",
+      "deploy/nginx/partsignal.conf.template",
+      "deploy/scripts/activate-production.sh",
+      "deploy/scripts/check-production-inputs.py",
+      "deploy/scripts/deploy.sh",
+      "deploy/scripts/prepare-production-data.py",
+      "deploy/scripts/rollback-production-frontend.sh"
+    ]
+  }
+}

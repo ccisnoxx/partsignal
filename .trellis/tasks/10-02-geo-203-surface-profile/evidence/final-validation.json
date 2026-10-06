@@ -1,0 +1,86 @@
+[
+  {
+    "label": "diff-check-final",
+    "command": "git diff --check",
+    "exit_code": 0,
+    "seconds": 0.03,
+    "log": "diff-check-final.log"
+  },
+  {
+    "label": "contract-check-final",
+    "command": "make contract-check",
+    "exit_code": 0,
+    "seconds": 3.28,
+    "log": "contract-check-final.log"
+  },
+  {
+    "label": "lint-final",
+    "command": "make lint",
+    "exit_code": 0,
+    "seconds": 8.45,
+    "log": "lint-final.log"
+  },
+  {
+    "label": "typecheck-final",
+    "command": "make typecheck",
+    "exit_code": 0,
+    "seconds": 7.96,
+    "log": "typecheck-final.log"
+  },
+  {
+    "label": "test-unit-final",
+    "command": "make test-unit",
+    "exit_code": 0,
+    "seconds": 46.11,
+    "log": "test-unit-final.log"
+  },
+  {
+    "label": "test-integration-final",
+    "command": "make test-integration COMPOSE='docker compose -p partsignal-geo203-validation -f /tmp/geo203-compose.yaml'",
+    "exit_code": 0,
+    "seconds": 322.38,
+    "log": "test-integration-final.log"
+  },
+  {
+    "label": "alembic-upgrade-head",
+    "command": "APP_ENV=test DATABASE_URL=postgresql+psycopg://partsignal:partsignal_dev@127.0.0.1:55443/partsignal UV_CACHE_DIR=.cache/uv uv run --project backend alembic -c backend/alembic.ini upgrade head",
+    "exit_code": 0,
+    "seconds": 0.79,
+    "log": "alembic-upgrade-head.log"
+  },
+  {
+    "label": "targeted-contract-final",
+    "command": "UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/unit/test_geo_surface_contract.py",
+    "exit_code": 0,
+    "seconds": 0.61,
+    "log": "targeted-contract-final.log"
+  },
+  {
+    "label": "targeted-integration-final",
+    "command": "APP_ENV=test PARTSIGNAL_TEST_DATABASE_URL=postgresql+psycopg://partsignal:partsignal_dev@127.0.0.1:55443/partsignal UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/integration/test_geo_prompt_variants.py backend/tests/integration/test_geo_surfaces_profiles.py",
+    "exit_code": 0,
+    "seconds": 4.77,
+    "log": "targeted-integration-final.log"
+  },
+  {
+    "label": "document-checksums",
+    "command": "cd docs/geo-monitoring && shasum -a 256 -c SHA256SUMS",
+    "exit_code": 0,
+    "seconds": 0.04,
+    "log": "document-checksums.log"
+  },
+  {
+    "label": "environment-cleanup",
+    "command": "docker compose -p partsignal-geo203-validation -f /tmp/geo203-compose.yaml down --volumes --remove-orphans",
+    "exit_code": 0,
+    "seconds": 0.43,
+    "log": "environment-cleanup.log"
+  },
+  {
+    "label": "colima-restore",
+    "command": "colima stop",
+    "exit_code": 0,
+    "seconds": 2.11,
+    "log": "colima-restore.log"
+  }
+]

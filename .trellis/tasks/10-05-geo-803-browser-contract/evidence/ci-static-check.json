@@ -1,0 +1,10 @@
+{
+  "yaml_parse": "passed",
+  "workflow_dispatch_only": true,
+  "canonical_frontend_cache_install_preserved": true,
+  "independent_browser_install": true,
+  "network_none_option": true,
+  "canonical_shards_preserved": true,
+  "redis_step14_job15_preserved": true,
+  "other_workflow_content_matches_baseline": true
+}

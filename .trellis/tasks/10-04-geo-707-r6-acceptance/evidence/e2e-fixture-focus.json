@@ -1,0 +1,15 @@
+{
+  "argv": [
+    "npm",
+    "--prefix",
+    "frontend",
+    "run",
+    "e2e",
+    "--",
+    "tests/e2e/fact-workspace.spec.ts",
+    "--grep",
+    "direct/refresh"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 11.887
+}

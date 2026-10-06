@@ -14,6 +14,7 @@ from app.errors import AppError, in_use, not_found
 from app.models.configuration import PlatformProfile, PlatformPrompt, PlatformType, QueryTopic
 from app.models.content import ContentTask, ContentTaskGeoSource
 from app.models.geo_files import GeoObservation
+from app.models.geo_prompt_variants import GeoPromptVariant
 from app.models.identity import User
 from app.models.product_facts import FactVersion, Product
 from app.schemas.configuration import (
@@ -35,6 +36,7 @@ _QUERY_TOPIC_BLOCKERS = (
     ("CONTENT_TASK", "内容任务"),
     ("GEO_OPTIMIZATION_SOURCE", "GEO 优化来源"),
     ("GEO_OBSERVATION", "GEO 观测"),
+    ("GEO_PROMPT_VARIANT", "GEO 问题变体"),
 )
 
 
@@ -80,6 +82,10 @@ def _query_topic_reference_counts(
             GeoObservation.query_topic_id.label("resource_id"),
             literal("GEO_OBSERVATION").label("blocker_type"),
         ).where(GeoObservation.query_topic_id.in_(topic_ids)),
+        select(
+            GeoPromptVariant.query_topic_id.label("resource_id"),
+            literal("GEO_PROMPT_VARIANT").label("blocker_type"),
+        ).where(GeoPromptVariant.query_topic_id.in_(topic_ids)),
     ).subquery()
     return {
         (resource_id, blocker_type): int(count)
@@ -406,6 +412,7 @@ def add_locked_content_task(
     profile: PlatformProfile,
     actor: User,
     idempotency_key: str,
+    query_topic_id: uuid.UUID | None = None,
 ) -> ContentTask:
     """在调用方持有目标资源锁时构造并 flush 内容任务。"""
     task = ContentTask(
@@ -414,7 +421,7 @@ def add_locked_content_task(
         platform_profile_id=profile.id,
         platform_profile_name_snapshot=profile.name,
         platform_website_url_snapshot=profile.website_url,
-        query_topic_id=None,
+        query_topic_id=query_topic_id,
         idempotency_key=idempotency_key,
         created_by=actor.id,
     )
@@ -439,6 +446,7 @@ def _content_task_has_ordinary_identity(
     payload: ContentTaskCreate,
     *,
     require_complete: bool,
+    query_topic_id: uuid.UUID | None = None,
 ) -> bool | None:
     """判断任务是否可证明属于普通创建命令的同一 identity。"""
     if require_complete and (
@@ -451,6 +459,7 @@ def _content_task_has_ordinary_identity(
         return False
     return (
         task.product_id == payload.product_id
+        and task.query_topic_id == query_topic_id
         and task.fact_version_id == payload.fact_version_id
         and task.platform_profile_id == payload.platform_profile_id
     )
@@ -469,6 +478,7 @@ def create_content_task(
     request_id: str,
     idempotency_key: str,
     commit: bool = True,
+    query_topic_id: uuid.UUID | None = None,
 ) -> ContentTask:
     """幂等锁定已批准事实和活动平台；Prompt 门禁只在创建 AI 作业时执行。"""
     db.execute(
@@ -479,9 +489,12 @@ def create_content_task(
         select(ContentTask).where(ContentTask.idempotency_key == idempotency_key)
     )
     if existing is not None:
-        if _content_task_has_ordinary_identity(
-            db, existing, payload, require_complete=False
-        ) is not True:
+        if (
+            _content_task_has_ordinary_identity(
+                db, existing, payload, require_complete=False, query_topic_id=query_topic_id
+            )
+            is not True
+        ):
             raise _idempotency_conflict()
         return existing
 
@@ -489,6 +502,14 @@ def create_content_task(
         profile = lock_content_task_creation_resources(db, payload)
     except ContentTaskFactProductMismatch as error:
         raise AppError("VALIDATION_ERROR", "事实版本不属于所选产品", 422) from error
+    if (
+        query_topic_id is not None
+        and db.scalar(
+            select(QueryTopic.id).where(QueryTopic.id == query_topic_id).with_for_update()
+        )
+        is None
+    ):
+        raise not_found("GEO问题主题")
     try:
         task = add_locked_content_task(
             db=db,
@@ -496,9 +517,11 @@ def create_content_task(
             profile=profile,
             actor=actor,
             idempotency_key=idempotency_key,
+            query_topic_id=query_topic_id,
         )
     except IntegrityError as error:
-        if not _is_content_task_idempotency_integrity_error(error):
+        # 外层事务协调者不能在root rollback释放锁后继续创建来源关联。
+        if not commit or not _is_content_task_idempotency_integrity_error(error):
             raise
         db.rollback()
         winner = db.scalar(
@@ -507,7 +530,7 @@ def create_content_task(
         if winner is None:
             raise error
         same_identity = _content_task_has_ordinary_identity(
-            db, winner, payload, require_complete=True
+            db, winner, payload, require_complete=True, query_topic_id=query_topic_id
         )
         if same_identity is None:
             raise error

@@ -1,0 +1,7 @@
+{
+  "error_code": "RECOVERY_CANCELLED",
+  "owned_database_absent": true,
+  "plaintext_directory_absent": true,
+  "pg_child_absent": true,
+  "exit_code": 2
+}

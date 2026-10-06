@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "定向合同测试与可信门禁"}
+{"file": "docs/geo-monitoring/03-technical/07-testing-and-quality.md", "reason": "GEO-401 抽象验证与后续运行覆盖"}
+{"file": "docs/geo-monitoring/03-technical/06-security-and-compliance.md", "reason": "无 ORM、外发授权与敏感数据边界"}

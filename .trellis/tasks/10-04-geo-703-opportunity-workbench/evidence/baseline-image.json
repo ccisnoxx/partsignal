@@ -1,0 +1,12 @@
+{
+  "argv": [
+    "docker",
+    "compose",
+    "-f",
+    ".trellis/tasks/10-04-geo-703-opportunity-workbench/evidence/compose.yaml",
+    "build",
+    "backend-test"
+  ],
+  "exit_code": 0,
+  "seconds": 13.27
+}

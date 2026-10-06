@@ -1,0 +1,8 @@
+{
+  "task": "GEO-408",
+  "evidence": "两条runtime session的完整custom_tool_call输入已保存并核对；只有读取命令/YAML解析，不存在修改工具或源码写命令；最终报告满足文档读取与合同差异验收。",
+  "observed_write_paths": {
+    "product_contract": [],
+    "runtime_safety": []
+  }
+}

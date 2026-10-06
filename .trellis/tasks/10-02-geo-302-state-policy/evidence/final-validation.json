@@ -1,0 +1,74 @@
+{
+  "geo_task": "GEO-302",
+  "status": "review",
+  "dependency": {
+    "GEO301": "done"
+  },
+  "direct_successor": {
+    "GEO303": "planned"
+  },
+  "new_revision": null,
+  "production_migration": false,
+  "validation": [
+    {
+      "command": "git diff --check",
+      "exit_code": 0,
+      "log": "diff-check-final.log"
+    },
+    {
+      "command": "make contract-check",
+      "exit_code": 0,
+      "log": "contract-check.log"
+    },
+    {
+      "command": "make lint",
+      "exit_code": 0,
+      "log": "lint-final.log"
+    },
+    {
+      "command": "make typecheck",
+      "exit_code": 0,
+      "log": "typecheck-final.log"
+    },
+    {
+      "command": "make test-unit",
+      "exit_code": 0,
+      "backend_passed": 2636,
+      "frontend_passed": 1067,
+      "log": "test-unit-final.log"
+    },
+    {
+      "command": "make test-integration COMPOSE='docker compose -p partsignal-geo302-validation -f /Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-02-geo-302-state-policy/evidence/validation-compose.yaml'",
+      "exit_code": 0,
+      "passed": 656,
+      "warnings": 10,
+      "log": "test-integration.log"
+    },
+    {
+      "command": "UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/unit/test_geo_run_policy.py backend/tests/unit/test_geo_batch_policy.py backend/tests/unit/test_geo_run_workflow_contract.py",
+      "exit_code": 0,
+      "passed": 1355,
+      "log": "policy-targeted-final.log"
+    },
+    {
+      "command": "docker compose -p partsignal-geo302-validation -f .trellis/tasks/10-02-geo-302-state-policy/evidence/validation-compose.yaml run --rm backend-test alembic upgrade head",
+      "exit_code": 0,
+      "head": "0048_geo_batches_runs",
+      "log": "alembic-upgrade.log"
+    },
+    {
+      "command": "docker compose -p partsignal-geo302-validation -f .trellis/tasks/10-02-geo-302-state-policy/evidence/validation-compose.yaml run --rm backend-test alembic current",
+      "exit_code": 0,
+      "head": "0048_geo_batches_runs",
+      "log": "alembic-current.log"
+    }
+  ],
+  "independent_review_digest": "SUBAGENT_EXECUTION_DIGEST.json",
+  "scope_verification": "final-scope-verification.log",
+  "infra": {
+    "project_removed": true,
+    "volumes_removed": true,
+    "docker_context": "default",
+    "colima": "stopped"
+  }
+}

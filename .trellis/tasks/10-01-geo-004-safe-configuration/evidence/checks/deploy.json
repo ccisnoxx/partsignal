@@ -1,0 +1,9 @@
+{
+  "command": [
+    "make",
+    "test-deploy-scripts"
+  ],
+  "exit_code": 2,
+  "seconds": 0.152,
+  "log": "deploy.log"
+}

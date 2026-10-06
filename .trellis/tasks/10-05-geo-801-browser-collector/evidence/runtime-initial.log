@@ -1,0 +1,18 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend python deploy/scripts/test-geo-browser.py --runtime
+Compose dev/staging/prod：默认无Browser；profile/资源/网络/凭据隔离通过
+Traceback (most recent call last):
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-geo-browser.py", line 167, in <module>
+    main()
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-geo-browser.py", line 163, in main
+    runtime_checks(owner)
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-geo-browser.py", line 103, in runtime_checks
+    execute(active + ["up", "-d", "--no-build", "--pull", "never",
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-geo-browser.py", line 22, in execute
+    raise AssertionError(f"命令失败：{command[0:3]}\n{result.stdout}\n{result.stderr}")
+AssertionError: 命令失败：['docker', 'compose', '-p']
+
+ Container partsignal-geo801-07eaed33a0da-browser-collector-1 Creating 
+ service:browser-collector:1 Error response from daemon: invalid mount config for type "bind": bind source path does not exist: /var/folders/m5/j06tv2sn1hn93d6f33j559jm0000gn/T/geo801-u0txloep/control 
+Error response from daemon: invalid mount config for type "bind": bind source path does not exist: /var/folders/m5/j06tv2sn1hn93d6f33j559jm0000gn/T/geo801-u0txloep/control
+
+make: *** [test-geo-browser] Error 1

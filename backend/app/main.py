@@ -26,6 +26,22 @@ from app.errors import (
 )
 from app.routers.configuration import router as configuration_router
 from app.routers.files import router as files_router
+from app.routers.geo_answer_insights import router as geo_answer_insights_router
+from app.routers.geo_batches import router as geo_batches_router
+from app.routers.geo_browser_sessions import router as geo_browser_sessions_router
+from app.routers.geo_catalog import router as geo_catalog_router
+from app.routers.geo_manual_collection import router as geo_manual_collection_router
+from app.routers.geo_monitoring_plans import router as geo_monitoring_plans_router
+from app.routers.geo_opportunities import router as geo_opportunities_router
+from app.routers.geo_overview import router as geo_overview_router
+from app.routers.geo_questions import router as geo_questions_router
+from app.routers.geo_reads import router as geo_reads_router
+from app.routers.geo_reports import router as geo_reports_router
+from app.routers.geo_retests import router as geo_retests_router
+from app.routers.geo_reviews import router as geo_reviews_router
+from app.routers.geo_rules import router as geo_rules_router
+from app.routers.geo_run_commands import router as geo_run_commands_router
+from app.routers.geo_surface_management import router as geo_surface_management_router
 from app.routers.identity import router as identity_router
 from app.routers.observation import router as observation_router
 from app.routers.planning import router as planning_router
@@ -34,6 +50,10 @@ from app.routers.production import router as production_router
 from app.routers.publication import router as publication_router
 from app.routers.workbench import router as workbench_router
 from app.schemas.common import HealthResponse
+from app.schemas.geo_answers import GeoAnswerCitationOut, GeoRawPayloadSummary
+from app.schemas.geo_rules import GeoRuleConfiguration
+from app.schemas.geo_runs import GeoBatchPlanSnapshot
+from app.schemas.geo_surfaces import GeoApiSettings
 
 logger = logging.getLogger("partsignal.api")
 
@@ -79,16 +99,11 @@ def _request_context_components() -> dict[str, dict[str, Any]]:
                 "description": "业务或校验错误",
                 "headers": {
                     REQUEST_ID_HEADER_NAME: {
-                        "$ref": (
-                            "#/components/headers/"
-                            f"{_REQUEST_ID_RESPONSE_HEADER_COMPONENT}"
-                        )
+                        "$ref": (f"#/components/headers/{_REQUEST_ID_RESPONSE_HEADER_COMPONENT}")
                     }
                 },
                 "content": {
-                    "application/json": {
-                        "schema": {"$ref": "#/components/schemas/ErrorEnvelope"}
-                    }
+                    "application/json": {"schema": {"$ref": "#/components/schemas/ErrorEnvelope"}}
                 },
             }
         },
@@ -173,9 +188,7 @@ def _merge_request_context_metadata(document: dict[str, Any]) -> None:
     )
 
     request_parameter_ref = {"$ref": f"#/components/parameters/{_REQUEST_ID_PARAMETER_COMPONENT}"}
-    response_header_ref = {
-        "$ref": f"#/components/headers/{_REQUEST_ID_RESPONSE_HEADER_COMPONENT}"
-    }
+    response_header_ref = {"$ref": f"#/components/headers/{_REQUEST_ID_RESPONSE_HEADER_COMPONENT}"}
     error_response_ref = {"$ref": f"#/components/responses/{_ERROR_RESPONSE_COMPONENT}"}
 
     for path_item in document.get("paths", {}).values():
@@ -233,7 +246,8 @@ def _merge_request_context_metadata(document: dict[str, Any]) -> None:
                 if existing_header is not None and existing_header != response_header_ref:
                     resolved_existing_header = (
                         _local_component(document, existing_header["$ref"])
-                        if isinstance(existing_header, dict) and "$ref" in existing_header
+                        if isinstance(existing_header, dict)
+                        and "$ref" in existing_header
                         and isinstance(existing_header["$ref"], str)
                         else existing_header
                     )
@@ -265,9 +279,7 @@ async def request_context(request: Request, call_next):  # type: ignore[no-untyp
     supplied_request_id = request.headers.get(REQUEST_ID_HEADER_NAME)
     request.state.request_id = str(uuid.uuid4())
     if supplied_request_id is not None and (
-        not REQUEST_ID_MIN_LENGTH
-        <= len(supplied_request_id)
-        <= REQUEST_ID_MAX_LENGTH
+        not REQUEST_ID_MIN_LENGTH <= len(supplied_request_id) <= REQUEST_ID_MAX_LENGTH
         or not supplied_request_id.isascii()
         or not supplied_request_id.isprintable()
     ):
@@ -328,6 +340,22 @@ def ready_health() -> HealthResponse:
 
 
 app.include_router(identity_router)
+app.include_router(geo_catalog_router)
+app.include_router(geo_questions_router)
+app.include_router(geo_monitoring_plans_router)
+app.include_router(geo_batches_router)
+app.include_router(geo_browser_sessions_router)
+app.include_router(geo_reads_router)
+app.include_router(geo_overview_router)
+app.include_router(geo_answer_insights_router)
+app.include_router(geo_run_commands_router)
+app.include_router(geo_reviews_router)
+app.include_router(geo_reports_router)
+app.include_router(geo_rules_router)
+app.include_router(geo_opportunities_router)
+app.include_router(geo_retests_router)
+app.include_router(geo_manual_collection_router)
+app.include_router(geo_surface_management_router)
 app.include_router(configuration_router)
 app.include_router(product_facts_router)
 app.include_router(planning_router)
@@ -345,6 +373,28 @@ def _custom_openapi() -> dict[str, Any]:
             version=app.version,
             routes=app.routes,
         )
+        # 安装版本的 FastAPI 导出会 exclude_none；保留模型已声明的 nullable 默认。
+        api_settings = schema["components"]["schemas"]["GeoApiSettings"]["properties"]
+        for name in ("temperature", "max_output_tokens"):
+            api_settings[name]["default"] = GeoApiSettings.model_fields[name].default
+        summary = schema["components"]["schemas"]["GeoRawPayloadSummary"]["properties"]
+        for name in ("payload_format", "payload_bytes", "finish_reason"):
+            summary[name]["default"] = GeoRawPayloadSummary.model_fields[name].default
+        for model, names in (
+            (GeoBatchPlanSnapshot, ("description", "budget_limit", "cron_expression")),
+            (GeoAnswerCitationOut, ("title",)),
+            (
+                GeoRuleConfiguration,
+                (
+                    "data_quality_minimum_success_rate",
+                    "data_quality_minimum_evidence_rate",
+                    "run_failure_consecutive_limit",
+                ),
+            ),
+        ):
+            properties = schema["components"]["schemas"][model.__name__]["properties"]
+            for name in names:
+                properties[name]["default"] = model.model_fields[name].default
         _merge_request_context_metadata(schema)
         app.openapi_schema = schema
     return app.openapi_schema

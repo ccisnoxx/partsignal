@@ -1,0 +1,52 @@
+name: partsignal-geo201-validation
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: geo201_validation
+      POSTGRES_USER: partsignal
+      POSTGRES_PASSWORD: partsignal_dev
+    ports: [127.0.0.1:55441:5432]
+    volumes: [geo201-postgres:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U partsignal -d geo201_validation]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  redis:
+    image: redis:7.4-alpine
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  fake-oss:
+    image: partsignal-dev-backend-test:latest
+    volumes: [/Users/sc/PycharmProjects/partsignal/backend:/app]
+    environment:
+      APP_ENV: test
+      OBJECT_STORAGE_BACKEND: development
+      OBJECT_STORAGE_ENDPOINT: http://fake-oss:9000
+    command: [python, -m, app.files.fake_server]
+  backend-test:
+    image: partsignal-dev-backend-test:latest
+    volumes: [/Users/sc/PycharmProjects/partsignal/backend:/app]
+    working_dir: /app
+    environment:
+      APP_ENV: test
+      DATABASE_URL: postgresql+psycopg://partsignal:partsignal_dev@postgres:5432/geo201_validation
+      REDIS_URL: redis://redis:6379/15
+      SESSION_SECRET: test-session-secret-at-least-32-bytes
+      CONTENT_GENERATOR: openai-compatible
+      AI_CREDENTIAL_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      AI_ALLOW_LOCAL_HTTP: 'true'
+      OBJECT_STORAGE_BACKEND: development
+      OBJECT_STORAGE_ENDPOINT: http://fake-oss:9000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: [pytest, tests/integration]
+volumes:
+  geo201-postgres:

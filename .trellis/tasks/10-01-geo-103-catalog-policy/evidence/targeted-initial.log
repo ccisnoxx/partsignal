@@ -1,0 +1,73 @@
+
+==================================== ERRORS ====================================
+____________ ERROR collecting tests/unit/test_geo_catalog_schema.py ____________
+backend/tests/unit/test_geo_catalog_schema.py:9: in <module>
+    from app.schemas.geo_catalog import (
+backend/app/schemas/geo_catalog.py:257: in <module>
+    class GeoSubjectDomainOut(ContractModel):
+backend/.venv/lib/python3.12/site-packages/pydantic/_internal/_model_construction.py:256: in __new__
+    complete_model_class(
+backend/.venv/lib/python3.12/site-packages/pydantic/_internal/_model_construction.py:690: in complete_model_class
+    cls.__pydantic_validator__ = create_schema_validator(
+backend/.venv/lib/python3.12/site-packages/pydantic/plugin/_schema_validator.py:53: in create_schema_validator
+    return SchemaValidator(schema, config, _use_prebuilt=_use_prebuilt)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   pydantic_core._pydantic_core.SchemaError: Error building "model" validator:
+E     SchemaError: Error building "model-fields" validator:
+E     SchemaError: Field "hostname":
+E     SchemaError: Error building "function-after" validator:
+E     SchemaError: Error building "str" validator:
+E     SchemaError: regex parse error:
+E       ^(?=.{3,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$
+E        ^^^
+E   error: look-around, including look-ahead and look-behind, is not supported
+____________ ERROR collecting tests/unit/test_geo_catalog_policy.py ____________
+backend/tests/unit/test_geo_catalog_policy.py:11: in <module>
+    from app.schemas.geo_catalog import GeoSubjectType
+backend/app/schemas/geo_catalog.py:257: in <module>
+    class GeoSubjectDomainOut(ContractModel):
+backend/.venv/lib/python3.12/site-packages/pydantic/_internal/_model_construction.py:256: in __new__
+    complete_model_class(
+backend/.venv/lib/python3.12/site-packages/pydantic/_internal/_model_construction.py:690: in complete_model_class
+    cls.__pydantic_validator__ = create_schema_validator(
+backend/.venv/lib/python3.12/site-packages/pydantic/plugin/_schema_validator.py:53: in create_schema_validator
+    return SchemaValidator(schema, config, _use_prebuilt=_use_prebuilt)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   pydantic_core._pydantic_core.SchemaError: Error building "model" validator:
+E     SchemaError: Error building "model-fields" validator:
+E     SchemaError: Field "hostname":
+E     SchemaError: Error building "function-after" validator:
+E     SchemaError: Error building "str" validator:
+E     SchemaError: regex parse error:
+E       ^(?=.{3,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$
+E        ^^^
+E   error: look-around, including look-ahead and look-behind, is not supported
+__________ ERROR collecting tests/unit/test_geo_catalog_projection.py __________
+backend/tests/unit/test_geo_catalog_projection.py:14: in <module>
+    from app.services.geo_catalog_policy import SubjectReferenceCounts
+backend/app/services/geo_catalog_policy.py:9: in <module>
+    from app.schemas.geo_catalog import (
+backend/app/schemas/geo_catalog.py:257: in <module>
+    class GeoSubjectDomainOut(ContractModel):
+backend/.venv/lib/python3.12/site-packages/pydantic/_internal/_model_construction.py:256: in __new__
+    complete_model_class(
+backend/.venv/lib/python3.12/site-packages/pydantic/_internal/_model_construction.py:690: in complete_model_class
+    cls.__pydantic_validator__ = create_schema_validator(
+backend/.venv/lib/python3.12/site-packages/pydantic/plugin/_schema_validator.py:53: in create_schema_validator
+    return SchemaValidator(schema, config, _use_prebuilt=_use_prebuilt)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   pydantic_core._pydantic_core.SchemaError: Error building "model" validator:
+E     SchemaError: Error building "model-fields" validator:
+E     SchemaError: Field "hostname":
+E     SchemaError: Error building "function-after" validator:
+E     SchemaError: Error building "str" validator:
+E     SchemaError: regex parse error:
+E       ^(?=.{3,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$
+E        ^^^
+E   error: look-around, including look-ahead and look-behind, is not supported
+=========================== short test summary info ============================
+ERROR backend/tests/unit/test_geo_catalog_schema.py - pydantic_core._pydantic...
+ERROR backend/tests/unit/test_geo_catalog_policy.py - pydantic_core._pydantic...
+ERROR backend/tests/unit/test_geo_catalog_projection.py - pydantic_core._pyda...
+!!!!!!!!!!!!!!!!!!! Interrupted: 3 errors during collection !!!!!!!!!!!!!!!!!!!!
+3 errors in 0.26s

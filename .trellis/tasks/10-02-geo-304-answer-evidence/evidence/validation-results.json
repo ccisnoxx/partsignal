@@ -1,0 +1,68 @@
+{
+  "task": "GEO-304",
+  "commands": [
+    {
+      "command": "git diff --check",
+      "exit_code": 0,
+      "log": "diff-check.log"
+    },
+    {
+      "command": "UV_CACHE_DIR=.cache/uv make contract-check",
+      "exit_code": 0,
+      "log": "contract-check.log"
+    },
+    {
+      "command": "UV_CACHE_DIR=.cache/uv make lint",
+      "exit_code": 0,
+      "log": "lint-final.log"
+    },
+    {
+      "command": "UV_CACHE_DIR=.cache/uv make typecheck",
+      "exit_code": 0,
+      "log": "typecheck-final.log"
+    },
+    {
+      "command": "UV_CACHE_DIR=.cache/uv make test-unit",
+      "exit_code": 0,
+      "backend_passed": 2686,
+      "frontend_passed": 1067,
+      "log": "test-unit-latest.log"
+    },
+    {
+      "command": "make test-integration COMPOSE='docker compose -p partsignal-geo304-validation -f /Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-02-geo-304-answer-evidence/evidence/validation-compose.yaml'",
+      "exit_code": 0,
+      "passed": 713,
+      "warnings": 14,
+      "log": "test-integration.log"
+    },
+    {
+      "command": "DATABASE_URL=postgresql+psycopg://partsignal:partsignal_dev@127.0.0.1:55454/geo304_final_head APP_ENV=test UV_CACHE_DIR=.cache/uv uv run --project backend alembic -c backend/alembic.ini upgrade head",
+      "exit_code": 0,
+      "revision": "0050_geo_answer_evidence",
+      "log": "migration-final-head.log"
+    },
+    {
+      "command": "UPLOAD_SIGNING_SECRET=partsignal-development-only-storage-key APP_ENV=test PARTSIGNAL_TEST_DATABASE_URL=postgresql+psycopg://partsignal:partsignal_dev@127.0.0.1:55454/partsignal GEO304_TEST_STORAGE_URL=http://127.0.0.1:19014 UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/unit/test_geo_answer_contract.py backend/tests/integration/test_geo_answer*.py",
+      "exit_code": 0,
+      "passed": 91,
+      "log": "targeted-answers-final.log"
+    },
+    {
+      "command": "APP_ENV=test PARTSIGNAL_TEST_DATABASE_URL=postgresql+psycopg://partsignal:partsignal_dev@127.0.0.1:55454/partsignal UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/integration/test_geo_answer_migration_precheck.py",
+      "exit_code": 0,
+      "passed": 1,
+      "log": "targeted-migration-lock.log"
+    },
+    {
+      "command": "UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/unit/test_geo_answer_contract.py",
+      "exit_code": 0,
+      "passed": 44,
+      "log": "targeted-contract-final.log"
+    }
+  ],
+  "not_run": [
+    "E2E：本任务没有新增HTTP命令、路由或用户旅程",
+    "真实AI/Collector/OSS：不属本任务普通验证",
+    "生产迁移/发布：未授权且本次不需要"
+  ]
+}

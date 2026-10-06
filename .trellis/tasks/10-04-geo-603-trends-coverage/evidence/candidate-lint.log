@@ -1,0 +1,14 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend ruff check backend
+B023 Function definition does not bind loop variable `statements`
+   --> backend/tests/integration/test_geo_answer_insights.py:200:13
+    |
+198 |         def before(conn, cursor, statement, parameters, context, many):
+199 |             assert conn.get_isolation_level() == "REPEATABLE READ"
+200 |             statements.append(statement)
+    |             ^^^^^^^^^^
+201 |
+202 |         event.listen(engine, "before_cursor_execute", before)
+    |
+
+Found 1 error.
+make: *** [lint] Error 1

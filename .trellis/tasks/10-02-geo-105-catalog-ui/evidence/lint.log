@@ -1,0 +1,15 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend ruff check backend
+All checks passed!
+npm --prefix frontend run lint
+
+> partsignal-frontend-v2@0.1.0 lint
+> eslint . --max-warnings 0
+
+
+/Users/sc/PycharmProjects/partsignal/frontend/src/domains/geo-catalog/catalog-list.tsx
+  39:6  warning  React Hook useMemo has an unnecessary dependency: 'onChange'. Either exclude it or remove the dependency array  react-hooks/exhaustive-deps
+
+✖ 1 problem (0 errors, 1 warning)
+
+ESLint found too many warnings (maximum: 0).
+make: *** [lint] Error 1

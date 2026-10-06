@@ -1,0 +1,350 @@
+npm --prefix browser-collector run lint
+
+> partsignal-browser-collector@0.1.0 lint
+> node --check src/service.mjs && node --check src/main.mjs && node --check src/healthcheck.mjs && node --check tests/service.test.mjs && node --check tests/support/reference-adapter.mjs && node --check tests/support/adapter-contract.mjs && node --check tests/contracts/local-adapter.test.mjs && node --check ../tests/browser-fixture/server.mjs && node --check ../tests/browser-fixture/fixture.js
+
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend ruff check backend
+E501 Line too long (101 > 100)
+   --> backend/app/geo_ops_health.py:125:101
+    |
+123 |             engine.dispose()
+124 |     try:
+125 |         with Redis.from_url(settings.redis_url, socket_connect_timeout=2, socket_timeout=2) as redis:
+    |                                                                                                     ^
+126 |             checks["redis"] = bool(redis.ping())
+127 |     except Exception:
+    |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> backend/app/services/file_records.py:3:1
+   |
+ 1 |   """文件记录完整性相关的跨用例业务规则。"""
+ 2 |
+ 3 | / from __future__ import annotations
+ 4 | |
+ 5 | | import hashlib
+ 6 | | import logging
+ 7 | | import mimetypes
+ 8 | | import uuid
+ 9 | | from dataclasses import dataclass
+10 | | from datetime import UTC, datetime, timedelta
+11 | | from pathlib import Path
+12 | |
+13 | | from sqlalchemy import false, func, or_, select
+14 | | from sqlalchemy.orm import Session
+15 | |
+16 | | from app.config import settings
+17 | | from app.db import SessionLocal
+18 | | from app.errors import AppError, not_found
+19 | | from app.models.configuration import PlatformProfile
+20 | | from app.models.geo_answers import GeoAnswerSnapshot
+21 | | from app.models.geo_files import FileRecord, GeoObservationAttachment
+22 | | from app.models.geo_manual_collection import GeoManualDraft
+23 | | from app.models.identity import User
+24 | | from app.models.publication import PublicationAttachment
+25 | | from app.schemas.geo_files import UploadInstruction, UploadIntent, UploadIntentCreate
+26 | | from app.schemas.publication import FileRecordOut
+27 | | from app.services.storage import (
+28 | |     EvidenceStorage,
+29 | |     StorageObjectMissing,
+30 | |     StorageUnavailable,
+31 | |     get_evidence_storage,
+32 | | )
+33 | | from app.services.geo_ops_runtime import observe
+   | |________________________________________________^
+34 |
+35 |   UNCONFIRMED_RETENTION = timedelta(hours=24)
+   |
+help: Organize imports
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> backend/app/services/geo_analysis_dispatch.py:3:1
+   |
+ 1 |   """数据库驱动的分析派发与过期失败；Broker 只保存稳定 UUID。"""
+ 2 |
+ 3 | / from collections.abc import Callable
+ 4 | | from datetime import datetime, timedelta
+ 5 | | from enum import StrEnum
+ 6 | | from uuid import UUID
+ 7 | |
+ 8 | | from sqlalchemy import func, select
+ 9 | | from sqlalchemy.exc import DBAPIError
+10 | |
+11 | | from app.config import settings
+12 | | from app.db import SessionLocal
+13 | | from app.models.geo_analysis import GeoAnalysisRevision
+14 | | from app.models.geo_analysis_worker import GeoAnalysisJob
+15 | | from app.models.geo_runs import GeoObservationRun
+16 | | from app.services.geo_analysis_runs import finish_failure, lock_analysis, prepare_collected_run
+17 | | from app.services.geo_run_lifecycle import database_now
+18 | |
+19 | | from app.services.geo_ops_logging import OpsError, geo_event
+   | |____________________________________________________________^
+20 |   type AnalysisSender = Callable[[str], object]
+   |
+help: Organize imports
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> backend/app/services/geo_analysis_runs.py:3:1
+   |
+ 1 |   """分析生命周期事务 owner；输入冻结、claim 与结果提交均以数据库事实仲裁。"""
+ 2 |
+ 3 | / from dataclasses import dataclass
+ 4 | | from datetime import datetime, timedelta
+ 5 | | from uuid import UUID, uuid4
+ 6 | |
+ 7 | | from sqlalchemy import select
+ 8 | | from sqlalchemy.exc import DBAPIError
+ 9 | | from sqlalchemy.orm import Session
+10 | |
+11 | | from app.config import settings
+12 | | from app.db import SessionLocal
+13 | | from app.models.geo_analysis import GeoAnalysisRevision
+14 | | from app.models.geo_analysis_worker import GeoAnalysisJob
+15 | | from app.models.geo_runs import GeoObservationBatch, GeoObservationRun
+16 | | from app.schemas.geo_runs import GeoRunStatus
+17 | | from app.services import geo_analysis_execution as execution
+18 | | from app.services.geo_analysis_inputs import prepare_revision
+19 | | from app.services.geo_run_lifecycle import database_now, lock_run, refresh_batch, run_state
+20 | | from app.services.geo_run_policy import run_transition
+21 | | from app.services.geo_ops_logging import OpsError, geo_event
+   | |____________________________________________________________^
+22 |   # 有限本地计算的租约；不是外部 provider 超时或新的配置能力。
+23 |   ANALYSIS_LEASE_SECONDS = 300
+   |
+help: Organize imports
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> backend/app/services/geo_dispatch.py:3:1
+   |
+ 1 |   """提交后投递与数据库补投递；只有未发送的 PENDING 可入队。"""
+ 2 |
+ 3 | / from collections.abc import Callable
+ 4 | | from datetime import datetime, timedelta
+ 5 | | from uuid import UUID
+ 6 | |
+ 7 | | from sqlalchemy import func, select
+ 8 | | from sqlalchemy.orm import Session
+ 9 | |
+10 | | from app.config import settings
+11 | | from app.db import SessionLocal
+12 | | from app.models.geo_runs import GeoObservationBatch, GeoObservationRun
+13 | | from app.services import geo_collection_admission as admission
+14 | | from app.services.geo_run_lifecycle import (
+15 | |     database_now,
+16 | |     fail_run,
+17 | |     lock_run,
+18 | |     recover_unsent_run,
+19 | |     refresh_batch,
+20 | | )
+21 | |
+22 | | from app.services.geo_ops_logging import OpsError, geo_event
+   | |____________________________________________________________^
+23 |   type RunSender = Callable[[str], object]
+   |
+help: Organize imports
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> backend/app/services/geo_opportunities.py:3:1
+   |
+ 1 |   """机会批量应用服务：一致输入捕获、确定性去重与追加证据原子提交。"""
+ 2 |
+ 3 | / import json
+ 4 | | from dataclasses import asdict, dataclass
+ 5 | | from datetime import datetime, timedelta
+ 6 | | from hashlib import sha256
+ 7 | | from uuid import UUID, uuid4
+ 8 | |
+ 9 | | from sqlalchemy import func, select, text
+10 | | from sqlalchemy.dialects.postgresql import insert
+11 | | from sqlalchemy.orm import Session
+12 | |
+13 | | from app.audit import append_audit
+14 | | from app.audit_types import AuditEntry, AuditModule, AuditOutcome
+15 | | from app.config import settings
+16 | | from app.errors import AppError
+17 | | from app.models.geo_catalog import GeoSubject
+18 | | from app.models.geo_opportunities import (
+19 | |     OPEN_PREDICATE,
+20 | |     GeoOpportunity,
+21 | |     GeoOpportunityEvaluation,
+22 | |     GeoOpportunitySource,
+23 | | )
+24 | | from app.models.identity import User
+25 | | from app.models.product_facts import Product
+26 | | from app.schemas.geo_insights import GeoOverviewFilters
+27 | | from app.schemas.geo_opportunities import GeoOpportunityTriggerSnapshot
+28 | | from app.services.geo_catalog_locks import BRAND_TYPES
+29 | | from app.services.geo_metric_views import MetricWindow
+30 | | from app.services.geo_ops_runtime import observe
+31 | | from app.services.geo_opportunity_policy import OPEN_STATUSES, identity_key
+32 | | from app.services.geo_opportunity_rules import evaluate_rules
+33 | | from app.services.geo_opportunity_types import RuleEvaluation
+34 | | from app.services.geo_overview_queries import load_inputs
+35 | | from app.services.geo_plan_locks import command
+36 | | from app.services.geo_rule_policy import FrozenRuleSet
+37 | | from app.services.geo_rules import freeze_current_rules
+   | |_______________________________________________________^
+   |
+help: Organize imports
+
+E501 Line too long (105 > 100)
+  --> backend/app/services/geo_ops_runtime.py:26:101
+   |
+24 |         bind.url if bind is not None else settings.database_url,
+25 |         poolclass=NullPool,
+26 |         connect_args={"connect_timeout": 2, "options": "-c statement_timeout=2000 -c lock_timeout=1000"},
+   |                                                                                                     ^^^^^
+27 |     )
+   |
+
+SIM117 [*] Use a single `with` statement with multiple contexts instead of nested `with` statements
+  --> backend/app/services/geo_ops_runtime.py:39:9
+   |
+37 |       try:
+38 |           engine = observability_engine(bind)
+39 | /         with Session(bind=engine) as db:
+40 | |             with db.begin():
+   | |____________________________^
+41 |                   db.execute(text("SET LOCAL lock_timeout = '1s'"))
+42 |                   db.execute(text("SET LOCAL statement_timeout = '2s'"))
+   |
+help: Combine `with` statements
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> backend/app/services/geo_reanalysis.py:3:1
+   |
+ 1 |   """管理员单 Run 重分析应用命令；公共 HTTP 和复核操作由 GEO-507 接入。"""
+ 2 |
+ 3 | / from enum import StrEnum
+ 4 | | from uuid import UUID
+ 5 | |
+ 6 | | from sqlalchemy.exc import DBAPIError
+ 7 | |
+ 8 | | from app.audit import append_audit
+ 9 | | from app.audit_types import AuditEntry, AuditModule, AuditOutcome
+10 | | from app.config import settings
+11 | | from app.db import SessionLocal
+12 | | from app.errors import AppError, not_found
+13 | | from app.models.identity import User
+14 | | from app.services.geo_analysis_dispatch import AnalysisSender, dispatch_revision
+15 | | from app.services.geo_ops_logging import OpsError, geo_event
+16 | | from app.services.geo_analysis_inputs import prepare_revision
+17 | | from app.services.geo_run_lifecycle import lock_run
+18 | | from app.services.geo_surface_locks import command
+   | |__________________________________________________^
+   |
+help: Organize imports
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> backend/app/services/geo_retention.py:3:1
+   |
+ 1 |   """GEO 临时材料保留；业务历史和仍被引用的文件不进入删除范围。"""
+ 2 |
+ 3 | / from dataclasses import dataclass
+ 4 | | from datetime import datetime, timedelta
+ 5 | |
+ 6 | | from sqlalchemy import exists, func, select
+ 7 | |
+ 8 | | from app.config import settings
+ 9 | | from app.db import SessionLocal
+10 | | from app.models.geo_answers import GeoAnswerSnapshot
+11 | | from app.models.geo_files import FileRecord
+12 | | from app.models.geo_manual_collection import GeoManualDraft
+13 | | from app.models.geo_retention import GeoManualDraftTombstone
+14 | | from app.models.geo_runs import GeoObservationRun
+15 | | from app.services.file_records import (
+16 | |     DETACHED_RETENTION,
+17 | |     FileCleanupResult,
+18 | |     cleanup_file_records,
+19 | |     schedule_unreferenced_file,
+20 | | )
+21 | | from app.services.storage import EvidenceStorage
+22 | | from app.services.geo_ops_logging import geo_event
+   | |__________________________________________________^
+   |
+help: Organize imports
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> backend/app/services/geo_runs.py:3:1
+   |
+ 1 |   """采集 Worker 的事务 owner；每次执行一个冻结 Run，不自动重试外部调用。"""
+ 2 |
+ 3 | / from dataclasses import dataclass, replace
+ 4 | | from datetime import datetime, timedelta
+ 5 | | from uuid import UUID, uuid4
+ 6 | |
+ 7 | | from app.collectors.base import GeoCollector
+ 8 | | from app.collectors.contracts import CollectedAnswer, CollectionRequest
+ 9 | | from app.collectors.errors import CollectorError, CollectorStage
+10 | | from app.config import settings
+11 | | from app.db import SessionLocal
+12 | | from app.models.ai_generation import AIChannel
+13 | | from app.models.geo_answers import GeoAnswerCitation, GeoAnswerSnapshot
+14 | | from app.models.geo_runs import GeoObservationRun
+15 | | from app.schemas.geo_answers import GeoAnswerCitationInput
+16 | | from app.schemas.geo_runs import GeoExternalCallState as External
+17 | | from app.schemas.geo_runs import GeoRunErrorCode, GeoRunInputSnapshot, GeoRunStatus
+18 | | from app.services import geo_collection_admission as admission
+19 | | from app.services.geo_answer_citations import prepare_answer_citations
+20 | | from app.services.geo_collection_execution import (
+21 | |     ExecutionVersions,
+22 | |     build_collector,
+23 | |     configuration_error,
+24 | |     lock_configuration,
+25 | |     qualify,
+26 | | )
+27 | | from app.services.geo_run_lifecycle import (
+28 | |     database_now,
+29 | |     fail_run,
+30 | |     lock_run,
+31 | |     refresh_batch,
+32 | |     run_state,
+33 | | )
+34 | | from app.services.geo_run_policy import run_transition
+35 | | from app.services.geo_ops_logging import OpsError, geo_event
+   | |____________________________________________________________^
+   |
+help: Organize imports
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> backend/app/worker.py:3:1
+   |
+ 1 |   """Celery Worker 入口；Redis 仅传递作业/Run UUID。"""
+ 2 |
+ 3 | / from __future__ import annotations
+ 4 | |
+ 5 | | import uuid
+ 6 | |
+ 7 | | from celery import Celery
+ 8 | |
+ 9 | | from app.config import settings
+10 | | from app.geo_ops_health import worker_heartbeat  # noqa: F401
+11 | | from app.services.file_records import cleanup_file_records
+12 | | from app.services.generation import process_generation_job
+13 | | from app.services.generation_dispatch import (
+14 | |     fail_expired_generation_jobs,
+15 | |     redispatch_pending_generation_jobs,
+16 | | )
+17 | | from app.services.geo_analysis_dispatch import (
+18 | |     dispatch_collected_run,
+19 | |     recover_expired_analysis_revisions,
+20 | |     redispatch_pending_analysis_revisions,
+21 | | )
+22 | | from app.services.geo_analysis_runs import process_analysis_revision, process_analysis_run
+23 | | from app.services.geo_dispatch import (
+24 | |     recover_expired_collection_runs,
+25 | |     redispatch_pending_collection_runs,
+26 | | )
+27 | | from app.services.geo_retention import cleanup_geo_artifacts
+28 | | from app.services.geo_runs import process_collection_run
+29 | | from app.services.geo_ops_runtime import observe
+   | |________________________________________________^
+30 |
+31 |   celery_app = Celery("partsignal", broker=settings.redis_url)
+   |
+help: Organize imports
+
+Found 12 errors.
+[*] 10 fixable with the `--fix` option.
+make: *** [lint] Error 1

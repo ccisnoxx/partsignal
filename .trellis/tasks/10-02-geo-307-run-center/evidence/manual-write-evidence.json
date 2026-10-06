@@ -1,0 +1,38 @@
+{
+  "source": "child rollout custom_tool_call inputs",
+  "write_calls": [
+    {
+      "ordinal": 113,
+      "paths": [
+        "frontend/src/domains/geo-runs/manual.model.ts",
+        "frontend/src/domains/geo-runs/run-upload.tsx"
+      ]
+    },
+    {
+      "ordinal": 127,
+      "paths": [
+        "frontend/src/domains/geo-runs/manual-editor.tsx"
+      ]
+    },
+    {
+      "ordinal": 175,
+      "paths": [
+        "frontend/src/domains/geo-runs/manual.model.test.ts",
+        "frontend/src/domains/geo-runs/run-upload.test.tsx"
+      ]
+    },
+    {
+      "ordinal": 193,
+      "paths": [
+        "frontend/src/domains/geo-runs/manual-editor.test.tsx"
+      ]
+    },
+    {
+      "ordinal": 216,
+      "paths": [
+        "frontend/src/domains/geo-runs/manual-editor.test.tsx",
+        "frontend/src/domains/geo-runs/run-upload.test.tsx"
+      ]
+    }
+  ]
+}

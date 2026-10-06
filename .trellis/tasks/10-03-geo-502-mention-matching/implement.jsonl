@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "金标行为边界和实际门禁"}
+{"file": "docs/geo-monitoring/04-delivery/02-work-breakdown-structure.md", "reason": "只实现别名快照和提及，不实现后续任务"}
+{"file": "docs/geo-monitoring/02-business/04-monitoring-methodology-and-metrics.md", "reason": "提及与推荐分离，语义不推导指标"}
+{"file": "backend/tests/fixtures/geo_analysis/README.md", "reason": "独立人工金标、原文位置与敏感数据边界"}
+{"file": ".trellis/tasks/10-03-geo-502-mention-matching/prd.md", "reason": "19节Task Brief及验收"}
+{"file": ".trellis/tasks/10-03-geo-502-mention-matching/design.md", "reason": "匹配键、原文映射、重叠与歧义设计"}

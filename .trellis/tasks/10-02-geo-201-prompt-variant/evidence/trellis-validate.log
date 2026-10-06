@@ -1,0 +1,7 @@
+[0;34m=== Validating Context Files ===[0m
+Target dir: /Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-02-geo-201-prompt-variant
+
+  [0;32mimplement.jsonl: ✓ (0 entries)[0m
+  [0;32mcheck.jsonl: ✓ (0 entries)[0m
+
+[0;32m✓ All validations passed[0m

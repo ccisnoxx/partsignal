@@ -1,0 +1,29 @@
+{
+  "command": [
+    "docker",
+    "compose",
+    "-p",
+    "geo607-validation",
+    "-f",
+    ".trellis/tasks/10-04-geo-607-insight-performance/evidence/validation-compose.yaml",
+    "run",
+    "--rm",
+    "-v",
+    "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-04-geo-607-insight-performance/evidence/baseline-source/geo_overview.py:/app/app/services/geo_overview.py:ro",
+    "-v",
+    "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-04-geo-607-insight-performance/evidence/baseline-source/geo_answer_insights.py:/app/app/services/geo_answer_insights.py:ro",
+    "-v",
+    "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-04-geo-607-insight-performance/evidence/baseline-source/geo_overview_queries.py:/app/app/services/geo_overview_queries.py:ro",
+    "-e",
+    "GEO_PERF_PHASE=baseline",
+    "-e",
+    "GEO_PERF_OUTPUT=/app/tests/performance/.results/baseline",
+    "backend-test",
+    "pytest",
+    "-s",
+    "tests/performance/test_geo_insight_performance.py"
+  ],
+  "started_at": "2026-10-04T12:10:35.051840+00:00",
+  "duration_seconds": 560.9093569170218,
+  "exit_code": 1
+}

@@ -1,0 +1,120 @@
+ Container partsignal-geo604-validation-postgres-1 Running 
+ Container partsignal-geo604-validation-redis-1 Running 
+ Container partsignal-geo604-validation-fake-oss-1 Running 
+ Container partsignal-geo604-validation-postgres-1 Waiting 
+ Container partsignal-geo604-validation-postgres-1 Healthy 
+ Container partsignal-geo604-validation-backend-test-run-7abbf8dfeb7d Creating 
+ Container partsignal-geo604-validation-backend-test-run-7abbf8dfeb7d Created 
+F....................                                                    [100%]
+=================================== FAILURES ===================================
+___ test_citation_deduplication_shared_domains_and_summary_bucket_drilldowns ___
+
+overview_api = ReviewAPI(harness=AnalysisHarness(database=AnswerDatabase(runs=RunDatabase(plan=PlanDatabase(url='postgresql://partsig...s=<starlette.testclient.TestClient object at 0xfc7c60d39b80>, engineer_id=UUID('27c0ed59-a83f-4716-a22b-1d89dc50ebc8'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0xfc7c60ecf0b0>
+
+    def test_citation_deduplication_shared_domains_and_summary_bucket_drilldowns(
+        overview_api,
+        monkeypatch,
+    ):
+        api = overview_api
+        original = geo_analysis_support.snapshot
+    
+        def canonical_count(conn, db, run_id, **patch):
+            # citation_count保存去重条数；occurrences保留三个原始位置。
+            return original(conn, db, run_id, **(patch | {"citation_count": 2}))
+    
+        monkeypatch.setattr(geo_analysis_support, "snapshot", canonical_count)
+        case = api.harness.create(
+            products=1,
+            answer_text="虚构资料。",
+            citation_urls=(
+                "https://example.com/a?utm_source=first#part",
+                "https://EXAMPLE.com:443/a?utm_source=first",
+                "https://example.com/b",
+            ),
+        )
+        geo_analysis_runs.process_analysis_run(case.run_id)
+        assert api.submit(case).status_code == 201
+        product = next(s["product_id"] for s in case.input["subjects"] if s["product_id"])
+        value = insights(api, product_ids=product)
+        summary = value["citation_insights"][0]
+        page = detail(api, summary["drilldown"])
+        assert summary["citation_count"] == page["total"] == 2
+        assert page["run_count"] == 1
+        assert sorted(c["occurrences"] for c in page["items"]) == [[1, 2], [3]]
+>       assert all(c["shared_domain"] and len(c["candidate_subject_ids"]) == 2 for c in page["items"])
+E       assert False
+E        +  where False = all(<generator object test_citation_deduplication_shared_domains_and_summary_bucket_drilldowns.<locals>.<genexpr> at 0xfc7c60d8cd60>)
+
+tests/integration/test_geo_insight_details.py:86: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_identity_audit, 创建身份、会话和审计表。
+INFO  [alembic.runtime.migration] Running upgrade 0001_identity_audit -> 0002_product_facts, 创建规范化产品事实和不可变事实版本。
+INFO  [alembic.runtime.migration] Running upgrade 0002_product_facts -> 0003_content_planning, 创建目标问题、平台规则版本和内容任务。
+INFO  [alembic.runtime.migration] Running upgrade 0003_content_planning -> 0004_content_production, 创建 PostgreSQL 权威生成作业和不可变 Markdown 内容版本。
+INFO  [alembic.runtime.migration] Running upgrade 0004_content_production -> 0005_content_review, 创建追加式内容审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0005_content_review -> 0006_publication, 创建平台账号、人工发布记录和状态事件。
+INFO  [alembic.runtime.migration] Running upgrade 0006_publication -> 0007_geo_observation, 创建追加式 GEO 观测及引用关联。
+INFO  [alembic.runtime.migration] Running upgrade 0007_geo_observation -> 0008_files, 创建文件生命周期、附件关联并补加证据文件外键。
+INFO  [alembic.runtime.migration] Running upgrade 0008_files -> 0009_config_center, 迁移账号类型、配置中心与真实 AI 生成字段。
+INFO  [alembic.runtime.migration] Running upgrade 0009_config_center -> 0010_user_cleanup, 清理旧版职责账号并强制既有内容工程师改密。
+INFO  [alembic.runtime.migration] Running upgrade 0010_user_cleanup -> 0011_generation_reliability, 增加生成作业补投递诊断字段与到期扫描索引。
+INFO  [alembic.runtime.migration] Running upgrade 0011_generation_reliability -> 0012_ai_data_classification, 为生成输入增加显式数据分级与责任人记录。
+INFO  [alembic.runtime.migration] Running upgrade 0012_ai_data_classification -> 0013_publication_closure, 增加发布异常待办、修复任务来源和发布平台一致性门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0013_publication_closure -> 0014_platform_prompt_ownership, 将当前 Prompt 所有权从平台类型迁移到具体平台。
+INFO  [alembic.runtime.migration] Running upgrade 0014_platform_prompt_ownership -> 0015_platform_rule_draft_editing, 允许按修订号编辑平台规则草稿，并继续冻结已激活或退役正文。
+INFO  [alembic.runtime.migration] Running upgrade 0015_platform_rule_draft_editing -> 0016_fact_review_cleanup, 允许受约束删除事实版本时清理其从属审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0016_fact_review_cleanup -> 0017_content_humanization, 增加全局自然化 Prompt，并让现有 AI 作业承载自然化修订。
+INFO  [alembic.runtime.migration] Running upgrade 0017_content_humanization -> 0018_manual_geo_observation, 增加产品级人工 GEO 观测，并保留旧模型观测历史。
+INFO  [alembic.runtime.migration] Running upgrade 0018_manual_geo_observation -> 0019_product_driven_tasks, 允许新内容任务直接围绕产品创建，同时保留历史目标问题关联。
+INFO  [alembic.runtime.migration] Running upgrade 0019_product_driven_tasks -> 0020_platform_branding_task_list, 为具体平台增加官网与单一来源 Logo。
+INFO  [alembic.runtime.migration] Running upgrade 0020_platform_branding_task_list -> 0021_ai_channel_model_management, 补齐 AI 渠道身份字段与使用统计索引。
+INFO  [alembic.runtime.migration] Running upgrade 0021_ai_channel_model_management -> 0022_geo_observation_insights, 补充人工 GEO 逐篇阶段事实与问题主题约束。
+INFO  [alembic.runtime.migration] Running upgrade 0022_geo_observation_insights -> 0023_platform_management, 增加具体平台启停状态与管理聚合索引。
+INFO  [alembic.runtime.migration] Running upgrade 0023_platform_management -> 0024_audit_outcome, 补齐审计模块、命令结果和安全结果说明。
+INFO  [alembic.runtime.migration] Running upgrade 0024_audit_outcome -> 0025_markdown_facts, 将结构化产品事实收敛为 Markdown，并让内容任务直接绑定平台。
+INFO  [alembic.runtime.migration] Running upgrade 0025_markdown_facts -> 0026_publication_account_dedup, 补齐发布账号修订约束，并阻止同平台规范化账号标识重复。
+INFO  [alembic.runtime.migration] Running upgrade 0026_publication_account_dedup -> 0027_audit_user_delete_guard, 只允许受约束用户删除把匹配审计操作者置空。
+INFO  [alembic.runtime.migration] Running upgrade 0027_audit_user_delete_guard -> 0028_platform_logo_lifecycle, 增加平台 Logo 的未引用保留、幂等删除状态与数据库门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0028_platform_logo_lifecycle -> 0029_geo_evidence_management, 收敛人工 GEO 独立事实，并为完整更正链删除增加事务门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0029_geo_evidence_management -> 0030_publication_record_delete, 为从未公开的发布聚合增加事务级受控删除门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0030_publication_record_delete -> 0031_reusable_platform_prompts, 把平台私有 Prompt 收敛为可复用模板和平台当前绑定。
+INFO  [alembic.runtime.migration] Running upgrade 0031_reusable_platform_prompts -> 0032_content_task_idempotency, 为普通内容任务创建增加持久化请求键幂等约束。
+INFO  [alembic.runtime.migration] Running upgrade 0032_content_task_idempotency -> 0033_task_owned_history_delete, 允许受控删除已取消任务自有的未批准生产历史。
+INFO  [alembic.runtime.migration] Running upgrade 0033_task_owned_history_delete -> 0034_publication_redesign, 以发布工作、首次核验成果和发布后内容问题替换旧发布记录。
+INFO  [alembic.runtime.migration] Running upgrade 0034_publication_redesign -> 0035_business_workflow, 建立事实提交、内容单主线、发布版本快照与 GEO 来源合同。
+INFO  [alembic.runtime.migration] Running upgrade 0035_business_workflow -> 0036_remove_section_url, 删除没有稳定业务含义的发布栏目地址。
+INFO  [alembic.runtime.migration] Running upgrade 0036_remove_section_url -> 0037_simplify_deletion_lifecycle, 收缩任务、配置与审计的删除生命周期。
+INFO  [alembic.runtime.migration] Running upgrade 0037_simplify_deletion_lifecycle -> 0038_published_article_delete, 允许受控删除无 GEO 引用的发布成果聚合。
+INFO  [alembic.runtime.migration] Running upgrade 0038_published_article_delete -> 0039_article_delete_platform, 允许归档任务在删除失效平台的发布成果后转为已取消。
+INFO  [alembic.runtime.migration] Running upgrade 0039_article_delete_platform -> 0040_content_draft_management, 允许当前人工未审核草稿受控保存和彻底删除。
+INFO  [alembic.runtime.migration] Running upgrade 0040_content_draft_management -> 0041_content_task_list, 补齐内容任务列表的稳定更新时间与排序索引。
+INFO  [alembic.runtime.migration] Running upgrade 0041_content_task_list -> 0042_content_version_detail, 记录内容版本自身的真实更新时间。
+INFO  [alembic.runtime.migration] Running upgrade 0042_content_version_detail -> 0043_geo_platform_identity, 冻结发布工作的平台 UUID，避免配置删除后 GEO 历史失去身份。
+INFO  [alembic.runtime.migration] Running upgrade 0043_geo_platform_identity -> 0044_geo_catalog, 新增 GEO Catalog 三表；冻结本 revision，不读取运行时 ORM。
+INFO  [alembic.runtime.migration] Running upgrade 0044_geo_catalog -> 0045_geo_prompt_variants, 仅新增问题变体，冻结规范化及历史锁存，不回填旧问题数组。
+INFO  [alembic.runtime.migration] Running upgrade 0045_geo_prompt_variants -> 0046_geo_surfaces_profiles, 新增观测配置与闭合JSON合同；不回填旧GEO或实现运行资格。
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0046_geo_surfaces_profiles -> 0047_geo_monitoring_plans, 仅增加计划配置聚合；不创建批次、运行或改写历史观测。
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0047_geo_monitoring_plans -> 0048_geo_batches_runs, 新增独立回答级 Batch/Run，冻结 DDL 与快照/写入守卫，不迁移旧 GEO。
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0048_geo_batches_runs -> 0049_geo_batch_creation, 创建幂等与批次主体引用；不修改已冻结的 Batch/Run 输入。
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0049_geo_batch_creation -> 0050_geo_answer_evidence, 新增不可变原始回答、引用和受控文件关系；不实现采集命令。
+INFO  [alembic.runtime.migration] Running upgrade 0050_geo_answer_evidence -> 0051_geo_manual_collection, 人工草稿和不可变提交身份；不回填或修改已提交证据。
+INFO  [alembic.runtime.migration] Running upgrade 0051_geo_manual_collection -> 0052_geo_profile_tests, API Profile 当前诊断资格与依赖失效；不修改业务历史。
+INFO  [alembic.runtime.migration] Running upgrade 0052_geo_profile_tests -> 0053_geo_collection_admission, 加法保存预算预留与发送限速事实，历史 Run 和原始证据保持不变。
+INFO  [alembic.runtime.migration] Running upgrade 0053_geo_collection_admission -> 0054_geo_analysis_contract, 分析输入/结果、追加复核与限定 current pointer；不回填历史证据。
+INFO  [alembic.runtime.migration] Running upgrade 0054_geo_analysis_contract -> 0055_geo_analysis_worker, 分析执行租约与引用结果；不回填或重写已有 revision。
+INFO  [alembic.runtime.migration] Running upgrade 0055_geo_analysis_worker -> 0056_geo_run_review, 受控人工复核发布；历史机器结果与Review不回填、不改写。
+=========================== short test summary info ============================
+FAILED tests/integration/test_geo_insight_details.py::test_citation_deduplication_shared_domains_and_summary_bucket_drilldowns
+1 failed, 20 passed in 14.98s
+

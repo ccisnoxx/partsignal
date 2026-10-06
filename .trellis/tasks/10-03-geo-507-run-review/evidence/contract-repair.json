@@ -1,0 +1,11 @@
+{
+  "command": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "python",
+    ".trellis/tasks/10-03-geo-507-run-review/evidence/update_contract.py"
+  ],
+  "exit_code": 0
+}

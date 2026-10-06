@@ -1,0 +1,13 @@
+{
+  "openapi_preexisting_prefix_unchanged": true,
+  "prefix_size": 825463,
+  "new_components": [
+    "GeoOpportunityPriority",
+    "GeoOpportunityScope",
+    "GeoOpportunitySourceRole",
+    "GeoOpportunitySourceSnapshot",
+    "GeoOpportunityTriggerSnapshot",
+    "GeoOpportunityStatus",
+    "GeoOpportunityActionType"
+  ]
+}

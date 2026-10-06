@@ -1,0 +1,14 @@
+{
+  "argv": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "pytest",
+    "backend/tests/unit/test_geo_configuration.py",
+    "backend/tests/unit/test_geo_retention.py",
+    "backend/tests/unit/test_platform_logo_cleanup.py"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 4.658
+}

@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import base64
 import binascii
+import re
+from decimal import Decimal
 from functools import lru_cache
+from uuid import UUID
 
 from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -32,6 +35,9 @@ class Settings(BaseSettings):
         "redis://localhost:6379/0",
         validation_alias=AliasChoices("REDIS_URL", "PARTSIGNAL_REDIS_URL"),
         repr=False,
+    )
+    celery_concurrency: int = Field(
+        default=1, ge=1, le=10, validation_alias=AliasChoices("CELERY_CONCURRENCY")
     )
     session_secret: str = Field(
         DEVELOPMENT_SESSION_SECRET,
@@ -122,10 +128,81 @@ class Settings(BaseSettings):
     ai_allow_local_http: bool = Field(
         False, validation_alias=AliasChoices("AI_ALLOW_LOCAL_HTTP")
     )
+    geo_pending_redispatch_seconds: int = Field(
+        default=120, ge=1, le=86400, validation_alias=AliasChoices("GEO_PENDING_REDISPATCH_SECONDS")
+    )
+    geo_collection_finalize_grace_seconds: int = Field(
+        default=120,
+        ge=1,
+        le=3600,
+        validation_alias=AliasChoices("GEO_COLLECTION_FINALIZE_GRACE_SECONDS"),
+    )
+    geo_recovery_scan_seconds: int = Field(
+        default=60, ge=5, le=3600, validation_alias=AliasChoices("GEO_RECOVERY_SCAN_SECONDS")
+    )
+    geo_recovery_batch_size: int = Field(
+        default=100, ge=1, le=1000, validation_alias=AliasChoices("GEO_RECOVERY_BATCH_SIZE")
+    )
+    geo_retention_dry_run: bool = Field(True, validation_alias="GEO_RETENTION_DRY_RUN")
+    geo_retention_batch_size: int = Field(
+        100, ge=1, le=1000, validation_alias="GEO_RETENTION_BATCH_SIZE"
+    )
+    geo_raw_payload_retention_days: int | None = Field(
+        None, ge=90, le=180, validation_alias="GEO_RAW_PAYLOAD_RETENTION_DAYS"
+    )
+    geo_terminal_draft_retention_days: int | None = Field(
+        None, ge=1, le=3650, validation_alias="GEO_TERMINAL_DRAFT_RETENTION_DAYS"
+    )
+    geo_unreferenced_file_retention_days: int | None = Field(
+        None, ge=7, le=3650, validation_alias="GEO_UNREFERENCED_FILE_RETENTION_DAYS"
+    )
+    geo_daily_budget_limit: Decimal | None = Field(
+        default=None, ge=0, max_digits=14, decimal_places=6, allow_inf_nan=False,
+        validation_alias=AliasChoices("GEO_DAILY_BUDGET_LIMIT"),
+    )
+    geo_daily_budget_currency: str = Field(
+        default="USD", pattern=re.compile(r"^[A-Z]{3}$(?![\s\S])"),
+        validation_alias=AliasChoices("GEO_DAILY_BUDGET_CURRENCY"),
+    )
+    geo_monitoring_enabled: bool = Field(
+        False, validation_alias=AliasChoices("GEO_MONITORING_ENABLED")
+    )
+    geo_api_collection_enabled: bool = Field(
+        False, validation_alias=AliasChoices("GEO_API_COLLECTION_ENABLED")
+    )
+    geo_browser_collection_enabled: bool = Field(
+        False, validation_alias=AliasChoices("GEO_BROWSER_COLLECTION_ENABLED")
+    )
+    geo_opportunity_evaluation_enabled: bool = Field(
+        False, validation_alias=AliasChoices("GEO_OPPORTUNITY_EVALUATION_ENABLED")
+    )
+    geo_browser_session_root: str = Field(
+        "", validation_alias="GEO_BROWSER_SESSION_ROOT", repr=False
+    )
+    geo_browser_session_public_key_file: str = Field(
+        "", validation_alias="GEO_BROWSER_SESSION_PUBLIC_KEY_FILE", repr=False
+    )
+    geo_browser_session_service_key_file: str = Field(
+        "", validation_alias="GEO_BROWSER_SESSION_SERVICE_KEY_FILE", repr=False
+    )
+    geo_browser_session_service_user_id: UUID | None = Field(
+        None, validation_alias="GEO_BROWSER_SESSION_SERVICE_USER_ID"
+    )
+
+    @model_validator(mode="after")
+    def validate_geo_feature_flags(self) -> Settings:
+        """子能力必须显式依赖总开关；部署配置不授予采集或数据外发资格。"""
+        if not self.geo_monitoring_enabled and (
+            self.geo_api_collection_enabled
+            or self.geo_browser_collection_enabled
+            or self.geo_opportunity_evaluation_enabled
+        ):
+            raise ValueError("启用 GEO 子能力必须同时启用 GEO_MONITORING_ENABLED")
+        return self
 
     @model_validator(mode="after")
     def validate_production_boundaries(self) -> Settings:
-        """生产环境禁止开发密钥、非安全 Cookie 和开发对象存储。"""
+        """生产环境禁止 Browser、开发密钥、非安全 Cookie 和开发对象存储。"""
         if self.content_generator not in {"deterministic", "openai-compatible"}:
             raise ValueError("CONTENT_GENERATOR 仅支持 deterministic 或 openai-compatible")
         try:
@@ -140,6 +217,15 @@ class Settings(BaseSettings):
             raise ValueError("AI_ALLOW_LOCAL_HTTP 仅允许在 development 或 test 环境启用")
         if self.environment != "production":
             return self
+        if self.geo_browser_collection_enabled:
+            raise ValueError("生产环境禁止 GEO_BROWSER_COLLECTION_ENABLED=true")
+        if any((
+            self.geo_browser_session_root,
+            self.geo_browser_session_public_key_file,
+            self.geo_browser_session_service_key_file,
+            self.geo_browser_session_service_user_id,
+        )):
+            raise ValueError("生产环境禁止配置 GEO_BROWSER_SESSION 会话材料")
         if self.session_secret == DEVELOPMENT_SESSION_SECRET:
             raise ValueError("生产环境必须设置独立 SESSION_SECRET")
         if self.ai_credential_encryption_key == DEVELOPMENT_AI_CREDENTIAL_KEY:

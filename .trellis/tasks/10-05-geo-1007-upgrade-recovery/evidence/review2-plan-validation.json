@@ -1,0 +1,84 @@
+{
+  "version": 5,
+  "planner_version": "1.5.1",
+  "plan_id": "geo1007-cache-fix-review",
+  "max_concurrent_workers": 1,
+  "effective_capacity": 1,
+  "open_workers": 0,
+  "available_slots": 1,
+  "role_profiles": {
+    "critical_reviewer": {
+      "name": "critical_reviewer",
+      "model": "gpt-6.1-sol",
+      "model_reasoning_effort": "xhigh",
+      "sandbox_mode": "read-only",
+      "profile_source": "agent_toml",
+      "config_file": "critical_reviewer.toml",
+      "config_sha256": "30f4b4654e23415c7723b0d6ec7625b2020f13c51c5714a37c80feb53c7e4118"
+    }
+  },
+  "codex_config_evidence": {
+    "config_file": "config.toml",
+    "config_sha256": "f0f2c7f7bac1d1dc2ddc21e2a1e1c5518699c1cff4e13df8c0617ee19c2a69fc",
+    "configured_max_concurrent_threads_per_session": 4,
+    "capacity_source": "codex_config"
+  },
+  "runtime_workers": [],
+  "prior_tasks": [
+    {
+      "task_id": "geo1007-cache-fix",
+      "attempt": 1,
+      "status": "accepted",
+      "worker_id": "primary-geo1007"
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": "geo1007-review-2",
+      "task_name": "geo1007_cache_fix_review",
+      "agent_type": "critical_reviewer",
+      "attempt": 1,
+      "replaces_task_id": null,
+      "depends_on": [],
+      "read_paths": [
+        "deploy/scripts",
+        "backend/Dockerfile",
+        "docs/Hostdzire部署附录.md",
+        ".trellis/spec/infra/production-image-delivery.md",
+        ".trellis/tasks/10-05-geo-1007-upgrade-recovery"
+      ],
+      "write_paths": [],
+      "independent_review": true,
+      "review_of_task_ids": [
+        "geo1007-cache-fix"
+      ],
+      "reuse_worker_id": null,
+      "accounting_scope": "not_available",
+      "dispatch_method": "spawn_agent",
+      "fork_turns": "none",
+      "delivery_mode": "complete_task",
+      "progress_policy": "blocker_or_final",
+      "deliverable": "独立只读审查升级恢复身份/迁移/数据/信号合同，返回中文 actionable findings 和覆盖缺口。",
+      "acceptance_criteria": [
+        "从实际候选实现提供可复现具体风险或明确无确认问题",
+        "不修改仓库、不调用破坏性或共享 Compose 操作"
+      ],
+      "assigned_wave": 1
+    }
+  ],
+  "waves": [
+    {
+      "wave": 1,
+      "task_ids": [
+        "geo1007-review-2"
+      ]
+    }
+  ],
+  "ready_task_ids": [
+    "geo1007-review-2"
+  ],
+  "deferred_task_ids": [],
+  "blocked_task_ids": [],
+  "blocked_reasons": {},
+  "superseded_worker_ids": []
+}

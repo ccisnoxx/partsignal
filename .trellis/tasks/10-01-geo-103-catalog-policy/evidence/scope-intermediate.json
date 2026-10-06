@@ -1,0 +1,10 @@
+{
+  "changed_existing": [
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "backend/pyproject.toml",
+    "backend/uv.lock"
+  ],
+  "missing_existing": [],
+  "frozen_migrations_checked": 45,
+  "changed_frozen": []
+}

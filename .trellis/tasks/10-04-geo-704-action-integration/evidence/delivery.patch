@@ -1,0 +1,3510 @@
+--- before/backend/app/audit_types.py
++++ after/backend/app/audit_types.py
+@@ -111,6 +111,7 @@
+         "geo_rule_set.updated",
+         "geo_opportunity.acknowledged",
+         "geo_opportunity.dismissed",
++        "geo_opportunity.action_linked",
+         "geo_subject.created",
+         "geo_subject.updated",
+         "geo_subject.enabled",
+@@ -182,6 +183,10 @@
+     ),
+     AuditModule.GEO_OBSERVATION: frozenset(
+         {
++            "action_id",
++            "action_type",
++            "target_type",
++            "target_id",
+             "revision",
+             "status",
+             "export_type",
+--- before/backend/app/models/geo_opportunities.py
++++ after/backend/app/models/geo_opportunities.py
+@@ -164,7 +164,24 @@
+             "length(btrim(target_type)) > 0 AND length(btrim(status_snapshot)) > 0",
+             name=conv("ck_geo_opportunity_action_target"),
+         ),
++        CheckConstraint(
++            "(source_snapshot IS NULL AND request_key_sha256 IS NULL AND "
++            "request_sha256 IS NULL AND opportunity_revision_after IS NULL) OR "
++            "(source_snapshot IS NOT NULL AND request_key_sha256 IS NOT NULL AND "
++            "request_sha256 IS NOT NULL AND opportunity_revision_after IS NOT NULL AND "
++            "request_key_sha256 ~ '^[0-9a-f]{64}$' AND request_sha256 ~ '^[0-9a-f]{64}$' AND "
++            "opportunity_revision_after >= 2)",
++            name=conv("ck_geo_opportunity_action_receipt"),
++        ),
+         Index("ix_geo_opportunity_action_opportunity", "opportunity_id"),
++        Index(
++            "uq_geo_opportunity_action_request",
++            "created_by",
++            "request_key_sha256",
++            unique=True,
++            postgresql_where=text("request_key_sha256 IS NOT NULL"),
++        ),
++        Index("ix_geo_opportunity_action_target", "target_type", "target_id"),
+     )
+     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+     opportunity_id: Mapped[uuid.UUID] = mapped_column(
+@@ -178,6 +195,10 @@
+         ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+     )
+     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
++    source_snapshot: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
++    request_key_sha256: Mapped[str | None] = mapped_column(String(64))
++    request_sha256: Mapped[str | None] = mapped_column(String(64))
++    opportunity_revision_after: Mapped[int | None] = mapped_column(Integer)
+ 
+ 
+ class GeoOpportunityEvaluation(Base):
+--- before/backend/app/routers/geo_opportunities.py
++++ after/backend/app/routers/geo_opportunities.py
+@@ -3,11 +3,18 @@
+ from typing import Annotated
+ from uuid import UUID
+ 
+-from fastapi import APIRouter, Depends, Query, Request, Response
++from fastapi import APIRouter, Depends, Header, Query, Request, Response
+ 
+ from app.deps import CsrfProtected, DbSession, EngineerUser
+ from app.errors import error_responses
++from app.schemas.geo_opportunities import GeoOpportunityActionType
++from app.schemas.geo_opportunity_actions import (
++    GeoOpportunityContentTaskRequest,
++    GeoOpportunityFactRevisionRequest,
++    GeoOpportunityPublicationRepairRequest,
++)
+ from app.schemas.geo_opportunity_workbench import (
++    GeoOpportunityActionResult,
+     GeoOpportunityDetail,
+     GeoOpportunityDismissRequest,
+     GeoOpportunityFilters,
+@@ -16,7 +23,7 @@
+     GeoOpportunityRevisionRequest,
+     GeoOpportunitySourceFilters,
+ )
+-from app.services import geo_opportunity_commands, geo_opportunity_queries
++from app.services import geo_opportunity_actions, geo_opportunity_commands, geo_opportunity_queries
+ from app.services.geo_catalog_queries import read_snapshot
+ 
+ router = APIRouter(prefix="/api/v1/geo/opportunities", tags=["geo-opportunities"])
+@@ -89,3 +96,92 @@
+     return geo_opportunity_commands.dismiss(
+         db, opportunity_id, payload, actor=actor, request_id=request.state.request_id
+     )
++
++
++ActionKey = Annotated[
++    str, Header(alias="Idempotency-Key", min_length=8, max_length=128, pattern=r"^[\x21-\x7E]+$")
++]
++
++
++@router.post(
++    "/{opportunity_id}/actions/fact-revision",
++    response_model=GeoOpportunityActionResult,
++    operation_id="startFactRevisionFromGeoOpportunity",
++    responses=error_responses(401, 403, 404, 409, 422),
++)
++def start_fact_revision(
++    opportunity_id: UUID,
++    payload: GeoOpportunityFactRevisionRequest,
++    request: Request,
++    response: Response,
++    db: DbSession,
++    actor: EngineerUser,
++    _csrf: CsrfProtected,
++    idempotency_key: ActionKey,
++) -> GeoOpportunityActionResult:
++    response.headers["Cache-Control"] = "no-store"
++    return geo_opportunity_actions.link_action(
++        db,
++        opportunity_id,
++        payload,
++        kind=GeoOpportunityActionType.FACT_REVISION,
++        actor=actor,
++        request_id=request.state.request_id,
++        idempotency_key=idempotency_key,
++    )
++
++
++@router.post(
++    "/{opportunity_id}/actions/content-task",
++    response_model=GeoOpportunityActionResult,
++    operation_id="createContentTaskFromGeoOpportunity",
++    responses=error_responses(401, 403, 404, 409, 422),
++)
++def create_content_task(
++    opportunity_id: UUID,
++    payload: GeoOpportunityContentTaskRequest,
++    request: Request,
++    response: Response,
++    db: DbSession,
++    actor: EngineerUser,
++    _csrf: CsrfProtected,
++    idempotency_key: ActionKey,
++) -> GeoOpportunityActionResult:
++    response.headers["Cache-Control"] = "no-store"
++    return geo_opportunity_actions.link_action(
++        db,
++        opportunity_id,
++        payload,
++        kind=GeoOpportunityActionType.CONTENT_TASK,
++        actor=actor,
++        request_id=request.state.request_id,
++        idempotency_key=idempotency_key,
++    )
++
++
++@router.post(
++    "/{opportunity_id}/actions/publication-repair",
++    response_model=GeoOpportunityActionResult,
++    operation_id="createPublicationRepairFromGeoOpportunity",
++    responses=error_responses(401, 403, 404, 409, 422),
++)
++def create_publication_repair(
++    opportunity_id: UUID,
++    payload: GeoOpportunityPublicationRepairRequest,
++    request: Request,
++    response: Response,
++    db: DbSession,
++    actor: EngineerUser,
++    _csrf: CsrfProtected,
++    idempotency_key: ActionKey,
++) -> GeoOpportunityActionResult:
++    response.headers["Cache-Control"] = "no-store"
++    return geo_opportunity_actions.link_action(
++        db,
++        opportunity_id,
++        payload,
++        kind=GeoOpportunityActionType.PUBLICATION_REPAIR,
++        actor=actor,
++        request_id=request.state.request_id,
++        idempotency_key=idempotency_key,
++    )
+--- before/backend/app/schemas/common.py
++++ after/backend/app/schemas/common.py
+@@ -49,6 +49,7 @@
+     PROTECTED_CONTENT_VERSION = "PROTECTED_CONTENT_VERSION"
+     PUBLISHED_CONTENT_ISSUE = "PUBLISHED_CONTENT_ISSUE"
+     GEO_OPTIMIZATION_SOURCE = "GEO_OPTIMIZATION_SOURCE"
++    GEO_OPPORTUNITY_ACTION = "GEO_OPPORTUNITY_ACTION"
+     USER_BUSINESS_HISTORY = "USER_BUSINESS_HISTORY"
+ 
+ 
+--- before/backend/app/schemas/geo_opportunity_workbench.py
++++ after/backend/app/schemas/geo_opportunity_workbench.py
+@@ -18,6 +18,7 @@
+     GeoOpportunityTriggerSnapshot,
+     Rate,
+ )
++from app.schemas.geo_opportunity_actions import GeoOpportunityActionSourceSnapshot
+ from app.schemas.geo_read_models import GeoRunEvidenceFile
+ from app.schemas.geo_reviews import GeoAnalysisResult, GeoReviewedResults
+ from app.schemas.geo_rules import GeoRuleCode
+@@ -196,6 +197,15 @@
+     status_snapshot: str
+     created_by: UUID
+     created_at: AwareDatetime
++    source_snapshot: GeoOpportunityActionSourceSnapshot | None = None
++    navigation_path: str | None = None
++    target_available: bool | None = None
++
++
++class GeoOpportunityActionResult(ContractModel):
++    action: GeoOpportunityActionRecord
++    opportunity_revision: int = Field(ge=1)
++    replayed: bool
+ 
+ 
+ class GeoOpportunityDetail(ContractModel):
+@@ -204,4 +214,5 @@
+     latest_evaluation: GeoOpportunityLinkedEvaluation | None
+     sources: GeoOpportunitySourcePage
+     actions: list[GeoOpportunityActionRecord]
++    available_action_types: list[GeoOpportunityActionType]
+     as_of: AwareDatetime
+--- before/backend/app/services/content_planning.py
++++ after/backend/app/services/content_planning.py
+@@ -412,6 +412,7 @@
+     profile: PlatformProfile,
+     actor: User,
+     idempotency_key: str,
++    query_topic_id: uuid.UUID | None = None,
+ ) -> ContentTask:
+     """在调用方持有目标资源锁时构造并 flush 内容任务。"""
+     task = ContentTask(
+@@ -420,7 +421,7 @@
+         platform_profile_id=profile.id,
+         platform_profile_name_snapshot=profile.name,
+         platform_website_url_snapshot=profile.website_url,
+-        query_topic_id=None,
++        query_topic_id=query_topic_id,
+         idempotency_key=idempotency_key,
+         created_by=actor.id,
+     )
+@@ -445,6 +446,7 @@
+     payload: ContentTaskCreate,
+     *,
+     require_complete: bool,
++    query_topic_id: uuid.UUID | None = None,
+ ) -> bool | None:
+     """判断任务是否可证明属于普通创建命令的同一 identity。"""
+     if require_complete and (
+@@ -457,6 +459,7 @@
+         return False
+     return (
+         task.product_id == payload.product_id
++        and task.query_topic_id == query_topic_id
+         and task.fact_version_id == payload.fact_version_id
+         and task.platform_profile_id == payload.platform_profile_id
+     )
+@@ -475,6 +478,7 @@
+     request_id: str,
+     idempotency_key: str,
+     commit: bool = True,
++    query_topic_id: uuid.UUID | None = None,
+ ) -> ContentTask:
+     """幂等锁定已批准事实和活动平台；Prompt 门禁只在创建 AI 作业时执行。"""
+     db.execute(
+@@ -485,9 +489,12 @@
+         select(ContentTask).where(ContentTask.idempotency_key == idempotency_key)
+     )
+     if existing is not None:
+-        if _content_task_has_ordinary_identity(
+-            db, existing, payload, require_complete=False
+-        ) is not True:
++        if (
++            _content_task_has_ordinary_identity(
++                db, existing, payload, require_complete=False, query_topic_id=query_topic_id
++            )
++            is not True
++        ):
+             raise _idempotency_conflict()
+         return existing
+ 
+@@ -495,6 +502,14 @@
+         profile = lock_content_task_creation_resources(db, payload)
+     except ContentTaskFactProductMismatch as error:
+         raise AppError("VALIDATION_ERROR", "事实版本不属于所选产品", 422) from error
++    if (
++        query_topic_id is not None
++        and db.scalar(
++            select(QueryTopic.id).where(QueryTopic.id == query_topic_id).with_for_update()
++        )
++        is None
++    ):
++        raise not_found("GEO问题主题")
+     try:
+         task = add_locked_content_task(
+             db=db,
+@@ -502,9 +517,11 @@
+             profile=profile,
+             actor=actor,
+             idempotency_key=idempotency_key,
++            query_topic_id=query_topic_id,
+         )
+     except IntegrityError as error:
+-        if not _is_content_task_idempotency_integrity_error(error):
++        # 外层事务协调者不能在root rollback释放锁后继续创建来源关联。
++        if not commit or not _is_content_task_idempotency_integrity_error(error):
+             raise
+         db.rollback()
+         winner = db.scalar(
+@@ -513,7 +530,7 @@
+         if winner is None:
+             raise error
+         same_identity = _content_task_has_ordinary_identity(
+-            db, winner, payload, require_complete=True
++            db, winner, payload, require_complete=True, query_topic_id=query_topic_id
+         )
+         if same_identity is None:
+             raise error
+--- before/backend/app/services/geo_opportunity_policy.py
++++ after/backend/app/services/geo_opportunity_policy.py
+@@ -7,6 +7,7 @@
+ 
+ from app.errors import AppError
+ from app.models.identity import User
++from app.schemas.geo_opportunities import GeoOpportunityActionType as ActionType
+ from app.schemas.geo_opportunities import GeoOpportunityStatus as Status
+ from app.schemas.geo_opportunity_workbench import (
+     GeoOpportunityAction,
+@@ -17,6 +18,17 @@
+ from app.services.geo_opportunity_types import OpportunityScope
+ 
+ OPEN_STATUSES = (Status.OPEN, Status.ACKNOWLEDGED, Status.IN_PROGRESS)
++CONTENT_RULES = frozenset(
++    {
++        GeoRuleCode.TOPIC_COVERAGE_GAP,
++        GeoRuleCode.COMPETITOR_SURGE,
++        GeoRuleCode.VISIBILITY_DROP,
++        GeoRuleCode.RECOMMENDATION_DROP,
++        GeoRuleCode.CRITICAL_FACT_ERROR,
++        GeoRuleCode.REPEATED_FACT_ERROR,
++    }
++)
++FACT_RULES = frozenset({GeoRuleCode.CRITICAL_FACT_ERROR, GeoRuleCode.REPEATED_FACT_ERROR})
+ TRANSITIONS = {
+     Status.OPEN: frozenset({Status.ACKNOWLEDGED, Status.DISMISSED}),
+     Status.ACKNOWLEDGED: frozenset({Status.IN_PROGRESS, Status.DISMISSED}),
+@@ -94,3 +106,22 @@
+         else "VIEW_EVIDENCE",
+         available_actions=actions,
+     )
++
++
++def action_types(status: Status, rule: GeoRuleCode, actor: User) -> list[ActionType]:
++    """704的创建资格；治理/补测/解决机会不在本次边界内。"""
++    if (
++        status not in {Status.ACKNOWLEDGED, Status.IN_PROGRESS}
++        or not actor.is_active
++        or actor.must_change_password
++        or actor.account_type not in {"ADMIN", "ENGINEER"}
++    ):
++        return []
++    result = []
++    if rule in FACT_RULES:
++        result.append(ActionType.FACT_REVISION)
++    if rule in CONTENT_RULES:
++        result.append(ActionType.CONTENT_TASK)
++    if rule == GeoRuleCode.OWN_CITATION_LOST:
++        result.append(ActionType.PUBLICATION_REPAIR)
++    return result
+--- before/backend/app/services/geo_opportunity_queries.py
++++ after/backend/app/services/geo_opportunity_queries.py
+@@ -26,7 +26,6 @@
+ from app.models.product_facts import Product
+ from app.schemas.geo_opportunities import GeoOpportunityStatus, GeoOpportunityTriggerSnapshot
+ from app.schemas.geo_opportunity_workbench import (
+-    GeoOpportunityActionRecord,
+     GeoOpportunityDetail,
+     GeoOpportunityFilterOption,
+     GeoOpportunityFilterOptions,
+@@ -37,7 +36,8 @@
+     GeoOpportunitySourceFilters,
+ )
+ from app.schemas.geo_rules import GeoRuleCode
+-from app.services.geo_opportunity_policy import RULE_PRESENTATION, workflow
++from app.services.geo_opportunity_action_views import action_records
++from app.services.geo_opportunity_policy import RULE_PRESENTATION, action_types, workflow
+ 
+ 
+ def _as_of(db: Session) -> datetime:
+@@ -324,6 +324,9 @@
+         trigger_snapshot=GeoOpportunityTriggerSnapshot.model_validate(opportunity.trigger_snapshot),
+         latest_evaluation=latest,
+         sources=source_page(db, opportunity_id, filters, as_of),
+-        actions=[GeoOpportunityActionRecord.model_validate(action) for action in actions],
++        actions=action_records(db, list(actions)),
++        available_action_types=action_types(
++            GeoOpportunityStatus(opportunity.status), GeoRuleCode(opportunity.rule_code), actor
++        ),
+         as_of=as_of,
+     )
+--- before/backend/app/services/product_facts.py
++++ after/backend/app/services/product_facts.py
+@@ -703,12 +703,15 @@
+         raise AppError("REVISION_CONFLICT", "事实工作区已被其他请求修改", 409)
+     if not product.facts_body_markdown.strip():
+         raise AppError("VALIDATION_ERROR", "产品事实 Markdown 不能为空", 422)
+-    if db.scalar(
+-        select(FactVersion.id).where(
+-            FactVersion.product_id == product.id,
+-            FactVersion.status == "PENDING_REVIEW",
+-        )
+-    ) is not None:
++    if (
++        db.scalar(
++            select(FactVersion.id).where(
++                FactVersion.product_id == product.id,
++                FactVersion.status == "PENDING_REVIEW",
++            )
++        )
++        is not None
++    ):
+         raise AppError("FACT_REVIEW_PENDING", "该产品已有待审核事实版本", 409)
+     next_version = (
+         int(
+@@ -749,3 +752,18 @@
+             raise AppError("FACT_REVIEW_PENDING", "该产品已有待审核事实版本", 409) from error
+         raise
+     return version
++
++
++def start_fact_revision_context(*, db: Session, product_id: uuid.UUID) -> ProductFactsDraft:
++    """取得现有事实修订入口；保持唯一工作区与批准历史原样。"""
++    product = db.scalar(
++        select(Product)
++        .where(Product.id == product_id)
++        .with_for_update()
++        .execution_options(populate_existing=True)
++    )
++    if product is None:
++        raise not_found("产品")
++    if product.status != "ACTIVE":
++        raise AppError("INVALID_STATE_TRANSITION", "已停用产品不能开始事实修订", 409)
++    return product_facts_draft_out(db, product)
+--- before/backend/app/services/projections.py
++++ after/backend/app/services/projections.py
+@@ -22,6 +22,7 @@
+ from app.models.content import ContentReviewRecord, ContentTask, ContentVersion
+ from app.models.geo_analysis import GeoAnalysisFactVersion
+ from app.models.geo_files import FileRecord
++from app.models.geo_opportunities import GeoOpportunityAction
+ from app.models.identity import AuditLog
+ from app.models.product_facts import FactVersion, Product
+ from app.models.publication import (
+@@ -912,6 +913,17 @@
+             .group_by(PublicationWork.content_task_id)
+         ).tuples()
+     }
++    action_counts = {
++        task_id: int(count)
++        for task_id, count in db.execute(
++            select(GeoOpportunityAction.target_id, func.count(GeoOpportunityAction.id))
++            .where(
++                GeoOpportunityAction.target_type == "ContentTask",
++                GeoOpportunityAction.target_id.in_(task_ids),
++            )
++            .group_by(GeoOpportunityAction.target_id)
++        ).tuples()
++    }
+     current_ids = {
+         task.current_content_version_id
+         for task in tasks
+@@ -968,6 +980,7 @@
+                 and task.status != "COMPLETED"
+                 and task.id not in busy_job_counts
+                 and task.id not in published_article_counts
++                and task.id not in action_counts
+             ),
+             can_permanently_delete=can_permanently_delete,
+         )
+@@ -989,6 +1002,8 @@
+                 else []
+             ),
+         ]
++        if task.id in action_counts:
++            blockers.append({"type": "GEO_OPPORTUNITY_ACTION", "count": action_counts[task.id]})
+         payload["deletion"] = (
+             {"blockers": []}
+             if "DELETE" in available_actions
+--- before/backend/app/services/publication.py
++++ after/backend/app/services/publication.py
+@@ -29,6 +29,7 @@
+     GeoObservationCitation,
+     GeoObservationPublication,
+ )
++from app.models.geo_opportunities import GeoOpportunityAction
+ from app.models.identity import AuditLog, User
+ from app.models.product_facts import FactVersion, Product
+ from app.models.publication import (
+@@ -931,6 +932,7 @@
+     payload: PublishedContentIssueCreate,
+     actor: User,
+     request_id: str,
++    commit: bool = True,
+ ) -> PublishedContentIssueOut:
+     """为健康发布成果打开唯一的当前内容问题。"""
+     article = db.scalar(
+@@ -965,7 +967,8 @@
+         db.rollback()
+         raise _published_content_issue_conflict() from error
+     result = published_content_issue_out(db, issue)
+-    db.commit()
++    if commit:
++        db.commit()
+     return result
+ 
+ 
+@@ -991,6 +994,7 @@
+     payload: PublishedContentRepairTaskCreate,
+     actor: User,
+     request_id: str,
++    commit: bool = True,
+ ) -> ContentTask:
+     """从开放内容问题创建继承原产品和平台的唯一修复任务。"""
+     issue = db.scalar(
+@@ -1014,12 +1018,17 @@
+     if work is None:
+         raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "内容问题关联的发布成果不存在", 409)
+     original_task = task_for_work(db, work)
+-    product = db.get(Product, original_task.product_id)
+-    if product is None or product.status != "ACTIVE":
+-        raise AppError("INVALID_STATE_TRANSITION", "已停用产品不能创建修复任务", 409)
+     if work.platform_profile_id is None:
+         raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "原发布平台已删除，不能创建修复任务", 409)
+     profile = lock_active_platform(db, work.platform_profile_id)
++    product = db.scalar(
++        select(Product)
++        .where(Product.id == original_task.product_id)
++        .with_for_update()
++        .execution_options(populate_existing=True)
++    )
++    if product is None or product.status != "ACTIVE":
++        raise AppError("INVALID_STATE_TRANSITION", "已停用产品不能创建修复任务", 409)
+     if (
+         original_task.query_topic_id is not None
+         and db.get(QueryTopic, original_task.query_topic_id) is None
+@@ -1053,7 +1062,8 @@
+             raise
+         db.rollback()
+         raise _repair_task_exists() from error
+-    db.commit()
++    if commit:
++        db.commit()
+     return task
+ 
+ 
+@@ -1172,6 +1182,7 @@
+     labels = {
+         "GEO_OBSERVATION": "GEO 观测",
+         "GEO_OPTIMIZATION_SOURCE": "GEO 优化来源",
++        "GEO_OPPORTUNITY_ACTION": "GEO 机会行动",
+     }
+     raise in_use(
+         "PUBLISHED_ARTICLE_IN_USE",
+@@ -1667,7 +1678,15 @@
+     scope = _task_deletion_scope(db, task)
+     if any(job.status in {"PENDING", "RUNNING"} for job in scope.jobs):
+         raise AppError("CONTENT_TASK_BUSY", "任务仍有运行中的生成作业", 409)
+-    if scope.articles or scope.geo_article_relation_count:
++    action_count = db.scalar(
++        select(func.count())
++        .select_from(GeoOpportunityAction)
++        .where(
++            GeoOpportunityAction.target_type == "ContentTask",
++            GeoOpportunityAction.target_id == task.id,
++        )
++    )
++    if scope.articles or scope.geo_article_relation_count or action_count:
+         raise AppError(
+             "CONTENT_TASK_REQUIRES_ARCHIVE",
+             "成功发布或产生 GEO 关系的任务必须先归档",
+@@ -1750,3 +1769,66 @@
+         ),
+     )
+     db.commit()
++
++
++@dataclass(frozen=True)
++class PublicationActionIdentity:
++    """发布领域对外提供的稳定行动身份，不公开ORM或正文。"""
++
++    product_id: uuid.UUID
++    query_topic_id: uuid.UUID | None
++    fact_version_id: uuid.UUID
++    platform_profile_id: uuid.UUID | None
++    published_article_id: uuid.UUID
++    published_content_issue_id: uuid.UUID | None
++
++
++def publication_action_identity(
++    *,
++    db: Session,
++    article_id: uuid.UUID | None = None,
++    issue_id: uuid.UUID | None = None,
++    expected_issue_revision: int | None = None,
++) -> PublicationActionIdentity:
++    """在原目标锁边界验证开放Issue/Article，供跨域原子行动复用。"""
++    if issue_id is not None:
++        issue = db.scalar(
++            select(PublishedContentIssue)
++            .where(PublishedContentIssue.id == issue_id)
++            .with_for_update()
++            .execution_options(populate_existing=True)
++        )
++        if issue is None:
++            raise not_found("发布后内容问题")
++        if issue.revision != expected_issue_revision:
++            raise AppError("REVISION_CONFLICT", "发布后内容问题已被其他请求修改", 409)
++        if issue.status != "OPEN":
++            raise AppError("INVALID_STATE_TRANSITION", "只有开放问题可以关联行动", 409)
++        article_id = issue.published_article_id
++    else:
++        article = db.scalar(
++            select(PublishedArticle.id).where(PublishedArticle.id == article_id).with_for_update()
++        )
++        if article is None:
++            raise not_found("发布成果")
++    row = db.execute(
++        select(
++            ContentTask.product_id,
++            ContentTask.query_topic_id,
++            ContentTask.fact_version_id,
++            PublicationWork.platform_profile_id,
++        )
++        .join(PublicationWork, PublicationWork.content_task_id == ContentTask.id)
++        .join(PublishedArticle, PublishedArticle.id == PublicationWork.id)
++        .where(PublishedArticle.id == article_id)
++    ).one_or_none()
++    if row is None or article_id is None:
++        raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "发布行动来源不存在", 409)
++    return PublicationActionIdentity(
++        row.product_id,
++        row.query_topic_id,
++        row.fact_version_id,
++        row.platform_profile_id,
++        article_id,
++        issue_id,
++    )
+--- before/backend/app/services/publication_queries.py
++++ after/backend/app/services/publication_queries.py
+@@ -10,7 +10,7 @@
+ 
+ import bleach
+ import markdown
+-from sqlalchemy import case, func, literal, or_, select, union
++from sqlalchemy import String, case, func, literal, or_, select, union
+ from sqlalchemy.engine import Row
+ from sqlalchemy.orm import Session, aliased
+ 
+@@ -22,6 +22,7 @@
+     GeoObservationCitation,
+     GeoObservationPublication,
+ )
++from app.models.geo_opportunities import GeoOpportunityAction
+ from app.models.product_facts import FactVersion, Product
+ from app.models.publication import (
+     PlatformAccount,
+@@ -180,6 +181,35 @@
+         blockers[article_id].append(
+             DeletionBlocker(type="GEO_OPTIMIZATION_SOURCE", count=int(count))
+         )
++    action_refs = union(
++        select(PublishedArticle.id.label("article_id"), GeoOpportunityAction.id.label("action_id"))
++        .join(
++            GeoOpportunityAction,
++            or_(
++                GeoOpportunityAction.source_snapshot["published_article_id"].as_string()
++                == func.cast(PublishedArticle.id, String),
++                (GeoOpportunityAction.target_type == "PublishedArticle")
++                & (GeoOpportunityAction.target_id == PublishedArticle.id),
++            ),
++        )
++        .where(PublishedArticle.id.in_(article_ids)),
++        select(
++            PublishedContentIssue.published_article_id.label("article_id"),
++            GeoOpportunityAction.id.label("action_id"),
++        )
++        .join(
++            GeoOpportunityAction,
++            (GeoOpportunityAction.target_type == "PublishedContentIssue")
++            & (GeoOpportunityAction.target_id == PublishedContentIssue.id),
++        )
++        .where(PublishedContentIssue.published_article_id.in_(article_ids)),
++    ).subquery()
++    for article_id, count in db.execute(
++        select(action_refs.c.article_id, func.count()).group_by(action_refs.c.article_id)
++    ):
++        blockers[article_id].append(
++            DeletionBlocker(type="GEO_OPPORTUNITY_ACTION", count=int(count))
++        )
+     return blockers
+ 
+ 
+--- before/backend/tests/integration/test_geo_admission_migration.py
++++ after/backend/tests/integration/test_geo_admission_migration.py
+@@ -156,9 +156,9 @@
+         text=True,
+     )
+     assert stopped.returncode != 0
+-    assert "0059机会历史不可破坏性降级" in stopped.stdout + stopped.stderr
++    assert "0060行动历史不可破坏性降级" in stopped.stdout + stopped.stderr
+     with psycopg.connect(db.url) as conn:
+         assert (
+             conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
+-            == "0059_geo_opportunities"
++            == "0060_geo_opportunity_actions"
+         )
+--- before/backend/tests/integration/test_geo_answer_migration.py
++++ after/backend/tests/integration/test_geo_answer_migration.py
+@@ -27,7 +27,7 @@
+     with psycopg.connect(db.url) as conn:
+         assert (
+             conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
+-            == "0059_geo_opportunities"
++            == "0060_geo_opportunity_actions"
+         )
+         assert existing_rows(conn) == db.runs.before
+         assert (
+@@ -63,10 +63,10 @@
+     )
+     assert (
+         stopped.returncode != 0
+-        and "0059机会历史不可破坏性降级" in stopped.stdout + stopped.stderr
++        and "0060行动历史不可破坏性降级" in stopped.stdout + stopped.stderr
+     )
+     with psycopg.connect(db.url) as conn:
+         assert (
+             conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
+-            == "0059_geo_opportunities"
++            == "0060_geo_opportunity_actions"
+         )
+--- before/backend/tests/integration/test_geo_opportunity_migration.py
++++ after/backend/tests/integration/test_geo_opportunity_migration.py
+@@ -23,7 +23,7 @@
+         new_run(conn, AnswerDatabase(db, uuid4()))
+         before = history(conn)
+         configuration = conn.execute("SELECT to_jsonb(t) FROM geo_rule_set_revisions t").fetchall()
+-    run_alembic(db.plan.env, db.plan.backend_dir, "head")
++    run_alembic(db.plan.env, db.plan.backend_dir, "0059_geo_opportunities")
+     with psycopg.connect(db.url) as conn:
+         assert history(conn) == before
+         assert conn.execute("SELECT to_jsonb(t) FROM geo_rule_set_revisions t").fetchall() == (
+--- before/backend/tests/integration/test_migrations.py
++++ after/backend/tests/integration/test_migrations.py
+@@ -326,7 +326,7 @@
+ 
+         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+             cursor.execute("SELECT version_num FROM alembic_version")
+-            assert cursor.fetchone() == ("0059_geo_opportunities",)
++            assert cursor.fetchone() == ("0060_geo_opportunity_actions",)
+             cursor.execute(
+                 "SELECT tablename FROM pg_tables "
+                 "WHERE schemaname = 'public' AND tablename = ANY(%s)",
+@@ -484,10 +484,10 @@
+             text=True,
+         )
+         assert downgrade.returncode != 0
+-        assert "0059机会历史不可破坏性降级" in downgrade.stdout + downgrade.stderr
++        assert "0060行动历史不可破坏性降级" in downgrade.stdout + downgrade.stderr
+         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+             cursor.execute("SELECT version_num FROM alembic_version")
+-            assert cursor.fetchone() == ("0059_geo_opportunities",)
++            assert cursor.fetchone() == ("0060_geo_opportunity_actions",)
+ 
+ 
+ @pytest.mark.integration
+--- before/backend/tests/unit/test_contract.py
++++ after/backend/tests/unit/test_contract.py
+@@ -53,9 +53,9 @@
+     contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+     document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+     operations = operation_map(document)
+-    assert len(operations) == 241
+-    assert len({operation["operationId"] for operation in operations.values()}) == 241
+-    assert sum(len(operation["responses"]) for operation in operations.values()) == 1555
++    assert len(operations) == 244
++    assert len({operation["operationId"] for operation in operations.values()}) == 244
++    assert sum(len(operation["responses"]) for operation in operations.values()) == 1576
+ 
+     expected_parameter = {
+         "name": "X-Request-ID",
+@@ -217,6 +217,9 @@
+             "createGeoMonitoringPlan",
+         ),
+         ("200", "401", "403", "404", "409", "422"): (
++            "startFactRevisionFromGeoOpportunity",
++            "createContentTaskFromGeoOpportunity",
++            "createPublicationRepairFromGeoOpportunity",
+             "acknowledgeGeoOpportunity",
+             "dismissGeoOpportunity",
+             "listGeoOverviewRuns",
+@@ -394,7 +397,7 @@
+         if isinstance(operation, dict) and "operationId" in operation
+     }
+ 
+-    assert len(expected) == 241
++    assert len(expected) == 244
+     assert set(operations) == set(expected)
+     for operation_id, operation in operations.items():
+         responses = operation["responses"]
+@@ -423,7 +426,7 @@
+         "getWorkbench",
+     }
+     assert len(validation_free) == 15
+-    assert sum("422" in statuses for statuses in expected.values()) == 226
++    assert sum("422" in statuses for statuses in expected.values()) == 229
+     assert {
+         operation_id for operation_id, statuses in expected.items() if "422" not in statuses
+     } == validation_free
+--- before/backend/tests/unit/test_runtime_response_metadata.py
++++ after/backend/tests/unit/test_runtime_response_metadata.py
+@@ -643,9 +643,9 @@
+     runtime = app.openapi()
+     operations = _operation_map(runtime)
+ 
+-    assert len(operations) == 241
+-    assert len(set(operations)) == 241
+-    assert sum(len(operation["responses"]) for operation in operations.values()) == 1555
++    assert len(operations) == 244
++    assert len(set(operations)) == 244
++    assert sum(len(operation["responses"]) for operation in operations.values()) == 1576
+     parameter_ref = {"$ref": "#/components/parameters/RequestIdHeader"}
+     header_ref = {"$ref": "#/components/headers/RequestIdResponseHeader"}
+     parameter_schema = {
+@@ -684,9 +684,9 @@
+     augmented = app.openapi()
+     stripped = _strip_request_context_metadata(augmented)
+ 
+-    assert sum(len(operation["responses"]) for operation in _operation_map(raw).values()) == 1314
++    assert sum(len(operation["responses"]) for operation in _operation_map(raw).values()) == 1332
+     assert (
+-        sum(len(operation["responses"]) for operation in _operation_map(stripped).values()) == 1314
++        sum(len(operation["responses"]) for operation in _operation_map(stripped).values()) == 1332
+     )
+     # 安装版本的 FastAPI 省略 None 默认；这里只移除已声明且显式恢复的 nullable annotation。
+     raw_settings = raw["components"]["schemas"]["GeoApiSettings"]["properties"]
+--- before/backend/tests/unit/test_workflow_projections.py
++++ after/backend/tests/unit/test_workflow_projections.py
+@@ -412,6 +412,7 @@
+                     [profile],
+                     [],
+                     [(task.id, None, "CANCELLED", "VIEW_CANCELLATION", now)],
++                    [],
+                     [],
+                     [],
+                     [],
+--- before/contracts/database.md
++++ after/contracts/database.md
+@@ -1245,3 +1245,15 @@
+ acknowledge/dismiss由应用服务拥有READ COMMITTED事务，User非键更新锁→Opportunity FOR UPDATE；刷新ORM identity map后重验账号资格和expected_revision。状态政策拥有允许边：703仅公开OPEN→ACKNOWLEDGED以及OPEN/ACKNOWLEDGED/IN_PROGRESS→DISMISSED。revision每次加1，last_seen_at保持规则评估时间，ack历史/首次trigger及sources不变；关闭保存服务器actor/time、trim非空resolution_code（1..40）/resolution_comment（1..2000）。终态不再转换，过期/重复命令409 REVISION_CONFLICT，非法动作409 INVALID_STATE_TRANSITION，无自动重放或幂等key。任何业务/审计/flush/commit失败整体回滚。
+ 
+ 成功审计geo_opportunity.acknowledged/dismissed与状态同事务追加，只包含revision/status，不记录人工原因、答案、凭据或签名URL。受控文件完整性与签名由Run/机会共用同一所有者；详情no-store，无外部HEAD或AI请求。权限ADMIN/ENGINEER、session、强制改密和CSRF保持。关闭保留全部历史证据；行动创建/resolve/复测仍属704–706，既有行动关系仅只读。
++
++### GEO-704：跨域行动、来源快照与幂等（R6）
++
++head=`0060_geo_opportunity_actions`，down_revision=`0059_geo_opportunities`。仅加法扩展行动表：可空`source_snapshot JSONB`、`request_key_sha256 varchar(64)`、`request_sha256 varchar(64)`、`opportunity_revision_after integer`；四字段全空表示704前历史，保留原值且不补造快照。新704行动全部非空，创建者与请求键摘要partial unique最终仲裁；摘要不公开。新快照闭合版本1，包含opportunity ID/原revision、完整首次trigger、锁内全部来源run/analysis/review/role、选中product/topic/fact/platform/article/issue ID和request ID；不复制回答、事实正文或凭据。全部行动继续禁止UPDATE/DELETE/TRUNCATE。
++
++服务入口在READ COMMITTED持User非键锁重验资格，再按actor+key获取事务advisory；同键同完整请求（包括expected_revision）重放原action和提交revision，同键异类型/机会/载荷409 IDEMPOTENCY_CONFLICT。先调用目标领域服务获取原锁序、创建未提交目标，再Opportunity FOR UPDATE/populate_existing/CAS；绝不持Opportunity锁等待Product。目标服务commit=False异常必须终止外层，不允许root rollback后继续成功。最后Action、Opportunity revision/status和低敏audit同事务提交；审计、flush、commit或最终CAS失败整体回滚，同键没有回执可安全重试。
++
++ACKNOWLEDGED/IN_PROGRESS才可行动，首个行动ACKNOWLEDGED→IN_PROGRESS；每次新行动revision+1，last_seen/ack/trigger/sources不改。终态不可新增，但原成功请求仍可重放其回执。事实仅通过产品服务导航到唯一事实工作区；内容通过现有创建服务锁定活动发布Platform→Product→APPROVED Fact，主题由机会赋予；发布问题/修复由原发布服务裁决Issue/Article、同产品事实与继承平台。目标产品必须来自本机会保存的OWN_PRODUCT来源，不能按名称猜测。数据质量/失败/不稳定规则不创建此三类行动；规则/指标/状态边界不扩展。
++
++多态target_type/target_id保留稳定历史ID；704只允许Product、ContentTask、PublishedContentIssue真实目标，INSERT守卫锁定并验证目标/快照归属。目标普通删除接入应用预检与数据库最终守卫；直接行动引用和来源article都阻止单成果删除。只有既有管理员已归档ContentTask aggregate永久删除语境可以删除目标Task及其Issue，Action和snapshot保留原样，批量读显示target_available=false，不静默换目标。Product历史仍受Subject/Run真实FK保护。旧704前无快照行动继续只读，导航资格未知返回null。
++
++成功审计`geo_opportunity.action_linked`，GeoOpportunity目标，facts仅action_id、action_type、target_type、target_id、revision/status；正文、原因、URL、请求键不进入audit。HTTP session/ADMIN或ENGINEER/强制改密/CSRF不变，关闭自动开关不影响历史人工处理；无AI、HEAD、外部页面访问或新Redis消息。新快照约束/目标删除守卫不重写旧历史；downgrade拒绝销毁记录，安全恢复为整体事务回滚、备份或前向修复。前滚只在独占测试库执行，无生产迁移。
+--- before/contracts/openapi.yaml
++++ after/contracts/openapi.yaml
+@@ -10890,6 +10890,198 @@
+         '400':
+           $ref: '#/components/responses/ErrorResponse'
+ 
++  /api/v1/geo/opportunities/{opportunity_id}/actions/fact-revision:
++    post:
++      tags:
++      - geo-opportunities
++      summary: startFactRevisionFromGeoOpportunity
++      operationId: startFactRevisionFromGeoOpportunity
++      security:
++      - sessionCookie: []
++      parameters:
++      - name: opportunity_id
++        in: path
++        required: true
++        schema:
++          type: string
++          format: uuid
++          title: Opportunity Id
++      - name: X-CSRF-Token
++        in: header
++        required: true
++        schema:
++          type: string
++          minLength: 32
++          title: X-Csrf-Token
++      - name: Idempotency-Key
++        in: header
++        required: true
++        schema:
++          type: string
++          minLength: 8
++          maxLength: 128
++          pattern: ^[\x21-\x7E]+$
++          title: Idempotency-Key
++      - $ref: '#/components/parameters/RequestIdHeader'
++      requestBody:
++        required: true
++        content:
++          application/json:
++            schema:
++              $ref: '#/components/schemas/GeoOpportunityFactRevisionRequest'
++      responses:
++        '200':
++          description: Successful Response
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoOpportunityActionResult'
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++  /api/v1/geo/opportunities/{opportunity_id}/actions/content-task:
++    post:
++      tags:
++      - geo-opportunities
++      summary: createContentTaskFromGeoOpportunity
++      operationId: createContentTaskFromGeoOpportunity
++      security:
++      - sessionCookie: []
++      parameters:
++      - name: opportunity_id
++        in: path
++        required: true
++        schema:
++          type: string
++          format: uuid
++          title: Opportunity Id
++      - name: X-CSRF-Token
++        in: header
++        required: true
++        schema:
++          type: string
++          minLength: 32
++          title: X-Csrf-Token
++      - name: Idempotency-Key
++        in: header
++        required: true
++        schema:
++          type: string
++          minLength: 8
++          maxLength: 128
++          pattern: ^[\x21-\x7E]+$
++          title: Idempotency-Key
++      - $ref: '#/components/parameters/RequestIdHeader'
++      requestBody:
++        required: true
++        content:
++          application/json:
++            schema:
++              $ref: '#/components/schemas/GeoOpportunityContentTaskRequest'
++      responses:
++        '200':
++          description: Successful Response
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoOpportunityActionResult'
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++  /api/v1/geo/opportunities/{opportunity_id}/actions/publication-repair:
++    post:
++      tags:
++      - geo-opportunities
++      summary: createPublicationRepairFromGeoOpportunity
++      operationId: createPublicationRepairFromGeoOpportunity
++      security:
++      - sessionCookie: []
++      parameters:
++      - name: opportunity_id
++        in: path
++        required: true
++        schema:
++          type: string
++          format: uuid
++          title: Opportunity Id
++      - name: X-CSRF-Token
++        in: header
++        required: true
++        schema:
++          type: string
++          minLength: 32
++          title: X-Csrf-Token
++      - name: Idempotency-Key
++        in: header
++        required: true
++        schema:
++          type: string
++          minLength: 8
++          maxLength: 128
++          pattern: ^[\x21-\x7E]+$
++          title: Idempotency-Key
++      - $ref: '#/components/parameters/RequestIdHeader'
++      requestBody:
++        required: true
++        content:
++          application/json:
++            schema:
++              discriminator:
++                mapping:
++                  CREATE_REPAIR: '#/components/schemas/GeoOpportunityCreateRepairRequest'
++                  LINK_ISSUE: '#/components/schemas/GeoOpportunityLinkIssueRequest'
++                  OPEN_ISSUE: '#/components/schemas/GeoOpportunityOpenIssueRequest'
++                propertyName: mode
++              oneOf:
++              - $ref: '#/components/schemas/GeoOpportunityOpenIssueRequest'
++              - $ref: '#/components/schemas/GeoOpportunityLinkIssueRequest'
++              - $ref: '#/components/schemas/GeoOpportunityCreateRepairRequest'
++      responses:
++        '200':
++          description: Successful Response
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoOpportunityActionResult'
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
+ components:
+   securitySchemes:
+     sessionCookie:
+@@ -11063,6 +11255,7 @@
+       - PUBLISHED_CONTENT_ISSUE
+       - GEO_OPTIMIZATION_SOURCE
+       - USER_BUSINESS_HISTORY
++      - GEO_OPPORTUNITY_ACTION
+       title: DeletionBlockerType
+       type: string
+     DeletionBlocker:
+@@ -27525,33 +27718,46 @@
+       - DISMISS
+       title: GeoOpportunityAction
+     GeoOpportunityActionRecord:
++      additionalProperties: false
+       properties:
+         id:
+-          type: string
+           format: uuid
+           title: Id
++          type: string
+         action_type:
+           $ref: '#/components/schemas/GeoOpportunityActionType'
+         target_type:
+-          type: string
+           title: Target Type
++          type: string
+         target_id:
+-          type: string
+           format: uuid
+           title: Target Id
++          type: string
+         status_snapshot:
+-          type: string
+           title: Status Snapshot
++          type: string
+         created_by:
+-          type: string
+           format: uuid
+           title: Created By
++          type: string
+         created_at:
+-          type: string
+           format: date-time
+           title: Created At
+-      additionalProperties: false
+-      type: object
++          type: string
++        source_snapshot:
++          anyOf:
++          - $ref: '#/components/schemas/GeoOpportunityActionSourceSnapshot'
++          - type: 'null'
++        navigation_path:
++          anyOf:
++          - type: string
++          - type: 'null'
++          title: Navigation Path
++        target_available:
++          anyOf:
++          - type: boolean
++          - type: 'null'
++          title: Target Available
+       required:
+       - id
+       - action_type
+@@ -27561,7 +27767,9 @@
+       - created_by
+       - created_at
+       title: GeoOpportunityActionRecord
++      type: object
+     GeoOpportunityDetail:
++      additionalProperties: false
+       properties:
+         opportunity:
+           $ref: '#/components/schemas/GeoOpportunityListItem'
+@@ -27576,22 +27784,27 @@
+         actions:
+           items:
+             $ref: '#/components/schemas/GeoOpportunityActionRecord'
+-          type: array
+           title: Actions
++          type: array
++        available_action_types:
++          items:
++            $ref: '#/components/schemas/GeoOpportunityActionType'
++          title: Available Action Types
++          type: array
+         as_of:
+-          type: string
+           format: date-time
+           title: As Of
+-      additionalProperties: false
+-      type: object
++          type: string
+       required:
+       - opportunity
+       - trigger_snapshot
+       - latest_evaluation
+       - sources
+       - actions
++      - available_action_types
+       - as_of
+       title: GeoOpportunityDetail
++      type: object
+     GeoOpportunityDismissRequest:
+       properties:
+         expected_revision:
+@@ -29100,3 +29313,229 @@
+       - revision
+       - created_at
+       title: UserOut
++    GeoOpportunityFactRevisionRequest:
++      additionalProperties: false
++      properties:
++        expected_revision:
++          minimum: 1
++          title: Expected Revision
++          type: integer
++        product_id:
++          format: uuid
++          title: Product Id
++          type: string
++      required:
++      - expected_revision
++      - product_id
++      title: GeoOpportunityFactRevisionRequest
++      type: object
++    GeoOpportunityContentTaskRequest:
++      additionalProperties: false
++      properties:
++        expected_revision:
++          minimum: 1
++          title: Expected Revision
++          type: integer
++        product_id:
++          format: uuid
++          title: Product Id
++          type: string
++        fact_version_id:
++          format: uuid
++          title: Fact Version Id
++          type: string
++        platform_profile_id:
++          format: uuid
++          title: Platform Profile Id
++          type: string
++      required:
++      - expected_revision
++      - product_id
++      - fact_version_id
++      - platform_profile_id
++      title: GeoOpportunityContentTaskRequest
++      type: object
++    GeoOpportunityActionSourceSnapshot:
++      additionalProperties: false
++      properties:
++        schema_version:
++          const: 1
++          title: Schema Version
++          type: integer
++        opportunity_id:
++          format: uuid
++          title: Opportunity Id
++          type: string
++        opportunity_revision:
++          minimum: 1
++          title: Opportunity Revision
++          type: integer
++        trigger_snapshot:
++          $ref: '#/components/schemas/GeoOpportunityTriggerSnapshot'
++        sources:
++          items:
++            $ref: '#/components/schemas/GeoOpportunitySourceSnapshot'
++          minItems: 1
++          title: Sources
++          type: array
++        product_id:
++          format: uuid
++          title: Product Id
++          type: string
++        query_topic_id:
++          anyOf:
++          - format: uuid
++            type: string
++          - type: 'null'
++          title: Query Topic Id
++        fact_version_id:
++          anyOf:
++          - format: uuid
++            type: string
++          - type: 'null'
++          title: Fact Version Id
++        platform_profile_id:
++          anyOf:
++          - format: uuid
++            type: string
++          - type: 'null'
++          title: Platform Profile Id
++        published_article_id:
++          anyOf:
++          - format: uuid
++            type: string
++          - type: 'null'
++          title: Published Article Id
++        published_content_issue_id:
++          anyOf:
++          - format: uuid
++            type: string
++          - type: 'null'
++          title: Published Content Issue Id
++        request_id:
++          maxLength: 100
++          minLength: 1
++          pattern: ^[\x20-\x7E]+$
++          title: Request Id
++          type: string
++      required:
++      - schema_version
++      - opportunity_id
++      - opportunity_revision
++      - trigger_snapshot
++      - sources
++      - product_id
++      - query_topic_id
++      - fact_version_id
++      - platform_profile_id
++      - published_article_id
++      - published_content_issue_id
++      - request_id
++      title: GeoOpportunityActionSourceSnapshot
++      type: object
++    GeoOpportunityActionResult:
++      additionalProperties: false
++      properties:
++        action:
++          $ref: '#/components/schemas/GeoOpportunityActionRecord'
++        opportunity_revision:
++          minimum: 1
++          title: Opportunity Revision
++          type: integer
++        replayed:
++          title: Replayed
++          type: boolean
++      required:
++      - action
++      - opportunity_revision
++      - replayed
++      title: GeoOpportunityActionResult
++      type: object
++    GeoOpportunityCreateRepairRequest:
++      additionalProperties: false
++      properties:
++        expected_revision:
++          minimum: 1
++          title: Expected Revision
++          type: integer
++        published_content_issue_id:
++          format: uuid
++          title: Published Content Issue Id
++          type: string
++        expected_issue_revision:
++          minimum: 0
++          title: Expected Issue Revision
++          type: integer
++        mode:
++          const: CREATE_REPAIR
++          title: Mode
++          type: string
++        fact_version_id:
++          format: uuid
++          title: Fact Version Id
++          type: string
++      required:
++      - expected_revision
++      - published_content_issue_id
++      - expected_issue_revision
++      - mode
++      - fact_version_id
++      title: GeoOpportunityCreateRepairRequest
++      type: object
++    GeoOpportunityLinkIssueRequest:
++      additionalProperties: false
++      properties:
++        expected_revision:
++          minimum: 1
++          title: Expected Revision
++          type: integer
++        published_content_issue_id:
++          format: uuid
++          title: Published Content Issue Id
++          type: string
++        expected_issue_revision:
++          minimum: 0
++          title: Expected Issue Revision
++          type: integer
++        mode:
++          const: LINK_ISSUE
++          title: Mode
++          type: string
++      required:
++      - expected_revision
++      - published_content_issue_id
++      - expected_issue_revision
++      - mode
++      title: GeoOpportunityLinkIssueRequest
++      type: object
++    GeoOpportunityOpenIssueRequest:
++      additionalProperties: false
++      properties:
++        mode:
++          const: OPEN_ISSUE
++          title: Mode
++          type: string
++        expected_revision:
++          minimum: 1
++          title: Expected Revision
++          type: integer
++        published_article_id:
++          format: uuid
++          title: Published Article Id
++          type: string
++        kind:
++          $ref: '#/components/schemas/PublishedContentIssueKind'
++        description:
++          maxLength: 2000
++          minLength: 1
++          pattern: ^[^\x00]*\S[^\x00]*$
++          title: Description
++          type: string
++      required:
++      - mode
++      - expected_revision
++      - published_article_id
++      - kind
++      - description
++      title: GeoOpportunityOpenIssueRequest
++      type: object
+--- before/docs/geo-monitoring/03-technical/02-data-architecture.md
++++ after/docs/geo-monitoring/03-technical/02-data-architecture.md
+@@ -415,3 +415,10 @@
+ 0056只扩展受控Run复核发布guard，不新增表/列、不回填历史；Answer、机器子结果和旧Review保持不可变。review追加与Run revision、首次NEEDS_REVIEW完成和受控audit同事务；当前选择和四栏修正都由根合同拥有。
+ 
+ 详情始终同时返回原机器历史与当前reviewed投影；latest Review不累计旧修正，新成功pointer自动使旧review仅作历史。精确锁序、scope、并发、门禁和前向恢复规则见[根数据库合同](../../../contracts/database.md#geo-507-人工复核命令与当前结果r4)。
++
++
++## 当前 R6：GEO-704 行动持久化
++
++`0060_geo_opportunity_actions`只向既有Action增加来源快照、actor/key和完整请求SHA-256、首次提交后的机会revision；旧行四列为NULL，不回填业务历史。actor/key部分唯一索引和不可变守卫保留；INSERT最终验证机会版本、真实来源及目标产品/主题/事实/平台/Article/Issue归属。API服务先取目标领域原锁，最后Opportunity CAS，目标、Action、状态与低敏审计同一事务提交；失败整体回滚。
++
++普通删除保护行动目标及发布来源；成果删除预检同时计入旧null快照的Issue/Article直接行动引用，按Action去重。唯一历史删除例外仍为既有管理员对已归档ContentTask aggregate的永久删除，保留行动稳定ID与来源并显式投影缺失。新列无目标跨域cascade FK，不能让永久删除抹去行动历史。downgrade明确拒绝销毁历史；发布前滚、失败事务回滚或前向修复，生产迁移不属于704本地实施。
+--- before/docs/geo-monitoring/03-technical/03-api-contract-design.md
++++ after/docs/geo-monitoring/03-technical/03-api-contract-design.md
+@@ -677,3 +677,12 @@
+ 来源证据按已保存run/analysis/review身份读取，原始答案/引用、历史机器声明/批准事实摘录、人工修正及受控文件可追溯；不使用当前pointer替换历史。RUN_FAILURE允许没有答案和分析，缺必要关联409 GEO_READ_MODEL_INCOMPLETE；文件完整性错误409，签名依赖不可用503。详情no-store。所有GET共享一次禁autoflush的RR快照，不重新算规则，不外部访问或改状态。
+ 
+ ADMIN/ENGINEER可读取与处理。确认仅expected_revision；驳回额外要求trim非空resolution_code（1..40）和resolution_comment（1..2000）。这是业务状态机与已接受702合同的关闭原因要求；确认不关闭机会。状态/动作只在服务端投影，命令锁后CAS、账号资格/CSRF重验、原子审计及409语义见根数据库合同。没有新增DDL、actions/retest/resolve HTTP、总览或CSV占位接线、生产开关/Browser实现。
++
++
++## 当前 R6：GEO-704 跨域行动 API
++
++三个 `POST /api/v1/geo/opportunities/{opportunity_id}/actions/{fact-revision|content-task|publication-repair}` 使用现有ADMIN/ENGINEER、CSRF和request ID边界，要求`expected_revision`及8–128位可打印ASCII非空白`Idempotency-Key`。事实行动导航至唯一Product Markdown工作区，不复制或修改已批准事实；内容行动明确选择同产品批准事实和活动发布平台，主题由机会提供；发布行动按`OPEN_ISSUE`、`LINK_ISSUE`、`CREATE_REPAIR`判别，调用现有发布服务并保留其Issue revision/唯一修复任务合同。
++
++成功200返回闭合`GeoOpportunityActionResult`：不可变行动、首次提交后的机会revision及`replayed`。同账号同键同完整payload（含机会ID、行动类型、expected_revision）返回首次回执，不再创建目标或审计；异payload为409 `IDEMPOTENCY_CONFLICT`，不同键旧revision为409 `REVISION_CONFLICT`。失败不保存回执，可恢复后重试。终态不允许新增，已提交请求仍能重放。首行动ACKNOWLEDGED→IN_PROGRESS，后续每个成功新行动revision+1；目标完成没有自动解决机会行为。
++
++Action来源保存首次trigger和当时全部run/analysis/review/role身份及明确选择的product/topic/fact/platform/article/issue ID，不复制回答或事实正文。详情追加服务端`available_action_types`、来源快照、安全相对导航与`target_available`；旧行来源为null，不补造历史。归档ContentTask aggregate经既有管理员永久删除后，目标缺失返回false/无导航，行动ID和来源保持。三个POST与详情no-store；不访问引用URL、不调用外部AI。复测/解决/补测未在704接入。
+--- before/docs/geo-monitoring/03-technical/04-frontend-architecture.md
++++ after/docs/geo-monitoring/03-technical/04-frontend-architecture.md
+@@ -409,3 +409,8 @@
+ /geo/opportunities消费generated OpenAPI唯一协议。URL沿列表query保存搜索、状态/优先级/规则、主体/产品/主题/变体/Profile/Surface/冻结采集模式、日期、排序及分页；opportunity_id选择Drawer，source_page/source_page_size恢复来源分页。原因草稿和签名URL不进入URL或浏览器持久存储。列表和详情query key涵盖全部条件，传递AbortSignal；服务器拥有total、状态、workflow_stage/primary_task/available_actions，前端只作展示映射。
+ 
+ Drawer分开首次trigger、最新关联评估、绑定历史analysis/review证据和处理记录。确认/驳回只在服务端动作可用时出现，关闭状态仍可读证据。命令成功消费canonical返回并失效列表/详情；409保留原因草稿，显式刷新后再提交，不自动重放。权限/不存在/证据不完整/签名暂不可用、首载/空页/后台失败均明确呈现；关闭归还焦点，刷新与浏览器历史恢复选中和筛选。703不提供行动创建、复测或解决按钮。
++
++
++## 当前 R6：GEO-704 已有行动导航
++
++Opportunity详情只消费generated OpenAPI行动快照、navigation_path和target_available；已有行动表提供现有Product事实、ContentTask或PublishedContentIssue页面链接。已删除目标保留ID与来源提示，null历史快照不虚构依据；正文按文本显示。来源机会ID由服务端加入相对导航。704不增加创建表单、query key、筛选或客户端状态机；业务创建经三个已定义API执行，完整复测/解决入口留在后续任务。
+--- before/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ after/docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -1227,7 +1227,7 @@
+   phase: R6
+   release: R6
+   title: 集成事实修订、内容任务和发布修复行动
+-  status: planned
++  status: review
+   dependencies:
+   - GEO-703
+   areas:
+@@ -1242,6 +1242,8 @@
+   - 02-business/03-workflows-and-state-machines.md
+   - 03-technical/01-technical-architecture.md
+   - 04-delivery/04-codex-execution-guide.md
++  trellis_task: .trellis/tasks/10-04-geo-704-action-integration
++  execution_note: "2026-10-04：GEO-703 done已核对；三类跨域行动、来源/幂等/原子审计及0060完成；diff/lint/type/unit/integration/contract/完整E2E通过，独立复核两项已修正；仅review，待人工接受，不实施705。"
+ - id: GEO-705
+   phase: R6
+   release: R6
+--- before/frontend/src/domains/geo-opportunities/opportunities-page.test.tsx
++++ after/frontend/src/domains/geo-opportunities/opportunities-page.test.tsx
+@@ -11,6 +11,18 @@
+ async function fillReason() { await userEvent.type(within(dialog()).getByRole('textbox', { name: '忽略原因代码' }), '  NOT_ACTIONABLE  '); await userEvent.type(within(dialog()).getByRole('textbox', { name: '忽略原因说明' }), ' 已逐条核对，保留本地原因草稿 '); }
+ 
+ describe('GEO 机会工作台', () => {
++  it('已有行动按服务端导航，缺失目标保留ID和来源提示', async () => {
++    const value = detail();
++    value.actions = [
++      { id: '00000000-0000-4000-8000-000000000001', action_type: 'FACT_REVISION', target_type: 'Product', target_id: opportunityId, status_snapshot: 'FACTS_READY', created_by: opportunityId, created_at: value.as_of, source_snapshot: null, target_available: true, navigation_path: `/products/${opportunityId}/facts?source_opportunity_id=${opportunityId}` },
++      { id: '00000000-0000-4000-8000-000000000002', action_type: 'CONTENT_TASK', target_type: 'ContentTask', target_id: opportunityId, status_snapshot: 'OPEN', created_by: opportunityId, created_at: value.as_of, source_snapshot: null, target_available: false, navigation_path: null },
++    ];
++    mockReads(opportunity, () => value); renderOpportunities();
++    const sheet = await screen.findByRole('dialog', { name: '机会详情与历史证据' });
++    expect(await within(sheet).findByRole('link', { name: '打开行动目标' })).toHaveAttribute('href', value.actions[0]!.navigation_path);
++    expect(within(sheet).getByText('目标已删除，来源快照仍保留。')).toBeVisible();
++    expect(within(sheet).getAllByRole('link', { name: '打开行动目标' })).toHaveLength(1);
++  });
+   it('同一状态的主入口随服务端 primary_task 和 available_actions 改变，不猜测写动作', async () => {
+     const current = opportunity({ primary_task: 'VIEW_EVIDENCE', available_actions: [] });
+     const read = mockReads(() => current);
+--- before/frontend/src/domains/geo-opportunities/opportunities.test-support.tsx
++++ after/frontend/src/domains/geo-opportunities/opportunities.test-support.tsx
+@@ -32,7 +32,7 @@
+   const machine = source.analysis.revisions[0]!; const review = reviewReceipt().review;
+   const trigger: OpportunityDetail['trigger_snapshot'] = { schema_version: 1, rule_snapshot: { schema_version: 1, rule_set_revision: 1, configuration: configuration() }, rule_code: current.rule_code, scope: current.scope, source_date_from: current.source_date_from, source_date_to: current.source_date_to, triggered: true, priority: current.priority, value: current.value, threshold: current.threshold, numerator: current.numerator, denominator: current.denominator, unavailable_reasons: [], sources: [{ run_id: source.run.id, analysis_revision_id: machine.analysis.id, review_id: review.id, source_role: 'TRIGGER' }], details: { claim: '保存的触发依据' } };
+   return { opportunity: current, trigger_snapshot: trigger, latest_evaluation: { id: source.run.id, rule_set_revision: 1, evaluated_as_of: time, created_at: time, disposition: 'CREATED', result_snapshot: trigger },
+-    sources: { items: [{ id: source.run.id, run_id: source.run.id, analysis_revision_id: machine.analysis.id, review_id: review.id, source_role: 'TRIGGER', created_at: time, run: source.run, answer: source.answer, citations: source.citations, evidence_files: source.evidence_files, analysis: machine, review, effective_results: source.analysis.effective_results }], total: 1, page: 1, page_size: 20 }, actions: [], as_of: time };
++    sources: { items: [{ id: source.run.id, run_id: source.run.id, analysis_revision_id: machine.analysis.id, review_id: review.id, source_role: 'TRIGGER', created_at: time, run: source.run, answer: source.answer, citations: source.citations, evidence_files: source.evidence_files, analysis: machine, review, effective_results: source.analysis.effective_results }], total: 1, page: 1, page_size: 20 }, actions: [], available_action_types: [], as_of: time };
+ }
+ export function response(data: unknown) { return { data, response: Response.json(data) } as never; }
+ export function failure(status = 409, code = 'REVISION_CONFLICT') { return { error: { error: { code, message: '服务端拒绝当前请求', details: {}, request_id: 'geo703-request' } }, response: Response.json({}, { status }) } as never; }
+--- before/frontend/src/domains/geo-opportunities/opportunity-detail.tsx
++++ after/frontend/src/domains/geo-opportunities/opportunity-detail.tsx
+@@ -23,7 +23,7 @@
+       {search.opportunity_id && <OpportunityCommands opportunityId={search.opportunity_id} opportunity={detail?.opportunity} key={search.opportunity_id} csrfToken={csrfToken} blocked={Boolean(query.error) || query.isFetching || !detail} intent={intent} onReload={reload} />}
+       {detail && <>
+         <section aria-label="机会概要" className="min-w-0 space-y-3"><h2 className="type-section-title break-words">{detail.opportunity.title}</h2><p className="whitespace-pre-wrap break-words text-sm">{detail.opportunity.description}</p><div className="flex flex-wrap items-center gap-2"><Badge>{priorityLabels[detail.opportunity.priority]}</Badge><Badge>{statusLabels[detail.opportunity.status]}</Badge><span className="text-sm">服务端阶段：{stageLabels[detail.opportunity.workflow_stage]} · revision {detail.opportunity.revision}</span></div><dl className="grid min-w-0 gap-3 text-sm sm:grid-cols-2">{Object.entries({ '规则': ruleLabels[detail.opportunity.rule_code], '当前监测对象': detail.opportunity.subject_name ?? '未限定', '当前问题主题': detail.opportunity.query_topic_name ?? '未限定', '当前问题变体': detail.opportunity.prompt_variant_name ?? '未限定', '当前采集配置': detail.opportunity.collection_profile_name ?? '未限定', '当前观测面': detail.opportunity.engine_surface_name ?? '未限定', '当前产品 ID': detail.opportunity.product_id ?? '未关联产品', '创建时间': formatTime(detail.opportunity.created_at), '最近评估时间': formatTime(detail.opportunity.last_seen_at) }).map(([label, value]) => <div className="min-w-0" key={label}><dt className="text-text-muted">{label}</dt><dd className="break-words [overflow-wrap:anywhere]">{value}</dd></div>)}</dl><p className="text-xs text-text-secondary">名称和产品关联为当前元数据；冻结输入与事实版本见历史来源。</p></section>
+-        <section aria-label="处理记录" className="min-w-0 space-y-2 border-t border-border-subtle pt-4"><h3 className="type-section-title">处理记录</h3><p className="break-words text-sm">确认：{formatTime(detail.opportunity.acknowledged_at)} · 操作人 {detail.opportunity.acknowledged_by ?? '未记录'}</p><p className="break-words text-sm">关闭：{formatTime(detail.opportunity.resolved_at)} · 操作人 {detail.opportunity.resolved_by ?? '未记录'}</p>{detail.opportunity.resolution_code !== null && <p className="break-words text-sm">关闭原因代码：{detail.opportunity.resolution_code}</p>}{detail.opportunity.resolution_comment !== null && <p className="whitespace-pre-wrap break-words text-sm">关闭原因说明：{detail.opportunity.resolution_comment}</p>}{detail.actions.length ? <TableShell regionLabel="机会已有行动记录"><thead><tr><th scope="col">行动类型 / 目标</th><th scope="col">状态快照</th><th scope="col">登记时间 / 操作人</th></tr></thead><tbody>{detail.actions.map((action) => <tr key={action.id}><td className="max-w-sm break-words [overflow-wrap:anywhere]">{action.action_type} · {action.target_type}<p>{action.target_id}</p></td><td>{action.status_snapshot}</td><td className="max-w-sm break-words [overflow-wrap:anywhere]">{formatTime(action.created_at)}<p>{action.created_by}</p></td></tr>)}</tbody></TableShell> : <p className="text-sm text-text-secondary">没有已登记的行动记录。</p>}</section>
++        <section aria-label="处理记录" className="min-w-0 space-y-2 border-t border-border-subtle pt-4"><h3 className="type-section-title">处理记录</h3><p className="break-words text-sm">确认：{formatTime(detail.opportunity.acknowledged_at)} · 操作人 {detail.opportunity.acknowledged_by ?? '未记录'}</p><p className="break-words text-sm">关闭：{formatTime(detail.opportunity.resolved_at)} · 操作人 {detail.opportunity.resolved_by ?? '未记录'}</p>{detail.opportunity.resolution_code !== null && <p className="break-words text-sm">关闭原因代码：{detail.opportunity.resolution_code}</p>}{detail.opportunity.resolution_comment !== null && <p className="whitespace-pre-wrap break-words text-sm">关闭原因说明：{detail.opportunity.resolution_comment}</p>}{detail.actions.length ? <TableShell regionLabel="机会已有行动记录"><thead><tr><th scope="col">行动类型 / 目标</th><th scope="col">状态快照</th><th scope="col">登记时间 / 操作人</th></tr></thead><tbody>{detail.actions.map((action) => <tr key={action.id}><td className="max-w-sm break-words [overflow-wrap:anywhere]">{action.action_type} · {action.target_type}<p>{action.target_id}</p>{action.navigation_path && action.target_available === true && <a className="text-interaction-primary underline underline-offset-4" href={action.navigation_path}>打开行动目标</a>}{action.target_available === false && <p className="text-text-secondary">目标已删除，来源快照仍保留。</p>}{action.source_snapshot && <details><summary className="cursor-pointer text-sm">行动来源快照</summary><pre className="mt-2 whitespace-pre-wrap break-words text-xs [overflow-wrap:anywhere]">{JSON.stringify(action.source_snapshot, null, 2)}</pre></details>}</td><td>{action.status_snapshot}</td><td className="max-w-sm break-words [overflow-wrap:anywhere]">{formatTime(action.created_at)}<p>{action.created_by}</p></td></tr>)}</tbody></TableShell> : <p className="text-sm text-text-secondary">没有已登记的行动记录。</p>}</section>
+         <Snapshot title="首次触发快照（不可变）" snapshot={detail.trigger_snapshot} />
+         <section aria-label="最新关联评估" className="min-w-0 space-y-3 border-t border-border-subtle pt-4"><h3 className="type-section-title">最新关联评估</h3>{detail.latest_evaluation ? <><p className="break-all text-xs">评估 ID：{detail.latest_evaluation.id} · {detail.latest_evaluation.disposition} · 规则修订 {detail.latest_evaluation.rule_set_revision}</p><p className="text-sm">评估截止：{formatTime(detail.latest_evaluation.evaluated_as_of)} · 记录时间：{formatTime(detail.latest_evaluation.created_at)}</p><Snapshot title="最新评估结果（只读）" snapshot={detail.latest_evaluation.result_snapshot} /></> : <p className="text-sm">没有最新关联评估记录。</p>}</section>
+         <section aria-label="机会历史来源" className="min-w-0 space-y-3 border-t border-border-subtle pt-4"><h3 className="type-section-title">历史来源证据</h3><p className="text-sm">共 {detail.sources.total} 条来源；当前页来自机会来源表，与首次触发快照分开读取。</p>{detail.sources.items.map((evidence) => <OpportunityEvidence evidence={evidence} key={evidence.id} onRefresh={() => void query.refetch()} />)}{!detail.sources.items.length && <p className="text-sm">当前来源页为空。</p>}<TablePagination pageIndex={(search.source_page ?? 1) - 1} pageSize={search.source_page_size ?? 20} pageCount={Math.ceil(detail.sources.total / (search.source_page_size ?? 20))} totalItems={detail.sources.total} onPageIndexChange={(index) => change({ source_page: index + 1 })} onPageSizeChange={(size) => change({ source_page_size: size === 20 ? undefined : size as 10 | 50, source_page: undefined })} />{!detail.sources.items.length && (search.source_page ?? 1) > 1 && <Button type="button" variant="outline" onClick={() => change({ source_page: undefined })}>返回来源第一页</Button>}</section>
+--- before/frontend/src/shared/api/generated/schema.d.ts
++++ after/frontend/src/shared/api/generated/schema.d.ts
+@@ -3143,6 +3143,57 @@
+         patch?: never;
+         trace?: never;
+     };
++    "/api/v1/geo/opportunities/{opportunity_id}/actions/fact-revision": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        get?: never;
++        put?: never;
++        /** startFactRevisionFromGeoOpportunity */
++        post: operations["startFactRevisionFromGeoOpportunity"];
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++    "/api/v1/geo/opportunities/{opportunity_id}/actions/content-task": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        get?: never;
++        put?: never;
++        /** createContentTaskFromGeoOpportunity */
++        post: operations["createContentTaskFromGeoOpportunity"];
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++    "/api/v1/geo/opportunities/{opportunity_id}/actions/publication-repair": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        get?: never;
++        put?: never;
++        /** createPublicationRepairFromGeoOpportunity */
++        post: operations["createPublicationRepairFromGeoOpportunity"];
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
+ }
+ export type webhooks = Record<string, never>;
+ export interface components {
+@@ -3193,7 +3244,7 @@
+          * @description 受约束物理删除的稳定直接引用类型。
+          * @enum {string}
+          */
+-        DeletionBlockerType: "FACT_VERSION" | "CONTENT_TASK" | "GEO_OBSERVATION" | "GEO_ANALYSIS" | "GEO_SUBJECT" | "GEO_PROMPT_VARIANT" | "CONTENT_VERSION" | "GENERATION_JOB" | "PUBLISHED_ARTICLE" | "PLATFORM_PROFILE" | "PLATFORM_ACCOUNT" | "PUBLICATION_WORK" | "PROTECTED_CONTENT_VERSION" | "PUBLISHED_CONTENT_ISSUE" | "GEO_OPTIMIZATION_SOURCE" | "USER_BUSINESS_HISTORY";
++        DeletionBlockerType: "FACT_VERSION" | "CONTENT_TASK" | "GEO_OBSERVATION" | "GEO_ANALYSIS" | "GEO_SUBJECT" | "GEO_PROMPT_VARIANT" | "CONTENT_VERSION" | "GENERATION_JOB" | "PUBLISHED_ARTICLE" | "PLATFORM_PROFILE" | "PLATFORM_ACCOUNT" | "PUBLICATION_WORK" | "PROTECTED_CONTENT_VERSION" | "PUBLISHED_CONTENT_ISSUE" | "GEO_OPTIMIZATION_SOURCE" | "USER_BUSINESS_HISTORY" | "GEO_OPPORTUNITY_ACTION";
+         DeletionBlocker: {
+             type: components["schemas"]["DeletionBlockerType"];
+             count: number;
+@@ -11938,6 +11989,11 @@
+              * Format: date-time
+              */
+             created_at: string;
++            source_snapshot?: components["schemas"]["GeoOpportunityActionSourceSnapshot"] | null;
++            /** Navigation Path */
++            navigation_path?: string | null;
++            /** Target Available */
++            target_available?: boolean | null;
+         };
+         /** GeoOpportunityDetail */
+         GeoOpportunityDetail: {
+@@ -11947,6 +12003,8 @@
+             sources: components["schemas"]["GeoOpportunitySourcePage"];
+             /** Actions */
+             actions: components["schemas"]["GeoOpportunityActionRecord"][];
++            /** Available Action Types */
++            available_action_types: components["schemas"]["GeoOpportunityActionType"][];
+             /**
+              * As Of
+              * Format: date-time
+@@ -12692,6 +12750,136 @@
+              */
+             created_at: string;
+         };
++        /** GeoOpportunityFactRevisionRequest */
++        GeoOpportunityFactRevisionRequest: {
++            /** Expected Revision */
++            expected_revision: number;
++            /**
++             * Product Id
++             * Format: uuid
++             */
++            product_id: string;
++        };
++        /** GeoOpportunityContentTaskRequest */
++        GeoOpportunityContentTaskRequest: {
++            /** Expected Revision */
++            expected_revision: number;
++            /**
++             * Product Id
++             * Format: uuid
++             */
++            product_id: string;
++            /**
++             * Fact Version Id
++             * Format: uuid
++             */
++            fact_version_id: string;
++            /**
++             * Platform Profile Id
++             * Format: uuid
++             */
++            platform_profile_id: string;
++        };
++        /** GeoOpportunityActionSourceSnapshot */
++        GeoOpportunityActionSourceSnapshot: {
++            /**
++             * Schema Version
++             * @constant
++             */
++            schema_version: 1;
++            /**
++             * Opportunity Id
++             * Format: uuid
++             */
++            opportunity_id: string;
++            /** Opportunity Revision */
++            opportunity_revision: number;
++            trigger_snapshot: components["schemas"]["GeoOpportunityTriggerSnapshot"];
++            /** Sources */
++            sources: components["schemas"]["GeoOpportunitySourceSnapshot"][];
++            /**
++             * Product Id
++             * Format: uuid
++             */
++            product_id: string;
++            /** Query Topic Id */
++            query_topic_id: string | null;
++            /** Fact Version Id */
++            fact_version_id: string | null;
++            /** Platform Profile Id */
++            platform_profile_id: string | null;
++            /** Published Article Id */
++            published_article_id: string | null;
++            /** Published Content Issue Id */
++            published_content_issue_id: string | null;
++            /** Request Id */
++            request_id: string;
++        };
++        /** GeoOpportunityActionResult */
++        GeoOpportunityActionResult: {
++            action: components["schemas"]["GeoOpportunityActionRecord"];
++            /** Opportunity Revision */
++            opportunity_revision: number;
++            /** Replayed */
++            replayed: boolean;
++        };
++        /** GeoOpportunityCreateRepairRequest */
++        GeoOpportunityCreateRepairRequest: {
++            /** Expected Revision */
++            expected_revision: number;
++            /**
++             * Published Content Issue Id
++             * Format: uuid
++             */
++            published_content_issue_id: string;
++            /** Expected Issue Revision */
++            expected_issue_revision: number;
++            /**
++             * @description discriminator enum property added by openapi-typescript
++             * @enum {string}
++             */
++            mode: "CREATE_REPAIR";
++            /**
++             * Fact Version Id
++             * Format: uuid
++             */
++            fact_version_id: string;
++        };
++        /** GeoOpportunityLinkIssueRequest */
++        GeoOpportunityLinkIssueRequest: {
++            /** Expected Revision */
++            expected_revision: number;
++            /**
++             * Published Content Issue Id
++             * Format: uuid
++             */
++            published_content_issue_id: string;
++            /** Expected Issue Revision */
++            expected_issue_revision: number;
++            /**
++             * @description discriminator enum property added by openapi-typescript
++             * @enum {string}
++             */
++            mode: "LINK_ISSUE";
++        };
++        /** GeoOpportunityOpenIssueRequest */
++        GeoOpportunityOpenIssueRequest: {
++            /**
++             * @description discriminator enum property added by openapi-typescript
++             * @enum {string}
++             */
++            mode: "OPEN_ISSUE";
++            /** Expected Revision */
++            expected_revision: number;
++            /**
++             * Published Article Id
++             * Format: uuid
++             */
++            published_article_id: string;
++            kind: components["schemas"]["PublishedContentIssueKind"];
++            /** Description */
++            description: string;
++        };
+     };
+     responses: {
+         /** @description 业务或校验错误 */
+@@ -20921,4 +21109,115 @@
+             422: components["responses"]["ErrorResponse"];
+         };
+     };
++    startFactRevisionFromGeoOpportunity: {
++        parameters: {
++            query?: never;
++            header: {
++                "X-CSRF-Token": string;
++                "Idempotency-Key": string;
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path: {
++                opportunity_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["GeoOpportunityFactRevisionRequest"];
++            };
++        };
++        responses: {
++            /** @description Successful Response */
++            200: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoOpportunityActionResult"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
++    createContentTaskFromGeoOpportunity: {
++        parameters: {
++            query?: never;
++            header: {
++                "X-CSRF-Token": string;
++                "Idempotency-Key": string;
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path: {
++                opportunity_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["GeoOpportunityContentTaskRequest"];
++            };
++        };
++        responses: {
++            /** @description Successful Response */
++            200: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoOpportunityActionResult"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
++    createPublicationRepairFromGeoOpportunity: {
++        parameters: {
++            query?: never;
++            header: {
++                "X-CSRF-Token": string;
++                "Idempotency-Key": string;
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path: {
++                opportunity_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["GeoOpportunityOpenIssueRequest"] | components["schemas"]["GeoOpportunityLinkIssueRequest"] | components["schemas"]["GeoOpportunityCreateRepairRequest"];
++            };
++        };
++        responses: {
++            /** @description Successful Response */
++            200: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoOpportunityActionResult"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
+ }
+--- /dev/null
++++ after/backend/app/schemas/geo_opportunity_actions.py
+@@ -0,0 +1,71 @@
++"""704行动协议：来源快照与三类命令，目标领域仍拥有业务资格。"""
++
++from typing import Annotated, Literal
++from uuid import UUID
++
++from pydantic import Field
++
++from app.schemas.base import ContractModel
++from app.schemas.geo_opportunities import (
++    GeoOpportunitySourceSnapshot,
++    GeoOpportunityTriggerSnapshot,
++)
++from app.schemas.publication import PublishedContentIssueKind
++
++
++class GeoOpportunityActionSourceSnapshot(ContractModel):
++    schema_version: Literal[1]
++    opportunity_id: UUID
++    opportunity_revision: int = Field(ge=1)
++    trigger_snapshot: GeoOpportunityTriggerSnapshot
++    sources: list[GeoOpportunitySourceSnapshot] = Field(min_length=1)
++    product_id: UUID
++    query_topic_id: UUID | None
++    fact_version_id: UUID | None
++    platform_profile_id: UUID | None
++    published_article_id: UUID | None
++    published_content_issue_id: UUID | None
++    request_id: str = Field(min_length=1, max_length=100, pattern=r"^[\x20-\x7E]+$")
++
++
++class GeoOpportunityFactRevisionRequest(ContractModel):
++    expected_revision: int = Field(strict=True, ge=1)
++    product_id: UUID
++
++
++class GeoOpportunityContentTaskRequest(GeoOpportunityFactRevisionRequest):
++    fact_version_id: UUID
++    platform_profile_id: UUID
++
++
++class GeoOpportunityOpenIssueRequest(ContractModel):
++    mode: Literal["OPEN_ISSUE"]
++    expected_revision: int = Field(strict=True, ge=1)
++    published_article_id: UUID
++    kind: PublishedContentIssueKind
++    description: str = Field(
++        min_length=1, max_length=2000, pattern=r"^[^\x00]*\S[^\x00]*$", strict=True
++    )
++
++
++class GeoOpportunityIssueRevisionRequest(ContractModel):
++    expected_revision: int = Field(strict=True, ge=1)
++    published_content_issue_id: UUID
++    expected_issue_revision: int = Field(strict=True, ge=0)
++
++
++class GeoOpportunityLinkIssueRequest(GeoOpportunityIssueRevisionRequest):
++    mode: Literal["LINK_ISSUE"]
++
++
++class GeoOpportunityCreateRepairRequest(GeoOpportunityIssueRevisionRequest):
++    mode: Literal["CREATE_REPAIR"]
++    fact_version_id: UUID
++
++
++GeoOpportunityPublicationRepairRequest = Annotated[
++    GeoOpportunityOpenIssueRequest
++    | GeoOpportunityLinkIssueRequest
++    | GeoOpportunityCreateRepairRequest,
++    Field(discriminator="mode"),
++]
+--- /dev/null
++++ after/backend/app/services/geo_opportunity_actions.py
+@@ -0,0 +1,345 @@
++"""704跨域行动协调：目标领域锁→Opportunity CAS→不可变回执/审计，一次提交。"""
++
++import json
++import re
++from dataclasses import dataclass
++from hashlib import sha256
++from uuid import UUID
++
++from sqlalchemy import select, text
++from sqlalchemy.orm import Session
++
++from app.audit import append_audit
++from app.audit_types import AuditEntry, AuditModule, AuditOutcome
++from app.errors import AppError, not_found
++from app.models.geo_opportunities import GeoOpportunity, GeoOpportunityAction, GeoOpportunitySource
++from app.models.geo_runs import GeoObservationRun
++from app.models.identity import User
++from app.schemas.content import ContentTaskCreate
++from app.schemas.geo_opportunities import (
++    GeoOpportunityActionType as ActionType,
++)
++from app.schemas.geo_opportunities import (
++    GeoOpportunitySourceSnapshot,
++    GeoOpportunityTriggerSnapshot,
++)
++from app.schemas.geo_opportunities import (
++    GeoOpportunityStatus as Status,
++)
++from app.schemas.geo_opportunity_actions import (
++    GeoOpportunityActionSourceSnapshot,
++    GeoOpportunityContentTaskRequest,
++    GeoOpportunityCreateRepairRequest,
++    GeoOpportunityFactRevisionRequest,
++    GeoOpportunityLinkIssueRequest,
++    GeoOpportunityOpenIssueRequest,
++)
++from app.schemas.geo_opportunity_workbench import GeoOpportunityActionResult
++from app.schemas.geo_rules import GeoRuleCode
++from app.schemas.geo_runs import GeoRunInputSnapshot
++from app.schemas.publication import PublishedContentIssueCreate, PublishedContentRepairTaskCreate
++from app.services import content_planning, product_facts, publication
++from app.services.geo_opportunity_action_views import action_records
++from app.services.geo_opportunity_policy import action_types, assert_transition
++from app.services.geo_plan_locks import command
++
++type ActionRequest = (
++    GeoOpportunityFactRevisionRequest
++    | GeoOpportunityContentTaskRequest
++    | GeoOpportunityOpenIssueRequest
++    | GeoOpportunityLinkIssueRequest
++    | GeoOpportunityCreateRepairRequest
++)
++
++
++@dataclass(frozen=True)
++class Target:
++    kind: str
++    id: UUID
++    status: str
++    product_id: UUID
++    topic_id: UUID | None
++    fact_id: UUID | None = None
++    platform_id: UUID | None = None
++    article_id: UUID | None = None
++    issue_id: UUID | None = None
++
++
++def _check(
++    opportunity: GeoOpportunity, payload: ActionRequest, kind: ActionType, actor: User
++) -> None:
++    if opportunity.revision != payload.expected_revision:
++        raise AppError("REVISION_CONFLICT", "机会已被其他请求修改，请刷新后重试", 409)
++    if kind not in action_types(
++        Status(opportunity.status), GeoRuleCode(opportunity.rule_code), actor
++    ):
++        raise AppError("INVALID_STATE_TRANSITION", "机会当前状态或类型不允许此行动", 409)
++
++
++def _product_scope(db: Session, opportunity: GeoOpportunity, product_id: UUID) -> None:
++    """只能选择保存来源的自有产品；不按当前名称或客户端归属声明匹配。"""
++    frozen = [
++        GeoRunInputSnapshot.model_validate(s)
++        for s in db.scalars(
++            select(GeoObservationRun.input_snapshot)
++            .join(GeoOpportunitySource, GeoOpportunitySource.run_id == GeoObservationRun.id)
++            .where(GeoOpportunitySource.opportunity_id == opportunity.id)
++        )
++    ]
++    subjects = [s for run in frozen for s in run.subjects]
++    scoped = [
++        s for s in subjects if s.id == opportunity.subject_id and s.subject_type == "OWN_PRODUCT"
++    ]
++    eligible = (
++        any(s.product_id == product_id for s in scoped)
++        if scoped
++        else any(s.subject_type == "OWN_PRODUCT" and s.product_id == product_id for s in subjects)
++    )
++    if not eligible:
++        raise AppError("VALIDATION_ERROR", "所选产品不属于机会保存的自有产品来源", 422)
++
++
++def _target(
++    db: Session,
++    opportunity: GeoOpportunity,
++    kind: ActionType,
++    payload: ActionRequest,
++    actor: User,
++    request_id: str,
++    key_hash: str,
++) -> Target:
++    # 先取原领域锁，最后才锁机会；评估器采用Product→Opportunity，反向会死锁。
++    if kind == ActionType.CONTENT_TASK and isinstance(payload, GeoOpportunityContentTaskRequest):
++        _product_scope(db, opportunity, payload.product_id)
++        task = content_planning.create_content_task(
++            db=db,
++            payload=ContentTaskCreate(
++                product_id=payload.product_id,
++                fact_version_id=payload.fact_version_id,
++                platform_profile_id=payload.platform_profile_id,
++            ),
++            actor=actor,
++            request_id=request_id,
++            idempotency_key="geo704:" + sha256(f"{actor.id}:{key_hash}".encode()).hexdigest(),
++            query_topic_id=opportunity.query_topic_id,
++            commit=False,
++        )
++        return Target(
++            "ContentTask",
++            task.id,
++            task.status,
++            task.product_id,
++            task.query_topic_id,
++            task.fact_version_id,
++            task.platform_profile_id,
++        )
++    if kind == ActionType.FACT_REVISION and isinstance(payload, GeoOpportunityFactRevisionRequest):
++        _product_scope(db, opportunity, payload.product_id)
++        context = product_facts.start_fact_revision_context(db=db, product_id=payload.product_id)
++        return Target(
++            "Product",
++            payload.product_id,
++            context.product.workflow_stage,
++            payload.product_id,
++            opportunity.query_topic_id,
++        )
++    if kind != ActionType.PUBLICATION_REPAIR:
++        raise ValueError("行动协议与类型不匹配")
++    if isinstance(payload, GeoOpportunityOpenIssueRequest):
++        identity = publication.publication_action_identity(
++            db=db, article_id=payload.published_article_id
++        )
++    elif isinstance(payload, (GeoOpportunityLinkIssueRequest, GeoOpportunityCreateRepairRequest)):
++        identity = publication.publication_action_identity(
++            db=db,
++            issue_id=payload.published_content_issue_id,
++            expected_issue_revision=payload.expected_issue_revision,
++        )
++    else:
++        raise ValueError("发布修复协议不匹配")
++    _product_scope(db, opportunity, identity.product_id)
++    if isinstance(payload, GeoOpportunityCreateRepairRequest):
++        task = publication.create_repair_task(
++            db=db,
++            issue_id=payload.published_content_issue_id,
++            payload=PublishedContentRepairTaskCreate(
++                fact_version_id=payload.fact_version_id,
++                expected_issue_revision=payload.expected_issue_revision,
++            ),
++            actor=actor,
++            request_id=request_id,
++            commit=False,
++        )
++        return Target(
++            "ContentTask",
++            task.id,
++            task.status,
++            task.product_id,
++            task.query_topic_id,
++            task.fact_version_id,
++            task.platform_profile_id,
++            identity.published_article_id,
++            identity.published_content_issue_id,
++        )
++    issue_id = identity.published_content_issue_id
++    if isinstance(payload, GeoOpportunityOpenIssueRequest):
++        issue = publication.open_published_content_issue(
++            db=db,
++            article_id=payload.published_article_id,
++            payload=PublishedContentIssueCreate(kind=payload.kind, description=payload.description),
++            actor=actor,
++            request_id=request_id,
++            commit=False,
++        )
++        issue_id = issue.id
++    assert issue_id is not None
++    return Target(
++        "PublishedContentIssue",
++        issue_id,
++        "OPEN",
++        identity.product_id,
++        identity.query_topic_id,
++        identity.fact_version_id,
++        identity.platform_profile_id,
++        identity.published_article_id,
++        issue_id,
++    )
++
++
++def link_action(
++    db: Session,
++    opportunity_id: UUID,
++    payload: ActionRequest,
++    *,
++    kind: ActionType,
++    actor: User,
++    request_id: str,
++    idempotency_key: str,
++) -> GeoOpportunityActionResult:
++    """同键同载荷重放原回执；后续目标完成或关闭机会不会修改历史行动。"""
++    if re.fullmatch(r"[\x21-\x7e]{8,128}", idempotency_key) is None:
++        raise AppError("VALIDATION_ERROR", "幂等键必须为8至128个可打印ASCII非空白字符", 422)
++    key_hash = sha256(idempotency_key.encode()).hexdigest()
++    request_hash = sha256(
++        json.dumps(
++            [kind.value, str(opportunity_id), payload.model_dump(mode="json")],
++            sort_keys=True,
++            separators=(",", ":"),
++            ensure_ascii=True,
++        ).encode()
++    ).hexdigest()
++    with command(db, actor) as current:
++        db.execute(
++            text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
++            {"key": f"geo-action:{current.id}:{key_hash}"},
++        )
++        existing = db.scalar(
++            select(GeoOpportunityAction).where(
++                GeoOpportunityAction.created_by == current.id,
++                GeoOpportunityAction.request_key_sha256 == key_hash,
++            )
++        )
++        if existing is not None:
++            if existing.request_sha256 != request_hash:
++                raise AppError("IDEMPOTENCY_CONFLICT", "幂等键已用于另一机会行动请求", 409)
++            assert existing.opportunity_revision_after is not None
++            result = GeoOpportunityActionResult(
++                action=action_records(db, [existing])[0],
++                opportunity_revision=existing.opportunity_revision_after,
++                replayed=True,
++            )
++            db.commit()
++            return result
++        initial = db.scalar(
++            select(GeoOpportunity)
++            .where(GeoOpportunity.id == opportunity_id)
++            .execution_options(populate_existing=True)
++        )
++        if initial is None:
++            raise not_found("GEO机会")
++        _check(initial, payload, kind, current)
++        target = _target(db, initial, kind, payload, current, request_id, key_hash)
++        opportunity = db.scalar(
++            select(GeoOpportunity)
++            .where(GeoOpportunity.id == opportunity_id)
++            .with_for_update()
++            .execution_options(populate_existing=True)
++        )
++        if opportunity is None:
++            raise not_found("GEO机会")
++        _check(opportunity, payload, kind, current)
++        sources = [
++            GeoOpportunitySourceSnapshot.model_validate(s)
++            for s in db.scalars(
++                select(GeoOpportunitySource)
++                .where(GeoOpportunitySource.opportunity_id == opportunity_id)
++                .order_by(GeoOpportunitySource.id)
++            )
++        ]
++        snapshot = GeoOpportunityActionSourceSnapshot(
++            schema_version=1,
++            opportunity_id=opportunity_id,
++            opportunity_revision=opportunity.revision,
++            trigger_snapshot=GeoOpportunityTriggerSnapshot.model_validate(
++                opportunity.trigger_snapshot
++            ),
++            sources=sources,
++            product_id=target.product_id,
++            query_topic_id=target.topic_id,
++            fact_version_id=target.fact_id,
++            platform_profile_id=target.platform_id,
++            published_article_id=target.article_id,
++            published_content_issue_id=target.issue_id,
++            request_id=request_id,
++        )
++        if opportunity.status == Status.ACKNOWLEDGED:
++            assert_transition(Status.ACKNOWLEDGED, Status.IN_PROGRESS)
++            opportunity.status = Status.IN_PROGRESS
++        opportunity.revision += 1
++        # 先flush机会的CAS结果，INSERT guard验证同事务中的确切来源/版本/目标。
++        db.flush()
++        action = GeoOpportunityAction(
++            opportunity_id=opportunity.id,
++            action_type=kind.value,
++            target_type=target.kind,
++            target_id=target.id,
++            status_snapshot=target.status,
++            created_by=current.id,
++            source_snapshot=snapshot.model_dump(mode="json"),
++            request_key_sha256=key_hash,
++            request_sha256=request_hash,
++            opportunity_revision_after=opportunity.revision,
++        )
++        db.add(action)
++        db.flush()
++        append_audit(
++            db,
++            AuditEntry(
++                actor_id=current.id,
++                business_module=AuditModule.GEO_OBSERVATION,
++                action="geo_opportunity.action_linked",
++                target_type="GeoOpportunity",
++                target_id=opportunity.id,
++                request_id=request_id,
++                outcome=AuditOutcome.SUCCESS,
++                result_message="机会行动已关联，来源证据保留",
++                details={
++                    "facts": {
++                        "action_id": str(action.id),
++                        "action_type": kind.value,
++                        "target_type": target.kind,
++                        "target_id": str(target.id),
++                        "revision": opportunity.revision,
++                        "status": opportunity.status,
++                    }
++                },
++            ),
++        )
++        db.flush()
++        result = GeoOpportunityActionResult(
++            action=action_records(db, [action])[0],
++            opportunity_revision=opportunity.revision,
++            replayed=False,
++        )
++        db.commit()
++        return result
+--- /dev/null
++++ after/backend/app/services/geo_opportunity_action_views.py
+@@ -0,0 +1,45 @@
++"""行动的批量只读导航；目标消失仍保留不可变ID及来源。"""
++
++from collections.abc import Sequence
++
++from sqlalchemy import select
++from sqlalchemy.orm import Session
++
++from app.models.content import ContentTask
++from app.models.geo_opportunities import GeoOpportunityAction
++from app.models.product_facts import Product
++from app.models.publication import PublishedContentIssue
++from app.schemas.geo_opportunity_workbench import GeoOpportunityActionRecord
++
++
++def action_records(
++    db: Session, actions: Sequence[GeoOpportunityAction]
++) -> list[GeoOpportunityActionRecord]:
++    type TargetModel = type[Product] | type[ContentTask] | type[PublishedContentIssue]
++    targets: dict[str, tuple[TargetModel, str]] = {
++        "Product": (Product, "/products/{id}/facts"),
++        "ContentTask": (ContentTask, "/content/tasks/{id}"),
++        "PublishedContentIssue": (PublishedContentIssue, "/publishing/issues/{id}"),
++    }
++    available = {}
++    for kind, (model, _path) in targets.items():
++        ids = {
++            a.target_id for a in actions if a.source_snapshot is not None and a.target_type == kind
++        }
++        available[kind] = (
++            set(db.scalars(select(model.id).where(model.id.in_(ids)))) if ids else set()
++        )
++    result = []
++    for action in actions:
++        value = GeoOpportunityActionRecord.model_validate(action)
++        if action.source_snapshot is not None:
++            found = action.target_id in available[action.target_type]
++            value.target_available = found
++            value.navigation_path = (
++                targets[action.target_type][1].format(id=action.target_id)
++                + f"?source_opportunity_id={action.opportunity_id}"
++                if found
++                else None
++            )
++        result.append(value)
++    return result
+--- /dev/null
++++ after/backend/alembic/versions/0060_geo_opportunity_actions.py
+@@ -0,0 +1,24 @@
++"""GEO-704：行动来源快照、幂等回执与目标生命周期保护。"""
++
++from pathlib import Path
++
++from alembic import op
++
++revision = "0060_geo_opportunity_actions"
++down_revision = "0059_geo_opportunities"
++branch_labels = None
++depends_on = None
++
++
++def upgrade() -> None:
++    op.execute("SET LOCAL lock_timeout = '5s'")
++    op.execute("SET LOCAL statement_timeout = '120s'")
++    op.get_bind().exec_driver_sql(
++        (
++            Path(__file__).resolve().parents[1] / "sql" / "0060_geo_opportunity_actions.sql"
++        ).read_text()
++    )
++
++
++def downgrade() -> None:
++    raise RuntimeError("0060行动历史不可破坏性降级；请恢复备份或使用前向修复迁移")
+--- /dev/null
++++ after/backend/alembic/sql/0060_geo_opportunity_actions.sql
+@@ -0,0 +1,120 @@
++-- 0060仅加列；旧行动快照保持NULL，不补造历史证据。
++ALTER TABLE geo_opportunity_actions
++  ADD COLUMN source_snapshot jsonb,
++  ADD COLUMN request_key_sha256 varchar(64),
++  ADD COLUMN request_sha256 varchar(64),
++  ADD COLUMN opportunity_revision_after integer;
++ALTER TABLE geo_opportunity_actions ADD CONSTRAINT ck_geo_opportunity_action_receipt CHECK (
++  (source_snapshot IS NULL AND request_key_sha256 IS NULL AND request_sha256 IS NULL AND opportunity_revision_after IS NULL) OR
++  (source_snapshot IS NOT NULL AND request_key_sha256 IS NOT NULL AND request_sha256 IS NOT NULL AND opportunity_revision_after IS NOT NULL
++    AND request_key_sha256 ~ '^[0-9a-f]{64}$' AND request_sha256 ~ '^[0-9a-f]{64}$' AND opportunity_revision_after >= 2));
++CREATE UNIQUE INDEX uq_geo_opportunity_action_request ON geo_opportunity_actions(created_by,request_key_sha256)
++  WHERE request_key_sha256 IS NOT NULL;
++CREATE INDEX ix_geo_opportunity_action_target ON geo_opportunity_actions(target_type,target_id);
++
++CREATE FUNCTION geo_opportunity_action_guard() RETURNS trigger LANGUAGE plpgsql AS $$
++DECLARE s jsonb; o geo_opportunities; t content_tasks; i published_content_issues; actual_sources jsonb; valid_product boolean;
++BEGIN
++  s := NEW.source_snapshot;
++  IF NEW.action_type NOT IN ('FACT_REVISION','CONTENT_TASK','PUBLICATION_REPAIR') THEN RETURN NEW; END IF;
++  SELECT * INTO o FROM geo_opportunities WHERE id=NEW.opportunity_id;
++  SELECT jsonb_agg(jsonb_build_object('run_id',run_id,'analysis_revision_id',analysis_revision_id,
++    'review_id',review_id,'source_role',source_role) ORDER BY id) INTO actual_sources
++    FROM geo_opportunity_sources WHERE opportunity_id=NEW.opportunity_id;
++  IF s IS NULL OR NOT geo_rule_object_keys(s,ARRAY['schema_version','opportunity_id','opportunity_revision',
++      'trigger_snapshot','sources','product_id','query_topic_id','fact_version_id','platform_profile_id',
++      'published_article_id','published_content_issue_id','request_id'])
++    OR s->'schema_version' <> '1'::jsonb OR o.status <> 'IN_PROGRESS'
++    OR (s->>'opportunity_id')::uuid IS DISTINCT FROM NEW.opportunity_id
++    OR (s->>'opportunity_revision')::integer + 1 IS DISTINCT FROM NEW.opportunity_revision_after
++    OR o.revision IS DISTINCT FROM NEW.opportunity_revision_after
++    OR s->'trigger_snapshot' IS DISTINCT FROM o.trigger_snapshot
++    OR s->'sources' IS DISTINCT FROM actual_sources
++    OR jsonb_typeof(s->'request_id') <> 'string' OR length(s->>'request_id') NOT BETWEEN 1 AND 100
++    OR s->>'request_id' !~ '^[ -~]+$' OR s->>'product_id' IS NULL THEN
++    RAISE EXCEPTION 'invalid action source' USING ERRCODE='23514',CONSTRAINT='ck_geo_opportunity_action_source';
++  END IF;
++  WITH saved AS MATERIALIZED (
++    SELECT subject.value FROM geo_opportunity_sources source
++    JOIN geo_observation_runs run ON run.id=source.run_id
++    CROSS JOIN LATERAL jsonb_array_elements(run.input_snapshot->'subjects') subject
++    WHERE source.opportunity_id=NEW.opportunity_id
++  ) SELECT EXISTS (
++    SELECT 1 FROM saved WHERE value->>'subject_type'='OWN_PRODUCT'
++      AND value->>'product_id'=s->>'product_id'
++      AND (NOT EXISTS(SELECT 1 FROM saved WHERE value->>'subject_type'='OWN_PRODUCT'
++        AND value->>'id'=o.subject_id::text) OR value->>'id'=o.subject_id::text)
++  ) INTO valid_product;
++  IF NOT valid_product THEN
++    RAISE EXCEPTION 'action product outside saved source' USING ERRCODE='23514',CONSTRAINT='ck_geo_opportunity_action_target_owner';
++  END IF;
++  IF NEW.action_type='FACT_REVISION' AND NEW.target_type='Product' THEN
++    PERFORM id FROM products WHERE id=NEW.target_id AND status='ACTIVE' FOR KEY SHARE;
++    IF NOT FOUND OR NEW.target_id IS DISTINCT FROM (s->>'product_id')::uuid THEN
++      RAISE EXCEPTION 'invalid fact action target' USING ERRCODE='23514',CONSTRAINT='ck_geo_opportunity_action_target_owner';
++    END IF;
++  ELSIF NEW.target_type='ContentTask' AND NEW.action_type IN ('CONTENT_TASK','PUBLICATION_REPAIR') THEN
++    SELECT * INTO t FROM content_tasks WHERE id=NEW.target_id FOR KEY SHARE;
++    IF t.id IS NULL OR (t.product_id,t.fact_version_id,t.platform_profile_id,t.query_topic_id) IS DISTINCT FROM
++      ((s->>'product_id')::uuid,(s->>'fact_version_id')::uuid,(s->>'platform_profile_id')::uuid,(s->>'query_topic_id')::uuid)
++      OR NEW.status_snapshot IS DISTINCT FROM t.status
++      OR (NEW.action_type='CONTENT_TASK' AND (t.query_topic_id IS DISTINCT FROM o.query_topic_id
++        OR s->>'published_article_id' IS NOT NULL OR s->>'published_content_issue_id' IS NOT NULL))
++      OR (NEW.action_type='PUBLICATION_REPAIR' AND (
++        t.source_published_content_issue_id IS DISTINCT FROM (s->>'published_content_issue_id')::uuid
++        OR NOT EXISTS(SELECT 1 FROM published_content_issues WHERE id=t.source_published_content_issue_id
++          AND published_article_id=(s->>'published_article_id')::uuid AND status='OPEN'))) THEN
++      RAISE EXCEPTION 'invalid task action target' USING ERRCODE='23514',CONSTRAINT='ck_geo_opportunity_action_target_owner';
++    END IF;
++  ELSIF NEW.action_type='PUBLICATION_REPAIR' AND NEW.target_type='PublishedContentIssue' THEN
++    SELECT * INTO i FROM published_content_issues WHERE id=NEW.target_id AND status='OPEN' FOR KEY SHARE;
++    IF i.id IS NULL OR i.id IS DISTINCT FROM (s->>'published_content_issue_id')::uuid
++      OR i.published_article_id IS DISTINCT FROM (s->>'published_article_id')::uuid
++      OR NEW.status_snapshot IS DISTINCT FROM i.status THEN
++      RAISE EXCEPTION 'invalid issue action target' USING ERRCODE='23514',CONSTRAINT='ck_geo_opportunity_action_target_owner';
++    END IF;
++    -- 只读父身份：Issue锁阻止聚合删除；再锁父Task会与Task→Issue删除锁序反转。
++    SELECT task.* INTO t FROM content_tasks task
++      JOIN publication_works work ON work.content_task_id=task.id WHERE work.id=i.published_article_id;
++    IF t.id IS NULL OR (t.product_id,t.fact_version_id,t.platform_profile_id,t.query_topic_id) IS DISTINCT FROM
++      ((s->>'product_id')::uuid,(s->>'fact_version_id')::uuid,(s->>'platform_profile_id')::uuid,(s->>'query_topic_id')::uuid) THEN
++      RAISE EXCEPTION 'issue snapshot differs from source task' USING ERRCODE='23514',CONSTRAINT='ck_geo_opportunity_action_target_owner';
++    END IF;
++  ELSE
++    RAISE EXCEPTION 'unsupported action target'  USING ERRCODE='23514',CONSTRAINT='ck_geo_opportunity_action_target_owner';
++  END IF;
++  RETURN NEW;
++END $$;
++CREATE TRIGGER geo_opportunity_action_guard BEFORE INSERT ON geo_opportunity_actions
++  FOR EACH ROW EXECUTE FUNCTION geo_opportunity_action_guard();
++
++-- 目标UUID和快照永不清空；归档聚合永久删除仅产生可识别的目标缺失。
++CREATE FUNCTION geo_opportunity_action_delete_guard() RETURNS trigger LANGUAGE plpgsql AS $$
++DECLARE root uuid; permitted boolean; referenced boolean;
++BEGIN
++  IF TG_TABLE_NAME='content_tasks' THEN
++    referenced := EXISTS(SELECT 1 FROM geo_opportunity_actions WHERE target_type='ContentTask' AND target_id=OLD.id);
++    permitted := OLD.archived_at IS NOT NULL AND current_setting('partsignal.content_task_delete_id',true)=OLD.id::text;
++  ELSE
++    root := nullif(current_setting('partsignal.content_task_delete_id',true),'')::uuid;
++    permitted := EXISTS(SELECT 1 FROM content_tasks WHERE id=root AND archived_at IS NOT NULL);
++    IF TG_TABLE_NAME='published_articles' THEN
++      referenced := EXISTS(SELECT 1 FROM geo_opportunity_actions WHERE source_snapshot->>'published_article_id'=OLD.id::text
++        OR (target_type='PublishedArticle' AND target_id=OLD.id));
++      permitted := permitted AND EXISTS(SELECT 1 FROM publication_works WHERE id=OLD.id AND content_task_id=root);
++    ELSE
++      referenced := EXISTS(SELECT 1 FROM geo_opportunity_actions WHERE target_type='PublishedContentIssue' AND target_id=OLD.id);
++      -- 父Article删除的守卫已验证对应归档aggregate，既有Issue guard再验证同一删除语境。
++    END IF;
++  END IF;
++  IF referenced AND NOT coalesce(permitted,false) THEN
++    RAISE EXCEPTION 'action target requires archived aggregate deletion' USING ERRCODE='23514',CONSTRAINT='ck_geo_opportunity_action_target_delete';
++  END IF;
++  RETURN OLD;
++END $$;
++CREATE TRIGGER geo_action_task_delete BEFORE DELETE ON content_tasks
++  FOR EACH ROW EXECUTE FUNCTION geo_opportunity_action_delete_guard();
++CREATE TRIGGER geo_action_article_delete BEFORE DELETE ON published_articles
++  FOR EACH ROW EXECUTE FUNCTION geo_opportunity_action_delete_guard();
++CREATE TRIGGER geo_action_issue_delete BEFORE DELETE ON published_content_issues
++  FOR EACH ROW EXECUTE FUNCTION geo_opportunity_action_delete_guard();
+--- /dev/null
++++ after/backend/tests/integration/geo_opportunity_actions_support.py
+@@ -0,0 +1,163 @@
++"""704真实PG/HTTP：复用领域服务、原子回执、历史来源和恢复边界。"""
++
++from copy import deepcopy
++from hashlib import sha256
++from uuid import UUID, uuid4
++
++import pytest
++from sqlalchemy import func, select
++
++from app.models.configuration import PlatformProfile, PlatformType
++from app.models.content import ContentTask, ContentVersion
++from app.models.geo_opportunities import GeoOpportunity, GeoOpportunitySource
++from app.models.identity import User
++from app.models.publication import PlatformAccount
++from tests.integration.test_geo_opportunity_workbench import (
++    PATH,
++    analysis_engine,
++    answer_database,
++    api,
++    detail,
++    harness,
++    opportunity,
++    overview_api,
++    plan_database,
++    review_api,
++    run_database,
++)
++from tests.integration.test_publication_workflow import _complete_publication
++
++pytestmark = pytest.mark.integration
++__all__ = [
++    "analysis_engine",
++    "answer_database",
++    "api",
++    "harness",
++    "overview_api",
++    "plan_database",
++    "review_api",
++    "run_database",
++]
++
++
++def ready(api):
++    case, filters, correction, identity = opportunity(api)
++    value = detail(api, identity)["opportunity"]
++    response = api.engineer.post(
++        f"{PATH}/{identity}/acknowledge", json={"expected_revision": value["revision"]}
++    )
++    assert response.status_code == 200, response.text
++    with api.harness.factory.begin() as db:
++        actor = db.get(User, api.engineer_id)
++        kind = PlatformType(name="虚构行动平台", slug=f"g704-{uuid4()}", created_by=actor.id)
++        db.add(kind)
++        db.flush()
++        profile = PlatformProfile(
++            name="虚构社区",
++            slug=f"g704-{uuid4()}",
++            platform_type_id=kind.id,
++            allowed_domains=["community.example.invalid"],
++        )
++        db.add(profile)
++        db.flush()
++        profile_id = profile.id
++    return (
++        case,
++        filters,
++        correction,
++        identity,
++        {
++            "expected_revision": response.json()["revision"],
++            "product_id": str(case.input["subjects"][1]["product_id"]),
++            "fact_version_id": str(case.facts[0]),
++            "platform_profile_id": str(profile_id),
++        },
++    )
++
++
++def post(api, identity, suffix, payload, key=None):
++    return api.engineer.post(
++        f"{PATH}/{identity}/actions/{suffix}",
++        json=payload,
++        headers={"Idempotency-Key": key or str(uuid4()), "X-Request-ID": "geo704-integration"},
++    )
++
++
++def count(db, model):
++    return db.scalar(select(func.count()).select_from(model))
++
++
++def publish_task(api, task_id, fact_id):
++    """准备人工批准稿；完成状态由实际发布领域服务产生。"""
++    with api.harness.factory() as db:
++        actor = db.get(User, api.engineer_id)
++        task = db.get(ContentTask, UUID(str(task_id)))
++        content = ContentVersion(
++            task_id=task.id,
++            fact_version_id=UUID(str(fact_id)),
++            version=1,
++            source_type="HUMAN",
++            title="虚构行动内容",
++            summary="虚构摘要",
++            body_markdown="# 虚构公开内容",
++            tags=[],
++            content_hash=sha256(str(task.id).encode()).hexdigest(),
++            status="APPROVED",
++            quality_issues=[],
++            change_summary="虚构人工批准稿",
++            created_by=actor.id,
++        )
++        account = PlatformAccount(
++            platform_profile_id=task.platform_profile_id,
++            label="虚构账号",
++            account_identifier=str(uuid4()),
++        )
++        db.add_all([content, account])
++        db.flush()
++        task.current_content_version_id = content.id
++        db.commit()
++        work = _complete_publication(
++            db, {"user": actor, "content": content, "account": account}, suffix=f"geo704-{uuid4()}"
++        )
++        return work.id
++
++
++def citation_opportunity(api, identity):
++    """行动测试夹具：复用真实来源，单独建立引用丢失机会；规则评估另有702覆盖。"""
++    with api.harness.factory.begin() as db:
++        original = db.get(GeoOpportunity, UUID(identity))
++        trigger = deepcopy(original.trigger_snapshot)
++        trigger["rule_code"] = "OWN_CITATION_LOST"
++        new = GeoOpportunity(
++            identity_key=sha256(str(uuid4()).encode()).hexdigest(),
++            rule_code="OWN_CITATION_LOST",
++            priority=original.priority,
++            status="OPEN",
++            trigger_snapshot=trigger,
++            source_date_from=original.source_date_from,
++            source_date_to=original.source_date_to,
++            subject_id=original.subject_id,
++            query_topic_id=original.query_topic_id,
++            prompt_variant_id=original.prompt_variant_id,
++            collection_profile_id=original.collection_profile_id,
++            engine_surface_id=original.engine_surface_id,
++            batch_id=original.batch_id,
++        )
++        db.add(new)
++        db.flush()
++        for source in db.scalars(
++            select(GeoOpportunitySource).where(GeoOpportunitySource.opportunity_id == original.id)
++        ):
++            db.add(
++                GeoOpportunitySource(
++                    opportunity_id=new.id,
++                    run_id=source.run_id,
++                    analysis_revision_id=source.analysis_revision_id,
++                    review_id=source.review_id,
++                    source_role=source.source_role,
++                )
++            )
++        new_id = str(new.id)
++    response = api.engineer.post(f"{PATH}/{new_id}/acknowledge", json={"expected_revision": 1})
++    assert response.status_code == 200, response.text
++    return new_id
+--- /dev/null
++++ after/backend/tests/integration/test_geo_opportunity_actions.py
+@@ -0,0 +1,432 @@
++"""704真实PG/HTTP：复用领域服务、原子回执、历史来源和恢复边界。"""
++
++from concurrent.futures import ThreadPoolExecutor
++from copy import deepcopy
++from threading import Barrier
++from uuid import UUID, uuid4
++
++import pytest
++from sqlalchemy import delete, event, func, select
++from sqlalchemy.exc import IntegrityError
++
++from app.errors import AppError
++from app.models.content import ContentTask
++from app.models.geo_opportunities import GeoOpportunity, GeoOpportunityAction
++from app.models.identity import AuditLog, User
++from app.models.product_facts import FactVersion, Product
++from app.schemas.content import ContentTaskCreate, ContentTaskPermanentDeleteRequest
++from app.schemas.geo_opportunities import GeoOpportunityActionType
++from app.schemas.geo_opportunity_actions import GeoOpportunityContentTaskRequest
++from app.services import content_planning, publication
++from app.services import geo_opportunity_actions as actions
++from tests.integration.geo_opportunity_actions_support import (
++    citation_opportunity,
++    count,
++    post,
++    publish_task,
++    ready,
++)
++from tests.integration.test_geo_opportunity_workbench import (
++    PATH,
++    analysis_engine,
++    answer_database,
++    api,
++    detail,
++    harness,
++    overview_api,
++    plan_database,
++    review_api,
++    run_database,
++)
++
++pytestmark = pytest.mark.integration
++__all__ = [
++    "analysis_engine",
++    "answer_database",
++    "api",
++    "harness",
++    "overview_api",
++    "plan_database",
++    "review_api",
++    "run_database",
++]
++
++
++def test_fact_navigation_and_content_creation_preserve_sources_replay_and_safe_audit(api):
++    case, filters, correction, identity, payload = ready(api)
++    before = detail(api, identity)
++    assert before["available_action_types"] == ["FACT_REVISION", "CONTENT_TASK"]
++    with api.harness.factory() as db:
++        facts_before = count(db, FactVersion)
++        body_before = db.get(Product, UUID(payload["product_id"])).facts_body_markdown
++    fact = {k: payload[k] for k in ("expected_revision", "product_id")}
++    result = post(api, identity, "fact-revision", fact, "geo704-fact-key")
++    assert result.status_code == 200, result.text
++    assert result.headers["Cache-Control"] == "no-store"
++    action = result.json()["action"]
++    assert action["target_type"] == "Product" and action["target_id"] == payload["product_id"]
++    assert (
++        action["navigation_path"]
++        == f"/products/{payload['product_id']}/facts?source_opportunity_id={identity}"
++    )
++    payload["expected_revision"] = result.json()["opportunity_revision"]
++    created = post(api, identity, "content-task", payload, "geo704-content-key")
++    assert created.status_code == 200, created.text
++    receipt = created.json()
++    replay = post(api, identity, "content-task", payload, "geo704-content-key")
++    assert replay.status_code == 200 and replay.json() == receipt | {"replayed": True}
++    conflict = post(
++        api, identity, "content-task", payload | {"expected_revision": 999}, "geo704-content-key"
++    )
++    assert (
++        conflict.status_code == 409 and conflict.json()["error"]["code"] == "IDEMPOTENCY_CONFLICT"
++    )
++    after = detail(api, identity)
++    assert after["opportunity"]["status"] == "IN_PROGRESS"
++    assert (
++        after["trigger_snapshot"] == before["trigger_snapshot"]
++        and after["sources"] == before["sources"]
++    )
++    snapshot = receipt["action"]["source_snapshot"]
++    assert snapshot["trigger_snapshot"] == before["trigger_snapshot"]
++    assert snapshot["sources"] == [
++        {
++            k: v
++            for k, v in s.items()
++            if k in {"run_id", "analysis_revision_id", "review_id", "source_role"}
++        }
++        for s in before["sources"]["items"]
++    ]
++    with api.harness.factory() as db:
++        task = db.get(ContentTask, UUID(receipt["action"]["target_id"]))
++        assert (
++            str(task.query_topic_id)
++            == snapshot["query_topic_id"]
++            == before["opportunity"]["scope"]["query_topic_id"]
++        )
++        assert str(task.fact_version_id) == payload["fact_version_id"]
++        assert (
++            count(db, FactVersion) == facts_before
++            and db.get(Product, task.product_id).facts_body_markdown == body_before
++        )
++        logs = list(
++            db.scalars(
++                select(AuditLog).where(
++                    AuditLog.target_id == identity,
++                    AuditLog.action == "geo_opportunity.action_linked",
++                )
++            )
++        )
++        assert len(logs) == 2
++        assert set(logs[-1].details["facts"]) == {
++            "action_id",
++            "action_type",
++            "target_type",
++            "target_id",
++            "revision",
++            "status",
++        }
++        assert "虚构公开事实" not in str(logs[-1].details)
++        log_id = logs[-1].id
++    audit = api.admin.get(f"/api/v1/audit-logs/{log_id}")
++    assert audit.status_code == 200 and audit.json()["related_entry"]["kind"] == "GeoOpportunity"
++    # 新复核/评估只追加来源；旧行动冻结身份不随之重写。
++    changed = deepcopy(correction)
++    changed["claims"][0]["explanation"] = "行动后新增复核"
++    assert api.submit(case, decision="CORRECTED", correction_payload=changed).status_code == 201
++    from tests.integration.test_geo_opportunities import evaluate
++
++    evaluate(api, filters)
++    newest = detail(api, identity)
++    assert newest["sources"]["total"] == 2
++    assert newest["actions"][-1]["source_snapshot"] == snapshot
++
++
++@pytest.mark.parametrize("phase", ["audit", "flush", "commit"])
++def test_failure_rolls_back_domain_target_state_receipt_and_audit_then_same_key_recovers(
++    api, monkeypatch, phase
++):
++    _, _, _, identity, payload = ready(api)
++    with api.harness.factory() as db:
++        before = (count(db, ContentTask), count(db, GeoOpportunityAction), count(db, AuditLog))
++        actor = db.get(User, api.engineer_id)
++        original = actions.append_audit
++
++        def fail(*_args):
++            raise RuntimeError("虚构行动审计失败")
++
++        if phase == "audit":
++            monkeypatch.setattr(actions, "append_audit", fail)
++        elif phase == "flush":
++
++            def fail_flush(_session, _context, _instances):
++                if any(isinstance(row, GeoOpportunityAction) for row in db.new):
++                    fail()
++
++            event.listen(db, "before_flush", fail_flush)
++        else:
++            event.listen(db, "before_commit", fail)
++        with pytest.raises(RuntimeError, match="审计失败"):
++            actions.link_action(
++                db,
++                UUID(identity),
++                GeoOpportunityContentTaskRequest(**payload),
++                kind=GeoOpportunityActionType.CONTENT_TASK,
++                actor=actor,
++                request_id="geo704-failure",
++                idempotency_key="geo704-recovery-key",
++            )
++        assert (
++            count(db, ContentTask),
++            count(db, GeoOpportunityAction),
++            count(db, AuditLog),
++        ) == before
++        assert db.get(GeoOpportunity, UUID(identity)).status == "ACKNOWLEDGED"
++        monkeypatch.setattr(actions, "append_audit", original)
++        if phase == "flush":
++            event.remove(db, "before_flush", fail_flush)
++        elif phase == "commit":
++            event.remove(db, "before_commit", fail)
++    assert post(api, identity, "content-task", payload, "geo704-recovery-key").status_code == 200
++
++
++def test_late_cas_conflict_rolls_back_uncommitted_target(api, monkeypatch):
++    _, _, _, identity, payload = ready(api)
++    original = actions._target
++
++    def conflicting(*args):
++        target = original(*args)
++        response = api.admin.post(
++            f"{PATH}/{identity}/dismiss",
++            json={
++                "expected_revision": payload["expected_revision"],
++                "resolution_code": "OTHER",
++                "resolution_comment": "并发关闭",
++            },
++        )
++        assert response.status_code == 200, response.text
++        return target
++
++    monkeypatch.setattr(actions, "_target", conflicting)
++    with api.harness.factory() as db:
++        before = count(db, ContentTask)
++    response = post(api, identity, "content-task", payload)
++    assert response.status_code == 409 and response.json()["error"]["code"] == "REVISION_CONFLICT"
++    with api.harness.factory() as db:
++        assert count(db, ContentTask) == before
++        assert (
++            db.scalar(
++                select(func.count())
++                .select_from(GeoOpportunityAction)
++                .where(GeoOpportunityAction.opportunity_id == UUID(identity))
++            )
++            == 0
++        )
++        assert db.get(GeoOpportunity, UUID(identity)).status == "DISMISSED"
++
++
++def test_permissions_csrf_scope_fact_and_required_key(api):
++    _, _, _, identity, payload = ready(api)
++    path = f"{PATH}/{identity}/actions/content-task"
++    assert (
++        api.anonymous.post(
++            path, json=payload, headers={"Idempotency-Key": "geo704-key"}
++        ).status_code
++        == 401
++    )
++    assert api.engineer.post(path, json=payload).status_code == 422
++    assert (
++        api.engineer.post(
++            path,
++            json=payload,
++            headers={
++                "Idempotency-Key": "geo704-key",
++                "X-CSRF-Token": "wrong-token-must-be-at-least-32-bytes",
++            },
++        ).status_code
++        == 403
++    )
++    assert (
++        post(api, identity, "content-task", payload | {"unexpected": "private-canary"}).status_code
++        == 422
++    )
++    mismatch = post(api, identity, "content-task", payload | {"product_id": str(uuid4())})
++    assert mismatch.status_code == 422 and mismatch.json()["error"]["code"] == "VALIDATION_ERROR"
++    invalid_fact = post(
++        api,
++        identity,
++        "content-task",
++        payload | {"fact_version_id": str(uuid4())},
++        "recover-invalid-fact",
++    )
++    assert (
++        invalid_fact.status_code == 409
++        and invalid_fact.json()["error"]["code"] == "FACT_NOT_APPROVED"
++    )
++    assert post(api, identity, "content-task", payload, "recover-invalid-fact").status_code == 200
++    with api.harness.factory.begin() as db:
++        actor = db.get(User, api.engineer_id)
++        actor.must_change_password = True
++    assert post(api, identity, "content-task", payload, "recover-invalid-fact").status_code == 403
++
++
++def test_concurrent_same_key_replays_and_different_actors_revision_has_one_winner(api):
++    _, _, _, identity, payload = ready(api)
++
++    with api.harness.factory() as db:
++        tasks_before = count(db, ContentTask)
++
++    def concurrent(actor_ids, keys):
++        barrier = Barrier(2)
++
++        def invoke(actor_id, key):
++            with api.harness.factory() as db:
++                actor = db.get(User, actor_id)
++                barrier.wait(timeout=10)
++                try:
++                    return actions.link_action(
++                        db,
++                        UUID(identity),
++                        GeoOpportunityContentTaskRequest(**payload),
++                        kind=GeoOpportunityActionType.CONTENT_TASK,
++                        actor=actor,
++                        request_id="geo704-concurrent",
++                        idempotency_key=key,
++                    )
++                except AppError as error:
++                    return error.code
++
++        with ThreadPoolExecutor(max_workers=2) as pool:
++            return list(pool.map(invoke, actor_ids, keys))
++
++    results = concurrent([api.engineer_id] * 2, ["geo704-concurrent-key"] * 2)
++    assert {r.replayed for r in results} == {False, True}
++    assert len({r.action.id for r in results}) == 1
++    payload["expected_revision"] = results[0].opportunity_revision
++    results = concurrent(
++        [api.engineer_id, api.harness.database.runs.plan.actor],
++        ["different-key-a", "different-key-b"],
++    )
++    assert len([r for r in results if r == "REVISION_CONFLICT"]) == 1
++    with api.harness.factory() as db:
++        assert (
++            db.scalar(
++                select(func.count())
++                .select_from(GeoOpportunityAction)
++                .where(GeoOpportunityAction.opportunity_id == UUID(identity))
++            )
++            == 2
++        )
++        assert count(db, ContentTask) == tasks_before + 2
++
++
++def test_completion_does_not_resolve_and_authorized_aggregate_delete_preserves_action(api):
++    _, _, _, identity, payload = ready(api)
++    created = post(api, identity, "content-task", payload, "geo704-deletion-key").json()
++    task_id = UUID(created["action"]["target_id"])
++    with api.harness.factory() as db:
++        actor = db.get(User, api.engineer_id)
++        with pytest.raises(AppError) as blocked:
++            publication.delete_content_task(
++                db=db, task_id=task_id, expected_revision=0, actor=actor, request_id="geo704-delete"
++            )
++        assert blocked.value.code == "CONTENT_TASK_REQUIRES_ARCHIVE"
++        db.rollback()
++        with pytest.raises(IntegrityError):
++            db.execute(delete(ContentTask).where(ContentTask.id == task_id))
++        db.rollback()
++    publish_task(api, task_id, payload["fact_version_id"])
++    assert detail(api, identity)["opportunity"]["status"] == "IN_PROGRESS"
++    with api.harness.factory() as db:
++        task = db.get(ContentTask, task_id)
++        task = publication.archive_content_task(
++            db=db, task_id=task_id, expected_revision=task.revision
++        )
++        publication.permanently_delete_content_task(
++            db=db,
++            task_id=task_id,
++            payload=ContentTaskPermanentDeleteRequest(
++                expected_revision=task.revision, confirmation_text="永久删除"
++            ),
++            actor=db.get(User, api.harness.database.runs.plan.actor),
++            request_id="geo704-permanent-delete",
++        )
++    after = detail(api, identity)
++    assert after["actions"][0]["target_available"] is False
++    assert after["actions"][0]["navigation_path"] is None
++    assert after["actions"][0]["source_snapshot"] == created["action"]["source_snapshot"]
++    replay = post(api, identity, "content-task", payload, "geo704-deletion-key")
++    assert (
++        replay.status_code == 200
++        and replay.json()["replayed"]
++        and replay.json()["action"]["target_available"] is False
++    )
++
++
++def test_publication_open_link_repair_unique_failure_and_article_deletion_blocker(api):
++    _, _, _, identity, payload = ready(api)
++    with api.harness.factory() as db:
++        task = content_planning.create_content_task(
++            db=db,
++            payload=ContentTaskCreate(
++                **{k: v for k, v in payload.items() if k != "expected_revision"}
++            ),
++            actor=db.get(User, api.engineer_id),
++            request_id="geo704-original",
++            idempotency_key=str(uuid4()),
++        )
++        task_id = task.id
++    article_id = publish_task(api, task_id, payload["fact_version_id"])
++    identity = citation_opportunity(api, identity)
++    request = {
++        "mode": "OPEN_ISSUE",
++        "expected_revision": 2,
++        "published_article_id": str(article_id),
++        "kind": "CONTENT_CHANGED",
++        "description": "行动的私密说明，不应进入审计",
++    }
++    opened = post(api, identity, "publication-repair", request, "geo704-open-issue")
++    assert opened.status_code == 200, opened.text
++    value = opened.json()
++    issue_id = value["action"]["target_id"]
++    link = {
++        "mode": "LINK_ISSUE",
++        "expected_revision": value["opportunity_revision"],
++        "published_content_issue_id": issue_id,
++        "expected_issue_revision": 0,
++    }
++    linked = post(api, identity, "publication-repair", link)
++    assert linked.status_code == 200, linked.text
++    repair = link | {
++        "mode": "CREATE_REPAIR",
++        "expected_revision": linked.json()["opportunity_revision"],
++        "fact_version_id": payload["fact_version_id"],
++    }
++    repaired = post(api, identity, "publication-repair", repair, "geo704-create-repair")
++    assert repaired.status_code == 200, repaired.text
++    assert repaired.json()["action"]["target_type"] == "ContentTask"
++    snapshot = repaired.json()["action"]["source_snapshot"]
++    assert (
++        snapshot["published_article_id"] == str(article_id)
++        and snapshot["published_content_issue_id"] == issue_id
++    )
++    duplicate = post(
++        api,
++        identity,
++        "publication-repair",
++        repair | {"expected_revision": repaired.json()["opportunity_revision"]},
++    )
++    assert (
++        duplicate.status_code == 409 and duplicate.json()["error"]["code"] == "REPAIR_TASK_EXISTS"
++    )
++    with api.harness.factory() as db:
++        with pytest.raises(AppError) as blocked:
++            publication.preview_published_article_permanent_deletion(db=db, article_id=article_id)
++        assert blocked.value.code == "PUBLISHED_ARTICLE_IN_USE"
++        assert "GEO_OPPORTUNITY_ACTION" in str(blocked.value.details)
++        db.rollback()
++        logs = list(db.scalars(select(AuditLog).where(AuditLog.target_id == identity)))
++        assert len(
++            [row for row in logs if row.action == "geo_opportunity.action_linked"]
++        ) == 3 and all("私密说明" not in str(row.details) for row in logs)
++    assert detail(api, identity)["opportunity"]["status"] == "IN_PROGRESS"
+--- /dev/null
++++ after/backend/tests/integration/test_geo_opportunity_action_guards.py
+@@ -0,0 +1,214 @@
++"""704数据库最终归属防线与旧行动删除合同的真实PG反例。"""
++
++from copy import deepcopy
++from uuid import UUID, uuid4
++
++import pytest
++from sqlalchemy import select
++from sqlalchemy.exc import IntegrityError
++
++from app.errors import AppError
++from app.models.geo_opportunities import GeoOpportunity, GeoOpportunityAction
++from app.models.identity import User
++from app.models.publication import PublicationWork
++from app.schemas.content import ContentTaskCreate, ContentTaskPermanentDeleteRequest
++from app.schemas.publication import (
++    PublishedArticlePermanentDeleteRequest,
++    PublishedContentIssueCreate,
++)
++from app.services import content_planning, publication
++from app.services.publication_queries import published_article_deletion_blockers
++from tests.integration.geo_opportunity_actions_support import (
++    citation_opportunity,
++    post,
++    publish_task,
++    ready,
++)
++from tests.integration.test_geo_opportunity_workbench import (
++    analysis_engine,
++    answer_database,
++    api,
++    detail,
++    harness,
++    overview_api,
++    plan_database,
++    review_api,
++    run_database,
++)
++
++pytestmark = pytest.mark.integration
++__all__ = [
++    "analysis_engine",
++    "answer_database",
++    "api",
++    "harness",
++    "overview_api",
++    "plan_database",
++    "review_api",
++    "run_database",
++]
++
++
++def context(api):
++    _, _, _, identity, payload = ready(api)
++    with api.harness.factory() as db:
++        task = content_planning.create_content_task(
++            db=db,
++            payload=ContentTaskCreate(
++                **{k: v for k, v in payload.items() if k != "expected_revision"}
++            ),
++            actor=db.get(User, api.engineer_id),
++            request_id="geo704-original",
++            idempotency_key=str(uuid4()),
++        )
++        task_id = task.id
++    article_id = publish_task(api, task_id, payload["fact_version_id"])
++    identity = citation_opportunity(api, identity)
++    return identity, payload, task_id, article_id
++
++
++@pytest.mark.parametrize(
++    "field", ["product_id", "query_topic_id", "fact_version_id", "platform_profile_id"]
++)
++def test_direct_sql_issue_snapshot_identity_mismatch_rolls_back(api, field):
++    identity, _, _, article_id = context(api)
++    result = post(
++        api,
++        identity,
++        "publication-repair",
++        {
++            "mode": "OPEN_ISSUE",
++            "expected_revision": 2,
++            "published_article_id": str(article_id),
++            "kind": "CONTENT_CHANGED",
++            "description": "虚构发布问题",
++        },
++    )
++    assert result.status_code == 200, result.text
++    receipt = result.json()
++    with api.harness.factory() as db:
++        opportunity = db.get(GeoOpportunity, UUID(identity))
++        snapshot = deepcopy(receipt["action"]["source_snapshot"])
++        snapshot["opportunity_revision"] = opportunity.revision
++        snapshot[field] = str(uuid4())
++        opportunity.revision += 1
++        db.flush()
++        db.add(
++            GeoOpportunityAction(
++                opportunity_id=opportunity.id,
++                action_type="PUBLICATION_REPAIR",
++                target_type="PublishedContentIssue",
++                target_id=UUID(receipt["action"]["target_id"]),
++                status_snapshot="OPEN",
++                created_by=api.engineer_id,
++                source_snapshot=snapshot,
++                request_key_sha256="a" * 64,
++                request_sha256="b" * 64,
++                opportunity_revision_after=opportunity.revision,
++            )
++        )
++        with pytest.raises(IntegrityError) as blocked:
++            db.flush()
++        assert blocked.value.orig.sqlstate == "23514"
++        assert blocked.value.orig.diag.constraint_name == "ck_geo_opportunity_action_target_owner"
++        db.rollback()
++        assert db.get(GeoOpportunity, UUID(identity)).revision == receipt["opportunity_revision"]
++        assert (
++            len(
++                list(
++                    db.scalars(
++                        select(GeoOpportunityAction).where(
++                            GeoOpportunityAction.opportunity_id == UUID(identity)
++                        )
++                    )
++                )
++            )
++            == 1
++        )
++
++
++def test_legacy_null_snapshot_issue_target_blocks_preview_and_delete_with_409(api):
++    identity, _, _, article_id = context(api)
++    with api.harness.factory() as db:
++        issue = publication.open_published_content_issue(
++            db=db,
++            article_id=article_id,
++            payload=PublishedContentIssueCreate(kind="CONTENT_CHANGED", description="旧行动问题"),
++            actor=db.get(User, api.engineer_id),
++            request_id="geo704-legacy",
++        )
++        # 0059实际可保存的形状，0060加法迁移的保留另由迁移测试验证。
++        db.add(
++            GeoOpportunityAction(
++                opportunity_id=UUID(identity),
++                action_type="OTHER",
++                target_type="PublishedContentIssue",
++                target_id=issue.id,
++                status_snapshot="OPEN",
++                created_by=api.engineer_id,
++            )
++        )
++        db.commit()
++        blockers = published_article_deletion_blockers(db, [article_id])[article_id]
++        assert [(b.type, b.count) for b in blockers] == [("GEO_OPPORTUNITY_ACTION", 1)]
++        for command in [
++            lambda: publication.preview_published_article_permanent_deletion(
++                db=db, article_id=article_id
++            ),
++            lambda: publication.permanently_delete_published_article(
++                db=db,
++                article_id=article_id,
++                payload=PublishedArticlePermanentDeleteRequest(
++                    expected_revision=db.get(PublicationWork, article_id).revision,
++                    confirmation_text="永久删除",
++                ),
++                actor=db.get(User, api.harness.database.runs.plan.actor),
++                request_id="geo704-legacy-delete",
++            ),
++        ]:
++            with pytest.raises(AppError) as blocked:
++                command()
++            assert (
++                blocked.value.code == "PUBLISHED_ARTICLE_IN_USE"
++                and blocked.value.status_code == 409
++            )
++            db.rollback()
++    assert detail(api, identity)["actions"][0]["source_snapshot"] is None
++
++
++def test_publication_aggregate_permanent_deletion_retains_issue_action_snapshot(api):
++    identity, _, task_id, article_id = context(api)
++    result = post(
++        api,
++        identity,
++        "publication-repair",
++        {
++            "mode": "OPEN_ISSUE",
++            "expected_revision": 2,
++            "published_article_id": str(article_id),
++            "kind": "CONTENT_CHANGED",
++            "description": "虚构问题",
++        },
++    )
++    assert result.status_code == 200, result.text
++    snapshot = result.json()["action"]["source_snapshot"]
++    with api.harness.factory() as db:
++        from app.models.content import ContentTask
++
++        task = db.get(ContentTask, task_id)
++        task = publication.archive_content_task(
++            db=db, task_id=task_id, expected_revision=task.revision
++        )
++        publication.permanently_delete_content_task(
++            db=db,
++            task_id=task_id,
++            payload=ContentTaskPermanentDeleteRequest(
++                expected_revision=task.revision, confirmation_text="永久删除"
++            ),
++            actor=db.get(User, api.harness.database.runs.plan.actor),
++            request_id="geo704-issue-root-delete",
++        )
++    value = detail(api, identity)
++    assert value["opportunity"]["status"] == "IN_PROGRESS"
++    assert value["actions"][0]["target_available"] is False
++    assert value["actions"][0]["source_snapshot"] == snapshot
+--- /dev/null
++++ after/backend/tests/integration/test_geo_opportunity_action_migration.py
+@@ -0,0 +1,110 @@
++"""0060非空0059加法前滚；旧行动不补造来源，拒绝毁坏历史的降级。"""
++
++import subprocess
++import sys
++from uuid import uuid4
++
++import psycopg
++import pytest
++from psycopg.types.json import Jsonb
++
++from app.schemas.geo_opportunities import GeoOpportunityTriggerSnapshot
++from tests.integration.geo_answers_support import AnswerDatabase, new_run
++from tests.integration.geo_runs_support import plan_database, run_database
++from tests.integration.test_geo_catalog import insert_row
++from tests.integration.test_geo_insight_indexes import history
++from tests.integration.test_migrations import run_alembic
++from tests.unit.test_geo_opportunity_policy import snapshot
++
++pytestmark = pytest.mark.integration
++__all__ = ["plan_database", "run_database"]
++
++
++def test_nonempty_0059_forward_preserves_legacy_action_and_safe_stop(run_database):
++    db = run_database
++    run_alembic(db.plan.env, db.plan.backend_dir, "0059_geo_opportunities")
++    identity, action_id = uuid4(), uuid4()
++    with psycopg.connect(db.url) as conn:
++        run_id = new_run(conn, AnswerDatabase(db, uuid4()))
++        value = snapshot()
++        value["scope"].update({k: None for k in value["scope"] if k != "environment_key"})
++        value["sources"][0]["run_id"] = run_id
++        trigger = GeoOpportunityTriggerSnapshot.model_validate(value).model_dump(mode="json")
++        insert_row(
++            conn,
++            "geo_opportunities",
++            {
++                "id": identity,
++                "identity_key": "a" * 64,
++                "rule_code": trigger["rule_code"],
++                "priority": trigger["priority"],
++                "trigger_snapshot": Jsonb(trigger),
++                "source_date_from": trigger["source_date_from"],
++                "source_date_to": trigger["source_date_to"],
++            },
++        )
++        insert_row(
++            conn,
++            "geo_opportunity_sources",
++            {
++                "id": uuid4(),
++                "opportunity_id": identity,
++                "run_id": run_id,
++                "source_role": "TRIGGER",
++            },
++        )
++        insert_row(
++            conn,
++            "geo_opportunity_actions",
++            {
++                "id": action_id,
++                "opportunity_id": identity,
++                "action_type": "OTHER",
++                "target_type": "PublishedContentIssue",
++                "target_id": uuid4(),
++                "status_snapshot": "OPEN",
++                "created_by": db.plan.actor,
++            },
++        )
++        legacy = conn.execute(
++            "SELECT to_jsonb(t) FROM geo_opportunity_actions t WHERE id=%s", (action_id,)
++        ).fetchone()[0]
++        before = history(conn)
++    run_alembic(db.plan.env, db.plan.backend_dir, "head")
++    with psycopg.connect(db.url) as conn:
++        current = conn.execute(
++            "SELECT to_jsonb(t) FROM geo_opportunity_actions t WHERE id=%s", (action_id,)
++        ).fetchone()[0]
++        extra = {
++            "source_snapshot",
++            "request_key_sha256",
++            "request_sha256",
++            "opportunity_revision_after",
++        }
++        assert {k: v for k, v in current.items() if k not in extra} == legacy
++        assert all(current[k] is None for k in extra)
++        assert history(conn) == before
++        assert (
++            conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
++            == "0060_geo_opportunity_actions"
++        )
++        with pytest.raises(psycopg.errors.ObjectNotInPrerequisiteState), conn.transaction():
++            conn.execute(
++                "UPDATE geo_opportunity_actions SET status_snapshot='CHANGED' WHERE id=%s",
++                (action_id,),
++            )
++    stopped = subprocess.run(
++        [sys.executable, "-m", "alembic", "downgrade", "0059_geo_opportunities"],
++        cwd=db.plan.backend_dir,
++        env=db.plan.env,
++        capture_output=True,
++        text=True,
++    )
++    assert stopped.returncode != 0 and "0060行动历史" in stopped.stderr
++    with psycopg.connect(db.url) as conn:
++        assert (
++            conn.execute(
++                "SELECT to_jsonb(t) FROM geo_opportunity_actions t WHERE id=%s", (action_id,)
++            ).fetchone()[0]
++            == current
++        )
+--- /dev/null
++++ after/backend/tests/unit/test_geo_opportunity_actions.py
+@@ -0,0 +1,55 @@
++"""704行动资格和判别协议保护业务可达边界。"""
++
++from uuid import uuid4
++
++import pytest
++from pydantic import TypeAdapter, ValidationError
++
++from app.models.identity import User
++from app.schemas.geo_opportunities import GeoOpportunityStatus as Status
++from app.schemas.geo_opportunity_actions import GeoOpportunityPublicationRepairRequest
++from app.schemas.geo_rules import GeoRuleCode
++from app.services.geo_opportunity_policy import action_types
++
++
++@pytest.mark.parametrize(
++    "rule,expected",
++    [
++        (GeoRuleCode.CRITICAL_FACT_ERROR, ["FACT_REVISION", "CONTENT_TASK"]),
++        (GeoRuleCode.REPEATED_FACT_ERROR, ["FACT_REVISION", "CONTENT_TASK"]),
++        (GeoRuleCode.OWN_CITATION_LOST, ["PUBLICATION_REPAIR"]),
++        (GeoRuleCode.TOPIC_COVERAGE_GAP, ["CONTENT_TASK"]),
++        (GeoRuleCode.RUN_FAILURE, []),
++        (GeoRuleCode.DATA_QUALITY_PROBLEM, []),
++        (GeoRuleCode.UNSTABLE_RESULT, []),
++    ],
++)
++def test_only_confirmed_business_opportunities_can_create_actions(rule, expected):
++    actor = User(account_type="ENGINEER", is_active=True, must_change_password=False)
++    for state in Status:
++        assert action_types(state, rule, actor) == (
++            expected if state in {Status.ACKNOWLEDGED, Status.IN_PROGRESS} else []
++        )
++    actor.must_change_password = True
++    assert action_types(Status.IN_PROGRESS, rule, actor) == []
++
++
++@pytest.mark.parametrize(
++    "patch",
++    [
++        {"mode": "UNKNOWN"},
++        {"expected_issue_revision": True},
++        {"expected_revision": 0},
++        {"target_url": "https://arbitrary.invalid"},
++        {"fact_version_id": str(uuid4())},
++    ],
++)
++def test_publication_union_rejects_unknown_mode_invalid_revision_and_extra_identity(patch):
++    value = {
++        "mode": "LINK_ISSUE",
++        "expected_revision": 1,
++        "published_content_issue_id": str(uuid4()),
++        "expected_issue_revision": 0,
++    }
++    with pytest.raises(ValidationError):
++        TypeAdapter(GeoOpportunityPublicationRepairRequest).validate_python(value | patch)
+--- before/docs/geo-monitoring/CHANGELOG.md
++++ after/docs/geo-monitoring/CHANGELOG.md
+@@ -1,4 +1,11 @@
+ # 文档包变更记录
++
++## GEO-704 / R6 跨域行动集成 — 2026-10-04（review）
++
++- 三个行动API调用现有事实、内容和发布领域服务；事实导航到唯一Markdown工作区，内容使用已批准事实和活动发布平台，发布可创建/关联开放问题及创建唯一修复任务。
++- 行动、机会revision、来源快照及成功审计一次提交；actor/key幂等、完整请求摘要、最终CAS与失败整体回滚。目标完成不自动解决机会。
++- 0060加法保存行动回执及来源身份，历史缺失快照保持null；不可变和普通删除守卫保留，合法归档aggregate永久删除后显式显示目标缺失。
++- 更新根合同、generated类型、已有行动导航及相关架构说明；基线、真实PG反例、完整门禁与独立复核修正见[实施记录](../../.trellis/tasks/10-04-geo-704-action-integration/implement.md)。只交付review，复测/比较/解决留705及以后；无生产迁移或上线。
+ 
+ ## GEO-702 / R6 Opportunity 模型与批量评估 — 2026-10-04
+ 
+--- before/docs/geo-monitoring/SHA256SUMS
++++ after/docs/geo-monitoring/SHA256SUMS
+@@ -9,9 +9,9 @@
+ f3aeee99fa15b2c6b28c33ef869aed12283334a2b17116b8dd0ddda6272ae0cd  ./02-business/03-workflows-and-state-machines.md
+ f980f4888a2c37ce331f50326be5f361aa5063778a0f01e72290c1cc51c6d05e  ./02-business/04-monitoring-methodology-and-metrics.md
+ 90c2a635615b591f0d1a282fb62f289de0fbad030ea2dcb19ce7dd10983b85b2  ./03-technical/01-technical-architecture.md
+-ed513bdcb459e625dfe7e3ddfe8d6a3e420344eb2aa04761e2f10798d8245189  ./03-technical/02-data-architecture.md
+-41f4812af50403eba8d64ae52e3223bb1da4adc9b134003933b91f5874bbc7f4  ./03-technical/03-api-contract-design.md
+-bd7ce6a2429b174a0e92c7b28c92baba4c7cca3e8db29418f9f6b9666fb85d44  ./03-technical/04-frontend-architecture.md
++8896c7a90cab1e80dd0e4bfec918c783d287f95a385ec454856dd5d6513b3414  ./03-technical/02-data-architecture.md
++519fb64b79380cc5c0f98793d124168931410e7cf95fc1b69a32e39f76fb19d5  ./03-technical/03-api-contract-design.md
++d9ddbfb8f4285fa5c1a0bf2705cb8aa61d7d3d4aeba5c1826d4fb3e504f755fd  ./03-technical/04-frontend-architecture.md
+ daf8f8cec2dfb8996c316ca259ae6eea161d944337f340ce9c6180bc9c87c0f5  ./03-technical/05-worker-and-collector-architecture.md
+ 2698d3095cfaeb5857d6bafd3efd633d9d50b813257054e7568d779be35d7dd7  ./03-technical/06-security-and-compliance.md
+ e054bc0f0e82ae8778d14f7c084467ec8dbe7559476da30f580fb970e31ea76b  ./03-technical/07-testing-and-quality.md
+@@ -106,12 +106,12 @@
+ 7106b3f1df66de6ba41a4d7ca85e291b8b181f78e2b7c0ef91f4fa696d1f9e8b  ./04-delivery/geo-003-baseline/sources.json
+ 316ab24c5f645e18d39c529c7fcbca2260b14a5375cc5ebd799a5b7c6cfc8f40  ./04-delivery/geo-003-baseline/tests.json
+ 9dae298eb77cc0063394bfacea27b02ece69bf2a7dceba637ef1320565810ec7  ./04-delivery/geo-003-baseline/validation.md
+-7d0cd6b02ef65c1f4737cc7b54d3325e645b95baa4b60b0ff46c84c7f36c7d8e  ./04-delivery/task-manifest.yaml
++56f44d15262ae0ed79945716551fb494db89ba032aa9a03a8666d57572889cce  ./04-delivery/task-manifest.yaml
+ 2c0f8d8ba314039b44e48614481c28e615e996c2e4ed444c8f07362b5cd75de9  ./05-decisions/ADR-001-extend-modular-monolith.md
+ 4e0ec1be59e33c2f3e83ee50abc55ffe35d2d0bf471c19cc2c713b391fc12cee  ./05-decisions/ADR-002-unified-observation-run-model.md
+ 00baab5f8fe68fbaf75e3aa7b07a0cfbd7c510e39b6a70ea462d9ab941330dc7  ./05-decisions/ADR-003-separate-collection-analysis-review.md
+ 8f4f24331d4ea91574e5a4a56c3eacd9d89e193011c48f8d9f5e413198793909  ./05-decisions/ADR-004-no-unified-geo-score.md
+ 6197eb3379ad5c5f99c499ab8b74eac5cf18e6df26a3f5c34c4e9bf83845593b  ./05-decisions/ADR-005-staged-collector-rollout.md
+ c3e9f23a90bd7fc9b47760d53c56fd6f09f73065dff5b19c1040ee5fd608a560  ./05-decisions/GEO-002-architecture-review.md
+-d57236dc0bce1d3062ff36cebd3c7059124e63cd36f5e288cde209e61b5afa6f  ./CHANGELOG.md
++f96bd767da9d502aa134856147fe8510ec4dcdd4b6d2d7fd04dd5a52dc4401f2  ./CHANGELOG.md
+ d7bb9c7d9215ac73d2286a60c0dbe9a3b7dcbfb89eaf918e075cf7d32e8e1e7e  ./README.md

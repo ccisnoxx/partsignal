@@ -1,0 +1,62 @@
+{
+  "evidence_kind": "本轮工具输出转录；不冒充原始完整日志",
+  "checks": [
+    {
+      "command": "UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/unit/test_geo_insights.py",
+      "exit_code": 0,
+      "passed": 8
+    },
+    {
+      "command": "UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/integration/test_geo_observation_list.py backend/tests/integration/test_geo_observation_detail.py backend/tests/integration/test_geo_observation_correction.py backend/tests/integration/test_geo_observation_deletion.py backend/tests/integration/test_geo_insights.py backend/tests/integration/test_query_topic_list.py -rs",
+      "exit_code": 0,
+      "passed": 14,
+      "skipped": 61,
+      "skip_reason": "backend/tests/integration/test_publication_workflow.py:151: 未设置 PostgreSQL 测试环境，不以 SQLite 替代 PostgreSQL"
+    },
+    {
+      "command": "UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/integration/test_migrations.py -k 'manual_geo_migration or geo_insight_migration or geo_evidence_migration or 0043_geo_insight_platform_identity' -rs",
+      "exit_code": 0,
+      "skipped": 4,
+      "deselected": 35,
+      "skip_reason": "backend/tests/integration/test_migrations.py:51: 未设置 PostgreSQL 测试环境，不以 SQLite 替代 PostgreSQL"
+    },
+    {
+      "command": "UV_CACHE_DIR=.cache/uv uv run --project backend alembic -c backend/alembic.ini heads",
+      "exit_code": 0,
+      "observed_output": "0043_geo_platform_identity (head)",
+      "live_database_verified": false
+    },
+    {
+      "command": "npm --prefix frontend run test -- src/domains/geo",
+      "exit_code": 0,
+      "files_passed": 13,
+      "tests_passed": 89
+    },
+    {
+      "command": "PARTSIGNAL_E2E_SPEC=tests/e2e/geo-real-stack.spec.ts deploy/scripts/e2e-local.sh",
+      "exit_code": 1,
+      "observed_output": "deploy/scripts/e2e-local.sh: line 4: DATABASE_URL: 必须设置本地或 CI PostgreSQL DATABASE_URL",
+      "resources_created": false
+    },
+    {
+      "command": "npm --prefix frontend run e2e -- --list tests/e2e/geo-observations.spec.ts tests/e2e/new-geo-observation.spec.ts tests/e2e/geo-observation-detail.spec.ts tests/e2e/geo-observation-correction.spec.ts tests/e2e/geo-topics.spec.ts tests/e2e/geo-insights.spec.ts tests/e2e/geo-real-stack.spec.ts",
+      "exit_code": 1,
+      "collected_tests": 118,
+      "collected_files": 7,
+      "observed_output": "Playwright 测试产物目录不存在，拒绝绕过敏感值扫描\nE2E_RESULT playwright=0 secret_scan=1"
+    },
+    {
+      "command": "UV_CACHE_DIR=.cache/uv uv run --project backend python .trellis/tasks/10-01-geo-003-current-baseline/evidence/capture_baseline.py docs/geo-monitoring/04-delivery/geo-003-baseline",
+      "exit_code": 0,
+      "counts": {
+        "paths": 12,
+        "operations": 16,
+        "schemas": 74,
+        "tables": 7,
+        "migrations": 43,
+        "test_files": 35,
+        "source_files": 143
+      }
+    }
+  ]
+}

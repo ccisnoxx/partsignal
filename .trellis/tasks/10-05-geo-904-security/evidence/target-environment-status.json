@@ -1,0 +1,24 @@
+{
+  "task": "GEO-904",
+  "status": "NOT_VERIFIED",
+  "reason": "必需目标环境名称、授权只读入口/脱敏现场报告以及实际平台批准inventory尚未提供",
+  "target_environment": null,
+  "target_revision": null,
+  "target_checked_at": null,
+  "browser_enabled_actual_api": null,
+  "browser_enabled_actual_workers": null,
+  "browser_service_or_profile_enabled": null,
+  "browser_collector_profiles_enabled_count": null,
+  "production_session_count": null,
+  "production_session_reference_count": null,
+  "session_material_count": null,
+  "capability_key_or_session_mount_enabled": null,
+  "actual_api_platform_inventory": null,
+  "actual_platform_approval": null,
+  "browser_cleanup_or_restore_applicability": "NOT_DETERMINED",
+  "exceptions": [],
+  "local_evidence_only": [
+    "local-container-inventory.json",
+    "GEO-901/903隔离/开发历史证据"
+  ]
+}

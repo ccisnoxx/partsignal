@@ -1,0 +1,18 @@
+{
+  "audit": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261002T195404Z-geo-209-plan-ui-a4c491a1",
+  "stage": {
+    "audit_id": "20261002T195404Z-geo-209-plan-ui-a4c491a1",
+    "audit_dir": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261002T195404Z-geo-209-plan-ui-a4c491a1",
+    "sequence": 1,
+    "name": "wizard-implementation",
+    "prefix": "01-wizard-implementation",
+    "paths": {
+      "draft": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261002T195404Z-geo-209-plan-ui-a4c491a1/01-wizard-implementation.draft.json",
+      "plan": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261002T195404Z-geo-209-plan-ui-a4c491a1/01-wizard-implementation.plan.json",
+      "dispatch_dir": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261002T195404Z-geo-209-plan-ui-a4c491a1/01-wizard-implementation.dispatches",
+      "execution": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261002T195404Z-geo-209-plan-ui-a4c491a1/01-wizard-implementation.execution.json",
+      "summary_json": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261002T195404Z-geo-209-plan-ui-a4c491a1/01-wizard-implementation.summary.json",
+      "summary_text": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261002T195404Z-geo-209-plan-ui-a4c491a1/01-wizard-implementation.summary.txt"
+    }
+  }
+}

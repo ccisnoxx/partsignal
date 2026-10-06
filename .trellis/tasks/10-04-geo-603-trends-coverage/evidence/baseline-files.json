@@ -1,0 +1,15 @@
+{
+  "backend/app/services/geo_metrics.py": "e6a3063f27bbcb8d64b0f7bf635fd000d837f50206c99f22a4ff8dd8b6f58bae",
+  "backend/app/main.py": "a1d6b05004a5480223110d262731d6c632b7279f05b3d3263e0391ef5edb4cb9",
+  "contracts/openapi.yaml": "8905ba0b455dd7a2cf6c0d899ac7327828cdaf53ae168ae827ce0bb55ca53654",
+  "contracts/database.md": "8aa4a540f648f2d2fb6155f9037295eb817439caaed29190ee9aa6b690e78d22",
+  "backend/tests/unit/test_contract.py": "1a05e6ed4675350769281e47d822e7acff7481e5183d99b94c040b6c5731dc65",
+  "backend/tests/unit/test_runtime_response_metadata.py": "76403d55ab036e1ef1115f2ad68e5b8ff85cf9d9c2551a22e656b829d60bd5fa",
+  "frontend/src/shared/api/generated/schema.d.ts": "97c121c17b70242972c1aaa91fc7f4db04befb32119c8c4c3e687f8e5ecc6a1a",
+  "docs/geo-monitoring/README.md": "1528adb3f59b917898f48acbedf546c43e0e70ebb5c9657bdb2d7c82e79d2c27",
+  "docs/geo-monitoring/SHA256SUMS": "77ad5e141d14f20d92b390c6da0d891428c2928f04d7e9d6df4e2b9d9c2fceaa",
+  "docs/geo-monitoring/02-business/04-monitoring-methodology-and-metrics.md": "f9c0851381aa2e83b626c5bf93f48138f338e6d14fd478f0a92f4fc5d9b033ea",
+  "docs/geo-monitoring/03-technical/03-api-contract-design.md": "99dac7d9ecc586638b30f096fa991851958bbdcfd21f25d97c72a6be5ca05d50",
+  "docs/geo-monitoring/04-delivery/task-manifest.yaml": "c46c59cc1d31692cf4cd4a443600b2fc3fe73aae9f708a65a6b3ad05627acfc1",
+  "docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md": "68a879b70c986da26ada6df7685c99fedce44549ec41af209fbeebd9d1a1847a"
+}

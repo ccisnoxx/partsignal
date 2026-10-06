@@ -1,0 +1,9 @@
+ Container partsignal-geo508-validation-postgres-1 Running 
+ Container partsignal-geo508-validation-redis-1 Running 
+ Container partsignal-geo508-validation-fake-oss-1 Running 
+ Container partsignal-geo508-validation-postgres-1 Waiting 
+ Container partsignal-geo508-validation-postgres-1 Healthy 
+ Container partsignal-geo508-validation-backend-test-run-f7b5503bf7f0 Creating 
+ Container partsignal-geo508-validation-backend-test-run-f7b5503bf7f0 Created 
+..........................                                               [100%]
+26 passed in 14.73s

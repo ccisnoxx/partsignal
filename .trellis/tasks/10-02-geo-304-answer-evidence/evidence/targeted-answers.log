@@ -1,0 +1,860 @@
+.........................................FFFFFF......................... [ 82%]
+...............                                                          [100%]
+=================================== FAILURES ===================================
+___________ test_head_verified_association_and_gc_retains_both_refs ____________
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x10d207bf0>
+object_key = 'geo304/150c2aa0-3f10-4b6e-8f6c-51503d1a7a52.txt'
+data = b'{"answer":"fixture"}'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+            response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+>           response.raise_for_status()
+
+backend/app/services/storage.py:137: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Response [403 Forbidden]>
+
+    def raise_for_status(self) -> Response:
+        """
+        Raise the `HTTPStatusError` if one occurred.
+        """
+        request = self._request
+        if request is None:
+            raise RuntimeError(
+                "Cannot call `raise_for_status` as the request "
+                "instance has not been set on this response."
+            )
+    
+        if self.is_success:
+            return self
+    
+        if self.has_redirect_location:
+            message = (
+                "{error_type} '{0.status_code} {0.reason_phrase}' for url '{0.url}'\n"
+                "Redirect location: '{0.headers[location]}'\n"
+                "For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/{0.status_code}"
+            )
+        else:
+            message = (
+                "{error_type} '{0.status_code} {0.reason_phrase}' for url '{0.url}'\n"
+                "For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/{0.status_code}"
+            )
+    
+        status_class = self.status_code // 100
+        error_types = {
+            1: "Informational response",
+            3: "Redirect response",
+            4: "Client error",
+            5: "Server error",
+        }
+        error_type = error_types.get(status_class, "Invalid status code")
+        message = message.format(self, error_type=error_type)
+>       raise HTTPStatusError(message, request=request, response=self)
+E       httpx.HTTPStatusError: Client error '403 Forbidden' for url 'http://127.0.0.1:19014/objects/geo304/150c2aa0-3f10-4b6e-8f6c-51503d1a7a52.txt?operation=upload&expires=1790995373&signature=a37cead88dadc8bfc58ca0f9a76938feefe6dcae57002763bebaa2fee4b771ef'
+E       For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+backend/.venv/lib/python3.12/site-packages/httpx/_models.py:829: HTTPStatusError
+
+The above exception was the direct cause of the following exception:
+
+answer_database = AnswerDatabase(runs=RunDatabase(plan=PlanDatabase(url='postgresql://partsignal:partsignal_dev@127.0.0.1:55454/partsign...ind': 'LEGACY_MODEL_RESULT', 'web_search_enabled': True},)]]), legacy_run=UUID('a1dd56b3-2f9e-4a13-a139-b13b052758e8'))
+engine = Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55454/partsignal_geo206_8477900fce)
+storage = <app.services.storage.DevelopmentEvidenceStorage object at 0x10d207bf0>
+
+    def test_head_verified_association_and_gc_retains_both_refs(answer_database, engine, storage):
+        db = answer_database
+        with psycopg.connect(db.url) as conn:
+>           raw, key = evidence(conn, db, storage)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+backend/tests/integration/test_geo_answer_files.py:75: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/tests/integration/test_geo_answer_files.py:58: in evidence
+    storage.put(key, raw, content_type="text/plain", sha256=digest)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x10d207bf0>
+object_key = 'geo304/150c2aa0-3f10-4b6e-8f6c-51503d1a7a52.txt'
+data = b'{"answer":"fixture"}'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+            response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+            response.raise_for_status()
+        except (httpx.HTTPStatusError, httpx.RequestError) as error:
+>           raise StorageUnavailable("开发对象存储 PUT 请求失败") from error
+E           app.services.storage.StorageUnavailable: 开发对象存储 PUT 请求失败
+
+backend/app/services/storage.py:139: StorageUnavailable
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_identity_audit, 创建身份、会话和审计表。
+INFO  [alembic.runtime.migration] Running upgrade 0001_identity_audit -> 0002_product_facts, 创建规范化产品事实和不可变事实版本。
+INFO  [alembic.runtime.migration] Running upgrade 0002_product_facts -> 0003_content_planning, 创建目标问题、平台规则版本和内容任务。
+INFO  [alembic.runtime.migration] Running upgrade 0003_content_planning -> 0004_content_production, 创建 PostgreSQL 权威生成作业和不可变 Markdown 内容版本。
+INFO  [alembic.runtime.migration] Running upgrade 0004_content_production -> 0005_content_review, 创建追加式内容审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0005_content_review -> 0006_publication, 创建平台账号、人工发布记录和状态事件。
+INFO  [alembic.runtime.migration] Running upgrade 0006_publication -> 0007_geo_observation, 创建追加式 GEO 观测及引用关联。
+INFO  [alembic.runtime.migration] Running upgrade 0007_geo_observation -> 0008_files, 创建文件生命周期、附件关联并补加证据文件外键。
+INFO  [alembic.runtime.migration] Running upgrade 0008_files -> 0009_config_center, 迁移账号类型、配置中心与真实 AI 生成字段。
+INFO  [alembic.runtime.migration] Running upgrade 0009_config_center -> 0010_user_cleanup, 清理旧版职责账号并强制既有内容工程师改密。
+INFO  [alembic.runtime.migration] Running upgrade 0010_user_cleanup -> 0011_generation_reliability, 增加生成作业补投递诊断字段与到期扫描索引。
+INFO  [alembic.runtime.migration] Running upgrade 0011_generation_reliability -> 0012_ai_data_classification, 为生成输入增加显式数据分级与责任人记录。
+INFO  [alembic.runtime.migration] Running upgrade 0012_ai_data_classification -> 0013_publication_closure, 增加发布异常待办、修复任务来源和发布平台一致性门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0013_publication_closure -> 0014_platform_prompt_ownership, 将当前 Prompt 所有权从平台类型迁移到具体平台。
+INFO  [alembic.runtime.migration] Running upgrade 0014_platform_prompt_ownership -> 0015_platform_rule_draft_editing, 允许按修订号编辑平台规则草稿，并继续冻结已激活或退役正文。
+INFO  [alembic.runtime.migration] Running upgrade 0015_platform_rule_draft_editing -> 0016_fact_review_cleanup, 允许受约束删除事实版本时清理其从属审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0016_fact_review_cleanup -> 0017_content_humanization, 增加全局自然化 Prompt，并让现有 AI 作业承载自然化修订。
+INFO  [alembic.runtime.migration] Running upgrade 0017_content_humanization -> 0018_manual_geo_observation, 增加产品级人工 GEO 观测，并保留旧模型观测历史。
+INFO  [alembic.runtime.migration] Running upgrade 0018_manual_geo_observation -> 0019_product_driven_tasks, 允许新内容任务直接围绕产品创建，同时保留历史目标问题关联。
+INFO  [alembic.runtime.migration] Running upgrade 0019_product_driven_tasks -> 0020_platform_branding_task_list, 为具体平台增加官网与单一来源 Logo。
+INFO  [alembic.runtime.migration] Running upgrade 0020_platform_branding_task_list -> 0021_ai_channel_model_management, 补齐 AI 渠道身份字段与使用统计索引。
+INFO  [alembic.runtime.migration] Running upgrade 0021_ai_channel_model_management -> 0022_geo_observation_insights, 补充人工 GEO 逐篇阶段事实与问题主题约束。
+INFO  [alembic.runtime.migration] Running upgrade 0022_geo_observation_insights -> 0023_platform_management, 增加具体平台启停状态与管理聚合索引。
+INFO  [alembic.runtime.migration] Running upgrade 0023_platform_management -> 0024_audit_outcome, 补齐审计模块、命令结果和安全结果说明。
+INFO  [alembic.runtime.migration] Running upgrade 0024_audit_outcome -> 0025_markdown_facts, 将结构化产品事实收敛为 Markdown，并让内容任务直接绑定平台。
+INFO  [alembic.runtime.migration] Running upgrade 0025_markdown_facts -> 0026_publication_account_dedup, 补齐发布账号修订约束，并阻止同平台规范化账号标识重复。
+INFO  [alembic.runtime.migration] Running upgrade 0026_publication_account_dedup -> 0027_audit_user_delete_guard, 只允许受约束用户删除把匹配审计操作者置空。
+INFO  [alembic.runtime.migration] Running upgrade 0027_audit_user_delete_guard -> 0028_platform_logo_lifecycle, 增加平台 Logo 的未引用保留、幂等删除状态与数据库门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0028_platform_logo_lifecycle -> 0029_geo_evidence_management, 收敛人工 GEO 独立事实，并为完整更正链删除增加事务门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0029_geo_evidence_management -> 0030_publication_record_delete, 为从未公开的发布聚合增加事务级受控删除门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0030_publication_record_delete -> 0031_reusable_platform_prompts, 把平台私有 Prompt 收敛为可复用模板和平台当前绑定。
+INFO  [alembic.runtime.migration] Running upgrade 0031_reusable_platform_prompts -> 0032_content_task_idempotency, 为普通内容任务创建增加持久化请求键幂等约束。
+INFO  [alembic.runtime.migration] Running upgrade 0032_content_task_idempotency -> 0033_task_owned_history_delete, 允许受控删除已取消任务自有的未批准生产历史。
+INFO  [alembic.runtime.migration] Running upgrade 0033_task_owned_history_delete -> 0034_publication_redesign, 以发布工作、首次核验成果和发布后内容问题替换旧发布记录。
+INFO  [alembic.runtime.migration] Running upgrade 0034_publication_redesign -> 0035_business_workflow, 建立事实提交、内容单主线、发布版本快照与 GEO 来源合同。
+INFO  [alembic.runtime.migration] Running upgrade 0035_business_workflow -> 0036_remove_section_url, 删除没有稳定业务含义的发布栏目地址。
+INFO  [alembic.runtime.migration] Running upgrade 0036_remove_section_url -> 0037_simplify_deletion_lifecycle, 收缩任务、配置与审计的删除生命周期。
+INFO  [alembic.runtime.migration] Running upgrade 0037_simplify_deletion_lifecycle -> 0038_published_article_delete, 允许受控删除无 GEO 引用的发布成果聚合。
+INFO  [alembic.runtime.migration] Running upgrade 0038_published_article_delete -> 0039_article_delete_platform, 允许归档任务在删除失效平台的发布成果后转为已取消。
+INFO  [alembic.runtime.migration] Running upgrade 0039_article_delete_platform -> 0040_content_draft_management, 允许当前人工未审核草稿受控保存和彻底删除。
+INFO  [alembic.runtime.migration] Running upgrade 0040_content_draft_management -> 0041_content_task_list, 补齐内容任务列表的稳定更新时间与排序索引。
+INFO  [alembic.runtime.migration] Running upgrade 0041_content_task_list -> 0042_content_version_detail, 记录内容版本自身的真实更新时间。
+INFO  [alembic.runtime.migration] Running upgrade 0042_content_version_detail -> 0043_geo_platform_identity, 冻结发布工作的平台 UUID，避免配置删除后 GEO 历史失去身份。
+INFO  [alembic.runtime.migration] Running upgrade 0043_geo_platform_identity -> 0044_geo_catalog, 新增 GEO Catalog 三表；冻结本 revision，不读取运行时 ORM。
+INFO  [alembic.runtime.migration] Running upgrade 0044_geo_catalog -> 0045_geo_prompt_variants, 仅新增问题变体，冻结规范化及历史锁存，不回填旧问题数组。
+INFO  [alembic.runtime.migration] Running upgrade 0045_geo_prompt_variants -> 0046_geo_surfaces_profiles, 新增观测配置与闭合JSON合同；不回填旧GEO或实现运行资格。
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0046_geo_surfaces_profiles -> 0047_geo_monitoring_plans, 仅增加计划配置聚合；不创建批次、运行或改写历史观测。
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0047_geo_monitoring_plans -> 0048_geo_batches_runs, 新增独立回答级 Batch/Run，冻结 DDL 与快照/写入守卫，不迁移旧 GEO。
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0048_geo_batches_runs -> 0049_geo_batch_creation, 创建幂等与批次主体引用；不修改已冻结的 Batch/Run 输入。
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0049_geo_batch_creation -> 0050_geo_answer_evidence, 新增不可变原始回答、引用和受控文件关系；不实现采集命令。
+_ test_recheck_does_not_accept_changed_or_missing_object[owner-PERMISSION_DENIED-403] _
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x10d2ad3a0>
+object_key = 'geo304/58d5b8dc-f685-4d23-9ead-6882909e6cc1.txt'
+data = b'{"answer":"fixture"}'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+            response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+>           response.raise_for_status()
+
+backend/app/services/storage.py:137: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Response [403 Forbidden]>
+
+    def raise_for_status(self) -> Response:
+        """
+        Raise the `HTTPStatusError` if one occurred.
+        """
+        request = self._request
+        if request is None:
+            raise RuntimeError(
+                "Cannot call `raise_for_status` as the request "
+                "instance has not been set on this response."
+            )
+    
+        if self.is_success:
+            return self
+    
+        if self.has_redirect_location:
+            message = (
+                "{error_type} '{0.status_code} {0.reason_phrase}' for url '{0.url}'\n"
+                "Redirect location: '{0.headers[location]}'\n"
+                "For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/{0.status_code}"
+            )
+        else:
+            message = (
+                "{error_type} '{0.status_code} {0.reason_phrase}' for url '{0.url}'\n"
+                "For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/{0.status_code}"
+            )
+    
+        status_class = self.status_code // 100
+        error_types = {
+            1: "Informational response",
+            3: "Redirect response",
+            4: "Client error",
+            5: "Server error",
+        }
+        error_type = error_types.get(status_class, "Invalid status code")
+        message = message.format(self, error_type=error_type)
+>       raise HTTPStatusError(message, request=request, response=self)
+E       httpx.HTTPStatusError: Client error '403 Forbidden' for url 'http://127.0.0.1:19014/objects/geo304/58d5b8dc-f685-4d23-9ead-6882909e6cc1.txt?operation=upload&expires=1790995374&signature=df8fc6674d1cfbc5414711a715318babe9703a2c2708811178910ce9a8e68626'
+E       For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+backend/.venv/lib/python3.12/site-packages/httpx/_models.py:829: HTTPStatusError
+
+The above exception was the direct cause of the following exception:
+
+answer_database = AnswerDatabase(runs=RunDatabase(plan=PlanDatabase(url='postgresql://partsignal:partsignal_dev@127.0.0.1:55454/partsign...ind': 'LEGACY_MODEL_RESULT', 'web_search_enabled': True},)]]), legacy_run=UUID('a1dd56b3-2f9e-4a13-a139-b13b052758e8'))
+engine = Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55454/partsignal_geo206_8477900fce)
+storage = <app.services.storage.DevelopmentEvidenceStorage object at 0x10d2ad3a0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d2ad460>
+case = 'owner', code = 'PERMISSION_DENIED', status = 403
+
+    @pytest.mark.parametrize(
+        "case,code,status",
+        [
+            ("owner", "PERMISSION_DENIED", 403),
+            ("missing", "FILE_INTEGRITY_FAILED", 422),
+            ("changed", "FILE_INTEGRITY_FAILED", 422),
+            ("duplicate", "FILE_INTEGRITY_FAILED", 422),
+            ("unavailable", "DEPENDENCY_UNAVAILABLE", 503),
+        ],
+    )
+    def test_recheck_does_not_accept_changed_or_missing_object(
+        answer_database, engine, storage, monkeypatch, case, code, status
+    ):
+        db = answer_database
+        with psycopg.connect(db.url) as conn:
+>           identity, key = evidence(conn, db, storage)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+backend/tests/integration/test_geo_answer_files.py:120: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/tests/integration/test_geo_answer_files.py:58: in evidence
+    storage.put(key, raw, content_type="text/plain", sha256=digest)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x10d2ad3a0>
+object_key = 'geo304/58d5b8dc-f685-4d23-9ead-6882909e6cc1.txt'
+data = b'{"answer":"fixture"}'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+            response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+            response.raise_for_status()
+        except (httpx.HTTPStatusError, httpx.RequestError) as error:
+>           raise StorageUnavailable("开发对象存储 PUT 请求失败") from error
+E           app.services.storage.StorageUnavailable: 开发对象存储 PUT 请求失败
+
+backend/app/services/storage.py:139: StorageUnavailable
+_ test_recheck_does_not_accept_changed_or_missing_object[missing-FILE_INTEGRITY_FAILED-422] _
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x10d2ad730>
+object_key = 'geo304/47e68d7d-9ec7-492e-953a-3b320a75a2ae.txt'
+data = b'{"answer":"fixture"}'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+            response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+>           response.raise_for_status()
+
+backend/app/services/storage.py:137: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Response [403 Forbidden]>
+
+    def raise_for_status(self) -> Response:
+        """
+        Raise the `HTTPStatusError` if one occurred.
+        """
+        request = self._request
+        if request is None:
+            raise RuntimeError(
+                "Cannot call `raise_for_status` as the request "
+                "instance has not been set on this response."
+            )
+    
+        if self.is_success:
+            return self
+    
+        if self.has_redirect_location:
+            message = (
+                "{error_type} '{0.status_code} {0.reason_phrase}' for url '{0.url}'\n"
+                "Redirect location: '{0.headers[location]}'\n"
+                "For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/{0.status_code}"
+            )
+        else:
+            message = (
+                "{error_type} '{0.status_code} {0.reason_phrase}' for url '{0.url}'\n"
+                "For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/{0.status_code}"
+            )
+    
+        status_class = self.status_code // 100
+        error_types = {
+            1: "Informational response",
+            3: "Redirect response",
+            4: "Client error",
+            5: "Server error",
+        }
+        error_type = error_types.get(status_class, "Invalid status code")
+        message = message.format(self, error_type=error_type)
+>       raise HTTPStatusError(message, request=request, response=self)
+E       httpx.HTTPStatusError: Client error '403 Forbidden' for url 'http://127.0.0.1:19014/objects/geo304/47e68d7d-9ec7-492e-953a-3b320a75a2ae.txt?operation=upload&expires=1790995374&signature=639fb4452979c3b6c9bfc0bb925788523f50ea00490f2ad74057a0545c31cb88'
+E       For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+backend/.venv/lib/python3.12/site-packages/httpx/_models.py:829: HTTPStatusError
+
+The above exception was the direct cause of the following exception:
+
+answer_database = AnswerDatabase(runs=RunDatabase(plan=PlanDatabase(url='postgresql://partsignal:partsignal_dev@127.0.0.1:55454/partsign...ind': 'LEGACY_MODEL_RESULT', 'web_search_enabled': True},)]]), legacy_run=UUID('a1dd56b3-2f9e-4a13-a139-b13b052758e8'))
+engine = Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55454/partsignal_geo206_8477900fce)
+storage = <app.services.storage.DevelopmentEvidenceStorage object at 0x10d2ad730>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d2ad8b0>
+case = 'missing', code = 'FILE_INTEGRITY_FAILED', status = 422
+
+    @pytest.mark.parametrize(
+        "case,code,status",
+        [
+            ("owner", "PERMISSION_DENIED", 403),
+            ("missing", "FILE_INTEGRITY_FAILED", 422),
+            ("changed", "FILE_INTEGRITY_FAILED", 422),
+            ("duplicate", "FILE_INTEGRITY_FAILED", 422),
+            ("unavailable", "DEPENDENCY_UNAVAILABLE", 503),
+        ],
+    )
+    def test_recheck_does_not_accept_changed_or_missing_object(
+        answer_database, engine, storage, monkeypatch, case, code, status
+    ):
+        db = answer_database
+        with psycopg.connect(db.url) as conn:
+>           identity, key = evidence(conn, db, storage)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+backend/tests/integration/test_geo_answer_files.py:120: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/tests/integration/test_geo_answer_files.py:58: in evidence
+    storage.put(key, raw, content_type="text/plain", sha256=digest)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x10d2ad730>
+object_key = 'geo304/47e68d7d-9ec7-492e-953a-3b320a75a2ae.txt'
+data = b'{"answer":"fixture"}'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+            response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+            response.raise_for_status()
+        except (httpx.HTTPStatusError, httpx.RequestError) as error:
+>           raise StorageUnavailable("开发对象存储 PUT 请求失败") from error
+E           app.services.storage.StorageUnavailable: 开发对象存储 PUT 请求失败
+
+backend/app/services/storage.py:139: StorageUnavailable
+_ test_recheck_does_not_accept_changed_or_missing_object[changed-FILE_INTEGRITY_FAILED-422] _
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x10d2c1040>
+object_key = 'geo304/3352a60c-a69a-4adc-855a-2bf403b69e0c.txt'
+data = b'{"answer":"fixture"}'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+            response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+>           response.raise_for_status()
+
+backend/app/services/storage.py:137: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Response [403 Forbidden]>
+
+    def raise_for_status(self) -> Response:
+        """
+        Raise the `HTTPStatusError` if one occurred.
+        """
+        request = self._request
+        if request is None:
+            raise RuntimeError(
+                "Cannot call `raise_for_status` as the request "
+                "instance has not been set on this response."
+            )
+    
+        if self.is_success:
+            return self
+    
+        if self.has_redirect_location:
+            message = (
+                "{error_type} '{0.status_code} {0.reason_phrase}' for url '{0.url}'\n"
+                "Redirect location: '{0.headers[location]}'\n"
+                "For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/{0.status_code}"
+            )
+        else:
+            message = (
+                "{error_type} '{0.status_code} {0.reason_phrase}' for url '{0.url}'\n"
+                "For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/{0.status_code}"
+            )
+    
+        status_class = self.status_code // 100
+        error_types = {
+            1: "Informational response",
+            3: "Redirect response",
+            4: "Client error",
+            5: "Server error",
+        }
+        error_type = error_types.get(status_class, "Invalid status code")
+        message = message.format(self, error_type=error_type)
+>       raise HTTPStatusError(message, request=request, response=self)
+E       httpx.HTTPStatusError: Client error '403 Forbidden' for url 'http://127.0.0.1:19014/objects/geo304/3352a60c-a69a-4adc-855a-2bf403b69e0c.txt?operation=upload&expires=1790995374&signature=34d49860233665a34c7ec1c419f22dadeeca713f693d4709ac0053419cb128f8'
+E       For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+backend/.venv/lib/python3.12/site-packages/httpx/_models.py:829: HTTPStatusError
+
+The above exception was the direct cause of the following exception:
+
+answer_database = AnswerDatabase(runs=RunDatabase(plan=PlanDatabase(url='postgresql://partsignal:partsignal_dev@127.0.0.1:55454/partsign...ind': 'LEGACY_MODEL_RESULT', 'web_search_enabled': True},)]]), legacy_run=UUID('a1dd56b3-2f9e-4a13-a139-b13b052758e8'))
+engine = Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55454/partsignal_geo206_8477900fce)
+storage = <app.services.storage.DevelopmentEvidenceStorage object at 0x10d2c1040>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d2c0200>
+case = 'changed', code = 'FILE_INTEGRITY_FAILED', status = 422
+
+    @pytest.mark.parametrize(
+        "case,code,status",
+        [
+            ("owner", "PERMISSION_DENIED", 403),
+            ("missing", "FILE_INTEGRITY_FAILED", 422),
+            ("changed", "FILE_INTEGRITY_FAILED", 422),
+            ("duplicate", "FILE_INTEGRITY_FAILED", 422),
+            ("unavailable", "DEPENDENCY_UNAVAILABLE", 503),
+        ],
+    )
+    def test_recheck_does_not_accept_changed_or_missing_object(
+        answer_database, engine, storage, monkeypatch, case, code, status
+    ):
+        db = answer_database
+        with psycopg.connect(db.url) as conn:
+>           identity, key = evidence(conn, db, storage)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+backend/tests/integration/test_geo_answer_files.py:120: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/tests/integration/test_geo_answer_files.py:58: in evidence
+    storage.put(key, raw, content_type="text/plain", sha256=digest)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x10d2c1040>
+object_key = 'geo304/3352a60c-a69a-4adc-855a-2bf403b69e0c.txt'
+data = b'{"answer":"fixture"}'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+            response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+            response.raise_for_status()
+        except (httpx.HTTPStatusError, httpx.RequestError) as error:
+>           raise StorageUnavailable("开发对象存储 PUT 请求失败") from error
+E           app.services.storage.StorageUnavailable: 开发对象存储 PUT 请求失败
+
+backend/app/services/storage.py:139: StorageUnavailable
+_ test_recheck_does_not_accept_changed_or_missing_object[duplicate-FILE_INTEGRITY_FAILED-422] _
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x10d2a3860>
+object_key = 'geo304/6bfefda1-6a14-42c5-80a4-ee3cc7ec825c.txt'
+data = b'{"answer":"fixture"}'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+            response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+>           response.raise_for_status()
+
+backend/app/services/storage.py:137: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Response [403 Forbidden]>
+
+    def raise_for_status(self) -> Response:
+        """
+        Raise the `HTTPStatusError` if one occurred.
+        """
+        request = self._request
+        if request is None:
+            raise RuntimeError(
+                "Cannot call `raise_for_status` as the request "
+                "instance has not been set on this response."
+            )
+    
+        if self.is_success:
+            return self
+    
+        if self.has_redirect_location:
+            message = (
+                "{error_type} '{0.status_code} {0.reason_phrase}' for url '{0.url}'\n"
+                "Redirect location: '{0.headers[location]}'\n"
+                "For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/{0.status_code}"
+            )
+        else:
+            message = (
+                "{error_type} '{0.status_code} {0.reason_phrase}' for url '{0.url}'\n"
+                "For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/{0.status_code}"
+            )
+    
+        status_class = self.status_code // 100
+        error_types = {
+            1: "Informational response",
+            3: "Redirect response",
+            4: "Client error",
+            5: "Server error",
+        }
+        error_type = error_types.get(status_class, "Invalid status code")
+        message = message.format(self, error_type=error_type)
+>       raise HTTPStatusError(message, request=request, response=self)
+E       httpx.HTTPStatusError: Client error '403 Forbidden' for url 'http://127.0.0.1:19014/objects/geo304/6bfefda1-6a14-42c5-80a4-ee3cc7ec825c.txt?operation=upload&expires=1790995374&signature=82437578b93344377b0940e83f2d5734d2a4756cb5629588eced091bb6fc3bbf'
+E       For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+backend/.venv/lib/python3.12/site-packages/httpx/_models.py:829: HTTPStatusError
+
+The above exception was the direct cause of the following exception:
+
+answer_database = AnswerDatabase(runs=RunDatabase(plan=PlanDatabase(url='postgresql://partsignal:partsignal_dev@127.0.0.1:55454/partsign...ind': 'LEGACY_MODEL_RESULT', 'web_search_enabled': True},)]]), legacy_run=UUID('a1dd56b3-2f9e-4a13-a139-b13b052758e8'))
+engine = Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55454/partsignal_geo206_8477900fce)
+storage = <app.services.storage.DevelopmentEvidenceStorage object at 0x10d2a3860>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d2a3b60>
+case = 'duplicate', code = 'FILE_INTEGRITY_FAILED', status = 422
+
+    @pytest.mark.parametrize(
+        "case,code,status",
+        [
+            ("owner", "PERMISSION_DENIED", 403),
+            ("missing", "FILE_INTEGRITY_FAILED", 422),
+            ("changed", "FILE_INTEGRITY_FAILED", 422),
+            ("duplicate", "FILE_INTEGRITY_FAILED", 422),
+            ("unavailable", "DEPENDENCY_UNAVAILABLE", 503),
+        ],
+    )
+    def test_recheck_does_not_accept_changed_or_missing_object(
+        answer_database, engine, storage, monkeypatch, case, code, status
+    ):
+        db = answer_database
+        with psycopg.connect(db.url) as conn:
+>           identity, key = evidence(conn, db, storage)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+backend/tests/integration/test_geo_answer_files.py:120: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/tests/integration/test_geo_answer_files.py:58: in evidence
+    storage.put(key, raw, content_type="text/plain", sha256=digest)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x10d2a3860>
+object_key = 'geo304/6bfefda1-6a14-42c5-80a4-ee3cc7ec825c.txt'
+data = b'{"answer":"fixture"}'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+            response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+            response.raise_for_status()
+        except (httpx.HTTPStatusError, httpx.RequestError) as error:
+>           raise StorageUnavailable("开发对象存储 PUT 请求失败") from error
+E           app.services.storage.StorageUnavailable: 开发对象存储 PUT 请求失败
+
+backend/app/services/storage.py:139: StorageUnavailable
+_ test_recheck_does_not_accept_changed_or_missing_object[unavailable-DEPENDENCY_UNAVAILABLE-503] _
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x10d2c2570>
+object_key = 'geo304/85e50e7e-1f95-46e5-8a0e-e7cb851f3eba.txt'
+data = b'{"answer":"fixture"}'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+            response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+>           response.raise_for_status()
+
+backend/app/services/storage.py:137: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Response [403 Forbidden]>
+
+    def raise_for_status(self) -> Response:
+        """
+        Raise the `HTTPStatusError` if one occurred.
+        """
+        request = self._request
+        if request is None:
+            raise RuntimeError(
+                "Cannot call `raise_for_status` as the request "
+                "instance has not been set on this response."
+            )
+    
+        if self.is_success:
+            return self
+    
+        if self.has_redirect_location:
+            message = (
+                "{error_type} '{0.status_code} {0.reason_phrase}' for url '{0.url}'\n"
+                "Redirect location: '{0.headers[location]}'\n"
+                "For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/{0.status_code}"
+            )
+        else:
+            message = (
+                "{error_type} '{0.status_code} {0.reason_phrase}' for url '{0.url}'\n"
+                "For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/{0.status_code}"
+            )
+    
+        status_class = self.status_code // 100
+        error_types = {
+            1: "Informational response",
+            3: "Redirect response",
+            4: "Client error",
+            5: "Server error",
+        }
+        error_type = error_types.get(status_class, "Invalid status code")
+        message = message.format(self, error_type=error_type)
+>       raise HTTPStatusError(message, request=request, response=self)
+E       httpx.HTTPStatusError: Client error '403 Forbidden' for url 'http://127.0.0.1:19014/objects/geo304/85e50e7e-1f95-46e5-8a0e-e7cb851f3eba.txt?operation=upload&expires=1790995374&signature=171d596745fc4d3b8e2ea1cdae905a2bd920d842ee24f6fa8c53a4cf80163b53'
+E       For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+backend/.venv/lib/python3.12/site-packages/httpx/_models.py:829: HTTPStatusError
+
+The above exception was the direct cause of the following exception:
+
+answer_database = AnswerDatabase(runs=RunDatabase(plan=PlanDatabase(url='postgresql://partsignal:partsignal_dev@127.0.0.1:55454/partsign...ind': 'LEGACY_MODEL_RESULT', 'web_search_enabled': True},)]]), legacy_run=UUID('a1dd56b3-2f9e-4a13-a139-b13b052758e8'))
+engine = Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55454/partsignal_geo206_8477900fce)
+storage = <app.services.storage.DevelopmentEvidenceStorage object at 0x10d2c2570>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d2c2090>
+case = 'unavailable', code = 'DEPENDENCY_UNAVAILABLE', status = 503
+
+    @pytest.mark.parametrize(
+        "case,code,status",
+        [
+            ("owner", "PERMISSION_DENIED", 403),
+            ("missing", "FILE_INTEGRITY_FAILED", 422),
+            ("changed", "FILE_INTEGRITY_FAILED", 422),
+            ("duplicate", "FILE_INTEGRITY_FAILED", 422),
+            ("unavailable", "DEPENDENCY_UNAVAILABLE", 503),
+        ],
+    )
+    def test_recheck_does_not_accept_changed_or_missing_object(
+        answer_database, engine, storage, monkeypatch, case, code, status
+    ):
+        db = answer_database
+        with psycopg.connect(db.url) as conn:
+>           identity, key = evidence(conn, db, storage)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+backend/tests/integration/test_geo_answer_files.py:120: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/tests/integration/test_geo_answer_files.py:58: in evidence
+    storage.put(key, raw, content_type="text/plain", sha256=digest)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x10d2c2570>
+object_key = 'geo304/85e50e7e-1f95-46e5-8a0e-e7cb851f3eba.txt'
+data = b'{"answer":"fixture"}'
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+            response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+            response.raise_for_status()
+        except (httpx.HTTPStatusError, httpx.RequestError) as error:
+>           raise StorageUnavailable("开发对象存储 PUT 请求失败") from error
+E           app.services.storage.StorageUnavailable: 开发对象存储 PUT 请求失败
+
+backend/app/services/storage.py:139: StorageUnavailable
+=============================== warnings summary ===============================
+tests/integration/test_geo_answer_migration.py::test_forward_keeps_nonempty_history_and_matches_models
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_answer_migration.py:54: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_answer_migration.py::test_forward_keeps_nonempty_history_and_matches_models
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_answer_migration.py:54: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+    assert compare_metadata(context, Base.metadata) == []
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED backend/tests/integration/test_geo_answer_files.py::test_head_verified_association_and_gc_retains_both_refs
+FAILED backend/tests/integration/test_geo_answer_files.py::test_recheck_does_not_accept_changed_or_missing_object[owner-PERMISSION_DENIED-403]
+FAILED backend/tests/integration/test_geo_answer_files.py::test_recheck_does_not_accept_changed_or_missing_object[missing-FILE_INTEGRITY_FAILED-422]
+FAILED backend/tests/integration/test_geo_answer_files.py::test_recheck_does_not_accept_changed_or_missing_object[changed-FILE_INTEGRITY_FAILED-422]
+FAILED backend/tests/integration/test_geo_answer_files.py::test_recheck_does_not_accept_changed_or_missing_object[duplicate-FILE_INTEGRITY_FAILED-422]
+FAILED backend/tests/integration/test_geo_answer_files.py::test_recheck_does_not_accept_changed_or_missing_object[unavailable-DEPENDENCY_UNAVAILABLE-503]
+6 failed, 81 passed, 2 warnings in 10.00s

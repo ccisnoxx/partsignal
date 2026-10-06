@@ -1,0 +1,10 @@
+{
+  "comparison_scope": "维护源，与初始快照相同，排除所有task evidence",
+  "maintained_changed_files": 32,
+  "unexpected_changes": [],
+  "existing_checksum_drift_only": [
+    "./01-product/02-geo-core-prd.md"
+  ],
+  "preexisting_core_prd_content_unchanged": true,
+  "new_maintained_file_whitespace_errors": []
+}

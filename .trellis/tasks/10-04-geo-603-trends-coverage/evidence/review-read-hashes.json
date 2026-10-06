@@ -1,0 +1,14 @@
+{
+  "backend/app/services/geo_metrics.py": "3bd2b24c542cb63dd2054a6793787ee6bf3043b16dc24a927396c7c3bdff027b",
+  "backend/app/services/geo_metric_views.py": "9bf806f2a6fdf9b1ef791f9dbdddf597af03c1d423428aa339e67bd87697da49",
+  "backend/app/services/geo_answer_insights.py": "042961bf078f59f70ecb90eb2937b0a9bb3fe0522547f82e6303de1c3038b26c",
+  "backend/app/services/geo_overview_queries.py": "71175ab11adf2c369635f9887f6fc4582cbb538cb1346e0783f26aba8ea31cb6",
+  "backend/app/services/geo_metric_inputs.py": "5dc0b8f0fa6308f086791da2a66228eeeab5342837e83161aaf9a7dbfd39f291",
+  "backend/app/services/geo_metric_types.py": "082be4b8dde3393a70dd0747df8bb7e5d268ebfdee8b7bfcf6c6262a39a0d2ec",
+  "backend/app/schemas/geo_answer_insights.py": "0ca1e223041cf93bb8fc2484c50d594cabd19094824021f863843546b6f7e8e0",
+  "backend/app/routers/geo_answer_insights.py": "e22273152cf1cb7f8906fb47be625ed6ea227e23ae3aaeac22f5963af2234c3b",
+  "contracts/openapi.yaml": "8ac945e2d9b740ac1a479798ff7a49edf47c838f0d64a16dc8a164e4822c3cb6",
+  "contracts/database.md": "cff3877316693fa89ca26ff3681b024228474e8b0b49d0073dab25f04b0c4622",
+  ".trellis/tasks/10-04-geo-603-trends-coverage/prd.md": "2ada3440f79d219c2f5dd1c8dab4c8460370cae383f49a64ae1fd3a8cd3af0cb",
+  "docs/geo-monitoring/02-business/04-monitoring-methodology-and-metrics.md": "f9c0851381aa2e83b626c5bf93f48138f338e6d14fd478f0a92f4fc5d9b033ea"
+}

@@ -1,0 +1,13 @@
+
+> partsignal-frontend-v2@0.1.0 test
+> vitest run src/domains/geo-rules/geo-rules-page.test.tsx
+
+
+ RUN  v4.1.10 /Users/sc/PycharmProjects/partsignal/frontend
+
+
+ Test Files  1 passed (1)
+      Tests  21 passed (21)
+   Start at  08:36:49
+   Duration  3.22s (transform 738ms, setup 47ms, import 978ms, tests 1.93s, environment 201ms)
+

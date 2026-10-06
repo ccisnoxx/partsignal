@@ -1,0 +1,5 @@
+{"file": "AGENTS.md", "reason": "执行与授权边界"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "后端验证与脱敏"}
+{"file": ".trellis/spec/infra/e2e-isolation.md", "reason": "独占E2E状态与清理"}
+{"file": "contracts/database.md", "reason": "既有状态/审计/不可变权威"}
+{"file": "docs/geo-monitoring/04-delivery/codex-prompts/R6/GEO-707.md", "reason": "707范围与验收"}

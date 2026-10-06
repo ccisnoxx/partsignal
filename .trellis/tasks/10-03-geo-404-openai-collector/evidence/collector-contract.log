@@ -1,0 +1,6 @@
+UV_CACHE_DIR=.cache/uv uv run --project backend python deploy/scripts/test-geo-collector-contract.py
+........................................................................ [ 37%]
+........................................................................ [ 74%]
+..................................................                       [100%]
+194 passed in 10.16s
+GEO_CONTRACT_RESULT tests=0 secret_scan=0 external_network=blocked

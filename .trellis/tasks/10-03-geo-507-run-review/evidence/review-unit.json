@@ -1,0 +1,15 @@
+{
+  "command": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "pytest",
+    "backend/tests/unit/test_geo_review_contract.py",
+    "backend/tests/unit/test_geo_read_contract.py",
+    "backend/tests/unit/test_geo_analysis_contract.py",
+    "backend/tests/unit/test_contract.py",
+    "-q"
+  ],
+  "exit_code": 1
+}

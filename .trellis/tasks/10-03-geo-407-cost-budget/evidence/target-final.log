@@ -1,0 +1,19 @@
+ Container partsignal-geo407-postgres-1 Running 
+ Container partsignal-geo407-redis-1 Running 
+ Container partsignal-geo407-fake-oss-1 Running 
+ Container partsignal-geo407-postgres-1 Waiting 
+ Container partsignal-geo407-postgres-1 Healthy 
+ Container partsignal-geo407-backend-test-run-6e9cffa0b266 Creating 
+ Container partsignal-geo407-backend-test-run-6e9cffa0b266 Created 
+........................................................................ [ 71%]
+.............................                                            [100%]
+=============================== warnings summary ===============================
+tests/integration/test_geo_admission_migration.py::test_0053_preserves_run_history_and_backfills_unknown
+  /app/tests/integration/test_geo_admission_migration.py:146: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_admission_migration.py::test_0053_preserves_run_history_and_backfills_unknown
+  /app/tests/integration/test_geo_admission_migration.py:146: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+    assert compare_metadata(context, Base.metadata) == []
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html

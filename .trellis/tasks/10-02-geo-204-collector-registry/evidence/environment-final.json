@@ -1,0 +1,23 @@
+{
+  "docker_context": "default",
+  "colima_stopped": true,
+  "commands": [
+    {
+      "command": [
+        "docker",
+        "context",
+        "show"
+      ],
+      "exit_code": 0,
+      "output": "default\n"
+    },
+    {
+      "command": [
+        "colima",
+        "status"
+      ],
+      "exit_code": 1,
+      "output": "time=\"2026-10-02T09:19:56-07:00\" level=fatal msg=\"colima is not running\"\n"
+    }
+  ]
+}

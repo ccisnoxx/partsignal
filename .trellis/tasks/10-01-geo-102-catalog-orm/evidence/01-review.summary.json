@@ -1,0 +1,91 @@
+{
+  "summary_type": "WORKPLAN_EXECUTION_SUMMARY",
+  "summary_version": 3,
+  "planner_version": "1.5.1",
+  "plan_id": "geo102-review",
+  "plan_command": [
+    "/Users/sc/.codex/skills/multi-agent-orchestration/bin/work-plan",
+    "plan",
+    "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261002T043424Z-geo-102-catalog-review-69b7db5d/01-review.draft.json",
+    "--output",
+    "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261002T043424Z-geo-102-catalog-review-69b7db5d/01-review.plan.json"
+  ],
+  "validate_command": [
+    "/Users/sc/.codex/skills/multi-agent-orchestration/bin/work-plan",
+    "validate",
+    "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261002T043424Z-geo-102-catalog-review-69b7db5d/01-review.plan.json"
+  ],
+  "validate_status": "passed",
+  "codex_config_evidence": {
+    "config_file": "config.toml",
+    "config_sha256": "112b626b80346d1b05d520f77706045ec82950d52536f8993c860a1ec4f9e4e1",
+    "configured_max_concurrent_threads_per_session": 4,
+    "capacity_source": "codex_config"
+  },
+  "effective_capacity": 1,
+  "open_workers_at_plan_time": 0,
+  "available_slots_at_plan_time": 1,
+  "waves": [
+    {
+      "wave": 1,
+      "task_ids": [
+        "geo102-review-a1"
+      ]
+    }
+  ],
+  "ready_task_ids": [
+    "geo102-review-a1"
+  ],
+  "executed_task_ids": [
+    "geo102-review-a1"
+  ],
+  "not_executed_ready_task_ids": [],
+  "superseded_worker_ids": [],
+  "workers": [
+    {
+      "task_id": "geo102-review-a1",
+      "agent_type": "critical_reviewer",
+      "worker_id": "geo102-critical-reviewer",
+      "runtime_ref": "/root/geo102_catalog_review",
+      "runtime_ref_source": "spawn_metadata",
+      "final_status": "completed",
+      "task_outcome": "accepted",
+      "active_after_close": false,
+      "retired_from_followup": false,
+      "retirement_source": "unknown",
+      "observed_dispatch": {
+        "method": "spawn_agent",
+        "task_name": "geo102_catalog_review",
+        "fork_turns": "none",
+        "model_override": null,
+        "reasoning_effort_override": null
+      },
+      "observed_write_paths": [],
+      "parent_followup_count": 0,
+      "worker_intermediate_message_count": 0,
+      "task_name": "geo102_catalog_review",
+      "independent_review": true,
+      "planned_write_paths": [],
+      "configured_model": "gpt-6.1-sol",
+      "configured_model_reasoning_effort": "xhigh",
+      "configured_sandbox_mode": "read-only",
+      "profile_source": "agent_toml",
+      "profile_file": "critical_reviewer.toml",
+      "profile_sha256": "30f4b4654e23415c7723b0d6ec7625b2020f13c51c5714a37c80feb53c7e4118"
+    }
+  ],
+  "dispatch_counts": {
+    "fresh_spawn_count": 1,
+    "reused_followup_count": 0,
+    "isolated_fork_count": 1
+  },
+  "communication": {
+    "status_poll_count": 1,
+    "wait_call_count": 0,
+    "wait_timeout_count": 0
+  },
+  "unknown_write_path_task_ids": [],
+  "active_workers_after_execution": 0,
+  "active_worker_ids_after_execution": [],
+  "writes_observed": false
+}

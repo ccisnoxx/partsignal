@@ -1,0 +1,39 @@
+{
+  "changed_baseline_paths": [
+    "backend/app/audit_types.py",
+    "backend/app/main.py",
+    "backend/app/services/geo_overview_queries.py",
+    "backend/tests/unit/test_contract.py",
+    "backend/tests/unit/test_runtime_response_metadata.py",
+    "frontend/src/routeTree.gen.ts",
+    "frontend/src/app/navigation.test.ts",
+    "frontend/src/app/navigation.ts",
+    "frontend/src/styles/global.css",
+    "frontend/src/domains/geo-insights/insight-page-frame.tsx",
+    "frontend/src/domains/audit/audit.model.ts",
+    "frontend/src/shared/api/generated/schema.d.ts",
+    "contracts/openapi.yaml",
+    "contracts/database.md",
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "docs/geo-monitoring/03-technical/03-api-contract-design.md",
+    "docs/geo-monitoring/03-technical/04-frontend-architecture.md"
+  ],
+  "missing_baseline_paths": [],
+  "new_paths": [
+    "backend/app/routers/geo_reports.py",
+    "backend/app/schemas/geo_reports.py",
+    "backend/app/services/geo_reports.py",
+    "backend/app/services/geo_report_formulas.py",
+    "backend/app/services/geo_report_csv.py",
+    "backend/tests/unit/test_geo_reports.py",
+    "backend/tests/integration/test_geo_reports.py",
+    "frontend/src/domains/geo-reports/report-content.tsx",
+    "frontend/src/domains/geo-reports/reports.test.tsx",
+    "frontend/src/domains/geo-reports/reports.model.ts",
+    "frontend/src/domains/geo-reports/reports.api.ts",
+    "frontend/src/domains/geo-reports/report-page.tsx",
+    "frontend/src/routes/_app/geo/reports/index.tsx",
+    "frontend/src/routes/_app/geo/reports/print.tsx",
+    "frontend/tests/e2e/reports-real-stack.spec.ts"
+  ]
+}

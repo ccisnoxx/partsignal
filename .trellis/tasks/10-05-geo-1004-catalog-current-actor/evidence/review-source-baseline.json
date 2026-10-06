@@ -1,0 +1,7 @@
+{
+  "backend/app/deps.py": "d260d2ddfb9de996ced737d4a223b613ee2fa2fbd0198cb6c4a9bca121e2c5f5",
+  "backend/app/services/current_actor.py": "7549a7ddcbb3b91b24ba1b83e45c5668529132c4e81c16208f36891c77c16e81",
+  "backend/app/services/geo_catalog.py": "fe23c92e00397bca7a2f8953a51c102b0f837c4cee2531722b3cd1375ab3412d",
+  "backend/app/services/identity.py": "ea5ad70bfee1813aa71631b2ff6959bf9df1781cf1eb41956af24d61958fd9c9",
+  "backend/tests/integration/test_geo_catalog_current_actor.py": "d60a63928459b38385f61f42e5765a73bb918e3844768c1dcef5b74eb441a17a"
+}

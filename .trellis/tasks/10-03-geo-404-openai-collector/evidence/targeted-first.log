@@ -1,0 +1,157 @@
+......................FF................................................ [ 70%]
+..............................                                           [100%]
+=================================== FAILURES ===================================
+__ test_frozen_adapter_and_model_binding_cannot_be_substituted[ai_channel_id] __
+
+field = 'ai_channel_id'
+
+    @pytest.mark.parametrize("field", ["adapter_key", "adapter_version", "ai_channel_id", "ai_model_id"])
+    def test_frozen_adapter_and_model_binding_cannot_be_substituted(field):
+        request = make_request()
+        with running_geo_fake() as provider:
+            collector, _ = make_collector(provider, request)
+            value = uuid4() if field.startswith("ai_") else "other"
+>           request = replace(request, profile=replace(request.profile, **{field: value}))
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_openai_collector.py:91: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+obj = <app.collectors.contracts.CollectionProfile object at 0x10b0597c0>
+changes = {'adapter_key': 'openai-compatible-chat', 'adapter_version': '1', 'ai_channel_id': UUID('022384e1-adcf-4a4b-9cfd-dcfeed333231'), 'ai_model_id': None, ...}
+f = Field(name='settings',type='tuple[tuple[str, bool | int | float | None], ...]',default=<dataclasses._MISSING_TYPE obje... at 0x103e63530>,init=True,repr=True,hash=None,compare=True,metadata=mappingproxy({}),kw_only=False,_field_type=_FIELD)
+
+    def replace(obj, /, **changes):
+        """Return a new object replacing specified fields with new values.
+    
+        This is especially useful for frozen classes.  Example usage::
+    
+          @dataclass(frozen=True)
+          class C:
+              x: int
+              y: int
+    
+          c = C(1, 2)
+          c1 = replace(c, x=3)
+          assert c1.x == 3 and c1.y == 2
+        """
+    
+        # We're going to mutate 'changes', but that's okay because it's a
+        # new dict, even if called with 'replace(obj, **my_changes)'.
+    
+        if not _is_dataclass_instance(obj):
+            raise TypeError("replace() should be called on dataclass instances")
+    
+        # It's an error to have init=False fields in 'changes'.
+        # If a field is not in 'changes', read its value from the provided obj.
+    
+        for f in getattr(obj, _FIELDS).values():
+            # Only consider normal fields or InitVars.
+            if f._field_type is _FIELD_CLASSVAR:
+                continue
+    
+            if not f.init:
+                # Error if this field is specified in changes.
+                if f.name in changes:
+                    raise ValueError(f'field {f.name} is declared with '
+                                     'init=False, it cannot be specified with '
+                                     'replace()')
+                continue
+    
+            if f.name not in changes:
+                if f._field_type is _FIELD_INITVAR and f.default is MISSING:
+                    raise ValueError(f"InitVar {f.name!r} "
+                                     'must be specified with replace()')
+                changes[f.name] = getattr(obj, f.name)
+    
+        # Create the new object, which calls __init__() and
+        # __post_init__() (if defined), using all of the init fields we've
+        # added and/or left in 'changes'.  If there are values supplied in
+        # changes that aren't fields, this will correctly raise a
+        # TypeError.
+>       return obj.__class__(**changes)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+E       pydantic_core._pydantic_core.ValidationError: 1 validation error for CollectionProfile
+E         Value error, 采集配置不符合闭合合同 [type=value_error]
+E           For further information visit https://errors.pydantic.dev/2.13/v/value_error
+
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/dataclasses.py:1588: ValidationError
+___ test_frozen_adapter_and_model_binding_cannot_be_substituted[ai_model_id] ___
+
+field = 'ai_model_id'
+
+    @pytest.mark.parametrize("field", ["adapter_key", "adapter_version", "ai_channel_id", "ai_model_id"])
+    def test_frozen_adapter_and_model_binding_cannot_be_substituted(field):
+        request = make_request()
+        with running_geo_fake() as provider:
+            collector, _ = make_collector(provider, request)
+            value = uuid4() if field.startswith("ai_") else "other"
+>           request = replace(request, profile=replace(request.profile, **{field: value}))
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_openai_collector.py:91: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+obj = <app.collectors.contracts.CollectionProfile object at 0x10ae2d1c0>
+changes = {'adapter_key': 'openai-compatible-chat', 'adapter_version': '1', 'ai_channel_id': None, 'ai_model_id': UUID('81ea9f7c-46a2-4ffa-83a4-72b86e175eac'), ...}
+f = Field(name='settings',type='tuple[tuple[str, bool | int | float | None], ...]',default=<dataclasses._MISSING_TYPE obje... at 0x103e63530>,init=True,repr=True,hash=None,compare=True,metadata=mappingproxy({}),kw_only=False,_field_type=_FIELD)
+
+    def replace(obj, /, **changes):
+        """Return a new object replacing specified fields with new values.
+    
+        This is especially useful for frozen classes.  Example usage::
+    
+          @dataclass(frozen=True)
+          class C:
+              x: int
+              y: int
+    
+          c = C(1, 2)
+          c1 = replace(c, x=3)
+          assert c1.x == 3 and c1.y == 2
+        """
+    
+        # We're going to mutate 'changes', but that's okay because it's a
+        # new dict, even if called with 'replace(obj, **my_changes)'.
+    
+        if not _is_dataclass_instance(obj):
+            raise TypeError("replace() should be called on dataclass instances")
+    
+        # It's an error to have init=False fields in 'changes'.
+        # If a field is not in 'changes', read its value from the provided obj.
+    
+        for f in getattr(obj, _FIELDS).values():
+            # Only consider normal fields or InitVars.
+            if f._field_type is _FIELD_CLASSVAR:
+                continue
+    
+            if not f.init:
+                # Error if this field is specified in changes.
+                if f.name in changes:
+                    raise ValueError(f'field {f.name} is declared with '
+                                     'init=False, it cannot be specified with '
+                                     'replace()')
+                continue
+    
+            if f.name not in changes:
+                if f._field_type is _FIELD_INITVAR and f.default is MISSING:
+                    raise ValueError(f"InitVar {f.name!r} "
+                                     'must be specified with replace()')
+                changes[f.name] = getattr(obj, f.name)
+    
+        # Create the new object, which calls __init__() and
+        # __post_init__() (if defined), using all of the init fields we've
+        # added and/or left in 'changes'.  If there are values supplied in
+        # changes that aren't fields, this will correctly raise a
+        # TypeError.
+>       return obj.__class__(**changes)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+E       pydantic_core._pydantic_core.ValidationError: 1 validation error for CollectionProfile
+E         Value error, 采集配置不符合闭合合同 [type=value_error]
+E           For further information visit https://errors.pydantic.dev/2.13/v/value_error
+
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/dataclasses.py:1588: ValidationError
+=========================== short test summary info ============================
+FAILED backend/tests/unit/test_geo_openai_collector.py::test_frozen_adapter_and_model_binding_cannot_be_substituted[ai_channel_id]
+FAILED backend/tests/unit/test_geo_openai_collector.py::test_frozen_adapter_and_model_binding_cannot_be_substituted[ai_model_id]
+2 failed, 100 passed in 3.57s

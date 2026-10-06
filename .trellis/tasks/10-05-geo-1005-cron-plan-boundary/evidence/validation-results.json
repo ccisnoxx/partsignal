@@ -1,0 +1,141 @@
+[
+  {
+    "scope": "backend unit",
+    "command": "uv run --project backend pytest backend/tests/unit/test_geo_plan_management.py backend/tests/unit/test_geo_monitoring_plan_contract.py backend/tests/unit/test_geo_batch_creation_contract.py -q",
+    "result": "111 passed",
+    "exit_code": 0,
+    "evidence": "evidence/backend-unit.log"
+  },
+  {
+    "scope": "PG/API",
+    "command": "docker compose --env-file .env -f deploy/compose.dev.yaml run --rm backend-test pytest tests/integration/test_geo_cron_boundary.py tests/integration/test_geo_plan_api.py tests/integration/test_geo_plan_reads.py tests/integration/test_geo_batch_creation.py -q",
+    "result": "30 unique cases: initial 20 passed / 10 fixture failures; after diagnosis and correction 11 targeted passed (10 failed + 1 fixture-dependent manual positive)",
+    "initial_exit_code": 1,
+    "final_exit_code": 0,
+    "evidence": [
+      "evidence/backend-integration.log",
+      "evidence/backend-integration-recheck.log",
+      "evidence/backend-targeted.xml"
+    ]
+  },
+  {
+    "scope": "frontend Plan",
+    "command": "npm run test -- src/domains/geo-plans",
+    "result": "89 passed / 5 files / 0 skipped",
+    "exit_code": 0,
+    "source": "frontend worker final and verified candidate"
+  },
+  {
+    "scope": "frontend batch creator",
+    "command": "npm --prefix frontend run test -- src/domains/geo-runs/batch-create.test.tsx",
+    "result": "5 passed",
+    "exit_code": 0,
+    "evidence": "evidence/batch-create-vitest-recheck.log"
+  },
+  {
+    "scope": "runtime contract",
+    "command": "uv run --project backend python -m app.tools.contract_check contracts/openapi.yaml",
+    "exit_code": 0,
+    "evidence": "evidence/contract-check-final.log"
+  },
+  {
+    "scope": "types",
+    "command": "npm --prefix frontend run typecheck",
+    "exit_code": 0,
+    "evidence": "evidence/frontend-typecheck-final.log"
+  },
+  {
+    "scope": "backend types",
+    "command": "uv run --project backend mypy --config-file backend/pyproject.toml backend/app/services/geo_plan_policy.py backend/app/services/geo_plan_commands.py backend/app/services/geo_plan_queries.py backend/app/services/geo_batches.py backend/app/schemas/geo_plan_management.py",
+    "result": "Success: no issues found in 5 source files",
+    "exit_code": 0,
+    "evidence": "evidence/backend-mypy.log"
+  },
+  {
+    "scope": "targeted lint",
+    "result": "Backend 10 changed files Ruff passed; frontend Plan and batch-create owned paths ESLint passed",
+    "exit_code": 0
+  },
+  {
+    "scope": "generated API",
+    "command": "npm run api:generate / npm run api:check",
+    "exit_code": 0,
+    "source": "frontend worker final; generated actual diff inspected"
+  },
+  {
+    "scope": "Plan E2E",
+    "command": "DATABASE_URL=<local PG> REDIS_URL=<exclusive DB13> PARTSIGNAL_E2E_SPEC=tests/e2e/plans-real-stack.spec.ts deploy/scripts/e2e-local.sh",
+    "result": "1 passed; production frontend build, secret_scan=clean; owned DB/Redis/ports/files cleaned",
+    "exit_code": 0,
+    "evidence": "evidence/plans-e2e-recheck.log"
+  },
+  {
+    "scope": "docs hash",
+    "command": "shasum -a 256 -c SHA256SUMS",
+    "exit_code": 0,
+    "evidence": "evidence/doc-sha256-recheck.log"
+  },
+  {
+    "scope": "global whitespace",
+    "command": "git diff --check",
+    "exit_code": 2,
+    "classification": "unchanged preexisting GEO-1001 audit trailing whitespace",
+    "evidence": "evidence/git-diff-check.log"
+  },
+  {
+    "scope": "task whitespace",
+    "command": "git diff --no-index --check for task before/after files",
+    "result": 0,
+    "evidence": "evidence/task-diff-check.json"
+  },
+  {
+    "scope": "final wording / generated API",
+    "command": "npm run api:generate; npm run api:check",
+    "result": "OpenAPI 类型与根合同一致",
+    "exit_code": 0,
+    "evidence": "evidence/api-closure.log"
+  },
+  {
+    "scope": "final wording / batch creator",
+    "command": "npm run test -- src/domains/geo-runs/batch-create.test.tsx; npx eslint src/domains/geo-runs/batch-create.tsx src/domains/geo-runs/batch-create.test.tsx",
+    "result": "5 passed; ESLint passed",
+    "exit_code": 0,
+    "evidence": "evidence/batch-create-closure.log"
+  },
+  {
+    "scope": "final wording / runtime contract",
+    "command": "uv run --project backend python -m app.tools.contract_check contracts/openapi.yaml",
+    "result": "FastAPI 运行时操作与 OpenAPI 完整契约一致",
+    "exit_code": 0,
+    "evidence": "evidence/contract-check-closure.log"
+  },
+  {
+    "scope": "final wording / docs hashes",
+    "command": "shasum -a 256 -c SHA256SUMS",
+    "exit_code": 0,
+    "evidence": "evidence/doc-sha256-closure.log"
+  },
+  {
+    "scope": "final review governance / docs hashes",
+    "command": "shasum -a 256 -c SHA256SUMS",
+    "exit_code": 0,
+    "evidence": "evidence/doc-sha256-final.log"
+  },
+  {
+    "scope": "Trellis context",
+    "command": "python3 .trellis/scripts/task.py validate .trellis/tasks/10-05-geo-1005-cron-plan-boundary",
+    "result": "All validations passed",
+    "exit_code": 0
+  },
+  {
+    "scope": "independent review",
+    "result": "No confirmed local delivery blocker; scope and coverage gaps recorded",
+    "evidence": "evidence/independent-review.md"
+  },
+  {
+    "scope": "subagent audit",
+    "result": "2/2 plans and execution accepted, independent review=1, anomaly=0, closed bundle verified",
+    "exit_code": 0,
+    "evidence": "evidence/SUBAGENT_EXECUTION_DIGEST.json"
+  }
+]

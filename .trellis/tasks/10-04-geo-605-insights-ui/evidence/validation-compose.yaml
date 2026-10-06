@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: partsignal
+      POSTGRES_USER: partsignal
+      POSTGRES_PASSWORD: partsignal_dev
+    ports: ["127.0.0.1:55468:5432"]
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U partsignal -d partsignal]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    volumes: [geo605-postgres:/var/lib/postgresql/data]
+  redis:
+    image: redis:7.4-alpine
+    ports: ["127.0.0.1:56408:6379"]
+volumes:
+  geo605-postgres:

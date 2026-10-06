@@ -1,0 +1,10 @@
+docker compose --env-file .env -f deploy/compose.dev.yaml up -d --wait postgres redis
+ Container partsignal-dev-redis-1 Running 
+ Container partsignal-dev-postgres-1 Running 
+ Container partsignal-dev-redis-1 Waiting 
+ Container partsignal-dev-postgres-1 Waiting 
+ Container partsignal-dev-redis-1 Healthy 
+ Container partsignal-dev-postgres-1 Healthy 
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend python deploy/scripts/test-geo-recovery-integration.py
+......                                                                   [100%]
+6 passed in 18.80s

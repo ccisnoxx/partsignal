@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-geo-configuration.py", line 134, in <module>
+    main()
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-geo-configuration.py", line 128, in main
+    raise AssertionError(f"入口启动或 no-egress 检查失败：{environment}/{scenario}")
+AssertionError: 入口启动或 no-egress 检查失败：dev/omitted

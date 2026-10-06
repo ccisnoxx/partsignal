@@ -1,0 +1,14 @@
+{
+  "command": [
+    "env",
+    "UV_CACHE_DIR=.cache/uv",
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "python",
+    "-c",
+    "from pathlib import Path; import hashlib; p=Path(\"docs/geo-monitoring/SHA256SUMS\"); rows=[line.split(\"  \",1) for line in p.read_text().splitlines()]; assert all(hashlib.sha256((p.parent/name).read_bytes()).hexdigest()==sha for sha,name in rows); print(f\"文档SHA256通过：{len(rows)}文件\")"
+  ],
+  "exit_code": 1
+}

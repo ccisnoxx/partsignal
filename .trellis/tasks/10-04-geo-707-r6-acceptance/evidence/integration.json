@@ -1,0 +1,9 @@
+{
+  "argv": [
+    "make",
+    "COMPOSE=docker compose -f .trellis/tasks/10-04-geo-707-r6-acceptance/evidence/compose.yaml",
+    "test-integration"
+  ],
+  "exit_code": 2,
+  "elapsed_seconds": 601.192
+}

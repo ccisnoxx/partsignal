@@ -1,0 +1,1595 @@
+--- a/contracts/openapi.yaml
++++ b/contracts/openapi.yaml
+@@ -14106,3 +14106,212 @@
+       - expected_revision
+       title: GeoMonitoringPlanRevisionRequest
+       type: object
++
++    GeoEstimatedCostCoverage:
++      enum:
++      - NONE
++      - PARTIAL
++      - COMPLETE
++      title: GeoEstimatedCostCoverage
++      type: string
++    GeoKnownCostTotal:
++      additionalProperties: false
++      properties:
++        value:
++          pattern: ^(?:0|[1-9][0-9]*)(?:\.[0-9]{1,6})?$(?![\s\S])
++          title: Value
++          type: string
++        currency:
++          maxLength: 3
++          minLength: 3
++          pattern: ^[A-Z]{3}$
++          title: Currency
++          type: string
++      required:
++      - value
++      - currency
++      title: GeoKnownCostTotal
++      type: object
++    GeoPlanBlockerCode:
++      enum:
++      - SUBJECT_NOT_FOUND
++      - SUBJECT_DISABLED
++      - PROMPT_NOT_FOUND
++      - PROMPT_DISABLED
++      - PROFILE_NOT_FOUND
++      - BUDGET_EXCEEDED
++      - BUDGET_CURRENCY_MISMATCH
++      title: GeoPlanBlockerCode
++      type: string
++    GeoPlanEstimatedCost:
++      additionalProperties: false
++      properties:
++        value:
++          anyOf:
++          - pattern: ^(?:0|[1-9][0-9]*)(?:\.[0-9]{1,6})?$(?![\s\S])
++            type: string
++          - type: 'null'
++          title: Value
++        currency:
++          anyOf:
++          - maxLength: 3
++            minLength: 3
++            pattern: ^[A-Z]{3}$
++            type: string
++          - type: 'null'
++          title: Currency
++        coverage:
++          $ref: '#/components/schemas/GeoEstimatedCostCoverage'
++        known_run_count:
++          minimum: 0
++          title: Known Run Count
++          type: integer
++        unknown_run_count:
++          minimum: 0
++          title: Unknown Run Count
++          type: integer
++        known_costs:
++          items:
++            $ref: '#/components/schemas/GeoKnownCostTotal'
++          title: Known Costs
++          type: array
++      required:
++      - value
++      - currency
++      - coverage
++      - known_run_count
++      - unknown_run_count
++      - known_costs
++      title: GeoPlanEstimatedCost
++      type: object
++    GeoPlanPreviewBlocker:
++      additionalProperties: false
++      properties:
++        code:
++          anyOf:
++          - $ref: '#/components/schemas/GeoPlanBlockerCode'
++          - $ref: '#/components/schemas/ProfileBlockerCode'
++          title: Code
++        field:
++          title: Field
++          type: string
++        resource_id:
++          anyOf:
++          - format: uuid
++            type: string
++          - type: 'null'
++          title: Resource Id
++        related_resource_id:
++          anyOf:
++          - format: uuid
++            type: string
++          - type: 'null'
++          title: Related Resource Id
++      required:
++      - code
++      - field
++      - resource_id
++      - related_resource_id
++      title: GeoPlanPreviewBlocker
++      type: object
++    GeoPlanPreviewWarning:
++      additionalProperties: false
++      properties:
++        code:
++          $ref: '#/components/schemas/GeoPlanWarningCode'
++        field:
++          title: Field
++          type: string
++        resource_id:
++          anyOf:
++          - format: uuid
++            type: string
++          - type: 'null'
++          title: Resource Id
++        related_resource_id:
++          anyOf:
++          - format: uuid
++            type: string
++          - type: 'null'
++          title: Related Resource Id
++      required:
++      - code
++      - field
++      - resource_id
++      - related_resource_id
++      title: GeoPlanPreviewWarning
++      type: object
++    GeoPlanWarningCode:
++      enum:
++      - MIXED_COLLECTION_MODES
++      - MIXED_PROFILE_ENVIRONMENTS
++      - PROMPT_PROFILE_ENVIRONMENT_MISMATCH
++      - MODEL_VERSION_UNKNOWN
++      - COST_UNKNOWN
++      - COST_PARTIAL
++      - COST_CURRENCY_MISMATCH
++      - BUDGET_UNVERIFIED
++      title: GeoPlanWarningCode
++      type: string
++    GeoMonitoringPlanPreview:
++      additionalProperties: false
++      properties:
++        prompt_count:
++          minimum: 0
++          title: Prompt Count
++          type: integer
++        profile_count:
++          minimum: 0
++          title: Profile Count
++          type: integer
++        repeat_count:
++          maximum: 10
++          minimum: 1
++          title: Repeat Count
++          type: integer
++        run_count:
++          minimum: 0
++          title: Run Count
++          type: integer
++        manual_run_count:
++          minimum: 0
++          title: Manual Run Count
++          type: integer
++        api_run_count:
++          minimum: 0
++          title: Api Run Count
++          type: integer
++        browser_run_count:
++          minimum: 0
++          title: Browser Run Count
++          type: integer
++        unresolved_run_count:
++          minimum: 0
++          title: Unresolved Run Count
++          type: integer
++        estimated_cost:
++          $ref: '#/components/schemas/GeoPlanEstimatedCost'
++        blockers:
++          items:
++            $ref: '#/components/schemas/GeoPlanPreviewBlocker'
++          title: Blockers
++          type: array
++        warnings:
++          items:
++            $ref: '#/components/schemas/GeoPlanPreviewWarning'
++          title: Warnings
++          type: array
++      required:
++      - prompt_count
++      - profile_count
++      - repeat_count
++      - run_count
++      - manual_run_count
++      - api_run_count
++      - browser_run_count
++      - unresolved_run_count
++      - estimated_cost
++      - blockers
++      - warnings
++      title: GeoMonitoringPlanPreview
++      type: object
+--- a/docs/geo-monitoring/02-business/02-domain-model.md
++++ b/docs/geo-monitoring/02-business/02-domain-model.md
+@@ -182,7 +182,9 @@
+ 
+ ## 3.4 GeoMonitoringPlan 聚合
+ 
+-GEO-206 / R1 已实现配置数据组件、四表 ORM 和 `0047_geo_monitoring_plans`，当前等待人工验收；字段与数据库防线以 [根 OpenAPI](../../../contracts/openapi.yaml) 和 [数据库合同](../../../contracts/database.md#geo-monitoringplan-合同geo-206--r1) 为权威。角色独立于 Subject 类型，配置至少一个 PRIMARY、prompt、profile；repeat 为 1..10、默认 3，revision 初始 0，rule_set_revision 默认 1。Cron 与 IANA 时区经输入边界校验，预算有限且非负或未设置。关系唯一且阻止删除资源，归档配置及关系只读；配置引用不设置历史首次运行标记。下面描述最终业务能力，当前资源活动/矩阵与命令资格分别留给 GEO-207/208，不生成批次或保存运行状态。
++GEO-206 / R1 已实现配置数据组件、四表 ORM 和 `0047_geo_monitoring_plans`，当前等待人工验收；字段与数据库防线以 [根 OpenAPI](../../../contracts/openapi.yaml) 和 [数据库合同](../../../contracts/database.md#geo-monitoringplan-合同geo-206--r1) 为权威。角色独立于 Subject 类型，配置至少一个 PRIMARY、prompt、profile；repeat 为 1..10、默认 3，revision 初始 0，rule_set_revision 默认 1。Cron 与 IANA 时区经输入边界校验，预算有限且非负或未设置。关系唯一且阻止删除资源，归档配置及关系只读；配置引用不设置历史首次运行标记。下面描述最终业务能力；GEO-207 实现资源活动/矩阵检查，命令资格接线仍由 GEO-208 负责，不生成批次或保存运行状态。
++
++GEO-207 已新增内部 RunMatrixBuilder 与只读预览，按明确问题变体、采集配置和重复次数计算请求数量，停用或缺失资源返回阻断；估价 coverage 和 unknown/null 语义见 [API设计](../03-technical/03-api-contract-design.md#62-geomonitoringplanpreview)。尚无 Plan 命令/API 或 Batch/Run 创建；预览不授予执行资格。
+ 
+ ### 目的
+ 
+--- a/docs/geo-monitoring/03-technical/03-api-contract-design.md
++++ b/docs/geo-monitoring/03-technical/03-api-contract-design.md
+@@ -178,7 +178,7 @@
+ 
+ ## 6. 监测计划 API
+ 
+-GEO-206 当前只交付 `GeoMonitoringPlanCreate/Update/Out/RevisionRequest`、状态/关系/调度枚举和 generated 类型。Create/Update 是完整配置，Update 另需 expected_revision；创建者、身份、状态与逻辑 revision 不接受客户端写入，预算 JSON 输入/输出均为非负十进制字符串（最多8位整数/6位小数）或 NULL，内部使用 Decimal；拒绝数字、符号、前导零、指数和尾随字符。没有 Plan 路径、预览或动作读模型；下表仍为后续目标，GEO-207 负责矩阵，GEO-208 接入命令。既有 Subject/Prompt/Profile 的删除读模型已接入真实 MONITORING_PLAN 阻断，沿既有权限和 CSRF，不新增外部调用。
++GEO-206 交付 `GeoMonitoringPlanCreate/Update/Out/RevisionRequest`、状态/关系/调度枚举和 generated 类型。Create/Update 是完整配置，Update 另需 expected_revision；创建者、身份、状态与逻辑 revision 不接受客户端写入，预算 JSON 输入/输出均为非负十进制字符串（最多8位整数/6位小数）或 NULL，内部使用 Decimal；拒绝数字、符号、前导零、指数和尾随字符。GEO-207 新增下述预览数据组件和内部只读服务；仍无 Plan 路径或动作读模型，下表由 GEO-208 接线。既有 Subject/Prompt/Profile 的删除读模型已接入真实 MONITORING_PLAN 阻断，沿既有权限和 CSRF，不新增外部调用。
+ 
+ | 方法 | 路径 | operationId |
+ |---|---|---|
+@@ -201,21 +201,36 @@
+ 
+ ### 6.2 `GeoMonitoringPlanPreview`
+ 
++GEO-207 的权威组件见 [根 OpenAPI](../../../contracts/openapi.yaml)，实现见 `backend/app/services/geo_plans.py`。请求使用完整配置，服务端显式转换内部选择；Subject 数不参与乘法，Profile 不按 Surface 合并。缺失/停用保留请求 run_count，返回可定位 blocker；缺失 Profile 的运行计入 unresolved_run_count。三种模式加 unresolved 等于 run_count。只读服务要求调用方的 REPEATABLE READ 或 SERIALIZABLE 事务，三次批量应用 SELECT 禁止 autoflush，不提交、不锁、不写。预览是当前快照，后续命令及发送仍需重新裁决。
++
++资格复用 GEO-204；blocker 的 code 为闭合计划原因或 ProfileBlockerCode，field/resource_id/related_resource_id 定位选项，不返回名字、问题、settings 或秘密。混合模式、Profile 环境、问题/Profile 语言地区差异及缺少模型版本观测能力给 warning，不改变点名属性、状态机或执行授权。
++
++估价仅接受内部服务端无 I/O 计算结果，当前没有生产估价实现，默认全部 unknown，包括 MANUAL。不能从 cost 能力、模型身份或测试状态推断费用。按 prompt×profile×repeat 汇总明确 Decimal 金额；JSON 金额为非负十进制字符串（最多6位小数，聚合整数位不受单格预算精度上限限制）。known_run_count + unknown_run_count = run_count，coverage 为 NONE/PARTIAL/COMPLETE。唯一币种的 value 是已知部分小计，不能解释为整个批次价格；全未知 value/currency=null。known_costs 保留分币已知小计，混币 value/currency=null，不换汇。有预算时混币返回 BUDGET_CURRENCY_MISMATCH；当前 budget 没有单独币种，仅与唯一估价币种的数额比较。已知小计超过 budget 时 BUDGET_EXCEEDED，相等不阻断；还有未知格时 BUDGET_UNVERIFIED，不能保证最终未超限。执行预算预留/扣费不在 GEO-207。
++
++以下示例表示默认无估价实现；API/BROWSER 还会按当前共享资格返回实际 blocker：
++
+ ```yaml
+ prompt_count: 10
+ profile_count: 3
+ repeat_count: 3
+ run_count: 90
+ manual_run_count: 30
+-api_run_count: 60
+-browser_run_count: 0
++api_run_count: 30
++browser_run_count: 30
++unresolved_run_count: 0
+ estimated_cost:
+-  value: 2.40
+-  currency: USD
+-  coverage: PARTIAL
++  value: null
++  currency: null
++  coverage: NONE
++  known_run_count: 0
++  unknown_run_count: 90
++  known_costs: []
+ blockers: []
+ warnings:
+-  - code: MODEL_VERSION_UNKNOWN
++  - code: COST_UNKNOWN
++    field: estimated_cost
++    resource_id: null
++    related_resource_id: null
+ ```
+ 
+ ## 7. 批次 API
+--- a/docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md
++++ b/docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md
+@@ -34,7 +34,7 @@
+ `backend/tests/integration/test_geo_profile_eligibility.py`。默认仅 manual，自动测试项是无 I/O
+ 元数据，不是生产 Collector。具体状态与验证见
+ [实施记录](../../../.trellis/tasks/10-02-geo-204-collector-registry/implement.md)。
+-GEO-205 管理接口/页面、GEO-207 矩阵及 GEO-401 发送协议仍未实施，不能将整项能力标记完成。
++GEO-205 已接线管理接口/页面；GEO-207 的服务端矩阵、当前资格定位和估价覆盖见下节；GEO-401 发送协议仍未实施，不能将整项能力标记完成。
+ 
+ ### 2.1 监测对象
+ 
+@@ -49,6 +49,14 @@
+ | REQ-GEO-SUBJECT-005 | 分析使用运行时冻结 alias snapshot | 后续别名变化不重写历史 | GEO-502 |
+ 
+ ### 2.2 问题和计划
++
++GEO-207 已实现 CAP-GEO-04、AC-PLAN-01/02 的内部服务与预览数据组件。
++90 个唯一矩阵单元、Subject 不参与乘法、同 Surface 的不同 Profile、停用/缺失/能力阻断、
++known/unknown 数量、Decimal/预算边界及混币证据见 `backend/tests/unit/test_geo_run_matrix.py`；
++组件/真实序列化见 `test_geo_plan_preview_contract.py`；当前列/无写/一致 RR 快照见
++`backend/tests/integration/test_geo_plan_preview.py`。默认无估价实现，未知费用不补零。
++状态与完整验证见 [GEO-207 实施记录](../../../.trellis/tasks/10-02-geo-207-run-matrix/implement.md)。
++Plan API/向导、执行预算与批次冻结仍分别属于 GEO-208/209、GEO-407、GEO-303。
+ 
+ | 需求 ID | 需求 | 验收 | 任务 |
+ |---|---|---|---|
+--- a/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ b/docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -400,7 +400,7 @@
+   phase: R1
+   release: R1
+   title: 实现服务端运行矩阵预览和费用覆盖
+-  status: planned
++  status: review
+   dependencies:
+   - GEO-206
+   - GEO-204
+@@ -416,6 +416,9 @@
+   - 02-business/03-workflows-and-state-machines.md
+   - 03-technical/01-technical-architecture.md
+   - 04-delivery/04-codex-execution-guide.md
++  trellis_task: .trellis/tasks/10-02-geo-207-run-matrix
++  validation_record: .trellis/tasks/10-02-geo-207-run-matrix/implement.md
++  review_note: 服务端矩阵、共享资格与费用覆盖已实现，指定静态/合同/单元/真实PostgreSQL门禁通过，独立只读复核无确认问题；等待人工验收，不自行done。无Plan API、数据库迁移、Batch/Run或外部采集。
+ - id: GEO-208
+   phase: R1
+   release: R1
+--- a/docs/geo-monitoring/CHANGELOG.md
++++ b/docs/geo-monitoring/CHANGELOG.md
+@@ -1,4 +1,13 @@
+ # 文档包变更记录
++
++## GEO-207 服务端运行矩阵预览和费用覆盖 — 2026-10-02（review）
++
++- GEO-206、GEO-204 已人工接受 done；本任务按 planned→in_progress→review 交付，不自行 done。
++- RunMatrixBuilder 唯一计算 prompt×profile×repeat，10×3×3=90；Subject 不乘入、同 Surface 的不同 Profile 不合并，缺失/停用不删格，三模式及 unresolved 数保持完整。
++- 资格复用 GEO-204，blocker/warning 定位资源；内部估价保留 Decimal、分币小计与 known/unknown 运行覆盖，默认全部 unknown/null，包括人工模式。明确零、部分估价、预算相等/超出、混币与未知预算均有固定语义。
++- 只读应用服务要求调用方 RR/SERIALIZABLE 快照，三次批量 SELECT 禁 autoflush，无锁/写/commit/rollback、秘密正文或外部请求。根 OpenAPI 仅追加预览数据组件，前端仅同步 generated 类型。
++- 无数据库合同、ORM 或 Alembic 变化，既有 head 为 0047，无历史迁移或生产操作。没有 Plan API/页面、Batch/Run、Collector 定价/执行预算、指标或机会；GEO-208/303 未实施。
++- 指定门禁、定向矩阵/真实 PostgreSQL 证据、独立只读复核与环境清理见 [GEO-207 实施记录](../../.trellis/tasks/10-02-geo-207-run-matrix/implement.md)。
+ 
+ ## GEO-206 MonitoringPlan 数据契约 — 2026-10-02（review）
+ 
+--- a/docs/geo-monitoring/README.md
++++ b/docs/geo-monitoring/README.md
+@@ -221,6 +221,8 @@
+ | R6 机会与复测闭环 | 异常可转化为任务，任务完成后可发起严格同口径复测 |
+ | R7 浏览器试点与生产硬化 | 在合规批准下完成一个真实界面采集试点及完整运维门禁 |
+ 
++GEO-207 / R1 已实现服务端 RunMatrixBuilder、当前资源与共享 Profile 资格定位、三模式数量及 known/unknown 费用覆盖，当前交付状态见 [任务清单](./04-delivery/task-manifest.yaml)。10×3×3 准确返回90，未知费用保持 null；默认没有生产估价实现。预览组件与 generated 类型以根 OpenAPI 为权威，仍无 Plan API、Batch/Run 或外部采集。范围和逐项验证见 [Task Brief](../../.trellis/tasks/10-02-geo-207-run-matrix/prd.md) 与 [实施证据](../../.trellis/tasks/10-02-geo-207-run-matrix/implement.md)，具体估价与预算语义见 [API设计](./03-technical/03-api-contract-design.md#62-geomonitoringplanpreview)。
++
+ ## 6. 首个建议执行任务
+ 
+ 在代码实现前，先完成 `GEO-001` 至 `GEO-005`：
+--- a/docs/geo-monitoring/SHA256SUMS
++++ b/docs/geo-monitoring/SHA256SUMS
+@@ -4,12 +4,12 @@
+ 813055a6ecd380b1362f697dba8006a0bedd22d8261aa6e090841eb82bb03f6a  ./01-product/02-geo-core-prd.md
+ 7ea6985cdc63749a10c73b801f69349dc2f0ac797b9aa87622723f26b988bcbe  ./01-product/03-information-architecture-and-page-spec.md
+ 3892c8f83318ee460de04960a5162b4d777db06eb731a5999cdee946cd8042e3  ./02-business/01-business-architecture.md
+-2b4bc4afd9d768df82122cb1922451065937caa39427d463be82a5ed40858dd1  ./02-business/02-domain-model.md
++1d85f1327b959975394aecbc528cbbf3a6208921ddad41ef1b175c0fd8c13703  ./02-business/02-domain-model.md
+ ecd00edfdb3bd3dc1e301206d4988774d0a6b425dae5eb6cd71459da3716b0b2  ./02-business/03-workflows-and-state-machines.md
+ 30e1976c61c18150724cf4b89ead9e2d960b0cea729ba377b06c7c384c264899  ./02-business/04-monitoring-methodology-and-metrics.md
+ 2ce491f8dbf89639aabbf59b5afb7a3fd43520e40e7848e4e9e3049c85436689  ./03-technical/01-technical-architecture.md
+ fb71186470e732b6642cb970cbff9af28e4c821e955ab25b5ffd6c0bd2cc20c0  ./03-technical/02-data-architecture.md
+-7e39869b4be278daa580e86247363e017942c9600b74e46582c8185be4f09265  ./03-technical/03-api-contract-design.md
++c3375c4a2c10e55ae6f2e3a91f81b337f044de08ed61c72b197859cd2c875512  ./03-technical/03-api-contract-design.md
+ 364b95b01a9e57572d5844e11f9858be120eb24a85cce5577a4c6561797bba2f  ./03-technical/04-frontend-architecture.md
+ 1474ab5f413927669a0b4029399034cb8956eecbe282a174423203835d45e1bb  ./03-technical/05-worker-and-collector-architecture.md
+ 2698d3095cfaeb5857d6bafd3efd633d9d50b813257054e7568d779be35d7dd7  ./03-technical/06-security-and-compliance.md
+@@ -17,7 +17,7 @@
+ 61a4dd642c6f74b581e95eb2269453be79d71a75fa240269eb001e56f45e2b83  ./03-technical/08-deployment-and-operations.md
+ f8c643e46c1159c51bd2e271e87de1d0e5a0448e2845af01f33bef5e4e1d411b  ./04-delivery/01-implementation-roadmap.md
+ acf0bde87ddfc34ebbc09543c1f2c2c1f496d48f330727b5e943807267eed41c  ./04-delivery/02-work-breakdown-structure.md
+-6e5de3559ce998aa5b121eb56f436727fcf3e9edbf4c9edf93155b62877e5191  ./04-delivery/03-requirement-traceability-matrix.md
++f8f5eccc23a3254adb62d69d990063367f9f91ea89c12fcc06e14189d89b3fa1  ./04-delivery/03-requirement-traceability-matrix.md
+ 8991d4c1ec5cc872904aa3b10ffbb2f77ca46a4bfda88589d290f7fd92c2f1fb  ./04-delivery/04-codex-execution-guide.md
+ f600bcdfc2788659654825a020fb2aa0fcbe7acf9827b97eab25aadd7a20ff51  ./04-delivery/05-task-template.md
+ 0ec18f9ce8589f4c8e222fddc6d15853c949ad2b227381b584e2c81c4c4e47b0  ./04-delivery/06-current-geo-baseline.md
+@@ -102,13 +102,13 @@
+ 7106b3f1df66de6ba41a4d7ca85e291b8b181f78e2b7c0ef91f4fa696d1f9e8b  ./04-delivery/geo-003-baseline/sources.json
+ 316ab24c5f645e18d39c529c7fcbca2260b14a5375cc5ebd799a5b7c6cfc8f40  ./04-delivery/geo-003-baseline/tests.json
+ 9dae298eb77cc0063394bfacea27b02ece69bf2a7dceba637ef1320565810ec7  ./04-delivery/geo-003-baseline/validation.md
+-6401ccafe1bb1318c68c14976e8e0fbf7ee24e1f625f2b0d206c605dbdc1260f  ./04-delivery/task-manifest.yaml
++d3b3965e8a5573e3c78adcbb145c9802cc2c39e793aedb70a5aeb3154f61ff6c  ./04-delivery/task-manifest.yaml
+ 2c0f8d8ba314039b44e48614481c28e615e996c2e4ed444c8f07362b5cd75de9  ./05-decisions/ADR-001-extend-modular-monolith.md
+ 4e0ec1be59e33c2f3e83ee50abc55ffe35d2d0bf471c19cc2c713b391fc12cee  ./05-decisions/ADR-002-unified-observation-run-model.md
+ 00baab5f8fe68fbaf75e3aa7b07a0cfbd7c510e39b6a70ea462d9ab941330dc7  ./05-decisions/ADR-003-separate-collection-analysis-review.md
+ 09d2ba6a3d8f07ca61309d0a9d4a557c30a1d16853d73139e15b43ca6f1303bb  ./05-decisions/ADR-004-no-unified-geo-score.md
+ 6197eb3379ad5c5f99c499ab8b74eac5cf18e6df26a3f5c34c4e9bf83845593b  ./05-decisions/ADR-005-staged-collector-rollout.md
+ c3e9f23a90bd7fc9b47760d53c56fd6f09f73065dff5b19c1040ee5fd608a560  ./05-decisions/GEO-002-architecture-review.md
+-f0b6f12c78aef638e0148e42bf98d7cd7a0d8b99f0af79d4f0001de4e5677fc1  ./CHANGELOG.md
+-fd246f356b9b85b21218a3882f9f9b05c95bc94de00d3fcfc3b91de4b6cb1e15  ./README.md
++676e4edb71d061461b08162f4fa35c0074e03da2568e1a13ef9eab20c1b8218d  ./CHANGELOG.md
++7ec493ac2f1cf6636f7bbadd9cca07f5a9660c6204f1c382dab46bfee1e3be12  ./README.md
+ 36be92c676c3150e5953f01498418900d3e2bcc1f37a0bda31b9892e57b8a2d0  ./01-product/04-catalog-user-guide.md
+--- a/frontend/src/shared/api/generated/schema.d.ts
++++ b/frontend/src/shared/api/generated/schema.d.ts
+@@ -7144,6 +7144,87 @@
+             /** Expected Revision */
+             expected_revision: number;
+         };
++        /**
++         * GeoEstimatedCostCoverage
++         * @enum {string}
++         */
++        GeoEstimatedCostCoverage: "NONE" | "PARTIAL" | "COMPLETE";
++        /** GeoKnownCostTotal */
++        GeoKnownCostTotal: {
++            /** Value */
++            value: string;
++            /** Currency */
++            currency: string;
++        };
++        /**
++         * GeoPlanBlockerCode
++         * @enum {string}
++         */
++        GeoPlanBlockerCode: "SUBJECT_NOT_FOUND" | "SUBJECT_DISABLED" | "PROMPT_NOT_FOUND" | "PROMPT_DISABLED" | "PROFILE_NOT_FOUND" | "BUDGET_EXCEEDED" | "BUDGET_CURRENCY_MISMATCH";
++        /** GeoPlanEstimatedCost */
++        GeoPlanEstimatedCost: {
++            /** Value */
++            value: string | null;
++            /** Currency */
++            currency: string | null;
++            coverage: components["schemas"]["GeoEstimatedCostCoverage"];
++            /** Known Run Count */
++            known_run_count: number;
++            /** Unknown Run Count */
++            unknown_run_count: number;
++            /** Known Costs */
++            known_costs: components["schemas"]["GeoKnownCostTotal"][];
++        };
++        /** GeoPlanPreviewBlocker */
++        GeoPlanPreviewBlocker: {
++            /** Code */
++            code: components["schemas"]["GeoPlanBlockerCode"] | components["schemas"]["ProfileBlockerCode"];
++            /** Field */
++            field: string;
++            /** Resource Id */
++            resource_id: string | null;
++            /** Related Resource Id */
++            related_resource_id: string | null;
++        };
++        /** GeoPlanPreviewWarning */
++        GeoPlanPreviewWarning: {
++            code: components["schemas"]["GeoPlanWarningCode"];
++            /** Field */
++            field: string;
++            /** Resource Id */
++            resource_id: string | null;
++            /** Related Resource Id */
++            related_resource_id: string | null;
++        };
++        /**
++         * GeoPlanWarningCode
++         * @enum {string}
++         */
++        GeoPlanWarningCode: "MIXED_COLLECTION_MODES" | "MIXED_PROFILE_ENVIRONMENTS" | "PROMPT_PROFILE_ENVIRONMENT_MISMATCH" | "MODEL_VERSION_UNKNOWN" | "COST_UNKNOWN" | "COST_PARTIAL" | "COST_CURRENCY_MISMATCH" | "BUDGET_UNVERIFIED";
++        /** GeoMonitoringPlanPreview */
++        GeoMonitoringPlanPreview: {
++            /** Prompt Count */
++            prompt_count: number;
++            /** Profile Count */
++            profile_count: number;
++            /** Repeat Count */
++            repeat_count: number;
++            /** Run Count */
++            run_count: number;
++            /** Manual Run Count */
++            manual_run_count: number;
++            /** Api Run Count */
++            api_run_count: number;
++            /** Browser Run Count */
++            browser_run_count: number;
++            /** Unresolved Run Count */
++            unresolved_run_count: number;
++            estimated_cost: components["schemas"]["GeoPlanEstimatedCost"];
++            /** Blockers */
++            blockers: components["schemas"]["GeoPlanPreviewBlocker"][];
++            /** Warnings */
++            warnings: components["schemas"]["GeoPlanPreviewWarning"][];
++        };
+     };
+     responses: {
+         /** @description 业务或校验错误 */
+--- a/backend/app/schemas/geo_plan_preview.py
++++ b/backend/app/schemas/geo_plan_preview.py
+@@ -0,0 +1,98 @@
++"""服务端矩阵预览数据组件；HTTP 接线由 GEO-208 拥有。"""
++
++from decimal import Decimal
++from enum import StrEnum
++from typing import Annotated
++from uuid import UUID
++
++from pydantic import Field, PlainSerializer, WithJsonSchema
++
++from app.collectors.registry import ProfileBlockerCode
++from app.schemas.base import ContractModel
++
++
++class GeoPlanBlockerCode(StrEnum):
++    SUBJECT_NOT_FOUND = "SUBJECT_NOT_FOUND"
++    SUBJECT_DISABLED = "SUBJECT_DISABLED"
++    PROMPT_NOT_FOUND = "PROMPT_NOT_FOUND"
++    PROMPT_DISABLED = "PROMPT_DISABLED"
++    PROFILE_NOT_FOUND = "PROFILE_NOT_FOUND"
++    BUDGET_EXCEEDED = "BUDGET_EXCEEDED"
++    BUDGET_CURRENCY_MISMATCH = "BUDGET_CURRENCY_MISMATCH"
++
++
++class GeoPlanWarningCode(StrEnum):
++    MIXED_COLLECTION_MODES = "MIXED_COLLECTION_MODES"
++    MIXED_PROFILE_ENVIRONMENTS = "MIXED_PROFILE_ENVIRONMENTS"
++    PROMPT_PROFILE_ENVIRONMENT_MISMATCH = "PROMPT_PROFILE_ENVIRONMENT_MISMATCH"
++    MODEL_VERSION_UNKNOWN = "MODEL_VERSION_UNKNOWN"
++    COST_UNKNOWN = "COST_UNKNOWN"
++    COST_PARTIAL = "COST_PARTIAL"
++    COST_CURRENCY_MISMATCH = "COST_CURRENCY_MISMATCH"
++    BUDGET_UNVERIFIED = "BUDGET_UNVERIFIED"
++
++
++class GeoEstimatedCostCoverage(StrEnum):
++    NONE = "NONE"
++    PARTIAL = "PARTIAL"
++    COMPLETE = "COMPLETE"
++
++
++class GeoPlanPreviewBlocker(ContractModel):
++    code: GeoPlanBlockerCode | ProfileBlockerCode
++    field: str
++    resource_id: UUID | None
++    related_resource_id: UUID | None
++
++
++class GeoPlanPreviewWarning(ContractModel):
++    code: GeoPlanWarningCode
++    field: str
++    resource_id: UUID | None
++    related_resource_id: UUID | None
++
++
++def _amount_string(value: Decimal) -> str:
++    value = value.copy_abs() if value.is_zero() else value
++    result = format(value, "f")
++    return result.rstrip("0").rstrip(".") if "." in result else result
++
++
++EstimatedAmount = Annotated[
++    Decimal,
++    Field(ge=0, decimal_places=6, allow_inf_nan=False),
++    PlainSerializer(_amount_string, return_type=str, when_used="json"),
++    WithJsonSchema(
++        {"type": "string", "pattern": r"^(?:0|[1-9][0-9]*)(?:\.[0-9]{1,6})?$(?![\s\S])"}
++    ),
++]
++CostCurrency = Annotated[str, Field(strict=True, min_length=3, max_length=3, pattern=r"^[A-Z]{3}$")]
++RunCount = Annotated[int, Field(strict=True, ge=0)]
++
++
++class GeoKnownCostTotal(ContractModel):
++    value: EstimatedAmount
++    currency: CostCurrency
++
++
++class GeoPlanEstimatedCost(ContractModel):
++    value: EstimatedAmount | None
++    currency: CostCurrency | None
++    coverage: GeoEstimatedCostCoverage
++    known_run_count: RunCount
++    unknown_run_count: RunCount
++    known_costs: list[GeoKnownCostTotal]
++
++
++class GeoMonitoringPlanPreview(ContractModel):
++    prompt_count: RunCount
++    profile_count: RunCount
++    repeat_count: int = Field(strict=True, ge=1, le=10)
++    run_count: RunCount
++    manual_run_count: RunCount
++    api_run_count: RunCount
++    browser_run_count: RunCount
++    unresolved_run_count: RunCount
++    estimated_cost: GeoPlanEstimatedCost
++    blockers: list[GeoPlanPreviewBlocker]
++    warnings: list[GeoPlanPreviewWarning]
+--- a/backend/app/services/geo_plans.py
++++ b/backend/app/services/geo_plans.py
+@@ -0,0 +1,409 @@
++"""只读计划矩阵及估价覆盖；不创建 Batch/Run，不调用外部 Collector。"""
++
++import re
++from collections.abc import Callable, Iterator, Mapping
++from dataclasses import dataclass, field
++from decimal import Decimal, localcontext
++from typing import cast
++from uuid import UUID
++
++from sqlalchemy import select
++from sqlalchemy.orm import Session
++
++from app.collectors.registry import (
++    CollectorCapability,
++    CollectorRegistry,
++    ProfileBlockerCode,
++    collector_registry,
++)
++from app.config import Settings, settings
++from app.models.geo_catalog import GeoSubject
++from app.models.geo_prompt_variants import GeoPromptVariant
++from app.schemas.geo_monitoring_plans import GeoMonitoringPlanConfiguration
++from app.schemas.geo_plan_preview import (
++    GeoEstimatedCostCoverage,
++    GeoKnownCostTotal,
++    GeoMonitoringPlanPreview,
++    GeoPlanBlockerCode,
++    GeoPlanEstimatedCost,
++    GeoPlanPreviewBlocker,
++    GeoPlanPreviewWarning,
++    GeoPlanWarningCode,
++)
++from app.schemas.geo_surfaces import GeoCollectionMode
++from app.services.geo_collection_profiles import ProfileFacts, load_profile_facts
++from app.services.geo_collector_eligibility import GeoRuntimeSwitches, evaluate_profile
++
++
++@dataclass(frozen=True)
++class PlanMatrixSelection:
++    subject_ids: tuple[UUID, ...]
++    prompt_variant_ids: tuple[UUID, ...]
++    collection_profile_ids: tuple[UUID, ...]
++    repeat_count: int
++    budget_limit: Decimal | None
++
++    def __post_init__(self) -> None:
++        for ids in (self.subject_ids, self.prompt_variant_ids, self.collection_profile_ids):
++            if not ids or len(ids) != len(set(ids)):
++                raise ValueError("矩阵每个选择集合必须非空且资源唯一")
++        for name in ("subject_ids", "prompt_variant_ids", "collection_profile_ids"):
++            object.__setattr__(self, name, tuple(sorted(getattr(self, name))))
++        if type(self.repeat_count) is not int or not 1 <= self.repeat_count <= 10:
++            raise ValueError("矩阵重复次数必须为1到10的整数")
++        if self.budget_limit is not None:
++            if not isinstance(self.budget_limit, Decimal):
++                raise ValueError("内部矩阵预算必须为 Decimal 或空")
++            # 与配置入口共用数值范围，内部调用也不能绕过聚合输入合同。
++            from pydantic import TypeAdapter
++
++            from app.schemas.geo_monitoring_plans import PlanBudget
++
++            TypeAdapter(PlanBudget).validate_python(self.budget_limit)
++
++    @classmethod
++    def from_configuration(cls, value: GeoMonitoringPlanConfiguration) -> "PlanMatrixSelection":
++        """协议输入已经校验 PRIMARY/唯一性/范围，复制并规范顺序以隔离表单状态。"""
++        return cls(
++            tuple(sorted(item.subject_id for item in value.subjects)),
++            tuple(sorted(value.prompt_variant_ids)),
++            tuple(sorted(value.collection_profile_ids)),
++            value.repeat_count,
++            value.budget_limit,
++        )
++
++
++@dataclass(frozen=True)
++class PromptFacts:
++    id: UUID
++    revision: int
++    is_active: bool
++    language_code: str
++    region_code: str
++    prompt_text: str = field(repr=False)
++
++
++@dataclass(frozen=True)
++class CellCostEstimate:
++    """一格的服务端估价；None 表示未知，明确零仍需明确币种。"""
++
++    value: Decimal
++    currency: str
++
++    def __post_init__(self) -> None:
++        if (
++            not isinstance(self.value, Decimal)
++            or not self.value.is_finite()
++            or self.value < 0
++            or self.value > Decimal("99999999.999999")
++            or cast(int, self.value.as_tuple().exponent) < -6
++        ):
++            raise ValueError("单格估价必须为有限非负 Decimal，最多8位整数和6位小数")
++        if re.fullmatch(r"[A-Z]{3}", self.currency) is None:
++            raise ValueError("估价必须提供明确的三字母大写币种")
++
++
++CostEstimator = Callable[[PromptFacts, ProfileFacts], CellCostEstimate | None]
++
++
++@dataclass(frozen=True)
++class MatrixIssue[Code]:
++    code: Code
++    field: str
++    resource_id: UUID | None = None
++    related_resource_id: UUID | None = None
++
++
++@dataclass(frozen=True)
++class RunMatrixCell:
++    prompt_variant_id: UUID
++    collection_profile_id: UUID
++    repeat_index: int
++
++
++@dataclass(frozen=True)
++class RunMatrix:
++    selection: PlanMatrixSelection
++    mode_run_counts: tuple[tuple[GeoCollectionMode, int], ...]
++    unresolved_run_count: int
++    known_run_count: int
++    known_costs: tuple[tuple[str, Decimal], ...]
++    blockers: tuple[MatrixIssue[GeoPlanBlockerCode | ProfileBlockerCode], ...]
++    warnings: tuple[MatrixIssue[GeoPlanWarningCode], ...]
++
++    @property
++    def run_count(self) -> int:
++        return (
++            len(self.selection.prompt_variant_ids)
++            * len(self.selection.collection_profile_ids)
++            * self.selection.repeat_count
++        )
++
++    def cells(self) -> Iterator[RunMatrixCell]:
++        """惰性展开请求单元；阻断不静默缩减用户矩阵，消费方必须先检查资格。"""
++        for prompt_id in self.selection.prompt_variant_ids:
++            for profile_id in self.selection.collection_profile_ids:
++                for index in range(1, self.selection.repeat_count + 1):
++                    yield RunMatrixCell(prompt_id, profile_id, index)
++
++    def preview(self) -> GeoMonitoringPlanPreview:
++        counts = dict(self.mode_run_counts)
++        unknown = self.run_count - self.known_run_count
++        coverage = (
++            GeoEstimatedCostCoverage.NONE
++            if not self.known_run_count
++            else GeoEstimatedCostCoverage.PARTIAL
++            if unknown
++            else GeoEstimatedCostCoverage.COMPLETE
++        )
++        currency, value = self.known_costs[0] if len(self.known_costs) == 1 else (None, None)
++        return GeoMonitoringPlanPreview(
++            prompt_count=len(self.selection.prompt_variant_ids),
++            profile_count=len(self.selection.collection_profile_ids),
++            repeat_count=self.selection.repeat_count,
++            run_count=self.run_count,
++            manual_run_count=counts[GeoCollectionMode.MANUAL],
++            api_run_count=counts[GeoCollectionMode.API],
++            browser_run_count=counts[GeoCollectionMode.BROWSER],
++            unresolved_run_count=self.unresolved_run_count,
++            estimated_cost=GeoPlanEstimatedCost(
++                value=value,
++                currency=currency,
++                coverage=coverage,
++                known_run_count=self.known_run_count,
++                unknown_run_count=unknown,
++                known_costs=[GeoKnownCostTotal(currency=c, value=v) for c, v in self.known_costs],
++            ),
++            blockers=[
++                GeoPlanPreviewBlocker(
++                    code=issue.code,
++                    field=issue.field,
++                    resource_id=issue.resource_id,
++                    related_resource_id=issue.related_resource_id,
++                )
++                for issue in self.blockers
++            ],
++            warnings=[
++                GeoPlanPreviewWarning(
++                    code=issue.code,
++                    field=issue.field,
++                    resource_id=issue.resource_id,
++                    related_resource_id=issue.related_resource_id,
++                )
++                for issue in self.warnings
++            ],
++        )
++
++
++class RunMatrixBuilder:
++    def __init__(self, registry: CollectorRegistry = collector_registry) -> None:
++        self.registry = registry
++
++    def build(
++        self,
++        selection: PlanMatrixSelection,
++        *,
++        subjects: Mapping[UUID, bool],
++        prompts: Mapping[UUID, PromptFacts],
++        profiles: Mapping[UUID, ProfileFacts],
++        switches: GeoRuntimeSwitches,
++        required_capabilities: frozenset[CollectorCapability] = frozenset(),
++        estimate: CostEstimator | None = None,
++    ) -> RunMatrix:
++        """输入为已校验选择及同一当前快照；估价只能是内部无 I/O 计算。"""
++        blockers: list[MatrixIssue[GeoPlanBlockerCode | ProfileBlockerCode]] = []
++        warnings: list[MatrixIssue[GeoPlanWarningCode]] = []
++        for subject_id in selection.subject_ids:
++            if subject_id not in subjects:
++                blockers.append(
++                    MatrixIssue(GeoPlanBlockerCode.SUBJECT_NOT_FOUND, "subjects", subject_id)
++                )
++            elif not subjects[subject_id]:
++                blockers.append(
++                    MatrixIssue(GeoPlanBlockerCode.SUBJECT_DISABLED, "subjects", subject_id)
++                )
++        for prompt_id in selection.prompt_variant_ids:
++            if prompt_id not in prompts:
++                blockers.append(
++                    MatrixIssue(
++                        GeoPlanBlockerCode.PROMPT_NOT_FOUND, "prompt_variant_ids", prompt_id
++                    )
++                )
++            elif not prompts[prompt_id].is_active:
++                blockers.append(
++                    MatrixIssue(GeoPlanBlockerCode.PROMPT_DISABLED, "prompt_variant_ids", prompt_id)
++                )
++
++        counts = dict.fromkeys(GeoCollectionMode, 0)
++        unresolved = 0
++        eligible_profiles: set[UUID] = set()
++        environments: set[tuple[str, str, str]] = set()
++        per_profile = len(selection.prompt_variant_ids) * selection.repeat_count
++        for profile_id in selection.collection_profile_ids:
++            facts = profiles.get(profile_id)
++            if facts is None:
++                unresolved += per_profile
++                blockers.append(
++                    MatrixIssue(
++                        GeoPlanBlockerCode.PROFILE_NOT_FOUND, "collection_profile_ids", profile_id
++                    )
++                )
++                continue
++            p = facts.profile
++            counts[p.collection_mode] += per_profile
++            environments.add((p.language_code, p.region_code, p.login_state))
++            eligibility = evaluate_profile(
++                p,
++                facts.surface,
++                model=facts.model,
++                switches=switches,
++                registry=self.registry,
++                required_capabilities=required_capabilities,
++            )
++            blockers.extend(
++                MatrixIssue(b.code, "collection_profile_ids." + b.field, profile_id)
++                for b in eligibility.blockers
++            )
++            if eligibility.eligible:
++                eligible_profiles.add(profile_id)
++            if CollectorCapability.MODEL_VERSION not in eligibility.capabilities:
++                warnings.append(
++                    MatrixIssue(
++                        GeoPlanWarningCode.MODEL_VERSION_UNKNOWN,
++                        "collection_profile_ids",
++                        profile_id,
++                    )
++                )
++        if sum(count > 0 for count in counts.values()) > 1:
++            warnings.append(
++                MatrixIssue(GeoPlanWarningCode.MIXED_COLLECTION_MODES, "collection_profile_ids")
++            )
++        if len(environments) > 1:
++            warnings.append(
++                MatrixIssue(GeoPlanWarningCode.MIXED_PROFILE_ENVIRONMENTS, "collection_profile_ids")
++            )
++
++        known_count = 0
++        totals: dict[str, Decimal] = {}
++        run_count = per_profile * len(selection.collection_profile_ids)
++        # 单格为numeric(14,6)精度，扩大上下文避免大矩阵聚合受默认精度舍入。
++        with localcontext() as context:
++            context.prec = max(28, 15 + len(str(run_count)))
++            for prompt_id in selection.prompt_variant_ids:
++                prompt = prompts.get(prompt_id)
++                for profile_id in selection.collection_profile_ids:
++                    facts = profiles.get(profile_id)
++                    if prompt is None or facts is None:
++                        continue
++                    p = facts.profile
++                    if (prompt.language_code, prompt.region_code) != (
++                        p.language_code,
++                        p.region_code,
++                    ):
++                        warnings.append(
++                            MatrixIssue(
++                                GeoPlanWarningCode.PROMPT_PROFILE_ENVIRONMENT_MISMATCH,
++                                "prompt_variant_ids",
++                                prompt_id,
++                                profile_id,
++                            )
++                        )
++                    if (
++                        estimate is None
++                        or not prompt.is_active
++                        or profile_id not in eligible_profiles
++                    ):
++                        continue
++                    cost = estimate(prompt, facts)
++                    if cost is not None:
++                        known_count += selection.repeat_count
++                        totals[cost.currency] = (
++                            totals.get(cost.currency, Decimal(0))
++                            + cost.value * selection.repeat_count
++                        )
++        if known_count < run_count:
++            code = (
++                GeoPlanWarningCode.COST_PARTIAL if known_count else GeoPlanWarningCode.COST_UNKNOWN
++            )
++            warnings.append(MatrixIssue(code, "estimated_cost"))
++            if selection.budget_limit is not None:
++                warnings.append(MatrixIssue(GeoPlanWarningCode.BUDGET_UNVERIFIED, "budget_limit"))
++        if len(totals) > 1:
++            warnings.append(
++                MatrixIssue(GeoPlanWarningCode.COST_CURRENCY_MISMATCH, "estimated_cost")
++            )
++            if selection.budget_limit is not None:
++                blockers.append(
++                    MatrixIssue(GeoPlanBlockerCode.BUDGET_CURRENCY_MISMATCH, "budget_limit")
++                )
++        elif (
++            totals
++            and selection.budget_limit is not None
++            and next(iter(totals.values())) > selection.budget_limit
++        ):
++            blockers.append(MatrixIssue(GeoPlanBlockerCode.BUDGET_EXCEEDED, "budget_limit"))
++        return RunMatrix(
++            selection,
++            tuple(counts.items()),
++            unresolved,
++            known_count,
++            tuple(sorted(totals.items())),
++            tuple(blockers),
++            tuple(warnings),
++        )
++
++
++def preview_plan(
++    db: Session,
++    configuration: GeoMonitoringPlanConfiguration,
++    *,
++    runtime_configuration: Settings = settings,
++    registry: CollectorRegistry = collector_registry,
++    required_capabilities: frozenset[CollectorCapability] = frozenset(),
++    estimate: CostEstimator | None = None,
++) -> GeoMonitoringPlanPreview:
++    """调用方拥有一致读事务；不提交/回滚/锁行，不把预览当未来发送授权。"""
++    if db.connection().get_isolation_level() not in {"REPEATABLE READ", "SERIALIZABLE"}:
++        raise ValueError("计划预览必须在 REPEATABLE READ 或 SERIALIZABLE 一致快照中读取")
++    selection = PlanMatrixSelection.from_configuration(configuration)
++    subjects = dict(
++        db.execute(
++            select(GeoSubject.id, GeoSubject.is_active)
++            .where(GeoSubject.id.in_(selection.subject_ids))
++            .execution_options(autoflush=False)
++        )
++        .tuples()
++        .all()
++    )
++    rows = db.execute(
++        select(
++            GeoPromptVariant.id,
++            GeoPromptVariant.revision,
++            GeoPromptVariant.is_active,
++            GeoPromptVariant.language_code,
++            GeoPromptVariant.region_code,
++            GeoPromptVariant.prompt_text,
++        )
++        .where(GeoPromptVariant.id.in_(selection.prompt_variant_ids))
++        .execution_options(autoflush=False)
++    ).all()
++    prompts = {row.id: PromptFacts(*row) for row in rows}
++    profiles = load_profile_facts(db, selection.collection_profile_ids)
++    return (
++        RunMatrixBuilder(registry)
++        .build(
++            selection,
++            subjects=subjects,
++            prompts=prompts,
++            profiles=profiles,
++            switches=GeoRuntimeSwitches(
++                runtime_configuration.environment,
++                runtime_configuration.geo_monitoring_enabled,
++                runtime_configuration.geo_api_collection_enabled,
++                runtime_configuration.geo_browser_collection_enabled,
++            ),
++            required_capabilities=required_capabilities,
++            estimate=estimate,
++        )
++        .preview()
++    )
+--- a/backend/tests/integration/test_geo_plan_preview.py
++++ b/backend/tests/integration/test_geo_plan_preview.py
+@@ -0,0 +1,208 @@
++"""真实 PostgreSQL 的草稿预览一致读/当前列/无写边界。"""
++
++from collections.abc import Iterator
++from dataclasses import dataclass
++from uuid import UUID, uuid4
++
++import pytest
++from sqlalchemy import Engine, create_engine, event, text
++from sqlalchemy.orm import Session
++
++from app.collectors.registry import CollectorRegistry, collector_registry
++from app.models.configuration import QueryTopic
++from app.models.geo_catalog import GeoSubject
++from app.models.geo_prompt_variants import GeoPromptVariant
++from app.schemas.geo_monitoring_plans import GeoMonitoringPlanCreate
++from app.services.geo_plans import preview_plan
++from tests.integration.test_geo_profile_eligibility import CONFIGURATION, ProfileRows
++from tests.integration.test_geo_profile_eligibility import rows as rows  # 共用真实模型/渠道 fixture
++from tests.integration.test_migrations import run_alembic, temporary_database
++from tests.unit.test_geo_collector_registry import registration
++
++pytestmark = pytest.mark.integration
++
++
++@pytest.fixture(scope="module")
++def eligibility_engine() -> Iterator[Engine]:
++    with temporary_database("partsignal_geo207") as (url, env, backend_dir):
++        run_alembic(env, backend_dir, "head")
++        engine = create_engine(
++            url.replace("postgresql://", "postgresql+psycopg://", 1),
++            isolation_level="REPEATABLE READ",
++        )
++        try:
++            yield engine
++        finally:
++            engine.dispose()
++
++
++@dataclass
++class MatrixRows:
++    rows: ProfileRows
++    subject: GeoSubject
++    prompts: list[GeoPromptVariant]
++    configuration: GeoMonitoringPlanCreate
++
++
++@pytest.fixture
++def matrix(rows: ProfileRows) -> MatrixRows:
++    db = rows.db
++    subject = GeoSubject(
++        subject_type="OWN_BRAND",
++        canonical_name="虚构预览品牌",
++        normalized_name="虚构预览品牌",
++        display_name="虚构预览品牌",
++        created_by=rows.profile.created_by,
++    )
++    topic = QueryTopic(
++        canonical_question="虚构预览主题", intent_type="REPLACEMENT", variants=[], revision=0
++    )
++    db.add_all([subject, topic])
++    db.flush()
++    prompts = [
++        GeoPromptVariant(
++            query_topic_id=topic.id,
++            prompt_text=f"虚构预览问题{i}",
++            mention_mode="UNBRANDED",
++            language_code="zh-hans",
++            region_code="CN",
++            priority="CORE",
++            created_by=rows.profile.created_by,
++        )
++        for i in range(10)
++    ]
++    db.add_all(prompts)
++    db.flush()
++    configuration = GeoMonitoringPlanCreate(
++        name="虚构预览计划",
++        subjects=[{"subject_id": subject.id, "role": "PRIMARY"}],
++        prompt_variant_ids=[p.id for p in prompts],
++        collection_profile_ids=[rows.profile.id],
++    )
++    return MatrixRows(rows, subject, prompts, configuration)
++
++
++def preview(matrix: MatrixRows):
++    return preview_plan(
++        matrix.rows.db,
++        matrix.configuration,
++        runtime_configuration=CONFIGURATION,
++        registry=CollectorRegistry(
++            [
++                collector_registry.resolve("manual"),
++                registration(model_protocol="openai-compatible-chat-completions"),
++            ]
++        ),
++    )
++
++
++def test_current_column_facts_ignore_dirty_orm_and_preview_never_writes(matrix: MatrixRows) -> None:
++    db = matrix.rows.db
++    matrix.subject.is_active = False
++    matrix.prompts[0].is_active = False
++    matrix.rows.profile.is_active = False
++    matrix.rows.channel.is_enabled = False
++    statements = []
++
++    def capture(conn, cursor, statement, parameters, context, executemany):
++        statements.append(statement)
++
++    event.listen(db.bind, "before_cursor_execute", capture)
++    try:
++        result = preview(matrix)
++    finally:
++        event.remove(db.bind, "before_cursor_execute", capture)
++    assert not result.blockers and result.run_count == 30 and result.api_run_count == 30
++    assert len(statements) == 3 and all(s.lstrip().startswith("SELECT") for s in statements)
++    assert len(db.dirty) == 4 and db.in_transaction()
++    assert not any("FOR UPDATE" in s or "ai_channel_headers" in s for s in statements)
++    assert not any("request_parameters" in s or "base_url" in s for s in statements)
++    assert "fictional-ciphertext-marker" not in result.model_dump_json()
++    assert "虚构预览问题" not in result.model_dump_json()
++    assert db.scalar(text("SELECT count(*) FROM geo_monitoring_plans")) == 0
++    assert db.scalar(text("SELECT count(*) FROM audit_logs")) == 0
++
++
++def test_real_disabled_rows_and_missing_selection_are_located_without_filtering(
++    matrix: MatrixRows,
++) -> None:
++    db = matrix.rows.db
++    db.execute(
++        text("UPDATE geo_subjects SET is_active=false WHERE id=:id"), {"id": matrix.subject.id}
++    )
++    prompt_id = matrix.prompts[0].id
++    db.execute(
++        text("UPDATE geo_prompt_variants SET is_active=false,revision=revision+1 WHERE id=:id"),
++        {"id": prompt_id},
++    )
++    result = preview(matrix)
++    assert result.run_count == 30
++    assert {(b.code, b.resource_id) for b in result.blockers} >= {
++        ("SUBJECT_DISABLED", matrix.subject.id),
++        ("PROMPT_DISABLED", prompt_id),
++    }
++    missing = [uuid4() for _ in range(3)]
++    raw = matrix.configuration.model_dump()
++    raw.update(
++        subjects=[{"subject_id": missing[0], "role": "PRIMARY"}],
++        prompt_variant_ids=[missing[1]],
++        collection_profile_ids=[missing[2]],
++    )
++    matrix.configuration = GeoMonitoringPlanCreate.model_validate(raw)
++    result = preview(matrix)
++    assert result.run_count == result.unresolved_run_count == 3
++    assert {b.code for b in result.blockers} == {
++        "SUBJECT_NOT_FOUND",
++        "PROMPT_NOT_FOUND",
++        "PROFILE_NOT_FOUND",
++    }
++    assert result.estimated_cost.value is None and result.estimated_cost.unknown_run_count == 3
++
++
++def test_read_committed_caller_is_rejected_without_changing_its_transaction(
++    matrix: MatrixRows,
++) -> None:
++    engine = matrix.rows.db.get_bind().execution_options(isolation_level="READ COMMITTED")
++    with Session(engine) as db:
++        with pytest.raises(ValueError, match="一致快照"):
++            preview_plan(db, matrix.configuration)
++        assert db.in_transaction()
++
++
++def test_repeatable_read_preview_keeps_one_snapshot_then_sees_current_disable(
++    matrix: MatrixRows,
++) -> None:
++    db = matrix.rows.db
++    configuration = matrix.configuration
++    profile_id: UUID = matrix.rows.profile.id
++    db.commit()
++    assert not preview(matrix).blockers
++    engine = db.get_bind()
++    with engine.begin() as writer:
++        writer.execute(
++            text(
++                "UPDATE geo_collection_profiles SET is_active=false,revision=revision+1 "
++                "WHERE id=:id"
++            ),
++            {"id": profile_id},
++        )
++    # 同一RR事务看到同一旧快照，预览不提交调用方事务。
++    assert not preview(matrix).blockers
++    db.rollback()
++    result = preview_plan(
++        db,
++        configuration,
++        runtime_configuration=CONFIGURATION,
++        registry=CollectorRegistry(
++            [registration(model_protocol="openai-compatible-chat-completions")]
++        ),
++    )
++    assert any(
++        b.code == "PROFILE_DISABLED" and b.resource_id == profile_id for b in result.blockers
++    )
++
++
++def test_default_registry_rejects_automatic_profile_in_preview(matrix: MatrixRows) -> None:
++    result = preview_plan(matrix.rows.db, matrix.configuration, runtime_configuration=CONFIGURATION)
++    assert result.run_count == 30 and result.estimated_cost.value is None
++    assert {b.code for b in result.blockers} == {"ADAPTER_UNKNOWN"}
+--- a/backend/tests/unit/test_geo_plan_preview_contract.py
++++ b/backend/tests/unit/test_geo_plan_preview_contract.py
+@@ -0,0 +1,39 @@
++"""预览组件机器形状与真实序列化实例；不声明未接线Plan操作。"""
++
++from pathlib import Path
++
++import yaml
++from jsonschema import Draft202012Validator, FormatChecker
++from pydantic import TypeAdapter
++
++from app.schemas.geo_plan_preview import GeoMonitoringPlanPreview
++from tests.unit.test_geo_run_matrix import build, matrix_inputs
++
++
++def test_preview_component_and_serialized_unknown_match_contract() -> None:
++    contract = yaml.safe_load(
++        (Path(__file__).resolve().parents[3] / "contracts/openapi.yaml").read_text()
++    )
++    actual = TypeAdapter(GeoMonitoringPlanPreview).json_schema(
++        ref_template="#/components/schemas/{model}", mode="serialization"
++    )
++    definitions = actual.pop("$defs")
++    components = contract["components"]["schemas"]
++    assert components["GeoMonitoringPlanPreview"] == actual
++    for name, definition in definitions.items():
++        assert components[name] == definition
++    validator = Draft202012Validator(
++        {
++            "$ref": "#/components/schemas/GeoMonitoringPlanPreview",
++            "components": contract["components"],
++        },
++        format_checker=FormatChecker(),
++    )
++    payload = build(matrix_inputs()).preview().model_dump(mode="json")
++    validator.validate(payload)
++    assert payload["estimated_cost"]["value"] is None
++    assert not any("monitoring-plans" in path for path in contract["paths"])
++    assert (
++        not {"run_count", "estimated_cost"}
++        & components["GeoMonitoringPlanCreate"]["properties"].keys()
++    )
+--- a/backend/tests/unit/test_geo_run_matrix.py
++++ b/backend/tests/unit/test_geo_run_matrix.py
+@@ -0,0 +1,337 @@
++"""矩阵与费用金标；估价替身只计算，无 provider、Batch/Run 或 I/O。"""
++
++from dataclasses import replace
++from decimal import Decimal
++from typing import Any
++from uuid import uuid4
++
++import pytest
++
++from app.collectors.registry import CollectorCapability, CollectorRegistry, collector_registry
++from app.schemas.geo_monitoring_plans import GeoMonitoringPlanCreate
++from app.schemas.geo_surfaces import GeoCollectionMode as Mode
++from app.services.geo_collection_profiles import ProfileFacts
++from app.services.geo_plans import (
++    CellCostEstimate,
++    PlanMatrixSelection,
++    PromptFacts,
++    RunMatrixBuilder,
++)
++from tests.unit.test_geo_collector_registry import SWITCHES, profile, registration, surface
++
++
++def matrix_inputs(n: int = 10, repeat: int = 3, **patch: Any):
++    s = surface()
++    profiles = {}
++    for mode in Mode:
++        p = profile(
++            s, mode, adapter_key="manual" if mode == Mode.MANUAL else "test-" + mode.lower()
++        )
++        profiles[p.id] = ProfileFacts(p, s, None)
++    subject = uuid4()
++    prompts = {}
++    for index in range(n):
++        key = uuid4()
++        prompts[key] = PromptFacts(key, 0, True, "zh-hans", "CN", f"虚构问题{index}")
++    configuration = GeoMonitoringPlanCreate(
++        name="虚构计划",
++        subjects=[{"subject_id": subject, "role": "PRIMARY"}],
++        prompt_variant_ids=list(prompts),
++        collection_profile_ids=list(profiles),
++        repeat_count=repeat,
++        **patch,
++    )
++    selection = PlanMatrixSelection.from_configuration(configuration)
++    registry = CollectorRegistry(
++        [
++            collector_registry.resolve("manual"),
++            registration(key="test-api"),
++            registration(Mode.BROWSER, key="test-browser"),
++        ]
++    )
++    return RunMatrixBuilder(registry), selection, {subject: True}, prompts, profiles
++
++
++def build(inputs, **patch):
++    builder, selection, subjects, prompts, profiles = inputs
++    return builder.build(
++        selection, subjects=subjects, prompts=prompts, profiles=profiles, switches=SWITCHES, **patch
++    )
++
++
++def test_ten_by_three_by_three_is_ninety_unique_deterministic_cells() -> None:
++    inputs = matrix_inputs()
++    result = build(inputs)
++    preview = result.preview()
++    assert preview.run_count == 90
++    assert (preview.manual_run_count, preview.api_run_count, preview.browser_run_count) == (
++        30,
++        30,
++        30,
++    )
++    assert preview.unresolved_run_count == 0 and not preview.blockers
++    cells = list(result.cells())
++    assert len(set(cells)) == len(cells) == 90
++    assert {c.repeat_index for c in cells} == {1, 2, 3}
++    builder, selection, subjects, prompts, profiles = inputs
++    extra = uuid4()
++    reordered = replace(
++        selection,
++        subject_ids=(*selection.subject_ids, extra),
++        prompt_variant_ids=tuple(reversed(selection.prompt_variant_ids)),
++        collection_profile_ids=tuple(reversed(selection.collection_profile_ids)),
++    )
++    other = builder.build(
++        reordered,
++        subjects={**subjects, extra: True},
++        prompts=prompts,
++        profiles=profiles,
++        switches=SWITCHES,
++    )
++    # 对象不参与乘法，三个Profile共享Surface也不合并。
++    assert other.run_count == 90 and list(other.cells()) == cells
++
++
++@pytest.mark.parametrize("n,repeat,expected", [(1, 1, 3), (1, 10, 30), (100, 10, 3000)])
++def test_repeat_and_large_matrix_boundaries(n: int, repeat: int, expected: int) -> None:
++    result = build(matrix_inputs(n, repeat))
++    assert result.run_count == expected == len(list(result.cells()))
++
++
++@pytest.mark.parametrize("repeat", [0, 11, True, "3"])
++def test_internal_repeat_cannot_bypass_contract(repeat: Any) -> None:
++    selection = matrix_inputs()[1]
++    with pytest.raises(ValueError):
++        replace(selection, repeat_count=repeat)
++
++
++@pytest.mark.parametrize("name", ["subject_ids", "prompt_variant_ids", "collection_profile_ids"])
++def test_internal_empty_duplicate_selection_rejected(name: str) -> None:
++    selection = matrix_inputs()[1]
++    ids = getattr(selection, name)
++    for invalid in [(), (ids[0], ids[0])]:
++        with pytest.raises(ValueError):
++            replace(selection, **{name: invalid})
++
++
++@pytest.mark.parametrize(
++    "resource,disabled,code",
++    [
++        ("subject", False, "SUBJECT_NOT_FOUND"),
++        ("subject", True, "SUBJECT_DISABLED"),
++        ("prompt", False, "PROMPT_NOT_FOUND"),
++        ("prompt", True, "PROMPT_DISABLED"),
++        ("profile", False, "PROFILE_NOT_FOUND"),
++        ("profile", True, "PROFILE_DISABLED"),
++        ("surface", True, "SURFACE_DISABLED"),
++    ],
++)
++def test_unavailable_resources_block_without_silently_shrinking_matrix(resource, disabled, code):
++    inputs = matrix_inputs()
++    _, _, subjects, prompts, profiles = inputs
++    if resource == "subject":
++        key = next(iter(subjects))
++        subjects[key] = False
++        if not disabled:
++            del subjects[key]
++    elif resource == "prompt":
++        key = next(iter(prompts))
++        prompts[key] = replace(prompts[key], is_active=False)
++        if not disabled:
++            del prompts[key]
++    else:
++        key = next(iter(profiles))
++        facts = profiles[key]
++        profiles[key] = replace(
++            facts, **{resource: replace(getattr(facts, resource), is_active=False)}
++        )
++        if not disabled:
++            del profiles[key]
++    result = build(inputs).preview()
++    assert result.run_count == 90
++    assert any(b.code == code and b.resource_id == key for b in result.blockers)
++    assert result.unresolved_run_count == (30 if resource == "profile" and not disabled else 0)
++
++
++def test_missing_capability_and_unknown_adapter_reuse_shared_policy() -> None:
++    inputs = matrix_inputs()
++    profiles = inputs[4]
++    key = next(iter(profiles))
++    facts = profiles[key]
++    profiles[key] = replace(
++        facts,
++        surface=replace(
++            facts.surface, capabilities=facts.surface.capabilities - {CollectorCapability.CITATIONS}
++        ),
++    )
++    result = build(
++        inputs, required_capabilities=frozenset({CollectorCapability.CITATIONS})
++    ).preview()
++    assert any(b.code == "CAPABILITY_UNSUPPORTED" and b.resource_id == key for b in result.blockers)
++    profiles[key] = replace(facts, profile=replace(facts.profile, adapter_key="unknown"))
++    result = build(inputs).preview()
++    assert any(b.code == "ADAPTER_UNKNOWN" and b.resource_id == key for b in result.blockers)
++
++
++def test_closed_switch_and_unapproved_browser_are_not_relaxed() -> None:
++    inputs = matrix_inputs()
++    builder, selection, subjects, prompts, profiles = inputs
++    result = builder.build(
++        selection,
++        subjects=subjects,
++        prompts=prompts,
++        profiles=profiles,
++        switches=replace(SWITCHES, api_collection_enabled=False),
++    )
++    assert any(b.code == "API_COLLECTION_DISABLED" for b in result.blockers)
++    browser = next(p for p in profiles.values() if p.profile.collection_mode == Mode.BROWSER)
++    profiles[browser.profile.id] = replace(
++        browser, surface=replace(browser.surface, compliance_status="NOT_REVIEWED")
++    )
++    assert any(b.code == "COMPLIANCE_NOT_APPROVED" for b in build(inputs).blockers)
++
++
++def test_default_estimate_all_unknown_even_with_cost_capability_and_manual_mode() -> None:
++    result = build(matrix_inputs(budget_limit="0")).preview()
++    cost = result.estimated_cost
++    assert cost.value is None and cost.currency is None and cost.coverage == "NONE"
++    assert (cost.known_run_count, cost.unknown_run_count, cost.known_costs) == (0, 90, [])
++    assert not result.blockers
++    assert {w.code for w in result.warnings} >= {"COST_UNKNOWN", "BUDGET_UNVERIFIED"}
++
++
++def test_partial_cost_aggregates_per_prompt_profile_repeat_without_inventing_missing_prices() -> (
++    None
++):
++    def estimate(prompt, facts):
++        # 10个文本有不同长度；独立金标按0..9的后缀计算，不能只按profile给固定总额。
++        return (
++            CellCostEstimate(Decimal(prompt.prompt_text[-1]) / 100 + Decimal("0.000001"), "USD")
++            if facts.profile.collection_mode == Mode.API
++            else None
++        )
++
++    result = build(matrix_inputs(), estimate=estimate).preview()
++    cost = result.estimated_cost
++    assert cost.value == Decimal("1.350030") and cost.currency == "USD"
++    assert (cost.known_run_count, cost.unknown_run_count, cost.coverage) == (30, 60, "PARTIAL")
++    assert result.model_dump(mode="json")["estimated_cost"]["value"] == "1.35003"
++
++
++@pytest.mark.parametrize(
++    "price,budget,blocked",
++    [
++        ("0", "0", False),
++        ("0.01", "0.90", False),
++        ("0.01", "0.899999", True),
++    ],
++)
++def test_complete_cost_and_exact_budget_boundary(price, budget, blocked):
++    result = build(
++        matrix_inputs(budget_limit=budget),
++        estimate=lambda p, f: CellCostEstimate(Decimal(price), "USD"),
++    ).preview()
++    assert result.estimated_cost.coverage == "COMPLETE"
++    assert (
++        result.estimated_cost.known_run_count == 90 and result.estimated_cost.unknown_run_count == 0
++    )
++    assert ("BUDGET_EXCEEDED" in {b.code for b in result.blockers}) == blocked
++    assert "BUDGET_UNVERIFIED" not in {w.code for w in result.warnings}
++
++
++def test_known_partial_subtotal_already_exceeding_budget_blocks() -> None:
++    result = build(
++        matrix_inputs(budget_limit="0.1"),
++        estimate=lambda p, f: (
++            CellCostEstimate(Decimal("0.01"), "USD")
++            if f.profile.collection_mode == Mode.API
++            else None
++        ),
++    ).preview()
++    assert result.estimated_cost.value == Decimal("0.30")
++    assert {b.code for b in result.blockers} == {"BUDGET_EXCEEDED"}
++    assert "BUDGET_UNVERIFIED" in {w.code for w in result.warnings}
++
++
++def test_mixed_currency_preserves_totals_without_sum_or_conversion() -> None:
++    result = build(
++        matrix_inputs(budget_limit="100"),
++        estimate=lambda p, f: CellCostEstimate(
++            Decimal("0.01"), "USD" if f.profile.collection_mode == Mode.API else "CNY"
++        ),
++    ).preview()
++    cost = result.estimated_cost
++    assert cost.value is None and cost.currency is None and cost.coverage == "COMPLETE"
++    assert {t.currency: t.value for t in cost.known_costs} == {
++        "CNY": Decimal("0.6"),
++        "USD": Decimal("0.3"),
++    }
++    assert {b.code for b in result.blockers} == {"BUDGET_CURRENCY_MISMATCH"}
++
++
++@pytest.mark.parametrize(
++    "value",
++    [
++        Decimal("NaN"),
++        Decimal("Infinity"),
++        Decimal("-0.1"),
++        Decimal("0.0000001"),
++        Decimal("100000000"),
++        0.1,
++    ],
++)
++def test_invalid_estimate_fails_explicitly(value: Any) -> None:
++    with pytest.raises(ValueError):
++        CellCostEstimate(value, "USD")
++
++
++def test_estimator_failure_propagates_and_ineligible_profile_is_not_estimated() -> None:
++    inputs = matrix_inputs()
++    profiles = inputs[4]
++    key = next(iter(profiles))
++    facts = profiles[key]
++    profiles[key] = replace(facts, profile=replace(facts.profile, is_active=False))
++    calls = []
++
++    def estimate(p, f):
++        calls.append(f.profile.id)
++        return CellCostEstimate(Decimal("0"), "USD")
++
++    result = build(inputs, estimate=estimate).preview()
++    assert key not in calls and result.estimated_cost.unknown_run_count == 30
++
++    def fail(p, f):
++        raise RuntimeError("虚构估价错误")
++
++    with pytest.raises(RuntimeError, match="虚构估价错误"):
++        build(inputs, estimate=fail)
++
++
++def test_environment_and_version_warnings_have_resource_location() -> None:
++    inputs = matrix_inputs()
++    profiles = inputs[4]
++    key = next(iter(profiles))
++    facts = profiles[key]
++    profiles[key] = replace(
++        facts,
++        profile=replace(facts.profile, region_code="US"),
++        surface=replace(
++            facts.surface,
++            capabilities=facts.surface.capabilities - {CollectorCapability.MODEL_VERSION},
++        ),
++    )
++    result = build(inputs).preview()
++    assert {w.code for w in result.warnings} >= {
++        "MIXED_PROFILE_ENVIRONMENTS",
++        "MIXED_COLLECTION_MODES",
++        "MODEL_VERSION_UNKNOWN",
++    }
++    mismatch = [w for w in result.warnings if w.code == "PROMPT_PROFILE_ENVIRONMENT_MISMATCH"]
++    assert len(mismatch) == 10 and all(w.related_resource_id == key for w in mismatch)
++
++
++def test_large_known_total_is_not_limited_to_single_budget_numeric_precision() -> None:
++    result = build(
++        matrix_inputs(), estimate=lambda p, f: CellCostEstimate(Decimal("99999999.999999"), "USD")
++    ).preview()
++    assert result.estimated_cost.value == Decimal("8999999999.999910")

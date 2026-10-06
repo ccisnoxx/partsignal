@@ -1,0 +1,102 @@
+{
+  "runtime_source": "local rollout tool records",
+  "runtime_ref": "/root/geo401_contract_review",
+  "actual_tool_calls": [
+    {
+      "call_id": "call_HJC5lQDit0pyXZsm2VdXHEWz",
+      "name": "exec",
+      "input": "const results = await Promise.allSettled([\n  tools.exec_command({cmd:\"cat AGENTS.md backend/AGENTS.md\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:14000}),\n  tools.exec_command({cmd:\"cat /Users/sc/PycharmProjects/partsignal/.agents/skills/trellis-check/SKILL.md /Users/sc/.codex/skills/structured-response/SKILL.md\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:14000}),\n  tools.exec_command({cmd:\"rg --files .trellis/tasks/10-03-geo-401-collector-contract backend/app/collectors backend/tests/unit contracts .trellis/spec | rg '(geo-401|collectors|test_geo_collector_contract|adr|ADR|geo|backend)'\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:8000})\n]);\nfor (let i=0;i<results.length;i++) text({index:i,result:results[i]});\n"
+    },
+    {
+      "call_id": "call_iDNuHBqJgyadozM8aqGhI5OJ",
+      "name": "exec",
+      "input": "const results = await Promise.allSettled([\n  tools.exec_command({cmd:\"cat .trellis/tasks/10-03-geo-401-collector-contract/prd.md .trellis/tasks/10-03-geo-401-collector-contract/task.json .trellis/tasks/10-03-geo-401-collector-contract/check.jsonl .trellis/tasks/10-03-geo-401-collector-contract/implement.jsonl\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:13000}),\n  tools.exec_command({cmd:\"nl -ba backend/app/collectors/contracts.py\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:14000}),\n  tools.exec_command({cmd:\"nl -ba backend/app/collectors/errors.py; nl -ba backend/app/collectors/base.py\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:14000}),\n  tools.exec_command({cmd:\"nl -ba backend/tests/unit/test_geo_collector_contract.py\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:18000}),\n  tools.exec_command({cmd:\"cat /Users/sc/.codex/skills/structured-response/references/task-patterns.md .trellis/spec/backend/index.md .trellis/spec/backend/error-handling.md .trellis/spec/backend/quality-guidelines.md .trellis/spec/backend/logging-guidelines.md\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:16000}),\n  tools.exec_command({cmd:\"rg --files docs .trellis/tasks | rg '(ADR|adr|GEO-401|geo-401)'\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:8000})\n]);\nfor (let i=0;i<results.length;i++) text({index:i,result:results[i]});\n"
+    },
+    {
+      "call_id": "call_I62gB57lmHLzGKAlDJimvjaI",
+      "name": "exec",
+      "input": "text(await tools.exec_command({cmd:\"nl -ba backend/app/collectors/errors.py; nl -ba backend/app/collectors/base.py; sed -n '219,320p' backend/app/collectors/contracts.py\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:9000}));\n"
+    },
+    {
+      "call_id": "call_5FYxSZFPSNltLAvECtsiLFWo",
+      "name": "exec",
+      "input": "text(await tools.exec_command({cmd:\"nl -ba backend/tests/unit/test_geo_collector_contract.py\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:14000}));\n"
+    },
+    {
+      "call_id": "call_WpDYtIUYksfZUEiE11k1aMFt",
+      "name": "exec",
+      "input": "const results = await Promise.allSettled([\n tools.exec_command({cmd:\"cat docs/geo-monitoring/05-decisions/ADR-005-staged-collector-rollout.md docs/geo-monitoring/04-delivery/codex-prompts/R3/GEO-401.md docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:13000}),\n tools.exec_command({cmd:\"nl -ba backend/app/collectors/registry.py\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:8500}),\n tools.exec_command({cmd:\"nl -ba backend/app/schemas/geo_runs.py\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:13000})\n]);\nfor (let i=0;i<results.length;i++) text({index:i,result:results[i]});\n"
+    },
+    {
+      "call_id": "call_8ZxivfaBuLiM5zYzkhU4BMo4",
+      "name": "exec",
+      "input": "text(await tools.exec_command({cmd:\"nl -ba backend/app/collectors/registry.py; nl -ba backend/app/schemas/geo_answers.py\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:9000}));\n"
+    },
+    {
+      "call_id": "call_HQv4L0VqajYseUKAxlETf6QM",
+      "name": "exec",
+      "input": "text(await tools.exec_command({cmd:\"nl -ba backend/app/schemas/geo_surfaces.py\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:9000}));\n"
+    },
+    {
+      "call_id": "call_b2L9uVYAIGG8pyarnYYRRHAt",
+      "name": "exec",
+      "input": "const results = await Promise.allSettled([\n tools.exec_command({cmd:\"rg -n 'GeoRun|GeoExternalCall|GeoRawPayload|GeoAnswer|GeoSurface|GeoApiSettings|GeoRunInput|GeoRunError|GeoCollectionProfile' contracts/openapi.yaml | tail -n 100\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:5000}),\n tools.exec_command({cmd:\"rg -n 'geo_observation_runs|geo_answer_snapshots|geo_answer_citations|raw_payload_summary|external_call_state|at-most-once|NOT_STARTED|token|cost_amount|prompt_tokens|GEO-401|Collector' contracts/database.md\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:6500}),\n tools.exec_command({cmd:\"cat .trellis/tasks/10-03-geo-401-collector-contract/evidence/baseline-unit.log .trellis/tasks/10-03-geo-401-collector-contract/evidence/collector-unit.log .trellis/tasks/10-03-geo-401-collector-contract/evidence/collector-typecheck-first.log .trellis/tasks/10-03-geo-401-collector-contract/evidence/typecheck.log\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:6500}),\n tools.exec_command({cmd:\"cat backend/pyproject.toml; rg -n '^PlanBudget|^PromptLanguage|^PromptRegion|^Revision' backend/app/schemas/geo_monitoring_plans.py backend/app/schemas/geo_prompt_variants.py; nl -ba backend/app/geo_citation_urls.py; cat backend/app/collectors/__init__.py\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:6500})\n]);\nfor (let i=0;i<results.length;i++) text({index:i,result:results[i]});\n"
+    },
+    {
+      "call_id": "call_jb3pnCYt3ADAJilOFqeTI7fu",
+      "name": "exec",
+      "input": "text(await tools.exec_command({cmd:\"rg -n '^    (GeoRunErrorCode|GeoRunErrorStage|GeoExternalCallState|GeoRunDataClassification|GeoRunApiProfileSnapshot|GeoRunBrowserProfileSnapshot|GeoRunManualProfileSnapshot|GeoRunPromptSnapshot|GeoRunSurfaceSnapshot|GeoRunInputSnapshot|GeoObservationRunOut|GeoRawPayloadSummary|GeoAnswerSnapshotOut|GeoAnswerCitationInput|GeoAnswerCitationOut):' contracts/openapi.yaml; sed -n '787,851p' contracts/database.md; sed -n '877,902p' contracts/database.md; sed -n '104,117p' backend/app/schemas/geo_monitoring_plans.py; sed -n '30,46p' backend/app/schemas/geo_prompt_variants.py\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:7500}));\n"
+    },
+    {
+      "call_id": "call_0cy0PfjTCf2dVMbiDzIjGP3A",
+      "name": "exec",
+      "input": "text(await tools.exec_command({cmd:\"sed -n '16217,16225p' contracts/openapi.yaml; sed -n '16254,16792p' contracts/openapi.yaml; sed -n '16838,16944p' contracts/openapi.yaml; sed -n '17202,17448p' contracts/openapi.yaml\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:10000}));\n"
+    },
+    {
+      "call_id": "call_geG2egWc7YnwYRM3xVP9XH5o",
+      "name": "exec",
+      "input": "const results = await Promise.allSettled([\n tools.exec_command({cmd:\"cat /Users/sc/.codex/skills/clean-code-design/SKILL.md; sed -n '1,80p' /Users/sc/.codex/skills/structured-response/references/task-patterns.md; cat .trellis/spec/backend/index.md\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:8500}),\n tools.exec_command({cmd:\"rg -n '^##|SENT|NOT_STARTED|UNKNOWN|secret|错误|summary|Collector|Header|截图|raw|send state|重试' docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md docs/geo-monitoring/03-technical/06-security-and-compliance.md .trellis/spec/backend/error-handling.md\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:7000}),\n tools.exec_command({cmd:\"rg --files backend | rg '(/python$|versions/0048|versions/0050)'; ls -l backend/.venv/bin/python\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:2000})\n]);\nfor (let i=0;i<results.length;i++) text({index:i,result:results[i]});\n"
+    },
+    {
+      "call_id": "call_EOQFBu1uGCkuQsqBZvDk2rA1",
+      "name": "exec",
+      "input": "text(await tools.exec_command({cmd:\"rg -n 'ck_geo_answers_sources|ck_geo_citations_title|source_product|source_model|source_version|provider|ck_geo_runs_provider|geo_run_input|name|external_progress' backend/alembic/versions/0048_geo_batches_runs.py backend/alembic/versions/0050_geo_answer_evidence.py\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:5000}));\n"
+    },
+    {
+      "call_id": "call_EtARuS7yIBf0JZCLFZyqaGXy",
+      "name": "exec",
+      "input": "text(await tools.exec_command({cmd:\"sed -n '1,110p' backend/alembic/versions/0050_geo_answer_evidence.py; rg -n 'source_product|source_model|source_version|Source' backend/app/schemas/geo_manual_collection.py backend/app/services/geo_manual_collection* backend/tests/unit/test_geo_answer_contract.py; sed -n '37,101p' docs/geo-monitoring/03-technical/06-security-and-compliance.md; sed -n '155,195p' docs/geo-monitoring/03-technical/06-security-and-compliance.md; sed -n '242,261p' docs/geo-monitoring/03-technical/06-security-and-compliance.md; sed -n '410,424p' docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:6500}));\n"
+    },
+    {
+      "call_id": "call_9X8B8SpyQLAkgTx3Q2qePKpL",
+      "name": "exec",
+      "input": "text(await tools.exec_command({cmd:\"sed -n '1,48p' backend/app/schemas/geo_manual_collection.py; sed -n '1,104p' backend/tests/unit/test_geo_run_contract.py; sed -n '45,94p' backend/alembic/versions/0048_geo_batches_runs.py\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:5000}));\n"
+    },
+    {
+      "call_id": "call_8opZIvm7i0rTilrV9t91f4WX",
+      "name": "exec",
+      "input": "text(await tools.exec_command({cmd:\"PYTHONPATH=backend backend/.venv/bin/python -B - <<'PY'\\nfrom itertools import product\\nfrom pydantic import ValidationError\\nfrom app.collectors.contracts import CollectedCitation\\nfrom app.collectors.errors import CollectorError, CollectorRetryability, CollectorStage\\nfrom app.schemas.geo_runs import GeoRunErrorCode, GeoExternalCallState\\nfrom tests.unit.test_geo_collector_contract import answer\\n\\naccepted = safe = post_send_safe = 0\\nfor code, stage, state in product(GeoRunErrorCode, CollectorStage, GeoExternalCallState):\\n    try:\\n        failure = CollectorError(code, stage=stage, external_call_state=state).failure\\n    except ValidationError:\\n        continue\\n    accepted += 1\\n    if failure.retryability == CollectorRetryability.SAFE_BEFORE_SEND:\\n        safe += 1\\n        post_send_safe += state != GeoExternalCallState.NOT_STARTED\\nprint({'accepted_error_combinations': accepted, 'safe_before_send_combinations': safe, 'post_send_safe_combinations': post_send_safe})\\nfor field in ('source_product', 'source_model', 'source_version'):\\n    for label, value in [('empty', ''), ('space_only', ' '), ('nul', 'synthetic\\\\x00value')]:\\n        try:\\n            answer(**{field: value})\\n        except ValidationError:\\n            status = 'rejected'\\n        else:\\n            status = 'accepted'\\n        print({'field': field, 'case': label, 'collector_result': status})\\ntry:\\n    CollectedCitation(url='https://example.test/', title='synthetic\\\\x00title', position=1, extraction_source='STRUCTURED')\\nexcept ValidationError:\\n    status = 'rejected'\\nelse:\\n    status = 'accepted'\\nprint({'field': 'citation.title', 'case': 'nul', 'collector_result': status})\\nPY\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:3000}));\n"
+    },
+    {
+      "call_id": "call_350athCCiuTQ47PgfR2Ic2Mp",
+      "name": "exec",
+      "input": "text(await tools.exec_command({cmd:\"rg -n 'name|ck_geo_surfaces|snapshot|surface' backend/alembic/versions/0046_geo_surfaces_profiles.py backend/app/services/geo_batch_inputs.py backend/app/services/geo_batch* backend/app/services/geo_run_matrix.py | head -n 100; sed -n '1,95p' .trellis/spec/backend/ai-configuration-guidelines.md; sed -n '1,65p' .trellis/spec/backend/error-handling.md; cat .trellis/tasks/10-03-geo-401-collector-contract/evidence/initial-hashes.json\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:5500}));\n"
+    },
+    {
+      "call_id": "call_EFisLtEsktjbKQTKGhseY9bT",
+      "name": "exec",
+      "input": "text(await tools.exec_command({cmd:\"PYTHONPATH=backend backend/.venv/bin/python -B - <<'PY'\\nfrom pathlib import Path\\nfrom hashlib import sha256\\nimport inspect\\nfrom psycopg.types.string import StrDumper\\nimport psycopg.types.string as string_types\\n\\nprint({'psycopg_string_source': inspect.getsourcefile(string_types), 'dumper_signature': str(inspect.signature(StrDumper))})\\ntry:\\n    StrDumper(str).dump('synthetic\\\\x00title')\\nexcept Exception as error:\\n    print({'nul_text_dump': 'rejected', 'exception_class': type(error).__name__, 'message': str(error)})\\nelse:\\n    print({'nul_text_dump': 'accepted'})\\nbase = Path('.trellis/tasks/10-03-geo-401-collector-contract/evidence/baseline')\\nfor name in ('backend/app/collectors/registry.py', 'backend/app/schemas/geo_runs.py', 'backend/app/schemas/geo_answers.py', 'contracts/openapi.yaml', 'contracts/database.md'):\\n    current = Path(name).read_bytes()\\n    print({'unchanged_from_saved_baseline': name, 'same': current == (base / name).read_bytes()})\\nfor name in ('backend/app/collectors/contracts.py', 'backend/app/collectors/errors.py', 'backend/app/collectors/base.py', 'backend/tests/unit/test_geo_collector_contract.py'):\\n    print({'candidate_path': name, 'sha256': sha256(Path(name).read_bytes()).hexdigest()})\\nPY\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:3000}));\n"
+    },
+    {
+      "call_id": "call_qEvGI2OwI6Iez2vZ0pnwa2XB",
+      "name": "exec",
+      "input": "text(await tools.exec_command({cmd:\"sed -n '1,30p' backend/alembic/versions/0046_geo_surfaces_profiles.py; sed -n '59,118p' backend/app/services/geo_batch_snapshots.py; sed -n '94,130p' backend/app/schemas/geo_monitoring_plans.py; sed -n '18,45p' backend/app/schemas/geo_prompt_variants.py; sed -n '1,70p' backend/.venv/lib/python3.12/site-packages/psycopg/types/string.py; rg --files .trellis/tasks/10-03-geo-401-collector-contract | rg '(design.md|implement.md|review)'\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:4500}));\n"
+    }
+  ],
+  "write_observation": "18 个 exec 调用仅含读文件及 Python -B 内存探针；逐项检查未见仓库/外部写入，原始记录保存在本文件。",
+  "observed_write_paths": [],
+  "candidate_changed_by_primary_after_probe": [
+    "backend/app/collectors/contracts.py",
+    "backend/tests/unit/test_geo_collector_contract.py"
+  ]
+}

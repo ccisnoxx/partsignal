@@ -1,0 +1,13 @@
+{
+  "manifest_changed_tasks": [
+    "GEO-903"
+  ],
+  "task_status": "review",
+  "dependencies": {
+    "GEO-901": "done",
+    "GEO-902": "done"
+  },
+  "document_hashes_verified": 122,
+  "full_gate": false,
+  "full_gate_reason": "已知旧configuration断言失败；未伪造通过"
+}

@@ -1,0 +1,14 @@
+ Container geo707-validation-backend-test-run-ffbfc54c3128 Creating 
+ Container geo707-validation-backend-test-run-ffbfc54c3128 Created 
+.............                                                            [100%]
+=============================== warnings summary ===============================
+tests/integration/test_geo_opportunities.py::test_model_metadata_and_subject_history_reference_projection
+  /app/tests/integration/test_geo_opportunities.py:395: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_opportunities.py::test_model_metadata_and_subject_history_reference_projection
+  /app/tests/integration/test_geo_opportunities.py:395: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+    assert compare_metadata(context, Base.metadata) == []
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+13 passed, 2 warnings in 12.47s

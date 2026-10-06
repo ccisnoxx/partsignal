@@ -1,0 +1,216 @@
+{
+  "status": "review",
+  "dependency": {
+    "GEO-601": "done"
+  },
+  "checks": {
+    "diff-check": {
+      "argv": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "cwd": "/Users/sc/PycharmProjects/partsignal",
+      "exit_code": 0,
+      "started_at": "2026-10-04T06:51:50.897456+00:00",
+      "finished_at": "2026-10-04T06:51:50.926889+00:00"
+    },
+    "final-lint": {
+      "argv": [
+        "make",
+        "lint"
+      ],
+      "cwd": "/Users/sc/PycharmProjects/partsignal",
+      "exit_code": 0,
+      "started_at": "2026-10-04T06:48:13.162319+00:00",
+      "finished_at": "2026-10-04T06:48:22.159806+00:00"
+    },
+    "final-typecheck": {
+      "argv": [
+        "make",
+        "typecheck"
+      ],
+      "cwd": "/Users/sc/PycharmProjects/partsignal",
+      "exit_code": 0,
+      "started_at": "2026-10-04T06:48:14.320533+00:00",
+      "finished_at": "2026-10-04T06:48:23.243771+00:00"
+    },
+    "final-unit": {
+      "argv": [
+        "make",
+        "test-unit"
+      ],
+      "cwd": "/Users/sc/PycharmProjects/partsignal",
+      "exit_code": 0,
+      "started_at": "2026-10-04T06:45:53.629745+00:00",
+      "finished_at": "2026-10-04T06:47:14.061842+00:00"
+    },
+    "candidate-integration": {
+      "argv": [
+        "make",
+        "test-integration",
+        "COMPOSE=docker compose -p partsignal-geo602-validation -f .trellis/tasks/10-03-geo-602-overview/evidence/validation-compose.yaml"
+      ],
+      "cwd": "/Users/sc/PycharmProjects/partsignal",
+      "exit_code": 0,
+      "started_at": "2026-10-04T06:44:43.435331+00:00",
+      "finished_at": "2026-10-04T06:52:50.973435+00:00"
+    },
+    "final-contract": {
+      "argv": [
+        "make",
+        "contract-check"
+      ],
+      "cwd": "/Users/sc/PycharmProjects/partsignal",
+      "exit_code": 0,
+      "started_at": "2026-10-04T06:50:34.352498+00:00",
+      "finished_at": "2026-10-04T06:50:37.896031+00:00"
+    },
+    "target-contract-revision": {
+      "argv": [
+        "uv",
+        "run",
+        "--project",
+        "backend",
+        "pytest",
+        "backend/tests/unit/test_contract.py",
+        "backend/tests/unit/test_runtime_response_metadata.py",
+        "backend/tests/unit/test_geo_metric_inputs.py",
+        "-q"
+      ],
+      "cwd": "/Users/sc/PycharmProjects/partsignal",
+      "exit_code": 0,
+      "started_at": "2026-10-04T06:45:15.291918+00:00",
+      "finished_at": "2026-10-04T06:45:36.573370+00:00"
+    },
+    "final-overview-integration-v2": {
+      "argv": [
+        "docker",
+        "compose",
+        "-p",
+        "partsignal-geo602-validation",
+        "-f",
+        ".trellis/tasks/10-03-geo-602-overview/evidence/validation-compose.yaml",
+        "run",
+        "--rm",
+        "backend-test",
+        "pytest",
+        "tests/integration/test_geo_overview.py"
+      ],
+      "cwd": "/Users/sc/PycharmProjects/partsignal",
+      "exit_code": 0,
+      "started_at": "2026-10-04T06:54:18.877102+00:00",
+      "finished_at": "2026-10-04T06:54:26.472161+00:00"
+    },
+    "alembic-head": {
+      "argv": [
+        "uv",
+        "run",
+        "--project",
+        "backend",
+        "alembic",
+        "-c",
+        "backend/alembic.ini",
+        "heads"
+      ],
+      "cwd": "/Users/sc/PycharmProjects/partsignal",
+      "exit_code": 0,
+      "started_at": "2026-10-04T06:51:50.944699+00:00",
+      "finished_at": "2026-10-04T06:51:51.246283+00:00"
+    },
+    "diff-final": {
+      "argv": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "cwd": "/Users/sc/PycharmProjects/partsignal",
+      "exit_code": 0,
+      "started_at": "2026-10-04T06:55:39.843929+00:00",
+      "finished_at": "2026-10-04T06:55:39.870870+00:00"
+    },
+    "final-scope": {
+      "argv": [
+        "uv",
+        "run",
+        "--project",
+        "backend",
+        "python",
+        ".trellis/tasks/10-03-geo-602-overview/evidence/audit_scope.py"
+      ],
+      "cwd": "/Users/sc/PycharmProjects/partsignal",
+      "exit_code": 0,
+      "started_at": "2026-10-04T06:55:39.261530+00:00",
+      "finished_at": "2026-10-04T06:55:39.789103+00:00"
+    },
+    "final-target-ruff": {
+      "argv": [
+        "uv",
+        "run",
+        "--project",
+        "backend",
+        "ruff",
+        "check",
+        "backend/tests/integration/test_geo_overview.py"
+      ],
+      "cwd": "/Users/sc/PycharmProjects/partsignal",
+      "exit_code": 0,
+      "started_at": "2026-10-04T06:55:39.805883+00:00",
+      "finished_at": "2026-10-04T06:55:39.828154+00:00"
+    },
+    "cleanup": {
+      "argv": [
+        "docker",
+        "compose",
+        "-p",
+        "partsignal-geo602-validation",
+        "-f",
+        ".trellis/tasks/10-03-geo-602-overview/evidence/validation-compose.yaml",
+        "down",
+        "--remove-orphans"
+      ],
+      "cwd": "/Users/sc/PycharmProjects/partsignal",
+      "exit_code": 0,
+      "started_at": "2026-10-04T06:56:13.704375+00:00",
+      "finished_at": "2026-10-04T06:56:14.147930+00:00"
+    }
+  },
+  "passed_counts": {
+    "backend_unit": 3476,
+    "frontend_unit": 1170,
+    "full_integration": 979,
+    "final_overview_integration": 8
+  },
+  "baseline": {
+    "unit": {
+      "count": 152,
+      "exit_code": 0
+    },
+    "integration": {
+      "count": 7,
+      "exit_code": 0
+    }
+  },
+  "not_run": {
+    "browser_e2e": "本任务无前端页面或完整用户旅程改变，605范围外",
+    "build": "用户最低门禁未要求；无打包依赖改变",
+    "geo607_large_dataset_performance": "607范围外；602仅证明固定查询数"
+  },
+  "alembic_revision_added": null,
+  "data_migration": "none",
+  "production_roll_forward": "not executed",
+  "independent_review_audit": "20261004T063738Z-geo-602-6958841c",
+  "document_hashes": {
+    "updated_documents_verified": true,
+    "preexisting_unmodified_mismatch": [
+      "./03-technical/04-frontend-architecture.md"
+    ]
+  },
+  "scope_audit": {
+    "changed_preexisting_count": 16,
+    "new_count": 7,
+    "unexpected": [],
+    "other_manifest_changes": []
+  },
+  "test_resources": "own containers and network removed; volumes retained"
+}

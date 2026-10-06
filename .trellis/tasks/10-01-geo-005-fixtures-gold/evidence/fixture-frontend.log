@@ -1,0 +1,13 @@
+
+> partsignal-frontend-v2@0.1.0 test
+> vitest run src/test/geo-fixtures.test.ts
+
+
+ RUN  v4.1.10 /Users/sc/PycharmProjects/partsignal/frontend
+
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  15:04:26
+   Duration  288ms (transform 16ms, setup 41ms, import 8ms, tests 2ms, environment 189ms)
+

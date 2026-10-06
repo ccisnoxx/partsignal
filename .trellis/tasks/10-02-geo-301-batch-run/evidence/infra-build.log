@@ -1,0 +1,111 @@
+ Image partsignal-geo301-backend-test Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 1.08kB done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 594B done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for ghcr.io/astral-sh/uv:0.7.13
+#3 ...
+
+#4 [auth] astral-sh/uv:pull token for ghcr.io
+#4 DONE 0.0s
+
+#5 [internal] load metadata for docker.io/library/python:3.12-slim
+#5 DONE 1.7s
+
+#3 [internal] load metadata for ghcr.io/astral-sh/uv:0.7.13
+#3 DONE 1.9s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 152B done
+#6 DONE 0.0s
+
+#7 FROM ghcr.io/astral-sh/uv:0.7.13@sha256:6c1e19020ec221986a210027040044a5df8de762eb36d5240e382bc41d7a9043
+#7 resolve ghcr.io/astral-sh/uv:0.7.13@sha256:6c1e19020ec221986a210027040044a5df8de762eb36d5240e382bc41d7a9043 done
+#7 DONE 0.0s
+
+#8 [runtime 1/7] FROM docker.io/library/python:3.12-slim@sha256:dddfd7e07f9d15aeeca61529320492139d21cac7f0070c00609243e51e4e0016
+#8 resolve docker.io/library/python:3.12-slim@sha256:dddfd7e07f9d15aeeca61529320492139d21cac7f0070c00609243e51e4e0016 0.0s done
+#8 DONE 0.0s
+
+#9 [internal] load build context
+#9 transferring context: 321.59kB 0.0s done
+#9 DONE 0.0s
+
+#10 [runtime 4/7] COPY pyproject.toml uv.lock* ./
+#10 CACHED
+
+#11 [runtime 3/7] COPY --from=ghcr.io/astral-sh/uv:0.7.13 /uv /uvx /bin/
+#11 CACHED
+
+#12 [runtime 2/7] WORKDIR /app
+#12 CACHED
+
+#13 [runtime 5/7] RUN uv sync --no-dev --no-install-project
+#13 CACHED
+
+#14 [runtime 6/7] COPY . .
+#14 DONE 0.1s
+
+#15 [runtime 7/7] RUN uv sync --no-dev
+#15 0.143 Resolved 88 packages in 1ms
+#15 0.147    Building partsignal-backend @ file:///app
+#15 3.520       Built partsignal-backend @ file:///app
+#15 3.521 Prepared 1 package in 3.37s
+#15 3.523 Installed 1 package in 1ms
+#15 3.639 Bytecode compiled 2466 files in 116ms
+#15 3.639  + partsignal-backend==0.1.0 (from file:///app)
+#15 DONE 3.7s
+
+#16 [test 1/1] RUN uv sync --all-extras
+#16 0.099 Resolved 88 packages in 0.33ms
+#16 0.926 Downloading ruff (10.5MiB)
+#16 0.927 Downloading pygments (1.2MiB)
+#16 1.083 Downloading mypy (13.1MiB)
+#16 1.668  Downloading pygments
+#16 2.566  Downloading ruff
+#16 2.860  Downloading mypy
+#16 2.861 Prepared 20 packages in 2.76s
+#16 2.914 Installed 20 packages in 53ms
+#16 3.245 Bytecode compiled 3437 files in 331ms
+#16 3.245  + attrs==26.1.0
+#16 3.245  + coverage==7.15.0
+#16 3.245  + httpcore2==2.9.1
+#16 3.245  + httpx2==2.9.1
+#16 3.245  + iniconfig==2.3.0
+#16 3.245  + jsonschema==4.26.0
+#16 3.245  + jsonschema-specifications==2025.9.1
+#16 3.245  + librt==0.13.0
+#16 3.245  + mypy==1.20.2
+#16 3.245  + mypy-extensions==1.1.0
+#16 3.245  + pathspec==1.1.1
+#16 3.245  + pluggy==1.6.0
+#16 3.245  + pygments==2.20.0
+#16 3.245  + pytest==8.4.2
+#16 3.245  + pytest-cov==6.3.0
+#16 3.245  + referencing==0.37.0
+#16 3.245  + rpds-py==2026.6.3
+#16 3.245  + ruff==0.15.21
+#16 3.245  + truststore==0.10.4
+#16 3.245  + types-pyyaml==6.0.12.20260518
+#16 DONE 3.4s
+
+#17 exporting to image
+#17 exporting layers
+#17 exporting layers 2.8s done
+#17 exporting manifest sha256:ee6d19e4c3f568b4a75714ac35a1f55b7734a743e5fd4cecc05e1a7bdd4fb4b4
+#17 exporting manifest sha256:ee6d19e4c3f568b4a75714ac35a1f55b7734a743e5fd4cecc05e1a7bdd4fb4b4 done
+#17 exporting config sha256:f3b861411e1fb1e927bdf52c4a9821fdfcacd13ca8853946f0f1067450655650 done
+#17 exporting attestation manifest sha256:e85de62fda7b29d90d9a944546993cbef2f4f7db5b9c7abd0e15579a7dc1f428 done
+#17 exporting manifest list sha256:2dbbc48138853aa99408baff8d8471ed84b243a939f3f928b693d28da36725c5 done
+#17 naming to docker.io/library/partsignal-geo301-backend-test:latest done
+#17 unpacking to docker.io/library/partsignal-geo301-backend-test:latest
+#17 unpacking to docker.io/library/partsignal-geo301-backend-test:latest 0.7s done
+#17 DONE 3.5s
+
+#18 resolving provenance for metadata file
+#18 DONE 0.0s
+ Image partsignal-geo301-backend-test Built 

@@ -2,6 +2,8 @@
 set -eu
 
 script_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
+python3 "$script_dir/check-production-inputs.py" --deployment-boundary \
+  "${ENV_FILE:?必须通过 ENV_FILE 指定 Production 环境文件}"
 if test -z "${PARTSIGNAL_MAINTENANCE_LOCK_FD:-}"; then
   exec python3 "$script_dir/prepare-production-data.py" run-locked \
     "$script_dir/deploy.sh" "$@"
@@ -90,7 +92,7 @@ if test "$deploy_mode" = clean-init; then
     begin-clean-init "$PARTSIGNAL_CUTOVER_RUN_ID" "$PARTSIGNAL_RELEASE_MANIFEST"
 else
   python3 "$script_dir/prepare-production-data.py" \
-    begin-upgrade "$PARTSIGNAL_RELEASE_MANIFEST"
+    verify-upgrade-entry "$PARTSIGNAL_RELEASE_MANIFEST"
 fi
 
 docker compose --env-file "$env_file" -f "$compose_file" config --quiet
@@ -99,6 +101,11 @@ if test "$image_delivery_mode" = registry; then
 fi
 python3 "$script_dir/prepare-production-data.py" \
   verify-candidate-images "$PARTSIGNAL_RELEASE_MANIFEST"
+if test "$deploy_mode" = upgrade; then
+  # registry 先交付并核对，再证明执行策略/绑定候选，始终早于 run/up。
+  python3 "$script_dir/prepare-production-data.py" \
+    begin-upgrade "$PARTSIGNAL_RELEASE_MANIFEST"
+fi
 compose_up -d --wait postgres redis
 compose_run --rm api \
   python -m app.cli preflight-production-config

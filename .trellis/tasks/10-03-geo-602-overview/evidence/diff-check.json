@@ -1,0 +1,11 @@
+{
+  "argv": [
+    "git",
+    "diff",
+    "--check"
+  ],
+  "cwd": "/Users/sc/PycharmProjects/partsignal",
+  "exit_code": 0,
+  "started_at": "2026-10-04T06:51:50.897456+00:00",
+  "finished_at": "2026-10-04T06:51:50.926889+00:00"
+}

@@ -1,0 +1,27 @@
+{
+  "task": "GEO-003",
+  "status": "review",
+  "date": "2026-10-01",
+  "head": "cd88fbf61d65018f7eb1a47b9f0f379ed47e3814",
+  "source_hashes_verified": 143,
+  "protected_tracked_changes": [],
+  "existing_target_docs_preserved": true,
+  "non_geo_003_manifest_entries_unchanged": true,
+  "dependencies": {
+    "GEO-001": "done",
+    "GEO-002": "done"
+  },
+  "snapshot_contract_and_refs_valid": true,
+  "migration_source_graph_valid": true,
+  "markdown_local_links_verified": 170,
+  "docs_checksum_files_verified": 113,
+  "temporary_index_git_diff_check_exit_code": 0,
+  "temporary_index_scope": "本任务文档、任务源码及结构化快照；排除逐字保留的原始 *.log",
+  "verbatim_log_diff_check_exit_code": 2,
+  "verbatim_log_whitespace_diagnostics": ".trellis/tasks/10-01-geo-003-current-baseline/evidence/checks/03.log:7: new blank line at EOF.\n.trellis/tasks/10-01-geo-003-current-baseline/evidence/checks/04.log:7: new blank line at EOF.\n.trellis/tasks/10-01-geo-003-current-baseline/evidence/checks/05.log:27: new blank line at EOF.\n.trellis/tasks/10-01-geo-003-current-baseline/evidence/checks/06.log:13: new blank line at EOF.\n.trellis/tasks/10-01-geo-003-current-baseline/evidence/checks/07.log:4: new blank line at EOF.\n.trellis/tasks/10-01-geo-003-current-baseline/evidence/checks/10.log:7: trailing whitespace.\n+[WebServer] [plugin builtin:vite-reporter] \n",
+  "user_index_modified": false,
+  "live_database_verified": false,
+  "verify_completed": false,
+  "verify_blocker": "/var/run/docker.sock 不存在",
+  "command": "UV_CACHE_DIR=.cache/uv uv run --project backend python .trellis/tasks/10-01-geo-003-current-baseline/evidence/audit_baseline.py"
+}

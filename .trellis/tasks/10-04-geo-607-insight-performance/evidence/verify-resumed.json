@@ -1,0 +1,28 @@
+{
+  "command": [
+    "make",
+    "-f",
+    "Makefile",
+    "-f",
+    ".trellis/tasks/10-04-geo-607-insight-performance/evidence/validation.mk",
+    "verify",
+    "-o",
+    "contract-check",
+    "-o",
+    "lint",
+    "-o",
+    "typecheck",
+    "-o",
+    "test-unit",
+    "-o",
+    "test-integration",
+    "-o",
+    "test-geo-performance",
+    "-o",
+    "build",
+    "COMPOSE=docker compose -p geo607-validation -f .trellis/tasks/10-04-geo-607-insight-performance/evidence/validation-compose.yaml"
+  ],
+  "started_at": "2026-10-04T13:56:58.767324+00:00",
+  "duration_seconds": 865.9353029169724,
+  "exit_code": 0
+}

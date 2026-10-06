@@ -1,0 +1,77 @@
+{
+  "task": "GEO-105",
+  "status": "review",
+  "commands": [
+    {
+      "command": "git diff --check",
+      "exit_code": 0,
+      "log": "evidence/diff-check.log"
+    },
+    {
+      "command": "make lint",
+      "exit_code": 0,
+      "log": "evidence/lint-final.log"
+    },
+    {
+      "command": "make typecheck",
+      "exit_code": 0,
+      "log": "evidence/typecheck.log"
+    },
+    {
+      "command": "npm --prefix frontend run test",
+      "exit_code": 0,
+      "log": "evidence/frontend-test-final.log"
+    },
+    {
+      "command": "npm --prefix frontend run typecheck",
+      "exit_code": 0,
+      "log": "evidence/frontend-typecheck-final.log"
+    },
+    {
+      "command": "make contract-check",
+      "exit_code": 0,
+      "log": "evidence/contract-check.log"
+    },
+    {
+      "command": "make test-unit",
+      "exit_code": 0,
+      "log": "evidence/test-unit.log"
+    },
+    {
+      "command": "npm --prefix frontend run test -- src/domains/geo-catalog",
+      "exit_code": 0,
+      "log": "evidence/catalog-tests.log"
+    },
+    {
+      "command": "npm --prefix frontend run e2e -- tests/e2e/catalog-ui.spec.ts --project foundation-desktop",
+      "exit_code": 0,
+      "log": "evidence/catalog-browser.log"
+    },
+    {
+      "command": "shasum -a 256 -c SHA256SUMS",
+      "workdir": "docs/geo-monitoring",
+      "exit_code": 0,
+      "result": "全部条目OK"
+    },
+    {
+      "command": "本任务Markdown链接及起始/最终指纹范围检查",
+      "exit_code": 0,
+      "result": "9 modified/19 new/0 deleted；其他manifest字节不变；历史指纹覆盖文件未被覆盖"
+    }
+  ],
+  "counts": {
+    "catalog_targeted": 63,
+    "backend_unit": 967,
+    "frontend_final_files": 97,
+    "frontend_final_tests": 926,
+    "chromium_fixture_browser": 2
+  },
+  "not_run": [
+    "make verify",
+    "make test-integration",
+    "real Catalog API E2E",
+    "Alembic upgrade",
+    "production deployment",
+    "cross-browser matrix"
+  ]
+}

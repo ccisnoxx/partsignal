@@ -1,0 +1,11 @@
+[
+  "docs/geo-monitoring/03-technical/07-testing-and-quality.md",
+  "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+  "docs/geo-monitoring/CHANGELOG.md",
+  "docs/geo-monitoring/README.md",
+  "docs/geo-monitoring/SHA256SUMS",
+  "frontend/tests/e2e/geo-real-stack.spec.ts",
+  "frontend/tests/e2e/questions-real-stack.spec.ts",
+  "frontend/tests/e2e/runs-real-stack.spec.ts",
+  "frontend/tests/e2e/surfaces-real-stack.spec.ts"
+]

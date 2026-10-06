@@ -35,9 +35,22 @@ def assert_exclusive(client: Redis, database: int) -> None:
         raise RuntimeError(f"E2E Redis DB {database} 存在外部客户端")
 
 
-def assert_ports_released(storage_port: int) -> None:
+def service_ports(
+    storage_port: int, geo_provider_port: int | None = None
+) -> tuple[int, ...]:
+    """同一端口目录用于 preflight 与退出释放证明。"""
+    return (
+        *FIXED_PORTS,
+        storage_port,
+        *((geo_provider_port,) if geo_provider_port else ()),
+    )
+
+
+def assert_ports_released(
+    storage_port: int, geo_provider_port: int | None = None
+) -> None:
     """通过逐一绑定证明本套件固定端口均未被监听。"""
-    ports = (*FIXED_PORTS, storage_port)
+    ports = service_ports(storage_port, geo_provider_port)
     if len(set(ports)) != len(ports):
         raise ValueError("E2E 对象存储端口不得与固定服务端口重复")
     for port in ports:
@@ -49,19 +62,23 @@ def assert_ports_released(storage_port: int) -> None:
                 raise RuntimeError(f"E2E 端口 {port} 已被占用") from error
 
 
-def preflight(redis_url: str, storage_port: int) -> None:
+def preflight(
+    redis_url: str, storage_port: int, geo_provider_port: int | None = None
+) -> None:
     """在创建任何测试资源前确认 Redis 与端口均可独占。"""
     client, database = redis_client(redis_url)
     try:
         assert_exclusive(client, database)
         if client.dbsize() != 0:
             raise RuntimeError(f"E2E Redis DB {database} 启动前必须为空")
-        assert_ports_released(storage_port)
+        assert_ports_released(storage_port, geo_provider_port)
     finally:
         client.close()
 
 
-def cleanup(redis_url: str, storage_port: int) -> None:
+def cleanup(
+    redis_url: str, storage_port: int, geo_provider_port: int | None = None
+) -> None:
     """仅删除可证明归属本套件的 Redis 键，并复核端口释放。"""
     client, database = redis_client(redis_url)
     try:
@@ -80,11 +97,11 @@ def cleanup(redis_url: str, storage_port: int) -> None:
             raise RuntimeError(f"E2E Redis DB {database} 清理后不为空")
     finally:
         client.close()
-    assert_ports_released(storage_port)
+    assert_ports_released(storage_port, geo_provider_port)
     print(f"E2E_CLEANUP redis_db={database} keys={len(keys)} status=deleted")
     print(
         "E2E_CLEANUP "
-        f"ports={','.join(str(port) for port in (*FIXED_PORTS, storage_port))} "
+        f"ports={','.join(str(port) for port in service_ports(storage_port, geo_provider_port))} "
         "status=released"
     )
 
@@ -95,11 +112,12 @@ def main() -> None:
     parser.add_argument("action", choices=("preflight", "cleanup"))
     parser.add_argument("--redis-url", required=True)
     parser.add_argument("--storage-port", type=int, required=True)
+    parser.add_argument("--geo-provider-port", type=int, choices=(19012,))
     args = parser.parse_args()
     if args.action == "preflight":
-        preflight(args.redis_url, args.storage_port)
+        preflight(args.redis_url, args.storage_port, args.geo_provider_port)
         return
-    cleanup(args.redis_url, args.storage_port)
+    cleanup(args.redis_url, args.storage_port, args.geo_provider_port)
 
 
 if __name__ == "__main__":

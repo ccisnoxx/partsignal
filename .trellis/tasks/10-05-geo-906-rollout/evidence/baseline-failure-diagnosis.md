@@ -1,0 +1,3 @@
+# 配置基线失败归因
+
+基线精确入口 dev/omitted 启动失败exit1，日志baseline-configuration.log。诊断包装subprocess捕获安全stderr，STARTUP_PROBE第14行AssertionError，旧断言禁止全部partsignal.geo_注册；当前worker.py已由GEO901注册geo_cleanup_artifacts。对应18场景精确集合修正后exit0、启动外部调用0；未执行任务，不新增网络白名单。无需新增镜像实现单测。

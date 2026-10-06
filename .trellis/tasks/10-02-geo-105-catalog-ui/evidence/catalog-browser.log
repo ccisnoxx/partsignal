@@ -1,0 +1,26 @@
+
+> partsignal-frontend-v2@0.1.0 e2e
+> tests/e2e/run-with-secret-scan.sh tests/e2e/catalog-ui.spec.ts --project foundation-desktop
+
+[WebServer] (node:23290) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] [plugin builtin:vite-reporter] 
+[WebServer] (!) Some chunks are larger than 500 kB after minification. Consider:
+[WebServer] - Using dynamic import() to code-split the application
+[WebServer] - Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+[WebServer] - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+[WebServer] (node:23300) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:23322) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 2 tests using 1 worker
+
+(node:23323) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [foundation-desktop] › tests/e2e/catalog-ui.spec.ts:17:1 › Catalog 页面局部滚动、URL 恢复、键盘确认与焦点返回 (679ms)
+  ✓  2 [foundation-desktop] › tests/e2e/catalog-ui.spec.ts:50:1 › ENGINEER 直接访问只读详情及 new URL，无配置入口或写操作 (266ms)
+
+  2 passed (8.1s)
+E2E_SECRET_SCAN status=clean
+E2E_RESULT playwright=0 secret_scan=0

@@ -1,0 +1,5 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend pytest backend/tests/unit/test_geo_recovery_boundaries.py
+.................                                                        [100%]
+17 passed in 0.51s
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend ruff check deploy/scripts/geo-recovery.py deploy/scripts/geo_recovery_bundle.py deploy/scripts/geo_recovery_environment.py
+All checks passed!

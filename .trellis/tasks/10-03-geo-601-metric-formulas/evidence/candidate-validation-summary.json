@@ -1,0 +1,94 @@
+{
+  "candidate-formula-latest": {
+    "command": [
+      "uv",
+      "run",
+      "--project",
+      "backend",
+      "pytest",
+      "backend/tests/unit/test_geo_metrics.py",
+      "backend/tests/unit/test_geo_metric_inputs.py"
+    ],
+    "exit_code": 0
+  },
+  "candidate-lint-final": {
+    "command": [
+      "make",
+      "lint"
+    ],
+    "exit_code": 0
+  },
+  "candidate-typecheck-final": {
+    "command": [
+      "make",
+      "typecheck"
+    ],
+    "exit_code": 0
+  },
+  "candidate-unit": {
+    "command": [
+      "make",
+      "test-unit"
+    ],
+    "exit_code": 0
+  },
+  "candidate-integration": {
+    "command": [
+      "make",
+      "test-integration",
+      "COMPOSE=docker compose -p partsignal-geo601-validation -f .trellis/tasks/10-03-geo-601-metric-formulas/evidence/validation-compose.yaml"
+    ],
+    "exit_code": 0
+  },
+  "candidate-contract": {
+    "command": [
+      "make",
+      "contract-check"
+    ],
+    "exit_code": 0
+  },
+  "candidate-diff-check": {
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "exit_code": 0
+  },
+  "candidate-document-hashes": {
+    "command": [
+      "shasum",
+      "-a",
+      "256",
+      "-c",
+      "SHA256SUMS"
+    ],
+    "exit_code": 1
+  },
+  "candidate-cleanup": {
+    "command": [
+      "docker",
+      "compose",
+      "-p",
+      "partsignal-geo601-validation",
+      "-f",
+      ".trellis/tasks/10-03-geo-601-metric-formulas/evidence/validation-compose.yaml",
+      "down",
+      "--remove-orphans"
+    ],
+    "exit_code": 0
+  },
+  "counts": {
+    "formula_targeted": 125,
+    "backend_unit_before_last_retry_guard": 3465,
+    "frontend_unit": 1170,
+    "integration": 973,
+    "integration_warnings": 25
+  },
+  "document_hash_limitations": [
+    "docs/geo-monitoring/03-technical/04-frontend-architecture.md",
+    "docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md"
+  ],
+  "delivery_status": "review",
+  "unrun_required_checks": []
+}

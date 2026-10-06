@@ -1,0 +1,11 @@
+{
+  "command": [
+    "make",
+    "verify",
+    "COMPOSE=docker compose -f .trellis/tasks/10-02-geo-308-r2-acceptance/evidence/compose.validation.yaml"
+  ],
+  "exit_code": 2,
+  "started_at": "2026-10-03T06:41:01.422642+00:00",
+  "seconds": 720.4,
+  "log": "verify.log"
+}

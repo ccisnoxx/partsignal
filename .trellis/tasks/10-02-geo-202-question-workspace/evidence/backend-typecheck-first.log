@@ -1,0 +1,5 @@
+backend/app/services/geo_prompt_variant_queries.py:15: error: Module "app.schemas.geo_prompt_variants" does not explicitly export attribute "GeoPromptMentionMode"  [attr-defined]
+backend/app/services/geo_prompt_variant_queries.py:15: error: Module "app.schemas.geo_prompt_variants" does not explicitly export attribute "GeoPromptPriority"  [attr-defined]
+backend/app/routers/geo_questions.py:13: error: Module "app.schemas.geo_prompt_variants" does not explicitly export attribute "GeoPromptMentionMode"  [attr-defined]
+backend/app/routers/geo_questions.py:13: error: Module "app.schemas.geo_prompt_variants" does not explicitly export attribute "GeoPromptPriority"  [attr-defined]
+Found 4 errors in 2 files (checked 95 source files)

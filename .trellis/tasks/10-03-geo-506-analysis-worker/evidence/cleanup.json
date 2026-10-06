@@ -1,0 +1,15 @@
+{
+  "command": [
+    "docker",
+    "compose",
+    "-p",
+    "partsignal-geo506-validation",
+    "-f",
+    ".trellis/tasks/10-03-geo-506-analysis-worker/evidence/validation-compose.yaml",
+    "down",
+    "--volumes",
+    "--remove-orphans"
+  ],
+  "exit_code": 0,
+  "scope": "仅本任务项目、网络和两个volume；其他环境未操作"
+}

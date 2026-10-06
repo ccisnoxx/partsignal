@@ -1,0 +1,583 @@
+{
+  "evidence_kind": "运行时 ORM metadata；不包含仅由 Alembic 创建的全部 CHECK/index/trigger",
+  "live_database_verified": false,
+  "tables": {
+    "geo_observations": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "foreign_keys": []
+        },
+        {
+          "name": "observation_kind",
+          "type": "VARCHAR(32)",
+          "nullable": false,
+          "primary_key": false,
+          "foreign_keys": []
+        },
+        {
+          "name": "query_topic_id",
+          "type": "UUID",
+          "nullable": true,
+          "primary_key": false,
+          "foreign_keys": [
+            {
+              "target": "query_topics.id",
+              "ondelete": "RESTRICT"
+            }
+          ]
+        },
+        {
+          "name": "product_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "foreign_keys": [
+            {
+              "target": "products.id",
+              "ondelete": "RESTRICT"
+            }
+          ]
+        },
+        {
+          "name": "actual_prompt",
+          "type": "TEXT",
+          "nullable": true,
+          "primary_key": false,
+          "foreign_keys": []
+        },
+        {
+          "name": "model_name",
+          "type": "VARCHAR(160)",
+          "nullable": true,
+          "primary_key": false,
+          "foreign_keys": []
+        },
+        {
+          "name": "model_version",
+          "type": "VARCHAR(160)",
+          "nullable": true,
+          "primary_key": false,
+          "foreign_keys": []
+        },
+        {
+          "name": "search_platform",
+          "type": "VARCHAR(160)",
+          "nullable": true,
+          "primary_key": false,
+          "foreign_keys": []
+        },
+        {
+          "name": "search_query",
+          "type": "TEXT",
+          "nullable": true,
+          "primary_key": false,
+          "foreign_keys": []
+        },
+        {
+          "name": "tested_at",
+          "type": "DATETIME",
+          "nullable": false,
+          "primary_key": false,
+          "foreign_keys": []
+        },
+        {
+          "name": "web_search_enabled",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "primary_key": false,
+          "foreign_keys": []
+        },
+        {
+          "name": "answer_summary",
+          "type": "TEXT",
+          "nullable": true,
+          "primary_key": false,
+          "foreign_keys": []
+        },
+        {
+          "name": "mentioned",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "primary_key": false,
+          "foreign_keys": []
+        },
+        {
+          "name": "recommendation",
+          "type": "VARCHAR(32)",
+          "nullable": true,
+          "primary_key": false,
+          "foreign_keys": []
+        },
+        {
+          "name": "accuracy",
+          "type": "VARCHAR(32)",
+          "nullable": true,
+          "primary_key": false,
+          "foreign_keys": []
+        },
+        {
+          "name": "notes",
+          "type": "TEXT",
+          "nullable": false,
+          "primary_key": false,
+          "foreign_keys": []
+        },
+        {
+          "name": "supersedes_id",
+          "type": "UUID",
+          "nullable": true,
+          "primary_key": false,
+          "foreign_keys": [
+            {
+              "target": "geo_observations.id",
+              "ondelete": "RESTRICT"
+            }
+          ]
+        },
+        {
+          "name": "tested_by",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "foreign_keys": [
+            {
+              "target": "users.id",
+              "ondelete": "RESTRICT"
+            }
+          ]
+        },
+        {
+          "name": "created_at",
+          "type": "DATETIME",
+          "nullable": false,
+          "primary_key": false,
+          "foreign_keys": []
+        }
+      ],
+      "orm_constraints": [
+        "fk_geo_observations_product_id_products",
+        "fk_geo_observations_query_topic_id_query_topics",
+        "fk_geo_observations_supersedes_id_geo_observations",
+        "fk_geo_observations_tested_by_users",
+        "pk_geo_observations"
+      ]
+    },
+    "geo_observation_citations": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "foreign_keys": []
+        },
+        {
+          "name": "observation_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "foreign_keys": [
+            {
+              "target": "geo_observations.id",
+              "ondelete": "RESTRICT"
+            }
+          ]
+        },
+        {
+          "name": "url",
+          "type": "TEXT",
+          "nullable": false,
+          "primary_key": false,
+          "foreign_keys": []
+        },
+        {
+          "name": "source_type",
+          "type": "VARCHAR(40)",
+          "nullable": false,
+          "primary_key": false,
+          "foreign_keys": []
+        },
+        {
+          "name": "published_article_id",
+          "type": "UUID",
+          "nullable": true,
+          "primary_key": false,
+          "foreign_keys": [
+            {
+              "target": "published_articles.id",
+              "ondelete": "SET NULL"
+            }
+          ]
+        }
+      ],
+      "orm_constraints": [
+        "fk_geo_observation_citations_observation_id_geo_observations",
+        "fk_geo_observation_citations_published_article_id_published_articles",
+        "pk_geo_observation_citations"
+      ]
+    },
+    "geo_observation_publications": {
+      "columns": [
+        {
+          "name": "observation_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "foreign_keys": [
+            {
+              "target": "geo_observations.id",
+              "ondelete": "RESTRICT"
+            }
+          ]
+        },
+        {
+          "name": "published_article_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "foreign_keys": [
+            {
+              "target": "published_articles.id",
+              "ondelete": "CASCADE"
+            }
+          ]
+        },
+        {
+          "name": "discovered",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "primary_key": false,
+          "foreign_keys": []
+        },
+        {
+          "name": "mentioned",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "primary_key": false,
+          "foreign_keys": []
+        },
+        {
+          "name": "accuracy",
+          "type": "VARCHAR(32)",
+          "nullable": true,
+          "primary_key": false,
+          "foreign_keys": []
+        }
+      ],
+      "orm_constraints": [
+        "fk_geo_observation_publications_observation_id_geo_observations",
+        "fk_geo_observation_publications_published_article_id_published_articles",
+        "pk_geo_observation_publications"
+      ]
+    },
+    "geo_observation_attachments": {
+      "columns": [
+        {
+          "name": "observation_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "foreign_keys": [
+            {
+              "target": "geo_observations.id",
+              "ondelete": "RESTRICT"
+            }
+          ]
+        },
+        {
+          "name": "file_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "foreign_keys": [
+            {
+              "target": "file_records.id",
+              "ondelete": "RESTRICT"
+            }
+          ]
+        }
+      ],
+      "orm_constraints": [
+        "fk_geo_observation_attachments_file_id_file_records",
+        "fk_geo_observation_attachments_observation_id_geo_observations",
+        "pk_geo_observation_attachments"
+      ]
+    },
+    "query_topics": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "foreign_keys": []
+        },
+        {
+          "name": "canonical_question",
+          "type": "TEXT",
+          "nullable": false,
+          "primary_key": false,
+          "foreign_keys": []
+        },
+        {
+          "name": "intent_type",
+          "type": "VARCHAR(40)",
+          "nullable": false,
+          "primary_key": false,
+          "foreign_keys": []
+        },
+        {
+          "name": "variants",
+          "type": "ARRAY",
+          "nullable": false,
+          "primary_key": false,
+          "foreign_keys": []
+        },
+        {
+          "name": "revision",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": false,
+          "foreign_keys": []
+        },
+        {
+          "name": "created_at",
+          "type": "DATETIME",
+          "nullable": false,
+          "primary_key": false,
+          "foreign_keys": []
+        }
+      ],
+      "orm_constraints": [
+        "pk_query_topics"
+      ]
+    },
+    "file_records": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "foreign_keys": []
+        },
+        {
+          "name": "category",
+          "type": "VARCHAR(40)",
+          "nullable": false,
+          "primary_key": false,
+          "foreign_keys": []
+        },
+        {
+          "name": "original_filename",
+          "type": "VARCHAR(500)",
+          "nullable": false,
+          "primary_key": false,
+          "foreign_keys": []
+        },
+        {
+          "name": "object_key",
+          "type": "VARCHAR(500)",
+          "nullable": false,
+          "primary_key": false,
+          "foreign_keys": []
+        },
+        {
+          "name": "content_type",
+          "type": "VARCHAR(160)",
+          "nullable": false,
+          "primary_key": false,
+          "foreign_keys": []
+        },
+        {
+          "name": "size",
+          "type": "BIGINT",
+          "nullable": false,
+          "primary_key": false,
+          "foreign_keys": []
+        },
+        {
+          "name": "sha256",
+          "type": "VARCHAR(64)",
+          "nullable": false,
+          "primary_key": false,
+          "foreign_keys": []
+        },
+        {
+          "name": "access_level",
+          "type": "VARCHAR(32)",
+          "nullable": false,
+          "primary_key": false,
+          "foreign_keys": []
+        },
+        {
+          "name": "status",
+          "type": "VARCHAR(24)",
+          "nullable": false,
+          "primary_key": false,
+          "foreign_keys": []
+        },
+        {
+          "name": "uploader_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "foreign_keys": [
+            {
+              "target": "users.id",
+              "ondelete": "RESTRICT"
+            }
+          ]
+        },
+        {
+          "name": "upload_expires_at",
+          "type": "DATETIME",
+          "nullable": false,
+          "primary_key": false,
+          "foreign_keys": []
+        },
+        {
+          "name": "created_at",
+          "type": "DATETIME",
+          "nullable": false,
+          "primary_key": false,
+          "foreign_keys": []
+        },
+        {
+          "name": "verified_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": false,
+          "foreign_keys": []
+        },
+        {
+          "name": "cleanup_after",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": false,
+          "foreign_keys": []
+        },
+        {
+          "name": "deleted_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": false,
+          "foreign_keys": []
+        }
+      ],
+      "orm_constraints": [
+        "fk_file_records_uploader_id_users",
+        "pk_file_records",
+        "uq_file_records_object_key"
+      ]
+    },
+    "content_task_geo_sources": {
+      "columns": [
+        {
+          "name": "content_task_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "foreign_keys": [
+            {
+              "target": "content_tasks.id",
+              "ondelete": "RESTRICT"
+            }
+          ]
+        },
+        {
+          "name": "rule_code",
+          "type": "VARCHAR(48)",
+          "nullable": false,
+          "primary_key": false,
+          "foreign_keys": []
+        },
+        {
+          "name": "date_from",
+          "type": "DATE",
+          "nullable": false,
+          "primary_key": false,
+          "foreign_keys": []
+        },
+        {
+          "name": "date_to",
+          "type": "DATE",
+          "nullable": false,
+          "primary_key": false,
+          "foreign_keys": []
+        },
+        {
+          "name": "published_article_id",
+          "type": "UUID",
+          "nullable": true,
+          "primary_key": false,
+          "foreign_keys": [
+            {
+              "target": "published_articles.id",
+              "ondelete": "SET NULL"
+            }
+          ]
+        },
+        {
+          "name": "query_topic_id",
+          "type": "UUID",
+          "nullable": true,
+          "primary_key": false,
+          "foreign_keys": [
+            {
+              "target": "query_topics.id",
+              "ondelete": "RESTRICT"
+            }
+          ]
+        },
+        {
+          "name": "geo_platform",
+          "type": "VARCHAR(160)",
+          "nullable": true,
+          "primary_key": false,
+          "foreign_keys": []
+        },
+        {
+          "name": "basis_snapshot",
+          "type": "JSONB",
+          "nullable": false,
+          "primary_key": false,
+          "foreign_keys": []
+        },
+        {
+          "name": "created_by",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "foreign_keys": [
+            {
+              "target": "users.id",
+              "ondelete": "RESTRICT"
+            }
+          ]
+        },
+        {
+          "name": "created_at",
+          "type": "DATETIME",
+          "nullable": false,
+          "primary_key": false,
+          "foreign_keys": []
+        }
+      ],
+      "orm_constraints": [
+        "ck_content_task_geo_sources_ck_content_task_geo_sources_period",
+        "ck_content_task_geo_sources_ck_content_task_geo_sources_rule_code",
+        "ck_content_task_geo_sources_ck_content_task_geo_sources_snapshot_object",
+        "fk_content_task_geo_sources_content_task_id_content_tasks",
+        "fk_content_task_geo_sources_created_by_users",
+        "fk_content_task_geo_sources_published_article_id_published_articles",
+        "fk_content_task_geo_sources_query_topic_id_query_topics",
+        "pk_content_task_geo_sources"
+      ]
+    }
+  }
+}

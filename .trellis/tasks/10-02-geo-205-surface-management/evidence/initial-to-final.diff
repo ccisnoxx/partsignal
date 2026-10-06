@@ -1,0 +1,2462 @@
+--- 任务起始/backend/app/main.py
++++ 当前/backend/app/main.py
+@@ -28,6 +28,7 @@
+ from app.routers.files import router as files_router
+ from app.routers.geo_catalog import router as geo_catalog_router
+ from app.routers.geo_questions import router as geo_questions_router
++from app.routers.geo_surface_management import router as geo_surface_management_router
+ from app.routers.identity import router as identity_router
+ from app.routers.observation import router as observation_router
+ from app.routers.planning import router as planning_router
+@@ -36,6 +37,7 @@
+ from app.routers.publication import router as publication_router
+ from app.routers.workbench import router as workbench_router
+ from app.schemas.common import HealthResponse
++from app.schemas.geo_surfaces import GeoApiSettings
+ 
+ logger = logging.getLogger("partsignal.api")
+ 
+@@ -81,16 +83,11 @@
+                 "description": "业务或校验错误",
+                 "headers": {
+                     REQUEST_ID_HEADER_NAME: {
+-                        "$ref": (
+-                            "#/components/headers/"
+-                            f"{_REQUEST_ID_RESPONSE_HEADER_COMPONENT}"
+-                        )
++                        "$ref": (f"#/components/headers/{_REQUEST_ID_RESPONSE_HEADER_COMPONENT}")
+                     }
+                 },
+                 "content": {
+-                    "application/json": {
+-                        "schema": {"$ref": "#/components/schemas/ErrorEnvelope"}
+-                    }
++                    "application/json": {"schema": {"$ref": "#/components/schemas/ErrorEnvelope"}}
+                 },
+             }
+         },
+@@ -175,9 +172,7 @@
+     )
+ 
+     request_parameter_ref = {"$ref": f"#/components/parameters/{_REQUEST_ID_PARAMETER_COMPONENT}"}
+-    response_header_ref = {
+-        "$ref": f"#/components/headers/{_REQUEST_ID_RESPONSE_HEADER_COMPONENT}"
+-    }
++    response_header_ref = {"$ref": f"#/components/headers/{_REQUEST_ID_RESPONSE_HEADER_COMPONENT}"}
+     error_response_ref = {"$ref": f"#/components/responses/{_ERROR_RESPONSE_COMPONENT}"}
+ 
+     for path_item in document.get("paths", {}).values():
+@@ -235,7 +230,8 @@
+                 if existing_header is not None and existing_header != response_header_ref:
+                     resolved_existing_header = (
+                         _local_component(document, existing_header["$ref"])
+-                        if isinstance(existing_header, dict) and "$ref" in existing_header
++                        if isinstance(existing_header, dict)
++                        and "$ref" in existing_header
+                         and isinstance(existing_header["$ref"], str)
+                         else existing_header
+                     )
+@@ -267,9 +263,7 @@
+     supplied_request_id = request.headers.get(REQUEST_ID_HEADER_NAME)
+     request.state.request_id = str(uuid.uuid4())
+     if supplied_request_id is not None and (
+-        not REQUEST_ID_MIN_LENGTH
+-        <= len(supplied_request_id)
+-        <= REQUEST_ID_MAX_LENGTH
++        not REQUEST_ID_MIN_LENGTH <= len(supplied_request_id) <= REQUEST_ID_MAX_LENGTH
+         or not supplied_request_id.isascii()
+         or not supplied_request_id.isprintable()
+     ):
+@@ -332,6 +326,7 @@
+ app.include_router(identity_router)
+ app.include_router(geo_catalog_router)
+ app.include_router(geo_questions_router)
++app.include_router(geo_surface_management_router)
+ app.include_router(configuration_router)
+ app.include_router(product_facts_router)
+ app.include_router(planning_router)
+@@ -349,6 +344,10 @@
+             version=app.version,
+             routes=app.routes,
+         )
++        # 安装版本的 FastAPI 导出会 exclude_none；保留模型已声明的 nullable 默认。
++        api_settings = schema["components"]["schemas"]["GeoApiSettings"]["properties"]
++        for name in ("temperature", "max_output_tokens"):
++            api_settings[name]["default"] = GeoApiSettings.model_fields[name].default
+         _merge_request_context_metadata(schema)
+         app.openapi_schema = schema
+     return app.openapi_schema
+--- 任务起始/backend/tests/unit/test_geo_surface_contract.py
++++ 当前/backend/tests/unit/test_geo_surface_contract.py
+@@ -238,7 +238,7 @@
+             adapter.validate_python({**value, "expected_revision": 2, **patch})
+ 
+ 
+-def test_public_schema_components_match_pydantic_and_no_routes(contract: dict[str, Any]) -> None:
++def test_public_schema_components_match_pydantic(contract: dict[str, Any]) -> None:
+     def clean(value: Any) -> Any:
+         if isinstance(value, dict):
+             return {
+@@ -262,7 +262,3 @@
+         for key, definition in schema.pop("$defs", {}).items():
+             assert clean(definition) == clean(contract["components"]["schemas"][key])
+         assert clean(schema) == clean(contract["components"]["schemas"][name])
+-    assert all(
+-        "engine-surfaces" not in path and "collection-profiles" not in path
+-        for path in contract["paths"]
+-    )
+--- 任务起始/contracts/database.md
++++ 当前/contracts/database.md
+@@ -12,7 +12,7 @@
+ 
+ ## GEO EngineSurface / CollectionProfile 合同（GEO-203 / R1）
+ 
+-`0046_geo_surfaces_profiles` 在 `0045_geo_prompt_variants` 后仅增量创建两表及 AIModel 复合唯一键，无回填、seed、生产迁移或旧 GEO 数据改写。当前交付是数据组件/ORM/Schema，标准 paths 不增加端点；Registry/运行资格属于 GEO-204，管理 API/页面属于 GEO-205。内部单租户共享配置，created_by 是服务端追溯身份，ADMIN 管理、ENGINEER 后续仅消费非敏感摘要，不是新增身份体系。
++`0046_geo_surfaces_profiles` 在 `0045_geo_prompt_variants` 后仅增量创建两表及 AIModel 复合唯一键，无回填、seed、生产迁移或旧 GEO 数据改写。GEO-203 提供数据组件/ORM/Schema，GEO-204 提供 Registry/运行资格；GEO-205 接线管理 API/页面而不增加数据库结构。内部单租户共享配置，created_by 是服务端追溯身份，ADMIN 管理、ENGINEER 仅消费非敏感摘要，不是新增身份体系。
+ 
+ ### geo_engine_surfaces
+ 
+@@ -66,9 +66,21 @@
+ 
+ 两资源独立revision owner；创建0，实际配置/测试/历史锁存变化恰好+1，no-op保持revision/updated_at；数据库守卫保护id、creator、created_at与Profile归属/模式，更新时间不倒退。AIModel FK的SET NULL是明确的引用解绑副作用，不自动递增配置revision或变更测试事实；后续运行资格必须重读当前绑定，不以历史PASSED授予执行资格，管理接线负责资格失效投影。Surface的历史锁存仅防止删除，不冻结当前配置，未来真实运行需在持锁同事务设置锁存并保存不可变快照。Profile真实历史RESTRICT FK由未来Run消费方接入，本任务不伪造Run引用。
+ 
+-未来写命令锁序为User→AIChannel→AIModel→Surface→Profile；服务负责事务、expected_revision CAS、测试结果过期检查和最小成功审计。本阶段无命令幂等、队列或外部调用。User.created_by两表引用接入现有批量删除预检/投影，RESTRICT提供最终防线。
+-
+-唯一冲突仅`23505 + uq_geo_engine_surfaces_slug / uq_geo_collection_profiles_surface_name`；归属仅`23503 + fk_geo_collection_profiles_model_channel`；非法配置仅本节具名`23514`。本任务不新增HTTP错误码/mapper；GEO-205需在命令边界逐项定义，未知异常保持失败，不能按文本或宽泛SQLSTATE猜测。downgrade以55000拒绝删表，恢复用前滚修复或迁移前备份。
++GEO-205 写命令锁序为User→AIChannel→AIModel→Surface→Profile；服务负责事务、expected_revision CAS 和最小成功审计。测试结果的写入与过期检查由 GEO-403 接入；本阶段无队列或外部调用。User.created_by两表引用接入现有批量删除预检/投影，RESTRICT提供最终防线。
++
++唯一冲突仅`23505 + uq_geo_engine_surfaces_slug / uq_geo_collection_profiles_surface_name`；模型归属由`23503 + fk_geo_collection_profiles_model_channel`保证。GEO-205 在业务 flush 边界映射已登记的唯一键与引用约束；未知异常保持失败，不能按文本或宽泛SQLSTATE猜测。非法结构仍受本节具名`23514`保护。downgrade以55000拒绝删表，恢复用前滚修复或迁移前备份。
++
++### GEO-205 管理命令与安全读模型
++
++两资源各有列表、创建、详情、更新、启用、停用、删除，共14个操作。全部认证，写入 ADMIN + CSRF；Service 锁后重读当前账号资格。ENGINEER 的读模型只有 summary，configuration=null，available_actions=[]，deletion=null；不会取得 adapter、settings、channel/model 引用、网站或创建者配置。管理员 configuration 仍是闭合非敏感 Out，永不读取 AI Key、密文、Header、Cookie、浏览器会话或资料路径。数据组件本身不直接作为角色无差别的HTTP响应。
++
++读请求在认证前建立 REPEATABLE READ 并禁 autoflush，列表使用固定批量查询与稳定排序、total 和 10/20/50 分页；动作/删除/启用阻断由服务端投影，不是授权凭证。当前 Surface 删除检查实际 Profile 引用和 first_referenced_at；当前 Profile 没有 Run/Plan 引用表，不伪造历史数量。未来真实引用消费方必须接入 RESTRICT FK、锁和删除查询，不能靠当前零引用路径授予历史删除许可。
++
++写事务从 User FOR NO KEY UPDATE 开始，舍弃认证待写 last_seen_at 活动提示以避开 Session→User 的改密锁环，不修改过期/撤销规则。依次锁定当前与目标 Channel（UUID排序）、Model（UUID排序）、Surface、Profile；初读只决定锁集合，锁后重新比对绑定/revision。CREATE默认停用与 UNTESTED；Profile配置实际变更清除旧测试事实并停用；模式和Surface归属不可变。实际变化revision恰好+1、更新时间单调不减；同值更新/启停不改revision、时间或成功审计。业务与最小白名单成功审计同事务提交，未知错误整体回滚；没有命令自动重放或 Idempotency-Key。
++
++启用 Profile 使用假设active=true的当前快照复用 GEO-204 evaluate_profile。MANUAL受监测总开关与Surface启用要求，API/BROWSER另有子开关、合规、adapter批准、环境、测试及当前模型资格；BROWSER未批准不可启用。Surface是中立目录配置，启用它不会启动任何采集。修改合规状态立即影响当前资格，资格不持久化。GEO-205没有test接口或测试结果生成；连接测试和模型生命周期失效规则由GEO-403提供。
++
++GEO-205沿用0046，无Alembic revision、数据回填、旧观测改写或生产数据库操作。精确HTTP错误映射与对应条件见根OpenAPI及本任务实施记录；业务flush与audit flush边界区分，未知SQLSTATE/约束不能转换成成功或猜测业务冲突。
+ 
+ ## GEO PromptVariant 合同（GEO-201 / R1）
+ 
+--- 任务起始/contracts/openapi.yaml
++++ 当前/contracts/openapi.yaml
+@@ -20,6 +20,7 @@
+   - name: files
+   - name: configuration
+   - name: geo-catalog
++  - name: geo-surface-management
+ paths:
+   /api/v1/geo/subjects:
+     get:
+@@ -5250,6 +5251,1001 @@
+             schema:
+               $ref: '#/components/schemas/GeoPromptVariantRevisionRequest'
+ 
++  /api/v1/geo/engine-surfaces:
++    get:
++      tags:
++      - geo-surface-management
++      summary: List Surfaces
++      operationId: listGeoEngineSurfaces
++      security:
++      - sessionCookie: []
++      parameters:
++      - name: q
++        in: query
++        required: false
++        schema:
++          anyOf:
++          - type: string
++            maxLength: 240
++            pattern: ^[^\x00]*$
++          - type: 'null'
++          title: Q
++      - name: surface_kind
++        in: query
++        required: false
++        schema:
++          anyOf:
++          - $ref: '#/components/schemas/GeoSurfaceKind'
++          - type: 'null'
++          title: Surface Kind
++      - name: is_active
++        in: query
++        required: false
++        schema:
++          anyOf:
++          - type: boolean
++          - type: 'null'
++          title: Is Active
++      - name: sort
++        in: query
++        required: false
++        schema:
++          enum:
++          - NAME_ASC
++          - UPDATED_DESC
++          type: string
++          default: NAME_ASC
++          title: Sort
++      - name: page
++        in: query
++        required: false
++        schema:
++          type: integer
++          minimum: 1
++          default: 1
++          title: Page
++      - name: page_size
++        in: query
++        required: false
++        schema:
++          enum:
++          - 10
++          - 20
++          - 50
++          type: integer
++          default: 20
++          title: Page Size
++      - $ref: '#/components/parameters/RequestIdHeader'
++      responses:
++        '200':
++          description: Successful Response
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoEngineSurfaceListPage'
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++      x-required-account-types:
++      - ADMIN
++      - ENGINEER
++      x-error-codes:
++        '400':
++        - VALIDATION_ERROR
++        '401':
++        - AUTH_REQUIRED
++        '403':
++        - PASSWORD_CHANGE_REQUIRED
++        '422':
++        - VALIDATION_ERROR
++    post:
++      tags:
++      - geo-surface-management
++      summary: Create Surface
++      operationId: createGeoEngineSurface
++      security:
++      - sessionCookie: []
++      parameters:
++      - name: X-CSRF-Token
++        in: header
++        required: true
++        schema:
++          type: string
++          minLength: 32
++          title: X-Csrf-Token
++      - $ref: '#/components/parameters/RequestIdHeader'
++      requestBody:
++        required: true
++        content:
++          application/json:
++            schema:
++              $ref: '#/components/schemas/GeoEngineSurfaceCreate'
++      responses:
++        '201':
++          description: Successful Response
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoEngineSurfaceRead'
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++      x-required-account-types:
++      - ADMIN
++      x-error-codes:
++        '400':
++        - VALIDATION_ERROR
++        '401':
++        - AUTH_REQUIRED
++        '403':
++        - PASSWORD_CHANGE_REQUIRED
++        - PERMISSION_DENIED
++        - CSRF_INVALID
++        '422':
++        - VALIDATION_ERROR
++        '404':
++        - NOT_FOUND
++        '409':
++        - GEO_SURFACE_SLUG_EXISTS
++  /api/v1/geo/engine-surfaces/{surface_id}:
++    get:
++      tags:
++      - geo-surface-management
++      summary: Get Surface
++      operationId: getGeoEngineSurface
++      security:
++      - sessionCookie: []
++      parameters:
++      - name: surface_id
++        in: path
++        required: true
++        schema:
++          type: string
++          format: uuid
++          title: Surface Id
++      - $ref: '#/components/parameters/RequestIdHeader'
++      responses:
++        '200':
++          description: Successful Response
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoEngineSurfaceRead'
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++      x-required-account-types:
++      - ADMIN
++      - ENGINEER
++      x-error-codes:
++        '400':
++        - VALIDATION_ERROR
++        '401':
++        - AUTH_REQUIRED
++        '403':
++        - PASSWORD_CHANGE_REQUIRED
++        '422':
++        - VALIDATION_ERROR
++        '404':
++        - NOT_FOUND
++    patch:
++      tags:
++      - geo-surface-management
++      summary: Update Surface
++      operationId: updateGeoEngineSurface
++      security:
++      - sessionCookie: []
++      parameters:
++      - name: surface_id
++        in: path
++        required: true
++        schema:
++          type: string
++          format: uuid
++          title: Surface Id
++      - name: X-CSRF-Token
++        in: header
++        required: true
++        schema:
++          type: string
++          minLength: 32
++          title: X-Csrf-Token
++      - $ref: '#/components/parameters/RequestIdHeader'
++      requestBody:
++        required: true
++        content:
++          application/json:
++            schema:
++              $ref: '#/components/schemas/GeoEngineSurfaceUpdate'
++      responses:
++        '200':
++          description: Successful Response
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoEngineSurfaceRead'
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++      x-required-account-types:
++      - ADMIN
++      x-error-codes:
++        '400':
++        - VALIDATION_ERROR
++        '401':
++        - AUTH_REQUIRED
++        '403':
++        - PASSWORD_CHANGE_REQUIRED
++        - PERMISSION_DENIED
++        - CSRF_INVALID
++        '422':
++        - VALIDATION_ERROR
++        '404':
++        - NOT_FOUND
++        '409':
++        - REVISION_CONFLICT
++        - GEO_SURFACE_SLUG_EXISTS
++    delete:
++      tags:
++      - geo-surface-management
++      summary: Delete Surface
++      operationId: deleteGeoEngineSurface
++      security:
++      - sessionCookie: []
++      parameters:
++      - name: surface_id
++        in: path
++        required: true
++        schema:
++          type: string
++          format: uuid
++          title: Surface Id
++      - name: expected_revision
++        in: query
++        required: true
++        schema:
++          type: integer
++          minimum: 0
++          title: Expected Revision
++      - name: X-CSRF-Token
++        in: header
++        required: true
++        schema:
++          type: string
++          minLength: 32
++          title: X-Csrf-Token
++      - $ref: '#/components/parameters/RequestIdHeader'
++      responses:
++        '204':
++          description: Successful Response
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++      x-required-account-types:
++      - ADMIN
++      x-error-codes:
++        '400':
++        - VALIDATION_ERROR
++        '401':
++        - AUTH_REQUIRED
++        '403':
++        - PASSWORD_CHANGE_REQUIRED
++        - PERMISSION_DENIED
++        - CSRF_INVALID
++        '422':
++        - VALIDATION_ERROR
++        '404':
++        - NOT_FOUND
++        '409':
++        - REVISION_CONFLICT
++        - GEO_SURFACE_IN_USE
++  /api/v1/geo/engine-surfaces/{surface_id}/enable:
++    post:
++      tags:
++      - geo-surface-management
++      summary: Enable Surface
++      operationId: enableGeoEngineSurface
++      security:
++      - sessionCookie: []
++      parameters:
++      - name: surface_id
++        in: path
++        required: true
++        schema:
++          type: string
++          format: uuid
++          title: Surface Id
++      - name: X-CSRF-Token
++        in: header
++        required: true
++        schema:
++          type: string
++          minLength: 32
++          title: X-Csrf-Token
++      - $ref: '#/components/parameters/RequestIdHeader'
++      requestBody:
++        required: true
++        content:
++          application/json:
++            schema:
++              $ref: '#/components/schemas/GeoConfigurationRevisionRequest'
++      responses:
++        '200':
++          description: Successful Response
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoEngineSurfaceRead'
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++      x-required-account-types:
++      - ADMIN
++      x-error-codes:
++        '400':
++        - VALIDATION_ERROR
++        '401':
++        - AUTH_REQUIRED
++        '403':
++        - PASSWORD_CHANGE_REQUIRED
++        - PERMISSION_DENIED
++        - CSRF_INVALID
++        '422':
++        - VALIDATION_ERROR
++        '404':
++        - NOT_FOUND
++        '409':
++        - REVISION_CONFLICT
++  /api/v1/geo/engine-surfaces/{surface_id}/disable:
++    post:
++      tags:
++      - geo-surface-management
++      summary: Disable Surface
++      operationId: disableGeoEngineSurface
++      security:
++      - sessionCookie: []
++      parameters:
++      - name: surface_id
++        in: path
++        required: true
++        schema:
++          type: string
++          format: uuid
++          title: Surface Id
++      - name: X-CSRF-Token
++        in: header
++        required: true
++        schema:
++          type: string
++          minLength: 32
++          title: X-Csrf-Token
++      - $ref: '#/components/parameters/RequestIdHeader'
++      requestBody:
++        required: true
++        content:
++          application/json:
++            schema:
++              $ref: '#/components/schemas/GeoConfigurationRevisionRequest'
++      responses:
++        '200':
++          description: Successful Response
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoEngineSurfaceRead'
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++      x-required-account-types:
++      - ADMIN
++      x-error-codes:
++        '400':
++        - VALIDATION_ERROR
++        '401':
++        - AUTH_REQUIRED
++        '403':
++        - PASSWORD_CHANGE_REQUIRED
++        - PERMISSION_DENIED
++        - CSRF_INVALID
++        '422':
++        - VALIDATION_ERROR
++        '404':
++        - NOT_FOUND
++        '409':
++        - REVISION_CONFLICT
++  /api/v1/geo/collection-profiles:
++    get:
++      tags:
++      - geo-surface-management
++      summary: List Profiles
++      operationId: listGeoCollectionProfiles
++      security:
++      - sessionCookie: []
++      parameters:
++      - name: q
++        in: query
++        required: false
++        schema:
++          anyOf:
++          - type: string
++            maxLength: 240
++            pattern: ^[^\x00]*$
++          - type: 'null'
++          title: Q
++      - name: engine_surface_id
++        in: query
++        required: false
++        schema:
++          anyOf:
++          - type: string
++            format: uuid
++          - type: 'null'
++          title: Engine Surface Id
++      - name: collection_mode
++        in: query
++        required: false
++        schema:
++          anyOf:
++          - $ref: '#/components/schemas/GeoCollectionMode'
++          - type: 'null'
++          title: Collection Mode
++      - name: is_active
++        in: query
++        required: false
++        schema:
++          anyOf:
++          - type: boolean
++          - type: 'null'
++          title: Is Active
++      - name: sort
++        in: query
++        required: false
++        schema:
++          enum:
++          - NAME_ASC
++          - UPDATED_DESC
++          type: string
++          default: NAME_ASC
++          title: Sort
++      - name: page
++        in: query
++        required: false
++        schema:
++          type: integer
++          minimum: 1
++          default: 1
++          title: Page
++      - name: page_size
++        in: query
++        required: false
++        schema:
++          enum:
++          - 10
++          - 20
++          - 50
++          type: integer
++          default: 20
++          title: Page Size
++      - $ref: '#/components/parameters/RequestIdHeader'
++      responses:
++        '200':
++          description: Successful Response
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoCollectionProfileListPage'
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++      x-required-account-types:
++      - ADMIN
++      - ENGINEER
++      x-error-codes:
++        '400':
++        - VALIDATION_ERROR
++        '401':
++        - AUTH_REQUIRED
++        '403':
++        - PASSWORD_CHANGE_REQUIRED
++        '422':
++        - VALIDATION_ERROR
++    post:
++      tags:
++      - geo-surface-management
++      summary: Create Profile
++      operationId: createGeoCollectionProfile
++      security:
++      - sessionCookie: []
++      parameters:
++      - name: X-CSRF-Token
++        in: header
++        required: true
++        schema:
++          type: string
++          minLength: 32
++          title: X-Csrf-Token
++      - $ref: '#/components/parameters/RequestIdHeader'
++      requestBody:
++        required: true
++        content:
++          application/json:
++            schema:
++              oneOf:
++              - $ref: '#/components/schemas/GeoManualProfileCreate'
++              - $ref: '#/components/schemas/GeoApiProfileCreate'
++              - $ref: '#/components/schemas/GeoBrowserProfileCreate'
++              discriminator:
++                propertyName: collection_mode
++                mapping:
++                  MANUAL: '#/components/schemas/GeoManualProfileCreate'
++                  API: '#/components/schemas/GeoApiProfileCreate'
++                  BROWSER: '#/components/schemas/GeoBrowserProfileCreate'
++              title: Payload
++      responses:
++        '201':
++          description: Successful Response
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoCollectionProfileRead'
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++      x-required-account-types:
++      - ADMIN
++      x-error-codes:
++        '400':
++        - VALIDATION_ERROR
++        '401':
++        - AUTH_REQUIRED
++        '403':
++        - PASSWORD_CHANGE_REQUIRED
++        - PERMISSION_DENIED
++        - CSRF_INVALID
++        '422':
++        - VALIDATION_ERROR
++        - GEO_MODEL_BINDING_INVALID
++        - GEO_ADAPTER_UNKNOWN
++        - GEO_PROFILE_CONFIGURATION_INVALID
++        '404':
++        - NOT_FOUND
++        '409':
++        - GEO_PROFILE_NAME_EXISTS
++  /api/v1/geo/collection-profiles/{profile_id}:
++    get:
++      tags:
++      - geo-surface-management
++      summary: Get Profile
++      operationId: getGeoCollectionProfile
++      security:
++      - sessionCookie: []
++      parameters:
++      - name: profile_id
++        in: path
++        required: true
++        schema:
++          type: string
++          format: uuid
++          title: Profile Id
++      - $ref: '#/components/parameters/RequestIdHeader'
++      responses:
++        '200':
++          description: Successful Response
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoCollectionProfileRead'
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++      x-required-account-types:
++      - ADMIN
++      - ENGINEER
++      x-error-codes:
++        '400':
++        - VALIDATION_ERROR
++        '401':
++        - AUTH_REQUIRED
++        '403':
++        - PASSWORD_CHANGE_REQUIRED
++        '422':
++        - VALIDATION_ERROR
++        '404':
++        - NOT_FOUND
++    patch:
++      tags:
++      - geo-surface-management
++      summary: Update Profile
++      operationId: updateGeoCollectionProfile
++      security:
++      - sessionCookie: []
++      parameters:
++      - name: profile_id
++        in: path
++        required: true
++        schema:
++          type: string
++          format: uuid
++          title: Profile Id
++      - name: X-CSRF-Token
++        in: header
++        required: true
++        schema:
++          type: string
++          minLength: 32
++          title: X-Csrf-Token
++      - $ref: '#/components/parameters/RequestIdHeader'
++      requestBody:
++        required: true
++        content:
++          application/json:
++            schema:
++              oneOf:
++              - $ref: '#/components/schemas/GeoManualProfileUpdate'
++              - $ref: '#/components/schemas/GeoApiProfileUpdate'
++              - $ref: '#/components/schemas/GeoBrowserProfileUpdate'
++              discriminator:
++                propertyName: collection_mode
++                mapping:
++                  MANUAL: '#/components/schemas/GeoManualProfileUpdate'
++                  API: '#/components/schemas/GeoApiProfileUpdate'
++                  BROWSER: '#/components/schemas/GeoBrowserProfileUpdate'
++              title: Payload
++      responses:
++        '200':
++          description: Successful Response
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoCollectionProfileRead'
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++      x-required-account-types:
++      - ADMIN
++      x-error-codes:
++        '400':
++        - VALIDATION_ERROR
++        '401':
++        - AUTH_REQUIRED
++        '403':
++        - PASSWORD_CHANGE_REQUIRED
++        - PERMISSION_DENIED
++        - CSRF_INVALID
++        '422':
++        - VALIDATION_ERROR
++        - GEO_MODEL_BINDING_INVALID
++        - GEO_ADAPTER_UNKNOWN
++        - GEO_PROFILE_CONFIGURATION_INVALID
++        '404':
++        - NOT_FOUND
++        '409':
++        - REVISION_CONFLICT
++        - GEO_PROFILE_NAME_EXISTS
++    delete:
++      tags:
++      - geo-surface-management
++      summary: Delete Profile
++      operationId: deleteGeoCollectionProfile
++      security:
++      - sessionCookie: []
++      parameters:
++      - name: profile_id
++        in: path
++        required: true
++        schema:
++          type: string
++          format: uuid
++          title: Profile Id
++      - name: expected_revision
++        in: query
++        required: true
++        schema:
++          type: integer
++          minimum: 0
++          title: Expected Revision
++      - name: X-CSRF-Token
++        in: header
++        required: true
++        schema:
++          type: string
++          minLength: 32
++          title: X-Csrf-Token
++      - $ref: '#/components/parameters/RequestIdHeader'
++      responses:
++        '204':
++          description: Successful Response
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++      x-required-account-types:
++      - ADMIN
++      x-error-codes:
++        '400':
++        - VALIDATION_ERROR
++        '401':
++        - AUTH_REQUIRED
++        '403':
++        - PASSWORD_CHANGE_REQUIRED
++        - PERMISSION_DENIED
++        - CSRF_INVALID
++        '422':
++        - VALIDATION_ERROR
++        '404':
++        - NOT_FOUND
++        '409':
++        - REVISION_CONFLICT
++  /api/v1/geo/collection-profiles/{profile_id}/enable:
++    post:
++      tags:
++      - geo-surface-management
++      summary: Enable Profile
++      operationId: enableGeoCollectionProfile
++      security:
++      - sessionCookie: []
++      parameters:
++      - name: profile_id
++        in: path
++        required: true
++        schema:
++          type: string
++          format: uuid
++          title: Profile Id
++      - name: X-CSRF-Token
++        in: header
++        required: true
++        schema:
++          type: string
++          minLength: 32
++          title: X-Csrf-Token
++      - $ref: '#/components/parameters/RequestIdHeader'
++      requestBody:
++        required: true
++        content:
++          application/json:
++            schema:
++              $ref: '#/components/schemas/GeoConfigurationRevisionRequest'
++      responses:
++        '200':
++          description: Successful Response
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoCollectionProfileRead'
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++      x-required-account-types:
++      - ADMIN
++      x-error-codes:
++        '400':
++        - VALIDATION_ERROR
++        '401':
++        - AUTH_REQUIRED
++        '403':
++        - PASSWORD_CHANGE_REQUIRED
++        - PERMISSION_DENIED
++        - CSRF_INVALID
++        '422':
++        - VALIDATION_ERROR
++        '404':
++        - NOT_FOUND
++        '409':
++        - REVISION_CONFLICT
++        - GEO_PROFILE_INELIGIBLE
++  /api/v1/geo/collection-profiles/{profile_id}/disable:
++    post:
++      tags:
++      - geo-surface-management
++      summary: Disable Profile
++      operationId: disableGeoCollectionProfile
++      security:
++      - sessionCookie: []
++      parameters:
++      - name: profile_id
++        in: path
++        required: true
++        schema:
++          type: string
++          format: uuid
++          title: Profile Id
++      - name: X-CSRF-Token
++        in: header
++        required: true
++        schema:
++          type: string
++          minLength: 32
++          title: X-Csrf-Token
++      - $ref: '#/components/parameters/RequestIdHeader'
++      requestBody:
++        required: true
++        content:
++          application/json:
++            schema:
++              $ref: '#/components/schemas/GeoConfigurationRevisionRequest'
++      responses:
++        '200':
++          description: Successful Response
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoCollectionProfileRead'
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++      x-required-account-types:
++      - ADMIN
++      x-error-codes:
++        '400':
++        - VALIDATION_ERROR
++        '401':
++        - AUTH_REQUIRED
++        '403':
++        - PASSWORD_CHANGE_REQUIRED
++        - PERMISSION_DENIED
++        - CSRF_INVALID
++        '422':
++        - VALIDATION_ERROR
++        '404':
++        - NOT_FOUND
++        '409':
++        - REVISION_CONFLICT
+ components:
+   securitySchemes:
+     sessionCookie:
+@@ -12311,3 +13307,377 @@
+       - AUTHENTICATED
+       - NOT_APPLICABLE
+       type: string
++    GeoCollectionProfileListPage:
++      properties:
++        items:
++          items:
++            $ref: '#/components/schemas/GeoCollectionProfileRead'
++          type: array
++          title: Items
++        page:
++          type: integer
++          minimum: 1.0
++          title: Page
++        page_size:
++          type: integer
++          title: Page Size
++        total:
++          type: integer
++          minimum: 0.0
++          title: Total
++      additionalProperties: false
++      type: object
++      required:
++      - items
++      - page
++      - page_size
++      - total
++      title: GeoCollectionProfileListPage
++    GeoCollectionProfileRead:
++      properties:
++        summary:
++          $ref: '#/components/schemas/GeoCollectionProfileSummary'
++        configuration:
++          anyOf:
++          - oneOf:
++            - $ref: '#/components/schemas/GeoManualProfileOut'
++            - $ref: '#/components/schemas/GeoApiProfileOut'
++            - $ref: '#/components/schemas/GeoBrowserProfileOut'
++            discriminator:
++              propertyName: collection_mode
++              mapping:
++                API: '#/components/schemas/GeoApiProfileOut'
++                BROWSER: '#/components/schemas/GeoBrowserProfileOut'
++                MANUAL: '#/components/schemas/GeoManualProfileOut'
++          - type: 'null'
++          title: Configuration
++        workflow_stage:
++          $ref: '#/components/schemas/GeoConfigurationWorkflowStage'
++        primary_task:
++          $ref: '#/components/schemas/GeoConfigurationPrimaryTask'
++        available_actions:
++          items:
++            $ref: '#/components/schemas/GeoConfigurationAction'
++          type: array
++          title: Available Actions
++        deletion:
++          anyOf:
++          - $ref: '#/components/schemas/GeoConfigurationDeletionProjection'
++          - type: 'null'
++        activation_blockers:
++          anyOf:
++          - items:
++              $ref: '#/components/schemas/GeoProfileActivationBlocker'
++            type: array
++          - type: 'null'
++          title: Activation Blockers
++      additionalProperties: false
++      type: object
++      required:
++      - summary
++      - configuration
++      - workflow_stage
++      - primary_task
++      - available_actions
++      - deletion
++      - activation_blockers
++      title: GeoCollectionProfileRead
++    GeoCollectionProfileSummary:
++      properties:
++        id:
++          type: string
++          format: uuid
++          title: Id
++        name:
++          type: string
++          maxLength: 160
++          minLength: 1
++          pattern: ^[^\s\x00](?:[^\x00]*[^\s\x00])?$
++          title: Name
++        engine_surface_id:
++          type: string
++          format: uuid
++          title: Engine Surface Id
++        engine_surface:
++          $ref: '#/components/schemas/GeoEngineSurfaceSummary'
++        collection_mode:
++          $ref: '#/components/schemas/GeoCollectionMode'
++        language_code:
++          type: string
++          maxLength: 16
++          minLength: 2
++          pattern: ^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$
++          title: Language Code
++        region_code:
++          type: string
++          maxLength: 2
++          minLength: 2
++          pattern: ^[A-Za-z]{2}$
++          title: Region Code
++        login_state:
++          $ref: '#/components/schemas/GeoProfileLoginState'
++        web_search_policy:
++          $ref: '#/components/schemas/GeoWebSearchPolicy'
++        is_active:
++          type: boolean
++          title: Is Active
++        last_test_status:
++          $ref: '#/components/schemas/GeoProfileTestStatus'
++        last_tested_at:
++          anyOf:
++          - type: string
++            format: date-time
++          - type: 'null'
++          title: Last Tested At
++        revision:
++          type: integer
++          minimum: 0.0
++          title: Revision
++        created_at:
++          type: string
++          format: date-time
++          title: Created At
++        updated_at:
++          type: string
++          format: date-time
++          title: Updated At
++      additionalProperties: false
++      type: object
++      required:
++      - id
++      - name
++      - engine_surface_id
++      - engine_surface
++      - collection_mode
++      - language_code
++      - region_code
++      - login_state
++      - web_search_policy
++      - is_active
++      - last_test_status
++      - last_tested_at
++      - revision
++      - created_at
++      - updated_at
++      title: GeoCollectionProfileSummary
++    GeoConfigurationAction:
++      type: string
++      enum:
++      - UPDATE
++      - ENABLE
++      - DISABLE
++      - DELETE
++      title: GeoConfigurationAction
++    GeoConfigurationDeletionBlocker:
++      properties:
++        type:
++          $ref: '#/components/schemas/GeoConfigurationDeletionBlockerType'
++        count:
++          type: integer
++          minimum: 1.0
++          title: Count
++      additionalProperties: false
++      type: object
++      required:
++      - type
++      - count
++      title: GeoConfigurationDeletionBlocker
++    GeoConfigurationDeletionBlockerType:
++      type: string
++      enum:
++      - COLLECTION_PROFILE
++      - HISTORICAL_REFERENCE
++      title: GeoConfigurationDeletionBlockerType
++    GeoConfigurationDeletionProjection:
++      properties:
++        blockers:
++          items:
++            $ref: '#/components/schemas/GeoConfigurationDeletionBlocker'
++          type: array
++          title: Blockers
++      additionalProperties: false
++      type: object
++      required:
++      - blockers
++      title: GeoConfigurationDeletionProjection
++    GeoConfigurationPrimaryTask:
++      type: string
++      enum:
++      - VIEW_SUMMARY
++      - MANAGE_SURFACE
++      - ENABLE_SURFACE
++      - MANAGE_PROFILE
++      - ENABLE_PROFILE
++      - RESOLVE_BLOCKERS
++      title: GeoConfigurationPrimaryTask
++    GeoConfigurationRevisionRequest:
++      properties:
++        expected_revision:
++          type: integer
++          minimum: 0.0
++          title: Expected Revision
++      additionalProperties: false
++      type: object
++      required:
++      - expected_revision
++      title: GeoConfigurationRevisionRequest
++    GeoConfigurationWorkflowStage:
++      type: string
++      enum:
++      - ACTIVE
++      - DISABLED
++      - BLOCKED
++      title: GeoConfigurationWorkflowStage
++    GeoEngineSurfaceListPage:
++      properties:
++        items:
++          items:
++            $ref: '#/components/schemas/GeoEngineSurfaceRead'
++          type: array
++          title: Items
++        page:
++          type: integer
++          minimum: 1.0
++          title: Page
++        page_size:
++          type: integer
++          title: Page Size
++        total:
++          type: integer
++          minimum: 0.0
++          title: Total
++      additionalProperties: false
++      type: object
++      required:
++      - items
++      - page
++      - page_size
++      - total
++      title: GeoEngineSurfaceListPage
++    GeoEngineSurfaceRead:
++      properties:
++        summary:
++          $ref: '#/components/schemas/GeoEngineSurfaceSummary'
++        configuration:
++          anyOf:
++          - $ref: '#/components/schemas/GeoEngineSurfaceOut'
++          - type: 'null'
++        workflow_stage:
++          $ref: '#/components/schemas/GeoConfigurationWorkflowStage'
++        primary_task:
++          $ref: '#/components/schemas/GeoConfigurationPrimaryTask'
++        available_actions:
++          items:
++            $ref: '#/components/schemas/GeoConfigurationAction'
++          type: array
++          title: Available Actions
++        deletion:
++          anyOf:
++          - $ref: '#/components/schemas/GeoConfigurationDeletionProjection'
++          - type: 'null'
++      additionalProperties: false
++      type: object
++      required:
++      - summary
++      - configuration
++      - workflow_stage
++      - primary_task
++      - available_actions
++      - deletion
++      title: GeoEngineSurfaceRead
++    GeoEngineSurfaceSummary:
++      properties:
++        id:
++          type: string
++          format: uuid
++          title: Id
++        name:
++          type: string
++          maxLength: 160
++          minLength: 1
++          pattern: ^[^\s\x00](?:[^\x00]*[^\s\x00])?$
++          title: Name
++        slug:
++          type: string
++          title: Slug
++        surface_kind:
++          $ref: '#/components/schemas/GeoSurfaceKind'
++        provider_brand:
++          $ref: '#/components/schemas/GeoSurfaceProviderBrand'
++        compliance_status:
++          $ref: '#/components/schemas/GeoComplianceStatus'
++        capabilities:
++          $ref: '#/components/schemas/GeoSurfaceCapabilities'
++        is_active:
++          type: boolean
++          title: Is Active
++        revision:
++          type: integer
++          minimum: 0.0
++          title: Revision
++        created_at:
++          type: string
++          format: date-time
++          title: Created At
++        updated_at:
++          type: string
++          format: date-time
++          title: Updated At
++      additionalProperties: false
++      type: object
++      required:
++      - id
++      - name
++      - slug
++      - surface_kind
++      - provider_brand
++      - compliance_status
++      - capabilities
++      - is_active
++      - revision
++      - created_at
++      - updated_at
++      title: GeoEngineSurfaceSummary
++    GeoProfileActivationBlocker:
++      properties:
++        code:
++          $ref: '#/components/schemas/ProfileBlockerCode'
++        field:
++          type: string
++          title: Field
++      additionalProperties: false
++      type: object
++      required:
++      - code
++      - field
++      title: GeoProfileActivationBlocker
++    ProfileBlockerCode:
++      type: string
++      enum:
++      - ADAPTER_UNKNOWN
++      - CONFIGURATION_INVALID
++      - MODE_UNSUPPORTED
++      - SURFACE_UNSUPPORTED
++      - LANGUAGE_UNSUPPORTED
++      - REGION_UNSUPPORTED
++      - LOGIN_UNSUPPORTED
++      - SEARCH_POLICY_UNSUPPORTED
++      - CAPABILITY_UNSUPPORTED
++      - MONITORING_DISABLED
++      - API_COLLECTION_DISABLED
++      - BROWSER_COLLECTION_DISABLED
++      - PROFILE_DISABLED
++      - SURFACE_DISABLED
++      - ADAPTER_NOT_APPROVED
++      - ENVIRONMENT_UNSUPPORTED
++      - COMPLIANCE_NOT_APPROVED
++      - PROFILE_NOT_TESTED
++      - MODEL_BINDING_REQUIRED
++      - MODEL_BINDING_UNSUPPORTED
++      - MODEL_BINDING_INVALID
++      - MODEL_DISABLED
++      - CHANNEL_DISABLED
++      - MODEL_NOT_TESTED
++      - CREDENTIAL_NOT_CONFIGURED
++      - PROTOCOL_UNSUPPORTED
++      title: ProfileBlockerCode
+--- 任务起始/frontend/src/app/navigation.ts
++++ 当前/frontend/src/app/navigation.ts
+@@ -17,13 +17,13 @@
+   type LucideIcon,
+ } from 'lucide-react';
+ 
+-type NavId = 'workbench' | 'products' | 'content-tasks' | 'publishing-work' | 'publishing-articles' | 'publishing-issues' | 'geo-insights' | 'geo-topics' | 'geo-questions' | 'geo-observations' | 'geo-entities' | 'platforms' | 'prompts' | 'ai-channels' | 'users' | 'audit';
++type NavId = 'workbench' | 'products' | 'content-tasks' | 'publishing-work' | 'publishing-articles' | 'publishing-issues' | 'geo-insights' | 'geo-topics' | 'geo-questions' | 'geo-observations' | 'geo-entities' | 'geo-surfaces' | 'platforms' | 'prompts' | 'ai-channels' | 'users' | 'audit';
+ type AppLayout = 'app' | 'print';
+ 
+ type NavigationItem = {
+   id: NavId;
+   label: string;
+-  to: '/' | '/products' | '/content/tasks' | '/publishing/work' | '/publishing/articles' | '/publishing/issues' | '/geo/insights' | '/geo/topics' | '/geo/questions' | '/geo/observations' | '/configuration/geo-entities' | '/settings/platforms' | '/settings/prompts' | '/settings/ai' | '/system/users' | '/system/audit';
++  to: '/' | '/products' | '/content/tasks' | '/publishing/work' | '/publishing/articles' | '/publishing/issues' | '/geo/insights' | '/geo/topics' | '/geo/questions' | '/geo/observations' | '/configuration/geo-entities' | '/configuration/geo-surfaces' | '/settings/platforms' | '/settings/prompts' | '/settings/ai' | '/system/users' | '/system/audit';
+   icon: LucideIcon;
+   adminOnly?: boolean;
+ };
+@@ -81,6 +81,7 @@
+     label: '业务配置',
+     items: [
+       { id: 'platforms', label: '平台与账号', to: '/settings/platforms', icon: Settings2Icon },
++      { id: 'geo-surfaces', label: 'GEO 平台与采集配置', to: '/configuration/geo-surfaces', icon: BotIcon, adminOnly: true },
+       { id: 'geo-entities', label: '监测对象与竞品', to: '/configuration/geo-entities', icon: BoxesIcon, adminOnly: true },
+       { id: 'prompts', label: 'Prompt 管理', to: '/settings/prompts', icon: FileTextIcon, adminOnly: true },
+       { id: 'ai-channels', label: 'AI 渠道', to: '/settings/ai', icon: BotIcon, adminOnly: true },
+--- 任务起始/frontend/src/routeTree.gen.ts
++++ 当前/frontend/src/routeTree.gen.ts
+@@ -25,6 +25,7 @@
+ import { Route as AccountSecurityRouteImport } from './routes/account/security'
+ import { Route as AppConfigurationIndexRouteImport } from './routes/_app/configuration/index'
+ import { Route as AppConfigurationGeoEntitiesRouteImport } from './routes/_app/configuration/geo-entities'
++import { Route as AppConfigurationGeoSurfacesRouteImport } from './routes/_app/configuration/geo-surfaces'
+ import { Route as AppConfigurationPlatformTypesRouteImport } from './routes/_app/configuration/platform-types'
+ import { Route as AppConfigurationPlatformsRouteImport } from './routes/_app/configuration/platforms'
+ import { Route as AppConfigurationPromptsRouteImport } from './routes/_app/configuration/prompts'
+@@ -162,6 +163,12 @@
+     path: '/configuration/geo-entities',
+     getParentRoute: () => AppRouteRoute,
+   } as any)
++const AppConfigurationGeoSurfacesRoute =
++  AppConfigurationGeoSurfacesRouteImport.update({
++    id: '/configuration/geo-surfaces',
++    path: '/configuration/geo-surfaces',
++    getParentRoute: () => AppRouteRoute,
++  } as any)
+ const AppConfigurationPlatformTypesRoute =
+   AppConfigurationPlatformTypesRouteImport.update({
+     id: '/configuration/platform-types',
+@@ -496,6 +503,7 @@
+   '/publishing/work': typeof AppPublishingWorkRouteRouteWithChildren
+   '/settings/platforms': typeof AppSettingsPlatformsRouteRouteWithChildren
+   '/configuration/geo-entities': typeof AppConfigurationGeoEntitiesRoute
++  '/configuration/geo-surfaces': typeof AppConfigurationGeoSurfacesRoute
+   '/configuration/platform-types': typeof AppConfigurationPlatformTypesRoute
+   '/configuration/platforms': typeof AppConfigurationPlatformsRoute
+   '/configuration/prompts': typeof AppConfigurationPromptsRoute
+@@ -559,6 +567,7 @@
+   '/users': typeof AppUsersRoute
+   '/account/security': typeof AccountSecurityRoute
+   '/configuration/geo-entities': typeof AppConfigurationGeoEntitiesRoute
++  '/configuration/geo-surfaces': typeof AppConfigurationGeoSurfacesRoute
+   '/configuration/platform-types': typeof AppConfigurationPlatformTypesRoute
+   '/configuration/platforms': typeof AppConfigurationPlatformsRoute
+   '/configuration/prompts': typeof AppConfigurationPromptsRoute
+@@ -635,6 +644,7 @@
+   '/_app/publishing/work': typeof AppPublishingWorkRouteRouteWithChildren
+   '/_app/settings/platforms': typeof AppSettingsPlatformsRouteRouteWithChildren
+   '/_app/configuration/geo-entities': typeof AppConfigurationGeoEntitiesRoute
++  '/_app/configuration/geo-surfaces': typeof AppConfigurationGeoSurfacesRoute
+   '/_app/configuration/platform-types': typeof AppConfigurationPlatformTypesRoute
+   '/_app/configuration/platforms': typeof AppConfigurationPlatformsRoute
+   '/_app/configuration/prompts': typeof AppConfigurationPromptsRoute
+@@ -710,6 +720,7 @@
+     | '/publishing/work'
+     | '/settings/platforms'
+     | '/configuration/geo-entities'
++    | '/configuration/geo-surfaces'
+     | '/configuration/platform-types'
+     | '/configuration/platforms'
+     | '/configuration/prompts'
+@@ -773,6 +784,7 @@
+     | '/users'
+     | '/account/security'
+     | '/configuration/geo-entities'
++    | '/configuration/geo-surfaces'
+     | '/configuration/platform-types'
+     | '/configuration/platforms'
+     | '/configuration/prompts'
+@@ -848,6 +860,7 @@
+     | '/_app/publishing/work'
+     | '/_app/settings/platforms'
+     | '/_app/configuration/geo-entities'
++    | '/_app/configuration/geo-surfaces'
+     | '/_app/configuration/platform-types'
+     | '/_app/configuration/platforms'
+     | '/_app/configuration/prompts'
+@@ -1020,6 +1033,13 @@
+       preLoaderRoute: typeof AppConfigurationGeoEntitiesRouteImport
+       parentRoute: typeof AppRouteRoute
+     }
++    '/_app/configuration/geo-surfaces': {
++      id: '/_app/configuration/geo-surfaces'
++      path: '/configuration/geo-surfaces'
++      fullPath: '/configuration/geo-surfaces'
++      preLoaderRoute: typeof AppConfigurationGeoSurfacesRouteImport
++      parentRoute: typeof AppRouteRoute
++    }
+     '/_app/configuration/platform-types': {
+       id: '/_app/configuration/platform-types'
+       path: '/configuration/platform-types'
+@@ -1672,6 +1692,7 @@
+   AppUsersRoute: typeof AppUsersRoute
+   AppIndexRoute: typeof AppIndexRoute
+   AppConfigurationGeoEntitiesRoute: typeof AppConfigurationGeoEntitiesRoute
++  AppConfigurationGeoSurfacesRoute: typeof AppConfigurationGeoSurfacesRoute
+   AppConfigurationPlatformTypesRoute: typeof AppConfigurationPlatformTypesRoute
+   AppConfigurationPlatformsRoute: typeof AppConfigurationPlatformsRoute
+   AppConfigurationPromptsRoute: typeof AppConfigurationPromptsRoute
+@@ -1700,6 +1721,7 @@
+   AppUsersRoute: AppUsersRoute,
+   AppIndexRoute: AppIndexRoute,
+   AppConfigurationGeoEntitiesRoute: AppConfigurationGeoEntitiesRoute,
++  AppConfigurationGeoSurfacesRoute: AppConfigurationGeoSurfacesRoute,
+   AppConfigurationPlatformTypesRoute: AppConfigurationPlatformTypesRoute,
+   AppConfigurationPlatformsRoute: AppConfigurationPlatformsRoute,
+   AppConfigurationPromptsRoute: AppConfigurationPromptsRoute,
+--- 任务起始/frontend/src/shared/api/generated/schema.d.ts
++++ 当前/frontend/src/shared/api/generated/schema.d.ts
+@@ -2333,6 +2333,148 @@
+         get?: never;
+         put?: never;
+         post: operations["disableGeoPromptVariant"];
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++    "/api/v1/geo/engine-surfaces": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        /** List Surfaces */
++        get: operations["listGeoEngineSurfaces"];
++        put?: never;
++        /** Create Surface */
++        post: operations["createGeoEngineSurface"];
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++    "/api/v1/geo/engine-surfaces/{surface_id}": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        /** Get Surface */
++        get: operations["getGeoEngineSurface"];
++        put?: never;
++        post?: never;
++        /** Delete Surface */
++        delete: operations["deleteGeoEngineSurface"];
++        options?: never;
++        head?: never;
++        /** Update Surface */
++        patch: operations["updateGeoEngineSurface"];
++        trace?: never;
++    };
++    "/api/v1/geo/engine-surfaces/{surface_id}/enable": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        get?: never;
++        put?: never;
++        /** Enable Surface */
++        post: operations["enableGeoEngineSurface"];
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++    "/api/v1/geo/engine-surfaces/{surface_id}/disable": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        get?: never;
++        put?: never;
++        /** Disable Surface */
++        post: operations["disableGeoEngineSurface"];
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++    "/api/v1/geo/collection-profiles": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        /** List Profiles */
++        get: operations["listGeoCollectionProfiles"];
++        put?: never;
++        /** Create Profile */
++        post: operations["createGeoCollectionProfile"];
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++    "/api/v1/geo/collection-profiles/{profile_id}": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        /** Get Profile */
++        get: operations["getGeoCollectionProfile"];
++        put?: never;
++        post?: never;
++        /** Delete Profile */
++        delete: operations["deleteGeoCollectionProfile"];
++        options?: never;
++        head?: never;
++        /** Update Profile */
++        patch: operations["updateGeoCollectionProfile"];
++        trace?: never;
++    };
++    "/api/v1/geo/collection-profiles/{profile_id}/enable": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        get?: never;
++        put?: never;
++        /** Enable Profile */
++        post: operations["enableGeoCollectionProfile"];
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++    "/api/v1/geo/collection-profiles/{profile_id}/disable": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        get?: never;
++        put?: never;
++        /** Disable Profile */
++        post: operations["disableGeoCollectionProfile"];
+         delete?: never;
+         options?: never;
+         head?: never;
+@@ -6637,6 +6779,168 @@
+         GeoCollectionMode: "MANUAL" | "API" | "BROWSER";
+         /** @enum {string} */
+         GeoProfileLoginState: "ANONYMOUS" | "AUTHENTICATED" | "NOT_APPLICABLE";
++        /** GeoCollectionProfileListPage */
++        GeoCollectionProfileListPage: {
++            /** Items */
++            items: components["schemas"]["GeoCollectionProfileRead"][];
++            /** Page */
++            page: number;
++            /** Page Size */
++            page_size: number;
++            /** Total */
++            total: number;
++        };
++        /** GeoCollectionProfileRead */
++        GeoCollectionProfileRead: {
++            summary: components["schemas"]["GeoCollectionProfileSummary"];
++            /** Configuration */
++            configuration: (components["schemas"]["GeoManualProfileOut"] | components["schemas"]["GeoApiProfileOut"] | components["schemas"]["GeoBrowserProfileOut"]) | null;
++            workflow_stage: components["schemas"]["GeoConfigurationWorkflowStage"];
++            primary_task: components["schemas"]["GeoConfigurationPrimaryTask"];
++            /** Available Actions */
++            available_actions: components["schemas"]["GeoConfigurationAction"][];
++            deletion: components["schemas"]["GeoConfigurationDeletionProjection"] | null;
++            /** Activation Blockers */
++            activation_blockers: components["schemas"]["GeoProfileActivationBlocker"][] | null;
++        };
++        /** GeoCollectionProfileSummary */
++        GeoCollectionProfileSummary: {
++            /**
++             * Id
++             * Format: uuid
++             */
++            id: string;
++            /** Name */
++            name: string;
++            /**
++             * Engine Surface Id
++             * Format: uuid
++             */
++            engine_surface_id: string;
++            engine_surface: components["schemas"]["GeoEngineSurfaceSummary"];
++            collection_mode: components["schemas"]["GeoCollectionMode"];
++            /** Language Code */
++            language_code: string;
++            /** Region Code */
++            region_code: string;
++            login_state: components["schemas"]["GeoProfileLoginState"];
++            web_search_policy: components["schemas"]["GeoWebSearchPolicy"];
++            /** Is Active */
++            is_active: boolean;
++            last_test_status: components["schemas"]["GeoProfileTestStatus"];
++            /** Last Tested At */
++            last_tested_at: string | null;
++            /** Revision */
++            revision: number;
++            /**
++             * Created At
++             * Format: date-time
++             */
++            created_at: string;
++            /**
++             * Updated At
++             * Format: date-time
++             */
++            updated_at: string;
++        };
++        /**
++         * GeoConfigurationAction
++         * @enum {string}
++         */
++        GeoConfigurationAction: "UPDATE" | "ENABLE" | "DISABLE" | "DELETE";
++        /** GeoConfigurationDeletionBlocker */
++        GeoConfigurationDeletionBlocker: {
++            type: components["schemas"]["GeoConfigurationDeletionBlockerType"];
++            /** Count */
++            count: number;
++        };
++        /**
++         * GeoConfigurationDeletionBlockerType
++         * @enum {string}
++         */
++        GeoConfigurationDeletionBlockerType: "COLLECTION_PROFILE" | "HISTORICAL_REFERENCE";
++        /** GeoConfigurationDeletionProjection */
++        GeoConfigurationDeletionProjection: {
++            /** Blockers */
++            blockers: components["schemas"]["GeoConfigurationDeletionBlocker"][];
++        };
++        /**
++         * GeoConfigurationPrimaryTask
++         * @enum {string}
++         */
++        GeoConfigurationPrimaryTask: "VIEW_SUMMARY" | "MANAGE_SURFACE" | "ENABLE_SURFACE" | "MANAGE_PROFILE" | "ENABLE_PROFILE" | "RESOLVE_BLOCKERS";
++        /** GeoConfigurationRevisionRequest */
++        GeoConfigurationRevisionRequest: {
++            /** Expected Revision */
++            expected_revision: number;
++        };
++        /**
++         * GeoConfigurationWorkflowStage
++         * @enum {string}
++         */
++        GeoConfigurationWorkflowStage: "ACTIVE" | "DISABLED" | "BLOCKED";
++        /** GeoEngineSurfaceListPage */
++        GeoEngineSurfaceListPage: {
++            /** Items */
++            items: components["schemas"]["GeoEngineSurfaceRead"][];
++            /** Page */
++            page: number;
++            /** Page Size */
++            page_size: number;
++            /** Total */
++            total: number;
++        };
++        /** GeoEngineSurfaceRead */
++        GeoEngineSurfaceRead: {
++            summary: components["schemas"]["GeoEngineSurfaceSummary"];
++            configuration: components["schemas"]["GeoEngineSurfaceOut"] | null;
++            workflow_stage: components["schemas"]["GeoConfigurationWorkflowStage"];
++            primary_task: components["schemas"]["GeoConfigurationPrimaryTask"];
++            /** Available Actions */
++            available_actions: components["schemas"]["GeoConfigurationAction"][];
++            deletion: components["schemas"]["GeoConfigurationDeletionProjection"] | null;
++        };
++        /** GeoEngineSurfaceSummary */
++        GeoEngineSurfaceSummary: {
++            /**
++             * Id
++             * Format: uuid
++             */
++            id: string;
++            /** Name */
++            name: string;
++            /** Slug */
++            slug: string;
++            surface_kind: components["schemas"]["GeoSurfaceKind"];
++            provider_brand: components["schemas"]["GeoSurfaceProviderBrand"];
++            compliance_status: components["schemas"]["GeoComplianceStatus"];
++            capabilities: components["schemas"]["GeoSurfaceCapabilities"];
++            /** Is Active */
++            is_active: boolean;
++            /** Revision */
++            revision: number;
++            /**
++             * Created At
++             * Format: date-time
++             */
++            created_at: string;
++            /**
++             * Updated At
++             * Format: date-time
++             */
++            updated_at: string;
++        };
++        /** GeoProfileActivationBlocker */
++        GeoProfileActivationBlocker: {
++            code: components["schemas"]["ProfileBlockerCode"];
++            /** Field */
++            field: string;
++        };
++        /**
++         * ProfileBlockerCode
++         * @enum {string}
++         */
++        ProfileBlockerCode: "ADAPTER_UNKNOWN" | "CONFIGURATION_INVALID" | "MODE_UNSUPPORTED" | "SURFACE_UNSUPPORTED" | "LANGUAGE_UNSUPPORTED" | "REGION_UNSUPPORTED" | "LOGIN_UNSUPPORTED" | "SEARCH_POLICY_UNSUPPORTED" | "CAPABILITY_UNSUPPORTED" | "MONITORING_DISABLED" | "API_COLLECTION_DISABLED" | "BROWSER_COLLECTION_DISABLED" | "PROFILE_DISABLED" | "SURFACE_DISABLED" | "ADAPTER_NOT_APPROVED" | "ENVIRONMENT_UNSUPPORTED" | "COMPLIANCE_NOT_APPROVED" | "PROFILE_NOT_TESTED" | "MODEL_BINDING_REQUIRED" | "MODEL_BINDING_UNSUPPORTED" | "MODEL_BINDING_INVALID" | "MODEL_DISABLED" | "CHANNEL_DISABLED" | "MODEL_NOT_TESTED" | "CREDENTIAL_NOT_CONFIGURED" | "PROTOCOL_UNSUPPORTED";
+     };
+     responses: {
+         /** @description 业务或校验错误 */
+@@ -12659,4 +12963,481 @@
+             422: components["responses"]["ErrorResponse"];
+         };
+     };
++    listGeoEngineSurfaces: {
++        parameters: {
++            query?: {
++                q?: string | null;
++                surface_kind?: components["schemas"]["GeoSurfaceKind"] | null;
++                is_active?: boolean | null;
++                sort?: "NAME_ASC" | "UPDATED_DESC";
++                page?: number;
++                page_size?: 10 | 20 | 50;
++            };
++            header?: {
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path?: never;
++            cookie?: never;
++        };
++        requestBody?: never;
++        responses: {
++            /** @description Successful Response */
++            200: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoEngineSurfaceListPage"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
++    createGeoEngineSurface: {
++        parameters: {
++            query?: never;
++            header: {
++                "X-CSRF-Token": string;
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path?: never;
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["GeoEngineSurfaceCreate"];
++            };
++        };
++        responses: {
++            /** @description Successful Response */
++            201: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoEngineSurfaceRead"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
++    getGeoEngineSurface: {
++        parameters: {
++            query?: never;
++            header?: {
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path: {
++                surface_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody?: never;
++        responses: {
++            /** @description Successful Response */
++            200: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoEngineSurfaceRead"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
++    deleteGeoEngineSurface: {
++        parameters: {
++            query: {
++                expected_revision: number;
++            };
++            header: {
++                "X-CSRF-Token": string;
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path: {
++                surface_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody?: never;
++        responses: {
++            /** @description Successful Response */
++            204: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content?: never;
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
++    updateGeoEngineSurface: {
++        parameters: {
++            query?: never;
++            header: {
++                "X-CSRF-Token": string;
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path: {
++                surface_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["GeoEngineSurfaceUpdate"];
++            };
++        };
++        responses: {
++            /** @description Successful Response */
++            200: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoEngineSurfaceRead"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
++    enableGeoEngineSurface: {
++        parameters: {
++            query?: never;
++            header: {
++                "X-CSRF-Token": string;
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path: {
++                surface_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["GeoConfigurationRevisionRequest"];
++            };
++        };
++        responses: {
++            /** @description Successful Response */
++            200: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoEngineSurfaceRead"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
++    disableGeoEngineSurface: {
++        parameters: {
++            query?: never;
++            header: {
++                "X-CSRF-Token": string;
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path: {
++                surface_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["GeoConfigurationRevisionRequest"];
++            };
++        };
++        responses: {
++            /** @description Successful Response */
++            200: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoEngineSurfaceRead"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
++    listGeoCollectionProfiles: {
++        parameters: {
++            query?: {
++                q?: string | null;
++                engine_surface_id?: string | null;
++                collection_mode?: components["schemas"]["GeoCollectionMode"] | null;
++                is_active?: boolean | null;
++                sort?: "NAME_ASC" | "UPDATED_DESC";
++                page?: number;
++                page_size?: 10 | 20 | 50;
++            };
++            header?: {
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path?: never;
++            cookie?: never;
++        };
++        requestBody?: never;
++        responses: {
++            /** @description Successful Response */
++            200: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoCollectionProfileListPage"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
++    createGeoCollectionProfile: {
++        parameters: {
++            query?: never;
++            header: {
++                "X-CSRF-Token": string;
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path?: never;
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["GeoManualProfileCreate"] | components["schemas"]["GeoApiProfileCreate"] | components["schemas"]["GeoBrowserProfileCreate"];
++            };
++        };
++        responses: {
++            /** @description Successful Response */
++            201: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoCollectionProfileRead"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
++    getGeoCollectionProfile: {
++        parameters: {
++            query?: never;
++            header?: {
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path: {
++                profile_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody?: never;
++        responses: {
++            /** @description Successful Response */
++            200: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoCollectionProfileRead"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
++    deleteGeoCollectionProfile: {
++        parameters: {
++            query: {
++                expected_revision: number;
++            };
++            header: {
++                "X-CSRF-Token": string;
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path: {
++                profile_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody?: never;
++        responses: {
++            /** @description Successful Response */
++            204: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content?: never;
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
++    updateGeoCollectionProfile: {
++        parameters: {
++            query?: never;
++            header: {
++                "X-CSRF-Token": string;
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path: {
++                profile_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["GeoManualProfileUpdate"] | components["schemas"]["GeoApiProfileUpdate"] | components["schemas"]["GeoBrowserProfileUpdate"];
++            };
++        };
++        responses: {
++            /** @description Successful Response */
++            200: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoCollectionProfileRead"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
++    enableGeoCollectionProfile: {
++        parameters: {
++            query?: never;
++            header: {
++                "X-CSRF-Token": string;
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path: {
++                profile_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["GeoConfigurationRevisionRequest"];
++            };
++        };
++        responses: {
++            /** @description Successful Response */
++            200: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoCollectionProfileRead"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
++    disableGeoCollectionProfile: {
++        parameters: {
++            query?: never;
++            header: {
++                "X-CSRF-Token": string;
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path: {
++                profile_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["GeoConfigurationRevisionRequest"];
++            };
++        };
++        responses: {
++            /** @description Successful Response */
++            200: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoCollectionProfileRead"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
+ }

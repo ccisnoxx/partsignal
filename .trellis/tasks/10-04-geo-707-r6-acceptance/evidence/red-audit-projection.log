@@ -1,0 +1,31 @@
+
+> partsignal-frontend-v2@0.1.0 test
+> vitest run src/domains/audit/audit.model.test.ts
+
+
+ RUN  v4.1.10 /Users/sc/PycharmProjects/partsignal/frontend
+
+ ❯ src/domains/audit/audit.model.test.ts (23 tests | 1 failed) 16ms
+     × 机会创建与严格复测审计使用登记动作、闭合安全事实和机会导航 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/domains/audit/audit.model.test.ts > 系统审计 model > 机会创建与严格复测审计使用登记动作、闭合安全事实和机会导航
+Error: 审计返回未知动作
+ ❯ auditActionLabel src/domains/audit/audit.model.ts:637:45
+    635| function auditActionLabel(action: string) {
+    636|   const projection = projectAuditActionLabel(action);
+    637|   if (projection.status === 'failed') throw new Error('审计返回未知动作');
+       |                                             ^
+    638|   return projection.label;
+    639| }
+ ❯ src/domains/audit/audit.model.test.ts:71:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 22 passed (23)
+   Start at  22:36:57
+   Duration  353ms (transform 26ms, setup 49ms, import 30ms, tests 16ms, environment 201ms)
+

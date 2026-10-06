@@ -1,0 +1,6 @@
+{
+  "command": "env DATABASE_URL=postgresql+psycopg://partsignal:partsignal_dev@localhost:55439/geo102_validation UV_CACHE_DIR=.cache/uv uv run --project backend alembic -c backend/alembic.ini upgrade head",
+  "exit_code": 0,
+  "duration_seconds": 0.68,
+  "log": "alembic-upgrade.log"
+}

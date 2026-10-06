@@ -1,0 +1,15 @@
+{
+  "command": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "pytest",
+    "--collect-only",
+    "-o",
+    "addopts=",
+    "-q",
+    "backend/tests/integration"
+  ],
+  "exit_code": 0
+}

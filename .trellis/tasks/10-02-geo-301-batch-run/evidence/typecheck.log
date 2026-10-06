@@ -1,0 +1,5 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend mypy --config-file backend/pyproject.toml backend/app
+backend/app/schemas/geo_runs.py:23: error: Module "app.schemas.geo_prompt_variants" does not explicitly export attribute "GeoPromptMentionMode"  [attr-defined]
+backend/app/schemas/geo_runs.py:23: error: Module "app.schemas.geo_prompt_variants" does not explicitly export attribute "GeoPromptPriority"  [attr-defined]
+Found 2 errors in 1 file (checked 119 source files)
+make: *** [typecheck] Error 1

@@ -1,0 +1,85 @@
+{
+  "report_type": "MULTI_AGENT_AUDIT_BUNDLE_REPORT",
+  "report_version": 1,
+  "status": "passed",
+  "audit_id": "20261005T142734Z-geo-901-004ba151",
+  "audit_dir": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261005T142734Z-geo-901-004ba151",
+  "bundle_status": "closed",
+  "artifact_count": 8,
+  "size_bytes": 14911,
+  "summary": {
+    "plan_count": 1,
+    "executed_attempt_count": 1,
+    "accepted_attempt_count": 1,
+    "independent_review_count": 1,
+    "attention_required": false,
+    "anomaly_count": 0
+  },
+  "artifacts": [
+    {
+      "path": "01-review.dispatches/review-a1.json",
+      "kind": "dispatch_json",
+      "size_bytes": 178,
+      "sha256": "b0d7188af0159e34b022b62caf099cf964a8dbddb1393803981dc3878c9f7b06",
+      "task_name": "geo901_retention_review",
+      "agent_type": "critical_reviewer"
+    },
+    {
+      "path": "01-review.draft.json",
+      "kind": "draft_plan_json",
+      "size_bytes": 2095,
+      "sha256": "854b2c6cd32e8f89cb223dad5cd48ae3eeb0e849974c73fbbc26d2383a83553f",
+      "schema_version": 5,
+      "plan_id": "geo901-review"
+    },
+    {
+      "path": "01-review.execution.json",
+      "kind": "execution_json",
+      "size_bytes": 1611,
+      "sha256": "e8d2a4f178c19f7278fcdc084139966cb56a2114caa3c13c03bbeed6301f480c",
+      "schema_version": 6,
+      "plan_id": "geo901-review"
+    },
+    {
+      "path": "01-review.plan.json",
+      "kind": "generated_plan_json",
+      "size_bytes": 3096,
+      "sha256": "5b0b33d6c4f75558f6d1ee39e1cc55a4cce9107002865bfc74ecd8bfe1722fd5",
+      "schema_version": 5,
+      "planner_version": "1.5.1",
+      "plan_id": "geo901-review"
+    },
+    {
+      "path": "01-review.summary.json",
+      "kind": "summary_json",
+      "size_bytes": 2921,
+      "sha256": "e074d465e30b6a87084146cc3a7aac1539ca3d6f0f35d56d98ba65d6e57a678a",
+      "schema_version": 3,
+      "plan_id": "geo901-review"
+    },
+    {
+      "path": "01-review.summary.txt",
+      "kind": "summary_text",
+      "size_bytes": 2400,
+      "sha256": "89719ae4618aefbf7c29378422c9eb9616df5032b9c9446f44b48ba7afc2c851"
+    },
+    {
+      "path": "SUBAGENT_EXECUTION_DIGEST.json",
+      "kind": "digest_json",
+      "size_bytes": 1745,
+      "sha256": "98cc6b1e9e5a72873799fd84f69ccf7b8b8375d694d200e6605622ab88c8f6ab",
+      "schema_version": 3,
+      "plan_ids": [
+        "geo901-review"
+      ]
+    },
+    {
+      "path": "SUBAGENT_EXECUTION_DIGEST.md",
+      "kind": "digest_markdown",
+      "size_bytes": 865,
+      "sha256": "dc89d1b4982662257432f0adffe8e76dfe52e3eafb7f32c4e5cfeb583a7b0b02"
+    }
+  ],
+  "errors": [],
+  "warnings": []
+}

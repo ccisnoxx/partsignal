@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "加法迁移、RESTRICT、不可变历史及事务所有权"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "精确constraint错误与已存在删除错误映射"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "合同、模型、真实PostgreSQL反例与验证收敛"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "根合同、Schema、ORM、generated类型与消费者一致性"}

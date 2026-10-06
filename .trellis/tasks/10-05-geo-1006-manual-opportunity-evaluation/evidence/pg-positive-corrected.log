@@ -1,0 +1,13 @@
+ Container partsignal-dev-redis-1 Running 
+ Container partsignal-dev-fake-oss-1 Running 
+ Container partsignal-dev-postgres-1 Running 
+ Container partsignal-dev-fake-oss-1 Waiting 
+ Container partsignal-dev-postgres-1 Waiting 
+ Container partsignal-dev-redis-1 Waiting 
+ Container partsignal-dev-postgres-1 Healthy 
+ Container partsignal-dev-redis-1 Healthy 
+ Container partsignal-dev-fake-oss-1 Healthy 
+ Container partsignal-dev-backend-test-run-aa720afea956 Creating 
+ Container partsignal-dev-backend-test-run-aa720afea956 Created 
+.                                                                        [100%]
+1 passed in 6.65s

@@ -1,0 +1,173 @@
+[
+  {
+    "record": "baseline-unit",
+    "argv": [
+      "uv",
+      "run",
+      "--project",
+      "backend",
+      "pytest",
+      "backend/tests/unit/test_geo_opportunity_policy.py",
+      "backend/tests/unit/test_geo_opportunity_workbench.py",
+      "backend/tests/unit/test_runtime_response_metadata.py",
+      "-q"
+    ],
+    "environment": {
+      "UV_CACHE_DIR": ".cache/uv"
+    },
+    "exit_code": 0,
+    "passed": 389,
+    "result": "389相关unit通过"
+  },
+  {
+    "record": "baseline-integration",
+    "argv": [
+      "docker",
+      "compose",
+      "-f",
+      ".trellis/tasks/10-04-geo-704-action-integration/evidence/compose.yaml",
+      "run",
+      "--rm",
+      "backend-test",
+      "pytest",
+      "-o",
+      "addopts=",
+      "-q",
+      "tests/integration/test_geo_opportunity_workbench.py",
+      "tests/integration/test_geo_opportunities.py"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 19.435,
+    "result": "18 PG通过，2 metadata warning"
+  },
+  {
+    "record": "gate-diff-check-final",
+    "argv": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 0.035,
+    "result": "通过"
+  },
+  {
+    "record": "gate-lint-final",
+    "argv": [
+      "make",
+      "lint"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 10.968,
+    "result": "通过"
+  },
+  {
+    "record": "gate-typecheck-final",
+    "argv": [
+      "make",
+      "typecheck"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 9.085,
+    "result": "backend219源码+frontend通过"
+  },
+  {
+    "record": "gate-unit-fixed",
+    "argv": [
+      "make",
+      "test-unit"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 103.566,
+    "result": "3649 backend / 1244 frontend通过"
+  },
+  {
+    "record": "gate-integration-isolated-final",
+    "argv": [
+      "make",
+      "test-integration",
+      "COMPOSE=docker compose -f .trellis/tasks/10-04-geo-704-action-integration/evidence/compose.yaml"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 655.142,
+    "result": "1062 passed / 31 metadata warnings"
+  },
+  {
+    "record": "gate-contract",
+    "argv": [
+      "make",
+      "contract-check"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 4.527,
+    "result": "根/runtime/generated一致"
+  },
+  {
+    "record": "targeted-actions-final",
+    "argv": [
+      "docker",
+      "compose",
+      "-f",
+      ".trellis/tasks/10-04-geo-704-action-integration/evidence/compose.yaml",
+      "run",
+      "--rm",
+      "backend-test",
+      "pytest",
+      "-o",
+      "addopts=",
+      "-q",
+      "tests/integration/test_geo_opportunity_actions.py",
+      "tests/integration/test_geo_opportunity_action_guards.py",
+      "tests/integration/test_geo_opportunity_action_migration.py"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 23.077,
+    "result": "16 PG通过"
+  },
+  {
+    "record": "e2e-actions",
+    "argv": [
+      "env",
+      "DATABASE_URL=postgresql+psycopg://partsignal:partsignal_dev@127.0.0.1:55474/partsignal",
+      "REDIS_URL=redis://127.0.0.1:56474/14",
+      "SESSION_SECRET=geo704-fictional-session-secret-at-least-32-bytes",
+      "OBJECT_STORAGE_BACKEND=development",
+      "COOKIE_SECURE=false",
+      "PARTSIGNAL_E2E_SPEC=tests/e2e/opportunities-real-stack.spec.ts",
+      "deploy/scripts/e2e-local.sh"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 77.273,
+    "result": "1目标真实栈通过，清理/secret scan clean"
+  },
+  {
+    "record": "gate-e2e",
+    "argv": [
+      "env",
+      "DATABASE_URL=postgresql+psycopg://partsignal:partsignal_dev@127.0.0.1:55474/partsignal",
+      "REDIS_URL=redis://127.0.0.1:56474/14",
+      "SESSION_SECRET=geo704-fictional-session-secret-at-least-32-bytes",
+      "OBJECT_STORAGE_BACKEND=development",
+      "COOKIE_SECURE=false",
+      "make",
+      "e2e"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 937.034,
+    "result": "30 canonical+3 GEO+498 fixture通过；3 GEO及68 fixture按阶段skip，全部secret scan clean"
+  },
+  {
+    "record": "validation-cleanup",
+    "argv": [
+      "docker",
+      "compose",
+      "-f",
+      ".trellis/tasks/10-04-geo-704-action-integration/evidence/compose.yaml",
+      "down",
+      "--volumes"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 0.366,
+    "result": "独占容器/网络/测试卷清理成功"
+  }
+]

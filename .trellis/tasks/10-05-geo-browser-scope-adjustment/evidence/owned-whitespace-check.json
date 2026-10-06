@@ -1,0 +1,509 @@
+[
+  {
+    "file": ".trellis/tasks/10-05-geo-804-approved-browser-adapter/implement.md",
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-browser-scope-adjustment/evidence/before/.trellis/tasks/10-05-geo-804-approved-browser-adapter/implement.md",
+      "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-804-approved-browser-adapter/implement.md"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "file": ".trellis/tasks/10-05-geo-804-approved-browser-adapter/prd.md",
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-browser-scope-adjustment/evidence/before/.trellis/tasks/10-05-geo-804-approved-browser-adapter/prd.md",
+      "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-804-approved-browser-adapter/prd.md"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "file": ".trellis/tasks/10-05-geo-804-approved-browser-adapter/task.json",
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-browser-scope-adjustment/evidence/before/.trellis/tasks/10-05-geo-804-approved-browser-adapter/task.json",
+      "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-804-approved-browser-adapter/task.json"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "file": "docs/geo-monitoring/01-product/01-product-vision-and-scope.md",
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-browser-scope-adjustment/evidence/before/docs/geo-monitoring/01-product/01-product-vision-and-scope.md",
+      "/Users/sc/PycharmProjects/partsignal/docs/geo-monitoring/01-product/01-product-vision-and-scope.md"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "file": "docs/geo-monitoring/01-product/02-geo-core-prd.md",
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-browser-scope-adjustment/evidence/before/docs/geo-monitoring/01-product/02-geo-core-prd.md",
+      "/Users/sc/PycharmProjects/partsignal/docs/geo-monitoring/01-product/02-geo-core-prd.md"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "file": "docs/geo-monitoring/02-business/01-business-architecture.md",
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-browser-scope-adjustment/evidence/before/docs/geo-monitoring/02-business/01-business-architecture.md",
+      "/Users/sc/PycharmProjects/partsignal/docs/geo-monitoring/02-business/01-business-architecture.md"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "file": "docs/geo-monitoring/02-business/03-workflows-and-state-machines.md",
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-browser-scope-adjustment/evidence/before/docs/geo-monitoring/02-business/03-workflows-and-state-machines.md",
+      "/Users/sc/PycharmProjects/partsignal/docs/geo-monitoring/02-business/03-workflows-and-state-machines.md"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "file": "docs/geo-monitoring/02-business/05-manual-geo-observation-sop.md",
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/dev/null",
+      "/Users/sc/PycharmProjects/partsignal/docs/geo-monitoring/02-business/05-manual-geo-observation-sop.md"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "file": "docs/geo-monitoring/03-technical/01-technical-architecture.md",
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-browser-scope-adjustment/evidence/before/docs/geo-monitoring/03-technical/01-technical-architecture.md",
+      "/Users/sc/PycharmProjects/partsignal/docs/geo-monitoring/03-technical/01-technical-architecture.md"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "file": "docs/geo-monitoring/03-technical/07-testing-and-quality.md",
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-browser-scope-adjustment/evidence/before/docs/geo-monitoring/03-technical/07-testing-and-quality.md",
+      "/Users/sc/PycharmProjects/partsignal/docs/geo-monitoring/03-technical/07-testing-and-quality.md"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "file": "docs/geo-monitoring/03-technical/08-deployment-and-operations.md",
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-browser-scope-adjustment/evidence/before/docs/geo-monitoring/03-technical/08-deployment-and-operations.md",
+      "/Users/sc/PycharmProjects/partsignal/docs/geo-monitoring/03-technical/08-deployment-and-operations.md"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "file": "docs/geo-monitoring/04-delivery/01-implementation-roadmap.md",
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-browser-scope-adjustment/evidence/before/docs/geo-monitoring/04-delivery/01-implementation-roadmap.md",
+      "/Users/sc/PycharmProjects/partsignal/docs/geo-monitoring/04-delivery/01-implementation-roadmap.md"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "file": "docs/geo-monitoring/04-delivery/02-work-breakdown-structure.md",
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-browser-scope-adjustment/evidence/before/docs/geo-monitoring/04-delivery/02-work-breakdown-structure.md",
+      "/Users/sc/PycharmProjects/partsignal/docs/geo-monitoring/04-delivery/02-work-breakdown-structure.md"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "file": "docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md",
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-browser-scope-adjustment/evidence/before/docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md",
+      "/Users/sc/PycharmProjects/partsignal/docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "file": "docs/geo-monitoring/04-delivery/04-codex-execution-guide.md",
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-browser-scope-adjustment/evidence/before/docs/geo-monitoring/04-delivery/04-codex-execution-guide.md",
+      "/Users/sc/PycharmProjects/partsignal/docs/geo-monitoring/04-delivery/04-codex-execution-guide.md"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "file": "docs/geo-monitoring/04-delivery/05-task-template.md",
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-browser-scope-adjustment/evidence/before/docs/geo-monitoring/04-delivery/05-task-template.md",
+      "/Users/sc/PycharmProjects/partsignal/docs/geo-monitoring/04-delivery/05-task-template.md"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-browser-scope-adjustment/evidence/before/docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+      "/Users/sc/PycharmProjects/partsignal/docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "file": "docs/geo-monitoring/04-delivery/codex-prompts/R7/GEO-804.md",
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-browser-scope-adjustment/evidence/before/docs/geo-monitoring/04-delivery/codex-prompts/R7/GEO-804.md",
+      "/Users/sc/PycharmProjects/partsignal/docs/geo-monitoring/04-delivery/codex-prompts/R7/GEO-804.md"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "file": "docs/geo-monitoring/04-delivery/codex-prompts/R7/GEO-805.md",
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-browser-scope-adjustment/evidence/before/docs/geo-monitoring/04-delivery/codex-prompts/R7/GEO-805.md",
+      "/Users/sc/PycharmProjects/partsignal/docs/geo-monitoring/04-delivery/codex-prompts/R7/GEO-805.md"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "file": "docs/geo-monitoring/04-delivery/codex-prompts/R7/GEO-806.md",
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-browser-scope-adjustment/evidence/before/docs/geo-monitoring/04-delivery/codex-prompts/R7/GEO-806.md",
+      "/Users/sc/PycharmProjects/partsignal/docs/geo-monitoring/04-delivery/codex-prompts/R7/GEO-806.md"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "file": "docs/geo-monitoring/04-delivery/codex-prompts/R7/GEO-807.md",
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-browser-scope-adjustment/evidence/before/docs/geo-monitoring/04-delivery/codex-prompts/R7/GEO-807.md",
+      "/Users/sc/PycharmProjects/partsignal/docs/geo-monitoring/04-delivery/codex-prompts/R7/GEO-807.md"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "file": "docs/geo-monitoring/04-delivery/codex-prompts/R8/GEO-901.md",
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-browser-scope-adjustment/evidence/before/docs/geo-monitoring/04-delivery/codex-prompts/R8/GEO-901.md",
+      "/Users/sc/PycharmProjects/partsignal/docs/geo-monitoring/04-delivery/codex-prompts/R8/GEO-901.md"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "file": "docs/geo-monitoring/04-delivery/codex-prompts/R8/GEO-903.md",
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-browser-scope-adjustment/evidence/before/docs/geo-monitoring/04-delivery/codex-prompts/R8/GEO-903.md",
+      "/Users/sc/PycharmProjects/partsignal/docs/geo-monitoring/04-delivery/codex-prompts/R8/GEO-903.md"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "file": "docs/geo-monitoring/04-delivery/codex-prompts/R8/GEO-904.md",
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-browser-scope-adjustment/evidence/before/docs/geo-monitoring/04-delivery/codex-prompts/R8/GEO-904.md",
+      "/Users/sc/PycharmProjects/partsignal/docs/geo-monitoring/04-delivery/codex-prompts/R8/GEO-904.md"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "file": "docs/geo-monitoring/04-delivery/codex-prompts/R8/GEO-906.md",
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-browser-scope-adjustment/evidence/before/docs/geo-monitoring/04-delivery/codex-prompts/R8/GEO-906.md",
+      "/Users/sc/PycharmProjects/partsignal/docs/geo-monitoring/04-delivery/codex-prompts/R8/GEO-906.md"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "file": "docs/geo-monitoring/04-delivery/codex-prompts/README.md",
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-browser-scope-adjustment/evidence/before/docs/geo-monitoring/04-delivery/codex-prompts/README.md",
+      "/Users/sc/PycharmProjects/partsignal/docs/geo-monitoring/04-delivery/codex-prompts/README.md"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "file": "docs/geo-monitoring/04-delivery/codex-prompts/SHA256SUMS",
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-browser-scope-adjustment/evidence/before/docs/geo-monitoring/04-delivery/codex-prompts/SHA256SUMS",
+      "/Users/sc/PycharmProjects/partsignal/docs/geo-monitoring/04-delivery/codex-prompts/SHA256SUMS"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "file": "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-browser-scope-adjustment/evidence/before/docs/geo-monitoring/04-delivery/task-manifest.yaml",
+      "/Users/sc/PycharmProjects/partsignal/docs/geo-monitoring/04-delivery/task-manifest.yaml"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "file": "docs/geo-monitoring/05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md",
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/dev/null",
+      "/Users/sc/PycharmProjects/partsignal/docs/geo-monitoring/05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "file": "docs/geo-monitoring/CHANGELOG.md",
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-browser-scope-adjustment/evidence/before/docs/geo-monitoring/CHANGELOG.md",
+      "/Users/sc/PycharmProjects/partsignal/docs/geo-monitoring/CHANGELOG.md"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "file": "docs/geo-monitoring/README.md",
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-browser-scope-adjustment/evidence/before/docs/geo-monitoring/README.md",
+      "/Users/sc/PycharmProjects/partsignal/docs/geo-monitoring/README.md"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "file": "docs/geo-monitoring/SHA256SUMS",
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-browser-scope-adjustment/evidence/before/docs/geo-monitoring/SHA256SUMS",
+      "/Users/sc/PycharmProjects/partsignal/docs/geo-monitoring/SHA256SUMS"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "file": ".trellis/tasks/10-05-geo-browser-scope-adjustment/implement.md",
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/dev/null",
+      "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-browser-scope-adjustment/implement.md"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "file": ".trellis/tasks/10-05-geo-browser-scope-adjustment/prd.md",
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/dev/null",
+      "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-browser-scope-adjustment/prd.md"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "file": ".trellis/tasks/10-05-geo-browser-scope-adjustment/task.json",
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/dev/null",
+      "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-browser-scope-adjustment/task.json"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "file": ".trellis/tasks/10-05-geo-browser-scope-adjustment/implement.jsonl",
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/dev/null",
+      "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-browser-scope-adjustment/implement.jsonl"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "file": ".trellis/tasks/10-05-geo-browser-scope-adjustment/check.jsonl",
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/dev/null",
+      "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-browser-scope-adjustment/check.jsonl"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "file": ".trellis/tasks/10-05-geo-browser-scope-adjustment/files.md",
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/dev/null",
+      "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-browser-scope-adjustment/files.md"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "file": ".trellis/tasks/10-05-geo-browser-scope-adjustment/evidence/validate.py",
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/dev/null",
+      "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-browser-scope-adjustment/evidence/validate.py"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  }
+]

@@ -1,0 +1,54 @@
+...F.                                                                    [100%]
+=================================== FAILURES ===================================
+___________ test_filters_pagination_fixed_queries_and_topic_summary ____________
+
+questions_api = QuestionsAPI(engine=Engine(postgresql+psycopg://geo202:***@127.0.0.1:55441/partsignal_geo202_43e2251877), factory=sess...arlette.testclient.TestClient object at 0x1107c71d0>, engineer=<starlette.testclient.TestClient object at 0x1105ef230>)
+
+    def test_filters_pagination_fixed_queries_and_topic_summary(questions_api: QuestionsAPI) -> None:
+        api = questions_api
+        for index in range(12):
+            api.create(
+                prompt_text=f"问题 {index:02d} %_", mention_mode="BRANDED" if index < 2 else "UNBRANDED"
+            )
+        params = {"query_topic_id": str(api.topic), "sort": "TEXT_ASC", "page_size": 10}
+        first = api.engineer.get(PREFIX, params=params).json()
+        second = api.engineer.get(PREFIX, params=params | {"page": 2}).json()
+        assert first["total"] == 12 and len(second["items"]) == 2
+        assert len({r["id"] for r in first["items"] + second["items"]}) == 12
+        for key, value, total in [
+            ("mention_mode", "BRANDED", 2),
+            ("language_code", "ZH-Hans", 12),
+            ("region_code", "cn", 12),
+            ("priority", "CORE", 12),
+            ("intent_type", "REPLACEMENT", 12),
+            ("is_active", False, 0),
+            ("q", "%_", 12),
+            ("q", "not-present", 0),
+        ]:
+            result = api.engineer.get(PREFIX, params=params | {key: value})
+            assert result.status_code == 200 and result.json()["total"] == total
+        with api.factory() as db:
+            topic = db.get(QueryTopic, api.topic)
+            topic.canonical_question = "新主题摘要"
+            topic.revision += 1
+            db.commit()
+        selects = []
+    
+        def observe(conn, cursor, statement, parameters, context, executemany):
+            if statement.lstrip().upper().startswith("SELECT"):
+                selects.append(statement)
+    
+        event.listen(api.engine, "before_cursor_execute", observe)
+        try:
+            response = api.engineer.get(PREFIX, params=params)
+        finally:
+            event.remove(api.engine, "before_cursor_execute", observe)
+>       assert len(selects) == 4  # 两条认证 SELECT + count/rows；不随行数增长。
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert 3 == 4
+E        +  where 3 = len(['SELECT sessions.id, sessions.token_hash, sessions.csrf_hash, sessions.user_id, sessions.expires_at, sessions.revoked...prompt_variants.prompt_text ASC, geo_prompt_variants.id ASC \n LIMIT %(param_1)s::INTEGER OFFSET %(param_2)s::INTEGER'])
+
+backend/tests/integration/test_geo_questions_api.py:219: AssertionError
+=========================== short test summary info ============================
+FAILED backend/tests/integration/test_geo_questions_api.py::test_filters_pagination_fixed_queries_and_topic_summary
+1 failed, 4 passed in 1.57s

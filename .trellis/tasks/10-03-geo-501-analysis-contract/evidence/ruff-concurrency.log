@@ -1,0 +1,7 @@
+backend/tests/integration/test_geo_analysis_concurrency.py:109:101: E501 Line too long (115 > 100)
+backend/tests/integration/test_geo_analysis_concurrency.py:115:34: E702 Multiple statements on one line (semicolon)
+backend/tests/integration/test_geo_analysis_concurrency.py:118:101: E501 Line too long (124 > 100)
+backend/tests/integration/test_geo_analysis_concurrency.py:119:101: E501 Line too long (174 > 100)
+backend/tests/integration/test_geo_analysis_concurrency.py:124:101: E501 Line too long (145 > 100)
+backend/tests/integration/test_geo_analysis_concurrency.py:126:101: E501 Line too long (114 > 100)
+Found 6 errors.

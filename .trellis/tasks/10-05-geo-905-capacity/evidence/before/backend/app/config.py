@@ -1,0 +1,250 @@
+"""集中管理后端环境配置。"""
+
+from __future__ import annotations
+
+import base64
+import binascii
+import re
+from decimal import Decimal
+from functools import lru_cache
+from uuid import UUID
+
+from pydantic import AliasChoices, Field, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+DEVELOPMENT_SESSION_SECRET = "development-only-change-me-32-bytes"
+DEVELOPMENT_AI_CREDENTIAL_KEY = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+
+
+class Settings(BaseSettings):
+    """仅从环境变量读取可部署配置，避免代码内保存凭据。"""
+
+    model_config = SettingsConfigDict(
+        env_file=".env", extra="ignore", hide_input_in_errors=True
+    )
+
+    environment: str = Field(
+        "development", validation_alias=AliasChoices("APP_ENV", "PARTSIGNAL_ENVIRONMENT")
+    )
+    database_url: str = Field(
+        "postgresql+psycopg://partsignal:partsignal@localhost:5432/partsignal",
+        validation_alias=AliasChoices("DATABASE_URL", "PARTSIGNAL_DATABASE_URL"),
+        repr=False,
+    )
+    redis_url: str = Field(
+        "redis://localhost:6379/0",
+        validation_alias=AliasChoices("REDIS_URL", "PARTSIGNAL_REDIS_URL"),
+        repr=False,
+    )
+    session_secret: str = Field(
+        DEVELOPMENT_SESSION_SECRET,
+        validation_alias=AliasChoices("SESSION_SECRET", "PARTSIGNAL_SESSION_SECRET"),
+        min_length=32,
+        repr=False,
+    )
+    session_cookie_name: str = "partsignal_session"
+    csrf_cookie_name: str = "partsignal_csrf"
+    session_ttl_seconds: int = 8 * 60 * 60
+    cookie_secure: bool = Field(
+        False,
+        validation_alias=AliasChoices("SESSION_COOKIE_SECURE", "PARTSIGNAL_COOKIE_SECURE"),
+    )
+    allowed_origins: str = Field(
+        "http://localhost:5173",
+        validation_alias=AliasChoices("CORS_ALLOWED_ORIGINS", "PARTSIGNAL_ALLOWED_ORIGINS"),
+    )
+    development_storage_internal_url: str = Field(
+        "http://localhost:9000",
+        validation_alias=AliasChoices(
+            "OBJECT_STORAGE_ENDPOINT", "PARTSIGNAL_DEVELOPMENT_STORAGE_INTERNAL_URL"
+        ),
+    )
+    development_storage_public_url: str = Field(
+        "http://localhost:19001",
+        validation_alias=AliasChoices(
+            "OBJECT_STORAGE_PUBLIC_ENDPOINT", "PARTSIGNAL_DEVELOPMENT_STORAGE_PUBLIC_URL"
+        ),
+    )
+    development_storage_path: str = Field(
+        "/data",
+        validation_alias=AliasChoices("OBJECT_STORAGE_PATH", "PARTSIGNAL_DEVELOPMENT_STORAGE_PATH"),
+    )
+    development_storage_signing_key: str = Field(
+        "partsignal-development-only-storage-key",
+        validation_alias=AliasChoices(
+            "UPLOAD_SIGNING_SECRET", "PARTSIGNAL_DEVELOPMENT_STORAGE_SIGNING_KEY"
+        ),
+        repr=False,
+    )
+    object_storage_backend: str = Field(
+        "development", validation_alias=AliasChoices("OBJECT_STORAGE_BACKEND")
+    )
+    oss_endpoint: str = Field("", validation_alias=AliasChoices("OSS_ENDPOINT"))
+    oss_bucket: str = Field("", validation_alias=AliasChoices("OSS_BUCKET"))
+    oss_access_key_id: str = Field(
+        "", validation_alias=AliasChoices("OSS_ACCESS_KEY_ID"), repr=False
+    )
+    oss_access_key_secret: str = Field(
+        "", validation_alias=AliasChoices("OSS_ACCESS_KEY_SECRET"), repr=False
+    )
+    upload_intent_ttl_seconds: int = 600
+    download_url_ttl_seconds: int = 300
+    generation_eager: bool = False
+    generation_pending_redispatch_seconds: int = Field(
+        default=120,
+        gt=0,
+        le=86_400,
+        validation_alias=AliasChoices("GENERATION_PENDING_REDISPATCH_SECONDS"),
+    )
+    generation_finalize_grace_seconds: int = Field(
+        default=120,
+        gt=0,
+        le=3_600,
+        validation_alias=AliasChoices("GENERATION_FINALIZE_GRACE_SECONDS"),
+    )
+    generation_recovery_batch_size: int = Field(
+        default=100,
+        ge=1,
+        le=1_000,
+        validation_alias=AliasChoices("GENERATION_RECOVERY_BATCH_SIZE"),
+    )
+    generation_recovery_scan_seconds: int = Field(
+        default=60,
+        ge=5,
+        le=3_600,
+        validation_alias=AliasChoices("GENERATION_RECOVERY_SCAN_SECONDS"),
+    )
+    content_generator: str = Field(
+        "deterministic", validation_alias=AliasChoices("CONTENT_GENERATOR")
+    )
+    ai_credential_encryption_key: str = Field(
+        DEVELOPMENT_AI_CREDENTIAL_KEY,
+        validation_alias=AliasChoices("AI_CREDENTIAL_ENCRYPTION_KEY"),
+        repr=False,
+    )
+    ai_allow_local_http: bool = Field(
+        False, validation_alias=AliasChoices("AI_ALLOW_LOCAL_HTTP")
+    )
+    geo_pending_redispatch_seconds: int = Field(
+        default=120, ge=1, le=86400, validation_alias=AliasChoices("GEO_PENDING_REDISPATCH_SECONDS")
+    )
+    geo_collection_finalize_grace_seconds: int = Field(
+        default=120,
+        ge=1,
+        le=3600,
+        validation_alias=AliasChoices("GEO_COLLECTION_FINALIZE_GRACE_SECONDS"),
+    )
+    geo_recovery_scan_seconds: int = Field(
+        default=60, ge=5, le=3600, validation_alias=AliasChoices("GEO_RECOVERY_SCAN_SECONDS")
+    )
+    geo_recovery_batch_size: int = Field(
+        default=100, ge=1, le=1000, validation_alias=AliasChoices("GEO_RECOVERY_BATCH_SIZE")
+    )
+    geo_retention_dry_run: bool = Field(True, validation_alias="GEO_RETENTION_DRY_RUN")
+    geo_retention_batch_size: int = Field(
+        100, ge=1, le=1000, validation_alias="GEO_RETENTION_BATCH_SIZE"
+    )
+    geo_raw_payload_retention_days: int | None = Field(
+        None, ge=90, le=180, validation_alias="GEO_RAW_PAYLOAD_RETENTION_DAYS"
+    )
+    geo_terminal_draft_retention_days: int | None = Field(
+        None, ge=1, le=3650, validation_alias="GEO_TERMINAL_DRAFT_RETENTION_DAYS"
+    )
+    geo_unreferenced_file_retention_days: int | None = Field(
+        None, ge=7, le=3650, validation_alias="GEO_UNREFERENCED_FILE_RETENTION_DAYS"
+    )
+    geo_daily_budget_limit: Decimal | None = Field(
+        default=None, ge=0, max_digits=14, decimal_places=6, allow_inf_nan=False,
+        validation_alias=AliasChoices("GEO_DAILY_BUDGET_LIMIT"),
+    )
+    geo_daily_budget_currency: str = Field(
+        default="USD", pattern=re.compile(r"^[A-Z]{3}$(?![\s\S])"),
+        validation_alias=AliasChoices("GEO_DAILY_BUDGET_CURRENCY"),
+    )
+    geo_monitoring_enabled: bool = Field(
+        False, validation_alias=AliasChoices("GEO_MONITORING_ENABLED")
+    )
+    geo_api_collection_enabled: bool = Field(
+        False, validation_alias=AliasChoices("GEO_API_COLLECTION_ENABLED")
+    )
+    geo_browser_collection_enabled: bool = Field(
+        False, validation_alias=AliasChoices("GEO_BROWSER_COLLECTION_ENABLED")
+    )
+    geo_opportunity_evaluation_enabled: bool = Field(
+        False, validation_alias=AliasChoices("GEO_OPPORTUNITY_EVALUATION_ENABLED")
+    )
+    geo_browser_session_root: str = Field(
+        "", validation_alias="GEO_BROWSER_SESSION_ROOT", repr=False
+    )
+    geo_browser_session_public_key_file: str = Field(
+        "", validation_alias="GEO_BROWSER_SESSION_PUBLIC_KEY_FILE", repr=False
+    )
+    geo_browser_session_service_key_file: str = Field(
+        "", validation_alias="GEO_BROWSER_SESSION_SERVICE_KEY_FILE", repr=False
+    )
+    geo_browser_session_service_user_id: UUID | None = Field(
+        None, validation_alias="GEO_BROWSER_SESSION_SERVICE_USER_ID"
+    )
+
+    @model_validator(mode="after")
+    def validate_geo_feature_flags(self) -> Settings:
+        """子能力必须显式依赖总开关；部署配置不授予采集或数据外发资格。"""
+        if not self.geo_monitoring_enabled and (
+            self.geo_api_collection_enabled
+            or self.geo_browser_collection_enabled
+            or self.geo_opportunity_evaluation_enabled
+        ):
+            raise ValueError("启用 GEO 子能力必须同时启用 GEO_MONITORING_ENABLED")
+        return self
+
+    @model_validator(mode="after")
+    def validate_production_boundaries(self) -> Settings:
+        """生产环境禁止开发密钥、非安全 Cookie 和开发对象存储。"""
+        if self.content_generator not in {"deterministic", "openai-compatible"}:
+            raise ValueError("CONTENT_GENERATOR 仅支持 deterministic 或 openai-compatible")
+        try:
+            credential_key = base64.b64decode(
+                self.ai_credential_encryption_key, validate=True
+            )
+        except (binascii.Error, ValueError) as error:
+            raise ValueError("AI_CREDENTIAL_ENCRYPTION_KEY 必须是 Base64") from error
+        if len(credential_key) != 32:
+            raise ValueError("AI_CREDENTIAL_ENCRYPTION_KEY 解码后必须为 32 字节")
+        if self.ai_allow_local_http and self.environment not in {"development", "test"}:
+            raise ValueError("AI_ALLOW_LOCAL_HTTP 仅允许在 development 或 test 环境启用")
+        if self.environment != "production":
+            return self
+        if self.session_secret == DEVELOPMENT_SESSION_SECRET:
+            raise ValueError("生产环境必须设置独立 SESSION_SECRET")
+        if self.ai_credential_encryption_key == DEVELOPMENT_AI_CREDENTIAL_KEY:
+            raise ValueError("生产环境必须设置独立 AI_CREDENTIAL_ENCRYPTION_KEY")
+        if self.ai_allow_local_http:
+            raise ValueError("生产环境不能启用 AI_ALLOW_LOCAL_HTTP")
+        if self.content_generator != "openai-compatible":
+            raise ValueError("生产环境 CONTENT_GENERATOR 必须为 openai-compatible")
+        if not self.cookie_secure:
+            raise ValueError("生产环境必须启用 SESSION_COOKIE_SECURE")
+        if self.object_storage_backend != "aliyun_oss":
+            raise ValueError("生产环境必须显式使用 aliyun_oss 对象存储")
+        missing = [
+            name
+            for name, value in {
+                "OSS_ENDPOINT": self.oss_endpoint,
+                "OSS_BUCKET": self.oss_bucket,
+                "OSS_ACCESS_KEY_ID": self.oss_access_key_id,
+                "OSS_ACCESS_KEY_SECRET": self.oss_access_key_secret,
+            }.items()
+            if not value
+        ]
+        if missing:
+            raise ValueError(f"生产 OSS 配置不完整：{', '.join(missing)}")
+        return self
+
+
+@lru_cache
+def get_settings() -> Settings:
+    """返回进程级不可变配置实例。"""
+    return Settings()
+
+
+settings = get_settings()

@@ -1,0 +1,10 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend python -m app.tools.contract_check contracts/openapi.yaml
+FastAPI 运行时操作与 OpenAPI 完整契约一致。
+npm --prefix frontend run api:check
+
+> partsignal-frontend-v2@0.1.0 api:check
+> node scripts/check-openapi.mjs
+
+✨ openapi-typescript 7.13.0
+🚀 ../contracts/openapi.yaml → /var/folders/m5/j06tv2sn1hn93d6f33j559jm0000gn/T/partsignal-v2-openapi-UuhV5M/schema.d.ts [174.2ms]
+OpenAPI 类型与根合同一致。

@@ -1,0 +1,9 @@
+{
+  "backend/app/models/geo_catalog.py": "21f12934b05afc62daef0f46197df1f50bca9a718adf05ae3273e29280172f5e",
+  "backend/app/models/__init__.py": "f84afd719a8f4fc7eed38c78be3c8145e776f6bd97861e1f7cbdde4389939e8a",
+  "backend/alembic/versions/0044_geo_catalog.py": "e43faf9ada1ea3e60f2f1c2fa330f86ff91a90b5fd8670ac1448d99e50e97f70",
+  "backend/tests/unit/test_geo_catalog_metadata.py": "ed7a1380701fcac57773fe5a1c9ed7988530a6567de6e8cff2592285aa98217b",
+  "backend/tests/integration/test_geo_catalog.py": "047ba215c2aa903c8fe0b119b3d1d56ce789f6927bb0ce1d5eff2a416e0234d4",
+  "backend/tests/integration/test_geo_catalog_constraints.py": "087ae66f10d3184d7c977fa0ecab95628080049d87ff9b5be67887ff9af7b156",
+  "backend/tests/integration/test_migrations.py": "e6aba48aa06aa9f9b99033d73f574922f0f539a08b9a75b25b9167d05fe8d8ec"
+}

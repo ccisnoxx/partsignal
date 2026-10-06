@@ -1,0 +1,13 @@
+{
+  "command": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "python",
+    "-m",
+    "app.tools.contract_check",
+    "contracts/openapi.yaml"
+  ],
+  "exit_code": 0
+}

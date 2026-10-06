@@ -1,0 +1,177 @@
+[
+  {
+    "path": ".env.example",
+    "before": "69f0a6438dd85c847bed2d429c77dbf9743f0cd08232fa2e30b915f4aab55a30",
+    "after": "8c9147bb229ddeac7fad84173185d48f4fedec62672e9bb3fa2e29799e890486"
+  },
+  {
+    "path": ".env.production.example",
+    "before": "31637e41b9e55e06a5e04b99219ffcb436aaedabc4a5611fdf586cf6136962ac",
+    "after": "018072603c751e100ecff1ec71a416894ea3cd21b1494768b0c3b413dee5d845"
+  },
+  {
+    "path": "backend/alembic/sql/0064_geo_retention.sql",
+    "before": null,
+    "after": "ac53808ce8ebc91a73fca9b7ab996d3a999f58e3e8460c277d357683a8142030"
+  },
+  {
+    "path": "backend/alembic/versions/0064_geo_retention.py",
+    "before": null,
+    "after": "e4ebea84e3e5da4644af340bc61ec9b3b2326414995ffdb05e5e7812c515c706"
+  },
+  {
+    "path": "backend/app/config.py",
+    "before": "99f6452717616d403cac6ff7ec89731cf31f758301388d6599cede25cadd4886",
+    "after": "82fb25bdf03769859cd9f9c328039486df530447d562f0e1557d7b712562aa44"
+  },
+  {
+    "path": "backend/app/models/__init__.py",
+    "before": "22bb37a169073daa5359defe3be372ba047b9a9df596d90b5fc84c11e793ec18",
+    "after": "1c3ca09743becca422a67d2bc59d94d22c2672c95e5f654e1732c67f8d7c60f0"
+  },
+  {
+    "path": "backend/app/models/geo_files.py",
+    "before": "6d0d9c0ca81b78aef6087f4ade3638b4567fb66d627f8eaca426aec4afef7278",
+    "after": "b55f3fceeef0aeb5978b3184a7e6e279f044b7131cc57c85823b0689d5ab4255"
+  },
+  {
+    "path": "backend/app/models/geo_manual_collection.py",
+    "before": "0d353daaa3e0898d132dfc2a962390fb2aa457809c23b707d490e7b1e767755e",
+    "after": "885e63c72e13c302fee51b66d92b3eaff17164d4e08a641e2fa60f028bc7f86d"
+  },
+  {
+    "path": "backend/app/models/geo_retention.py",
+    "before": null,
+    "after": "41380a371c3ecacdad8dc804e5fef51b9ffc62bb194c1569a8585947eb285129"
+  },
+  {
+    "path": "backend/app/services/file_records.py",
+    "before": "0297d8c6b516b86a57101c76875b381b6df9cdddf78cc3d1ea6c0d724f6644f5",
+    "after": "8a3dc4967b714839f062186e17a9a9f0573c82a459d39aab369d2be7967ff44f"
+  },
+  {
+    "path": "backend/app/services/geo_retention.py",
+    "before": null,
+    "after": "2d24513be60b5722cfefb46529869ff9b28353e3b95ef289009c7176c8ca3deb"
+  },
+  {
+    "path": "backend/app/worker.py",
+    "before": "38b7ee419f53427560f0e0814571953d7f7453436cabd28dd0f5af56a6107b03",
+    "after": "7dafe1d16721f7ec92ce4740e906fb61ccf937dececfd792c7a766a2a5cd857b"
+  },
+  {
+    "path": "backend/tests/integration/test_geo_admission_migration.py",
+    "before": "ce86c80f7afd9f07ebb6cf91d3ccb8b84dd99c4fc451e3d35d1310ea1a0f9443",
+    "after": "fc409ef6e013e06da07705b50ccbfee5a142e518b645ecb79760756626c6f343"
+  },
+  {
+    "path": "backend/tests/integration/test_geo_answer_migration.py",
+    "before": "ad69ec37157ca87ad53abbd668d5b41d33583a9709a07dffee23e4982e2ed697",
+    "after": "bad1e8461766a9b2320596ea618ff55d70535613cedc4ca3038f871b8ddfe245"
+  },
+  {
+    "path": "backend/tests/integration/test_geo_browser_session_migration.py",
+    "before": "76c4714d910797174017393dced3777db7dae857d8d890dda7eea4c19be4b1c1",
+    "after": "75809bf5c0a53cfb408b802943b4baf735b2353098ec3f85c1575c0115bb324f"
+  },
+  {
+    "path": "backend/tests/integration/test_geo_decision_migration.py",
+    "before": "e8f3fdf8cfceaa6bdab139ae6a995559250ea08294efb47ce37b456ca2257782",
+    "after": "a33627edc653442df866a46a6b1f8d29ef65e710fa8c04fea42f6fe2b68e20d7"
+  },
+  {
+    "path": "backend/tests/integration/test_geo_manual_migration.py",
+    "before": "117cb51abd19f85a47bfca4ee4e823c3983214fe0c239a64a423c7fd71ce2288",
+    "after": "97788a76029db35363546687a236e6d26e5597b319bdfec8927e27520f1817f4"
+  },
+  {
+    "path": "backend/tests/integration/test_geo_retention.py",
+    "before": null,
+    "after": "42d9e9b110d4058a56e9760164776fe90d7992ccc3cecfea2fea71f5bf2faf6f"
+  },
+  {
+    "path": "backend/tests/integration/test_migrations.py",
+    "before": "2973605d515c60e0972841f1afd623c56def8ddfeb8f9c1a19ba0d0f7af4c020",
+    "after": "fbf2ce261bdbc21753d26837d982d754f7ecbc46956931a152ba5aa5efcfbf8e"
+  },
+  {
+    "path": "backend/tests/unit/test_geo_configuration.py",
+    "before": "a88b0a5ecec2c9ed7dc6069054f4479e8f40037d1221fbba80edef2d41610422",
+    "after": "08f5fa09a21a512abdc83ef5a3b0e1d5a874c6ae38713526c34bd3ecfafe320e"
+  },
+  {
+    "path": "backend/tests/unit/test_geo_retention.py",
+    "before": null,
+    "after": "8dcb1ea8d70026dfdaeab0a11118ff86781c8f80d0e1e1744789c839820ad70c"
+  },
+  {
+    "path": "contracts/database.md",
+    "before": "2fe3e8d3c0ce7a8889eaaaa4921825d8d3210be4d123bf6c57815b74226d0270",
+    "after": "781abd172cb9e2b5600368b5b6015b4ba3eb8e882ae70318fc411ff06b9cc079"
+  },
+  {
+    "path": "deploy/scripts/check-production-inputs.py",
+    "before": "950951e1d3d7bd0dcade7bcd2fc02b1d5883dfdee3826972b3f64e4cb60ee23e",
+    "after": "6d8aeb96db553a0c4d06db300b8d5639066f56ba7e85bb1a02bfdfbfda5ffe63"
+  },
+  {
+    "path": "docs/geo-monitoring/01-product/02-geo-core-prd.md",
+    "before": "17aa0ad790030a427124eb011be6893b3c63563481a44d219cfcbfc6dc6b6eef",
+    "after": "337f59ee0b3faf2cf8071af040271c7f8494ac667b555d6108edbaae9703ce5a"
+  },
+  {
+    "path": "docs/geo-monitoring/02-business/02-domain-model.md",
+    "before": "ecf9472b259ebe572775405e0fcd5d3dddf35a13d68be130a44baec5a3db9f98",
+    "after": "140e16f4dc3d712628c4cbba8bab938848f24c2bf8e0b530fd52b4de5c6c4ec1"
+  },
+  {
+    "path": "docs/geo-monitoring/02-business/03-workflows-and-state-machines.md",
+    "before": "4793e30ed3f34f0b39538f7be0b656e72ed5ce3f9f10e0e16d3d0344e3eb0ef4",
+    "after": "f53755381def49bb2b0f6d03c02f7e14f201ccee71aae937f8a75bc3f0e1414b"
+  },
+  {
+    "path": "docs/geo-monitoring/03-technical/02-data-architecture.md",
+    "before": "47c19614dc6ccc3a06738a8d7fc350915801f6ccd1f92d8de9dd3c827df5b899",
+    "after": "dfa99da7fce0e0ab5678cff7f0aa722565dba13514bf770efceeacdc812de817"
+  },
+  {
+    "path": "docs/geo-monitoring/03-technical/06-security-and-compliance.md",
+    "before": "31002b145b98594c58b1718179b63f52e6c08997dfd7dba871176b366a0193ec",
+    "after": "596532a0304d246a9051872ebed910156983b9fd2cd146ef234fd6700e07c1eb"
+  },
+  {
+    "path": "docs/geo-monitoring/03-technical/07-testing-and-quality.md",
+    "before": "49c7a663cc0e555259a11b709bfa72404667cc3940751f3db402b5ae02d71234",
+    "after": "a03c013f0327ca3396c79f5e0583b9ebeccd9a30c1738fc7b4e307bbba072ba9"
+  },
+  {
+    "path": "docs/geo-monitoring/03-technical/08-deployment-and-operations.md",
+    "before": "2bc009718116d8c085b9320a93733e6ef69ab9b392e5b90eae6a64174eaf73ab",
+    "after": "a3ae47849289436a13dc6fbf00d345507f53d3fc9d37e159418d6e19f4ae9aea"
+  },
+  {
+    "path": "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "before": "a4f4810ba778c3c326fb141aeef0c6136b3c3dbdb0a192a35b87c5feb7fdf692",
+    "after": "470267cd2c5058fc94281876b27314c9752680b7127f05c104ec412f8301a238"
+  },
+  {
+    "path": "docs/geo-monitoring/CHANGELOG.md",
+    "before": "457123decbdbcf6e1ffb131b8f1743ad8315057e602c4b26a0bc3d50e7277452",
+    "after": "d6f40f0fb19e4ae4cae16bd76add5f25951bf8ef6f817389a62307de61e24785"
+  },
+  {
+    "path": "docs/geo-monitoring/README.md",
+    "before": "080c6428afb8bbb5120dbdb36ad857f4ae94491ccf74e53cf37631a43f8ebed7",
+    "after": "b8015fa0910bc5c92504f65290c87c6c368ca565b2d26b4977c577c1d03436be"
+  },
+  {
+    "path": "docs/geo-monitoring/SHA256SUMS",
+    "before": "27ef8ae4da876b5bd5abec0c827a7a5cae28db7429493172a3f923956d62b2e4",
+    "after": "593d82e61d693a528a2730bf9f5f65c4439bb3e7fd4f688ed08888667b60da48"
+  },
+  {
+    "path": "docs/production-configuration.md",
+    "before": "879b489849adcff11a1d4a8c5bd986552dd94db65c5c8be9195f1516409b0358",
+    "after": "b585c10bf3d8b15c1e23bc909e50141ffcddd2c24ad3af9580c38e5efe8ce1c0"
+  }
+]

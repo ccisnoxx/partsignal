@@ -1,0 +1,38 @@
+{
+  "new_paths": [
+    "/api/v1/geo/opportunities/{opportunity_id}/comparison",
+    "/api/v1/geo/opportunities/{opportunity_id}/continue",
+    "/api/v1/geo/opportunities/{opportunity_id}/resolve"
+  ],
+  "new_schemas": [
+    "GeoOpportunityComparisonRead",
+    "GeoOpportunityContinueRequest",
+    "GeoOpportunityDecision",
+    "GeoOpportunityDecisionKind",
+    "GeoOpportunityDecisionResult",
+    "GeoOpportunityResolveRequest",
+    "GeoRetestComparison",
+    "GeoRetestComparisonChoice",
+    "GeoRetestComparisonDifference",
+    "GeoRetestComparisonEnvironment",
+    "GeoRetestComparisonMetric",
+    "GeoRetestComparisonWindow",
+    "GeoRetestRecovery",
+    "GeoRetestRecoveryStatus"
+  ],
+  "changed_existing_paths": [],
+  "changed_existing_schemas": [
+    "GeoOpportunityAction"
+  ],
+  "changed_maintenance_files": 62,
+  "deleted_files": [],
+  "unexpected_scope": [],
+  "trailing_whitespace": [],
+  "new_maintained_source_max_lines": 383,
+  "task_status": "review",
+  "dependency_status": {
+    "GEO-705": "done",
+    "GEO-605": "done",
+    "GEO-707": "planned"
+  }
+}

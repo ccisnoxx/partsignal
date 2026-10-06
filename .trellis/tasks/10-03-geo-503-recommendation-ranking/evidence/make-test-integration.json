@@ -1,0 +1,8 @@
+{
+  "command": [
+    "make",
+    "test-integration",
+    "COMPOSE=docker compose -p partsignal-geo503-validation -f /Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-03-geo-503-recommendation-ranking/evidence/validation-compose.yaml"
+  ],
+  "exit_code": 0
+}

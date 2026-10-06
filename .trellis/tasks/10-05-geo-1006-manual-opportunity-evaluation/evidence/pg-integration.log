@@ -1,0 +1,257 @@
+ Container partsignal-dev-redis-1 Running 
+ Container partsignal-dev-postgres-1 Running 
+ Container partsignal-dev-fake-oss-1 Running 
+ Container partsignal-dev-redis-1 Waiting 
+ Container partsignal-dev-fake-oss-1 Waiting 
+ Container partsignal-dev-postgres-1 Waiting 
+ Container partsignal-dev-redis-1 Healthy 
+ Container partsignal-dev-postgres-1 Healthy 
+ Container partsignal-dev-fake-oss-1 Healthy 
+ Container partsignal-dev-backend-test-run-8985060830a0 Creating 
+ Container partsignal-dev-backend-test-run-8985060830a0 Created 
+.FF...................FF.FF............                                  [100%]
+=================================== FAILURES ===================================
+_ test_replay_freezes_original_as_of_despite_new_review_and_new_key_reuses_opportunity _
+
+api = ReviewAPI(harness=AnalysisHarness(database=AnswerDatabase(runs=RunDatabase(plan=PlanDatabase(url='postgresql://partsig...s=<starlette.testclient.TestClient object at 0xe50ccee4ca10>, engineer_id=UUID('92a6bb30-7b39-491d-8b5b-5b20454b2c7d'))
+
+    def test_replay_freezes_original_as_of_despite_new_review_and_new_key_reuses_opportunity(api):
+        case, filters, correction = prepared(api)
+        value, key = payload(api, filters), str(uuid4())
+        original = post(api, value, key).json()
+        before = counts(api)
+        with api.harness.factory() as db:
+            opportunities = list(db.scalars(select(GeoOpportunity)))
+            frozen = {o.id: (deepcopy(o.trigger_snapshot), o.revision) for o in opportunities}
+        assert api.submit(case, decision="CORRECTED", correction_payload=correction).status_code == 201
+        after_review = counts(api)
+        replay = post(api, value, key)
+        assert replay.status_code == 200, replay.text
+        assert replay.json() == original | {"replayed": True}
+        assert counts(api) == after_review
+        different = post(
+            api, value | {"date_to": (datetime.now(UTC) + timedelta(hours=1)).isoformat()}, key
+        )
+        assert (
+            different.status_code == 409 and different.json()["error"]["code"] == "IDEMPOTENCY_CONFLICT"
+        )
+        assert counts(api) == after_review
+        fresh = post(api, value).json()
+        assert fresh["created"] == 0 and fresh["existing_reused"] >= 1
+        assert fresh["evaluation_run_id"] != original["evaluation_run_id"]
+        assert fresh["as_of"] != original["as_of"]
+        assert counts(api)[2:6] == before[2:6]
+        with api.harness.factory() as db:
+            for identity, (snapshot, revision) in frozen.items():
+                current = db.get(GeoOpportunity, identity)
+                assert current.trigger_snapshot == snapshot and current.revision >= revision
+>           assert (
+                db.scalar(
+                    select(func.count())
+                    .select_from(AuditLog)
+                    .where(AuditLog.action == "geo_opportunity.evaluated")
+                )
+                == 2
+            )
+E           AssertionError: assert 3 == 2
+E            +  where 3 = scalar(<sqlalchemy.sql.selectable.Select object at 0xe50cdc04d580>)
+E            +    where scalar = <sqlalchemy.orm.session.Session object at 0xe50cde3b4380>.scalar
+E            +    and   <sqlalchemy.sql.selectable.Select object at 0xe50cdc04d580> = where(<sqlalchemy.orm.attributes.InstrumentedAttribute object at 0xe50ce2cdcea0> == 'geo_opportunity.evaluated')
+E            +      where where = <sqlalchemy.sql.selectable.Select object at 0xe50cdc04d220>.where
+E            +        where <sqlalchemy.sql.selectable.Select object at 0xe50cdc04d220> = select_from(AuditLog)
+E            +          where select_from = <sqlalchemy.sql.selectable.Select object at 0xe50cdc04c920>.select_from
+E            +            where <sqlalchemy.sql.selectable.Select object at 0xe50cdc04c920> = select(<sqlalchemy.sql.functions.count at 0xe50cdc0fc0b0; count>)
+E            +              where <sqlalchemy.sql.functions.count at 0xe50cdc0fc0b0; count> = <sqlalchemy.sql.functions._FunctionGenerator object at 0xe50ccef19bb0>()
+E            +                where <sqlalchemy.sql.functions._FunctionGenerator object at 0xe50ccef19bb0> = func.count
+E            +      and   <sqlalchemy.orm.attributes.InstrumentedAttribute object at 0xe50ce2cdcea0> = AuditLog.action
+
+tests/integration/test_geo_manual_opportunity_evaluation.py:175: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+_____________ test_concurrent_same_key_returns_one_frozen_receipt ______________
+
+api = ReviewAPI(harness=AnalysisHarness(database=AnswerDatabase(runs=RunDatabase(plan=PlanDatabase(url='postgresql://partsig...s=<starlette.testclient.TestClient object at 0xe50cceef5b80>, engineer_id=UUID('864ad31e-5592-48f0-b352-7b0f27ea8e7e'))
+
+    def test_concurrent_same_key_returns_one_frozen_receipt(api):
+        _, filters, _ = prepared(api)
+        value = GeoOpportunityEvaluationRequest.model_validate(payload(api, filters))
+        key, barrier = str(uuid4()), Barrier(2)
+        before = counts(api)
+    
+        def execute():
+            with api.harness.factory() as db:
+                actor = db.get(User, api.harness.database.runs.plan.actor)
+                barrier.wait(timeout=10)
+                return service.run_evaluation(
+                    db, value, actor=actor, request_id="geo1006-concurrent", idempotency_key=key
+                )
+    
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            futures = [pool.submit(execute) for _ in range(2)]
+            results = [f.result(timeout=30) for f in futures]
+        assert results[0].evaluation_run_id == results[1].evaluation_run_id
+        assert results[0].as_of == results[1].as_of
+        assert sorted(r.replayed for r in results) == [False, True]
+        assert counts(api)[0] == before[0] + 1
+        with api.harness.factory() as db:
+>           assert (
+                db.scalar(
+                    select(func.count())
+                    .select_from(AuditLog)
+                    .where(AuditLog.action == "geo_opportunity.evaluated")
+                )
+                == 1
+            )
+E           AssertionError: assert 4 == 1
+E            +  where 4 = scalar(<sqlalchemy.sql.selectable.Select object at 0xe50cdc217290>)
+E            +    where scalar = <sqlalchemy.orm.session.Session object at 0xe50ccee4c470>.scalar
+E            +    and   <sqlalchemy.sql.selectable.Select object at 0xe50cdc217290> = where(<sqlalchemy.orm.attributes.InstrumentedAttribute object at 0xe50ce2cdcea0> == 'geo_opportunity.evaluated')
+E            +      where where = <sqlalchemy.sql.selectable.Select object at 0xe50cdc216900>.where
+E            +        where <sqlalchemy.sql.selectable.Select object at 0xe50cdc216900> = select_from(AuditLog)
+E            +          where select_from = <sqlalchemy.sql.selectable.Select object at 0xe50cdc214dd0>.select_from
+E            +            where <sqlalchemy.sql.selectable.Select object at 0xe50cdc214dd0> = select(<sqlalchemy.sql.functions.count at 0xe50cdc214650; count>)
+E            +              where <sqlalchemy.sql.functions.count at 0xe50cdc214650; count> = <sqlalchemy.sql.functions._FunctionGenerator object at 0xe50cdc217f20>()
+E            +                where <sqlalchemy.sql.functions._FunctionGenerator object at 0xe50cdc217f20> = func.count
+E            +      and   <sqlalchemy.orm.attributes.InstrumentedAttribute object at 0xe50ce2cdcea0> = AuditLog.action
+
+tests/integration/test_geo_manual_opportunity_evaluation.py:207: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+_ test_authenticated_admin_identity_is_rechecked_before_evaluation_lock[change1-AUTH_REQUIRED] _
+
+api = ReviewAPI(harness=AnalysisHarness(database=AnswerDatabase(runs=RunDatabase(plan=PlanDatabase(url='postgresql://partsig...s=<starlette.testclient.TestClient object at 0xe50ccefccb60>, engineer_id=UUID('cb519178-29c9-4518-b429-d082cf32fd79'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0xe50cde2756d0>
+change = {'is_active': False}, code = 'AUTH_REQUIRED'
+
+    @pytest.mark.parametrize(
+        "change,code",
+        [
+            ({"account_type": "ENGINEER"}, "PERMISSION_DENIED"),
+            ({"is_active": False}, "AUTH_REQUIRED"),
+            ({"must_change_password": True}, "PASSWORD_CHANGE_REQUIRED"),
+        ],
+    )
+    def test_authenticated_admin_identity_is_rechecked_before_evaluation_lock(
+        api, monkeypatch, change, code
+    ):
+        before = counts(api)
+        command = service.current_actor_command
+    
+        @contextmanager
+        def changed_after_auth(db, actor, **kwargs):
+            # HTTP ADMIN dependency 已通过；独立事务改变身份，锁内必须刷新陈旧 ORM。
+            with api.harness.factory.begin() as writer:
+                writer.execute(User.__table__.update().where(User.id == actor.id).values(**change))
+            with command(db, actor, **kwargs) as current:
+                yield current
+    
+        monkeypatch.setattr(service, "current_actor_command", changed_after_auth)
+        response = post(api, payload(api))
+        assert response.status_code in {401, 403}
+>       assert response.json()["error"]["code"] == code
+E       AssertionError: assert 'PERMISSION_DENIED' == 'AUTH_REQUIRED'
+E         
+E         - AUTH_REQUIRED
+E         + PERMISSION_DENIED
+
+tests/integration/test_geo_manual_opportunity_evaluation.py:347: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+_ test_authenticated_admin_identity_is_rechecked_before_evaluation_lock[change2-PASSWORD_CHANGE_REQUIRED] _
+
+api = ReviewAPI(harness=AnalysisHarness(database=AnswerDatabase(runs=RunDatabase(plan=PlanDatabase(url='postgresql://partsig...s=<starlette.testclient.TestClient object at 0xe50cdc27ee10>, engineer_id=UUID('ec17b00a-f6e8-4955-bac4-153c8ce1edb2'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0xe50cced3bd40>
+change = {'must_change_password': True}, code = 'PASSWORD_CHANGE_REQUIRED'
+
+    @pytest.mark.parametrize(
+        "change,code",
+        [
+            ({"account_type": "ENGINEER"}, "PERMISSION_DENIED"),
+            ({"is_active": False}, "AUTH_REQUIRED"),
+            ({"must_change_password": True}, "PASSWORD_CHANGE_REQUIRED"),
+        ],
+    )
+    def test_authenticated_admin_identity_is_rechecked_before_evaluation_lock(
+        api, monkeypatch, change, code
+    ):
+        before = counts(api)
+        command = service.current_actor_command
+    
+        @contextmanager
+        def changed_after_auth(db, actor, **kwargs):
+            # HTTP ADMIN dependency 已通过；独立事务改变身份，锁内必须刷新陈旧 ORM。
+            with api.harness.factory.begin() as writer:
+                writer.execute(User.__table__.update().where(User.id == actor.id).values(**change))
+            with command(db, actor, **kwargs) as current:
+                yield current
+    
+        monkeypatch.setattr(service, "current_actor_command", changed_after_auth)
+        response = post(api, payload(api))
+        assert response.status_code in {401, 403}
+>       assert response.json()["error"]["code"] == code
+E       AssertionError: assert 'PERMISSION_DENIED' == 'PASSWORD_CHANGE_REQUIRED'
+E         
+E         - PASSWORD_CHANGE_REQUIRED
+E         + PERMISSION_DENIED
+
+tests/integration/test_geo_manual_opportunity_evaluation.py:347: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+_ test_audit_failure_rolls_back_receipt_evaluations_opportunities_and_sources __
+
+api = ReviewAPI(harness=AnalysisHarness(database=AnswerDatabase(runs=RunDatabase(plan=PlanDatabase(url='postgresql://partsig...s=<starlette.testclient.TestClient object at 0xe50ccefc5ee0>, engineer_id=UUID('8fd01301-f132-4089-b67b-419c151acffa'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0xe50ccee75190>
+
+    def test_audit_failure_rolls_back_receipt_evaluations_opportunities_and_sources(api, monkeypatch):
+        _, filters, _ = prepared(api)
+        before = counts(api)
+    
+        def fail(*args):
+            raise RuntimeError("模拟评估摘要审计失败")
+    
+        monkeypatch.setattr(service, "append_audit", fail)
+>       with pytest.raises(RuntimeError, match="模拟评估摘要审计失败"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE <class 'RuntimeError'>
+
+tests/integration/test_geo_manual_opportunity_evaluation.py:374: Failed
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+__ test_receipt_migration_metadata_database_uniqueness_and_immutable_history ___
+
+api = ReviewAPI(harness=AnalysisHarness(database=AnswerDatabase(runs=RunDatabase(plan=PlanDatabase(url='postgresql://partsig...s=<starlette.testclient.TestClient object at 0xe50cdc03cb00>, engineer_id=UUID('80661950-ee62-49c9-8c07-03caab83ba6f'))
+
+    def test_receipt_migration_metadata_database_uniqueness_and_immutable_history(api):
+        receipt = post(api, payload(api)).json()
+        with api.harness.factory() as db:
+>           record = db.get(GeoOpportunityEvaluationRun, UUID(receipt["evaluation_run_id"]))
+                                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           KeyError: 'evaluation_run_id'
+
+tests/integration/test_geo_manual_opportunity_evaluation.py:382: KeyError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+=============================== warnings summary ===============================
+tests/integration/test_geo_opportunities.py::test_model_metadata_and_subject_history_reference_projection
+  /app/tests/integration/test_geo_opportunities.py:395: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_opportunities.py::test_model_metadata_and_subject_history_reference_projection
+  /app/tests/integration/test_geo_opportunities.py:395: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+    assert compare_metadata(context, Base.metadata) == []
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/integration/test_geo_manual_opportunity_evaluation.py::test_replay_freezes_original_as_of_despite_new_review_and_new_key_reuses_opportunity
+FAILED tests/integration/test_geo_manual_opportunity_evaluation.py::test_concurrent_same_key_returns_one_frozen_receipt
+FAILED tests/integration/test_geo_manual_opportunity_evaluation.py::test_authenticated_admin_identity_is_rechecked_before_evaluation_lock[change1-AUTH_REQUIRED]
+FAILED tests/integration/test_geo_manual_opportunity_evaluation.py::test_authenticated_admin_identity_is_rechecked_before_evaluation_lock[change2-PASSWORD_CHANGE_REQUIRED]
+FAILED tests/integration/test_geo_manual_opportunity_evaluation.py::test_audit_failure_rolls_back_receipt_evaluations_opportunities_and_sources
+FAILED tests/integration/test_geo_manual_opportunity_evaluation.py::test_receipt_migration_metadata_database_uniqueness_and_immutable_history
+

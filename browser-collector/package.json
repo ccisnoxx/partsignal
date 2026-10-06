@@ -1,0 +1,15 @@
+{
+  "name": "partsignal-browser-collector",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node src/main.mjs",
+    "lint": "node --check src/service.mjs && node --check src/main.mjs && node --check src/healthcheck.mjs && node --check tests/service.test.mjs && node --check tests/support/reference-adapter.mjs && node --check tests/support/adapter-contract.mjs && node --check tests/contracts/local-adapter.test.mjs && node --check ../tests/browser-fixture/server.mjs && node --check ../tests/browser-fixture/fixture.js",
+    "typecheck": "tsc",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "dependencies": { "playwright": "1.61.1" },
+  "devDependencies": { "@types/node": "22.20.1", "typescript": "5.9.3" }
+}

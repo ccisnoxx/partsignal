@@ -1,0 +1,213 @@
+........................................................................ [ 93%]
+.F.FF                                                                    [100%]
+=================================== FAILURES ===================================
+_ test_referenced_file_is_immutable[sha256-0000000000000000000000000000000000000000000000000000000000000000] _
+
+answer_connection = <psycopg.Connection [INERROR] (host=127.0.0.1 port=55454 user=partsignal database=partsignal_geo206_53bbcb10e4) at 0x10eb05dc0>
+answer_database = AnswerDatabase(runs=RunDatabase(plan=PlanDatabase(url='postgresql://partsignal:partsignal_dev@127.0.0.1:55454/partsign...ind': 'LEGACY_MODEL_RESULT', 'web_search_enabled': True},)]]), legacy_run=UUID('f8c687f4-39b6-4ef8-be73-f421e2370353'))
+field = 'sha256'
+value = '0000000000000000000000000000000000000000000000000000000000000000'
+
+    @pytest.mark.parametrize(
+        ("field", "value"),
+        [
+            ("sha256", "0" * 64),
+            ("status", "DELETING"),
+            ("access_level", "PUBLIC"),
+            ("object_key", "changed"),
+        ],
+    )
+    def test_referenced_file_is_immutable(
+        answer_connection: psycopg.Connection[Any],
+        answer_database: AnswerDatabase,
+        field: str,
+        value: str,
+    ) -> None:
+        conn, db = answer_connection, answer_database
+        f = file_record(conn, db)
+        r = new_run(conn, db)
+        snapshot(conn, db, r, screenshot_file_id=f)
+        collect(conn, r)
+        finalize(conn)
+        with pytest.raises(psycopg.errors.CheckViolation) as raised:
+>           conn.execute(
+                sql.SQL("UPDATE file_records SET {}=%s WHERE id=%s").format(sql.Identifier(field)),
+                (value, f),
+            )
+
+backend/tests/integration/test_geo_answers.py:235: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <psycopg.Connection [INERROR] (host=127.0.0.1 port=55454 user=partsignal database=partsignal_geo206_53bbcb10e4) at 0x10eb05dc0>
+query = Composed([SQL('UPDATE file_records SET '), Identifier('sha256'), SQL('=%s WHERE id=%s')])
+params = ('0000000000000000000000000000000000000000000000000000000000000000', UUID('6c75b2f8-5c63-45a7-9b06-f1bb1e5f5c71'))
+
+    def execute(
+        self,
+        query: Query,
+        params: Params | None = None,
+        *,
+        prepare: bool | None = None,
+        binary: bool = False,
+    ) -> Cursor[Row]:
+        """Execute a query and return a cursor to read its results."""
+        try:
+            cur = self.cursor()
+            if binary:
+                cur.format = BINARY
+    
+            if isinstance(query, Template):
+                if params is not None:
+                    raise TypeError(
+                        "'execute()' with string template query doesn't support parameters"
+                    )
+                return cur.execute(query, prepare=prepare)
+            else:
+                return cur.execute(query, params, prepare=prepare)
+        except e._NO_TRACEBACK as ex:
+>           raise ex.with_traceback(None)
+E           psycopg.errors.ObjectNotInPrerequisiteState: file metadata is immutable
+E           CONTEXT:  PL/pgSQL function partsignal_guard_file_record() line 13 at RAISE
+
+backend/.venv/lib/python3.12/site-packages/psycopg/connection.py:300: ObjectNotInPrerequisiteState
+____________ test_referenced_file_is_immutable[access_level-PUBLIC] ____________
+
+answer_connection = <psycopg.Connection [INERROR] (host=127.0.0.1 port=55454 user=partsignal database=partsignal_geo206_53bbcb10e4) at 0x10eb05e20>
+answer_database = AnswerDatabase(runs=RunDatabase(plan=PlanDatabase(url='postgresql://partsignal:partsignal_dev@127.0.0.1:55454/partsign...ind': 'LEGACY_MODEL_RESULT', 'web_search_enabled': True},)]]), legacy_run=UUID('f8c687f4-39b6-4ef8-be73-f421e2370353'))
+field = 'access_level', value = 'PUBLIC'
+
+    @pytest.mark.parametrize(
+        ("field", "value"),
+        [
+            ("sha256", "0" * 64),
+            ("status", "DELETING"),
+            ("access_level", "PUBLIC"),
+            ("object_key", "changed"),
+        ],
+    )
+    def test_referenced_file_is_immutable(
+        answer_connection: psycopg.Connection[Any],
+        answer_database: AnswerDatabase,
+        field: str,
+        value: str,
+    ) -> None:
+        conn, db = answer_connection, answer_database
+        f = file_record(conn, db)
+        r = new_run(conn, db)
+        snapshot(conn, db, r, screenshot_file_id=f)
+        collect(conn, r)
+        finalize(conn)
+        with pytest.raises(psycopg.errors.CheckViolation) as raised:
+>           conn.execute(
+                sql.SQL("UPDATE file_records SET {}=%s WHERE id=%s").format(sql.Identifier(field)),
+                (value, f),
+            )
+
+backend/tests/integration/test_geo_answers.py:235: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <psycopg.Connection [INERROR] (host=127.0.0.1 port=55454 user=partsignal database=partsignal_geo206_53bbcb10e4) at 0x10eb05e20>
+query = Composed([SQL('UPDATE file_records SET '), Identifier('access_level'), SQL('=%s WHERE id=%s')])
+params = ('PUBLIC', UUID('b2fe9dd4-0e3e-4b2d-82c4-121923eb3fab'))
+
+    def execute(
+        self,
+        query: Query,
+        params: Params | None = None,
+        *,
+        prepare: bool | None = None,
+        binary: bool = False,
+    ) -> Cursor[Row]:
+        """Execute a query and return a cursor to read its results."""
+        try:
+            cur = self.cursor()
+            if binary:
+                cur.format = BINARY
+    
+            if isinstance(query, Template):
+                if params is not None:
+                    raise TypeError(
+                        "'execute()' with string template query doesn't support parameters"
+                    )
+                return cur.execute(query, prepare=prepare)
+            else:
+                return cur.execute(query, params, prepare=prepare)
+        except e._NO_TRACEBACK as ex:
+>           raise ex.with_traceback(None)
+E           psycopg.errors.ObjectNotInPrerequisiteState: file metadata is immutable
+E           CONTEXT:  PL/pgSQL function partsignal_guard_file_record() line 13 at RAISE
+
+backend/.venv/lib/python3.12/site-packages/psycopg/connection.py:300: ObjectNotInPrerequisiteState
+____________ test_referenced_file_is_immutable[object_key-changed] _____________
+
+answer_connection = <psycopg.Connection [INERROR] (host=127.0.0.1 port=55454 user=partsignal database=partsignal_geo206_53bbcb10e4) at 0x10eb05d30>
+answer_database = AnswerDatabase(runs=RunDatabase(plan=PlanDatabase(url='postgresql://partsignal:partsignal_dev@127.0.0.1:55454/partsign...ind': 'LEGACY_MODEL_RESULT', 'web_search_enabled': True},)]]), legacy_run=UUID('f8c687f4-39b6-4ef8-be73-f421e2370353'))
+field = 'object_key', value = 'changed'
+
+    @pytest.mark.parametrize(
+        ("field", "value"),
+        [
+            ("sha256", "0" * 64),
+            ("status", "DELETING"),
+            ("access_level", "PUBLIC"),
+            ("object_key", "changed"),
+        ],
+    )
+    def test_referenced_file_is_immutable(
+        answer_connection: psycopg.Connection[Any],
+        answer_database: AnswerDatabase,
+        field: str,
+        value: str,
+    ) -> None:
+        conn, db = answer_connection, answer_database
+        f = file_record(conn, db)
+        r = new_run(conn, db)
+        snapshot(conn, db, r, screenshot_file_id=f)
+        collect(conn, r)
+        finalize(conn)
+        with pytest.raises(psycopg.errors.CheckViolation) as raised:
+>           conn.execute(
+                sql.SQL("UPDATE file_records SET {}=%s WHERE id=%s").format(sql.Identifier(field)),
+                (value, f),
+            )
+
+backend/tests/integration/test_geo_answers.py:235: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <psycopg.Connection [INERROR] (host=127.0.0.1 port=55454 user=partsignal database=partsignal_geo206_53bbcb10e4) at 0x10eb05d30>
+query = Composed([SQL('UPDATE file_records SET '), Identifier('object_key'), SQL('=%s WHERE id=%s')])
+params = ('changed', UUID('99430c6b-eff8-47ca-b798-9543efc75296'))
+
+    def execute(
+        self,
+        query: Query,
+        params: Params | None = None,
+        *,
+        prepare: bool | None = None,
+        binary: bool = False,
+    ) -> Cursor[Row]:
+        """Execute a query and return a cursor to read its results."""
+        try:
+            cur = self.cursor()
+            if binary:
+                cur.format = BINARY
+    
+            if isinstance(query, Template):
+                if params is not None:
+                    raise TypeError(
+                        "'execute()' with string template query doesn't support parameters"
+                    )
+                return cur.execute(query, prepare=prepare)
+            else:
+                return cur.execute(query, params, prepare=prepare)
+        except e._NO_TRACEBACK as ex:
+>           raise ex.with_traceback(None)
+E           psycopg.errors.ObjectNotInPrerequisiteState: file metadata is immutable
+E           CONTEXT:  PL/pgSQL function partsignal_guard_file_record() line 13 at RAISE
+
+backend/.venv/lib/python3.12/site-packages/psycopg/connection.py:300: ObjectNotInPrerequisiteState
+=========================== short test summary info ============================
+FAILED backend/tests/integration/test_geo_answers.py::test_referenced_file_is_immutable[sha256-0000000000000000000000000000000000000000000000000000000000000000]
+FAILED backend/tests/integration/test_geo_answers.py::test_referenced_file_is_immutable[access_level-PUBLIC]
+FAILED backend/tests/integration/test_geo_answers.py::test_referenced_file_is_immutable[object_key-changed]
+3 failed, 74 passed in 3.20s

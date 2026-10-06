@@ -1,0 +1,8 @@
+{
+  "command": [
+    "env",
+    "PARTSIGNAL_E2E_GEO_MODE=enabled",
+    "deploy/scripts/e2e-local.sh"
+  ],
+  "exit_code": 0
+}

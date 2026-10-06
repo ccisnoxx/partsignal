@@ -1,0 +1,10 @@
+{
+  "argv": [
+    "make",
+    "test-integration",
+    "COMPOSE=docker compose -p partsignal-geo604-validation -f .trellis/tasks/10-04-geo-604-citation-risk-quality/evidence/validation-compose.yaml"
+  ],
+  "exit_code": 0,
+  "started_at": "2026-10-04T08:17:52.832017+00:00",
+  "finished_at": "2026-10-04T08:26:16.882618+00:00"
+}

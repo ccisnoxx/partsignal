@@ -50,7 +50,7 @@ uv run --project backend pytest backend/tests/unit/test_cli.py
 git diff --check
 ```
 
-候选必须来自 clean、已推送的 `main`。使用 `git archive` 生成不可覆盖源归档，构建 backend 和 Frontend V2 镜像后，通过 `deploy/scripts/create-release-manifest.py` 冻结完整 commit、源归档 SHA-256、backend/current V2/previous V2 image ID 与非空 RepoDigest、schema head，以及固定 allowlist 中的 Production Compose、状态/部署/激活脚本、Production/maintenance Nginx 模板和安全 snippet 校验和。manifest 采用排他创建；部署和激活会复算 tracked files，并要求 `PARTSIGNAL_VERSION` 精确等于 release ID。不得复用 tag、覆盖文件或从 release 目录名推断 Git 状态。
+候选必须来自 clean、已推送的 `main`。使用 `git archive` 生成不可覆盖源归档，构建 backend 和 Frontend V2 镜像后，通过 `deploy/scripts/create-release-manifest.py` 冻结完整 commit、源归档 SHA-256、backend/current V2/previous V2 image ID 与非空 RepoDigest、schema head，以及固定 10 项 allowlist 中的 Production Compose、状态/部署/激活/输入检查脚本、Production/maintenance Nginx 模板和安全 snippet 校验和。输入检查脚本 `check-production-inputs.py` 和迁移归档证明模块 `production_upgrade_recovery.py` 必须按附录一起传入 tracked files。manifest 采用排他创建；部署和激活会复算 tracked files，并要求 `PARTSIGNAL_VERSION` 精确等于 release ID。不得复用 tag、覆盖文件或从 release 目录名推断 Git 状态。
 
 Production 镜像交付模式由 `PARTSIGNAL_IMAGE_DELIVERY_MODE` 显式控制；未设置时默认为 `registry`，按既有顺序 pull 后校验 manifest 中的 image ID 与 RepoDigest。Hostdzire 本地构建候选必须明确设置为 `local`：脚本跳过 pull，但要求候选镜像已存在，并在任何 `docker compose run`/`up` 前完成同一 manifest 的身份校验，同时为相关路径传入 `--pull never`。空值或其他模式，以及任何 V1 镜像仓库，均立即拒绝；不得用手工 Compose 命令绕过该合同。
 
@@ -88,7 +88,8 @@ Production 镜像交付模式由 `PARTSIGNAL_IMAGE_DELIVERY_MODE` 显式控制�
 
 ## 7. 分层恢复
 
-- Frontend：只切回 manifest 冻结的上一份已验证 V2 image，frontend-only recreate；其他 service、DB 和 Nginx 不变。
+- 未 initialized 的 upgrade artifact 失败：保持公网 maintenance，停止完整项目；在同 schema、同迁移内容且新 manifest/image 全部认证后，按[附录显式前向恢复](./Hostdzire部署附录.md#未初始化升级的显式前向恢复)接管。仍处 UPGRADE_DEPLOYING，需重新 deploy/验收/activate。不能用 frontend rollback、先 activate、手改状态或新候选 begin-upgrade 解锁。
+- Frontend：只在 PRODUCTION_INITIALIZED 切回 manifest 冻结的上一份已验证 V2 image，frontend-only recreate；其他 service、DB 和 Nginx 不变。
 - Nginx：恢复同一已验证版本的站点和安全 snippet，先 `nginx -t`，再单独授权 reload。
 - Application：只有上一份 V2 backend 与当前 schema 合同时才可切回。
 - Data：停止新 Production 写入和全部新 service，把失败数据保留到 `failed-production/`，运行 `prepare-production-data.py restore <run-id>` 按持久阶段续跑并恢复旧三个目录，再按旧 Staging 配置恢复运行态。

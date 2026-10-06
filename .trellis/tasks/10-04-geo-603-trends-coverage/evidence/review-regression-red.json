@@ -1,0 +1,17 @@
+{
+  "argv": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "pytest",
+    "backend/tests/unit/test_geo_answer_insights.py",
+    "-k",
+    "unjudgeable",
+    "-q"
+  ],
+  "cwd": "/Users/sc/PycharmProjects/partsignal",
+  "exit_code": 1,
+  "started_at": "2026-10-04T07:23:34.143974+00:00",
+  "finished_at": "2026-10-04T07:23:34.960785+00:00"
+}

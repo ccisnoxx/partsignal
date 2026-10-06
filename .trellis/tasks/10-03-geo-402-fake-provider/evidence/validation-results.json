@@ -1,0 +1,62 @@
+[
+  {
+    "command": "UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/unit/test_geo_collector_contract.py backend/tests/unit/test_geo_collector_registry.py backend/tests/unit/test_geo_fixtures.py backend/tests/unit/test_pinned_http.py",
+    "exit_code": 0,
+    "result": "166 passed",
+    "log": "baseline.log"
+  },
+  {
+    "command": "UV_CACHE_DIR=.cache/uv uv run --project backend python deploy/scripts/test-geo-collector-contract.py --scan-root .trellis/tasks/10-03-geo-402-fake-provider/evidence",
+    "exit_code": 0,
+    "result": "57 passed; tests=0 secret_scan=0 external_network=blocked",
+    "log": "contract-final.log"
+  },
+  {
+    "command": "git diff --check",
+    "exit_code": 0,
+    "result": "通过；另检查本任务全部新增文件",
+    "log": "diff-check.log"
+  },
+  {
+    "command": "make lint",
+    "exit_code": 0,
+    "result": "Ruff / ESLint 通过",
+    "log": "lint.log"
+  },
+  {
+    "command": "make typecheck",
+    "exit_code": 0,
+    "result": "mypy 146 source files / frontend tsc 通过",
+    "log": "typecheck.log"
+  },
+  {
+    "command": "make test-unit",
+    "exit_code": 0,
+    "result": "backend 2852 passed / frontend 119 files,1121 passed",
+    "log": "test-unit.log"
+  },
+  {
+    "command": "make test-deploy-scripts",
+    "exit_code": 2,
+    "result": "前置frontend Docker build因/var/run/docker.sock不存在失败；所有后续recipes未运行",
+    "log": "test-deploy-scripts.log"
+  },
+  {
+    "command": "make contract-check",
+    "exit_code": 0,
+    "result": "runtime和generated类型一致",
+    "log": "contract-check.log"
+  },
+  {
+    "command": "UV_CACHE_DIR=.cache/uv uv run --project backend ruff check deploy/scripts/test-geo-collector-contract.py",
+    "exit_code": 0,
+    "result": "通过",
+    "log": "deploy-script-lint.log"
+  },
+  {
+    "command": "Python subprocess: python -m app.geo_fake_server --port 0 --mode 429; GET /health; SIGINT; bounded communicate",
+    "exit_code": 0,
+    "result": "CLI启动、health和清理通过",
+    "log": "cli-smoke.log"
+  }
+]

@@ -1,0 +1,16 @@
+{
+  "argv": [
+    "docker",
+    "compose",
+    "-f",
+    ".trellis/tasks/10-04-geo-705-retest-planner/evidence/compose.yaml",
+    "run",
+    "--rm",
+    "backend-test",
+    "python",
+    "-c",
+    "import pytest; from app.services import geo_retests, geo_plan_locks; geo_retests.lock_resources = lambda db, values, **kwargs: geo_plan_locks.lock_resources(db, values); raise SystemExit(pytest.main([\"tests/integration/test_geo_retests.py::test_retest_and_source_review_do_not_form_foreign_key_lock_cycle[False]\", \"-x\"]))"
+  ],
+  "exit_code": 1,
+  "elapsed_seconds": 4.927
+}

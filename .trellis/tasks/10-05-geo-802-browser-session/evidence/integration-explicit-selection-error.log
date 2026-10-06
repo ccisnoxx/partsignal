@@ -1,0 +1,52 @@
+ Container partsignal-dev-redis-1 Running 
+ Container partsignal-dev-postgres-1 Running 
+ Container partsignal-dev-postgres-1 Waiting 
+ Container partsignal-dev-redis-1 Waiting 
+ Container partsignal-dev-redis-1 Healthy 
+ Container partsignal-dev-postgres-1 Healthy 
+ Container partsignal-dev-backend-test-run-9a4c822d64c2 Creating 
+ Container partsignal-dev-backend-test-run-9a4c822d64c2 Created 
+
+ERROR: not found: /app/tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[UPDATE
+(no match in any of [<Module test_geo_r2_immutability.py>])
+
+ERROR: not found: /app/tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[DELETE
+(no match in any of [<Module test_geo_r2_immutability.py>])
+
+ERROR: not found: /app/tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[UPDATE
+(no match in any of [<Module test_geo_r2_immutability.py>])
+
+ERROR: not found: /app/tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[DELETE
+(no match in any of [<Module test_geo_r2_immutability.py>])
+
+ERROR: not found: /app/tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[UPDATE
+(no match in any of [<Module test_geo_r2_immutability.py>])
+
+ERROR: not found: /app/tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[DELETE
+(no match in any of [<Module test_geo_r2_immutability.py>])
+
+ERROR: not found: /app/tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[UPDATE
+(no match in any of [<Module test_geo_r2_immutability.py>])
+
+ERROR: not found: /app/tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[DELETE
+(no match in any of [<Module test_geo_r2_immutability.py>])
+
+ERROR: not found: /app/tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[UPDATE
+(no match in any of [<Module test_geo_r2_immutability.py>])
+
+ERROR: not found: /app/tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[DELETE
+(no match in any of [<Module test_geo_r2_immutability.py>])
+
+ERROR: not found: /app/tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[UPDATE
+(no match in any of [<Module test_geo_r2_immutability.py>])
+
+ERROR: not found: /app/tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[DELETE
+(no match in any of [<Module test_geo_r2_immutability.py>])
+
+ERROR: not found: /app/tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[UPDATE
+(no match in any of [<Module test_geo_r2_immutability.py>])
+
+ERROR: not found: /app/tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[DELETE
+(no match in any of [<Module test_geo_r2_immutability.py>])
+
+

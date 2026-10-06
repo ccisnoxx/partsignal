@@ -1,0 +1,5 @@
+
+> partsignal-frontend-v2@0.1.0 test
+> vitest run --maxWorkers=4 --reporter=json --outputFile=/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-02-geo-301-batch-run/evidence/frontend-unit.json
+
+JSON report written to /Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-02-geo-301-batch-run/evidence/frontend-unit.json

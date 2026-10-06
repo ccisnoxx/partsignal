@@ -1,0 +1,32 @@
+
+> partsignal-frontend-v2@0.1.0 test
+> vitest run src/domains/audit/audit.model.test.ts
+
+
+ RUN  v4.1.10 /Users/sc/PycharmProjects/partsignal/frontend
+
+ ❯ src/domains/audit/audit.model.test.ts (24 tests | 1 failed) 24ms
+     × 管理员机会评估安全回执可展示，未知对象不生成导航 5ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/domains/audit/audit.model.test.ts > 系统审计 model > 管理员机会评估安全回执可展示，未知对象不生成导航
+Error: 审计响应安全投影失败
+ ❯ auditRuntimeProjectionFailed src/domains/audit/audit.model.ts:105:10
+    103|
+    104| function auditRuntimeProjectionFailed(): Error {
+    105|   return new Error(auditRuntimeProjectionErrorMessage);
+       |          ^
+    106| }
+    107|
+ ❯ parseAuditLogDetailResponse src/domains/audit/audit.model.ts:415:11
+ ❯ src/domains/audit/audit.model.test.ts:64:23
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 23 passed (24)
+   Start at  22:12:11
+   Duration  620ms (transform 35ms, setup 91ms, import 35ms, tests 24ms, environment 407ms)
+

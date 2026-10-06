@@ -1,0 +1,170 @@
+[
+  {
+    "path": "backend/alembic/versions/0066_geo_manual_evaluation.py",
+    "exit_code": 1,
+    "output": "",
+    "passed": true
+  },
+  {
+    "path": "backend/app/audit_types.py",
+    "exit_code": 1,
+    "output": "",
+    "passed": true
+  },
+  {
+    "path": "backend/app/models/__init__.py",
+    "exit_code": 1,
+    "output": "",
+    "passed": true
+  },
+  {
+    "path": "backend/app/models/geo_opportunity_evaluation.py",
+    "exit_code": 1,
+    "output": "",
+    "passed": true
+  },
+  {
+    "path": "backend/app/routers/geo_opportunities.py",
+    "exit_code": 1,
+    "output": "",
+    "passed": true
+  },
+  {
+    "path": "backend/app/schemas/geo_opportunity_evaluation.py",
+    "exit_code": 1,
+    "output": "",
+    "passed": true
+  },
+  {
+    "path": "backend/app/services/geo_opportunities.py",
+    "exit_code": 1,
+    "output": "",
+    "passed": true
+  },
+  {
+    "path": "backend/app/services/geo_opportunity_evaluation.py",
+    "exit_code": 1,
+    "output": "",
+    "passed": true
+  },
+  {
+    "path": "backend/app/services/identity.py",
+    "exit_code": 1,
+    "output": "",
+    "passed": true
+  },
+  {
+    "path": "backend/tests/geo_loop_e2e_seed.py",
+    "exit_code": 1,
+    "output": "",
+    "passed": true
+  },
+  {
+    "path": "backend/tests/geo_opportunity_e2e_seed.py",
+    "exit_code": 1,
+    "output": "",
+    "passed": true
+  },
+  {
+    "path": "backend/tests/integration/geo_loop_support.py",
+    "exit_code": 1,
+    "output": "",
+    "passed": true
+  },
+  {
+    "path": "backend/tests/integration/test_geo_manual_evaluation_migration.py",
+    "exit_code": 1,
+    "output": "",
+    "passed": true
+  },
+  {
+    "path": "backend/tests/integration/test_geo_manual_opportunity_evaluation.py",
+    "exit_code": 1,
+    "output": "",
+    "passed": true
+  },
+  {
+    "path": "backend/tests/integration/test_geo_opportunities.py",
+    "exit_code": 1,
+    "output": "",
+    "passed": true
+  },
+  {
+    "path": "backend/tests/integration/test_migrations.py",
+    "exit_code": 1,
+    "output": "",
+    "passed": true
+  },
+  {
+    "path": "backend/tests/unit/test_contract.py",
+    "exit_code": 1,
+    "output": "",
+    "passed": true
+  },
+  {
+    "path": "contracts/database.md",
+    "exit_code": 1,
+    "output": "",
+    "passed": true
+  },
+  {
+    "path": "contracts/openapi.yaml",
+    "exit_code": 1,
+    "output": "",
+    "passed": true
+  },
+  {
+    "path": "docs/geo-monitoring/01-product/05-v1-release-capability-matrix.md",
+    "exit_code": 1,
+    "output": "",
+    "passed": true
+  },
+  {
+    "path": "docs/geo-monitoring/02-business/03-workflows-and-state-machines.md",
+    "exit_code": 1,
+    "output": "",
+    "passed": true
+  },
+  {
+    "path": "docs/geo-monitoring/03-technical/09-backup-recovery-runbook.md",
+    "exit_code": 1,
+    "output": "",
+    "passed": true
+  },
+  {
+    "path": "docs/geo-monitoring/03-technical/10-core-rollout-runbook.md",
+    "exit_code": 1,
+    "output": "",
+    "passed": true
+  },
+  {
+    "path": "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "exit_code": 1,
+    "output": "",
+    "passed": true
+  },
+  {
+    "path": "docs/geo-monitoring/SHA256SUMS",
+    "exit_code": 1,
+    "output": "",
+    "passed": true
+  },
+  {
+    "path": "frontend/src/domains/audit/audit.model.test.ts",
+    "exit_code": 1,
+    "output": "",
+    "passed": true
+  },
+  {
+    "path": "frontend/src/domains/audit/audit.model.ts",
+    "exit_code": 1,
+    "output": "",
+    "passed": true
+  },
+  {
+    "path": "frontend/src/shared/api/generated/schema.d.ts",
+    "exit_code": 1,
+    "output": "",
+    "passed": true
+  }
+]

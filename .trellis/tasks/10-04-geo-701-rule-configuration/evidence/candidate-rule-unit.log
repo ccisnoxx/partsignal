@@ -1,0 +1,35 @@
+..................F..............................................        [100%]
+=================================== FAILURES ===================================
+________ test_public_components_match_pydantic[GeoObservationBatchOut] _________
+
+contract = {'components': {'headers': {'RequestIdResponseHeader': {'required': True, 'schema': {'maxLength': 100, 'minLength': 1,.../components/responses/ErrorResponse'}, '403': {'$ref': '#/components/responses/ErrorResponse'}, ...}, ...}}, ...}, ...}
+model = <class 'app.schemas.geo_runs.GeoObservationBatchOut'>
+
+    @pytest.mark.parametrize(
+        "model",
+        [
+            schemas.GeoObservationBatchOut,
+            schemas.GeoObservationRunOut,
+            schemas.GeoRunInputSnapshot,
+            schemas.GeoRunCommandErrorCode,
+        ],
+    )
+    def test_public_components_match_pydantic(contract: dict[str, Any], model: type) -> None:
+        component = TypeAdapter(model).json_schema(ref_template="#/components/schemas/{model}")
+        definitions = component.pop("$defs", {})
+        assert contract["components"]["schemas"][model.__name__] == component
+        for name, definition in definitions.items():
+>           assert annotations_removed(contract["components"]["schemas"][name]) == annotations_removed(
+                definition
+            )
+E           AssertionError: assert {'additionalP...pe': 'object'} == {'additionalP...pe': 'object'}
+E             
+E             Omitting 2 identical items, use -vv to show
+E             Differing items:
+E             {'properties': {'competitor_surge_points': {'default': 0.15, 'maximum': 1.0, 'minimum': 0.0, 'type': 'number'}, 'data_...}, {'type': 'null'}]}, 'dedup_window_days': {'default': 30, 'maximum': 365.0, 'minimum': 1.0, 'type': 'integer'}, ...}} != {'properties': {'competitor_surge_points': {'default': 0.15, 'maximum': 1, 'minimum': 0, 'type': 'number'}, 'data_qual...null'}], 'default': None}, 'dedup_window_days': {'default': 30, 'maximum': 365, 'minimum': 1, 'type': 'integer'}, ...}}
+E             Use -v to get more diff
+
+backend/tests/unit/test_geo_run_contract.py:123: AssertionError
+=========================== short test summary info ============================
+FAILED backend/tests/unit/test_geo_run_contract.py::test_public_components_match_pydantic[GeoObservationBatchOut]
+1 failed, 64 passed in 2.76s

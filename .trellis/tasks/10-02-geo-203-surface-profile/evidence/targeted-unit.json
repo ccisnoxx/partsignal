@@ -1,0 +1,6 @@
+{
+  "command": "UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/unit/test_geo_surface_contract.py",
+  "exit_code": 0,
+  "seconds": 0.64,
+  "log": "targeted-unit.log"
+}

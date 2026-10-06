@@ -1,0 +1,17 @@
+{
+  "head": "cd88fbf61d65018f7eb1a47b9f0f379ed47e3814",
+  "branch": "geo/GEO-307",
+  "files": [
+    "frontend/src/app/navigation.ts",
+    "frontend/src/app/navigation.test.ts",
+    "frontend/src/routeTree.gen.ts",
+    "frontend/src/domains/geo-plans/plan-detail.tsx",
+    "deploy/scripts/e2e-local.sh",
+    "docs/geo-monitoring/03-technical/04-frontend-architecture.md",
+    "docs/geo-monitoring/03-technical/07-testing-and-quality.md",
+    "docs/geo-monitoring/README.md",
+    "docs/geo-monitoring/CHANGELOG.md",
+    "docs/geo-monitoring/SHA256SUMS",
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml"
+  ]
+}

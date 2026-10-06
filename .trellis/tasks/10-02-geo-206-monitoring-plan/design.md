@@ -1,0 +1,7 @@
+# GEO-206 设计
+
+PRD的product/topic/surface是页面层业务概念，领域/数据架构明确落实成Subject/PromptVariant/Profile；不复制现有聚合身份或资格。Create/Update是完整配置，Out是数据组件，不伪造未来stage/action；初始DISABLED/revision0。
+
+父Plan和三关系是一个一致性边界。DEFERRABLE约束触发器允许创建/替换过程暂时为空，只检查最终提交状态；归档关系不可写。关系行写入先锁父Plan，并对同一父行作无业务字段变化的UPDATE建立MVCC写冲突，保证REPEATABLE READ下也不能并发删除不同最后PRIMARY。逻辑revision不由该串行化写入改变。未来Service先按现有资源锁序锁资源，再锁Plan并CAS，整体配置变更递增一次revision；当前任务不实现该命令。
+
+数据库只约束Cron非空及MANUAL空，完整词法匹配后数值/范围/步长复用Celery在Schema边界；IANA时区Schema用ZoneInfo，DB用pg_timezone_names精确目录。ACTIVE/PAUSED/ARCHIVED是配置生命周期枚举，状态转换/资格不在206实现。归档只读由DB守卫保护标量与关系；资源停用不移除配置关系或写历史锁存。

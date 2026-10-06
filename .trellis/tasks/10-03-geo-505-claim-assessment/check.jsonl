@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "行为金标和真实PG、用户最低门禁"}
+{"file": "docs/geo-monitoring/02-business/04-monitoring-methodology-and-metrics.md", "reason": "声明准确性、关键条件和严重度，不实现指标"}
+{"file": ".trellis/tasks/10-03-geo-505-claim-assessment/research.md", "reason": "完整权威单元定位，禁止依赖长合同注入截断"}
+{"file": ".trellis/tasks/10-03-geo-505-claim-assessment/design.md", "reason": "当前任务状态所有权和纯阶段边界"}

@@ -1,0 +1,69 @@
+docker compose -p partsignal-geo205-validation -f .trellis/tasks/10-02-geo-205-surface-management/evidence/validation-compose.yaml run --rm backend-test
+ Container partsignal-geo205-validation-postgres-1 Running 
+ Container partsignal-geo205-validation-redis-1 Running 
+ Container partsignal-geo205-validation-fake-oss-1 Running 
+ Container partsignal-geo205-validation-postgres-1 Waiting 
+ Container partsignal-geo205-validation-postgres-1 Healthy 
+ Container partsignal-geo205-validation-backend-test-run-32db1e8b62d8 Creating 
+ Container partsignal-geo205-validation-backend-test-run-32db1e8b62d8 Created 
+........................................................................ [ 12%]
+........................................................................ [ 25%]
+........................................................................ [ 37%]
+........................................................................ [ 50%]
+........................................E............................... [ 62%]
+........................................................................ [ 75%]
+........................................................................ [ 88%]
+....................................................................     [100%]
+==================================== ERRORS ====================================
+_ ERROR at setup of test_actual_admin_and_engineer_payloads_satisfy_closed_public_read_contract _
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/unit/test_geo_surface_contract.py:62: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/usr/local/lib/python3.12/pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = PosixPath('/contracts/openapi.yaml'), mode = 'r', buffering = -1
+encoding = 'locale', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: '/contracts/openapi.yaml'
+
+/usr/local/lib/python3.12/pathlib.py:1013: FileNotFoundError
+=============================== warnings summary ===============================
+tests/integration/test_geo_catalog.py::test_catalog_metadata_matches_migrated_postgresql
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_catalog.py:187: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+
+tests/integration/test_geo_catalog.py::test_catalog_metadata_matches_migrated_postgresql
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_catalog.py:187: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+
+tests/integration/test_geo_prompt_variants.py::test_additive_migration_metadata_and_safe_stop
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_prompt_variants.py:176: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+
+tests/integration/test_geo_prompt_variants.py::test_additive_migration_metadata_and_safe_stop
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_prompt_variants.py:176: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+
+tests/integration/test_geo_surfaces_profiles.py::test_old_head_forward_preserves_rows_metadata_and_downgrade_stops
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_surfaces_profiles.py:188: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+
+tests/integration/test_geo_surfaces_profiles.py::test_old_head_forward_preserves_rows_metadata_and_downgrade_stops
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_surfaces_profiles.py:188: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+ERROR tests/integration/test_geo_surface_management_api.py::test_actual_admin_and_engineer_payloads_satisfy_closed_public_read_contract
+571 passed, 6 warnings, 1 error in 329.34s (0:05:29)
+
+make: *** [test-integration] Error 1

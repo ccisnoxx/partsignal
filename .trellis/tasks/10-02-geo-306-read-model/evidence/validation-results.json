@@ -1,0 +1,78 @@
+{
+  "commands": [
+    {
+      "command": "git diff --check",
+      "result": "passed",
+      "exit_code": 0,
+      "log": "git-diff-check.log"
+    },
+    {
+      "command": "make contract-generate",
+      "result": "passed",
+      "exit_code": 0,
+      "log": "contract-generate.log"
+    },
+    {
+      "command": "make contract-check",
+      "result": "passed",
+      "exit_code": 0,
+      "log": "make-contract-check.log"
+    },
+    {
+      "command": "make lint",
+      "result": "passed：ruff与ESLint",
+      "exit_code": 0,
+      "log": "make-lint.log"
+    },
+    {
+      "command": "make typecheck",
+      "result": "passed：mypy142文件，tsc",
+      "exit_code": 0,
+      "log": "make-typecheck.log"
+    },
+    {
+      "command": "make test-unit",
+      "result": "passed：backend2717/frontend1067",
+      "exit_code": 0,
+      "log": "make-test-unit-final.log"
+    },
+    {
+      "command": "make test-integration COMPOSE='docker --context colima compose -f .trellis/tasks/10-02-geo-306-read-model/evidence/compose.validation.yaml'",
+      "result": "769 passed/16 warnings",
+      "exit_code": 0,
+      "log": "make-test-integration.log"
+    },
+    {
+      "command": "docker --context colima compose -f .trellis/tasks/10-02-geo-306-read-model/evidence/compose.validation.yaml run --rm backend-test pytest tests/integration/test_geo_read_models.py tests/integration/test_geo_read_consistency.py",
+      "result": "15 passed",
+      "exit_code": 0,
+      "log": "read-integration-final-verified.log"
+    },
+    {
+      "command": "UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/unit/test_geo_read_contract.py backend/tests/unit/test_geo_batch_policy.py",
+      "result": "776 passed",
+      "exit_code": 0,
+      "log": "read-unit-final.log"
+    }
+  ],
+  "initial_failures": [
+    "make-test-unit.log：2个新增合同元数据断言错误，修正后完整门禁通过",
+    "read-integration-initial.log：测试违反历史Prompt不可变/相同Profile更新；修正fixture，保留守卫",
+    "read-consistency.log：查询数预期多算1；实际不随关联增长",
+    "read-integration-final.log及read-integration-final-corrected.log：补充测试缺少Subject范围/未显式配置默认重复3，修正后15通过"
+  ],
+  "not_run": [
+    {
+      "check": "browser E2E",
+      "reason": "只有后端读取与generated，无页面/路由/URL/query旅程变化"
+    },
+    {
+      "check": "真实Aliyun OSS/外部AI",
+      "reason": "普通验证仅本地模拟服务；本任务没有Collector接入"
+    },
+    {
+      "check": "大历史性能基准",
+      "reason": "未作性能改善承诺；固定查询数已实测"
+    }
+  ]
+}

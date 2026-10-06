@@ -209,6 +209,7 @@ def production_configuration_summary() -> dict[str, object]:
         "content_generator": settings.content_generator,
         "database_configured": explicit_environment["DATABASE_URL"],
         "environment": settings.environment,
+        "geo_browser_collection_enabled": settings.geo_browser_collection_enabled,
         "object_storage_backend": settings.object_storage_backend,
         "oss_access_key_id_configured": bool(settings.oss_access_key_id),
         "oss_access_key_secret_configured": bool(settings.oss_access_key_secret),

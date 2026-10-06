@@ -1,0 +1,158 @@
+{
+  "contracts/openapi.yaml": {
+    "before": ".trellis/tasks/10-05-geo-1005-cron-plan-boundary/evidence/before/contracts/openapi.yaml",
+    "after": "contracts/openapi.yaml"
+  },
+  "contracts/database.md": {
+    "before": ".trellis/tasks/10-05-geo-1005-cron-plan-boundary/evidence/before/contracts/database.md",
+    "after": "contracts/database.md"
+  },
+  "frontend/tests/e2e/plans-real-stack.spec.ts": {
+    "before": ".trellis/tasks/10-05-geo-1005-cron-plan-boundary/evidence/before/frontend/tests/e2e/plans-real-stack.spec.ts",
+    "after": "frontend/tests/e2e/plans-real-stack.spec.ts"
+  },
+  "frontend/src/domains/geo-runs/batch-create.test.tsx": {
+    "before": ".trellis/tasks/10-05-geo-1005-cron-plan-boundary/evidence/before/frontend/src/domains/geo-runs/batch-create.test.tsx",
+    "after": "frontend/src/domains/geo-runs/batch-create.test.tsx"
+  },
+  "frontend/src/domains/geo-runs/batch-create.tsx": {
+    "before": ".trellis/tasks/10-05-geo-1005-cron-plan-boundary/evidence/before/frontend/src/domains/geo-runs/batch-create.tsx",
+    "after": "frontend/src/domains/geo-runs/batch-create.tsx"
+  },
+  "frontend/src/domains/geo-plans/plans.test-support.tsx": {
+    "before": ".trellis/tasks/10-05-geo-1005-cron-plan-boundary/evidence/before/frontend/src/domains/geo-plans/plans.test-support.tsx",
+    "after": "frontend/src/domains/geo-plans/plans.test-support.tsx"
+  },
+  "frontend/src/domains/geo-plans/plans-page.test.tsx": {
+    "before": ".trellis/tasks/10-05-geo-1005-cron-plan-boundary/evidence/before/frontend/src/domains/geo-plans/plans-page.test.tsx",
+    "after": "frontend/src/domains/geo-plans/plans-page.test.tsx"
+  },
+  "frontend/src/domains/geo-plans/plan-detail.tsx": {
+    "before": ".trellis/tasks/10-05-geo-1005-cron-plan-boundary/evidence/before/frontend/src/domains/geo-plans/plan-detail.tsx",
+    "after": "frontend/src/domains/geo-plans/plan-detail.tsx"
+  },
+  "frontend/src/domains/geo-plans/plan-wizard-steps.tsx": {
+    "before": ".trellis/tasks/10-05-geo-1005-cron-plan-boundary/evidence/before/frontend/src/domains/geo-plans/plan-wizard-steps.tsx",
+    "after": "frontend/src/domains/geo-plans/plan-wizard-steps.tsx"
+  },
+  "frontend/src/domains/geo-plans/plans.model.ts": {
+    "before": ".trellis/tasks/10-05-geo-1005-cron-plan-boundary/evidence/before/frontend/src/domains/geo-plans/plans.model.ts",
+    "after": "frontend/src/domains/geo-plans/plans.model.ts"
+  },
+  "frontend/src/domains/geo-plans/plan-wizard.test.tsx": {
+    "before": ".trellis/tasks/10-05-geo-1005-cron-plan-boundary/evidence/before/frontend/src/domains/geo-plans/plan-wizard.test.tsx",
+    "after": "frontend/src/domains/geo-plans/plan-wizard.test.tsx"
+  },
+  "frontend/src/domains/geo-plans/plan-list.tsx": {
+    "before": ".trellis/tasks/10-05-geo-1005-cron-plan-boundary/evidence/before/frontend/src/domains/geo-plans/plan-list.tsx",
+    "after": "frontend/src/domains/geo-plans/plan-list.tsx"
+  },
+  "frontend/src/domains/geo-plans/plans.api.ts": {
+    "before": ".trellis/tasks/10-05-geo-1005-cron-plan-boundary/evidence/before/frontend/src/domains/geo-plans/plans.api.ts",
+    "after": "frontend/src/domains/geo-plans/plans.api.ts"
+  },
+  "frontend/src/domains/geo-plans/plan-controls.tsx": {
+    "before": ".trellis/tasks/10-05-geo-1005-cron-plan-boundary/evidence/before/frontend/src/domains/geo-plans/plan-controls.tsx",
+    "after": "frontend/src/domains/geo-plans/plan-controls.tsx"
+  },
+  "frontend/src/domains/geo-plans/plans.model.test.ts": {
+    "before": ".trellis/tasks/10-05-geo-1005-cron-plan-boundary/evidence/before/frontend/src/domains/geo-plans/plans.model.test.ts",
+    "after": "frontend/src/domains/geo-plans/plans.model.test.ts"
+  },
+  "frontend/src/domains/geo-plans/plan-wizard.tsx": {
+    "before": ".trellis/tasks/10-05-geo-1005-cron-plan-boundary/evidence/before/frontend/src/domains/geo-plans/plan-wizard.tsx",
+    "after": "frontend/src/domains/geo-plans/plan-wizard.tsx"
+  },
+  "frontend/src/shared/api/generated/schema.d.ts": {
+    "before": ".trellis/tasks/10-05-geo-1005-cron-plan-boundary/evidence/before/frontend/src/shared/api/generated/schema.d.ts",
+    "after": "frontend/src/shared/api/generated/schema.d.ts"
+  },
+  "backend/app/schemas/geo_plan_management.py": {
+    "before": ".trellis/tasks/10-05-geo-1005-cron-plan-boundary/evidence/before/backend/app/schemas/geo_plan_management.py",
+    "after": "backend/app/schemas/geo_plan_management.py"
+  },
+  "backend/app/services/geo_plan_commands.py": {
+    "before": ".trellis/tasks/10-05-geo-1005-cron-plan-boundary/evidence/before/backend/app/services/geo_plan_commands.py",
+    "after": "backend/app/services/geo_plan_commands.py"
+  },
+  "backend/app/services/geo_batches.py": {
+    "before": ".trellis/tasks/10-05-geo-1005-cron-plan-boundary/evidence/before/backend/app/services/geo_batches.py",
+    "after": "backend/app/services/geo_batches.py"
+  },
+  "backend/app/services/geo_plan_policy.py": {
+    "before": ".trellis/tasks/10-05-geo-1005-cron-plan-boundary/evidence/before/backend/app/services/geo_plan_policy.py",
+    "after": "backend/app/services/geo_plan_policy.py"
+  },
+  "backend/app/services/geo_plan_queries.py": {
+    "before": ".trellis/tasks/10-05-geo-1005-cron-plan-boundary/evidence/before/backend/app/services/geo_plan_queries.py",
+    "after": "backend/app/services/geo_plan_queries.py"
+  },
+  "backend/tests/unit/test_geo_plan_management.py": {
+    "before": ".trellis/tasks/10-05-geo-1005-cron-plan-boundary/evidence/before/backend/tests/unit/test_geo_plan_management.py",
+    "after": "backend/tests/unit/test_geo_plan_management.py"
+  },
+  "backend/tests/integration/geo_recovery_support.py": {
+    "before": ".trellis/tasks/10-05-geo-1005-cron-plan-boundary/evidence/before/backend/tests/integration/geo_recovery_support.py",
+    "after": "backend/tests/integration/geo_recovery_support.py"
+  },
+  "backend/tests/integration/test_geo_batch_creation.py": {
+    "before": ".trellis/tasks/10-05-geo-1005-cron-plan-boundary/evidence/before/backend/tests/integration/test_geo_batch_creation.py",
+    "after": "backend/tests/integration/test_geo_batch_creation.py"
+  },
+  "docs/geo-monitoring/CHANGELOG.md": {
+    "before": ".trellis/tasks/10-05-geo-1005-cron-plan-boundary/evidence/before/docs/geo-monitoring/CHANGELOG.md",
+    "after": "docs/geo-monitoring/CHANGELOG.md"
+  },
+  "docs/geo-monitoring/SHA256SUMS": {
+    "before": ".trellis/tasks/10-05-geo-1005-cron-plan-boundary/evidence/before/docs/geo-monitoring/SHA256SUMS",
+    "after": "docs/geo-monitoring/SHA256SUMS"
+  },
+  "docs/geo-monitoring/04-delivery/task-manifest.yaml": {
+    "before": ".trellis/tasks/10-05-geo-1005-cron-plan-boundary/evidence/before/docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "after": "docs/geo-monitoring/04-delivery/task-manifest.yaml"
+  },
+  "docs/geo-monitoring/03-technical/09-backup-recovery-runbook.md": {
+    "before": ".trellis/tasks/10-05-geo-1005-cron-plan-boundary/evidence/before/docs/geo-monitoring/03-technical/09-backup-recovery-runbook.md",
+    "after": "docs/geo-monitoring/03-technical/09-backup-recovery-runbook.md"
+  },
+  "docs/geo-monitoring/03-technical/02-data-architecture.md": {
+    "before": ".trellis/tasks/10-05-geo-1005-cron-plan-boundary/evidence/before/docs/geo-monitoring/03-technical/02-data-architecture.md",
+    "after": "docs/geo-monitoring/03-technical/02-data-architecture.md"
+  },
+  "docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md": {
+    "before": ".trellis/tasks/10-05-geo-1005-cron-plan-boundary/evidence/before/docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md",
+    "after": "docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md"
+  },
+  "docs/geo-monitoring/03-technical/10-core-rollout-runbook.md": {
+    "before": ".trellis/tasks/10-05-geo-1005-cron-plan-boundary/evidence/before/docs/geo-monitoring/03-technical/10-core-rollout-runbook.md",
+    "after": "docs/geo-monitoring/03-technical/10-core-rollout-runbook.md"
+  },
+  "docs/geo-monitoring/03-technical/01-technical-architecture.md": {
+    "before": ".trellis/tasks/10-05-geo-1005-cron-plan-boundary/evidence/before/docs/geo-monitoring/03-technical/01-technical-architecture.md",
+    "after": "docs/geo-monitoring/03-technical/01-technical-architecture.md"
+  },
+  "docs/geo-monitoring/01-product/02-geo-core-prd.md": {
+    "before": ".trellis/tasks/10-05-geo-1005-cron-plan-boundary/evidence/before/docs/geo-monitoring/01-product/02-geo-core-prd.md",
+    "after": "docs/geo-monitoring/01-product/02-geo-core-prd.md"
+  },
+  "docs/geo-monitoring/01-product/05-v1-release-capability-matrix.md": {
+    "before": ".trellis/tasks/10-05-geo-1005-cron-plan-boundary/evidence/before/docs/geo-monitoring/01-product/05-v1-release-capability-matrix.md",
+    "after": "docs/geo-monitoring/01-product/05-v1-release-capability-matrix.md"
+  },
+  "docs/geo-monitoring/05-decisions/ADR-007-manual-first-v1-release-scope.md": {
+    "before": ".trellis/tasks/10-05-geo-1005-cron-plan-boundary/evidence/before/docs/geo-monitoring/05-decisions/ADR-007-manual-first-v1-release-scope.md",
+    "after": "docs/geo-monitoring/05-decisions/ADR-007-manual-first-v1-release-scope.md"
+  },
+  "docs/geo-monitoring/02-business/03-workflows-and-state-machines.md": {
+    "before": ".trellis/tasks/10-05-geo-1005-cron-plan-boundary/evidence/before/docs/geo-monitoring/02-business/03-workflows-and-state-machines.md",
+    "after": "docs/geo-monitoring/02-business/03-workflows-and-state-machines.md"
+  },
+  "backend/tests/integration/geo_cron_support.py": {
+    "before": null,
+    "after": "backend/tests/integration/geo_cron_support.py"
+  },
+  "backend/tests/integration/test_geo_cron_boundary.py": {
+    "before": null,
+    "after": "backend/tests/integration/test_geo_cron_boundary.py"
+  }
+}

@@ -1,0 +1,4135 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "PartSignal API",
+    "version": "0.1.1",
+    "description": "PartSignal MVP 契约。除登录外，写请求必须携带 X-CSRF-Token。"
+  },
+  "security": [
+    {
+      "sessionCookie": []
+    }
+  ],
+  "paths": {
+    "/api/v1/query-topics": {
+      "get": {
+        "tags": [
+          "planning"
+        ],
+        "operationId": "listQueryTopics",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/RequestIdHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "目标问题列表",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIdResponseHeader"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueryTopicList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "planning"
+        ],
+        "operationId": "createQueryTopic",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CsrfHeader"
+          },
+          {
+            "$ref": "#/components/parameters/RequestIdHeader"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryTopicCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "已创建",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIdResponseHeader"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueryTopic"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "422": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/query-topics/list-items": {
+      "get": {
+        "tags": [
+          "planning"
+        ],
+        "operationId": "listQueryTopicItems",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/QueryTopicListSort",
+              "default": "QUESTION_ASC"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "enum": [
+                10,
+                20,
+                50
+              ],
+              "default": 20
+            }
+          },
+          {
+            "$ref": "#/components/parameters/RequestIdHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Frontend V2 使用的 Query Topic 服务端搜索、排序与分页列表",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIdResponseHeader"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueryTopicListPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "422": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/query-topics/{query_topic_id}": {
+      "patch": {
+        "tags": [
+          "planning"
+        ],
+        "operationId": "updateQueryTopic",
+        "parameters": [
+          {
+            "name": "query_topic_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/CsrfHeader"
+          },
+          {
+            "$ref": "#/components/parameters/RequestIdHeader"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryTopicUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "已更新目标问题",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIdResponseHeader"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueryTopic"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "422": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "planning"
+        ],
+        "operationId": "deleteQueryTopic",
+        "parameters": [
+          {
+            "name": "query_topic_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "expected_revision",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "$ref": "#/components/parameters/CsrfHeader"
+          },
+          {
+            "$ref": "#/components/parameters/RequestIdHeader"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "目标问题已删除",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIdResponseHeader"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "422": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/geo-observation-publications": {
+      "get": {
+        "tags": [
+          "observation"
+        ],
+        "operationId": "listGeoObservationPublications",
+        "parameters": [
+          {
+            "name": "product_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/RequestIdHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "产品当前全部可观测公开文章",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIdResponseHeader"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeoPublicationCandidateList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "422": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/geo-observations": {
+      "get": {
+        "tags": [
+          "observation"
+        ],
+        "operationId": "listGeoObservations",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "sort_order",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ASC",
+                "DESC"
+              ],
+              "default": "DESC"
+            }
+          },
+          {
+            "name": "date_from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "date_to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "observation_kind",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "LEGACY_MODEL_RESULT",
+                "MANUAL_ARTICLE_SEARCH"
+              ]
+            }
+          },
+          {
+            "name": "product_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 500
+            }
+          },
+          {
+            "name": "query_topic_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "model_name",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 160
+            }
+          },
+          {
+            "name": "search_platform",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 160
+            }
+          },
+          {
+            "name": "publication_search",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 500
+            }
+          },
+          {
+            "name": "discovered",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "mentioned",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "recommendation",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "NONE",
+                "CANDIDATE",
+                "RECOMMENDED"
+              ]
+            }
+          },
+          {
+            "name": "has_citation",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "accuracy",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/AccuracyStatus"
+            }
+          },
+          {
+            "name": "recorder_search",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "only_mine",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "include_history",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "$ref": "#/components/parameters/RequestIdHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "分页观测列表；默认只返回纠正链尾",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIdResponseHeader"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeoObservationList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "422": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "observation"
+        ],
+        "operationId": "createGeoObservation",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CsrfHeader"
+          },
+          {
+            "$ref": "#/components/parameters/RequestIdHeader"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GeoObservationCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "已追加观测",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIdResponseHeader"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeoObservation"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "422": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/geo-observations/list-items": {
+      "get": {
+        "tags": [
+          "observation"
+        ],
+        "operationId": "listGeoObservationItems",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "product_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "geo_platform",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
+          },
+          {
+            "name": "accuracy",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/AccuracyStatus"
+            }
+          },
+          {
+            "name": "date_from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "date_to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "query_topic_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/GeoObservationListSort",
+              "default": "OBSERVED_DESC"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "enum": [
+                10,
+                20,
+                50
+              ],
+              "default": 20
+            }
+          },
+          {
+            "$ref": "#/components/parameters/RequestIdHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Frontend V2 GEO 观测紧凑列表；只返回纠正链尾",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIdResponseHeader"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeoObservationListPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "422": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/geo-observations/{observation_id}": {
+      "get": {
+        "tags": [
+          "observation"
+        ],
+        "operationId": "getGeoObservation",
+        "parameters": [
+          {
+            "name": "observation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/RequestIdHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "观测详情；纠正历史可直接读取",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIdResponseHeader"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeoObservation"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "422": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "observation"
+        ],
+        "operationId": "deleteGeoObservation",
+        "parameters": [
+          {
+            "name": "observation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/CsrfHeader"
+          },
+          {
+            "$ref": "#/components/parameters/RequestIdHeader"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "人工观测完整更正链已删除",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIdResponseHeader"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "422": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/geo-observations/{observation_id}/detail": {
+      "get": {
+        "tags": [
+          "observation"
+        ],
+        "operationId": "getGeoObservationDetail",
+        "parameters": [
+          {
+            "name": "observation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/RequestIdHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Frontend V2 GEO 观测只读详情；一次返回成果、证据与完整更正链",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIdResponseHeader"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeoObservationDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "422": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/geo-observations/{observation_id}/correction-context": {
+      "get": {
+        "tags": [
+          "observation"
+        ],
+        "operationId": "getGeoObservationCorrectionContext",
+        "parameters": [
+          {
+            "name": "observation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/RequestIdHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Frontend V2 GEO 更正工作台上下文；一次返回只读历史与当前文章候选",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIdResponseHeader"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeoObservationCorrectionContext"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "422": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/geo-metrics": {
+      "get": {
+        "tags": [
+          "observation"
+        ],
+        "operationId": "getGeoMetrics",
+        "parameters": [
+          {
+            "name": "date_from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "date_to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "observation_kind",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "LEGACY_MODEL_RESULT",
+                "MANUAL_ARTICLE_SEARCH"
+              ]
+            }
+          },
+          {
+            "name": "product_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 500
+            }
+          },
+          {
+            "name": "query_topic_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "model_name",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 160
+            }
+          },
+          {
+            "name": "search_platform",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 160
+            }
+          },
+          {
+            "name": "publication_search",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 500
+            }
+          },
+          {
+            "name": "discovered",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "mentioned",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "recommendation",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "NONE",
+                "CANDIDATE",
+                "RECOMMENDED"
+              ]
+            }
+          },
+          {
+            "name": "has_citation",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "accuracy",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/AccuracyStatus"
+            }
+          },
+          {
+            "name": "recorder_search",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "only_mine",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "include_history",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "$ref": "#/components/parameters/RequestIdHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "与观测列表筛选范围一致的 GEO 指标",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIdResponseHeader"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeoMetrics"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "422": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/geo-insights": {
+      "get": {
+        "tags": [
+          "observation"
+        ],
+        "operationId": "getGeoInsights",
+        "parameters": [
+          {
+            "name": "date_from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "date_to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "product_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "content_platform_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "geo_platform",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 160
+            }
+          },
+          {
+            "name": "published_article_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "query_topic_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/RequestIdHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "同一筛选范围内的人工 GEO 洞察、筛选选项与数据完整性",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIdResponseHeader"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeoInsights"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "422": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/geo-insights/optimization-content-tasks": {
+      "post": {
+        "tags": [
+          "observation"
+        ],
+        "operationId": "createGeoOptimizationContentTask",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CsrfHeader"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/RequestIdHeader"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GeoOptimizationContentTaskCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "已创建带不可变 GEO 来源快照的内容任务",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIdResponseHeader"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentTask"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "422": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "sessionCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "partsignal_session"
+      }
+    },
+    "headers": {
+      "RequestIdResponseHeader": {
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "pattern": "^[\\x20-\\x7E]+$"
+        }
+      }
+    },
+    "parameters": {
+      "CsrfHeader": {
+        "name": "X-CSRF-Token",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 32
+        }
+      },
+      "IdempotencyKey": {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 128
+        }
+      },
+      "RequestIdHeader": {
+        "name": "X-Request-ID",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "pattern": "^[\\x20-\\x7E]+$"
+        }
+      }
+    },
+    "responses": {
+      "ErrorResponse": {
+        "description": "业务或校验错误",
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIdResponseHeader"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "AccuracyStatus": {
+        "type": "string",
+        "enum": [
+          "ACCURATE",
+          "PARTIAL",
+          "INCORRECT",
+          "UNJUDGEABLE"
+        ]
+      },
+      "ActorSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "username",
+          "display_name"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "username": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          }
+        }
+      },
+      "CitationSourceType": {
+        "type": "string",
+        "enum": [
+          "OFFICIAL",
+          "EXTERNAL_COMPANY",
+          "OTHER"
+        ]
+      },
+      "Confidentiality": {
+        "type": "string",
+        "enum": [
+          "PUBLIC",
+          "INTERNAL",
+          "RESTRICTED"
+        ]
+      },
+      "ContentTask": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "product_id",
+          "fact_version_id",
+          "platform_profile_id",
+          "id",
+          "query_topic_id",
+          "source_published_content_issue_id",
+          "current_content_version_id",
+          "workflow_stage",
+          "primary_task",
+          "available_actions",
+          "deletion",
+          "status",
+          "revision",
+          "created_by",
+          "created_at",
+          "archived_at"
+        ],
+        "properties": {
+          "product_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fact_version_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "platform_profile_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "query_topic_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "source_published_content_issue_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "current_content_version_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "workflow_stage": {
+            "type": "string",
+            "enum": [
+              "NO_DRAFT",
+              "GENERATING",
+              "GENERATION_FAILED",
+              "DRAFT",
+              "REVIEW_PENDING",
+              "CHANGES_REQUESTED",
+              "APPROVED",
+              "PUBLISHING",
+              "VERIFIED",
+              "CANCELLED"
+            ]
+          },
+          "primary_task": {
+            "type": "string",
+            "enum": [
+              "CREATE_FIRST_DRAFT",
+              "VIEW_GENERATION_PROGRESS",
+              "HANDLE_GENERATION_FAILURE",
+              "EDIT_AND_SUBMIT_REVIEW",
+              "REVIEW_CONTENT",
+              "REVISE_CONTENT",
+              "START_PUBLICATION",
+              "CONTINUE_PUBLICATION",
+              "VIEW_FULL_LINEAGE",
+              "VIEW_CANCELLATION"
+            ]
+          },
+          "available_actions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "CANCEL",
+                "DELETE",
+                "ARCHIVE",
+                "RESTORE",
+                "PERMANENT_DELETE",
+                "CREATE_GENERATION_JOB",
+                "CREATE_MANUAL_VERSION"
+              ]
+            }
+          },
+          "deletion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeletionProjection"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/ContentTaskStatus"
+          },
+          "revision": {
+            "type": "integer"
+          },
+          "created_by": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "archived_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "ContentTaskStatus": {
+        "type": "string",
+        "enum": [
+          "OPEN",
+          "COMPLETED",
+          "CANCELLED"
+        ]
+      },
+      "DeletionBlocker": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type",
+          "count"
+        ],
+        "properties": {
+          "type": {
+            "$ref": "#/components/schemas/DeletionBlockerType"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "DeletionBlockerType": {
+        "type": "string",
+        "enum": [
+          "FACT_VERSION",
+          "CONTENT_TASK",
+          "GEO_OBSERVATION",
+          "CONTENT_VERSION",
+          "GENERATION_JOB",
+          "PUBLISHED_ARTICLE",
+          "PLATFORM_PROFILE",
+          "PLATFORM_ACCOUNT",
+          "PUBLICATION_WORK",
+          "PROTECTED_CONTENT_VERSION",
+          "PUBLISHED_CONTENT_ISSUE",
+          "GEO_OPTIMIZATION_SOURCE",
+          "USER_BUSINESS_HISTORY"
+        ]
+      },
+      "DeletionProjection": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "blockers"
+        ],
+        "properties": {
+          "blockers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeletionBlocker"
+            }
+          }
+        }
+      },
+      "ErrorDetail": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "message",
+          "details",
+          "request_id"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": true,
+            "default": {}
+          },
+          "request_id": {
+            "type": "string"
+          }
+        }
+      },
+      "ErrorEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorDetail"
+          }
+        }
+      },
+      "FileCategory": {
+        "type": "string",
+        "enum": [
+          "EVIDENCE",
+          "OPERATION_SCREENSHOT",
+          "PUBLICATION_ASSET",
+          "PLATFORM_LOGO"
+        ]
+      },
+      "FileRecord": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "category",
+          "original_filename",
+          "object_key",
+          "content_type",
+          "size",
+          "sha256",
+          "access_level",
+          "status",
+          "created_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "category": {
+            "$ref": "#/components/schemas/FileCategory"
+          },
+          "original_filename": {
+            "type": "string"
+          },
+          "object_key": {
+            "type": "string"
+          },
+          "content_type": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "access_level": {
+            "$ref": "#/components/schemas/Confidentiality"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "VERIFIED",
+              "FAILED",
+              "ABORTED",
+              "DELETING",
+              "DELETED"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "verified_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "GeoArticleResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "published_article_id",
+          "discovered",
+          "mentioned",
+          "accuracy",
+          "title",
+          "platform_name",
+          "final_url"
+        ],
+        "properties": {
+          "published_article_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "discovered": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "mentioned": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "accuracy": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AccuracyStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "platform_name": {
+            "type": "string"
+          },
+          "final_url": {
+            "type": "string",
+            "format": "uri",
+            "minLength": 1,
+            "maxLength": 2083
+          }
+        }
+      },
+      "GeoArticleResultCreate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "published_article_id",
+          "discovered",
+          "mentioned",
+          "accuracy"
+        ],
+        "properties": {
+          "published_article_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "discovered": {
+            "type": "boolean"
+          },
+          "mentioned": {
+            "type": "boolean"
+          },
+          "accuracy": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AccuracyStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "GeoCitation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "url",
+          "source_type"
+        ],
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "minLength": 1,
+            "maxLength": 2083
+          },
+          "source_type": {
+            "$ref": "#/components/schemas/CitationSourceType"
+          },
+          "published_article_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "GeoInsightContentPerformance": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "published_article_id",
+          "product_id",
+          "content_platform_id",
+          "title",
+          "content_platform",
+          "observation_count",
+          "discovery_rate",
+          "mention_rate",
+          "accuracy_rate",
+          "primary_task",
+          "optimization_action"
+        ],
+        "properties": {
+          "published_article_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "product_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "content_platform_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "content_platform": {
+            "type": "string"
+          },
+          "observation_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "discovery_rate": {
+            "$ref": "#/components/schemas/GeoInsightRateValue"
+          },
+          "mention_rate": {
+            "$ref": "#/components/schemas/GeoInsightRateValue"
+          },
+          "accuracy_rate": {
+            "$ref": "#/components/schemas/GeoInsightRateValue"
+          },
+          "primary_task": {
+            "type": "string",
+            "enum": [
+              "VIEW_CONTENT_PERFORMANCE",
+              "CREATE_OPTIMIZATION_TASK"
+            ]
+          },
+          "optimization_action": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GeoInsightOptimizationAction"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "GeoInsightContentRankings": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "best",
+          "declining",
+          "long_unmentioned"
+        ],
+        "properties": {
+          "best": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GeoInsightContentPerformance"
+            }
+          },
+          "declining": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GeoInsightDecliningContent"
+            }
+          },
+          "long_unmentioned": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GeoInsightLongUnmentionedContent"
+            }
+          }
+        }
+      },
+      "GeoInsightCoverageCounts": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "stable",
+          "occasional",
+          "uncovered",
+          "insufficient_data"
+        ],
+        "properties": {
+          "stable": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "occasional": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "uncovered": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "insufficient_data": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "GeoInsightCoverageItem": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "query_topic_id",
+          "canonical_question",
+          "geo_platform",
+          "status",
+          "observation_count",
+          "mentioned_observation_count",
+          "coverage_rate",
+          "primary_task",
+          "optimization_action"
+        ],
+        "properties": {
+          "query_topic_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "canonical_question": {
+            "type": "string"
+          },
+          "geo_platform": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "STABLE",
+              "OCCASIONAL",
+              "UNCOVERED",
+              "INSUFFICIENT_DATA"
+            ]
+          },
+          "observation_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "mentioned_observation_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "coverage_rate": {
+            "$ref": "#/components/schemas/GeoInsightRateValue"
+          },
+          "primary_task": {
+            "type": "string",
+            "enum": [
+              "VIEW_OBSERVATION_DETAILS",
+              "CREATE_OPTIMIZATION_TASK",
+              "ADD_OBSERVATION"
+            ]
+          },
+          "optimization_action": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GeoInsightOptimizationAction"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "GeoInsightDataQuality": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "eligible_observation_count",
+          "excluded_incomplete_observation_count",
+          "excluded_incomplete_relation_count",
+          "unavailable_sections"
+        ],
+        "properties": {
+          "eligible_observation_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "excluded_incomplete_observation_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "excluded_incomplete_relation_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unavailable_sections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GeoInsightUnavailableSection"
+            }
+          }
+        }
+      },
+      "GeoInsightDeclineBasis": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "metric",
+          "current_value",
+          "previous_value",
+          "decline"
+        ],
+        "properties": {
+          "metric": {
+            "type": "string",
+            "enum": [
+              "discovery_rate",
+              "mention_rate",
+              "accuracy_rate"
+            ]
+          },
+          "current_value": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "previous_value": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "decline": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      },
+      "GeoInsightDecliningContent": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "published_article_id",
+          "product_id",
+          "content_platform_id",
+          "title",
+          "content_platform",
+          "observation_count",
+          "discovery_rate",
+          "mention_rate",
+          "accuracy_rate",
+          "primary_task",
+          "optimization_action",
+          "basis"
+        ],
+        "properties": {
+          "published_article_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "product_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "content_platform_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "content_platform": {
+            "type": "string"
+          },
+          "observation_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "discovery_rate": {
+            "$ref": "#/components/schemas/GeoInsightRateValue"
+          },
+          "mention_rate": {
+            "$ref": "#/components/schemas/GeoInsightRateValue"
+          },
+          "accuracy_rate": {
+            "$ref": "#/components/schemas/GeoInsightRateValue"
+          },
+          "primary_task": {
+            "type": "string",
+            "enum": [
+              "VIEW_CONTENT_PERFORMANCE",
+              "CREATE_OPTIMIZATION_TASK"
+            ]
+          },
+          "optimization_action": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GeoInsightOptimizationAction"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "basis": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GeoInsightDeclineBasis"
+            }
+          }
+        }
+      },
+      "GeoInsightFilterOptions": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "products",
+          "content_platforms",
+          "geo_platforms",
+          "publications",
+          "query_topics"
+        ],
+        "properties": {
+          "products": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GeoInsightOption"
+            }
+          },
+          "content_platforms": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GeoInsightOption"
+            }
+          },
+          "geo_platforms": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "publications": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GeoInsightPublicationOption"
+            }
+          },
+          "query_topics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GeoInsightOption"
+            }
+          }
+        }
+      },
+      "GeoInsightLongUnmentionedContent": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "published_article_id",
+          "product_id",
+          "content_platform_id",
+          "title",
+          "content_platform",
+          "observation_count",
+          "discovery_rate",
+          "mention_rate",
+          "accuracy_rate",
+          "primary_task",
+          "optimization_action",
+          "unmentioned_days",
+          "last_mentioned_at"
+        ],
+        "properties": {
+          "published_article_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "product_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "content_platform_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "content_platform": {
+            "type": "string"
+          },
+          "observation_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "discovery_rate": {
+            "$ref": "#/components/schemas/GeoInsightRateValue"
+          },
+          "mention_rate": {
+            "$ref": "#/components/schemas/GeoInsightRateValue"
+          },
+          "accuracy_rate": {
+            "$ref": "#/components/schemas/GeoInsightRateValue"
+          },
+          "primary_task": {
+            "type": "string",
+            "enum": [
+              "VIEW_CONTENT_PERFORMANCE",
+              "CREATE_OPTIMIZATION_TASK"
+            ]
+          },
+          "optimization_action": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GeoInsightOptimizationAction"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unmentioned_days": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "last_mentioned_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "GeoInsightOptimizationAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rule_code",
+          "date_from",
+          "date_to",
+          "published_article_id",
+          "query_topic_id",
+          "geo_platform"
+        ],
+        "properties": {
+          "rule_code": {
+            "type": "string",
+            "enum": [
+              "CONTENT_DECLINE",
+              "LONG_UNMENTIONED",
+              "QUESTION_COVERAGE_GAP"
+            ]
+          },
+          "date_from": {
+            "type": "string",
+            "format": "date"
+          },
+          "date_to": {
+            "type": "string",
+            "format": "date"
+          },
+          "published_article_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "query_topic_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "geo_platform": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 160
+          }
+        }
+      },
+      "GeoInsightOption": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "label"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "label": {
+            "type": "string"
+          }
+        }
+      },
+      "GeoInsightPeriod": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "current",
+          "previous"
+        ],
+        "properties": {
+          "current": {
+            "$ref": "#/components/schemas/GeoInsightPeriodWindow"
+          },
+          "previous": {
+            "$ref": "#/components/schemas/GeoInsightPeriodWindow"
+          }
+        }
+      },
+      "GeoInsightPeriodWindow": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "date_from",
+          "date_to"
+        ],
+        "properties": {
+          "date_from": {
+            "type": "string",
+            "format": "date"
+          },
+          "date_to": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      },
+      "GeoInsightPlatformPerformance": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "geo_platform",
+          "observation_count",
+          "discovery_rate",
+          "mention_rate",
+          "accuracy_rate",
+          "primary_task"
+        ],
+        "properties": {
+          "geo_platform": {
+            "type": "string"
+          },
+          "observation_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "discovery_rate": {
+            "$ref": "#/components/schemas/GeoInsightRateValue"
+          },
+          "mention_rate": {
+            "$ref": "#/components/schemas/GeoInsightRateValue"
+          },
+          "accuracy_rate": {
+            "$ref": "#/components/schemas/GeoInsightRateValue"
+          },
+          "primary_task": {
+            "type": "string",
+            "const": "VIEW_OBSERVATION_DETAILS"
+          }
+        }
+      },
+      "GeoInsightPublicationOption": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "label",
+          "platform_name"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "label": {
+            "type": "string"
+          },
+          "platform_name": {
+            "type": "string"
+          }
+        }
+      },
+      "GeoInsightQuestionCoverage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "by_status",
+          "matrix"
+        ],
+        "properties": {
+          "by_status": {
+            "$ref": "#/components/schemas/GeoInsightCoverageCounts"
+          },
+          "matrix": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GeoInsightCoverageItem"
+            }
+          }
+        }
+      },
+      "GeoInsightRatePoint": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "numerator",
+          "denominator",
+          "value",
+          "date"
+        ],
+        "properties": {
+          "numerator": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "denominator": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "value": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 1
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      },
+      "GeoInsightRateTrend": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "current",
+          "previous",
+          "change",
+          "points"
+        ],
+        "properties": {
+          "current": {
+            "$ref": "#/components/schemas/GeoInsightRateValue"
+          },
+          "previous": {
+            "$ref": "#/components/schemas/GeoInsightRateValue"
+          },
+          "change": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "points": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GeoInsightRatePoint"
+            }
+          }
+        }
+      },
+      "GeoInsightRateValue": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "numerator",
+          "denominator",
+          "value"
+        ],
+        "properties": {
+          "numerator": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "denominator": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "value": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      },
+      "GeoInsightRecommendation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rule_code",
+          "priority",
+          "title",
+          "basis_text",
+          "basis_values",
+          "impact_relationship_count",
+          "published_article_ids",
+          "geo_platforms",
+          "query_topic_ids",
+          "detail_path"
+        ],
+        "properties": {
+          "rule_code": {
+            "type": "string",
+            "enum": [
+              "CONTENT_LONG_UNMENTIONED",
+              "CONTENT_PERFORMANCE_DECLINE",
+              "GEO_PLATFORM_PERFORMANCE_DECLINE",
+              "CONTENT_NEVER_DISCOVERED",
+              "QUESTION_UNCOVERED",
+              "QUESTION_OCCASIONAL",
+              "QUESTION_INSUFFICIENT_DATA"
+            ]
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "HIGH",
+              "MEDIUM",
+              "LOW"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "basis_text": {
+            "type": "string"
+          },
+          "basis_values": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GeoInsightRecommendationBasis"
+            }
+          },
+          "impact_relationship_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "published_article_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "geo_platforms": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "query_topic_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "detail_path": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "GeoInsightRecommendationBasis": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "metric",
+          "value",
+          "threshold",
+          "unit"
+        ],
+        "properties": {
+          "metric": {
+            "type": "string",
+            "enum": [
+              "unmentioned_days",
+              "discovery_rate",
+              "mention_rate",
+              "accuracy_rate",
+              "observation_count",
+              "coverage_rate"
+            ]
+          },
+          "value": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "threshold": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "RATIO",
+              "PERCENTAGE_POINT",
+              "COUNT",
+              "DAY"
+            ]
+          }
+        }
+      },
+      "GeoInsightTrends": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "discovery_rate",
+          "mention_rate",
+          "accuracy_rate"
+        ],
+        "properties": {
+          "discovery_rate": {
+            "$ref": "#/components/schemas/GeoInsightRateTrend"
+          },
+          "mention_rate": {
+            "$ref": "#/components/schemas/GeoInsightRateTrend"
+          },
+          "accuracy_rate": {
+            "$ref": "#/components/schemas/GeoInsightRateTrend"
+          }
+        }
+      },
+      "GeoInsightUnavailableSection": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "NO_COMPLETE_OBSERVATIONS",
+              "NO_COMPLETE_PREVIOUS_OBSERVATIONS",
+              "NO_GEO_PLATFORMS",
+              "LONG_UNMENTIONED_PERIOD_TOO_SHORT"
+            ]
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "GeoInsights": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "generated_at",
+          "analysis_unit",
+          "period",
+          "filter_options",
+          "trends",
+          "platform_performance",
+          "content_rankings",
+          "question_coverage",
+          "recommendations",
+          "data_quality"
+        ],
+        "properties": {
+          "generated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "analysis_unit": {
+            "type": "string",
+            "const": "MANUAL_OBSERVATION_PUBLICATION_RELATION",
+            "description": "独立发现率、提及率、准确率、平台率和内容排行统一使用当前链尾人工观测与逐篇发布内容关系作为基础单位"
+          },
+          "period": {
+            "$ref": "#/components/schemas/GeoInsightPeriod"
+          },
+          "filter_options": {
+            "$ref": "#/components/schemas/GeoInsightFilterOptions"
+          },
+          "trends": {
+            "$ref": "#/components/schemas/GeoInsightTrends"
+          },
+          "platform_performance": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GeoInsightPlatformPerformance"
+            }
+          },
+          "content_rankings": {
+            "$ref": "#/components/schemas/GeoInsightContentRankings"
+          },
+          "question_coverage": {
+            "$ref": "#/components/schemas/GeoInsightQuestionCoverage"
+          },
+          "recommendations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GeoInsightRecommendation"
+            }
+          },
+          "data_quality": {
+            "$ref": "#/components/schemas/GeoInsightDataQuality"
+          }
+        }
+      },
+      "GeoMetrics": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "legacy_sample_count",
+          "legacy_mention_rate",
+          "legacy_recommendation_rate",
+          "legacy_citation_rate",
+          "legacy_accuracy_rate",
+          "manual_observation_count",
+          "article_result_count",
+          "discovered_article_count",
+          "mentioned_article_count",
+          "article_discovery_rate",
+          "article_mention_rate",
+          "article_accuracy_rate"
+        ],
+        "properties": {
+          "legacy_sample_count": {
+            "type": "integer"
+          },
+          "legacy_mention_rate": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 1
+          },
+          "legacy_recommendation_rate": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 1
+          },
+          "legacy_citation_rate": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 1
+          },
+          "legacy_accuracy_rate": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 1
+          },
+          "manual_observation_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "article_result_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "discovered_article_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "mentioned_article_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "article_discovery_rate": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 1
+          },
+          "article_mention_rate": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 1
+          },
+          "article_accuracy_rate": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      },
+      "GeoObservation": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/LegacyGeoObservation"
+          },
+          {
+            "$ref": "#/components/schemas/ManualGeoObservation"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "observation_kind",
+          "mapping": {
+            "LEGACY_MODEL_RESULT": "#/components/schemas/LegacyGeoObservation",
+            "MANUAL_ARTICLE_SEARCH": "#/components/schemas/ManualGeoObservation"
+          }
+        }
+      },
+      "GeoObservationCorrectionContext": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "detail",
+          "correction_article_results",
+          "query_topic_options"
+        ],
+        "properties": {
+          "detail": {
+            "$ref": "#/components/schemas/ManualGeoObservationDetail"
+          },
+          "correction_article_results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GeoArticleResult"
+            }
+          },
+          "query_topic_options": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GeoObservationDetailQueryTopic"
+            }
+          }
+        }
+      },
+      "GeoObservationCorrectionHistoryItem": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "observation",
+          "query_topic",
+          "evidence",
+          "is_original",
+          "is_selected",
+          "is_chain_tail"
+        ],
+        "properties": {
+          "observation": {
+            "$ref": "#/components/schemas/ManualGeoObservation"
+          },
+          "query_topic": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GeoObservationDetailQueryTopic"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GeoObservationDetailEvidence"
+            }
+          },
+          "is_original": {
+            "type": "boolean"
+          },
+          "is_selected": {
+            "type": "boolean"
+          },
+          "is_chain_tail": {
+            "type": "boolean"
+          }
+        }
+      },
+      "GeoObservationCreate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "product_id",
+          "query_topic_id",
+          "search_platform",
+          "search_query",
+          "tested_at",
+          "article_results",
+          "notes"
+        ],
+        "properties": {
+          "product_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "query_topic_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "search_platform": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "search_query": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tested_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "article_results": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/GeoArticleResultCreate"
+            }
+          },
+          "attachment_file_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "notes": {
+            "type": "string"
+          },
+          "supersedes_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "GeoObservationDetail": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/LegacyGeoObservationDetail"
+          },
+          {
+            "$ref": "#/components/schemas/ManualGeoObservationDetail"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "observation_kind",
+          "mapping": {
+            "LEGACY_MODEL_RESULT": "#/components/schemas/LegacyGeoObservationDetail",
+            "MANUAL_ARTICLE_SEARCH": "#/components/schemas/ManualGeoObservationDetail"
+          }
+        }
+      },
+      "GeoObservationDetailEvidence": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "file",
+          "download"
+        ],
+        "properties": {
+          "file": {
+            "$ref": "#/components/schemas/FileRecord"
+          },
+          "download": {
+            "$ref": "#/components/schemas/SignedUrl"
+          }
+        }
+      },
+      "GeoObservationDetailPublication": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "platform_name",
+          "final_url"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "platform_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "final_url": {
+            "type": "string",
+            "format": "uri",
+            "minLength": 1,
+            "maxLength": 2083
+          }
+        }
+      },
+      "GeoObservationDetailQueryTopic": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "canonical_question"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "canonical_question": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "GeoObservationList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "page",
+          "page_size",
+          "total"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GeoObservation"
+            }
+          },
+          "page": {
+            "type": "integer"
+          },
+          "page_size": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          }
+        }
+      },
+      "GeoObservationListIndicator": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "positive_count",
+          "assessed_count",
+          "total_count"
+        ],
+        "properties": {
+          "positive_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "assessed_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "total_count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "GeoObservationListItem": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "observation_kind",
+          "query_text",
+          "product",
+          "geo_platform",
+          "outcomes",
+          "related_achievement_count",
+          "evidence_count",
+          "recorder",
+          "observed_at",
+          "available_actions"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "observation_kind": {
+            "type": "string",
+            "enum": [
+              "LEGACY_MODEL_RESULT",
+              "MANUAL_ARTICLE_SEARCH"
+            ]
+          },
+          "query_text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "product": {
+            "$ref": "#/components/schemas/GeoObservationListProduct"
+          },
+          "geo_platform": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "outcomes": {
+            "$ref": "#/components/schemas/GeoObservationListOutcomes"
+          },
+          "related_achievement_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "evidence_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "recorder": {
+            "$ref": "#/components/schemas/ActorSummary"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "available_actions": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": [
+                "CORRECT",
+                "DELETE"
+              ]
+            }
+          }
+        }
+      },
+      "GeoObservationListOutcomes": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "discovered",
+          "mentioned",
+          "accuracy"
+        ],
+        "properties": {
+          "discovered": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GeoObservationListIndicator"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mentioned": {
+            "$ref": "#/components/schemas/GeoObservationListIndicator"
+          },
+          "accuracy": {
+            "$ref": "#/components/schemas/GeoObservationListIndicator"
+          }
+        }
+      },
+      "GeoObservationListPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "page",
+          "page_size",
+          "total"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GeoObservationListItem"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "page_size": {
+            "type": "integer",
+            "enum": [
+              10,
+              20,
+              50
+            ]
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "GeoObservationListProduct": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "label"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "GeoObservationListSort": {
+        "type": "string",
+        "enum": [
+          "OBSERVED_DESC",
+          "OBSERVED_ASC"
+        ]
+      },
+      "GeoOptimizationContentTaskCreate": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "内容规则只携带 published_article_id；覆盖规则只携带 query_topic_id 与 geo_platform。目标 Product、Platform Profile 与 Fact Version 由命令端重新校验。",
+        "required": [
+          "rule_code",
+          "date_from",
+          "date_to",
+          "product_id",
+          "platform_profile_id",
+          "fact_version_id"
+        ],
+        "properties": {
+          "rule_code": {
+            "type": "string",
+            "enum": [
+              "CONTENT_DECLINE",
+              "LONG_UNMENTIONED",
+              "QUESTION_COVERAGE_GAP"
+            ]
+          },
+          "date_from": {
+            "type": "string",
+            "format": "date"
+          },
+          "date_to": {
+            "type": "string",
+            "format": "date"
+          },
+          "published_article_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "query_topic_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "geo_platform": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "product_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "platform_profile_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fact_version_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "GeoPublicationCandidate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "published_article_id",
+          "title",
+          "platform_name",
+          "final_url",
+          "status"
+        ],
+        "properties": {
+          "published_article_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "platform_name": {
+            "type": "string"
+          },
+          "final_url": {
+            "type": "string",
+            "format": "uri",
+            "minLength": 1,
+            "maxLength": 2083
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "COMPLETED"
+            ]
+          }
+        }
+      },
+      "GeoPublicationCandidateList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GeoPublicationCandidate"
+            }
+          }
+        }
+      },
+      "IntentType": {
+        "type": "string",
+        "enum": [
+          "BRAND",
+          "PRODUCT",
+          "REPLACEMENT",
+          "COMPARISON",
+          "APPLICATION",
+          "TROUBLESHOOTING"
+        ]
+      },
+      "LegacyGeoObservation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "observation_kind",
+          "id",
+          "query_topic_id",
+          "product_id",
+          "product_label",
+          "actual_prompt",
+          "model_name",
+          "tested_at",
+          "web_search_enabled",
+          "answer_summary",
+          "mentioned",
+          "recommendation",
+          "accuracy",
+          "citations",
+          "published_article_ids",
+          "attachment_file_ids",
+          "notes",
+          "tested_by",
+          "recorder",
+          "is_current",
+          "workflow_stage",
+          "primary_task",
+          "available_actions",
+          "created_at"
+        ],
+        "properties": {
+          "observation_kind": {
+            "type": "string",
+            "const": "LEGACY_MODEL_RESULT"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "query_topic_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "product_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "product_label": {
+            "type": "string"
+          },
+          "actual_prompt": {
+            "type": "string"
+          },
+          "model_name": {
+            "type": "string"
+          },
+          "model_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tested_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "web_search_enabled": {
+            "type": "boolean"
+          },
+          "answer_summary": {
+            "type": "string"
+          },
+          "mentioned": {
+            "type": "boolean"
+          },
+          "recommendation": {
+            "$ref": "#/components/schemas/RecommendationStatus"
+          },
+          "accuracy": {
+            "$ref": "#/components/schemas/AccuracyStatus"
+          },
+          "citations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GeoCitation"
+            }
+          },
+          "published_article_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "attachment_file_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "notes": {
+            "type": "string"
+          },
+          "supersedes_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "tested_by": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "recorder": {
+            "$ref": "#/components/schemas/ActorSummary"
+          },
+          "is_current": {
+            "type": "boolean"
+          },
+          "workflow_stage": {
+            "type": "string",
+            "const": "LEGACY"
+          },
+          "primary_task": {
+            "type": "string",
+            "const": "VIEW_HISTORICAL_RECORD"
+          },
+          "available_actions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "const": "CORRECT"
+            }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "LegacyGeoObservationDetail": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "observation_kind",
+          "observation",
+          "query_topic",
+          "product",
+          "published_articles",
+          "evidence"
+        ],
+        "properties": {
+          "observation_kind": {
+            "type": "string",
+            "const": "LEGACY_MODEL_RESULT"
+          },
+          "observation": {
+            "$ref": "#/components/schemas/LegacyGeoObservation"
+          },
+          "query_topic": {
+            "$ref": "#/components/schemas/GeoObservationDetailQueryTopic"
+          },
+          "product": {
+            "$ref": "#/components/schemas/GeoObservationListProduct"
+          },
+          "published_articles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GeoObservationDetailPublication"
+            }
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GeoObservationDetailEvidence"
+            }
+          }
+        }
+      },
+      "ManualGeoObservation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "observation_kind",
+          "id",
+          "query_topic_id",
+          "product_id",
+          "product_label",
+          "search_platform",
+          "search_query",
+          "tested_at",
+          "article_results",
+          "attachment_file_ids",
+          "notes",
+          "supersedes_id",
+          "tested_by",
+          "recorder",
+          "is_current",
+          "workflow_stage",
+          "primary_task",
+          "available_actions",
+          "created_at"
+        ],
+        "properties": {
+          "observation_kind": {
+            "type": "string",
+            "const": "MANUAL_ARTICLE_SEARCH"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "query_topic_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "product_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "product_label": {
+            "type": "string"
+          },
+          "search_platform": {
+            "type": "string"
+          },
+          "search_query": {
+            "type": "string"
+          },
+          "tested_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "article_results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GeoArticleResult"
+            }
+          },
+          "attachment_file_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "notes": {
+            "type": "string"
+          },
+          "supersedes_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "tested_by": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "recorder": {
+            "$ref": "#/components/schemas/ActorSummary"
+          },
+          "is_current": {
+            "type": "boolean"
+          },
+          "workflow_stage": {
+            "type": "string",
+            "enum": [
+              "READY",
+              "INCOMPLETE",
+              "SUPERSEDED"
+            ]
+          },
+          "primary_task": {
+            "type": "string",
+            "enum": [
+              "VIEW_ANALYSIS",
+              "CORRECT_OBSERVATION",
+              "VIEW_CORRECTION_HISTORY"
+            ]
+          },
+          "available_actions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "CORRECT",
+                "DELETE"
+              ]
+            }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ManualGeoObservationDetail": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "observation_kind",
+          "selected_observation_id",
+          "chain_root_id",
+          "chain_tail_id",
+          "product",
+          "correction_history"
+        ],
+        "properties": {
+          "observation_kind": {
+            "type": "string",
+            "const": "MANUAL_ARTICLE_SEARCH"
+          },
+          "selected_observation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "chain_root_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "chain_tail_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "product": {
+            "$ref": "#/components/schemas/GeoObservationListProduct"
+          },
+          "correction_history": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/GeoObservationCorrectionHistoryItem"
+            }
+          }
+        }
+      },
+      "QueryTopic": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "canonical_question",
+          "intent_type",
+          "variants",
+          "id",
+          "available_actions",
+          "deletion",
+          "primary_task",
+          "revision",
+          "created_at"
+        ],
+        "properties": {
+          "canonical_question": {
+            "type": "string",
+            "minLength": 1
+          },
+          "intent_type": {
+            "$ref": "#/components/schemas/IntentType"
+          },
+          "variants": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "available_actions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "UPDATE",
+                "DELETE"
+              ]
+            }
+          },
+          "deletion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeletionProjection"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "primary_task": {
+            "type": "string",
+            "const": "USE_FOR_OBSERVATION"
+          },
+          "revision": {
+            "type": "integer"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "QueryTopicCreate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "canonical_question",
+          "intent_type",
+          "variants"
+        ],
+        "properties": {
+          "canonical_question": {
+            "type": "string",
+            "minLength": 1
+          },
+          "intent_type": {
+            "$ref": "#/components/schemas/IntentType"
+          },
+          "variants": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      },
+      "QueryTopicList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QueryTopic"
+            }
+          }
+        }
+      },
+      "QueryTopicListItem": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "canonical_question",
+          "intent_type",
+          "variants",
+          "id",
+          "available_actions",
+          "deletion",
+          "primary_task",
+          "revision",
+          "created_at",
+          "references"
+        ],
+        "properties": {
+          "canonical_question": {
+            "type": "string",
+            "minLength": 1
+          },
+          "intent_type": {
+            "$ref": "#/components/schemas/IntentType"
+          },
+          "variants": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "available_actions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "UPDATE",
+                "DELETE"
+              ]
+            }
+          },
+          "deletion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeletionProjection"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "primary_task": {
+            "type": "string",
+            "const": "USE_FOR_OBSERVATION"
+          },
+          "revision": {
+            "type": "integer"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "references": {
+            "$ref": "#/components/schemas/QueryTopicReferenceSummary"
+          }
+        }
+      },
+      "QueryTopicListPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "page",
+          "page_size",
+          "total"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QueryTopicListItem"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "page_size": {
+            "type": "integer",
+            "enum": [
+              10,
+              20,
+              50
+            ]
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "QueryTopicListSort": {
+        "type": "string",
+        "enum": [
+          "QUESTION_ASC",
+          "QUESTION_DESC",
+          "INTENT_ASC",
+          "INTENT_DESC"
+        ]
+      },
+      "QueryTopicReferenceSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "content_task_count",
+          "geo_optimization_count",
+          "observation_count"
+        ],
+        "properties": {
+          "content_task_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "geo_optimization_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "observation_count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "QueryTopicUpdate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expected_revision",
+          "canonical_question",
+          "intent_type",
+          "variants"
+        ],
+        "properties": {
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "canonical_question": {
+            "type": "string",
+            "minLength": 1
+          },
+          "intent_type": {
+            "$ref": "#/components/schemas/IntentType"
+          },
+          "variants": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      },
+      "RecommendationStatus": {
+        "type": "string",
+        "enum": [
+          "NONE",
+          "CANDIDATE",
+          "RECOMMENDED"
+        ]
+      },
+      "SignedUrl": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "url",
+          "expires_at"
+        ],
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "minLength": 1,
+            "maxLength": 2083
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    }
+  }
+}

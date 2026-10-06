@@ -1,0 +1,15 @@
+{
+  "audit_id": "20261002T074402Z-geo-104-catalog-independent-review-17ed434b",
+  "audit_dir": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261002T074402Z-geo-104-catalog-independent-review-17ed434b",
+  "sequence": 3,
+  "name": "error-guard-review",
+  "prefix": "03-error-guard-review",
+  "paths": {
+    "draft": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261002T074402Z-geo-104-catalog-independent-review-17ed434b/03-error-guard-review.draft.json",
+    "plan": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261002T074402Z-geo-104-catalog-independent-review-17ed434b/03-error-guard-review.plan.json",
+    "dispatch_dir": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261002T074402Z-geo-104-catalog-independent-review-17ed434b/03-error-guard-review.dispatches",
+    "execution": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261002T074402Z-geo-104-catalog-independent-review-17ed434b/03-error-guard-review.execution.json",
+    "summary_json": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261002T074402Z-geo-104-catalog-independent-review-17ed434b/03-error-guard-review.summary.json",
+    "summary_text": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261002T074402Z-geo-104-catalog-independent-review-17ed434b/03-error-guard-review.summary.txt"
+  }
+}

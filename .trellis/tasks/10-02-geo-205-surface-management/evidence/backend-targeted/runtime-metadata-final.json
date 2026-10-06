@@ -1,0 +1,10 @@
+{
+  "command": "UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/unit/test_runtime_response_metadata.py --tb=short",
+  "exit_code": 0,
+  "result": "345 passed in 4.53s",
+  "restored_annotations": [
+    "GeoApiSettings.temperature.default=null",
+    "GeoApiSettings.max_output_tokens.default=null"
+  ],
+  "comparison": "仅在断言模型声明及导出值为 null 后，从深拷贝移除这两个 default annotation；响应合同和 operation metadata 继续完整比较。"
+}

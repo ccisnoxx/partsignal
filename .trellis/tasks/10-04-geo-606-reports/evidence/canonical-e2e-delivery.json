@@ -1,0 +1,10 @@
+{
+  "command": [
+    "env",
+    "DATABASE_URL=postgresql+psycopg://partsignal:partsignal_dev@127.0.0.1:55469/partsignal",
+    "REDIS_URL=redis://127.0.0.1:56409/14",
+    "deploy/scripts/e2e-local.sh"
+  ],
+  "exit_code": 0,
+  "duration_seconds": 316.89
+}

@@ -2,6 +2,8 @@
 set -eu
 
 script_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
+python3 "$script_dir/check-production-inputs.py" --deployment-boundary \
+  "${ENV_FILE:?必须通过 ENV_FILE 指定 Production 环境文件}"
 if test -z "${PARTSIGNAL_MAINTENANCE_LOCK_FD:-}"; then
   exec python3 "$script_dir/prepare-production-data.py" run-locked \
     "$script_dir/rollback-production-frontend.sh" "$@"

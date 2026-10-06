@@ -1,0 +1,20 @@
+        version_num         
+----------------------------
+ 0054_geo_analysis_contract
+(1 row)
+
+         tablename          
+----------------------------
+ geo_analysis_fact_versions
+ geo_analysis_revisions
+ geo_claim_assessments
+ geo_entity_mentions
+ geo_recommendations
+ geo_run_reviews
+(6 rows)
+
+ historical_runs 
+-----------------
+               0
+(1 row)
+

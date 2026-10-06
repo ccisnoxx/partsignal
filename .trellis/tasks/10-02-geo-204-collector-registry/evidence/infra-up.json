@@ -1,0 +1,18 @@
+{
+  "command": [
+    "docker",
+    "compose",
+    "-p",
+    "partsignal-geo204-validation",
+    "-f",
+    ".trellis/tasks/10-02-geo-204-collector-registry/evidence/validation-compose.yaml",
+    "up",
+    "--build",
+    "-d",
+    "postgres",
+    "redis",
+    "fake-oss"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 13.14
+}

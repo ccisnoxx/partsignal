@@ -1,0 +1,14 @@
+{
+  "changes_during_review": [
+    "docs/geo-monitoring/CHANGELOG.md",
+    "docs/geo-monitoring/SHA256SUMS",
+    "docs/geo-monitoring/04-delivery/02-work-breakdown-structure.md",
+    "docs/geo-monitoring/02-business/05-manual-geo-observation-sop.md",
+    "docs/geo-monitoring/04-delivery/codex-prompts/SHA256SUMS",
+    ".trellis/tasks/10-05-geo-804-approved-browser-adapter/task.json"
+  ],
+  "all_changes_by_primary": true,
+  "unexpected_changes": [],
+  "agent_role": "critical_reviewer/read-only",
+  "runtime_identity_not_inferred": true
+}

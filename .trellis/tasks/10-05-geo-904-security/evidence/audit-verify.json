@@ -1,0 +1,93 @@
+{
+  "report_type": "MULTI_AGENT_AUDIT_BUNDLE_REPORT",
+  "report_version": 1,
+  "status": "passed",
+  "audit_id": "20261005T182700Z-geo-904-622ed545",
+  "audit_dir": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261005T182700Z-geo-904-622ed545",
+  "bundle_status": "closed",
+  "artifact_count": 9,
+  "size_bytes": 19194,
+  "summary": {
+    "plan_count": 1,
+    "executed_attempt_count": 2,
+    "accepted_attempt_count": 2,
+    "independent_review_count": 0,
+    "attention_required": true,
+    "anomaly_count": 1
+  },
+  "artifacts": [
+    {
+      "path": "01-security-audit.dispatches/backend_security.json",
+      "kind": "dispatch_json",
+      "size_bytes": 161,
+      "sha256": "f5b351c34251e016d2242504fb4b7f49e168305d1419bfcb4db89a253b06d5b7",
+      "task_name": "backend_security",
+      "agent_type": "analyst"
+    },
+    {
+      "path": "01-security-audit.dispatches/frontend_deployment_security.json",
+      "kind": "dispatch_json",
+      "size_bytes": 173,
+      "sha256": "9c3872222e8b5fe0add04935fe5b4c91d0d6e2cbc9e27d1429a5ad369e91cca5",
+      "task_name": "frontend_deployment_security",
+      "agent_type": "analyst"
+    },
+    {
+      "path": "01-security-audit.draft.json",
+      "kind": "draft_plan_json",
+      "size_bytes": 2291,
+      "sha256": "28bc49a08abc5c15eda3efb84dd26932e1976bdcd7b651c90e831964dd99e34b",
+      "schema_version": 5,
+      "plan_id": "geo904-security-audit"
+    },
+    {
+      "path": "01-security-audit.execution.json",
+      "kind": "execution_json",
+      "size_bytes": 2409,
+      "sha256": "02201b0e12354c5ba87c72913d97c2f82e744b9c38478ff0923bd74bf94e856d",
+      "schema_version": 6,
+      "plan_id": "geo904-security-audit"
+    },
+    {
+      "path": "01-security-audit.plan.json",
+      "kind": "generated_plan_json",
+      "size_bytes": 3378,
+      "sha256": "4eff7de1d9ac2e8f74a0ead35fc8aa3ba94e490a38342ec4d6beb15fcedad234",
+      "schema_version": 5,
+      "planner_version": "1.5.1",
+      "plan_id": "geo904-security-audit"
+    },
+    {
+      "path": "01-security-audit.summary.json",
+      "kind": "summary_json",
+      "size_bytes": 4324,
+      "sha256": "ec765a891dd2cc9b81069c024ed9f4a83f9e0632b44fde452cf37a4d3bb722e3",
+      "schema_version": 3,
+      "plan_id": "geo904-security-audit"
+    },
+    {
+      "path": "01-security-audit.summary.txt",
+      "kind": "summary_text",
+      "size_bytes": 3552,
+      "sha256": "9e5b3dfa50c7df9186bda1a918df76a5e0eeb2ecc7bb21d3d036823c155bae99"
+    },
+    {
+      "path": "SUBAGENT_EXECUTION_DIGEST.json",
+      "kind": "digest_json",
+      "size_bytes": 1968,
+      "sha256": "4c47d0d0f36cfd009aa1ce800ac75d04a5f8c7e3c39682fce93cd8045ecb206d",
+      "schema_version": 3,
+      "plan_ids": [
+        "geo904-security-audit"
+      ]
+    },
+    {
+      "path": "SUBAGENT_EXECUTION_DIGEST.md",
+      "kind": "digest_markdown",
+      "size_bytes": 938,
+      "sha256": "52f37ff00552c6454d2a8e4f7b02aa4de15237b5b42672397539ddb24ef95ad1"
+    }
+  ],
+  "errors": [],
+  "warnings": []
+}

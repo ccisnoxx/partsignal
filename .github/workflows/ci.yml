@@ -40,6 +40,8 @@ jobs:
       OBJECT_STORAGE_ENDPOINT: http://127.0.0.1:19009
       PARTSIGNAL_SEED_ADMIN_PASSWORD: partsignal-admin-dev
       PARTSIGNAL_SEED_ENGINEER_PASSWORD: partsignal-engineer-dev
+      # Browser合同在仅回环的独立容器内运行；下载依赖不属于平台采集。
+      GEO_BROWSER_CONTRACT_CONTAINER: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -53,6 +55,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: uv sync --project backend --all-extras
       - run: npm ci --prefix frontend
+      - run: npm ci --prefix browser-collector
       - run: cp .env.example .env
       - run: uv run --project backend alembic -c backend/alembic.ini upgrade head
       - run: make contract-check

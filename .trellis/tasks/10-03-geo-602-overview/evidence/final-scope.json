@@ -1,0 +1,14 @@
+{
+  "argv": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "python",
+    ".trellis/tasks/10-03-geo-602-overview/evidence/audit_scope.py"
+  ],
+  "cwd": "/Users/sc/PycharmProjects/partsignal",
+  "exit_code": 0,
+  "started_at": "2026-10-04T06:55:39.261530+00:00",
+  "finished_at": "2026-10-04T06:55:39.789103+00:00"
+}

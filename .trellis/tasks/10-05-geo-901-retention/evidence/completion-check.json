@@ -1,0 +1,9 @@
+{
+  "maintenance_file_count": 35,
+  "unchanged_openapi_generated": true,
+  "geo707": "done",
+  "geo901": "review",
+  "whitespace_failures": [],
+  "selected_checks_complete": true,
+  "full_integration_after_repairs": "not_rerun"
+}

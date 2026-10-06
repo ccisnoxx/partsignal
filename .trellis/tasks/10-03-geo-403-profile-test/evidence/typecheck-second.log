@@ -1,0 +1,9 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend mypy --config-file backend/pyproject.toml backend/app
+Success: no issues found in 147 source files
+npm --prefix frontend run typecheck
+
+> partsignal-frontend-v2@0.1.0 typecheck
+> tsc -b --pretty false
+
+src/domains/geo-plans/plan-wizard.test.tsx(34,3): error TS2739: Type '{ summary: { id: string; name: string; engine_surface_id: string; engine_surface: { id: string; name: string; slug: string; surface_kind: "MANUAL_SITE"; provider_brand: "CUSTOM"; compliance_status: "NOT_REVIEWED"; ... 4 more ...; updated_at: string; }; ... 10 more ...; updated_at: string; }; ... 5 more ...; activati...' is missing the following properties from type '{ summary: { id: string; name: string; engine_surface_id: string; engine_surface: { id: string; name: string; slug: string; surface_kind: "CONSUMER_UI" | "MODEL_API" | "SEARCH_API" | "MANUAL_SITE"; ... 6 more ...; updated_at: string; }; ... 10 more ...; updated_at: string; }; ... 7 more ...; test_error: { ...; } | n...': test_blockers, test_error
+make: *** [typecheck] Error 1

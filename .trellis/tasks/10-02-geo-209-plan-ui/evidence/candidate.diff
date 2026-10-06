@@ -1,0 +1,1958 @@
+--- a/.trellis/spec/infra/e2e-isolation.md
++++ b/.trellis/spec/infra/e2e-isolation.md
+@@ -28,6 +28,7 @@
+ - lifecycle supervisor 向独立 process group 转发信号后，同组父进程与 reporter 的退出先后没有保证；harness 必须分别证明二者都在 secret scanner 之前完成，不能把 sibling 调度顺序当作合同。每个 case 至少输出 begin/pass，失败时输出 case、断言名、期望/实际和不含 marker/secret 内容的事件证据。
+ - 退出时无论测试成功、失败或收到信号，都停止并 `wait` 本次进程；只删除枚举后符合 allowlist 的精确 Celery/Kombu 键，并证明 Redis 为空和固定端口释放，再 drop 本次数据库和删除临时目录。
+ - 清理输出分别使用数据库 `status=dropped`、存储 `status=removed`、Redis `status=deleted` 与端口 `status=released`；测试成功但任一清理失败时，脚本仍以非零状态退出。禁止 `FLUSHDB`、通配删除、broad kill 或候选路径清理。
++- `e2e-local.sh` 显式开启 `GEO_MONITORING_ENABLED`，使 R1 人工配置与计划启停具备真实资格；API、浏览器采集及机会评估开关保持关闭。该测试进程配置不改变生产默认值，不执行自动采集；全部业务命令仍通过正常权限、CSRF、revision 和资格校验。
+ - 根 `make e2e` 先通过 `e2e-local.sh` 在同一隔离栈运行全部 canonical 真实 flow，成功并精确清理后再运行 canonical fixture-based 页面 suite；任一阶段失败时根 target 非零。
+ - Playwright `webServer` 必须执行 production build 后通过 `vite preview` 服务当前 artifact，不使用 Vite dev server。真实栈 external base URL 模式复用 orchestration 已启动的 4174 preview，不得再启动第二个 `webServer`。
+ - 真实栈 spec 只允许测试 API 登录、读取最终投影和前端尚无页面的最小前置配置；已有页面覆盖的业务 mutation 必须通过 UI，禁止 `page.route`、`route.fulfill` 或固定成功状态。既有专项 flow 为建立独立读取或后续状态前置所需的 API mutation不得扩展为第二套业务编排。
+--- a/deploy/scripts/e2e-local.sh
++++ b/deploy/scripts/e2e-local.sh
+@@ -10,6 +10,11 @@
+ 
+ # E2E 明确使用本机协议替身，不继承操作者可能存在的生产 AI 配置。
+ export APP_ENV=test
++# R1 纵向验收需要人工监测配置资格；自动采集与机会开关始终关闭。
++export GEO_MONITORING_ENABLED=true
++export GEO_API_COLLECTION_ENABLED=false
++export GEO_BROWSER_COLLECTION_ENABLED=false
++export GEO_OPPORTUNITY_EVALUATION_ENABLED=false
+ export CONTENT_GENERATOR=openai-compatible
+ export AI_ALLOW_LOCAL_HTTP=true
+ export AI_CREDENTIAL_ENCRYPTION_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+@@ -181,6 +186,7 @@
+     tests/e2e/catalog-real-stack.spec.ts \
+     tests/e2e/questions-real-stack.spec.ts \
+     tests/e2e/surfaces-real-stack.spec.ts \
++    tests/e2e/plans-real-stack.spec.ts \
+     tests/e2e/content-ai-real-stack.spec.ts \
+     tests/e2e/content-review-real-stack.spec.ts \
+     tests/e2e/content-version-detail-real-stack.spec.ts \
+--- a/docs/geo-monitoring/03-technical/04-frontend-architecture.md
++++ b/docs/geo-monitoring/03-technical/04-frontend-architecture.md
+@@ -34,6 +34,14 @@
+ 管理员表单仅提供闭合非敏感配置，不能提交任意 JSON、密钥、Cookie 或浏览器会话。编辑 Profile 后以服务端返回的停用/UNTESTED 投影为准；启停和删除使用当前 revision 与 typed actions，并在确认时再次检查当前详情。页面覆盖加载、空/筛选空、错误/403/404、启用/删除阻断、冲突与完成反馈。真实 API、刷新持久化、工程师摘要及桌面/窄屏证据见 [GEO-205 实施记录](../../../.trellis/tasks/10-02-geo-205-surface-management/implement.md)。
+ 
+ 提交成功后先取消关联列表及受影响 Profile 详情的在途读取，再核验主体/挂载并刷新；无缓存的首次 GET 不能复用提交前快照。删除消费完整 204 空响应后关闭详情，忽略取消的迟到 GET 不能恢复已删除行。
++
++### 0.3 当前监测计划（GEO-209）
++
++入口 `/geo/plans` 与 `domains/geo-plans/` 提供列表、详情、八步向导和状态确认，ADMIN/ENGINEER 共用服务端授权。URL 保存 `q/status/schedule_kind/sort/page/page_size/selected/new/edit`；默认值省略，UUID 规范化，`new` 与选中编辑身份互斥。`plans.api.ts` 的 `planKeys` 统一列表、详情和资源选择缓存；查询携带 AbortSignal。筛选和分页不改变正在编辑的身份。
++
++向导本地持有完整草稿与提交 revision；选项复用 Subject、PromptVariant、CollectionProfile 的分页搜索及非敏感摘要，跨页选择保留，角色必须明确指定。完整配置后显式请求服务端 preview，最终矩阵、三种模式数量、未解析数量、费用和 blocker 全部消费 generated 类型。输入变化使 preview 失效，取消与迟到响应不能授权保存；不在前端计算最终 run_count 或费用。每个 blocker 显示字段、资源及关联资源，定位到对应步骤，并为管理员配置问题提供资源链接。
++
++最终只调用一次 create/PATCH；新建保存后为 DISABLED，启用须在详情再次确认。后台刷新与所有409保留输入，编辑冲突显式读取仅更新 CAS 基线并展示最新配置供比较，再重新预览和手动提交。动作、stage、primary_task、删除阻断和 run_entry 仅消费服务端投影，归档只读可复制。dirty、beforeunload、principal epoch、卸载和写后取消在途读取共同保护输入及缓存。R1 没有运行、批次、调度执行或外部采集；实际验证见 [GEO-209 实施证据](../../../.trellis/tasks/10-02-geo-209-plan-ui/implement.md)。
+ 
+ ## 1. 目录建议
+ 
+@@ -305,7 +313,7 @@
+ 计划向导不在每一步立即写数据库。建议：
+ 
+ - 创建时本地完成草稿；
+-- 每一步调用服务端 preview/option 接口；
++- 选择步骤读取已有资源的服务端分页选项；完整配置后显式请求一次 preview，修改后重新预览；
+ - 最终一次 create；
+ - 编辑现有计划按 revision 一次更新；
+ - 大集合选择支持服务端搜索；
+--- a/docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md
++++ b/docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md
+@@ -56,7 +56,9 @@
+ 组件/真实序列化见 `test_geo_plan_preview_contract.py`；当前列/无写/一致 RR 快照见
+ `backend/tests/integration/test_geo_plan_preview.py`。默认无估价实现，未知费用不补零。
+ 状态与完整验证见 [GEO-207 实施记录](../../../.trellis/tasks/10-02-geo-207-run-matrix/implement.md)。
+-GEO-208已接线Plan API和服务端状态机，覆盖REQ-GEO-PLAN-001/003/005、AC-PLAN-04与AC-AUDIT-01；真实PostgreSQL生命周期/审计回滚/并发/权限和RR批量读证据见[实施记录](../../../.trellis/tasks/10-02-geo-208-plan-api/implement.md)。Plan向导、执行预算与真实批次冻结仍分别属于GEO-209、GEO-407、GEO-303，REQ-GEO-PLAN-004尚不能宣称完成。
++GEO-208已接线Plan API和服务端状态机，覆盖REQ-GEO-PLAN-001/003/005、AC-PLAN-04与AC-AUDIT-01；真实PostgreSQL生命周期/审计回滚/并发/权限和RR批量读证据见[实施记录](../../../.trellis/tasks/10-02-geo-208-plan-api/implement.md)。Plan向导由下文GEO-209交付，执行预算与真实批次冻结仍分别属于GEO-407、GEO-303，REQ-GEO-PLAN-004尚不能宣称完成。
++
++GEO-209 前端消费既有 Plan API，落实 REQ-GEO-PLAN-002 的最终矩阵权威、REQ-GEO-PLAN-003 的配置定位及 REQ-GEO-PLAN-005 的只读动作投影；向导、URL、dirty、409 与真实创建/启停证据见 [实施记录](../../../.trellis/tasks/10-02-geo-209-plan-ui/implement.md)。批次冻结仍属于后续任务，本任务不宣称执行、预算扣费或完整 R1 人工验收完成。
+ 
+ | 需求 ID | 需求 | 验收 | 任务 |
+ |---|---|---|---|
+--- a/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ b/docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -445,7 +445,7 @@
+   phase: R1
+   release: R1
+   title: 实现监测计划列表和向导
+-  status: planned
++  status: review
+   dependencies:
+   - GEO-208
+   areas:
+--- a/docs/geo-monitoring/CHANGELOG.md
++++ b/docs/geo-monitoring/CHANGELOG.md
+@@ -1,4 +1,14 @@
+ # 文档包变更记录
++
++## GEO-209 监测计划列表与向导 — 2026-10-02（review）
++
++- 新增 `/geo/plans` 和八步向导，完整配置一次创建/修订；选项分页搜索与跨页保留，角色显式指定。
++- 矩阵、模式计数、费用和 blocker 完全使用服务端 preview；字段变化使旧预览失效，blocker 可定位步骤及资源。
++- URL 列表/详情、状态确认、归档只读、复制/删除、dirty 与409保留输入，写命令不自动重放。
++- 无 OpenAPI/数据库语义或 Alembic 新修订，无 Batch/Run、执行、真实外部平台、指标或机会；本地验证及独立复核见 [实施记录](../../.trellis/tasks/10-02-geo-209-plan-ui/implement.md)。
++
++- Plan真实栈、最终1067项前端测试、lint/types通过；完整verify/e2e保留三项范围外失败，串行部署脚本与Compose配置通过。状态只到review，不自行done。
++
+ 
+ ## GEO-208 Plan命令、查询、状态机与API — 2026-10-02（review）
+ 
+--- a/docs/geo-monitoring/README.md
++++ b/docs/geo-monitoring/README.md
+@@ -223,7 +223,7 @@
+ 
+ GEO-207 / R1 已实现服务端 RunMatrixBuilder、当前资源与共享 Profile 资格定位、三模式数量及 known/unknown 费用覆盖，当前交付状态见 [任务清单](./04-delivery/task-manifest.yaml)。10×3×3 准确返回90，未知费用保持 null；默认没有生产估价实现。预览组件与 generated 类型以根 OpenAPI 为权威，GEO-208已接入Plan API；仍无Batch/Run或外部采集。范围和逐项验证见 [Task Brief](../../.trellis/tasks/10-02-geo-207-run-matrix/prd.md) 与 [实施证据](../../.trellis/tasks/10-02-geo-207-run-matrix/implement.md)，具体估价与预算语义见 [API设计](./03-technical/03-api-contract-design.md#62-geomonitoringplanpreview)。
+ 
+-GEO-208 / R1已实现Plan CRUD、preview、activate/pause/resume/archive/copy与run-now的501命令占位；完整读模型、typed动作/revision和原子最小审计以根合同为准。没有Plan页面、Batch/Run、调度或外部采集；当前等待人工验收，见[Task Brief](../../.trellis/tasks/10-02-geo-208-plan-api/prd.md)与[实施证据](../../.trellis/tasks/10-02-geo-208-plan-api/implement.md)。
++GEO-208 / R1已实现Plan CRUD、preview、activate/pause/resume/archive/copy与run-now的501命令占位；完整读模型、typed动作/revision和原子最小审计以根合同为准。GEO-208自身未实现Plan页面、Batch/Run、调度或外部采集；已于2026-10-02人工接受，状态done。Plan页面由下文GEO-209交付，见[Task Brief](../../.trellis/tasks/10-02-geo-208-plan-api/prd.md)与[实施证据](../../.trellis/tasks/10-02-geo-208-plan-api/implement.md)。
+ 
+ ## 6. 首个建议执行任务
+ 
+@@ -236,3 +236,5 @@
+ - 创建用于渐进启用的功能开关和迁移策略说明。
+ 
+ 完成这些任务后再进入数据库和接口开发，避免 Codex 在缺少边界时同时修改现有人工 GEO、内容生产和发布模块。
++
++GEO-209 / R1 已完成监测计划 UI 实现及本地验证，交付状态为 `review`，提供 `/geo/plans` 列表、详情、八步向导、服务端预览、状态确认和 dirty/409 输入保护；无前端最终 run_count 计算、Batch/Run、调度执行或外部采集。完整门禁保留三项范围外既有用例失败，未将失败记为通过。当前状态以 [任务清单](./04-delivery/task-manifest.yaml) 为准，范围与逐项验证见 [Task Brief](../../.trellis/tasks/10-02-geo-209-plan-ui/prd.md) 和 [实施证据](../../.trellis/tasks/10-02-geo-209-plan-ui/implement.md)。
+--- a/docs/geo-monitoring/SHA256SUMS
++++ b/docs/geo-monitoring/SHA256SUMS
+@@ -10,14 +10,14 @@
+ 2ce491f8dbf89639aabbf59b5afb7a3fd43520e40e7848e4e9e3049c85436689  ./03-technical/01-technical-architecture.md
+ fb71186470e732b6642cb970cbff9af28e4c821e955ab25b5ffd6c0bd2cc20c0  ./03-technical/02-data-architecture.md
+ f985e9c046b06c6a1b684bcda79e94dc96d3a1e7d1c3ade6324f348ca5437841  ./03-technical/03-api-contract-design.md
+-364b95b01a9e57572d5844e11f9858be120eb24a85cce5577a4c6561797bba2f  ./03-technical/04-frontend-architecture.md
++0652e70d9ce21aa7af1025db76e6f70153170f7eb196dded86342299743852e4  ./03-technical/04-frontend-architecture.md
+ 1474ab5f413927669a0b4029399034cb8956eecbe282a174423203835d45e1bb  ./03-technical/05-worker-and-collector-architecture.md
+ 2698d3095cfaeb5857d6bafd3efd633d9d50b813257054e7568d779be35d7dd7  ./03-technical/06-security-and-compliance.md
+ fba4caa33b3ba24c329268061463ff9d07c7588b5d1f291bafda19b4f8404bd8  ./03-technical/07-testing-and-quality.md
+ 61a4dd642c6f74b581e95eb2269453be79d71a75fa240269eb001e56f45e2b83  ./03-technical/08-deployment-and-operations.md
+ f8c643e46c1159c51bd2e271e87de1d0e5a0448e2845af01f33bef5e4e1d411b  ./04-delivery/01-implementation-roadmap.md
+ acf0bde87ddfc34ebbc09543c1f2c2c1f496d48f330727b5e943807267eed41c  ./04-delivery/02-work-breakdown-structure.md
+-70f080e2e95585e333e3af0bb3ae59841e21f70fa679a5c5fb4f87080829b18d  ./04-delivery/03-requirement-traceability-matrix.md
++1efbbdf9892c64d9066462b7507261f1c169e806f8c22971ac9ca537276b313b  ./04-delivery/03-requirement-traceability-matrix.md
+ 8991d4c1ec5cc872904aa3b10ffbb2f77ca46a4bfda88589d290f7fd92c2f1fb  ./04-delivery/04-codex-execution-guide.md
+ f600bcdfc2788659654825a020fb2aa0fcbe7acf9827b97eab25aadd7a20ff51  ./04-delivery/05-task-template.md
+ 0ec18f9ce8589f4c8e222fddc6d15853c949ad2b227381b584e2c81c4c4e47b0  ./04-delivery/06-current-geo-baseline.md
+@@ -102,13 +102,13 @@
+ 7106b3f1df66de6ba41a4d7ca85e291b8b181f78e2b7c0ef91f4fa696d1f9e8b  ./04-delivery/geo-003-baseline/sources.json
+ 316ab24c5f645e18d39c529c7fcbca2260b14a5375cc5ebd799a5b7c6cfc8f40  ./04-delivery/geo-003-baseline/tests.json
+ 9dae298eb77cc0063394bfacea27b02ece69bf2a7dceba637ef1320565810ec7  ./04-delivery/geo-003-baseline/validation.md
+-2f668b5ba822c1de44db15dd4d0c6384e9b63498da0f6faccf6133fb1294e762  ./04-delivery/task-manifest.yaml
++2deee1fa12658cbd4dc8dd44a199e64a9bc04564d8e544d2e627b206ac492586  ./04-delivery/task-manifest.yaml
+ 2c0f8d8ba314039b44e48614481c28e615e996c2e4ed444c8f07362b5cd75de9  ./05-decisions/ADR-001-extend-modular-monolith.md
+ 4e0ec1be59e33c2f3e83ee50abc55ffe35d2d0bf471c19cc2c713b391fc12cee  ./05-decisions/ADR-002-unified-observation-run-model.md
+ 00baab5f8fe68fbaf75e3aa7b07a0cfbd7c510e39b6a70ea462d9ab941330dc7  ./05-decisions/ADR-003-separate-collection-analysis-review.md
+ 09d2ba6a3d8f07ca61309d0a9d4a557c30a1d16853d73139e15b43ca6f1303bb  ./05-decisions/ADR-004-no-unified-geo-score.md
+ 6197eb3379ad5c5f99c499ab8b74eac5cf18e6df26a3f5c34c4e9bf83845593b  ./05-decisions/ADR-005-staged-collector-rollout.md
+ c3e9f23a90bd7fc9b47760d53c56fd6f09f73065dff5b19c1040ee5fd608a560  ./05-decisions/GEO-002-architecture-review.md
+-630b745eeaa9c0d65f30ea70a2a2fd29388998758ff9014cdad4201401739ad4  ./CHANGELOG.md
+-bb4fe2ad88a61678614736b042c6be782c07fbed7f349f5658e92b1fa55ca0cd  ./README.md
++3b56cff24637acc5bffc2897813ede9c3dd93c546657f8352f482fac9f5d57db  ./CHANGELOG.md
++15481572367e9d23f1e238ac523487003d4fa5cbf0a9ffb46a2b392638b6eefe  ./README.md
+ 36be92c676c3150e5953f01498418900d3e2bcc1f37a0bda31b9892e57b8a2d0  ./01-product/04-catalog-user-guide.md
+--- a/frontend/src/app/navigation.test.ts
++++ b/frontend/src/app/navigation.test.ts
+@@ -44,6 +44,7 @@
+         'geo-insights',
+         'geo-topics',
+         'geo-questions',
++        'geo-plans',
+         'geo-observations',
+         'platforms',
+       ]);
+@@ -58,6 +59,7 @@
+         'geo-insights',
+         'geo-topics',
+         'geo-questions',
++        'geo-plans',
+         'geo-observations',
+         'platforms',
+         'geo-surfaces',
+--- a/frontend/src/app/navigation.ts
++++ b/frontend/src/app/navigation.ts
+@@ -17,13 +17,13 @@
+   type LucideIcon,
+ } from 'lucide-react';
+ 
+-type NavId = 'workbench' | 'products' | 'content-tasks' | 'publishing-work' | 'publishing-articles' | 'publishing-issues' | 'geo-insights' | 'geo-topics' | 'geo-questions' | 'geo-observations' | 'geo-entities' | 'geo-surfaces' | 'platforms' | 'prompts' | 'ai-channels' | 'users' | 'audit';
++type NavId = 'workbench' | 'products' | 'content-tasks' | 'publishing-work' | 'publishing-articles' | 'publishing-issues' | 'geo-insights' | 'geo-topics' | 'geo-questions' | 'geo-plans' | 'geo-observations' | 'geo-entities' | 'geo-surfaces' | 'platforms' | 'prompts' | 'ai-channels' | 'users' | 'audit';
+ type AppLayout = 'app' | 'print';
+ 
+ type NavigationItem = {
+   id: NavId;
+   label: string;
+-  to: '/' | '/products' | '/content/tasks' | '/publishing/work' | '/publishing/articles' | '/publishing/issues' | '/geo/insights' | '/geo/topics' | '/geo/questions' | '/geo/observations' | '/configuration/geo-entities' | '/configuration/geo-surfaces' | '/settings/platforms' | '/settings/prompts' | '/settings/ai' | '/system/users' | '/system/audit';
++  to: '/' | '/products' | '/content/tasks' | '/publishing/work' | '/publishing/articles' | '/publishing/issues' | '/geo/insights' | '/geo/topics' | '/geo/questions' | '/geo/plans' | '/geo/observations' | '/configuration/geo-entities' | '/configuration/geo-surfaces' | '/settings/platforms' | '/settings/prompts' | '/settings/ai' | '/system/users' | '/system/audit';
+   icon: LucideIcon;
+   adminOnly?: boolean;
+ };
+@@ -74,6 +74,7 @@
+       { id: 'geo-insights', label: '洞察', to: '/geo/insights', icon: ChartSplineIcon },
+       { id: 'geo-topics', label: '问题主题', to: '/geo/topics', icon: MessagesSquareIcon },
+       { id: 'geo-questions', label: '问题库', to: '/geo/questions', icon: MessagesSquareIcon },
++      { id: 'geo-plans', label: '监测计划', to: '/geo/plans', icon: ClipboardListIcon },
+       { id: 'geo-observations', label: '观测记录', to: '/geo/observations', icon: EyeIcon },
+     ],
+   },
+--- /dev/null
++++ b/frontend/src/domains/geo-plans/plan-actions.ts
+@@ -0,0 +1,31 @@
++import type { OverflowRowAction, PrimaryRowAction } from '@/design-system/data-table/types';
++import { actionLabels, assertNever, type PlanAction, type PlanDetail } from './plans.model';
++function planPrimary(plan: PlanDetail): PrimaryRowAction | undefined {
++  let command: PlanAction;
++  switch (plan.primary_task) {
++    case 'COMPLETE_CONFIGURATION': command = 'UPDATE'; break;
++    case 'ACTIVATE': command = 'ACTIVATE'; break;
++    case 'RESUME': command = 'RESUME'; break;
++    case 'VIEW_RUNTIME': case 'VIEW_HISTORY': return undefined;
++    default: return assertNever(plan.primary_task);
++  }
++  return { key: command, command, label: command === 'UPDATE' ? '完善配置' : actionLabels[command], enabled: plan.available_actions.includes(command), disabledReason: '服务端当前未提供该动作', intent: 'primary' };
++}
++function planOverflow(plan: PlanDetail, disabled = false): OverflowRowAction[] {
++  const primary = planPrimary(plan);
++  const actions = plan.available_actions.flatMap((action): OverflowRowAction[] => {
++    if (action === primary?.key) return [];
++    switch (action) {
++      case 'UPDATE': case 'CREATE_REVISION': case 'PREVIEW': return [{ key: action, command: action, label: actionLabels[action], enabled: !disabled, intent: 'secondary' }];
++      case 'COPY': case 'ACTIVATE': case 'PAUSE': case 'RESUME': return [{ key: action, command: action, label: actionLabels[action], enabled: !disabled, intent: 'secondary', confirmation: 'custom' }];
++      case 'ARCHIVE': case 'DELETE': return [{ key: action, command: action, label: actionLabels[action], enabled: !disabled, intent: 'danger', confirmation: 'custom' }];
++      default: return assertNever(action);
++    }
++  });
++  if (plan.deletion.blockers.length) actions.push({ key: 'VIEW_DELETION_CONDITIONS', command: 'VIEW_DELETION_CONDITIONS', label: '查看删除条件', enabled: !disabled, intent: 'secondary' });
++  return actions;
++}
++function parsePlanCommand(value: string): PlanAction | 'VIEW_DELETION_CONDITIONS' {
++  switch (value) { case 'UPDATE': case 'CREATE_REVISION': case 'PREVIEW': case 'ACTIVATE': case 'PAUSE': case 'RESUME': case 'ARCHIVE': case 'COPY': case 'DELETE': case 'VIEW_DELETION_CONDITIONS': return value; default: throw new Error(`计划返回未知命令：${value}`); }
++}
++export { parsePlanCommand, planOverflow, planPrimary };
+--- /dev/null
++++ b/frontend/src/domains/geo-plans/plan-controls.tsx
+@@ -0,0 +1,11 @@
++import type { ReactNode } from 'react';
++import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/design-system/primitives/select';
++function PlanSelect({ label, value, choices, onChange, disabled, id, describedBy, invalid, required }: {
++  label: string; value: string; choices: readonly { value: string; label: string }[]; onChange: (value: string) => void;
++  disabled?: boolean; id?: string; describedBy?: string; invalid?: boolean; required?: boolean;
++}) {
++  return <Select disabled={disabled} items={choices} onValueChange={(next) => { if (next !== null) onChange(next); }} value={value}><SelectTrigger aria-describedby={describedBy} aria-invalid={invalid} aria-label={label} aria-required={required} className="w-full min-w-0" id={id}><SelectValue /></SelectTrigger><SelectContent>{choices.map((choice) => <SelectItem key={choice.value} value={choice.value}>{choice.label}</SelectItem>)}</SelectContent></Select>;
++}
++function PlanNotice({ children, error = false }: { children: ReactNode; error?: boolean }) { return <div className={`space-y-2 rounded-lg border p-3 text-sm ${error ? 'border-danger/30 bg-danger/5 text-danger' : 'border-border-default bg-surface-raised text-text-secondary'}`} role={error ? 'alert' : 'status'}>{children}</div>; }
++function planErrorMessage(error: unknown) { return error instanceof Error ? error.message : '监测计划请求发生未知错误'; }
++export { PlanNotice, PlanSelect, planErrorMessage };
+--- /dev/null
++++ b/frontend/src/domains/geo-plans/plan-detail.tsx
+@@ -0,0 +1,125 @@
++import { useMutation, useQueryClient } from '@tanstack/react-query';
++import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from 'react';
++import { useForm } from 'react-hook-form';
++import { zodResolver } from '@hookform/resolvers/zod';
++import { z } from 'zod';
++import { capturePrincipalContinuation, type PrincipalContinuation } from '@/app/auth/principal-epoch';
++import { RowActions } from '@/design-system/data-table/row-actions';
++import { DirtyGuard } from '@/design-system/forms/dirty-guard';
++import { Badge } from '@/design-system/primitives/badge';
++import { Button } from '@/design-system/primitives/button';
++import { Input } from '@/design-system/primitives/input';
++import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/design-system/primitives/dialog';
++import { changePlanStatus, copyPlan, deletePlan, PlanRequestError, planKeys, type PlanStatusCommand } from './plans.api';
++import { actionLabels, assertNever, planFormSchema, roleLabels, scheduleLabels, shouldBlockPlanNavigation, stageLabels, type PlanDetail } from './plans.model';
++import { parsePlanCommand, planOverflow, planPrimary } from './plan-actions';
++import { PlanNotice, planErrorMessage } from './plan-controls';
++import { PlanPreviewPanel } from './plan-preview';
++
++type Command = PlanStatusCommand | 'COPY' | 'DELETE';
++type Intent = { action: Command; revision: number };
++type PlanDetailHandle = { request: (action: ReturnType<typeof parsePlanCommand>, focus?: HTMLElement | null) => void };
++const copySchema = z.object({ name: planFormSchema.shape.name });
++function PlanDetailPanel({ plan, csrfToken, initialAction, onSaved, onDeleted, onReload, onEdit, readBlocked = false, ref }: {
++  plan: PlanDetail; csrfToken: string | null; initialAction?: ReturnType<typeof parsePlanCommand>;
++  onSaved: (plan: PlanDetail) => void; onDeleted: (id: string) => void; onReload: () => Promise<PlanDetail>; onEdit: (step?: number) => void; readBlocked?: boolean; ref?: Ref<PlanDetailHandle>;
++}) {
++  const client = useQueryClient();
++  const [intent, setIntent] = useState<Intent | undefined>(() => initialAction && ['ACTIVATE', 'PAUSE', 'RESUME', 'ARCHIVE', 'COPY', 'DELETE'].includes(initialAction) ? { action: initialAction as Command, revision: plan.revision } : undefined);
++  const copyForm = useForm<{ name: string }>({ defaultValues: { name: `${plan.name.slice(0, 195)} 副本` }, resolver: zodResolver(copySchema), mode: 'onChange' });
++  const { isValid: copyValid, errors: copyErrors, isDirty: copyDirty } = copyForm.formState;
++  const [error, setError] = useState<unknown>();
++  const [conflicted, setConflicted] = useState(false);
++  const [refreshing, setRefreshing] = useState(false);
++  const [message, setMessage] = useState('');
++  const mounted = useRef(true); const inFlight = useRef(false);
++  const currentPlan = useRef(plan); const blockedRead = useRef(readBlocked);
++  useLayoutEffect(() => { currentPlan.current = plan; blockedRead.current = readBlocked; }, [plan, readBlocked]);
++  const finalFocus = useRef<HTMLElement | null>(null);
++  const preview = useRef<HTMLElement | null>(null); const conditions = useRef<HTMLElement | null>(null);
++  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
++  const mutation = useMutation({ retry: false, mutationFn: async ({ target, name, continuation }: { target: Intent; name: string; continuation: PrincipalContinuation }) => {
++    await Promise.all([client.cancelQueries({ queryKey: planKeys.detail(plan.id) }), client.cancelQueries({ queryKey: planKeys.lists() })]);
++    continuation.assertCurrent();
++    if (!mounted.current || blockedRead.current || currentPlan.current.revision !== target.revision || !currentPlan.current.available_actions.includes(target.action)) throw new Error('当前版本、权限或工作区已变化，请重新读取并核对');
++    switch (target.action) {
++      case 'DELETE': await deletePlan(plan.id, target.revision, csrfToken); return undefined;
++      case 'COPY': return copyPlan(plan.id, target.revision, name, csrfToken);
++      case 'ACTIVATE': case 'PAUSE': case 'RESUME': case 'ARCHIVE': return changePlanStatus(plan.id, target.revision, target.action, csrfToken);
++      default: return assertNever(target.action);
++    }
++  } });
++  const held = conflicted;
++  const canConfirm = Boolean(!readBlocked && intent && plan.available_actions.includes(intent.action) && plan.revision === intent.revision);
++  function begin(action: ReturnType<typeof parsePlanCommand>, focus?: HTMLElement | null) {
++    if (readBlocked || inFlight.current || refreshing) return;
++    finalFocus.current = focus ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
++    if (action === 'VIEW_DELETION_CONDITIONS') { conditions.current?.focus(); return; }
++    if (!plan.available_actions.includes(action)) return;
++    switch (action) {
++      case 'UPDATE': case 'CREATE_REVISION': onEdit(); break;
++      case 'PREVIEW': preview.current?.focus(); break;
++      case 'COPY': case 'ACTIVATE': case 'PAUSE': case 'RESUME': case 'ARCHIVE': case 'DELETE': setIntent({ action, revision: plan.revision }); if (!held) setError(undefined); break;
++      default: return assertNever(action);
++    }
++  }
++  useImperativeHandle(ref, () => ({ request: begin }));
++  async function confirm() {
++    if (!intent || !canConfirm || held || inFlight.current || intent.action === 'COPY' && !copyValid) return;
++    const target = intent;
++    inFlight.current = true; setError(undefined);
++    let continuation: PrincipalContinuation | undefined;
++    try {
++      continuation = capturePrincipalContinuation(client);
++      const canonical = await mutation.mutateAsync({ target, name: copyForm.getValues('name'), continuation });
++      if (!continuation.isCurrent() || !mounted.current) return;
++      await Promise.all([client.cancelQueries({ queryKey: planKeys.detail(plan.id) }), client.cancelQueries({ queryKey: planKeys.lists() }), ...(canonical && canonical.id !== plan.id ? [client.cancelQueries({ queryKey: planKeys.detail(canonical.id) })] : [])]);
++      if (!continuation.isCurrent() || !mounted.current) return;
++      setConflicted(false); setIntent(undefined); setMessage(`${actionLabels[target.action]}已完成。`);
++      if (canonical) { client.setQueryData(planKeys.detail(canonical.id), canonical); copyForm.reset({ name: copyForm.getValues('name') }); onSaved(canonical); }
++      else onDeleted(plan.id);
++    } catch (failure) { if ((!continuation || continuation.isCurrent()) && mounted.current) { setError(failure); if (failure instanceof PlanRequestError && failure.status === 409) setConflicted(true); } }
++    finally { inFlight.current = false; }
++  }
++  async function reloadIntent() {
++    if (refreshing || inFlight.current) return;
++    setRefreshing(true); let continuation: PrincipalContinuation | undefined;
++    try {
++      continuation = capturePrincipalContinuation(client); const canonical = await onReload();
++      if (!continuation.isCurrent() || !mounted.current) return;
++      setIntent((current) => current ? { ...current, revision: canonical.revision } : undefined); setError(undefined); setConflicted(false);
++    } catch (failure) { if ((!continuation || continuation.isCurrent()) && mounted.current) setError(failure); }
++    finally { if ((!continuation || continuation.isCurrent()) && mounted.current) setRefreshing(false); }
++  }
++  const busy = mutation.isPending || refreshing;
++  const primary = planPrimary(plan);
++  return <section aria-label="监测计划详情" className="min-w-0 space-y-5">
++    <DirtyGuard shouldBlockNavigation={({ current, next }) => shouldBlockPlanNavigation(current, next)} when={busy || Boolean(intent?.action === 'COPY' && copyDirty)} />
++    <header className="flex flex-wrap items-center justify-between gap-3"><div className="flex flex-wrap items-center gap-2"><Badge variant={plan.workflow_stage === 'ACTIVE' ? 'success' : 'secondary'}>{stageLabels[plan.workflow_stage]}</Badge><span className="text-sm">Revision {plan.revision}</span></div><RowActions objectLabel="当前计划" onCommand={(action, focus) => begin(parsePlanCommand(action), focus)} overflow={planOverflow(plan, busy || readBlocked)} primary={primary ? { ...primary, enabled: primary.enabled && !busy && !readBlocked } : undefined} /></header>
++    {message && <PlanNotice>{message}</PlanNotice>}
++    <dl className="grid min-w-0 gap-3 text-sm sm:grid-cols-2"><div className="sm:col-span-2"><dt className="text-text-muted">计划名称</dt><dd className="break-words">{plan.name}</dd></div><div className="sm:col-span-2"><dt className="text-text-muted">说明</dt><dd className="whitespace-pre-wrap break-words">{plan.description || '未填写说明'}</dd></div><div><dt className="text-text-muted">调度配置</dt><dd className="break-words">{scheduleLabels[plan.schedule_kind]} · {plan.cron_expression ?? '按需触发'} · {plan.timezone}</dd></div><div><dt className="text-text-muted">预算上限</dt><dd>{plan.budget_limit ?? '未设置'}</dd></div><div className="sm:col-span-2"><dt className="text-text-muted">监测对象与角色</dt><dd className="space-y-1">{plan.subjects.map((item) => <p className="break-all" key={item.subject_id}>{roleLabels[item.role]} · {item.subject_id}</p>)}</dd></div><div className="sm:col-span-2"><dt className="text-text-muted">问题变体</dt><dd className="space-y-1">{plan.prompt_variant_ids.map((id) => <p className="break-all" key={id}><a className="text-interaction-primary underline" href={`/geo/questions?selected=${id}`} rel="noopener noreferrer" target="_blank">{id}</a></p>)}</dd></div><div className="sm:col-span-2"><dt className="text-text-muted">采集配置</dt><dd className="space-y-1">{plan.collection_profile_ids.map((id) => <p className="break-all" key={id}>{id}</p>)}</dd></div></dl>
++    <section className="min-w-0 space-y-3" ref={preview} tabIndex={-1}><PlanPreviewPanel onFix={plan.available_actions.includes('UPDATE') || plan.available_actions.includes('CREATE_REVISION') ? (step) => onEdit(step) : undefined} preview={plan.preview} /></section>
++    <PlanNotice>R1 当前提供配置与预览。立即运行尚未开放（{plan.run_entry.reason_code}），定时执行和批次历史将在后续任务交付。</PlanNotice>
++    {plan.deletion.blockers.length > 0 && <section aria-label="删除条件" className="space-y-2 border-t border-border-subtle pt-3" ref={conditions} tabIndex={-1}><h3 className="type-section-title">删除条件</h3>{plan.deletion.blockers.map((code) => <p className="text-sm" key={code}>{deletionReason(code)}</p>)}</section>}
++    <Dialog onOpenChange={(open) => { if (!open && !busy) setIntent(undefined); }} open={Boolean(intent)}><DialogContent finalFocus={() => finalFocus.current?.isConnected ? finalFocus.current : null} showCloseButton={!busy}><DialogHeader><DialogTitle>确认{intent ? actionLabels[intent.action] : '操作'}</DialogTitle><DialogDescription>{intent ? confirmationText(intent.action) : ''} Revision {intent?.revision}。</DialogDescription></DialogHeader>
++      {intent?.action === 'COPY' && <div className="space-y-1 text-sm"><label htmlFor="plan-copy-name">新计划名称</label><Input {...copyForm.register('name')} aria-describedby={copyErrors.name ? 'plan-copy-error' : undefined} aria-invalid={Boolean(copyErrors.name)} disabled={busy} id="plan-copy-name" maxLength={200} />{copyErrors.name && <span className="text-danger" id="plan-copy-error">{copyErrors.name.message}</span>}</div>}
++      {Boolean(error) && <PlanNotice error>{planErrorMessage(error)}</PlanNotice>}
++      {held && <p role="alert">此前操作返回409，本地输入保留。请显式重新读取并核对后再次确认。</p>}
++      {!canConfirm && <p role="alert">当前版本或服务端动作已变化，请重新读取并核对。</p>}
++      {(held || !canConfirm) && <Button disabled={busy} onClick={() => void reloadIntent()} type="button" variant="outline">重新读取并重新确认</Button>}
++      <DialogFooter><Button disabled={busy} onClick={() => setIntent(undefined)} type="button" variant="outline">取消</Button><Button disabled={!canConfirm || held || busy || !csrfToken || intent?.action === 'COPY' && !copyValid} onClick={() => void confirm()} type="button" variant={intent?.action === 'DELETE' || intent?.action === 'ARCHIVE' ? 'destructive' : 'default'}>{busy ? '提交中…' : '确认操作'}</Button></DialogFooter>
++    </DialogContent></Dialog>
++  </section>;
++}
++function deletionReason(code: PlanDetail['deletion']['blockers'][number]) { switch (code) { case 'PLAN_NOT_DISABLED': return '当前计划不是未启用状态，服务端不允许删除；可按可用动作归档。'; case 'ARCHIVED': return '归档计划只读，不能删除；可复制为新计划。'; default: return assertNever(code); } }
++function confirmationText(action: Command) { switch (action) {
++  case 'ACTIVATE': return '服务端会重新检查当前资源资格。启用仅保存计划状态，R1 尚未执行调度或采集。';
++  case 'PAUSE': return '暂停计划，不改变已保存的配置或历史。';
++  case 'RESUME': return '恢复前由服务端重新检查资源资格，不改写历史。';
++  case 'ARCHIVE': return '归档后只读且不能重新启用，可以复制为新计划。';
++  case 'DELETE': return '删除后不能恢复。服务端会再次检查删除条件。';
++  case 'COPY': return '复制当前服务端配置为独立的新计划，初始未启用；源计划保持原样。';
++  default: return assertNever(action);
++} }
++export { PlanDetailPanel };
++export type { PlanDetailHandle };
+--- /dev/null
++++ b/frontend/src/domains/geo-plans/plan-list.tsx
+@@ -0,0 +1,55 @@
++import { useQuery } from '@tanstack/react-query';
++import { createColumnHelper, metaHelper, rowPaginationFeature, tableFeatures, useTable } from '@tanstack/react-table';
++import { useMemo, useState } from 'react';
++import { ColumnHeader } from '@/design-system/data-table/column-header';
++import { EmptyTable } from '@/design-system/data-table/empty-table';
++import { RowActions } from '@/design-system/data-table/row-actions';
++import { TablePagination } from '@/design-system/data-table/table-pagination';
++import { TableShell } from '@/design-system/data-table/table-shell';
++import { TableSkeleton } from '@/design-system/data-table/table-skeleton';
++import type { ColumnRole } from '@/design-system/data-table/types';
++import { Badge } from '@/design-system/primitives/badge';
++import { Button } from '@/design-system/primitives/button';
++import { Input } from '@/design-system/primitives/input';
++import { planListOptions } from './plans.api';
++import { planSearchSchema, scheduleLabels, stageLabels, statusLabels, type PlanDetail, type PlanSearch } from './plans.model';
++import { parsePlanCommand, planOverflow, planPrimary } from './plan-actions';
++import { PlanNotice, PlanSelect, planErrorMessage } from './plan-controls';
++
++const features = tableFeatures({ rowPaginationFeature, columnMeta: metaHelper<{ role: ColumnRole }>() });
++type OpenPlan = (plan: PlanDetail, command?: ReturnType<typeof parsePlanCommand>, focus?: HTMLElement | null) => void;
++function PlanList({ search, onChange, onOpen }: { search: PlanSearch; onChange: (next: PlanSearch) => void; onOpen: OpenPlan }) {
++  const query = useQuery(planListOptions(search));
++  const columns = useMemo(() => {
++    const helper = createColumnHelper<typeof features, PlanDetail>();
++    return helper.columns([
++      helper.accessor('name', { header: '计划名称', meta: { role: 'primary' }, cell: ({ row }) => <div className="min-w-0 max-w-md space-y-1"><Button className="h-auto w-full min-w-0 justify-start p-0 text-left" onClick={(event) => onOpen(row.original, undefined, event.currentTarget)} type="button" variant="link"><span className="table-cell-ellipsis">{row.original.name}</span></Button><p className="table-cell-ellipsis text-xs text-text-muted">Revision {row.original.revision}</p></div> }),
++      helper.accessor('workflow_stage', { header: '状态', meta: { role: 'status' }, cell: ({ row, getValue }) => <div className="space-y-1"><Badge variant={getValue() === 'ACTIVE' ? 'success' : 'secondary'}>{stageLabels[getValue()]}</Badge><p className="text-xs">{statusLabels[row.original.status]}</p></div> }),
++      helper.display({ id: 'matrix', header: '单次运行预览', meta: { role: 'metadata' }, cell: ({ row }) => <div className="text-sm"><p>{row.original.preview.run_count} 次运行</p><p className="text-xs text-text-muted">{row.original.preview.prompt_count} 个变体 · {row.original.preview.profile_count} 个配置 · {row.original.preview.repeat_count} 次重复</p>{row.original.preview.blockers.length > 0 && <p className="text-xs text-danger">存在运行阻断</p>}</div> }),
++      helper.accessor('schedule_kind', { header: '调度配置', meta: { role: 'metadata' }, cell: ({ row, getValue }) => <div className="text-sm"><p>{scheduleLabels[getValue()]}</p><p className="text-xs text-text-muted">{row.original.cron_expression ?? '按需触发'} · {row.original.timezone}</p></div> }),
++      helper.accessor('updated_at', { header: '更新时间', meta: { role: 'date' }, cell: ({ getValue }) => <time dateTime={getValue()}>{new Date(getValue()).toLocaleString('zh-CN')}</time> }),
++      helper.display({ id: 'actions', header: '操作', meta: { role: 'actions' }, cell: ({ row }) => <RowActions objectLabel={row.original.name} onCommand={(command, focus) => onOpen(row.original, parsePlanCommand(command), focus)} overflow={planOverflow(row.original)} primary={planPrimary(row.original)} /> }),
++    ]);
++  }, [onOpen]);
++  const page = search.page ?? 1; const size = search.page_size ?? 20;
++  const table = useTable({ features, columns, data: query.data?.items ?? [], getRowId: (row) => row.id, rowCount: query.data?.total, manualPagination: true, state: { pagination: { pageIndex: page - 1, pageSize: size } } });
++  const filtered = Boolean(search.q || search.status || search.schedule_kind);
++  // 空态不需要可横向滚动的多列表头，避免窄屏把说明居中到可视区域之外。
++  const empty = !query.isPending && !query.data?.items.length;
++  return <section aria-label="监测计划列表工作区" className="min-w-0 space-y-3">
++    <PlanFilters key={search.q ?? ''} onChange={onChange} search={search} />
++    {query.isFetching && !query.isPending && <p role="status">正在刷新计划列表…</p>}
++    {query.error && query.data && <PlanNotice error>列表刷新失败，保留上次读取结果：{planErrorMessage(query.error)}<Button onClick={() => void query.refetch()} type="button" variant="outline">重试列表</Button></PlanNotice>}
++    <TableShell className={empty ? "min-w-0! [&_thead]:hidden" : undefined} regionLabel="监测计划列表"><thead>{table.getHeaderGroups().map((group) => <tr key={group.id}>{group.headers.map((header) => <ColumnHeader key={header.id} role={header.column.columnDef.meta?.role ?? 'metadata'}><table.FlexRender header={header} /></ColumnHeader>)}</tr>)}</thead>
++      {query.isPending ? <TableSkeleton columnRoles={['primary', 'status', 'metadata', 'metadata', 'date', 'actions']} /> : !query.data ? <EmptyTable action={<Button onClick={() => void query.refetch()} type="button" variant="outline">重试列表</Button>} colSpan={6} description={planErrorMessage(query.error)} kind="error" title="监测计划加载失败" /> : query.data.items.length === 0 ? <EmptyTable action={filtered ? <Button onClick={() => onChange(planSearchSchema.parse({ selected: search.selected, new: search.new, edit: search.edit }))} type="button" variant="outline">清除筛选</Button> : undefined} colSpan={6} description={filtered ? '请调整筛选条件。' : '新建计划，组合监测对象、实际提问和采集配置。'} kind={filtered ? 'filtered-empty' : 'empty'} title={filtered ? '未找到匹配计划' : '暂无监测计划'} /> : <tbody>{table.getRowModel().rows.map((row) => <tr aria-selected={search.selected === row.id} key={row.id}>{row.getAllCells().map((cell) => <td className="break-words" data-column-role={cell.column.columnDef.meta?.role} key={cell.id}><table.FlexRender cell={cell} /></td>)}</tr>)}</tbody>}
++    </TableShell>
++    {query.data && <TablePagination onPageIndexChange={(index) => onChange(planSearchSchema.parse({ ...search, page: index + 1 }))} onPageSizeChange={(size) => onChange(planSearchSchema.parse({ ...search, page_size: size, page: 1 }))} pageCount={Math.ceil(query.data.total / size)} pageIndex={page - 1} pageSize={size} totalItems={query.data.total} />}
++  </section>;
++}
++function PlanFilters({ search, onChange }: { search: PlanSearch; onChange: (next: PlanSearch) => void }) {
++  const [q, setQ] = useState(search.q ?? '');
++  function change(patch: Partial<PlanSearch>) { onChange(planSearchSchema.parse({ ...search, ...patch, page: 1 })); }
++  return <div className="space-y-3 rounded-xl border border-border-default bg-surface-panel p-3"><form aria-label="筛选监测计划" className="flex flex-wrap items-end gap-3" onSubmit={(event) => { event.preventDefault(); change({ q }); }}><label className="min-w-0 flex-1 space-y-1 text-sm">搜索计划名称<Input maxLength={200} onChange={(event) => setQ(event.target.value)} value={q} /></label><Button type="submit">应用筛选</Button></form><div className="grid min-w-0 gap-3 sm:grid-cols-3"><PlanSelect choices={[{ value: '', label: '全部状态' }, ...Object.entries(statusLabels).map(([value, label]) => ({ value, label }))]} label="筛选计划状态" onChange={(value) => change({ status: value as PlanSearch['status'] })} value={search.status ?? ''} /><PlanSelect choices={[{ value: '', label: '全部调度' }, ...Object.entries(scheduleLabels).map(([value, label]) => ({ value, label }))]} label="筛选调度" onChange={(value) => change({ schedule_kind: value as PlanSearch['schedule_kind'] })} value={search.schedule_kind ?? ''} /><PlanSelect choices={[{ value: 'UPDATED_DESC', label: '最近更新' }, { value: 'NAME_ASC', label: '名称升序' }]} label="计划排序" onChange={(value) => change({ sort: value as PlanSearch['sort'] })} value={search.sort ?? 'UPDATED_DESC'} /></div></div>;
++}
++export { PlanList };
++export type { OpenPlan };
+--- /dev/null
++++ b/frontend/src/domains/geo-plans/plan-options.tsx
+@@ -0,0 +1,61 @@
++import { useQuery } from '@tanstack/react-query';
++import { useState } from 'react';
++import { Button } from '@/design-system/primitives/button';
++import { Input } from '@/design-system/primitives/input';
++import { PlanNotice, PlanSelect, planErrorMessage } from './plan-controls';
++import { roleLabels, type PlanValues } from './plans.model';
++import { planOptionsQuery, type PlanOptionKind } from './plans.options';
++
++const optionLabels = { subjects: '监测对象', prompts: '问题变体', profiles: '采集配置' } as const;
++const optionFields = { subjects: 'subjects', prompts: 'prompt_variant_ids', profiles: 'collection_profile_ids' } as const;
++const optionPaths = { subjects: '/configuration/geo-entities', prompts: '/geo/questions', profiles: '/configuration/geo-surfaces?tab=profiles' } as const;
++type SubjectSelection = PlanValues['subjects'];
++function PlanOptions({ kind, selected, subjects, onChange, onSubjectsChange, disabled, describedBy, invalid }: {
++  kind: PlanOptionKind; selected: string[]; subjects?: SubjectSelection; onChange: (ids: string[]) => void;
++  onSubjectsChange?: (items: SubjectSelection) => void; disabled?: boolean; describedBy?: string; invalid?: boolean;
++}) {
++  const [q, setQ] = useState('');
++  const [page, setPage] = useState(1);
++  // 仅保留用户选取时的展示文案；身份及显式角色始终由 RHF 持有，不从文案推断资格。
++  const [chosenLabels, setChosenLabels] = useState<Record<string, string>>({});
++  const query = useQuery({ ...planOptionsQuery(kind, q, page), enabled: !disabled });
++  const label = optionLabels[kind];
++  const field = optionFields[kind];
++  const roleChoices = Object.entries(roleLabels).map(([value, text]) => ({ value, label: text }));
++  const name = (id: string) => query.data?.items.find((item) => item.id === id)?.label ?? chosenLabels[id] ?? id;
++  function select(id: string, optionLabel: string, role?: SubjectSelection[number]['role']) {
++    setChosenLabels((current) => ({ ...current, [id]: optionLabel }));
++    if (kind === 'subjects' && role) {
++      const current = subjects ?? [];
++      onSubjectsChange?.(current.some((item) => item.subject_id === id) ? current.map((item) => item.subject_id === id ? { ...item, role } : item) : [...current, { subject_id: id, role }]);
++    } else onChange(selected.includes(id) ? selected.filter((value) => value !== id) : [...selected, id]);
++  }
++  function remove(id: string) {
++    if (kind === 'subjects') onSubjectsChange?.((subjects ?? []).filter((item) => item.subject_id !== id));
++    else onChange(selected.filter((value) => value !== id));
++  }
++  return <div aria-describedby={describedBy} aria-invalid={invalid} aria-label={label} className="min-w-0 space-y-4" id={`plan-${field}`} role="group" tabIndex={-1}>
++    <section aria-label={`已选${label}`} className="space-y-2">
++      <h3 className="text-sm font-medium">已选{label}（{selected.length}）</h3>
++      {selected.length === 0 ? <p className="text-sm text-text-muted">尚未选择{label}。</p> : <ul className="space-y-2">{selected.map((id) => <li className="min-w-0 space-y-2 rounded-lg border border-border-subtle p-3" id={`plan-${field}-${id}`} key={id} tabIndex={-1}>
++        <p className="break-words text-sm">{name(id)}</p><p className="break-all text-xs text-text-muted">{id}</p>
++        <div className="flex flex-wrap items-center gap-2">
++          {kind === 'subjects' && <div className="min-w-0 flex-1"><PlanSelect choices={roleChoices} disabled={disabled} label={`已选对象角色：${name(id)}`} onChange={(role) => select(id, name(id), role as SubjectSelection[number]['role'])} value={subjects?.find((item) => item.subject_id === id)?.role ?? ''} /></div>}
++          <Button aria-label={`移除${label}：${name(id)}`} className="min-h-11 sm:min-h-8" disabled={disabled} onClick={() => remove(id)} type="button" variant="outline">移除</Button>
++        </div>
++      </li>)}</ul>}
++    </section>
++    <Input aria-label={`搜索${label}选项`} disabled={disabled} maxLength={200} onChange={(event) => { setQ(event.currentTarget.value); setPage(1); }} placeholder={`搜索${label}`} type="search" value={q} />
++    {query.isPending && <p role="status">正在读取{label}选项…</p>}
++    {query.error && <PlanNotice error>{planErrorMessage(query.error)}<Button disabled={disabled} onClick={() => void query.refetch()} type="button" variant="outline">重试{label}选项</Button></PlanNotice>}
++    {query.data?.items.length === 0 && <PlanNotice><p>{q ? '没有匹配的选项，请调整搜索。' : `暂无${label}选项。请在已有资源页面准备配置。`}</p>{!q && <><a className="underline underline-offset-2" href={optionPaths[kind]} rel="noopener noreferrer" target="_blank">查看{label}资源（新标签页）</a><p className="text-xs">配置管理仍受服务端权限控制；工程师需要管理员协助时，请保留当前草稿。</p></>}</PlanNotice>}
++    {query.data && <>
++      <ul aria-label={`${label}候选`} className="space-y-2">{query.data.items.map((item) => <li className="min-w-0 space-y-2 rounded-lg border border-border-subtle p-3" key={item.id}>
++        <p className="break-words text-sm">{item.label}</p><p className="break-words text-xs text-text-secondary">{item.description}</p>
++        {kind === 'subjects' ? selected.includes(item.id) ? <p className="text-sm text-text-muted">已选择，请在上方修改角色或移除。</p> : <PlanSelect choices={[{ value: '', label: '请选择对象角色后加入' }, ...roleChoices]} disabled={disabled} label={`选择对象角色：${item.label}`} onChange={(role) => select(item.id, item.label, role as SubjectSelection[number]['role'])} value="" /> : <Button aria-label={`${selected.includes(item.id) ? '取消选择' : '选择'}${label}：${item.label}`} aria-pressed={selected.includes(item.id)} className="min-h-11 sm:min-h-8" disabled={disabled} onClick={() => select(item.id, item.label)} type="button" variant={selected.includes(item.id) ? 'secondary' : 'outline'}>{selected.includes(item.id) ? '已选择 · 取消选择' : '选择'}</Button>}
++      </li>)}</ul>
++      <div className="flex flex-wrap items-center gap-2 text-xs text-text-muted"><span>第 {query.data.page} 页 · 共 {query.data.total} 个{label}</span><Button className="min-h-11 sm:min-h-8" disabled={disabled || page <= 1 || query.isFetching} onClick={() => setPage(page - 1)} type="button" variant="outline">上一页{label}选项</Button><Button className="min-h-11 sm:min-h-8" disabled={disabled || query.data.page * query.data.page_size >= query.data.total || query.isFetching} onClick={() => setPage(page + 1)} type="button" variant="outline">下一页{label}选项</Button></div>
++    </>}
++  </div>;
++}
++export { PlanOptions };
+--- /dev/null
++++ b/frontend/src/domains/geo-plans/plan-preview.model.test.ts
+@@ -0,0 +1,29 @@
++import { describe, expect, it } from 'vitest';
++import { blockerDestination, blockerLabels, planFieldStep, warningLabels, type PlanBlocker } from './plan-preview.model';
++
++const resource = '10000000-0000-4000-8000-000000000001';
++const related = '10000000-0000-4000-8000-000000000002';
++describe('计划阻断定位', () => {
++  it.each(Object.keys(blockerLabels) as PlanBlocker['code'][])('%s 提供中文原因和具体修正步骤', (code) => {
++    const blocker: PlanBlocker = { code, field: 'collection_profile_ids.settings', resource_id: resource, related_resource_id: related };
++    const location = blockerDestination(blocker);
++    expect(blockerLabels[code]).toMatch(/[\u4e00-\u9fff]/);
++    if (code === 'SUBJECT_NOT_FOUND' || code === 'SUBJECT_DISABLED') expect(location).toEqual({ step: 1, field: 'subjects', href: `/configuration/geo-entities?subject_id=${resource}` });
++    else if (code === 'PROMPT_NOT_FOUND' || code === 'PROMPT_DISABLED') expect(location).toEqual({ step: 2, field: 'prompt_variant_ids', href: `/geo/questions?selected=${resource}` });
++    else if (code === 'BUDGET_EXCEEDED' || code === 'BUDGET_CURRENCY_MISMATCH') expect(location).toEqual({ step: 4, field: 'budget_limit', href: null });
++    else expect(location).toEqual({ step: 3, field: 'collection_profile_ids', href: `/configuration/geo-surfaces?tab=profiles&profile_id=${resource}` });
++    expect(blocker.resource_id).toBe(resource);
++    expect(blocker.related_resource_id).toBe(related);
++  });
++  it('没有资源 ID 时仍能回到选项与已有资源入口', () => {
++    expect(blockerDestination({ code: 'PROFILE_NOT_FOUND', field: 'collection_profile_ids', resource_id: null, related_resource_id: null })).toEqual({ step: 3, field: 'collection_profile_ids', href: '/configuration/geo-surfaces?tab=profiles' });
++  });
++  it.each([['name', 0], ['subjects.0.role', 1], ['prompt_variant_ids.0', 2], ['collection_profile_ids.settings', 3], ['repeat_count', 4], ['budget_limit', 4], ['rule_set_revision', 4], ['cron_expression', 5], ['timezone', 5], ['schedule_kind', 5]] as const)('字段 %s 定位到步骤 %s', (field, step) => {
++    expect(planFieldStep(field)).toBe(step);
++  });
++  it('所有服务端警告均有明确中文解释', () => {
++    expect(Object.keys(warningLabels)).toHaveLength(8);
++    expect(warningLabels.BUDGET_UNVERIFIED).toContain('不能保证');
++    expect(warningLabels.COST_CURRENCY_MISMATCH).toContain('不进行换汇');
++  });
++});
+--- /dev/null
++++ b/frontend/src/domains/geo-plans/plan-preview.model.ts
+@@ -0,0 +1,40 @@
++import type { components } from '@/shared/api/generated/schema';
++
++type PlanBlocker = components['schemas']['GeoPlanPreviewBlocker'];
++type PlanWarning = components['schemas']['GeoPlanPreviewWarning'];
++const blockerLabels = {
++  SUBJECT_NOT_FOUND: '监测对象不存在，请移除或重新选择', SUBJECT_DISABLED: '监测对象已停用',
++  PROMPT_NOT_FOUND: '问题变体不存在，请移除或重新选择', PROMPT_DISABLED: '问题变体已停用', PROFILE_NOT_FOUND: '采集配置不存在，请移除或重新选择',
++  BUDGET_EXCEEDED: '已知费用小计超过预算上限', BUDGET_CURRENCY_MISMATCH: '费用涉及多个币种，无法核验预算',
++  ADAPTER_UNKNOWN: '适配器未登记', CONFIGURATION_INVALID: '采集配置无效', MODE_UNSUPPORTED: '采集模式不受支持', SURFACE_UNSUPPORTED: '观测面不受支持',
++  LANGUAGE_UNSUPPORTED: '语言不受支持', REGION_UNSUPPORTED: '地区不受支持', LOGIN_UNSUPPORTED: '登录状态不受支持', SEARCH_POLICY_UNSUPPORTED: '搜索策略不受支持', CAPABILITY_UNSUPPORTED: '能力不受支持',
++  MONITORING_DISABLED: 'GEO 总开关已关闭，请联系管理员', API_COLLECTION_DISABLED: 'API 采集开关已关闭，请联系管理员', BROWSER_COLLECTION_DISABLED: '浏览器采集开关已关闭，请联系管理员',
++  PROFILE_DISABLED: '采集配置已停用', SURFACE_DISABLED: '观测面已停用', ADAPTER_NOT_APPROVED: '适配器尚未批准', ENVIRONMENT_UNSUPPORTED: '运行环境不受支持',
++  COMPLIANCE_NOT_APPROVED: '合规尚未批准', PROFILE_NOT_TESTED: '采集配置尚未通过测试', MODEL_BINDING_REQUIRED: '采集配置需要模型绑定', MODEL_BINDING_UNSUPPORTED: '此模式不支持模型绑定',
++  MODEL_BINDING_INVALID: '模型绑定无效', MODEL_DISABLED: '模型已停用', CHANNEL_DISABLED: 'AI 渠道已停用', MODEL_NOT_TESTED: '模型尚未通过测试', CREDENTIAL_NOT_CONFIGURED: '凭据尚未配置，请联系管理员', PROTOCOL_UNSUPPORTED: '协议不受支持',
++} satisfies Record<PlanBlocker['code'], string>;
++const warningLabels = {
++  MIXED_COLLECTION_MODES: '包含不同采集模式，请分别核对运行要求', MIXED_PROFILE_ENVIRONMENTS: '采集配置的语言、地区或登录环境不同',
++  PROMPT_PROFILE_ENVIRONMENT_MISMATCH: '问题变体与采集配置的语言或地区不同', MODEL_VERSION_UNKNOWN: '无法观测模型版本',
++  COST_UNKNOWN: '全部运行费用未知', COST_PARTIAL: '仅部分运行费用已知', COST_CURRENCY_MISMATCH: '已知费用包含多个币种，不进行换汇', BUDGET_UNVERIFIED: '存在未知费用，不能保证最终费用未超过预算',
++} satisfies Record<PlanWarning['code'], string>;
++
++function blockerDestination(blocker: PlanBlocker) {
++  const code = blocker.code;
++  if (code === 'SUBJECT_NOT_FOUND' || code === 'SUBJECT_DISABLED') return { step: 1, field: 'subjects', href: blocker.resource_id ? `/configuration/geo-entities?subject_id=${encodeURIComponent(blocker.resource_id)}` : '/configuration/geo-entities' };
++  if (code === 'PROMPT_NOT_FOUND' || code === 'PROMPT_DISABLED') return { step: 2, field: 'prompt_variant_ids', href: blocker.resource_id ? `/geo/questions?selected=${encodeURIComponent(blocker.resource_id)}` : '/geo/questions' };
++  if (code === 'BUDGET_EXCEEDED' || code === 'BUDGET_CURRENCY_MISMATCH') return { step: 4, field: 'budget_limit', href: null };
++  // Profile blocker 的 resource_id 始终指向所选 Profile；field 的后缀属于其配置，而非计划字段。
++  return { step: 3, field: 'collection_profile_ids', href: blocker.resource_id ? `/configuration/geo-surfaces?tab=profiles&profile_id=${encodeURIComponent(blocker.resource_id)}` : '/configuration/geo-surfaces?tab=profiles' };
++}
++function planFieldStep(field: string) {
++  const root = field.split('.')[0];
++  if (root === 'subjects') return 1;
++  if (root === 'prompt_variant_ids') return 2;
++  if (root === 'collection_profile_ids') return 3;
++  if (root === 'repeat_count' || root === 'budget_limit' || root === 'rule_set_revision') return 4;
++  if (root === 'schedule_kind' || root === 'cron_expression' || root === 'timezone') return 5;
++  return 0;
++}
++export { blockerDestination, blockerLabels, planFieldStep, warningLabels };
++export type { PlanBlocker, PlanWarning };
+--- /dev/null
++++ b/frontend/src/domains/geo-plans/plan-preview.test.tsx
+@@ -0,0 +1,46 @@
++import { render, screen, within } from '@testing-library/react';
++import userEvent from '@testing-library/user-event';
++import { describe, expect, it, vi } from 'vitest';
++import { PlanPreviewPanel } from './plan-preview';
++import { blockerLabels, type PlanBlocker } from './plan-preview.model';
++import type { PlanPreview } from './plans.model';
++
++function preview(overrides: Partial<PlanPreview> = {}): PlanPreview {
++  return { prompt_count: 2, profile_count: 3, repeat_count: 4, run_count: 71, manual_run_count: 11, api_run_count: 22, browser_run_count: 33, unresolved_run_count: 5, estimated_cost: { value: null, currency: null, coverage: 'NONE', known_run_count: 0, unknown_run_count: 71, known_costs: [] }, blockers: [], warnings: [{ code: 'COST_UNKNOWN', field: 'estimated_cost', resource_id: null, related_resource_id: null }], ...overrides };
++}
++describe('服务端预览展示', () => {
++  it('运行数和费用保持服务端值，即使本地乘法会得到不同数量', () => {
++    render(<PlanPreviewPanel preview={preview()} />);
++    expect(screen.getByText(/2 × 3 × 4 = 71/)).toBeInTheDocument();
++    for (const [label, value] of [['总运行数', '71'], ['人工待录入数', '11'], ['API 运行数', '22'], ['浏览器运行数', '33'], ['未解析运行数', '5']]) expect(screen.getByText(label!).parentElement).toHaveTextContent(value!);
++    expect(screen.getByText('已知部分小计：未知或无法合并 · 币种：未知或多个币种')).toBeInTheDocument();
++    expect(screen.getByText(/未知费用不按零计入/)).toBeInTheDocument();
++    expect(screen.getByText(/全部运行费用未知/)).toBeInTheDocument();
++  });
++  it('分币种已知小计与未知运行数量完整保留', () => {
++    render(<PlanPreviewPanel preview={preview({ estimated_cost: { value: null, currency: null, coverage: 'PARTIAL', known_run_count: 20, unknown_run_count: 51, known_costs: [{ value: '12.120001', currency: 'CNY' }, { value: '4.3', currency: 'USD' }] } })} />);
++    expect(screen.getByText('CNY 已知小计：12.120001')).toBeInTheDocument();
++    expect(screen.getByText('USD 已知小计：4.3')).toBeInTheDocument();
++    expect(screen.getByText(/已知费用运行数 20 · 未知费用运行数 51/)).toBeInTheDocument();
++  });
++  it('每个 blocker 展示字段、两种资源 ID、跳回按钮和安全的新标签页入口', async () => {
++    const resource = '10000000-0000-4000-8000-000000000001';
++    const related = '10000000-0000-4000-8000-000000000002';
++    const blockers = (Object.keys(blockerLabels) as PlanBlocker['code'][]).map((code) => ({ code, field: `collection_profile_ids.${code}`, resource_id: resource, related_resource_id: related }));
++    const onFix = vi.fn();
++    render(<PlanPreviewPanel onFix={onFix} preview={preview({ blockers })} />);
++    const user = userEvent.setup();
++    const list = screen.getByText(`运行阻断（${blockers.length}）`).parentElement!;
++    const rows = within(list).getAllByRole('listitem');
++    expect(rows).toHaveLength(blockers.length);
++    for (const [index, row] of rows.entries()) {
++      expect(row).toHaveTextContent(blockers[index]!.field);
++      expect(row).toHaveTextContent(resource); expect(row).toHaveTextContent(related);
++      await user.click(within(row).getByRole('button', { name: /修正此项/ }));
++    }
++    expect(onFix).toHaveBeenCalledTimes(blockers.length);
++    expect(onFix).toHaveBeenCalledWith(1, resource); expect(onFix).toHaveBeenCalledWith(2, resource); expect(onFix).toHaveBeenCalledWith(3, resource); expect(onFix).toHaveBeenCalledWith(4, resource);
++    for (const link of within(list).getAllByRole('link')) { expect(link).toHaveAttribute('target', '_blank'); expect(link).toHaveAttribute('rel', 'noopener noreferrer'); }
++    expect(within(list).getByText(/工程师可查看非敏感摘要/)).toBeInTheDocument();
++  });
++});
+--- /dev/null
++++ b/frontend/src/domains/geo-plans/plan-preview.tsx
+@@ -0,0 +1,33 @@
++import { Button } from '@/design-system/primitives/button';
++import { PlanNotice } from './plan-controls';
++import { blockerDestination, blockerLabels, warningLabels } from './plan-preview.model';
++import type { PlanPreview } from './plans.model';
++
++function PlanPreviewPanel({ preview, onFix }: { preview: PlanPreview; onFix?: (step: number, resourceId?: string | null) => void }) {
++  const cost = preview.estimated_cost;
++  const counts = [
++    ['问题变体数', preview.prompt_count], ['采集配置数', preview.profile_count], ['重复次数', preview.repeat_count], ['总运行数', preview.run_count],
++    ['人工待录入数', preview.manual_run_count], ['API 运行数', preview.api_run_count], ['浏览器运行数', preview.browser_run_count], ['未解析运行数', preview.unresolved_run_count],
++  ] as const;
++  return <section aria-label="服务端运行预览" className="min-w-0 space-y-4">
++    <p className="break-words text-sm text-text-secondary">服务端运行矩阵：{preview.prompt_count} × {preview.profile_count} × {preview.repeat_count} = {preview.run_count}。保存时服务端会重新校验当前资源与运行资格。</p>
++    <dl className="grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-4">{counts.map(([label, count]) => <div className="min-w-0 rounded-lg border border-border-subtle p-3" key={label}><dt className="text-xs text-text-secondary">{label}</dt><dd className="mt-1 font-semibold tabular-nums">{count}</dd></div>)}</dl>
++    <section aria-label="费用估算" className="space-y-2">
++      <h3 className="font-medium">费用估算</h3>
++      <p className="text-sm">估价覆盖：{{ NONE: '全部未知', PARTIAL: '部分已知', COMPLETE: '全部已知' }[cost.coverage]} · 已知费用运行数 {cost.known_run_count} · 未知费用运行数 {cost.unknown_run_count}</p>
++      <p className="text-sm">已知部分小计：{cost.value === null ? '未知或无法合并' : cost.value} · 币种：{cost.currency === null ? '未知或多个币种' : cost.currency}</p>
++      {cost.known_costs.length > 0 && <ul className="list-disc space-y-1 pl-5 text-sm">{cost.known_costs.map((item) => <li key={item.currency}>{item.currency} 已知小计：{item.value}</li>)}</ul>}
++      <p className="text-xs text-text-muted">未知费用不按零计入。已知小计不能作为全部运行的最终费用；预算不执行预留或扣费。</p>
++    </section>
++    {preview.blockers.length > 0 ? <PlanNotice error><h3 className="font-medium">运行阻断（{preview.blockers.length}）</h3><ul className="space-y-3">{preview.blockers.map((blocker, index) => {
++      const destination = blockerDestination(blocker);
++      return <li className="min-w-0 space-y-1" key={`${blocker.code}:${blocker.field}:${blocker.resource_id}:${blocker.related_resource_id}:${index}`}>
++        <p>{blockerLabels[blocker.code]} <span className="text-xs">（{blocker.code}）</span></p>
++        <p className="break-all text-xs">字段：{blocker.field} · 资源：{blocker.resource_id ?? '无'} · 关联资源：{blocker.related_resource_id ?? '无'}</p>
++        <div className="flex flex-wrap items-center gap-3">{onFix && <Button className="min-h-11 sm:min-h-8" onClick={() => onFix(destination.step, blocker.resource_id)} type="button" variant="outline">修正此项：{destination.field}</Button>}{destination.href && <a className="break-words underline underline-offset-2" href={destination.href} rel="noopener noreferrer" target="_blank">查看资源配置（新标签页）</a>}</div>
++      </li>;
++    })}</ul><p className="text-xs">工程师可查看非敏感摘要；涉及配置权限、系统开关、凭据或批准时，请联系管理员处理。</p></PlanNotice> : <PlanNotice>当前服务端预览没有运行阻断；预览结果不替代保存和状态操作的服务端裁决。</PlanNotice>}
++    {preview.warnings.length > 0 && <section aria-label="预览警告" className="space-y-2 rounded-lg border border-warning/30 p-3 text-sm"><h3 className="font-medium">警告（{preview.warnings.length}）</h3><ul className="space-y-2">{preview.warnings.map((warning, index) => <li className="break-words" key={`${warning.code}:${warning.resource_id}:${warning.related_resource_id}:${index}`}><p>{warningLabels[warning.code]}（{warning.code}）</p><p className="break-all text-xs text-text-secondary">字段：{warning.field} · 资源：{warning.resource_id ?? '无'} · 关联资源：{warning.related_resource_id ?? '无'}</p></li>)}</ul></section>}
++  </section>;
++}
++export { PlanPreviewPanel };
+--- /dev/null
++++ b/frontend/src/domains/geo-plans/plan-wizard-steps.tsx
+@@ -0,0 +1,37 @@
++import { useFormContext, useWatch } from 'react-hook-form';
++import { FormField } from '@/design-system/forms/form-field';
++import { Input } from '@/design-system/primitives/input';
++import { Textarea } from '@/design-system/primitives/textarea';
++import { PlanSelect } from './plan-controls';
++import { PlanOptions } from './plan-options';
++import { scheduleLabels, type PlanValues } from './plans.model';
++
++const planStepLabels = ['基本信息', '监测对象', '问题变体', '采集配置', '重复和预算', '调度', '服务端预览', '保存'] as const;
++const stepFields: (keyof PlanValues)[][] = [
++  ['name', 'description'], ['subjects'], ['prompt_variant_ids'], ['collection_profile_ids'], ['repeat_count', 'budget_limit', 'rule_set_revision'], ['schedule_kind', 'cron_expression', 'timezone'], [], [],
++];
++function TextField({ name, label, description, required, number = false, maxLength }: {
++  name: 'name' | 'budget_limit' | 'repeat_count' | 'rule_set_revision' | 'cron_expression' | 'timezone'; label: string; description?: string; required?: boolean; number?: boolean; maxLength?: number;
++}) {
++  return <FormField<PlanValues, typeof name> description={description} id={`plan-${name}`} label={label} name={name} required={required} render={({ field, inputId, ...aria }) => <Input {...field} aria-describedby={aria['aria-describedby']} aria-invalid={aria['aria-invalid']} aria-required={aria['aria-required']} id={inputId} inputMode={name === 'budget_limit' ? 'decimal' : undefined} maxLength={maxLength} min={number ? 1 : undefined} onChange={(event) => field.onChange(number ? (event.currentTarget.value === '' ? NaN : Number(event.currentTarget.value)) : event.currentTarget.value)} step={number ? 1 : undefined} type={number ? 'number' : 'text'} value={typeof field.value === 'number' && Number.isNaN(field.value) ? '' : field.value} />} />;
++}
++function PlanWizardStep({ step, disabled }: { step: number; disabled: boolean }) {
++  const { control } = useFormContext<PlanValues>();
++  const schedule = useWatch({ control, name: 'schedule_kind' });
++  if (step === 0) return <div className="space-y-4"><TextField label="计划名称" maxLength={200} name="name" required /><FormField<PlanValues, 'description'> id="plan-description" label="计划说明" name="description" render={({ field, inputId, ...aria }) => <Textarea {...field} aria-describedby={aria['aria-describedby']} aria-invalid={aria['aria-invalid']} id={inputId} rows={4} />} /></div>;
++  if (step === 1) return <FormField<PlanValues, 'subjects'> description="每个对象必须显式选择角色，至少一个主要监测对象。角色独立于对象类型。" id="plan-subjects-label" label="监测对象与角色" name="subjects" required render={({ field, ...aria }) => <PlanOptions describedBy={aria['aria-describedby']} disabled={disabled} invalid={aria['aria-invalid']} kind="subjects" onChange={() => {}} onSubjectsChange={field.onChange} selected={field.value.map((item) => item.subject_id)} subjects={field.value} />} />;
++  if (step === 2) return <FormField<PlanValues, 'prompt_variant_ids'> id="plan-prompt_variant_ids-label" label="问题变体" name="prompt_variant_ids" required render={({ field, ...aria }) => <PlanOptions describedBy={aria['aria-describedby']} disabled={disabled} invalid={aria['aria-invalid']} kind="prompts" onChange={field.onChange} selected={field.value} />} />;
++  if (step === 3) return <FormField<PlanValues, 'collection_profile_ids'> description="同一观测面的不同配置独立选择。这里只展示非敏感摘要，运行资格以服务端预览为准。" id="plan-collection_profile_ids-label" label="采集配置" name="collection_profile_ids" required render={({ field, ...aria }) => <PlanOptions describedBy={aria['aria-describedby']} disabled={disabled} invalid={aria['aria-invalid']} kind="profiles" onChange={field.onChange} selected={field.value} />} />;
++  if (step === 4) return <div className="space-y-4"><TextField description="每个问题与采集配置组合的重复次数，范围 1–10。" label="重复次数" name="repeat_count" number required /><TextField description="可留空；填写非负十进制金额。币种与是否超限由服务端估价裁决，未知费用不会按零补齐。" label="预算上限" name="budget_limit" /><TextField description="保存适用规则集的修订号。" label="规则集修订号" name="rule_set_revision" number required /></div>;
++  if (step === 5) return <div className="space-y-4"><FormField<PlanValues, 'schedule_kind'> id="plan-schedule_kind" label="调度方式" name="schedule_kind" required render={({ field, inputId, ...aria }) => <PlanSelect choices={Object.entries(scheduleLabels).map(([value, label]) => ({ value, label }))} describedBy={aria['aria-describedby']} id={inputId} invalid={aria['aria-invalid']} label="调度方式" onChange={field.onChange} required value={field.value} />} />{schedule === 'CRON' && <TextField description="五字段 Cron，例如 0 9 * * *。当前保存调度配置，实际调度执行尚未实施。" label="Cron 表达式" maxLength={120} name="cron_expression" required />}<TextField description="IANA 时区，例如 Asia/Shanghai；服务端验证时区与 Cron。" label="时区" maxLength={64} name="timezone" required /></div>;
++  return null;
++}
++function PlanConfigurationSummary({ values }: { values: PlanValues }) {
++  return <dl className="grid min-w-0 gap-2 text-sm sm:grid-cols-[auto_1fr]">
++    <dt className="text-text-secondary">计划名称</dt><dd className="break-words">{values.name}</dd><dt className="text-text-secondary">说明</dt><dd className="break-words">{values.description || '未填写'}</dd>
++    <dt className="text-text-secondary">监测对象及角色</dt><dd className="break-all">{values.subjects.map((item) => `${item.subject_id} (${item.role})`).join('；')}</dd>
++    <dt className="text-text-secondary">问题变体</dt><dd className="break-all">{values.prompt_variant_ids.join('；')}</dd><dt className="text-text-secondary">采集配置</dt><dd className="break-all">{values.collection_profile_ids.join('；')}</dd>
++    <dt className="text-text-secondary">重复次数 / 预算</dt><dd>{values.repeat_count} / {values.budget_limit === '' ? '未设置预算' : values.budget_limit}</dd><dt className="text-text-secondary">调度</dt><dd className="break-words">{scheduleLabels[values.schedule_kind]} · {values.schedule_kind === 'CRON' ? values.cron_expression : '手动触发'} · {values.timezone}</dd><dt className="text-text-secondary">规则集修订号</dt><dd>{values.rule_set_revision}</dd>
++  </dl>;
++}
++export { PlanConfigurationSummary, PlanWizardStep, planStepLabels, stepFields };
+--- /dev/null
++++ b/frontend/src/domains/geo-plans/plan-wizard.test.tsx
+@@ -0,0 +1,261 @@
++import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
++import { createBrowserHistory, createMemoryHistory, createRootRoute, createRoute, createRouter, RouterProvider, useRouter } from '@tanstack/react-router';
++import { act, render, screen, waitFor, within } from '@testing-library/react';
++import userEvent from '@testing-library/user-event';
++import { useState } from 'react';
++import { afterEach, describe, expect, it, vi } from 'vitest';
++import { initializePrincipalEpoch, invalidatePrincipalEpoch } from '@/app/auth/principal-epoch';
++import { api } from '@/shared/api/client';
++import type { components } from '@/shared/api/generated/schema';
++import { PlanWizard } from './plan-wizard';
++import { planKeys } from './plans.api';
++import { PlanOptions } from './plan-options';
++import type { PlanDetail, PlanPreview, PlanValues } from './plans.model';
++
++const id = '90000000-0000-4000-8000-000000000001';
++const subjectId = '90000000-0000-4000-8000-000000000002';
++const promptId = '90000000-0000-4000-8000-000000000003';
++const profileId = '90000000-0000-4000-8000-000000000004';
++const otherId = '90000000-0000-4000-8000-000000000005';
++const time = '2026-10-02T08:00:00Z';
++function preview(runCount = 91): PlanPreview {
++  return { prompt_count: 1, profile_count: 1, repeat_count: 3, run_count: runCount, manual_run_count: runCount, api_run_count: 0, browser_run_count: 0, unresolved_run_count: 0, estimated_cost: { value: null, currency: null, coverage: 'NONE', known_run_count: 0, unknown_run_count: runCount, known_costs: [] }, blockers: [], warnings: [{ code: 'COST_UNKNOWN', field: 'estimated_cost', resource_id: null, related_resource_id: null }] };
++}
++function plan(overrides: Partial<PlanDetail> = {}): PlanDetail {
++  return { id, name: '原始计划', description: '原始说明', subjects: [{ subject_id: subjectId, role: 'PRIMARY' }], prompt_variant_ids: [promptId], collection_profile_ids: [profileId], repeat_count: 3, schedule_kind: 'MANUAL_ONLY', cron_expression: null, timezone: 'Asia/Shanghai', budget_limit: null, rule_set_revision: 1, status: 'DISABLED', revision: 7, created_by: id, updated_by: id, created_at: time, updated_at: time, preview: preview(), workflow_stage: 'READY', primary_task: 'ACTIVATE', available_actions: ['UPDATE', 'PREVIEW', 'ACTIVATE'], deletion: { blockers: [] }, run_entry: { available: false, reason_code: 'NOT_IMPLEMENTED' }, ...overrides };
++}
++function subject(subject_id = subjectId, label = '监测品牌'): components['schemas']['GeoSubjectOut'] {
++  return { id: subject_id, subject_type: 'OWN_BRAND', product_id: null, product: null, parent_subject_id: null, parent: null, canonical_name: label, display_name: label, description: '', is_active: true, aliases: [], domains: [], references: { child_subject_count: 0, monitoring_plan_count: 0, observation_run_count: 0, analysis_count: 0, opportunity_count: 0 }, workflow_stage: 'ACTIVE', primary_task: 'MANAGE_SUBJECT', available_actions: [], deletion: null, revision: 1, created_by: id, created_at: time, updated_at: time };
++}
++function prompt(variantId = promptId, label = '测试问题'): components['schemas']['GeoPromptVariantOut'] {
++  return { id: variantId, query_topic_id: otherId, prompt_text: label, mention_mode: 'UNBRANDED', language_code: 'zh-cn', region_code: 'CN', priority: 'STANDARD', is_active: true, revision: 1, first_referenced_at: null, created_by: id, created_at: time, updated_at: time, query_topic: { id: otherId, canonical_question: '测试主题', intent_type: 'REPLACEMENT', revision: 1 }, workflow_stage: 'ACTIVE', primary_task: 'EDIT', available_actions: ['UPDATE'], deletion: { blockers: [] }, run_entry: { available: false, reason_code: 'NOT_IMPLEMENTED' } };
++}
++function profile(): components['schemas']['GeoCollectionProfileRead'] {
++  return { summary: { id: profileId, name: '工程师采集摘要', engine_surface_id: otherId, engine_surface: { id: otherId, name: '人工观测面', slug: 'manual-site', surface_kind: 'MANUAL_SITE', provider_brand: 'CUSTOM', compliance_status: 'NOT_REVIEWED', capabilities: { answer_text: true, citations: false, web_search_signal: false, model_version: false, usage: false, cost: false }, is_active: true, revision: 1, created_at: time, updated_at: time }, collection_mode: 'MANUAL', language_code: 'zh-cn', region_code: 'CN', login_state: 'ANONYMOUS', web_search_policy: 'UNKNOWN', is_active: true, last_test_status: 'UNTESTED', last_tested_at: null, revision: 1, created_at: time, updated_at: time }, configuration: null, workflow_stage: 'ACTIVE', primary_task: 'VIEW_SUMMARY', available_actions: [], deletion: null, activation_blockers: null };
++}
++function response<T>(data: T) { return { data, response: Response.json(data) } as never; }
++function failure(status = 409) {
++  const error = { error: { code: status === 409 ? 'REVISION_CONFLICT' : 'FORBIDDEN', message: '服务端拒绝当前提交', request_id: 'plan-wizard-test-request', details: {} } };
++  return { error, response: Response.json(error, { status }) } as never;
++}
++function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>((done) => { resolve = done; }); return { promise, resolve }; }
++function reads() {
++  return vi.spyOn(api, 'GET').mockImplementation(async (path) => {
++    if (path === '/api/v1/geo/subjects') return response({ items: [subject()], page: 1, page_size: 10, total: 1 });
++    if (path === '/api/v1/geo/prompt-variants') return response({ items: [prompt()], page: 1, page_size: 10, total: 1 });
++    if (path === '/api/v1/geo/collection-profiles') return response({ items: [profile()], page: 1, page_size: 10, total: 1 });
++    throw new Error(`测试收到未声明读取：${path}`);
++  });
++}
++function renderWizard({ creating = false, browser = false, initialStep = 0, onReload = vi.fn(async () => plan({ revision: 9, name: '服务端新名称', description: '服务端新说明' })), projected = plan({ available_actions: [] }) }: { creating?: boolean; browser?: boolean; initialStep?: number; onReload?: () => Promise<PlanDetail>; projected?: PlanDetail } = {}) {
++  const onSaved = vi.fn();
++  const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
++  initializePrincipalEpoch(client, 'wizard-test-principal');
++  function Demo() {
++    const router = useRouter();
++    const [current, setCurrent] = useState<PlanDetail | undefined>(creating ? undefined : plan());
++    return <><button onClick={() => router.history.push(`/geo/plans?${creating ? 'new=1' : `selected=${id}&edit=1`}&q=changed`)} type="button">更改列表筛选</button><button onClick={() => router.history.push(`/geo/plans?selected=${otherId}&edit=1`)} type="button">切换计划</button><button onClick={() => setCurrent(projected)} type="button">更新后台投影</button><PlanWizard csrfToken="wizard-csrf" initialStep={initialStep} onCancel={() => router.history.push('/geo/plans')} onReload={creating ? undefined : onReload} onSaved={onSaved} plan={current} /></>;
++  }
++  const root = createRootRoute();
++  const route = createRoute({ getParentRoute: () => root, path: '/geo/plans', component: Demo });
++  const entry = `/geo/plans?${creating ? 'new=1' : `selected=${id}&edit=1`}`;
++  if (browser) window.history.replaceState(null, '', entry);
++  const history = browser ? createBrowserHistory() : createMemoryHistory({ initialEntries: [entry] });
++  const router = createRouter({ routeTree: root.addChildren([route]), history });
++  const view = render(<QueryClientProvider client={client}><RouterProvider router={router} /></QueryClientProvider>);
++  return { view, router, client, onSaved, onReload };
++}
++async function serverPreview(driver: ReturnType<typeof userEvent.setup>) {
++  await driver.click(screen.getByRole('button', { name: '7. 服务端预览' }));
++  await driver.click(screen.getByRole('button', { name: '预览当前配置' }));
++  await screen.findByRole('region', { name: '服务端运行预览' });
++}
++async function fillCreation(driver: ReturnType<typeof userEvent.setup>) {
++  await driver.type(await screen.findByRole('textbox', { name: '计划名称' }), '本地新建');
++  await driver.click(screen.getByRole('button', { name: '2. 监测对象' }));
++  await driver.click(await screen.findByRole('combobox', { name: '选择对象角色：监测品牌' })); await driver.click(await screen.findByRole('option', { name: '主要监测对象' }));
++  await driver.click(screen.getByRole('button', { name: '3. 问题变体' })); await driver.click(await screen.findByRole('button', { name: '选择问题变体：测试问题' }));
++  await driver.click(screen.getByRole('button', { name: '4. 采集配置' })); await driver.click(await screen.findByRole('button', { name: '选择采集配置：工程师采集摘要' }));
++}
++afterEach(() => vi.restoreAllMocks());
++describe('八步计划向导', () => {
++  it('新建各步保持本地草稿，显式选择 PRIMARY，最终只创建一次且不自动启用', async () => {
++    reads();
++    const post = vi.spyOn(api, 'POST').mockImplementation(async (path) => path === '/api/v1/geo/monitoring-plans/preview' ? response(preview()) : response(plan({ name: '新监测计划', description: '', revision: 0 })));
++    const { onSaved } = renderWizard({ creating: true }); const user = userEvent.setup();
++    await user.type(await screen.findByRole('textbox', { name: '计划名称' }), '新监测计划');
++    await user.click(screen.getByRole('button', { name: '下一步' }));
++    await user.click(await screen.findByRole('combobox', { name: '选择对象角色：监测品牌' }));
++    await user.click(await screen.findByRole('option', { name: '主要监测对象' }));
++    await user.click(screen.getByRole('button', { name: '下一步' }));
++    await user.click(await screen.findByRole('button', { name: '选择问题变体：测试问题' }));
++    await user.click(screen.getByRole('button', { name: '下一步' }));
++    await user.click(await screen.findByRole('button', { name: '选择采集配置：工程师采集摘要' }));
++    await user.click(screen.getByRole('button', { name: '下一步' }));
++    await user.click(screen.getByRole('button', { name: '下一步' }));
++    await user.click(screen.getByRole('button', { name: '下一步' }));
++    expect(post).not.toHaveBeenCalled();
++    await user.click(screen.getByRole('button', { name: '预览当前配置' }));
++    await screen.findByText(/1 × 1 × 3 = 91/);
++    await user.click(screen.getByRole('button', { name: '下一步' }));
++    await user.dblClick(screen.getByRole('button', { name: '创建监测计划' }));
++    await waitFor(() => expect(onSaved).toHaveBeenCalledOnce());
++    expect(post.mock.calls.map((call) => call[0])).toEqual(['/api/v1/geo/monitoring-plans/preview', '/api/v1/geo/monitoring-plans']);
++    const create = post.mock.calls[1]![1] as { body: components['schemas']['GeoMonitoringPlanCreate']; params: { header: Record<string, string> } };
++    expect(create.body).toMatchObject({ name: '新监测计划', subjects: [{ subject_id: subjectId, role: 'PRIMARY' }], prompt_variant_ids: [promptId], collection_profile_ids: [profileId], repeat_count: 3, cron_expression: null, budget_limit: null });
++    expect(create.params.header['X-CSRF-Token']).toBe('wizard-csrf');
++  });
++  it('409 保留全部输入与 preview，显式重读只更新 revision，必须重新预览且无自动重放', async () => {
++    const post = vi.spyOn(api, 'POST').mockResolvedValue(response(preview()));
++    const patch = vi.spyOn(api, 'PATCH').mockResolvedValueOnce(failure()).mockResolvedValue(response(plan({ name: '本地名称', description: '本地说明', revision: 10 })));
++    const { onReload, onSaved } = renderWizard(); const user = userEvent.setup();
++    await user.clear(await screen.findByRole('textbox', { name: '计划名称' })); await user.type(screen.getByRole('textbox', { name: '计划名称' }), '本地名称');
++    await user.clear(screen.getByRole('textbox', { name: '计划说明' })); await user.type(screen.getByRole('textbox', { name: '计划说明' }), '本地说明');
++    await serverPreview(user); await user.click(screen.getByRole('button', { name: '8. 保存' }));
++    await user.click(screen.getByRole('button', { name: '保存计划配置' }));
++    expect(await screen.findByText(/plan-wizard-test-request/)).toBeInTheDocument();
++    expect(screen.getByText(/1 × 1 × 3 = 91/)).toBeInTheDocument();
++    expect(patch).toHaveBeenCalledTimes(1); expect(screen.getByRole('button', { name: '保存计划配置' })).toBeDisabled();
++    await user.click(screen.getByRole('button', { name: '加载最新计划并保留输入' }));
++    expect(onReload).toHaveBeenCalledOnce(); expect(patch).toHaveBeenCalledTimes(1);
++    expect(await screen.findByRole('region', { name: '最新服务端配置供比较' })).toHaveTextContent('服务端新名称');
++    expect(screen.getByRole('button', { name: '保存计划配置' })).toBeDisabled();
++    await user.click(screen.getByRole('button', { name: '1. 基本信息' }));
++    expect(screen.getByRole('textbox', { name: '计划名称' })).toHaveValue('本地名称'); expect(screen.getByRole('textbox', { name: '计划说明' })).toHaveValue('本地说明');
++    await serverPreview(user); await user.click(screen.getByRole('button', { name: '8. 保存' })); await user.click(screen.getByRole('button', { name: '保存计划配置' }));
++    await waitFor(() => expect(onSaved).toHaveBeenCalledOnce());
++    expect(post).toHaveBeenCalledTimes(2);
++    expect((patch.mock.calls[0]![1] as { body: object }).body).toMatchObject({ expected_revision: 7, name: '本地名称', description: '本地说明' });
++    expect((patch.mock.calls[1]![1] as { body: object }).body).toMatchObject({ expected_revision: 9, name: '本地名称', description: '本地说明' });
++  });
++  it('新建 409 后可修正草稿，显式重新 preview 后手动创建，不能陷入不可恢复冲突', async () => {
++    reads(); let createAttempts = 0;
++    const post = vi.spyOn(api, 'POST').mockImplementation(async (path) => {
++      if (path === '/api/v1/geo/monitoring-plans/preview') return response(preview());
++      createAttempts += 1;
++      return createAttempts === 1 ? failure() : response(plan({ name: '修正后新建', revision: 0 }));
++    });
++    const { onSaved } = renderWizard({ creating: true }); const user = userEvent.setup(); await fillCreation(user); await serverPreview(user);
++    await user.click(screen.getByRole('button', { name: '8. 保存' })); await user.click(screen.getByRole('button', { name: '创建监测计划' }));
++    expect(await screen.findByText(/plan-wizard-test-request/)).toBeInTheDocument(); expect(createAttempts).toBe(1);
++    expect(screen.getByText(/1 × 1 × 3 = 91/)).toBeInTheDocument(); expect(screen.getByRole('button', { name: '创建监测计划' })).toBeDisabled();
++    await user.click(screen.getByRole('button', { name: '1. 基本信息' })); expect(screen.getByRole('textbox', { name: '计划名称' })).toHaveValue('本地新建');
++    await user.clear(screen.getByRole('textbox', { name: '计划名称' })); await user.type(screen.getByRole('textbox', { name: '计划名称' }), '修正后新建');
++    await serverPreview(user); expect(createAttempts).toBe(1);
++    await user.click(screen.getByRole('button', { name: '8. 保存' })); await user.click(screen.getByRole('button', { name: '创建监测计划' }));
++    await waitFor(() => expect(onSaved).toHaveBeenCalledOnce()); expect(createAttempts).toBe(2); expect(post).toHaveBeenCalledTimes(4);
++  });
++  it('422 只采用安全字段定位与消息，可跳回预算并且不展示服务端 input/context', async () => {
++    vi.spyOn(api, 'POST').mockResolvedValue(response(preview()));
++    const envelope = { error: { code: 'VALIDATION_ERROR', message: '输入未通过校验', request_id: 'safe-field-request', details: { errors: [{ loc: ['body', 'budget_limit'], msg: '预算不符合当前约束', input: 'PRIVATE_INPUT_VALUE', ctx: { value: 'PRIVATE_CONTEXT_VALUE' } }] } } };
++    vi.spyOn(api, 'PATCH').mockResolvedValue({ error: envelope, response: Response.json(envelope, { status: 422 }) } as never);
++    renderWizard({ initialStep: 6 }); const user = userEvent.setup(); await screen.findByRole('button', { name: '预览当前配置' }); await serverPreview(user);
++    await user.click(screen.getByRole('button', { name: '8. 保存' })); await user.click(screen.getByRole('button', { name: '保存计划配置' }));
++    await user.click(await screen.findByRole('button', { name: '预算不符合当前约束' }));
++    expect(screen.getByRole('textbox', { name: '预算上限' })).toHaveAttribute('aria-invalid', 'true'); expect(document.activeElement).toHaveAttribute('id', 'plan-budget_limit');
++    expect(document.body).not.toHaveTextContent('PRIVATE_INPUT_VALUE'); expect(document.body).not.toHaveTextContent('PRIVATE_CONTEXT_VALUE');
++  });
++  it('预览请求忽略 abort 且草稿 ABA 回到原值时仍丢弃旧结果，当前预览不会被覆盖', async () => {
++    const old = deferred<never>();
++    const post = vi.spyOn(api, 'POST').mockImplementationOnce(() => old.promise).mockResolvedValue(response(preview(202)));
++    renderWizard({ initialStep: 6 }); const user = userEvent.setup();
++    await user.click(await screen.findByRole('button', { name: '预览当前配置' }));
++    await user.click(screen.getByRole('button', { name: '1. 基本信息' }));
++    await user.type(screen.getByRole('textbox', { name: '计划名称' }), 'A'); await user.keyboard('{Backspace}');
++    expect(screen.getByRole('textbox', { name: '计划名称' })).toHaveValue('原始计划');
++    await serverPreview(user);
++    expect(screen.getByText(/1 × 1 × 3 = 202/)).toBeInTheDocument();
++    await act(async () => old.resolve(response(preview(999))));
++    expect(screen.queryByText(/1 × 1 × 3 = 999/)).not.toBeInTheDocument();
++    expect(screen.getByText(/1 × 1 × 3 = 202/)).toBeInTheDocument();
++    expect((post.mock.calls[0]![1] as { signal: AbortSignal }).signal.aborted).toBe(true);
++  });
++  it('任意有效草稿变化使已有 preview 失效，后台新配置不会覆盖输入或 CAS 基线', async () => {
++    vi.spyOn(api, 'POST').mockResolvedValue(response(preview()));
++    renderWizard({ projected: plan({ name: '后台名称', revision: 99 }) }); const user = userEvent.setup();
++    await screen.findByRole('textbox', { name: '计划名称' }); await serverPreview(user);
++    await user.click(screen.getByRole('button', { name: '1. 基本信息' })); await user.type(screen.getByRole('textbox', { name: '计划名称' }), '本地');
++    await user.click(screen.getByRole('button', { name: '更新后台投影' }));
++    expect(screen.getByRole('textbox', { name: '计划名称' })).toHaveValue('原始计划本地');
++    expect(screen.getByText('提交基线 Revision 7')).toBeInTheDocument();
++    await user.click(screen.getByRole('button', { name: '8. 保存' })); expect(screen.getByRole('button', { name: '保存计划配置' })).toBeDisabled();
++  });
++  it('新投影撤销动作及 403 均阻止写入而保留草稿', async () => {
++    const post = vi.spyOn(api, 'POST').mockResolvedValue(failure(403));
++    renderWizard(); const user = userEvent.setup();
++    await user.type(await screen.findByRole('textbox', { name: '计划名称' }), '保留');
++    await user.click(screen.getByRole('button', { name: '7. 服务端预览' })); await user.click(screen.getByRole('button', { name: '预览当前配置' }));
++    expect(await screen.findByText(/当前计划只读或读取权限已变化/)).toBeInTheDocument();
++    await user.click(screen.getByRole('button', { name: '1. 基本信息' })); expect(screen.getByRole('textbox', { name: '计划名称' })).toHaveValue('原始计划保留');
++    expect(screen.getByRole('textbox', { name: '计划名称' })).toBeDisabled(); expect(post).toHaveBeenCalledOnce();
++    await user.click(screen.getByRole('button', { name: '更新后台投影' })); await user.click(screen.getByRole('button', { name: '8. 保存' }));
++    expect(screen.queryByRole('button', { name: '保存计划配置' })).not.toBeInTheDocument();
++  });
++  it('dirty 保护关闭、切换及刷新；安全筛选保持当前输入', async () => {
++    const { router, view } = renderWizard({ browser: true }); const user = userEvent.setup();
++    await user.type(await screen.findByRole('textbox', { name: '计划名称' }), '草稿');
++    await user.click(screen.getByRole('button', { name: '更改列表筛选' }));
++    await waitFor(() => expect(router.state.location.search).toMatchObject({ q: 'changed' }));
++    expect(screen.queryByRole('dialog')).not.toBeInTheDocument(); expect(screen.getByRole('textbox', { name: '计划名称' })).toHaveValue('原始计划草稿');
++    for (const label of ['关闭向导', '切换计划']) { await user.click(screen.getByRole('button', { name: label })); expect(await screen.findByRole('dialog')).toBeInTheDocument(); await user.click(screen.getByRole('button', { name: '继续编辑' })); }
++    const unload = new Event('beforeunload', { cancelable: true }); window.dispatchEvent(unload); expect(unload.defaultPrevented).toBe(true);
++    expect(screen.getByRole('textbox', { name: '计划名称' })).toHaveValue('原始计划草稿');
++    view.unmount(); router.history.destroy(); window.history.replaceState(null, '', '/');
++  });
++  it('主体变化或卸载后，迟到保存不能污染缓存或触发 canonical 回调', async () => {
++    const late = deferred<never>(); vi.spyOn(api, 'POST').mockResolvedValue(response(preview())); vi.spyOn(api, 'PATCH').mockImplementation(() => late.promise);
++    const { client, view, onSaved } = renderWizard({ initialStep: 6 }); const user = userEvent.setup();
++    await screen.findByRole('button', { name: '预览当前配置' }); await serverPreview(user); await user.click(screen.getByRole('button', { name: '8. 保存' })); await user.click(screen.getByRole('button', { name: '保存计划配置' }));
++    invalidatePrincipalEpoch(client, 'new-principal'); view.unmount();
++    await act(async () => late.resolve(response(plan({ revision: 8 }))));
++    expect(onSaved).not.toHaveBeenCalled(); expect(client.getQueryData(planKeys.detail(id))).toBeUndefined();
++  });
++  it('可保存结构完整但有运行 blocker 的未启用计划，并聚焦可修正选择项', async () => {
++    reads(); vi.spyOn(api, 'POST').mockResolvedValue(response({ ...preview(), blockers: [{ code: 'PROFILE_DISABLED', field: 'collection_profile_ids.is_active', resource_id: profileId, related_resource_id: null }] }));
++    const patch = vi.spyOn(api, 'PATCH').mockResolvedValue(response(plan({ revision: 8 }))); const { onSaved } = renderWizard({ initialStep: 6 }); const user = userEvent.setup();
++    await screen.findByRole('button', { name: '预览当前配置' }); await serverPreview(user);
++    await user.click(screen.getByRole('button', { name: '修正此项：collection_profile_ids' }));
++    expect(await screen.findByRole('heading', { name: '4. 采集配置' })).toBeInTheDocument();
++    expect(document.activeElement).toHaveAttribute('id', `plan-collection_profile_ids-${profileId}`);
++    await user.click(screen.getByRole('button', { name: '8. 保存' })); await user.click(screen.getByRole('button', { name: '保存计划配置' }));
++    await waitFor(() => expect(onSaved).toHaveBeenCalledOnce()); expect(patch).toHaveBeenCalledOnce();
++  });
++});
++describe('跨页选项与显式角色', () => {
++  it('服务端搜索与分页后保留已选 ID 和可移除入口，支持缺失 ID', async () => {
++    const get = vi.spyOn(api, 'GET').mockImplementation(async (_path, options) => {
++      const query = (options as { params: { query: { page: number; q?: string } } }).params.query;
++      const item = query.page === 1 ? prompt() : prompt(otherId, '第二页问题');
++      return response({ items: query.q ? [] : [item], page: query.page, page_size: 10, total: 11 });
++    });
++    function Demo() { const [selected, setSelected] = useState([id]); return <PlanOptions kind="prompts" onChange={setSelected} selected={selected} />; }
++    render(<QueryClientProvider client={new QueryClient()}><Demo /></QueryClientProvider>); const user = userEvent.setup();
++    await user.click(await screen.findByRole('button', { name: '选择问题变体：测试问题' })); await user.click(screen.getByRole('button', { name: '下一页问题变体选项' }));
++    await user.click(await screen.findByRole('button', { name: '选择问题变体：第二页问题' }));
++    const selected = screen.getByRole('region', { name: '已选问题变体' }); expect(selected).toHaveTextContent('测试问题'); expect(selected).toHaveTextContent('第二页问题');
++    await user.type(screen.getByRole('searchbox', { name: '搜索问题变体选项' }), '服务端搜索');
++    expect(await screen.findByText('没有匹配的选项，请调整搜索。')).toBeInTheDocument();
++    expect(within(selected).getAllByRole('button', { name: /移除问题变体/ })).toHaveLength(3);
++    await user.click(within(selected).getByRole('button', { name: `移除问题变体：${id}` }));
++    expect(within(selected).queryByText(id)).not.toBeInTheDocument();
++    expect(get.mock.calls.some((call) => (call[1] as { params: { query: { q?: string; page: number } } }).params.query.q === '服务端搜索' && (call[1] as { params: { query: { page: number } } }).params.query.page === 1)).toBe(true);
++  });
++  it('subject 角色由用户明确选择，并能跨页修改和移除', async () => {
++    vi.spyOn(api, 'GET').mockResolvedValue(response({ items: [subject()], page: 1, page_size: 10, total: 1 }));
++    const changed = vi.fn();
++    function Demo() { const [subjects, setSubjects] = useState<PlanValues['subjects']>([]); return <PlanOptions kind="subjects" onChange={() => {}} onSubjectsChange={(items) => { changed(items); setSubjects(items); }} selected={subjects.map((item) => item.subject_id)} subjects={subjects} />; }
++    render(<QueryClientProvider client={new QueryClient()}><Demo /></QueryClientProvider>); const user = userEvent.setup();
++    await user.click(await screen.findByRole('combobox', { name: '选择对象角色：监测品牌' })); await user.click(await screen.findByRole('option', { name: '参考对象' }));
++    expect(changed).toHaveBeenLastCalledWith([{ subject_id: subjectId, role: 'REFERENCE' }]);
++    await user.type(screen.getByRole('searchbox', { name: '搜索监测对象选项' }), '搜索');
++    await user.click(screen.getByRole('combobox', { name: '已选对象角色：监测品牌' })); await user.click(await screen.findByRole('option', { name: '主要监测对象' }));
++    expect(changed).toHaveBeenLastCalledWith([{ subject_id: subjectId, role: 'PRIMARY' }]);
++    await user.click(screen.getByRole('button', { name: '移除监测对象：监测品牌' })); expect(changed).toHaveBeenLastCalledWith([]);
++  });
++  it('选项读取错误保留选中项并显示 request ID，无静默空列表', async () => {
++    vi.spyOn(api, 'GET').mockResolvedValue(failure(403));
++    render(<QueryClientProvider client={new QueryClient()}><PlanOptions kind="prompts" onChange={() => {}} selected={[promptId]} /></QueryClientProvider>);
++    expect(await screen.findByText(/plan-wizard-test-request/)).toBeInTheDocument(); expect(screen.getByRole('button', { name: `移除问题变体：${promptId}` })).toBeInTheDocument();
++    expect(screen.queryByText('暂无问题变体选项。请在已有资源页面准备配置。')).not.toBeInTheDocument();
++  });
++});
+--- /dev/null
++++ b/frontend/src/domains/geo-plans/plan-wizard.tsx
+@@ -0,0 +1,216 @@
++import { zodResolver } from '@hookform/resolvers/zod';
++import { useMutation, useQueryClient } from '@tanstack/react-query';
++import { useEffect, useLayoutEffect, useRef, useState } from 'react';
++import { FormProvider, useForm, useWatch, type FieldErrors, type Path } from 'react-hook-form';
++import { capturePrincipalContinuation, type PrincipalContinuation } from '@/app/auth/principal-epoch';
++import { DirtyGuard } from '@/design-system/forms/dirty-guard';
++import { Button } from '@/design-system/primitives/button';
++import { PlanNotice, planErrorMessage } from './plan-controls';
++import { planFieldStep } from './plan-preview.model';
++import { PlanPreviewPanel } from './plan-preview';
++import { PlanConfigurationSummary, PlanWizardStep, planStepLabels, stepFields } from './plan-wizard-steps';
++import { createPlan, PlanRequestError, planKeys, previewPlan, updatePlan } from './plans.api';
++import { planCreate, planFormSchema, planUpdate, planValues, shouldBlockPlanNavigation, type PlanDetail, type PlanPreview, type PlanValues } from './plans.model';
++
++type PreviewSnapshot = { generation: number; snapshot: string; result: PlanPreview };
++function formIssues(errors: FieldErrors<PlanValues>) {
++  const issues: { field: string; message: string }[] = [];
++  function visit(value: unknown, path: string) {
++    if (!value || typeof value !== 'object') return;
++    if ('message' in value && typeof value.message === 'string') issues.push({ field: path, message: value.message });
++    for (const [key, entry] of Object.entries(value)) if (key !== 'ref' && key !== 'message' && key !== 'type' && key !== 'types') visit(entry, key === 'root' ? path : path ? `${path}.${key}` : key);
++  }
++  visit(errors, '');
++  return issues;
++}
++function PlanWizard({ plan, csrfToken, onSaved, onReload, onCancel, readBlocked = false, initialStep = 0 }: {
++  plan?: PlanDetail; csrfToken: string | null; onSaved: (plan: PlanDetail) => void;
++  onReload?: () => Promise<PlanDetail>; onCancel: () => void; readBlocked?: boolean; initialStep?: number;
++}) {
++  const client = useQueryClient();
++  const form = useForm<PlanValues>({ defaultValues: planValues(plan), resolver: zodResolver(planFormSchema), mode: 'onChange' });
++  const values = useWatch({ control: form.control }) as PlanValues;
++  const { isDirty, isValid, errors } = form.formState;
++  const [step, setStep] = useState(() => Number.isInteger(initialStep) && initialStep >= 0 && initialStep < planStepLabels.length ? initialStep : 0);
++  const [baseline, setBaseline] = useState(plan);
++  const [latest, setLatest] = useState<PlanDetail>();
++  const [preview, setPreview] = useState<PreviewSnapshot>();
++  const [previewPending, setPreviewPending] = useState(false);
++  const [error, setError] = useState<unknown>();
++  const [conflict, setConflict] = useState(false);
++  const [writeBlocked, setWriteBlocked] = useState(false);
++  const [refreshing, setRefreshing] = useState(false);
++  const [savedMessage, setSavedMessage] = useState('');
++  const [focusTarget, setFocusTarget] = useState('');
++  const mounted = useRef(true);
++  const inFlight = useRef(false);
++  const generation = useRef(0);
++  const lastDraft = useRef(JSON.stringify(form.getValues()));
++  const previewFlight = useRef<{ controller: AbortController; generation: number } | null>(null);
++  const allowed = !readBlocked && !writeBlocked && (!plan || plan.available_actions.includes('UPDATE') || plan.available_actions.includes('CREATE_REVISION')) && (!baseline || baseline.available_actions.includes('UPDATE') || baseline.available_actions.includes('CREATE_REVISION'));
++  const allowedRef = useRef(allowed);
++  useLayoutEffect(() => { allowedRef.current = allowed; }, [allowed]);
++  useEffect(() => {
++    mounted.current = true;
++    const unsubscribe = form.subscribe({ formState: { values: true }, callback: ({ values: draft }) => {
++      const snapshot = JSON.stringify(draft);
++      if (snapshot === lastDraft.current) return;
++      lastDraft.current = snapshot;
++      generation.current += 1;
++      previewFlight.current?.controller.abort();
++      previewFlight.current = null;
++      setPreview(undefined); setPreviewPending(false); setSavedMessage('');
++    } });
++    return () => { mounted.current = false; previewFlight.current?.controller.abort(); unsubscribe(); };
++  }, [form]);
++  useEffect(() => {
++    const target = focusTarget || 'plan-step-heading';
++    document.getElementById(target)?.focus();
++  }, [step, focusTarget]);
++  function goToField(field: string, resourceId?: string | null) {
++    const root = field.split('.')[0] ?? field;
++    const target = `plan-${root}${resourceId ? `-${resourceId}` : ''}`;
++    setStep(planFieldStep(root));
++    setFocusTarget(target);
++    document.getElementById(target)?.focus();
++  }
++  function fix(targetStep: number, resourceId?: string | null) {
++    const field = targetStep === 1 ? 'subjects' : targetStep === 2 ? 'prompt_variant_ids' : targetStep === 3 ? 'collection_profile_ids' : 'budget_limit';
++    goToField(field, targetStep === 4 ? null : resourceId);
++  }
++  function move(target: number) { setFocusTarget(''); setStep(target); }
++  function invalid(fields: FieldErrors<PlanValues>) {
++    const first = formIssues(fields)[0];
++    if (first) goToField(first.field);
++  }
++  function recordFailure(failure: unknown) {
++    setError(failure);
++    if (!(failure instanceof PlanRequestError)) return;
++    if (failure.status === 403 || failure.status === 404) setWriteBlocked(true);
++    if (failure.status === 409) setConflict(true);
++    if (failure.status !== 422 || !failure.detail) return;
++    const details = failure.detail.details.errors;
++    if (!Array.isArray(details)) return;
++    for (const issue of details) {
++      if (!issue || typeof issue !== 'object' || !('loc' in issue) || !Array.isArray(issue.loc) || !('msg' in issue) || typeof issue.msg !== 'string') continue;
++      const path = issue.loc[0] === 'body' ? issue.loc.slice(1) : issue.loc;
++      const root = path[0];
++      if (typeof root !== 'string' || !stepFields.flat().includes(root as keyof PlanValues) || !path.every((part: unknown) => typeof part === 'string' || typeof part === 'number')) continue;
++      form.setError(path.join('.') as Path<PlanValues>, { type: 'server', message: issue.msg });
++    }
++  }
++  const previewMutation = useMutation({ retry: false, mutationFn: async ({ draft, continuation, flight }: { draft: PlanValues; continuation: PrincipalContinuation; flight: NonNullable<typeof previewFlight.current> }) => {
++    continuation.assertCurrent();
++    if (!mounted.current || !allowedRef.current || flight.generation !== generation.current) throw new Error('当前草稿或权限已变化，请重新预览');
++    const result = await previewPlan(planCreate(draft), csrfToken, flight.controller.signal);
++    continuation.assertCurrent();
++    return result;
++  } });
++  async function runPreview(draft: PlanValues) {
++    if (inFlight.current || previewFlight.current || !allowedRef.current || !csrfToken) return;
++    const flight = { controller: new AbortController(), generation: generation.current };
++    const snapshot = JSON.stringify(draft);
++    previewFlight.current = flight; setPreviewPending(true); setError(undefined);
++    let continuation: PrincipalContinuation | undefined;
++    try {
++      continuation = capturePrincipalContinuation(client);
++      continuation.assertCurrent();
++      const result = await previewMutation.mutateAsync({ draft, continuation, flight });
++      if (!continuation.isCurrent() || !mounted.current || previewFlight.current !== flight || generation.current !== flight.generation || JSON.stringify(form.getValues()) !== snapshot) return;
++      setPreview({ generation: flight.generation, snapshot, result });
++      if (!baseline) setConflict(false);
++    } catch (failure) {
++      if ((!continuation || continuation.isCurrent()) && mounted.current && previewFlight.current === flight && generation.current === flight.generation) recordFailure(failure);
++    } finally {
++      if (previewFlight.current === flight) {
++        previewFlight.current = null;
++        if ((!continuation || continuation.isCurrent()) && mounted.current) setPreviewPending(false);
++      }
++    }
++  }
++  const saveMutation = useMutation({ retry: false, mutationFn: async ({ draft, continuation, previewGeneration, revision }: { draft: PlanValues; continuation: PrincipalContinuation; previewGeneration: number; revision?: number }) => {
++    continuation.assertCurrent();
++    if (!mounted.current || !allowedRef.current || generation.current !== previewGeneration) throw new Error('当前草稿或权限已变化，请重新预览');
++    const result = baseline ? await updatePlan(baseline.id, planUpdate(draft, revision!), csrfToken) : await createPlan(planCreate(draft), csrfToken);
++    continuation.assertCurrent();
++    return result;
++  } });
++  const currentPreview = preview && preview.snapshot === JSON.stringify(values) ? preview : undefined;
++  const busy = saveMutation.isPending || refreshing || previewPending;
++  async function save(draft: PlanValues) {
++    if (inFlight.current || conflict || !allowedRef.current || !preview || preview.generation !== generation.current || preview.snapshot !== JSON.stringify(draft)) return;
++    inFlight.current = true; setError(undefined);
++    let continuation: PrincipalContinuation | undefined;
++    try {
++      continuation = capturePrincipalContinuation(client);
++      continuation.assertCurrent();
++      const canonical = await saveMutation.mutateAsync({ draft, continuation, previewGeneration: preview.generation, revision: baseline?.revision });
++      if (!continuation.isCurrent() || !mounted.current) return;
++      await Promise.all([client.cancelQueries({ queryKey: planKeys.lists() }), client.cancelQueries({ queryKey: planKeys.detail(canonical.id) })]);
++      if (!continuation.isCurrent() || !mounted.current) return;
++      client.setQueryData(planKeys.detail(canonical.id), canonical);
++      generation.current += 1; setPreview(undefined);
++      setBaseline(canonical); form.reset(planValues(canonical));
++      setSavedMessage(`已保存 · Revision ${canonical.revision}`);
++      onSaved(canonical);
++    } catch (failure) {
++      if ((!continuation || continuation.isCurrent()) && mounted.current) recordFailure(failure);
++    } finally { inFlight.current = false; }
++  }
++  async function reload() {
++    if (!onReload || inFlight.current || refreshing || previewFlight.current) return;
++    inFlight.current = true; setRefreshing(true);
++    let continuation: PrincipalContinuation | undefined;
++    try {
++      continuation = capturePrincipalContinuation(client);
++      continuation.assertCurrent();
++      const canonical = await onReload();
++      if (!continuation.isCurrent() || !mounted.current) return;
++      // 只采用 CAS 基线；完整服务端配置单独展示供核对，任何本地输入都不合并或重置。
++      setBaseline(canonical); setLatest(canonical); setConflict(false); setError(undefined); setPreview(undefined);
++      generation.current += 1; form.clearErrors();
++    } catch (failure) {
++      if ((!continuation || continuation.isCurrent()) && mounted.current) recordFailure(failure);
++    } finally {
++      inFlight.current = false;
++      if ((!continuation || continuation.isCurrent()) && mounted.current) setRefreshing(false);
++    }
++  }
++  async function next() {
++    if (inFlight.current || !mounted.current) return;
++    let continuation: PrincipalContinuation | undefined;
++    try {
++      continuation = capturePrincipalContinuation(client);
++      const valid = await form.trigger(stepFields[step]);
++      if (!continuation.isCurrent() || !mounted.current) return;
++      if (valid) move(step + 1); else invalid(form.formState.errors);
++    } catch (failure) {
++      if ((!continuation || continuation.isCurrent()) && mounted.current) recordFailure(failure);
++    }
++  }
++  const issues = formIssues(errors);
++  return <FormProvider {...form}>
++    <DirtyGuard shouldBlockNavigation={({ current, next: destination }) => shouldBlockPlanNavigation(current, destination)} when={isDirty || busy} />
++    <form aria-label={plan ? '编辑监测计划' : '新建监测计划'} className="min-w-0 space-y-4" noValidate onSubmit={(event) => {
++      event.preventDefault();
++      if (step < 6) void next();
++      else void form.handleSubmit(step === 6 ? runPreview : save, invalid)(event);
++    }}>
++      <nav aria-label="计划向导步骤"><ol className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4">{planStepLabels.map((label, index) => <li className="min-w-0" key={label}><Button aria-current={step === index ? 'step' : undefined} className="min-h-11 w-full whitespace-normal px-2 text-left" disabled={saveMutation.isPending || refreshing} onClick={() => move(index)} type="button" variant={step === index ? 'secondary' : 'outline'}>{index + 1}. {label}</Button></li>)}</ol></nav>
++      <h2 className="type-section-title" id="plan-step-heading" tabIndex={-1}>{step + 1}. {planStepLabels[step]}</h2>
++      {!allowed && <PlanNotice error>当前计划只读或读取权限已变化，已阻止提交。本地草稿保留，请先核对资源或会话权限。</PlanNotice>}
++      <fieldset className="min-w-0 space-y-4" disabled={saveMutation.isPending || refreshing || !allowed}>
++        <PlanWizardStep disabled={saveMutation.isPending || refreshing || !allowed} step={step} />
++        {step === 6 && <><p className="text-sm text-text-secondary">预览当前完整草稿。任何字段或选择变化后都必须重新预览。</p><Button className="min-h-11 sm:min-h-8" disabled={previewPending || !csrfToken} type="submit">{previewPending ? '服务端预览中…' : '预览当前配置'}</Button>{currentPreview ? <PlanPreviewPanel onFix={fix} preview={currentPreview.result} /> : <PlanNotice>当前草稿尚无有效服务端预览。</PlanNotice>}</>}
++        {step === 7 && <><PlanConfigurationSummary values={values} />{currentPreview ? <PlanPreviewPanel onFix={fix} preview={currentPreview.result} /> : <PlanNotice>请返回“服务端预览”，预览当前草稿后保存。</PlanNotice>}<PlanNotice>保存仅提交完整配置。新计划保存后为未启用；请在详情明确确认启用。运行阻断不会阻止结构完整的未启用或已暂停计划保存，已启用计划的修改由服务端重新裁决。</PlanNotice></>}
++      </fieldset>
++      {issues.length > 0 && <section aria-label="请修正以下问题" className="space-y-2 rounded-lg border border-danger/30 p-3" role="alert"><h3 className="font-medium text-danger">请修正以下问题</h3><ul className="space-y-1">{issues.map((issue) => <li key={issue.field}><Button className="h-auto min-h-11 whitespace-normal text-left sm:min-h-8" onClick={() => goToField(issue.field)} type="button" variant="link">{issue.message}</Button></li>)}</ul></section>}
++      {Boolean(error) && <PlanNotice error>{planErrorMessage(error)}</PlanNotice>}
++      {conflict && <PlanNotice><p>服务端拒绝了当前提交。本地全部输入与预览已保留；不会自动重放。{baseline ? '请显式读取最新计划并核对，再重新预览和保存。' : '请核对或修正配置，重新预览后再手动创建。'}</p>{onReload && <Button disabled={busy} onClick={() => void reload()} type="button" variant="outline">加载最新计划并保留输入</Button>}</PlanNotice>}
++      {latest && <section aria-label="最新服务端配置供比较" className="min-w-0 space-y-2 rounded-lg border border-border-default p-3"><h3 className="font-medium">最新服务端配置 · Revision {latest.revision}</h3><PlanConfigurationSummary values={planValues(latest)} /><p className="text-xs text-text-secondary">本地输入保持不变，提交基线已更新。请比较配置并重新预览。</p></section>}
++      {baseline && <p className="text-xs text-text-muted">提交基线 Revision {baseline.revision}</p>}
++      <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-text-muted" role="status">{saveMutation.isPending ? '保存中…' : refreshing ? '读取最新配置中…' : previewPending ? '服务端预览中…' : savedMessage || (isDirty ? '有未保存的修改' : '未修改')}</p><div className="flex flex-wrap gap-2"><Button className="min-h-11 sm:min-h-8" disabled={saveMutation.isPending || refreshing} onClick={onCancel} type="button" variant="outline">关闭向导</Button>{step > 0 && <Button className="min-h-11 sm:min-h-8" disabled={saveMutation.isPending || refreshing} onClick={() => move(step - 1)} type="button" variant="outline">上一步</Button>}{step < 7 && <Button className="min-h-11 sm:min-h-8" disabled={saveMutation.isPending || refreshing || (step === 6 && !currentPreview)} onClick={() => step === 6 ? move(7) : void next()} type="button">下一步</Button>}{step === 7 && allowed && <Button className="min-h-11 sm:min-h-8" disabled={busy || conflict || !isValid || !currentPreview || !csrfToken} type="submit">{plan ? '保存计划配置' : '创建监测计划'}</Button>}</div></div>
++    </form>
++  </FormProvider>;
++}
++export { PlanWizard };
+--- /dev/null
++++ b/frontend/src/domains/geo-plans/plans-page.test.tsx
+@@ -0,0 +1,113 @@
++import { act, screen, waitFor, within } from '@testing-library/react';
++import userEvent from '@testing-library/user-event';
++import { afterEach, describe, expect, it, vi } from 'vitest';
++import { invalidatePrincipalEpoch } from '@/app/auth/principal-epoch';
++import { api } from '@/shared/api/client';
++import { planKeys } from './plans.api';
++import { failure, mockReads, plan, planId, renderPlans, response } from './plans.test-support';
++
++afterEach(() => vi.restoreAllMocks());
++async function action(label: string) {
++  const driver = userEvent.setup();
++  await driver.click(await screen.findByRole('button', { name: '更多操作：当前计划' }));
++  await driver.click(await screen.findByRole('menuitem', { name: label }));
++  return driver;
++}
++describe('计划真实路由与状态工作区', () => {
++  it('URL 恢复筛选和详情，直接显示服务端矩阵值', async () => {
++    const get = mockReads(() => plan({ preview: { ...plan().preview, run_count: 97 } }));
++    const { router } = renderPlans(`/geo/plans?selected=${planId}&q=原始&status=DISABLED&schedule_kind=MANUAL_ONLY&page=2&page_size=10&sort=NAME_ASC`);
++    const workspace = await screen.findByRole('region', { name: '监测计划详情' });
++    expect(within(workspace).getByText(/NOT_IMPLEMENTED/)).toBeVisible();
++    expect(within(workspace).getByText('97')).toBeVisible();
++    expect(get).toHaveBeenCalledWith('/api/v1/geo/monitoring-plans', expect.objectContaining({ params: { query: { q: '原始', status: 'DISABLED', schedule_kind: 'MANUAL_ONLY', page: 2, page_size: 10, sort: 'NAME_ASC' } } }));
++    await userEvent.setup().click(screen.getByRole('button', { name: '关闭' }));
++    await waitFor(() => expect(router.state.location.search.selected).toBeUndefined());
++    expect(router.state.location.search).toMatchObject({ q: '原始', page: 2 });
++  });
++  it('状态 409 必须显式读取和重新确认，不自动重放；发送服务端 revision', async () => {
++    let current = plan(); mockReads(() => current);
++    const post = vi.spyOn(api, 'POST').mockResolvedValueOnce(failure()).mockImplementationOnce(async () => { current = plan({ status: 'ACTIVE', workflow_stage: 'ACTIVE', primary_task: 'VIEW_RUNTIME', revision: 9, available_actions: ['CREATE_REVISION', 'PREVIEW', 'PAUSE', 'ARCHIVE', 'COPY'] }); return response(current); });
++    const driver = userEvent.setup(); renderPlans();
++    await driver.click(await screen.findByRole('region', { name: '监测计划详情' }).then((region) => within(region).getByRole('button', { name: '启用计划' })));
++    const dialog = await screen.findByRole('dialog', { name: '确认启用计划' });
++    await driver.click(within(dialog).getByRole('button', { name: '确认操作' }));
++    await within(dialog).findByText(/plan-test-request/);
++    expect(post).toHaveBeenCalledOnce(); expect(within(dialog).getByRole('button', { name: '确认操作' })).toBeDisabled();
++    current = plan({ revision: 8 });
++    await driver.click(within(dialog).getByRole('button', { name: '重新读取并重新确认' }));
++    await waitFor(() => expect(within(dialog).getByRole('button', { name: '确认操作' })).toBeEnabled());
++    expect(post).toHaveBeenCalledOnce();
++    await driver.click(within(dialog).getByRole('button', { name: '确认操作' }));
++    await screen.findByText('启用计划已完成。');
++    expect(post.mock.calls[1]).toEqual(['/api/v1/geo/monitoring-plans/{plan_id}/activate', { body: { expected_revision: 8 }, params: { path: { plan_id: planId }, header: { 'X-CSRF-Token': 'plans-csrf' } } }]);
++  });
++  it('复制 409、后台更新与显式重新读取都保留名称输入', async () => {
++    let current = plan(); mockReads(() => current); const post = vi.spyOn(api, 'POST').mockResolvedValue(failure('GEO_PLAN_REFERENCE_CONFLICT'));
++    const { client } = renderPlans(); const driver = await action('复制为新计划');
++    const field = screen.getByRole('textbox', { name: '新计划名称' }); await driver.clear(field); await driver.type(field, '用户自己的复制名称');
++    await driver.click(screen.getByRole('button', { name: '确认操作' })); await screen.findByText(/plan-test-request/);
++    current = plan({ revision: 8, name: '远端名称' });
++    await act(async () => { await client.invalidateQueries({ queryKey: planKeys.detail(planId) }); });
++    expect(field).toHaveValue('用户自己的复制名称');
++    await driver.click(screen.getByRole('button', { name: '重新读取并重新确认' }));
++    await waitFor(() => expect(screen.getByRole('button', { name: '确认操作' })).toBeEnabled());
++    expect(field).toHaveValue('用户自己的复制名称'); expect(post).toHaveBeenCalledOnce();
++  });
++  it('409后关闭重开确认且后台版本已刷新，仍须显式读取，保留复制输入', async () => {
++    let current = plan(); mockReads(() => current); const post = vi.spyOn(api, 'POST').mockResolvedValue(failure());
++    const { client } = renderPlans(); const driver = await action('复制为新计划');
++    await driver.clear(screen.getByRole('textbox', { name: '新计划名称' }));
++    await driver.type(screen.getByRole('textbox', { name: '新计划名称' }), '保留复制名');
++    await driver.click(screen.getByRole('button', { name: '确认操作' })); await screen.findByText(/plan-test-request/);
++    await driver.click(screen.getByRole('button', { name: '取消' }));
++    current = plan({ revision: 8 });
++    await act(async () => { await client.invalidateQueries({ queryKey: planKeys.detail(planId) }); });
++    await action('复制为新计划');
++    expect(screen.getByRole('textbox', { name: '新计划名称' })).toHaveValue('保留复制名');
++    expect(screen.getByRole('button', { name: '确认操作' })).toBeDisabled();
++    expect(post).toHaveBeenCalledOnce();
++    await driver.click(screen.getByRole('button', { name: '重新读取并重新确认' }));
++    await waitFor(() => expect(screen.getByRole('button', { name: '确认操作' })).toBeEnabled());
++    expect(post).toHaveBeenCalledOnce();
++  });
++  it('删除204清理URL与列表，不再次GET已删除详情', async () => {
++    let removed = false; const get = mockReads(plan, () => removed ? [] : [plan()]);
++    const remove = vi.spyOn(api, 'DELETE').mockImplementation(async () => { removed = true; return { response: new Response(null, { status: 204 }) } as never; });
++    const { router } = renderPlans(); const driver = await action('删除计划');
++    await driver.click(screen.getByRole('button', { name: '确认操作' }));
++    await waitFor(() => expect(router.state.location.search.selected).toBeUndefined());
++    await screen.findByText('暂无监测计划');
++    expect(get.paths.filter((path) => path.endsWith('/{plan_id}'))).toHaveLength(1);
++    expect(remove).toHaveBeenCalledWith('/api/v1/geo/monitoring-plans/{plan_id}', { params: { path: { plan_id: planId }, query: { expected_revision: 7 }, header: { 'X-CSRF-Token': 'plans-csrf' } } });
++  });
++  it.each(['主体变化', '卸载'])('%s后迟到状态响应不回写缓存', async (boundary) => {
++    mockReads(); let resolve!: (value: ReturnType<typeof response>) => void;
++    const post = vi.spyOn(api, 'POST').mockImplementation(() => new Promise((done) => { resolve = done; }));
++    const { client, view, router } = renderPlans(); const driver = await action('归档计划');
++    await driver.click(screen.getByRole('button', { name: '确认操作' })); await waitFor(() => expect(post).toHaveBeenCalledOnce());
++    if (boundary === '主体变化') invalidatePrincipalEpoch(client); else view.unmount();
++    await act(async () => resolve(response(plan({ revision: 8, status: 'ARCHIVED' }))));
++    expect(client.getQueryData(planKeys.detail(planId))).toMatchObject({ revision: 7 }); expect(router.state.location.search.selected).toBe(planId);
++  });
++  it('取消旧查询期间工作区卸载，状态命令不再发送', async () => {
++    mockReads(); const post = vi.spyOn(api, 'POST');
++    const { client, view } = renderPlans(); const driver = await action('归档计划');
++    let release!: () => void;
++    const cancellation = new Promise<void>((resolve) => { release = resolve; });
++    const cancel = vi.spyOn(client, 'cancelQueries').mockImplementation(() => cancellation);
++    await driver.click(screen.getByRole('button', { name: '确认操作' }));
++    await waitFor(() => expect(cancel).toHaveBeenCalled());
++    view.unmount(); await act(async () => release());
++    expect(post).not.toHaveBeenCalled();
++  });
++  it('直接访问404可安全关闭，没有猜测详情或无效重试', async () => {
++    const get = mockReads(plan, () => [], () => failure('NOT_FOUND', 404)); const { router } = renderPlans();
++    const workspace = await screen.findByRole('dialog', { name: '监测计划工作区' });
++    await within(workspace).findByText(/plan-test-request/);
++    expect(within(workspace).queryByRole('button', { name: '重试详情读取' })).not.toBeInTheDocument();
++    await userEvent.setup().click(within(workspace).getByRole('button', { name: '关闭工作区' }));
++    await waitFor(() => expect(router.state.location.search.selected).toBeUndefined());
++    expect(get.paths.filter((path) => path.endsWith('/{plan_id}'))).toHaveLength(1);
++  });
++});
+--- /dev/null
++++ b/frontend/src/domains/geo-plans/plans-page.tsx
+@@ -0,0 +1,67 @@
++import { useQuery, useQueryClient } from '@tanstack/react-query';
++import { useCallback, useEffect, useRef, useState } from 'react';
++import { capturePrincipalContinuation, type PrincipalContinuation } from '@/app/auth/principal-epoch';
++import { Button } from '@/design-system/primitives/button';
++import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/design-system/primitives/sheet';
++import type { components } from '@/shared/api/generated/schema';
++import { PlanRequestError, planDetailOptions, planKeys } from './plans.api';
++import { planEditorIdentity, planSearchSchema, type PlanDetail, type PlanSearch } from './plans.model';
++import { PlanNotice, planErrorMessage } from './plan-controls';
++import { PlanDetailPanel, type PlanDetailHandle } from './plan-detail';
++import { PlanList, type OpenPlan } from './plan-list';
++import { PlanWizard } from './plan-wizard';
++function PlansPage({ search, csrfToken, onSearchChange }: { search: PlanSearch; csrfToken: string | null; onSearchChange: (next: PlanSearch, replace?: boolean, ignoreBlocker?: boolean) => void }) {
++  const client = useQueryClient();
++  const detail = useQuery(planDetailOptions(search.selected ?? '', Boolean(search.selected)));
++  const [request, setRequest] = useState<{ id: string; command?: Parameters<OpenPlan>[1] }>();
++  const [editStep, setEditStep] = useState(0);
++  const [refreshError, setRefreshError] = useState<unknown>();
++  const latestSearch = useRef(search); const mounted = useRef(true); const returnFocus = useRef<HTMLElement | null>(null); const detailActions = useRef<PlanDetailHandle | null>(null);
++  useEffect(() => { latestSearch.current = search; }, [search]);
++  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
++  const identity = planEditorIdentity(search);
++  const open = useCallback<OpenPlan>((plan, command, focus) => {
++    returnFocus.current = focus ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
++    if (latestSearch.current.selected === plan.id && command && !latestSearch.current.edit) { detailActions.current?.request(command, focus); return; }
++    setEditStep(0);
++    setRequest({ id: plan.id, command });
++    onSearchChange(planSearchSchema.parse({ ...latestSearch.current, new: undefined, selected: plan.id, edit: command === 'UPDATE' || command === 'CREATE_REVISION' ? 1 : undefined }));
++  }, [onSearchChange]);
++  async function refreshLists() {
++    let continuation: PrincipalContinuation | undefined;
++    setRefreshError(undefined);
++    try { continuation = capturePrincipalContinuation(client); await client.invalidateQueries({ queryKey: planKeys.lists() }, { throwOnError: true }); }
++    catch (error) { if ((!continuation || continuation.isCurrent()) && mounted.current) setRefreshError(error); }
++  }
++  function saved(plan: PlanDetail) {
++    void refreshLists();
++    const current = latestSearch.current;
++    if (current.new || current.edit || current.selected !== plan.id) onSearchChange(planSearchSchema.parse({ ...current, new: undefined, edit: undefined, selected: plan.id }), true, true);
++  }
++  function deleted(id: string) {
++    client.setQueriesData<components['schemas']['GeoMonitoringPlanListPage']>({ queryKey: planKeys.lists() }, (current) => current ? { ...current, items: current.items.filter((item) => item.id !== id) } : current);
++    void client.invalidateQueries({ queryKey: planKeys.detail(id), refetchType: 'none' });
++    onSearchChange(planSearchSchema.parse({ ...latestSearch.current, selected: undefined, edit: undefined }), true, true);
++    void refreshLists();
++  }
++  async function reload() {
++    const id = latestSearch.current.selected;
++    if (!id) throw new Error('没有可读取的计划');
++    const requestedIdentity = planEditorIdentity(latestSearch.current); const continuation = capturePrincipalContinuation(client);
++    await client.cancelQueries({ queryKey: planKeys.detail(id) }); continuation.assertCurrent();
++    const canonical = await client.fetchQuery({ ...planDetailOptions(id), staleTime: 0 }); continuation.assertCurrent();
++    if (!mounted.current || planEditorIdentity(latestSearch.current) !== requestedIdentity) throw new Error('计划已切换，已丢弃旧读取结果');
++    return canonical;
++  }
++  const close = () => onSearchChange(planSearchSchema.parse({ ...latestSearch.current, selected: undefined, new: undefined, edit: undefined }));
++  const edit = (step = 0) => { setEditStep(step); onSearchChange(planSearchSchema.parse({ ...latestSearch.current, edit: 1 })); };
++  const unrecoverable = detail.error instanceof PlanRequestError && (detail.error.status === 403 || detail.error.status === 404);
++  const readState = <>{detail.data && detail.error && <PlanNotice error>后台读取失败，本地输入已保留：{planErrorMessage(detail.error)}{!unrecoverable && <Button onClick={() => void detail.refetch()} type="button" variant="outline">重试详情读取</Button>}{unrecoverable && <p>当前计划已不可访问，输入保留供核对，请关闭工作区。</p>}</PlanNotice>}{detail.isFetching && <p role="status">正在读取计划详情…</p>}{!detail.data && (detail.isPending ? <PlanNotice>正在读取计划…</PlanNotice> : <PlanNotice error>{planErrorMessage(detail.error)}{!unrecoverable && <Button onClick={() => void detail.refetch()} type="button" variant="outline">重试详情读取</Button>}<Button onClick={close} type="button" variant="outline">关闭工作区</Button></PlanNotice>)}</>;
++  return <section aria-labelledby="plans-title" className="min-w-0 space-y-5"><header className="flex flex-wrap items-start justify-between gap-3"><div className="space-y-1"><h1 className="type-page-title" id="plans-title">监测计划</h1><p className="max-w-3xl text-text-secondary">组合监测对象、问题变体和采集配置，预览运行矩阵并管理计划状态。</p></div><Button onClick={(event) => { returnFocus.current = event.currentTarget; onSearchChange(planSearchSchema.parse({ ...latestSearch.current, selected: undefined, edit: undefined, new: 1 })); }} type="button">新建监测计划</Button></header>
++    {Boolean(refreshError) && <PlanNotice error>操作已完成，但列表刷新失败：{planErrorMessage(refreshError)}<Button onClick={() => void refreshLists()} type="button" variant="outline">重新读取列表</Button></PlanNotice>}
++    <PlanList onChange={onSearchChange} onOpen={open} search={search} />
++    {(search.new || search.edit && search.selected) && <section aria-label="计划配置工作区" className="min-w-0 space-y-4 rounded-xl border border-border-default bg-surface-panel p-4"><h2 className="type-section-title">{search.new ? '新建监测计划向导' : '修订监测计划配置'}</h2>{!search.new && readState}{search.new || detail.data ? <PlanWizard initialStep={search.new ? 0 : editStep} csrfToken={csrfToken} key={identity} onCancel={close} onReload={search.new ? undefined : reload} onSaved={saved} plan={search.new ? undefined : detail.data} readBlocked={!search.new && unrecoverable} /> : null}</section>}
++    <Sheet onOpenChange={(isOpen) => { if (!isOpen) close(); }} open={Boolean(search.selected && !search.edit)}>{search.selected && !search.edit && <SheetContent className="w-full overflow-y-auto sm:max-w-3xl" finalFocus={() => returnFocus.current?.isConnected ? returnFocus.current : null}><SheetHeader><SheetTitle>监测计划工作区</SheetTitle><SheetDescription>完整配置、服务端预览与可用动作。</SheetDescription></SheetHeader><div className="min-w-0 space-y-4 px-4 pb-6">{readState}{detail.data && <PlanDetailPanel csrfToken={csrfToken} initialAction={request?.id === search.selected ? request.command : undefined} key={identity} onDeleted={deleted} onEdit={edit} onReload={reload} onSaved={saved} plan={detail.data} readBlocked={unrecoverable} ref={detailActions} />}</div></SheetContent>}</Sheet>
++  </section>;
++}
++export { PlansPage };
+--- /dev/null
++++ b/frontend/src/domains/geo-plans/plans.api.ts
+@@ -0,0 +1,76 @@
++import { queryOptions } from '@tanstack/react-query';
++import { api } from '@/shared/api/client';
++import type { components } from '@/shared/api/generated/schema';
++import { planSearchToParams, type PlanCreate, type PlanDetail, type PlanListParams, type PlanPreview, type PlanSearch } from './plans.model';
++
++type ErrorDetail = components['schemas']['ErrorDetail'];
++class PlanRequestError extends Error {
++  constructor(message: string, readonly status?: number, readonly detail?: ErrorDetail) { super(message); this.name = 'PlanRequestError'; }
++}
++const planKeys = {
++  root: () => ['geo', 'plans'] as const,
++  lists: () => ['geo', 'plans', 'list'] as const,
++  list: (params: PlanListParams) => ['geo', 'plans', 'list', params] as const,
++  detail: (id: string) => ['geo', 'plans', 'detail', id] as const,
++  options: (kind: 'subjects' | 'prompts' | 'profiles', q: string, page: number) => ['geo', 'plans', 'options', kind, q, page] as const,
++};
++function planListOptions(search: PlanSearch) {
++  const params = planSearchToParams(search);
++  return queryOptions({ queryKey: planKeys.list(params), queryFn: async ({ signal }) => {
++    const result = await api.GET('/api/v1/geo/monitoring-plans', { params: { query: params }, signal });
++    if (!result.data) throw requestError('读取监测计划列表', result);
++    return result.data as components['schemas']['GeoMonitoringPlanListPage'];
++  }, retry: false, retryOnMount: false, staleTime: 30_000 });
++}
++function planDetailOptions(id: string, enabled = true) {
++  return queryOptions({ enabled, queryKey: planKeys.detail(id), queryFn: async ({ signal }) => {
++    const result = await api.GET('/api/v1/geo/monitoring-plans/{plan_id}', { params: { path: { plan_id: id } }, signal });
++    if (!result.data) throw requestError('读取监测计划详情', result);
++    return result.data as PlanDetail;
++  }, retry: false, retryOnMount: false, staleTime: 30_000 });
++}
++async function previewPlan(body: PlanCreate, csrfToken: string | null, signal?: AbortSignal) {
++  const result = await api.POST('/api/v1/geo/monitoring-plans/preview', { body, signal, params: { header: { 'X-CSRF-Token': csrf(csrfToken) } } });
++  if (!result.data) throw requestError('预览监测计划', result);
++  return result.data as PlanPreview;
++}
++async function createPlan(body: PlanCreate, csrfToken: string | null) {
++  const result = await api.POST('/api/v1/geo/monitoring-plans', { body, params: { header: { 'X-CSRF-Token': csrf(csrfToken) } } });
++  if (!result.data) throw requestError('创建监测计划', result);
++  return result.data as PlanDetail;
++}
++async function updatePlan(id: string, body: components['schemas']['GeoMonitoringPlanUpdate'], csrfToken: string | null) {
++  const result = await api.PATCH('/api/v1/geo/monitoring-plans/{plan_id}', { body, params: { path: { plan_id: id }, header: { 'X-CSRF-Token': csrf(csrfToken) } } });
++  if (!result.data) throw requestError('保存监测计划', result);
++  return result.data as PlanDetail;
++}
++type PlanStatusCommand = 'ACTIVATE' | 'PAUSE' | 'RESUME' | 'ARCHIVE';
++const commandPaths = { ACTIVATE: '/api/v1/geo/monitoring-plans/{plan_id}/activate', PAUSE: '/api/v1/geo/monitoring-plans/{plan_id}/pause', RESUME: '/api/v1/geo/monitoring-plans/{plan_id}/resume', ARCHIVE: '/api/v1/geo/monitoring-plans/{plan_id}/archive' } as const;
++async function changePlanStatus(id: string, revision: number, action: PlanStatusCommand, csrfToken: string | null) {
++  const result = await api.POST(commandPaths[action], { body: { expected_revision: revision }, params: { path: { plan_id: id }, header: { 'X-CSRF-Token': csrf(csrfToken) } } });
++  if (!result.data) throw requestError('改变监测计划状态', result);
++  return result.data as PlanDetail;
++}
++async function copyPlan(id: string, revision: number, name: string, csrfToken: string | null) {
++  const result = await api.POST('/api/v1/geo/monitoring-plans/{plan_id}/copy', { body: { expected_revision: revision, name }, params: { path: { plan_id: id }, header: { 'X-CSRF-Token': csrf(csrfToken) } } });
++  if (!result.data) throw requestError('复制监测计划', result);
++  return result.data as PlanDetail;
++}
++async function deletePlan(id: string, revision: number, csrfToken: string | null) {
++  const result = await api.DELETE('/api/v1/geo/monitoring-plans/{plan_id}', { params: { path: { plan_id: id }, query: { expected_revision: revision }, header: { 'X-CSRF-Token': csrf(csrfToken) } } });
++  if (result.response.status !== 204) throw requestError('删除监测计划', result);
++  // 完整消费204，避免已成功的空响应在浏览器中被误判为取消。
++  await result.response.arrayBuffer();
++}
++function csrf(value: string | null) { if (value) return value; throw new PlanRequestError('缺少会话安全令牌，无法管理监测计划'); }
++function isRecord(value: unknown): value is Record<string, unknown> { return Boolean(value && typeof value === 'object' && !Array.isArray(value)); }
++function requestError(action: string, result: { error?: unknown; response: Response }) {
++  const body = result.error;
++  if (isRecord(body) && isRecord(body.error)) {
++    const detail = body.error;
++    if (typeof detail.code === 'string' && typeof detail.message === 'string' && typeof detail.request_id === 'string' && isRecord(detail.details)) return new PlanRequestError(`${detail.message}（请求 ID：${detail.request_id}）`, result.response.status, detail as ErrorDetail);
++  }
++  return new PlanRequestError(`${action}失败（HTTP ${result.response.status}）`, result.response.status);
++}
++export { changePlanStatus, copyPlan, createPlan, deletePlan, PlanRequestError, planDetailOptions, planKeys, planListOptions, previewPlan, requestError, updatePlan };
++export type { PlanStatusCommand };
+--- /dev/null
++++ b/frontend/src/domains/geo-plans/plans.model.test.ts
+@@ -0,0 +1,34 @@
++import { describe, expect, it } from 'vitest';
++import { planCreate, planFormSchema, planSearchSchema, planSearchToParams, planValues, shouldBlockPlanNavigation } from './plans.model';
++import { planOverflow, planPrimary } from './plan-actions';
++import { plan, planId } from './plans.test-support';
++
++describe('计划 URL 与 generated 配置边界', () => {
++  it('规范筛选、分页和单一编辑身份；列表请求不携带工作区状态', () => {
++    const search = planSearchSchema.parse({ q: '  替代  ', status: 'PAUSED', schedule_kind: 'CRON', page: '2', page_size: '50', sort: 'NAME_ASC', selected: planId.toUpperCase(), edit: '1', ignored: true });
++    expect(search).toEqual({ q: '替代', status: 'PAUSED', schedule_kind: 'CRON', page: 2, page_size: 50, sort: 'NAME_ASC', selected: planId, edit: 1 });
++    expect(planSearchToParams(search)).toEqual({ q: '替代', status: 'PAUSED', schedule_kind: 'CRON', page: 2, page_size: 50, sort: 'NAME_ASC' });
++    expect(planSearchSchema.parse({ new: '1', selected: planId, edit: 1, page: -2, page_size: 100 })).toEqual({ new: 1 });
++    expect(planSearchSchema.parse({ status: 'UNKNOWN', selected: 'bad', edit: 1 })).toEqual({});
++  });
++  it('同一草稿筛选不触发 dirty，关闭、其他身份和路由离开会触发', () => {
++    const current = { pathname: '/geo/plans', search: { selected: planId, edit: 1 } };
++    expect(shouldBlockPlanNavigation(current, { ...current, search: { ...current.search, q: '变更筛选' } })).toBe(false);
++    expect(shouldBlockPlanNavigation(current, { ...current, search: { selected: planId } })).toBe(true);
++    expect(shouldBlockPlanNavigation(current, { ...current, search: { new: 1 } })).toBe(true);
++    expect(shouldBlockPlanNavigation(current, { pathname: '/geo/questions', search: {} })).toBe(true);
++  });
++  it('完整配置保留显式角色、精确十进制和 nullable；拒绝重复引用和缺少 PRIMARY', () => {
++    const values = { ...planValues(plan()), budget_limit: '0.000001' };
++    expect(planCreate(planFormSchema.parse(values))).toMatchObject({ subjects: plan().subjects, budget_limit: '0.000001', cron_expression: null });
++    expect(planFormSchema.safeParse({ ...values, subjects: [{ ...values.subjects[0], role: 'REFERENCE' }] }).success).toBe(false);
++    expect(planFormSchema.safeParse({ ...values, prompt_variant_ids: [...values.prompt_variant_ids, ...values.prompt_variant_ids] }).success).toBe(false);
++    for (const budget_limit of ['1e3', '-1', '100000000', '0.0000001']) expect(planFormSchema.safeParse({ ...values, budget_limit }).success).toBe(false);
++  });
++  it('动作只来自服务端，归档仅提供 COPY，缺少 ACTIVATE 时主动作禁用', () => {
++    const archived = plan({ status: 'ARCHIVED', workflow_stage: 'ARCHIVED', primary_task: 'VIEW_HISTORY', available_actions: ['COPY'], deletion: { blockers: ['ARCHIVED'] } });
++    expect(planPrimary(archived)).toBeUndefined();
++    expect(planOverflow(archived).map((item) => item.key)).toEqual(['COPY', 'VIEW_DELETION_CONDITIONS']);
++    expect(planPrimary(plan({ available_actions: [] }))).toMatchObject({ key: 'ACTIVATE', enabled: false });
++  });
++});
+--- /dev/null
++++ b/frontend/src/domains/geo-plans/plans.model.ts
+@@ -0,0 +1,65 @@
++import { z } from 'zod';
++import type { components, operations } from '@/shared/api/generated/schema';
++import { canonicalUuidSchema } from '@/shared/lib/canonical-uuid';
++
++type PlanDetail = components['schemas']['GeoMonitoringPlanDetail'];
++type PlanPreview = components['schemas']['GeoMonitoringPlanPreview'];
++type PlanCreate = components['schemas']['GeoMonitoringPlanCreate'];
++type PlanListParams = NonNullable<operations['listGeoMonitoringPlans']['parameters']['query']>;
++type PlanAction = PlanDetail['available_actions'][number];
++const statusLabels = { DISABLED: '未启用', ACTIVE: '已启用', PAUSED: '已暂停', ARCHIVED: '已归档' } satisfies Record<PlanDetail['status'], string>;
++const stageLabels = { CONFIGURATION_REQUIRED: '配置待修正', READY: '可以启用', ACTIVE: '已启用', PAUSED: '已暂停', ARCHIVED: '已归档' } satisfies Record<PlanDetail['workflow_stage'], string>;
++const scheduleLabels = { MANUAL_ONLY: '手动触发', CRON: '定时配置' } satisfies Record<PlanDetail['schedule_kind'], string>;
++const actionLabels = { UPDATE: '编辑计划', PREVIEW: '预览配置', ACTIVATE: '启用计划', PAUSE: '暂停计划', RESUME: '恢复计划', ARCHIVE: '归档计划', COPY: '复制为新计划', CREATE_REVISION: '修订配置', DELETE: '删除计划' } satisfies Record<PlanAction, string>;
++const roleLabels = { PRIMARY: '主要监测对象', COMPETITOR: '竞品', REFERENCE: '参考对象' } satisfies Record<components['schemas']['GeoPlanSubjectRole'], string>;
++const statuses = z.enum(['DISABLED', 'ACTIVE', 'PAUSED', 'ARCHIVED']);
++const schedules = z.enum(['MANUAL_ONLY', 'CRON']);
++function uuid(value: unknown) { const parsed = canonicalUuidSchema.safeParse(value); return parsed.success ? parsed.data : undefined; }
++function enumValue<T>(schema: z.ZodType<T>, value: unknown) { const parsed = schema.safeParse(value); return parsed.success ? parsed.data : undefined; }
++const planSearchSchema = z.preprocess((value) => {
++  const raw = value && typeof value === 'object' ? value as Record<string, unknown> : {};
++  const page = Number(raw.page); const size = Number(raw.page_size);
++  const creating = raw.new === 1 || raw.new === '1'; const selected = uuid(raw.selected);
++  return {
++    q: typeof raw.q === 'string' && !raw.q.includes('\0') && raw.q.trim().length <= 200 ? raw.q.trim() || undefined : undefined,
++    status: enumValue(statuses, raw.status), schedule_kind: enumValue(schedules, raw.schedule_kind),
++    sort: raw.sort === 'NAME_ASC' ? 'NAME_ASC' : undefined,
++    page: Number.isSafeInteger(page) && page > 1 ? page : undefined,
++    page_size: size === 10 || size === 50 ? size : undefined,
++    ...(creating ? { new: 1 } : { selected, edit: selected && (raw.edit === 1 || raw.edit === '1') ? 1 : undefined }),
++  };
++}, z.object({
++  q: z.string().optional(), status: statuses.optional(), schedule_kind: schedules.optional(), sort: z.literal('NAME_ASC').optional(),
++  page: z.number().int().positive().optional(), page_size: z.union([z.literal(10), z.literal(50)]).optional(),
++  selected: canonicalUuidSchema.optional(), new: z.literal(1).optional(), edit: z.literal(1).optional(),
++}).transform((value) => Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined)) as typeof value));
++type PlanSearch = z.output<typeof planSearchSchema>;
++function planSearchToParams(search: PlanSearch): PlanListParams {
++  return { q: search.q, status: search.status, schedule_kind: search.schedule_kind, page: search.page ?? 1, page_size: search.page_size ?? 20, sort: search.sort ?? 'UPDATED_DESC' };
++}
++function isCanonicalPlanSearch(raw: Record<string, unknown>, search: PlanSearch) { return Object.keys(raw).length === Object.keys(search).length && Object.entries(search).every(([key, value]) => String(raw[key]) === String(value)); }
++function planEditorIdentity(search: PlanSearch) { return search.new ? 'new' : search.selected ? `${search.edit ? 'edit' : 'detail'}:${search.selected}` : 'none'; }
++function shouldBlockPlanNavigation(current: { pathname: string; search: unknown }, next: { pathname: string; search: unknown }) { return current.pathname !== next.pathname || planEditorIdentity(planSearchSchema.parse(current.search)) !== planEditorIdentity(planSearchSchema.parse(next.search)); }
++const idsSchema = z.array(canonicalUuidSchema).min(1, '请至少选择一个选项').refine((ids) => new Set(ids).size === ids.length, '选择不能重复');
++const planFormSchema = z.object({
++  name: z.string().min(1, '请填写计划名称').max(200, '名称最多 200 字符').refine((value) => value === value.trim() && !value.includes('\0'), '名称不能包含首尾空白或空字符'),
++  description: z.string().refine((value) => !value.includes('\0'), '说明不能包含空字符'),
++  subjects: z.array(z.object({ subject_id: canonicalUuidSchema, role: z.enum(['PRIMARY', 'COMPETITOR', 'REFERENCE']) })).min(1, '请选择监测对象').refine((items) => items.some((item) => item.role === 'PRIMARY'), '请至少选择一个主要监测对象').refine((items) => new Set(items.map((item) => item.subject_id)).size === items.length, '监测对象不能重复'),
++  prompt_variant_ids: idsSchema, collection_profile_ids: idsSchema,
++  repeat_count: z.number().int('重复次数必须为整数').min(1, '至少重复 1 次').max(10, '最多重复 10 次'),
++  schedule_kind: schedules, cron_expression: z.string().max(120, 'Cron 最多 120 字符'),
++  timezone: z.string().min(1, '请填写 IANA 时区').max(64, '时区最多 64 字符'),
++  budget_limit: z.string().refine((value) => value === '' || /^(?:0|[1-9][0-9]{0,7})(?:\.[0-9]{1,6})?$/.test(value), '预算为非负十进制，最多 8 位整数、6 位小数'),
++  rule_set_revision: z.number().int().min(1),
++}).superRefine((value, context) => {
++  if (value.schedule_kind === 'CRON' && value.cron_expression.trim().split(/\s+/).length !== 5) context.addIssue({ code: 'custom', path: ['cron_expression'], message: '请填写五字段 Cron；服务端会校验其执行语义' });
++});
++type PlanValues = z.input<typeof planFormSchema>;
++function planValues(plan?: PlanDetail): PlanValues { return plan ? {
++  name: plan.name, description: plan.description, subjects: plan.subjects.map((item) => ({ ...item })), prompt_variant_ids: [...plan.prompt_variant_ids], collection_profile_ids: [...plan.collection_profile_ids], repeat_count: plan.repeat_count, schedule_kind: plan.schedule_kind, cron_expression: plan.cron_expression ?? '', timezone: plan.timezone, budget_limit: plan.budget_limit ?? '', rule_set_revision: plan.rule_set_revision,
++} : { name: '', description: '', subjects: [], prompt_variant_ids: [], collection_profile_ids: [], repeat_count: 3, schedule_kind: 'MANUAL_ONLY', cron_expression: '', timezone: 'Asia/Shanghai', budget_limit: '', rule_set_revision: 1 }; }
++function planCreate(values: PlanValues): PlanCreate { return { ...values, cron_expression: values.schedule_kind === 'CRON' ? values.cron_expression : null, budget_limit: values.budget_limit === '' ? null : values.budget_limit }; }
++function planUpdate(values: PlanValues, revision: number): components['schemas']['GeoMonitoringPlanUpdate'] { return { ...planCreate(values), expected_revision: revision }; }
++function assertNever(value: never): never { throw new Error(`计划返回未知合同值：${String(value)}`); }
++export { actionLabels, assertNever, isCanonicalPlanSearch, planCreate, planEditorIdentity, planFormSchema, planSearchSchema, planSearchToParams, planUpdate, planValues, roleLabels, scheduleLabels, shouldBlockPlanNavigation, stageLabels, statusLabels };
++export type { PlanAction, PlanCreate, PlanDetail, PlanListParams, PlanPreview, PlanSearch, PlanValues };
+--- /dev/null
++++ b/frontend/src/domains/geo-plans/plans.options.ts
+@@ -0,0 +1,29 @@
++import { queryOptions } from '@tanstack/react-query';
++import { api } from '@/shared/api/client';
++import { planKeys, requestError } from './plans.api';
++
++type PlanOptionKind = 'subjects' | 'prompts' | 'profiles';
++type PlanOption = { id: string; label: string; description: string };
++type PlanOptionsPage = { items: PlanOption[]; page: number; page_size: number; total: number };
++function planOptionsQuery(kind: PlanOptionKind, q: string, page: number) {
++  return queryOptions({ queryKey: planKeys.options(kind, q, page), retry: false, retryOnMount: false, staleTime: 30_000,
++    queryFn: async ({ signal }): Promise<PlanOptionsPage> => {
++      const query = { q: q || undefined, page, page_size: 10 as const };
++      if (kind === 'subjects') {
++        const result = await api.GET('/api/v1/geo/subjects', { params: { query: { ...query, sort: 'NAME_ASC' } }, signal });
++        if (!result.data) throw requestError('读取监测对象选项', result);
++        return { ...result.data, items: result.data.items.map((item) => ({ id: item.id, label: item.display_name, description: `${item.subject_type} · ${item.is_active ? '已启用' : '已停用'}` })) };
++      }
++      if (kind === 'prompts') {
++        const result = await api.GET('/api/v1/geo/prompt-variants', { params: { query: { ...query, sort: 'TEXT_ASC' } }, signal });
++        if (!result.data) throw requestError('读取问题变体选项', result);
++        return { ...result.data, items: result.data.items.map((item) => ({ id: item.id, label: item.prompt_text, description: `${item.language_code} · ${item.region_code} · ${item.mention_mode} · ${item.is_active ? '已启用' : '已停用'}` })) };
++      }
++      const result = await api.GET('/api/v1/geo/collection-profiles', { params: { query: { ...query, sort: 'NAME_ASC' } }, signal });
++      if (!result.data) throw requestError('读取采集配置选项', result);
++      return { ...result.data, items: result.data.items.map(({ summary }) => ({ id: summary.id, label: summary.name, description: `${summary.collection_mode} · ${summary.engine_surface.name} · ${summary.language_code} · ${summary.region_code} · ${summary.is_active ? '已启用' : '已停用'}` })) };
++    },
++  });
++}
++export { planOptionsQuery };
++export type { PlanOption, PlanOptionKind, PlanOptionsPage };
+--- /dev/null
++++ b/frontend/src/domains/geo-plans/plans.test-support.tsx
+@@ -0,0 +1,46 @@
++import { QueryClientProvider } from '@tanstack/react-query';
++import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router';
++import { render } from '@testing-library/react';
++import { vi } from 'vitest';
++import type { AuthContextValue, AuthUser } from '@/app/auth/auth-provider';
++import { TooltipProvider } from '@/design-system/primitives/tooltip';
++import { routeTree } from '@/routeTree.gen';
++import { api } from '@/shared/api/client';
++import { createAuthenticatedTestQueryClient } from '@/test/auth-session';
++import type { PlanDetail, PlanPreview } from './plans.model';
++
++const planId = '30000000-0000-4000-8000-000000000001';
++const subjectId = '30000000-0000-4000-8000-000000000002';
++const promptId = '30000000-0000-4000-8000-000000000003';
++const profileId = '30000000-0000-4000-8000-000000000004';
++const user: AuthUser = { id: '00000000-0000-4000-8000-000000000099', username: 'plans-engineer', display_name: '测试工程师', account_type: 'ENGINEER', is_active: true, must_change_password: false, workflow_stage: 'ACTIVE', primary_task: 'MANAGE_USER', available_actions: [], deletion: null, revision: 1, created_at: '2026-10-02T08:00:00Z' };
++function preview(overrides: Partial<PlanPreview> = {}): PlanPreview {
++  return { prompt_count: 1, profile_count: 1, repeat_count: 3, run_count: 3, manual_run_count: 3, api_run_count: 0, browser_run_count: 0, unresolved_run_count: 0, estimated_cost: { value: null, currency: null, coverage: 'NONE', known_run_count: 0, unknown_run_count: 3, known_costs: [] }, blockers: [], warnings: [{ code: 'COST_UNKNOWN', field: 'estimated_cost', resource_id: null, related_resource_id: null }], ...overrides };
++}
++function plan(overrides: Partial<PlanDetail> = {}): PlanDetail {
++  return { id: planId, name: '原始监测计划', description: '计划说明', subjects: [{ subject_id: subjectId, role: 'PRIMARY' }], prompt_variant_ids: [promptId], collection_profile_ids: [profileId], repeat_count: 3, schedule_kind: 'MANUAL_ONLY', cron_expression: null, timezone: 'Asia/Shanghai', budget_limit: null, rule_set_revision: 1, status: 'DISABLED', revision: 7, created_by: user.id, updated_by: user.id, created_at: '2026-10-02T08:00:00Z', updated_at: '2026-10-02T08:00:00Z', preview: preview(), workflow_stage: 'READY', primary_task: 'ACTIVATE', available_actions: ['UPDATE', 'PREVIEW', 'ACTIVATE', 'ARCHIVE', 'COPY', 'DELETE'], deletion: { blockers: [] }, run_entry: { available: false, reason_code: 'NOT_IMPLEMENTED' }, ...overrides };
++}
++function response<T>(data: T) { return { data, response: Response.json(data) } as never; }
++function failure(code = 'REVISION_CONFLICT', status = 409) {
++  const body = { error: { code, message: '服务端拒绝当前操作', details: {}, request_id: 'plan-test-request' } };
++  return { error: body, response: Response.json(body, { status }) } as never;
++}
++function mockReads(current: () => PlanDetail = plan, list: () => PlanDetail[] = () => [current()], detailFailure?: () => ReturnType<typeof failure> | undefined) {
++  const paths: string[] = [];
++  const spy = vi.spyOn(api, 'GET').mockImplementation(async (path) => {
++    paths.push(path);
++    if (path === '/api/v1/geo/monitoring-plans') return response({ items: list(), total: list().length, page: 1, page_size: 20 });
++    if (path === '/api/v1/geo/monitoring-plans/{plan_id}') return detailFailure?.() ?? response(current());
++    if (['/api/v1/geo/subjects', '/api/v1/geo/prompt-variants', '/api/v1/geo/collection-profiles'].includes(path)) return response({ items: [], total: 0, page: 1, page_size: 20 });
++    throw new Error(`测试收到未声明请求：${path}`);
++  });
++  return Object.assign(spy, { paths });
++}
++function renderPlans(entry = `/geo/plans?selected=${planId}`) {
++  const auth: AuthContextValue = { user, csrfToken: 'plans-csrf', isLoading: false, isSigningOut: false, error: null, isAdmin: false, refresh: vi.fn(), reconcileUnknownPrincipalResult: async () => {}, runPrincipalBoundary: async (command) => command(new AbortController().signal, { assertCanSend: () => {} }), signOut: vi.fn() };
++  const client = createAuthenticatedTestQueryClient(auth);
++  const router = createRouter({ routeTree, history: createMemoryHistory({ initialEntries: [entry] }), context: { queryClient: client, auth } });
++  const view = render(<QueryClientProvider client={client}><TooltipProvider><RouterProvider router={router} context={{ queryClient: client, auth }} /></TooltipProvider></QueryClientProvider>);
++  return { client, router, view };
++}
++export { failure, mockReads, plan, planId, preview, profileId, promptId, renderPlans, response, subjectId };
+--- a/frontend/src/routeTree.gen.ts
++++ b/frontend/src/routeTree.gen.ts
+@@ -33,6 +33,7 @@
+ import { Route as AppContentTasksRouteRouteImport } from './routes/_app/content/tasks/route'
+ import { Route as AppGeoInsightsRouteRouteImport } from './routes/_app/geo/insights/route'
+ import { Route as AppGeoObservationsRouteRouteImport } from './routes/_app/geo/observations/route'
++import { Route as AppGeoPlansRouteImport } from './routes/_app/geo/plans'
+ import { Route as AppGeoQuestionsRouteImport } from './routes/_app/geo/questions'
+ import { Route as AppGeoTopicsRouteRouteImport } from './routes/_app/geo/topics/route'
+ import { Route as AppObservationsIndexRouteImport } from './routes/_app/observations/index'
+@@ -206,6 +207,11 @@
+   path: '/observations',
+   getParentRoute: () => AppGeoRouteRoute,
+ } as any)
++const AppGeoPlansRoute = AppGeoPlansRouteImport.update({
++  id: '/plans',
++  path: '/plans',
++  getParentRoute: () => AppGeoRouteRoute,
++} as any)
+ const AppGeoQuestionsRoute = AppGeoQuestionsRouteImport.update({
+   id: '/questions',
+   path: '/questions',
+@@ -508,6 +514,7 @@
+   '/configuration/platforms': typeof AppConfigurationPlatformsRoute
+   '/configuration/prompts': typeof AppConfigurationPromptsRoute
+   '/content/$versionId': typeof AppContentVersionIdRoute
++  '/geo/plans': typeof AppGeoPlansRoute
+   '/geo/questions': typeof AppGeoQuestionsRoute
+   '/observations/topics': typeof AppObservationsTopicsRoute
+   '/products/$productId': typeof AppProductsProductIdRoute
+@@ -572,6 +579,7 @@
+   '/configuration/platforms': typeof AppConfigurationPlatformsRoute
+   '/configuration/prompts': typeof AppConfigurationPromptsRoute
+   '/content/$versionId': typeof AppContentVersionIdRoute
++  '/geo/plans': typeof AppGeoPlansRoute
+   '/geo/questions': typeof AppGeoQuestionsRoute
+   '/observations/topics': typeof AppObservationsTopicsRoute
+   '/products/$productId': typeof AppProductsProductIdRoute
+@@ -649,6 +657,7 @@
+   '/_app/configuration/platforms': typeof AppConfigurationPlatformsRoute
+   '/_app/configuration/prompts': typeof AppConfigurationPromptsRoute
+   '/_app/content/$versionId': typeof AppContentVersionIdRoute
++  '/_app/geo/plans': typeof AppGeoPlansRoute
+   '/_app/geo/questions': typeof AppGeoQuestionsRoute
+   '/_app/observations/topics': typeof AppObservationsTopicsRoute
+   '/_app/products/$productId': typeof AppProductsProductIdRoute
+@@ -725,6 +734,7 @@
+     | '/configuration/platforms'
+     | '/configuration/prompts'
+     | '/content/$versionId'
++    | '/geo/plans'
+     | '/geo/questions'
+     | '/observations/topics'
+     | '/products/$productId'
+@@ -789,6 +799,7 @@
+     | '/configuration/platforms'
+     | '/configuration/prompts'
+     | '/content/$versionId'
++    | '/geo/plans'
+     | '/geo/questions'
+     | '/observations/topics'
+     | '/products/$productId'
+@@ -865,6 +876,7 @@
+     | '/_app/configuration/platforms'
+     | '/_app/configuration/prompts'
+     | '/_app/content/$versionId'
++    | '/_app/geo/plans'
+     | '/_app/geo/questions'
+     | '/_app/observations/topics'
+     | '/_app/products/$productId'
+@@ -1089,6 +1101,13 @@
+       preLoaderRoute: typeof AppGeoObservationsRouteRouteImport
+       parentRoute: typeof AppGeoRouteRoute
+     }
++    '/_app/geo/plans': {
++      id: '/_app/geo/plans'
++      path: '/plans'
++      fullPath: '/geo/plans'
++      preLoaderRoute: typeof AppGeoPlansRouteImport
++      parentRoute: typeof AppGeoRouteRoute
++    }
+     '/_app/geo/questions': {
+       id: '/_app/geo/questions'
+       path: '/questions'
+@@ -1548,6 +1567,7 @@
+   AppGeoInsightsRouteRoute: typeof AppGeoInsightsRouteRouteWithChildren
+   AppGeoObservationsRouteRoute: typeof AppGeoObservationsRouteRouteWithChildren
+   AppGeoTopicsRouteRoute: typeof AppGeoTopicsRouteRouteWithChildren
++  AppGeoPlansRoute: typeof AppGeoPlansRoute
+   AppGeoQuestionsRoute: typeof AppGeoQuestionsRoute
+ }
+ 
+@@ -1555,6 +1575,7 @@
+   AppGeoInsightsRouteRoute: AppGeoInsightsRouteRouteWithChildren,
+   AppGeoObservationsRouteRoute: AppGeoObservationsRouteRouteWithChildren,
+   AppGeoTopicsRouteRoute: AppGeoTopicsRouteRouteWithChildren,
++  AppGeoPlansRoute: AppGeoPlansRoute,
+   AppGeoQuestionsRoute: AppGeoQuestionsRoute,
+ }
+ 
+--- /dev/null
++++ b/frontend/src/routes/_app/geo/plans.tsx
+@@ -0,0 +1,17 @@
++import { createFileRoute, redirect } from '@tanstack/react-router';
++import { planDetailOptions, planListOptions } from '@/domains/geo-plans/plans.api';
++import { PlansPage } from '@/domains/geo-plans/plans-page';
++import { isCanonicalPlanSearch, planSearchSchema } from '@/domains/geo-plans/plans.model';
++export const Route = createFileRoute('/_app/geo/plans')({
++  staticData: { navId: 'geo-plans', breadcrumb: '监测计划' },
++  validateSearch: planSearchSchema,
++  search: { middlewares: [({ search, next }) => next(planSearchSchema.parse(search))] },
++  beforeLoad: ({ location, search }) => { if (!isCanonicalPlanSearch(location.search, search)) throw redirect({ to: '/geo/plans', search, replace: true }); },
++  loaderDeps: ({ search }) => search,
++  loader: ({ context, deps }) => { void context.queryClient.prefetchQuery(planListOptions(deps)); if (deps.selected) void context.queryClient.prefetchQuery(planDetailOptions(deps.selected)); },
++  component: PlansRoute,
++});
++function PlansRoute() {
++  const search = Route.useSearch(); const { auth } = Route.useRouteContext(); const navigate = Route.useNavigate();
++  return <PlansPage csrfToken={auth.csrfToken} onSearchChange={(next, replace, ignoreBlocker) => void navigate({ search: next, replace, ignoreBlocker })} search={search} />;
++}
+--- /dev/null
++++ b/frontend/tests/e2e/plans-real-stack.spec.ts
+@@ -0,0 +1,207 @@
++/** GEO-209：向导与生命周期使用真实 API，所有业务写入经过 UI。 */
++import { randomUUID } from 'node:crypto';
++import { expect, test, type APIResponse, type Page, type Response } from '@playwright/test';
++import type { components } from '../../src/shared/api/generated/schema';
++import { createAuthTrafficScope, createRealStackRuntimeAudit, trafficExpectationErrors, type RuntimeCancellation, type TrafficExpectation } from './real-stack-runtime';
++import { registerCurrentRealStackCookies, registerRealStackLoginSecrets } from './real-stack-session';
++import { registerArtifactSecrets } from './secret-artifact';
++
++type Plan = components['schemas']['GeoMonitoringPlanDetail'];
++const api = process.env.PARTSIGNAL_E2E_API_BASE_URL ?? 'http://127.0.0.1:8000';
++const apiOrigin = new URL(api).origin;
++const plans = '/api/v1/geo/monitoring-plans';
++const surfaces = '/api/v1/geo/engine-surfaces';
++const profiles = '/api/v1/geo/collection-profiles';
++test.skip(process.env.PARTSIGNAL_E2E_REAL_STACK !== '1', '只由隔离真实栈入口运行');
++test.setTimeout(150_000);
++test.use({ trace: 'off', video: 'off' });
++test.afterEach(async ({ context }) => registerCurrentRealStackCookies(context, api));
++async function body<T>(response: APIResponse | Response, status = 200): Promise<T> {
++  expect(response.status(), new URL(response.url()).pathname).toBe(status);
++  return response.json() as Promise<T>;
++}
++async function choose(page: Page, label: string, option: string) {
++  await page.getByRole('combobox', { name: label, exact: true }).click();
++  await page.getByRole('option', { name: option, exact: true }).click();
++}
++async function resourceAction(page: Page, label: string) {
++  await page.getByRole('region', { name: /^(观测面|采集配置)详情$/ }).getByRole('button', { name: /更多操作/ }).click();
++  await page.getByRole('menuitem', { name: label, exact: true }).click();
++  await page.getByRole('dialog').getByRole('button', { name: '确认操作', exact: true }).click();
++}
++async function planAction(page: Page, label: string) {
++  const detail = page.getByRole('region', { name: '监测计划详情' });
++  const primary = detail.getByRole('button', { name: label, exact: true });
++  if (await primary.count()) await primary.click();
++  else { await detail.getByRole('button', { name: '更多操作：当前计划' }).click(); await page.getByRole('menuitem', { name: label, exact: true }).click(); }
++}
++
++test('工程师八步创建、服务端预览、dirty、URL、启停修订复制归档与删除持久化', async ({ page, browser }, testInfo) => {
++  const suffix = randomUUID().slice(0, 8);
++  const adminPassword = process.env.PARTSIGNAL_SEED_ADMIN_PASSWORD;
++  if (!adminPassword) throw new Error('真实栈必须提供管理员验收密码');
++  const admin = await body<components['schemas']['AuthSession']>(await page.request.post(`${api}/api/v1/auth/login`, { data: { username: 'admin', password: adminPassword } }));
++  await registerRealStackLoginSecrets(page.context(), api, admin.csrf_token);
++  const pendingWrite = async <T,>(method: string, pathname: string, click: () => Promise<unknown>, status = 200) => {
++    const pending = page.waitForResponse((response) => response.request().method() === method && new URL(response.url()).pathname === pathname);
++    await click(); return body<T>(await pending, status);
++  };
++  // 通过已有管理 UI 准备对象和人工配置；没有真实平台、凭据或外部采集。
++  const subjectName = `GEO209 参考型号 ${suffix}`;
++  await page.goto('/configuration/geo-entities');
++  await page.getByRole('button', { name: '新建监测对象', exact: true }).click();
++  await choose(page, '对象类型', '参考型号');
++  await page.getByRole('textbox', { name: '规范名称', exact: true }).fill(subjectName);
++  await page.getByRole('textbox', { name: '显示名称', exact: true }).fill(subjectName);
++  const subject = await pendingWrite<components['schemas']['GeoSubjectOut']>('POST', '/api/v1/geo/subjects', () => page.getByRole('button', { name: '创建监测对象', exact: true }).click(), 201);
++  expect(subject.is_active).toBe(true);
++  await page.waitForLoadState('networkidle'); await page.goto('/configuration/geo-surfaces');
++  await page.getByRole('button', { name: '新建观测面', exact: true }).click();
++  await page.getByRole('textbox', { name: '观测面名称', exact: true }).fill(`GEO209 人工观测面 ${suffix}`);
++  await page.getByRole('textbox', { name: '观测面标识', exact: true }).fill(`geo209-${suffix}`);
++  const surface = await pendingWrite<components['schemas']['GeoEngineSurfaceRead']>('POST', surfaces, () => page.getByRole('button', { name: '创建观测面', exact: true }).click(), 201);
++  await page.getByRole('button', { name: '关闭编辑', exact: true }).click();
++  await pendingWrite('POST', `${surfaces}/${surface.summary.id}/enable`, () => resourceAction(page, '启用观测面'));
++  await page.getByRole('button', { name: '查看此观测面的采集配置', exact: true }).click();
++  await page.getByRole('button', { name: '新建采集配置', exact: true }).click();
++  await page.getByRole('textbox', { name: '所属观测面 ID', exact: true }).fill(surface.summary.id);
++  const profileName = `GEO209 人工配置 ${suffix}`;
++  await page.getByRole('textbox', { name: '采集配置名称', exact: true }).fill(profileName);
++  const profile = await pendingWrite<components['schemas']['GeoCollectionProfileRead']>('POST', profiles, () => page.getByRole('button', { name: '创建采集配置', exact: true }).click(), 201);
++  await page.getByRole('button', { name: '关闭编辑', exact: true }).click();
++  await pendingWrite('POST', `${profiles}/${profile.summary.id}/enable`, () => resourceAction(page, '启用采集配置'));
++
++  const temporaryPassword = `Geo209-temp-${randomUUID()}`;
++  const newPassword = `Geo209-final-${randomUUID()}`;
++  await registerArtifactSecrets([temporaryPassword, newPassword]);
++  const username = `geo209-${suffix}`;
++  await body(await page.request.post(`${api}/api/v1/users`, { headers: { 'X-CSRF-Token': admin.csrf_token }, data: { username, display_name: 'GEO-209 验收工程师', temporary_password: temporaryPassword, account_type: 'ENGINEER' } satisfies components['schemas']['UserCreate'] }), 201);
++  const context = await browser.newContext({ baseURL: process.env.PARTSIGNAL_E2E_BASE_URL ?? 'http://127.0.0.1:4174', viewport: testInfo.project.use.viewport });
++  try {
++    const engineer = await context.newPage();
++    const session = await body<components['schemas']['AuthSession']>(await engineer.request.post(`${api}/api/v1/auth/login`, { data: { username, password: temporaryPassword } }));
++    await registerRealStackLoginSecrets(context, api, session.csrf_token);
++    expect((await engineer.request.post(`${api}/api/v1/auth/change-password`, { headers: { 'X-CSRF-Token': session.csrf_token }, data: { old_password: temporaryPassword, new_password: newPassword } })).status()).toBe(204);
++    await registerCurrentRealStackCookies(context, api);
++    await engineer.goto('/geo/topics');
++    await engineer.getByRole('button', { name: '创建 Query Topic', exact: true }).click();
++    const dialog = engineer.getByRole('dialog', { name: '创建 Query Topic', exact: true });
++    const topicName = `GEO209 主题 ${suffix}`;
++    await dialog.getByRole('textbox', { name: '标准问题' }).fill(topicName);
++    await dialog.getByRole('textbox', { name: '变体 1' }).fill(`既有主题问题 ${suffix}`);
++    const topicResponse = engineer.waitForResponse((response) => new URL(response.url()).pathname === '/api/v1/query-topics' && response.request().method() === 'POST');
++    await dialog.getByRole('button', { name: '创建', exact: true }).click();
++    const topic = await body<components['schemas']['QueryTopic']>(await topicResponse, 201);
++    await expect(dialog).toBeHidden(); await engineer.waitForLoadState('networkidle');
++    await engineer.goto('/geo/questions?new=1');
++    await choose(engineer, '问题主题', topicName);
++    const promptName = `GEO209 替代问题 ${suffix}`;
++    await engineer.getByRole('textbox', { name: '完整问题文本', exact: true }).fill(promptName);
++    await choose(engineer, '点名属性', '非点名'); await choose(engineer, '优先级', '核心');
++    await engineer.getByRole('textbox', { name: '语言代码', exact: true }).fill('zh-CN');
++    await engineer.getByRole('textbox', { name: '地区代码', exact: true }).fill('CN');
++    const variantResponse = engineer.waitForResponse((response) => new URL(response.url()).pathname === `/api/v1/geo/query-topics/${topic.id}/prompt-variants` && response.request().method() === 'POST');
++    await engineer.getByRole('button', { name: '创建变体', exact: true }).click();
++    const variant = await body<components['schemas']['GeoPromptVariantOut']>(await variantResponse, 201);
++    await engineer.waitForLoadState('networkidle');
++
++    let phase = 'open';
++    // 写后取消旧列表 GET 是防止旧快照回写的已观测行为；写请求不允许取消。
++    const allowedCancellations: RuntimeCancellation[] = ['resume', 'delete', 'archive'].map((phase) => ({ phase, method: 'GET', origin: apiOrigin, pathname: plans, reason: 'net::ERR_ABORTED' }));
++    const audit = createRealStackRuntimeAudit({ apiOrigin, getPhase: () => phase, allowedCancellations }); audit.watch(engineer);
++    const expectations: TrafficExpectation[] = [];
++    const mutate = async <T,>(next: string, method: string, pathname: string, click: () => Promise<unknown>, status = 200): Promise<T> => {
++      await engineer.waitForLoadState('networkidle'); phase = next;
++      expectations.push({ phase, origin: apiOrigin, method, pathname, attempts: 1, responses: 1, status });
++      const pending = engineer.waitForResponse((response) => new URL(response.url()).pathname === pathname && response.request().method() === method);
++      await click(); const result = await pending; expect(result.status()).toBe(status);
++      return status === 204 ? undefined as T : result.json() as Promise<T>;
++    };
++    await engineer.goto('/geo/plans?new=1');
++    const planName = `GEO209 计划 ${suffix}`;
++    await engineer.getByRole('textbox', { name: '计划名称', exact: true }).fill(planName);
++    await engineer.getByRole('button', { name: '关闭向导' }).click();
++    await expect(engineer.getByRole('dialog', { name: '要离开当前页面吗？' })).toBeVisible();
++    await engineer.getByRole('button', { name: '继续编辑' }).click();
++    await expect(engineer.getByRole('textbox', { name: '计划名称', exact: true })).toHaveValue(planName);
++    await engineer.getByRole('button', { name: '下一步', exact: true }).click();
++    await expect(engineer.getByRole('heading', { name: '2. 监测对象', exact: true })).toBeFocused();
++    await engineer.waitForLoadState('networkidle');
++    await engineer.getByRole('searchbox', { name: '搜索监测对象选项' }).fill(suffix);
++    await choose(engineer, `选择对象角色：${subjectName}`, '主要监测对象');
++    await engineer.getByRole('button', { name: '下一步', exact: true }).click();
++    await engineer.waitForLoadState('networkidle');
++    await engineer.getByRole('searchbox', { name: '搜索问题变体选项' }).fill(suffix);
++    await engineer.getByRole('button', { name: `选择问题变体：${promptName}`, exact: true }).click();
++    await engineer.getByRole('button', { name: '下一步', exact: true }).click();
++    await engineer.waitForLoadState('networkidle');
++    await engineer.getByRole('searchbox', { name: '搜索采集配置选项' }).fill(suffix);
++    await engineer.getByRole('button', { name: `选择采集配置：${profileName}`, exact: true }).click();
++    await engineer.getByRole('button', { name: '下一步', exact: true }).click();
++    await expect(engineer.getByRole('spinbutton', { name: '重复次数' })).toHaveValue('3');
++    await engineer.getByRole('button', { name: '下一步', exact: true }).click();
++    await choose(engineer, '调度方式', '定时配置');
++    await engineer.getByRole('textbox', { name: 'Cron 表达式' }).fill('0 9 * * *');
++    await engineer.getByRole('button', { name: '下一步', exact: true }).click();
++    const serverPreview = await mutate<components['schemas']['GeoMonitoringPlanPreview']>('preview', 'POST', `${plans}/preview`, () => engineer.getByRole('button', { name: '预览当前配置' }).click());
++    expect(serverPreview).toMatchObject({ run_count: 3, manual_run_count: 3, estimated_cost: { value: null }, blockers: [] });
++    await expect(engineer.getByText('服务端运行矩阵：1 × 1 × 3 = 3。保存时服务端会重新校验当前资源与运行资格。')).toBeVisible();
++    for (const width of [375, 768, 1024, 1440]) {
++      await engineer.setViewportSize({ width, height: 900 });
++      expect(await engineer.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
++      await expect(engineer.getByRole('button', { name: '下一步', exact: true })).toBeVisible();
++      if (width === 375) {
++        const empty = engineer.getByText('暂无监测计划', { exact: true });
++        const bounds = await empty.boundingBox();
++        expect(bounds).not.toBeNull(); expect(bounds!.x).toBeGreaterThanOrEqual(0); expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
++        await engineer.evaluate(() => window.scrollTo(0, 0));
++        await engineer.screenshot({ path: testInfo.outputPath('geo209-wizard-mobile.png'), fullPage: true });
++      }
++    }
++    await engineer.evaluate(() => window.scrollTo(0, 0));
++    await engineer.screenshot({ path: testInfo.outputPath('geo209-wizard-preview.png'), fullPage: true });
++    await engineer.getByRole('button', { name: '下一步', exact: true }).click();
++    const created = await mutate<Plan>('create', 'POST', plans, () => engineer.getByRole('button', { name: '创建监测计划', exact: true }).click(), 201);
++    expect(created).toMatchObject({ status: 'DISABLED', revision: 0, prompt_variant_ids: [variant.id], collection_profile_ids: [profile.summary.id], subjects: [{ subject_id: subject.id, role: 'PRIMARY' }], cron_expression: '0 9 * * *' });
++    await expect(engineer).toHaveURL(new RegExp(`selected=${created.id}`));
++    const detail = engineer.getByRole('region', { name: '监测计划详情' });
++    await expect(detail.getByText(/NOT_IMPLEMENTED/)).toBeVisible();
++    for (const [command, label, revision, status] of [['activate', '启用计划', 1, 'ACTIVE'], ['pause', '暂停计划', 2, 'PAUSED'], ['resume', '恢复计划', 3, 'ACTIVE']] as const) {
++      await planAction(engineer, label);
++      const result = await mutate<Plan>(command, 'POST', `${plans}/${created.id}/${command}`, () => engineer.getByRole('dialog', { name: `确认${label}` }).getByRole('button', { name: '确认操作' }).click());
++      expect(result).toMatchObject({ status, revision });
++      await engineer.waitForLoadState('networkidle');
++    }
++    await engineer.reload(); await expect(detail.getByText('Revision 3', { exact: true })).toBeVisible();
++    await planAction(engineer, '修订配置');
++    await engineer.getByRole('textbox', { name: '计划名称', exact: true }).fill(`${planName} 已修订`);
++    await engineer.getByRole('button', { name: '7. 服务端预览', exact: true }).click();
++    await mutate('revision-preview', 'POST', `${plans}/preview`, () => engineer.getByRole('button', { name: '预览当前配置' }).click());
++    await engineer.getByRole('button', { name: '下一步', exact: true }).click();
++    const revised = await mutate<Plan>('revision', 'PATCH', `${plans}/${created.id}`, () => engineer.getByRole('button', { name: '保存计划配置' }).click());
++    expect(revised.revision).toBe(4); expect(revised.status).toBe('ACTIVE');
++    await engineer.waitForLoadState('networkidle');
++    await planAction(engineer, '复制为新计划');
++    const copyDialog = engineer.getByRole('dialog', { name: '确认复制为新计划' });
++    await copyDialog.getByRole('textbox', { name: '新计划名称' }).fill(`${planName} 副本`);
++    const copied = await mutate<Plan>('copy', 'POST', `${plans}/${created.id}/copy`, () => copyDialog.getByRole('button', { name: '确认操作' }).click(), 201);
++    expect(copied).toMatchObject({ status: 'DISABLED', revision: 0 }); expect(copied.id).not.toBe(created.id);
++    await expect(engineer).toHaveURL(new RegExp(`selected=${copied.id}`));
++    await planAction(engineer, '删除计划');
++    await mutate('delete', 'DELETE', `${plans}/${copied.id}`, () => engineer.getByRole('dialog', { name: '确认删除计划' }).getByRole('button', { name: '确认操作' }).click(), 204);
++    await expect(engineer.getByRole('dialog', { name: '监测计划工作区' })).toBeHidden();
++    await engineer.waitForLoadState('networkidle');
++    await engineer.goto(`/geo/plans?selected=${created.id}&q=${suffix}&schedule_kind=CRON&sort=NAME_ASC`);
++    await planAction(engineer, '归档计划');
++    const archived = await mutate<Plan>('archive', 'POST', `${plans}/${created.id}/archive`, () => engineer.getByRole('dialog', { name: '确认归档计划' }).getByRole('button', { name: '确认操作' }).click());
++    expect(archived).toMatchObject({ status: 'ARCHIVED', revision: 5, available_actions: ['COPY'] });
++    await engineer.waitForLoadState('networkidle'); await engineer.reload();
++    expect(await body<Plan>(await engineer.request.get(`${api}${plans}/${created.id}`))).toMatchObject({ status: 'ARCHIVED', revision: 5, name: `${planName} 已修订` });
++    await engineer.getByRole('button', { name: '关闭', exact: true }).click();
++    await expect(engineer.getByRole('textbox', { name: '搜索计划名称' })).toHaveValue(suffix);
++    await expect(engineer.getByRole('combobox', { name: '筛选调度' })).toContainText('定时配置');
++    expect(trafficExpectationErrors(audit.attempts, audit.responses, expectations, createAuthTrafficScope(apiOrigin))).toEqual([]);
++    expect(audit.errors).toEqual([]);
++    expect(audit.attempts.some((item) => /\/(run|runs|batches)(\/|$)/.test(item.pathname))).toBe(false);
++  } finally { await registerCurrentRealStackCookies(context, api); await context.close(); }
++});

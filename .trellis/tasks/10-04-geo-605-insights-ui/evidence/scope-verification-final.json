@@ -1,0 +1,9 @@
+{
+  "argv": [
+    "backend/.venv/bin/python",
+    ".trellis/tasks/10-04-geo-605-insights-ui/evidence/verify_scope.py"
+  ],
+  "exit_code": 0,
+  "started_at": "2026-10-04T10:07:14.509809+00:00",
+  "finished_at": "2026-10-04T10:07:14.944424+00:00"
+}

@@ -1,0 +1,20 @@
+.............................................................            [100%]
+=============================== warnings summary ===============================
+tests/integration/test_geo_prompt_variants.py::test_additive_migration_metadata_and_safe_stop
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_prompt_variants.py:176: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_prompt_variants.py::test_additive_migration_metadata_and_safe_stop
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_prompt_variants.py:176: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_surfaces_profiles.py::test_old_head_forward_preserves_rows_metadata_and_downgrade_stops
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_surfaces_profiles.py:188: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_surfaces_profiles.py::test_old_head_forward_preserves_rows_metadata_and_downgrade_stops
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_surfaces_profiles.py:188: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+    assert compare_metadata(context, Base.metadata) == []
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+61 passed, 4 warnings in 4.52s

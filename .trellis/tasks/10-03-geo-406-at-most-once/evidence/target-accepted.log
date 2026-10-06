@@ -1,0 +1,10 @@
+ Container partsignal-geo406-redis-1 Running 
+ Container partsignal-geo406-fake-oss-1 Running 
+ Container partsignal-geo406-postgres-1 Running 
+ Container partsignal-geo406-postgres-1 Waiting 
+ Container partsignal-geo406-postgres-1 Healthy 
+ Container partsignal-geo406-backend-test-run-d96477d3fd8a Creating 
+ Container partsignal-geo406-backend-test-run-d96477d3fd8a Created 
+........................................................................ [ 90%]
+........                                                                 [100%]
+80 passed in 13.68s

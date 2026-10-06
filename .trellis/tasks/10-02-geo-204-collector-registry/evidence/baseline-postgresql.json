@@ -1,0 +1,16 @@
+{
+  "command": [
+    "env",
+    "APP_ENV=test",
+    "PARTSIGNAL_TEST_DATABASE_URL=postgresql+psycopg://partsignal:partsignal_dev@127.0.0.1:55444/partsignal",
+    "UV_CACHE_DIR=.cache/uv",
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "pytest",
+    "backend/tests/integration/test_geo_surfaces_profiles.py"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 2.27
+}

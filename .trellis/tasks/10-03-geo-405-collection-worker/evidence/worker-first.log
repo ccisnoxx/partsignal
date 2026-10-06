@@ -1,0 +1,20 @@
+ Container partsignal-geo405-postgres-1 Running 
+ Container partsignal-geo405-redis-1 Running 
+ Container partsignal-geo405-fake-oss-1 Running 
+ Container partsignal-geo405-postgres-1 Waiting 
+ Container partsignal-geo405-postgres-1 Healthy 
+ Container partsignal-geo405-backend-test-run-3bfa00631118 Creating 
+ Container partsignal-geo405-backend-test-run-3bfa00631118 Created 
+
+==================================== ERRORS ====================================
+____________ ERROR collecting tests/integration/test_geo_worker.py _____________
+tests/integration/test_geo_worker.py:176: in <module>
+    "mode", [FakeMode.RATE_LIMITED, FakeMode.INVALID_JSON, FakeMode.DISCONNECT]
+             ^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: type object 'FakeMode' has no attribute 'RATE_LIMITED'. Did you mean: 'RATE_LIMIT'?
+=========================== short test summary info ============================
+ERROR tests/integration/test_geo_worker.py - AttributeError: type object 'Fak...
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.85s
+

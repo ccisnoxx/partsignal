@@ -1,0 +1,32 @@
+ Container partsignal-geo407-redis-1 Running 
+ Container partsignal-geo407-fake-oss-1 Running 
+ Container partsignal-geo407-postgres-1 Running 
+ Container partsignal-geo407-postgres-1 Waiting 
+ Container partsignal-geo407-postgres-1 Healthy 
+ Container partsignal-geo407-backend-test-run-ef55c5c3ec29 Creating 
+ Container partsignal-geo407-backend-test-run-ef55c5c3ec29 Created 
+..........F
+=================================== FAILURES ===================================
+____________ test_live_switch_and_budget_fail_before_external_call _____________
+
+worker_graph = WorkerGraph(api=PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_g...03c804be'), channel=UUID('ed18c793-3b10-40f1-a644-4bfc064beb4b'), call_id=UUID('a2946138-a167-4703-adc8-ba3bfaab119e'))
+local_provider = <app.geo_fake_server.GeoFakeServer object at 0xf1b9df62acc0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0xf1b9df57b860>
+
+    def test_live_switch_and_budget_fail_before_external_call(
+        worker_graph, local_provider, monkeypatch
+    ):
+        budgeted = worker_graph.create(budget="1.00")
+        geo_runs.process_collection_run(budgeted)
+>       assert row(worker_graph, budgeted).error_code == "COLLECTOR_CONFIGURATION_INVALID"
+E       AssertionError: assert 'BUDGET_EXCEEDED' == 'COLLECTOR_CO...ATION_INVALID'
+E         
+E         - COLLECTOR_CONFIGURATION_INVALID
+E         + BUDGET_EXCEEDED
+
+tests/integration/test_geo_worker.py:257: AssertionError
+=========================== short test summary info ============================
+FAILED tests/integration/test_geo_worker.py::test_live_switch_and_budget_fail_before_external_call
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 10 passed in 3.56s
+

@@ -1,0 +1,6 @@
+{
+  "command": "git diff --check",
+  "exit_code": 0,
+  "seconds": 0.03,
+  "log": "diff-check-final.log"
+}

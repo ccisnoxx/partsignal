@@ -1,0 +1,14 @@
+{
+  "command": [
+    "UV_CACHE_DIR=.cache/uv",
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "python",
+    "deploy/scripts/test-geo-configuration.py"
+  ],
+  "exit_code": 0,
+  "result": "GEO Compose/Settings/API/Worker/Beat：18 组配置一致，启动外部调用为 0",
+  "evidence": "本会话实际工具返回；未重复执行已成功且输入未变的检查"
+}

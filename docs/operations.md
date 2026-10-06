@@ -59,6 +59,8 @@ API、Worker、Scheduler 必须加载同一模式；配置文件修改不是热�
 
 数据库备份必须权限受限，并配套异地、加密和保留策略；只生成本机压缩文件不等于备份完成。恢复能力必须定期在隔离数据库验证，验证目标不得指向业务主库。
 
+GEO核心一致性集合、密钥清单、缺失对象报告、隔离恢复和未终态处置见[GEO-903恢复Runbook](./geo-monitoring/03-technical/09-backup-recovery-runbook.md)。`backup.sh`生成认证加密集合，`restore-verify.sh`只创建随机owner标记的一次性库，不再接受任意VERIFY_DATABASE_URL或仅SQL gzip。
+
 数据库备份与当时的 `AI_CREDENTIAL_ENCRYPTION_KEY` 必须成对保护。恢复数据库但使用另一主密钥，会使已有 AI 渠道凭据无法解密。
 
 应用回滚只允许使用与当前数据库契约兼容的旧版本，并必须重新完成相应验收。状态机或数据契约不兼容时，先停止相关写流量与 Scheduler，再由负责人确认前滚或恢复方案。

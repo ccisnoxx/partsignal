@@ -1,0 +1,4 @@
+{
+  "command": "UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/unit/test_geo_browser_boundary.py backend/tests/unit/test_geo_collector_contract.py backend/tests/unit/test_geo_collector_suite.py backend/tests/unit/test_geo_collector_registry.py backend/tests/unit/test_geo_browser_storage_state.py backend/tests/unit/test_geo_browser_session_vault.py -q",
+  "exit_code": 0
+}

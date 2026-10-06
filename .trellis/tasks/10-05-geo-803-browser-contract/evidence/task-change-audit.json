@@ -1,0 +1,75 @@
+{
+  "changed": [
+    {
+      "path": ".github/workflows/ci.yml",
+      "before_sha256": "f5a84cd480177d238d14bc4931f67d3b64b53ad228951e5b3df2028ded1c7c40",
+      "after_sha256": "b71d84a56056c0e576544855248803df496cb6f82de33794079e5e0328167f65"
+    },
+    {
+      "path": ".trellis/spec/infra/ci-execution.md",
+      "before_sha256": "5bb697ffa1ee567358bf91a4d6cfb762e0880a73234612253312bbd16229f186",
+      "after_sha256": "5155b899e2c2e19067eca2c3dbf2b841bf2f4c17d3756d6e430784aa5de13e64"
+    },
+    {
+      "path": "Makefile",
+      "before_sha256": "61490dd911faafcf974e1d3d4ba1c444dae98ddeeafe3e5b6b94f7535384dfa9",
+      "after_sha256": "3c1f7bd39c97a3621a3083031fb93c799995ef1c720183dafd800e9ebbab299e"
+    },
+    {
+      "path": "browser-collector/README.md",
+      "before_sha256": "05da7a522b47138c01a8a24b180ef7b01439538d0e2c2482aadd938153dc1664",
+      "after_sha256": "b1785d6b33d079012ac186e812eb3b373e6276ae51653faa330acf2ebb0b5c16"
+    },
+    {
+      "path": "browser-collector/package.json",
+      "before_sha256": "e65c458496275a135d36256d319214f11d4f8fefc5ad205307cd9bfd2ffc4a24",
+      "after_sha256": "38ffcd5768ec3b78f1db7c93b1b5e83ec5847a325d88637e40ddabe7542cc368"
+    },
+    {
+      "path": "docs/geo-monitoring/03-technical/07-testing-and-quality.md",
+      "before_sha256": "e3cd97b554baca18dfd3cdde4b5576dcfbcff79babd330065ee0f93633245826",
+      "after_sha256": "c72c2cf000954befa7288891843daa24e25a1b7f131bba420c589dea05cb2906"
+    },
+    {
+      "path": "docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md",
+      "before_sha256": "15ed858bbf2d48fc2801530b6e09a598e805905bbf21734f9b29f1d1b86401c8",
+      "after_sha256": "fd85f9d3dbbc6246f31af69e20d1d72ecd69ae3ca3bf3cc8d0bbe10fc3f21627"
+    },
+    {
+      "path": "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+      "before_sha256": "997b1250da6dc4b0910457c5809196af3b01db011b44fabacb8afdb9be10c621",
+      "after_sha256": "e32eabf3b5f67845e4ced87a2a000c3f734fc60c8743f35fc4f94685e6ede995"
+    },
+    {
+      "path": "docs/geo-monitoring/CHANGELOG.md",
+      "before_sha256": "d148f8a67d48a0f7a934b15161da3d7b8fba2b56020ed70e5b2970a9ded4950d",
+      "after_sha256": "886554a178d6ec73815ffbff3da39f86c043f0139e635231a74b3fd5eaea5966"
+    },
+    {
+      "path": "docs/geo-monitoring/README.md",
+      "before_sha256": "e10659031b65ef258296af72094004ee1e33e2123b460b6b011a9c6eb568008d",
+      "after_sha256": "d3e47d23b3fef814a4f3b2f33576758b843c07cbc0037678761e9722158d7669"
+    },
+    {
+      "path": "docs/geo-monitoring/SHA256SUMS",
+      "before_sha256": "6e21ceb50b091945c467c46eb17944cd4241d57cdd169176e2f81c87ee20dc48",
+      "after_sha256": "f38c5079968b21a366f3cc818197f55c502913cf5c377a5c94cd8a0fdb3d3c18"
+    }
+  ],
+  "added": [
+    "browser-collector/tests/contracts/local-adapter.test.mjs",
+    "browser-collector/tests/support/adapter-contract.mjs",
+    "browser-collector/tests/support/reference-adapter.mjs",
+    "deploy/scripts/test-geo-browser-contract.py",
+    "tests/browser-fixture/README.md",
+    "tests/browser-fixture/fixture.js",
+    "tests/browser-fixture/index.html",
+    "tests/browser-fixture/server.mjs"
+  ],
+  "unexpected_changes": [],
+  "missing_files": [],
+  "protected_backend_frontend_contract_files_unchanged": 1179,
+  "new_maintained_sources_under_500_lines": true,
+  "review": "主代理自审；未声称独立复核",
+  "branch": "geo/GEO-803"
+}

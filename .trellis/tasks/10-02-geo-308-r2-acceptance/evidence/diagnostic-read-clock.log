@@ -1,0 +1,1612 @@
+FFFFFFFFFFFFFF                                                           [100%]
+=================================== FAILURES ===================================
+_ test_committed_aggregate_attack_rolls_back_entire_transaction[UPDATE geo_answer_snapshots SET answer_text='\u7be1\u6539' WHERE run_id=:run-ck_geo_answers_immutable] _
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55458/partsignal_geo208_a210e47f...b1746a3cd572'), surface=UUID('2af53107-0cd6-4156-8c29-da75a85d1a3a'), name='虚构计划-cf6157ca-9919-4ec8-9c6c-350cc348183d')
+statement = "UPDATE geo_answer_snapshots SET answer_text='篡改' WHERE run_id=:run"
+constraint = 'ck_geo_answers_immutable'
+
+    @pytest.mark.parametrize(
+        "statement,constraint",
+        [
+            (
+                "UPDATE geo_answer_snapshots SET answer_text='篡改' WHERE run_id=:run",
+                "ck_geo_answers_immutable",
+            ),
+            ("DELETE FROM geo_answer_snapshots WHERE run_id=:run", "ck_geo_answers_immutable"),
+            (
+                "UPDATE geo_answer_citations SET id=id WHERE answer_snapshot_id=:answer",
+                "ck_geo_citations_immutable",
+            ),
+            (
+                "DELETE FROM geo_answer_citations WHERE answer_snapshot_id=:answer",
+                "ck_geo_citations_immutable",
+            ),
+            (
+                "UPDATE geo_manual_submissions SET identity_hash=identity_hash WHERE run_id=:run",
+                "ck_geo_manual_submissions_immutable",
+            ),
+            (
+                "DELETE FROM geo_manual_submissions WHERE run_id=:run",
+                "ck_geo_manual_submissions_immutable",
+            ),
+            (
+                "UPDATE geo_batch_creation_requests SET request_hash=request_hash WHERE batch_id=:batch",
+                "ck_geo_creation_immutable",
+            ),
+            ("DELETE FROM geo_batch_subjects WHERE batch_id=:batch", "ck_geo_creation_immutable"),
+            (
+                "UPDATE geo_observation_runs SET input_snapshot='{}',revision=revision+1 WHERE id=:run",
+                "ck_geo_runs_immutable",
+            ),
+            ("DELETE FROM geo_observation_runs WHERE id=:run", "ck_geo_runs_immutable"),
+            (
+                "UPDATE geo_observation_batches SET rule_snapshot='{}',revision=revision+1 WHERE id=:batch",
+                "ck_geo_batches_immutable",
+            ),
+            ("DELETE FROM geo_observation_batches WHERE id=:batch", "ck_geo_batches_immutable"),
+            (
+                "UPDATE file_records SET status='DELETING' WHERE id=:file",
+                "ck_geo_evidence_file_immutable",
+            ),
+            ("DELETE FROM file_records WHERE id=:file", "ck_geo_evidence_file_immutable"),
+        ],
+    )
+    def test_committed_aggregate_attack_rolls_back_entire_transaction(plans_api, statement, constraint):
+        api = plans_api
+        run = batch_run(api)[0]
+        file_id, _ = evidence(api)
+        value = payload(
+            run,
+            screenshot_file_id=str(file_id),
+            citations=[
+                {
+                    "original_url": "https://example.test/r2",
+                    "position": 1,
+                    "title": "虚构来源",
+                }
+            ],
+        )
+        result = submit(api, run, value)
+        assert result.status_code == 201, result.text
+        receipt = result.json()
+        before = committed_facts(api, run, file_id)
+        public_before = api.api.engineer.get(prefix(run)).json()
+        assert all(before[table] for table in before if table != "geo_manual_drafts")
+        with api.api.factory() as db:
+            # 先做一次合法更新，证明错误回滚的不只是最后一条非法语句。
+            db.execute(
+                text(
+                    "UPDATE query_topics SET canonical_question='必须回滚',revision=revision+1 WHERE id=:id"
+                ),
+                {"id": api.api.topic},
+            )
+            original_topic = api.api.engineer.get(f"/api/v1/query-topics/{api.api.topic}").json()
+            with pytest.raises(IntegrityError) as raised:
+                db.execute(
+                    text(statement),
+                    {
+                        "run": run.id,
+                        "batch": run.batch_id,
+                        "answer": receipt["answer_snapshot_id"],
+                        "file": file_id,
+                    },
+                )
+                db.commit()
+            assert raised.value.orig.sqlstate == "23514"
+            assert raised.value.orig.diag.constraint_name == constraint
+            db.rollback()
+            assert db.scalar(text("SELECT 1")) == 1
+        assert api.api.engineer.get(f"/api/v1/query-topics/{api.api.topic}").json() == original_topic
+        assert committed_facts(api, run, file_id) == before
+>       assert api.api.engineer.get(prefix(run)).json() == public_before
+E       AssertionError: assert {'answer': {'...ne, ...}, ...} == {'answer': {'...ne, ...}, ...}
+E         
+E         Omitting 7 identical items, use -vv to show
+E         Differing items:
+E         {'as_of': '2026-10-03T06:30:40.196163Z'} != {'as_of': '2026-10-03T06:30:40.063365Z'}
+E         {'evidence_files': [{'access_level': 'INTERNAL', 'content_type': 'image/png', 'download': {'expires_at': '2026-10-03T0...3a4831b68a308e95f76ecfa69d46e4243aa90fa7bab9b098b7f9e596092c222'}, 'id': '5055f254-34be-4282-8cc1-27408824afd1', ...}]} != {'evidence_files': [{'access_level': 'INTERNAL', 'content_type': 'image/png', 'download': {'expires_at': '2026-10-03T0...3a4831b68a308e95f76ecfa69d46e4243aa90fa7bab9b098b7f9e596092c222'}, '...
+E         
+E         ...Full output truncated (2 lines hidden), use '-vv' to show
+
+backend/tests/integration/test_geo_r2_immutability.py:143: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_identity_audit, 创建身份、会话和审计表。
+INFO  [alembic.runtime.migration] Running upgrade 0001_identity_audit -> 0002_product_facts, 创建规范化产品事实和不可变事实版本。
+INFO  [alembic.runtime.migration] Running upgrade 0002_product_facts -> 0003_content_planning, 创建目标问题、平台规则版本和内容任务。
+INFO  [alembic.runtime.migration] Running upgrade 0003_content_planning -> 0004_content_production, 创建 PostgreSQL 权威生成作业和不可变 Markdown 内容版本。
+INFO  [alembic.runtime.migration] Running upgrade 0004_content_production -> 0005_content_review, 创建追加式内容审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0005_content_review -> 0006_publication, 创建平台账号、人工发布记录和状态事件。
+INFO  [alembic.runtime.migration] Running upgrade 0006_publication -> 0007_geo_observation, 创建追加式 GEO 观测及引用关联。
+INFO  [alembic.runtime.migration] Running upgrade 0007_geo_observation -> 0008_files, 创建文件生命周期、附件关联并补加证据文件外键。
+INFO  [alembic.runtime.migration] Running upgrade 0008_files -> 0009_config_center, 迁移账号类型、配置中心与真实 AI 生成字段。
+INFO  [alembic.runtime.migration] Running upgrade 0009_config_center -> 0010_user_cleanup, 清理旧版职责账号并强制既有内容工程师改密。
+INFO  [alembic.runtime.migration] Running upgrade 0010_user_cleanup -> 0011_generation_reliability, 增加生成作业补投递诊断字段与到期扫描索引。
+INFO  [alembic.runtime.migration] Running upgrade 0011_generation_reliability -> 0012_ai_data_classification, 为生成输入增加显式数据分级与责任人记录。
+INFO  [alembic.runtime.migration] Running upgrade 0012_ai_data_classification -> 0013_publication_closure, 增加发布异常待办、修复任务来源和发布平台一致性门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0013_publication_closure -> 0014_platform_prompt_ownership, 将当前 Prompt 所有权从平台类型迁移到具体平台。
+INFO  [alembic.runtime.migration] Running upgrade 0014_platform_prompt_ownership -> 0015_platform_rule_draft_editing, 允许按修订号编辑平台规则草稿，并继续冻结已激活或退役正文。
+INFO  [alembic.runtime.migration] Running upgrade 0015_platform_rule_draft_editing -> 0016_fact_review_cleanup, 允许受约束删除事实版本时清理其从属审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0016_fact_review_cleanup -> 0017_content_humanization, 增加全局自然化 Prompt，并让现有 AI 作业承载自然化修订。
+INFO  [alembic.runtime.migration] Running upgrade 0017_content_humanization -> 0018_manual_geo_observation, 增加产品级人工 GEO 观测，并保留旧模型观测历史。
+INFO  [alembic.runtime.migration] Running upgrade 0018_manual_geo_observation -> 0019_product_driven_tasks, 允许新内容任务直接围绕产品创建，同时保留历史目标问题关联。
+INFO  [alembic.runtime.migration] Running upgrade 0019_product_driven_tasks -> 0020_platform_branding_task_list, 为具体平台增加官网与单一来源 Logo。
+INFO  [alembic.runtime.migration] Running upgrade 0020_platform_branding_task_list -> 0021_ai_channel_model_management, 补齐 AI 渠道身份字段与使用统计索引。
+INFO  [alembic.runtime.migration] Running upgrade 0021_ai_channel_model_management -> 0022_geo_observation_insights, 补充人工 GEO 逐篇阶段事实与问题主题约束。
+INFO  [alembic.runtime.migration] Running upgrade 0022_geo_observation_insights -> 0023_platform_management, 增加具体平台启停状态与管理聚合索引。
+INFO  [alembic.runtime.migration] Running upgrade 0023_platform_management -> 0024_audit_outcome, 补齐审计模块、命令结果和安全结果说明。
+INFO  [alembic.runtime.migration] Running upgrade 0024_audit_outcome -> 0025_markdown_facts, 将结构化产品事实收敛为 Markdown，并让内容任务直接绑定平台。
+INFO  [alembic.runtime.migration] Running upgrade 0025_markdown_facts -> 0026_publication_account_dedup, 补齐发布账号修订约束，并阻止同平台规范化账号标识重复。
+INFO  [alembic.runtime.migration] Running upgrade 0026_publication_account_dedup -> 0027_audit_user_delete_guard, 只允许受约束用户删除把匹配审计操作者置空。
+INFO  [alembic.runtime.migration] Running upgrade 0027_audit_user_delete_guard -> 0028_platform_logo_lifecycle, 增加平台 Logo 的未引用保留、幂等删除状态与数据库门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0028_platform_logo_lifecycle -> 0029_geo_evidence_management, 收敛人工 GEO 独立事实，并为完整更正链删除增加事务门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0029_geo_evidence_management -> 0030_publication_record_delete, 为从未公开的发布聚合增加事务级受控删除门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0030_publication_record_delete -> 0031_reusable_platform_prompts, 把平台私有 Prompt 收敛为可复用模板和平台当前绑定。
+INFO  [alembic.runtime.migration] Running upgrade 0031_reusable_platform_prompts -> 0032_content_task_idempotency, 为普通内容任务创建增加持久化请求键幂等约束。
+INFO  [alembic.runtime.migration] Running upgrade 0032_content_task_idempotency -> 0033_task_owned_history_delete, 允许受控删除已取消任务自有的未批准生产历史。
+INFO  [alembic.runtime.migration] Running upgrade 0033_task_owned_history_delete -> 0034_publication_redesign, 以发布工作、首次核验成果和发布后内容问题替换旧发布记录。
+INFO  [alembic.runtime.migration] Running upgrade 0034_publication_redesign -> 0035_business_workflow, 建立事实提交、内容单主线、发布版本快照与 GEO 来源合同。
+INFO  [alembic.runtime.migration] Running upgrade 0035_business_workflow -> 0036_remove_section_url, 删除没有稳定业务含义的发布栏目地址。
+INFO  [alembic.runtime.migration] Running upgrade 0036_remove_section_url -> 0037_simplify_deletion_lifecycle, 收缩任务、配置与审计的删除生命周期。
+INFO  [alembic.runtime.migration] Running upgrade 0037_simplify_deletion_lifecycle -> 0038_published_article_delete, 允许受控删除无 GEO 引用的发布成果聚合。
+INFO  [alembic.runtime.migration] Running upgrade 0038_published_article_delete -> 0039_article_delete_platform, 允许归档任务在删除失效平台的发布成果后转为已取消。
+INFO  [alembic.runtime.migration] Running upgrade 0039_article_delete_platform -> 0040_content_draft_management, 允许当前人工未审核草稿受控保存和彻底删除。
+INFO  [alembic.runtime.migration] Running upgrade 0040_content_draft_management -> 0041_content_task_list, 补齐内容任务列表的稳定更新时间与排序索引。
+INFO  [alembic.runtime.migration] Running upgrade 0041_content_task_list -> 0042_content_version_detail, 记录内容版本自身的真实更新时间。
+INFO  [alembic.runtime.migration] Running upgrade 0042_content_version_detail -> 0043_geo_platform_identity, 冻结发布工作的平台 UUID，避免配置删除后 GEO 历史失去身份。
+INFO  [alembic.runtime.migration] Running upgrade 0043_geo_platform_identity -> 0044_geo_catalog, 新增 GEO Catalog 三表；冻结本 revision，不读取运行时 ORM。
+INFO  [alembic.runtime.migration] Running upgrade 0044_geo_catalog -> 0045_geo_prompt_variants, 仅新增问题变体，冻结规范化及历史锁存，不回填旧问题数组。
+INFO  [alembic.runtime.migration] Running upgrade 0045_geo_prompt_variants -> 0046_geo_surfaces_profiles, 新增观测配置与闭合JSON合同；不回填旧GEO或实现运行资格。
+INFO  [alembic.runtime.migration] Running upgrade 0046_geo_surfaces_profiles -> 0047_geo_monitoring_plans, 仅增加计划配置聚合；不创建批次、运行或改写历史观测。
+INFO  [alembic.runtime.migration] Running upgrade 0047_geo_monitoring_plans -> 0048_geo_batches_runs, 新增独立回答级 Batch/Run，冻结 DDL 与快照/写入守卫，不迁移旧 GEO。
+INFO  [alembic.runtime.migration] Running upgrade 0048_geo_batches_runs -> 0049_geo_batch_creation, 创建幂等与批次主体引用；不修改已冻结的 Batch/Run 输入。
+INFO  [alembic.runtime.migration] Running upgrade 0049_geo_batch_creation -> 0050_geo_answer_evidence, 新增不可变原始回答、引用和受控文件关系；不实现采集命令。
+INFO  [alembic.runtime.migration] Running upgrade 0050_geo_answer_evidence -> 0051_geo_manual_collection, 人工草稿和不可变提交身份；不回填或修改已提交证据。
+_ test_committed_aggregate_attack_rolls_back_entire_transaction[DELETE FROM geo_answer_snapshots WHERE run_id=:run-ck_geo_answers_immutable] _
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55458/partsignal_geo208_a210e47f...910783f7dcf5'), surface=UUID('b0a74d86-4fde-436a-af78-c7e67dabb2d2'), name='虚构计划-e8a1f809-7a0b-47dd-bc0a-a0ad04260578')
+statement = 'DELETE FROM geo_answer_snapshots WHERE run_id=:run'
+constraint = 'ck_geo_answers_immutable'
+
+    @pytest.mark.parametrize(
+        "statement,constraint",
+        [
+            (
+                "UPDATE geo_answer_snapshots SET answer_text='篡改' WHERE run_id=:run",
+                "ck_geo_answers_immutable",
+            ),
+            ("DELETE FROM geo_answer_snapshots WHERE run_id=:run", "ck_geo_answers_immutable"),
+            (
+                "UPDATE geo_answer_citations SET id=id WHERE answer_snapshot_id=:answer",
+                "ck_geo_citations_immutable",
+            ),
+            (
+                "DELETE FROM geo_answer_citations WHERE answer_snapshot_id=:answer",
+                "ck_geo_citations_immutable",
+            ),
+            (
+                "UPDATE geo_manual_submissions SET identity_hash=identity_hash WHERE run_id=:run",
+                "ck_geo_manual_submissions_immutable",
+            ),
+            (
+                "DELETE FROM geo_manual_submissions WHERE run_id=:run",
+                "ck_geo_manual_submissions_immutable",
+            ),
+            (
+                "UPDATE geo_batch_creation_requests SET request_hash=request_hash WHERE batch_id=:batch",
+                "ck_geo_creation_immutable",
+            ),
+            ("DELETE FROM geo_batch_subjects WHERE batch_id=:batch", "ck_geo_creation_immutable"),
+            (
+                "UPDATE geo_observation_runs SET input_snapshot='{}',revision=revision+1 WHERE id=:run",
+                "ck_geo_runs_immutable",
+            ),
+            ("DELETE FROM geo_observation_runs WHERE id=:run", "ck_geo_runs_immutable"),
+            (
+                "UPDATE geo_observation_batches SET rule_snapshot='{}',revision=revision+1 WHERE id=:batch",
+                "ck_geo_batches_immutable",
+            ),
+            ("DELETE FROM geo_observation_batches WHERE id=:batch", "ck_geo_batches_immutable"),
+            (
+                "UPDATE file_records SET status='DELETING' WHERE id=:file",
+                "ck_geo_evidence_file_immutable",
+            ),
+            ("DELETE FROM file_records WHERE id=:file", "ck_geo_evidence_file_immutable"),
+        ],
+    )
+    def test_committed_aggregate_attack_rolls_back_entire_transaction(plans_api, statement, constraint):
+        api = plans_api
+        run = batch_run(api)[0]
+        file_id, _ = evidence(api)
+        value = payload(
+            run,
+            screenshot_file_id=str(file_id),
+            citations=[
+                {
+                    "original_url": "https://example.test/r2",
+                    "position": 1,
+                    "title": "虚构来源",
+                }
+            ],
+        )
+        result = submit(api, run, value)
+        assert result.status_code == 201, result.text
+        receipt = result.json()
+        before = committed_facts(api, run, file_id)
+        public_before = api.api.engineer.get(prefix(run)).json()
+        assert all(before[table] for table in before if table != "geo_manual_drafts")
+        with api.api.factory() as db:
+            # 先做一次合法更新，证明错误回滚的不只是最后一条非法语句。
+            db.execute(
+                text(
+                    "UPDATE query_topics SET canonical_question='必须回滚',revision=revision+1 WHERE id=:id"
+                ),
+                {"id": api.api.topic},
+            )
+            original_topic = api.api.engineer.get(f"/api/v1/query-topics/{api.api.topic}").json()
+            with pytest.raises(IntegrityError) as raised:
+                db.execute(
+                    text(statement),
+                    {
+                        "run": run.id,
+                        "batch": run.batch_id,
+                        "answer": receipt["answer_snapshot_id"],
+                        "file": file_id,
+                    },
+                )
+                db.commit()
+            assert raised.value.orig.sqlstate == "23514"
+            assert raised.value.orig.diag.constraint_name == constraint
+            db.rollback()
+            assert db.scalar(text("SELECT 1")) == 1
+        assert api.api.engineer.get(f"/api/v1/query-topics/{api.api.topic}").json() == original_topic
+        assert committed_facts(api, run, file_id) == before
+>       assert api.api.engineer.get(prefix(run)).json() == public_before
+E       AssertionError: assert {'answer': {'...ne, ...}, ...} == {'answer': {'...ne, ...}, ...}
+E         
+E         Omitting 7 identical items, use -vv to show
+E         Differing items:
+E         {'as_of': '2026-10-03T06:30:40.346782Z'} != {'as_of': '2026-10-03T06:30:40.294737Z'}
+E         {'evidence_files': [{'access_level': 'INTERNAL', 'content_type': 'image/png', 'download': {'expires_at': '2026-10-03T0...d60b13c547fbbc35ad1542ee0b6be3d2bbbd12fd4e5429e27bba9716eb8f13c'}, 'id': '90c99f70-6c13-43d7-8cb6-db826e436194', ...}]} != {'evidence_files': [{'access_level': 'INTERNAL', 'content_type': 'image/png', 'download': {'expires_at': '2026-10-03T0...d60b13c547fbbc35ad1542ee0b6be3d2bbbd12fd4e5429e27bba9716eb8f13c'}, '...
+E         
+E         ...Full output truncated (2 lines hidden), use '-vv' to show
+
+backend/tests/integration/test_geo_r2_immutability.py:143: AssertionError
+_ test_committed_aggregate_attack_rolls_back_entire_transaction[UPDATE geo_answer_citations SET id=id WHERE answer_snapshot_id=:answer-ck_geo_citations_immutable] _
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55458/partsignal_geo208_a210e47f...b0cb044f8890'), surface=UUID('48d42449-13e4-4a28-a486-c2be62eae5c4'), name='虚构计划-a25dc2be-8d9d-4071-9fdb-8dff986d4b13')
+statement = 'UPDATE geo_answer_citations SET id=id WHERE answer_snapshot_id=:answer'
+constraint = 'ck_geo_citations_immutable'
+
+    @pytest.mark.parametrize(
+        "statement,constraint",
+        [
+            (
+                "UPDATE geo_answer_snapshots SET answer_text='篡改' WHERE run_id=:run",
+                "ck_geo_answers_immutable",
+            ),
+            ("DELETE FROM geo_answer_snapshots WHERE run_id=:run", "ck_geo_answers_immutable"),
+            (
+                "UPDATE geo_answer_citations SET id=id WHERE answer_snapshot_id=:answer",
+                "ck_geo_citations_immutable",
+            ),
+            (
+                "DELETE FROM geo_answer_citations WHERE answer_snapshot_id=:answer",
+                "ck_geo_citations_immutable",
+            ),
+            (
+                "UPDATE geo_manual_submissions SET identity_hash=identity_hash WHERE run_id=:run",
+                "ck_geo_manual_submissions_immutable",
+            ),
+            (
+                "DELETE FROM geo_manual_submissions WHERE run_id=:run",
+                "ck_geo_manual_submissions_immutable",
+            ),
+            (
+                "UPDATE geo_batch_creation_requests SET request_hash=request_hash WHERE batch_id=:batch",
+                "ck_geo_creation_immutable",
+            ),
+            ("DELETE FROM geo_batch_subjects WHERE batch_id=:batch", "ck_geo_creation_immutable"),
+            (
+                "UPDATE geo_observation_runs SET input_snapshot='{}',revision=revision+1 WHERE id=:run",
+                "ck_geo_runs_immutable",
+            ),
+            ("DELETE FROM geo_observation_runs WHERE id=:run", "ck_geo_runs_immutable"),
+            (
+                "UPDATE geo_observation_batches SET rule_snapshot='{}',revision=revision+1 WHERE id=:batch",
+                "ck_geo_batches_immutable",
+            ),
+            ("DELETE FROM geo_observation_batches WHERE id=:batch", "ck_geo_batches_immutable"),
+            (
+                "UPDATE file_records SET status='DELETING' WHERE id=:file",
+                "ck_geo_evidence_file_immutable",
+            ),
+            ("DELETE FROM file_records WHERE id=:file", "ck_geo_evidence_file_immutable"),
+        ],
+    )
+    def test_committed_aggregate_attack_rolls_back_entire_transaction(plans_api, statement, constraint):
+        api = plans_api
+        run = batch_run(api)[0]
+        file_id, _ = evidence(api)
+        value = payload(
+            run,
+            screenshot_file_id=str(file_id),
+            citations=[
+                {
+                    "original_url": "https://example.test/r2",
+                    "position": 1,
+                    "title": "虚构来源",
+                }
+            ],
+        )
+        result = submit(api, run, value)
+        assert result.status_code == 201, result.text
+        receipt = result.json()
+        before = committed_facts(api, run, file_id)
+        public_before = api.api.engineer.get(prefix(run)).json()
+        assert all(before[table] for table in before if table != "geo_manual_drafts")
+        with api.api.factory() as db:
+            # 先做一次合法更新，证明错误回滚的不只是最后一条非法语句。
+            db.execute(
+                text(
+                    "UPDATE query_topics SET canonical_question='必须回滚',revision=revision+1 WHERE id=:id"
+                ),
+                {"id": api.api.topic},
+            )
+            original_topic = api.api.engineer.get(f"/api/v1/query-topics/{api.api.topic}").json()
+            with pytest.raises(IntegrityError) as raised:
+                db.execute(
+                    text(statement),
+                    {
+                        "run": run.id,
+                        "batch": run.batch_id,
+                        "answer": receipt["answer_snapshot_id"],
+                        "file": file_id,
+                    },
+                )
+                db.commit()
+            assert raised.value.orig.sqlstate == "23514"
+            assert raised.value.orig.diag.constraint_name == constraint
+            db.rollback()
+            assert db.scalar(text("SELECT 1")) == 1
+        assert api.api.engineer.get(f"/api/v1/query-topics/{api.api.topic}").json() == original_topic
+        assert committed_facts(api, run, file_id) == before
+>       assert api.api.engineer.get(prefix(run)).json() == public_before
+E       AssertionError: assert {'answer': {'...ne, ...}, ...} == {'answer': {'...ne, ...}, ...}
+E         
+E         Omitting 7 identical items, use -vv to show
+E         Differing items:
+E         {'as_of': '2026-10-03T06:30:40.432501Z'} != {'as_of': '2026-10-03T06:30:40.415520Z'}
+E         {'evidence_files': [{'access_level': 'INTERNAL', 'content_type': 'image/png', 'download': {'expires_at': '2026-10-03T0...f1733ba5a90b766e4f1ad568a6ae0d68d288ca7d94b443137dcc54d3b3361cd'}, 'id': '60fdd3c7-b495-4bf3-84ba-2ae0ffe17592', ...}]} != {'evidence_files': [{'access_level': 'INTERNAL', 'content_type': 'image/png', 'download': {'expires_at': '2026-10-03T0...f1733ba5a90b766e4f1ad568a6ae0d68d288ca7d94b443137dcc54d3b3361cd'}, '...
+E         
+E         ...Full output truncated (2 lines hidden), use '-vv' to show
+
+backend/tests/integration/test_geo_r2_immutability.py:143: AssertionError
+_ test_committed_aggregate_attack_rolls_back_entire_transaction[DELETE FROM geo_answer_citations WHERE answer_snapshot_id=:answer-ck_geo_citations_immutable] _
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55458/partsignal_geo208_a210e47f...d80a4d78f164'), surface=UUID('bea7bcc2-6790-443a-8508-7e6823cd8156'), name='虚构计划-172236c7-cd61-4a30-a43b-4a2f37a37c03')
+statement = 'DELETE FROM geo_answer_citations WHERE answer_snapshot_id=:answer'
+constraint = 'ck_geo_citations_immutable'
+
+    @pytest.mark.parametrize(
+        "statement,constraint",
+        [
+            (
+                "UPDATE geo_answer_snapshots SET answer_text='篡改' WHERE run_id=:run",
+                "ck_geo_answers_immutable",
+            ),
+            ("DELETE FROM geo_answer_snapshots WHERE run_id=:run", "ck_geo_answers_immutable"),
+            (
+                "UPDATE geo_answer_citations SET id=id WHERE answer_snapshot_id=:answer",
+                "ck_geo_citations_immutable",
+            ),
+            (
+                "DELETE FROM geo_answer_citations WHERE answer_snapshot_id=:answer",
+                "ck_geo_citations_immutable",
+            ),
+            (
+                "UPDATE geo_manual_submissions SET identity_hash=identity_hash WHERE run_id=:run",
+                "ck_geo_manual_submissions_immutable",
+            ),
+            (
+                "DELETE FROM geo_manual_submissions WHERE run_id=:run",
+                "ck_geo_manual_submissions_immutable",
+            ),
+            (
+                "UPDATE geo_batch_creation_requests SET request_hash=request_hash WHERE batch_id=:batch",
+                "ck_geo_creation_immutable",
+            ),
+            ("DELETE FROM geo_batch_subjects WHERE batch_id=:batch", "ck_geo_creation_immutable"),
+            (
+                "UPDATE geo_observation_runs SET input_snapshot='{}',revision=revision+1 WHERE id=:run",
+                "ck_geo_runs_immutable",
+            ),
+            ("DELETE FROM geo_observation_runs WHERE id=:run", "ck_geo_runs_immutable"),
+            (
+                "UPDATE geo_observation_batches SET rule_snapshot='{}',revision=revision+1 WHERE id=:batch",
+                "ck_geo_batches_immutable",
+            ),
+            ("DELETE FROM geo_observation_batches WHERE id=:batch", "ck_geo_batches_immutable"),
+            (
+                "UPDATE file_records SET status='DELETING' WHERE id=:file",
+                "ck_geo_evidence_file_immutable",
+            ),
+            ("DELETE FROM file_records WHERE id=:file", "ck_geo_evidence_file_immutable"),
+        ],
+    )
+    def test_committed_aggregate_attack_rolls_back_entire_transaction(plans_api, statement, constraint):
+        api = plans_api
+        run = batch_run(api)[0]
+        file_id, _ = evidence(api)
+        value = payload(
+            run,
+            screenshot_file_id=str(file_id),
+            citations=[
+                {
+                    "original_url": "https://example.test/r2",
+                    "position": 1,
+                    "title": "虚构来源",
+                }
+            ],
+        )
+        result = submit(api, run, value)
+        assert result.status_code == 201, result.text
+        receipt = result.json()
+        before = committed_facts(api, run, file_id)
+        public_before = api.api.engineer.get(prefix(run)).json()
+        assert all(before[table] for table in before if table != "geo_manual_drafts")
+        with api.api.factory() as db:
+            # 先做一次合法更新，证明错误回滚的不只是最后一条非法语句。
+            db.execute(
+                text(
+                    "UPDATE query_topics SET canonical_question='必须回滚',revision=revision+1 WHERE id=:id"
+                ),
+                {"id": api.api.topic},
+            )
+            original_topic = api.api.engineer.get(f"/api/v1/query-topics/{api.api.topic}").json()
+            with pytest.raises(IntegrityError) as raised:
+                db.execute(
+                    text(statement),
+                    {
+                        "run": run.id,
+                        "batch": run.batch_id,
+                        "answer": receipt["answer_snapshot_id"],
+                        "file": file_id,
+                    },
+                )
+                db.commit()
+            assert raised.value.orig.sqlstate == "23514"
+            assert raised.value.orig.diag.constraint_name == constraint
+            db.rollback()
+            assert db.scalar(text("SELECT 1")) == 1
+        assert api.api.engineer.get(f"/api/v1/query-topics/{api.api.topic}").json() == original_topic
+        assert committed_facts(api, run, file_id) == before
+>       assert api.api.engineer.get(prefix(run)).json() == public_before
+E       AssertionError: assert {'answer': {'...ne, ...}, ...} == {'answer': {'...ne, ...}, ...}
+E         
+E         Omitting 7 identical items, use -vv to show
+E         Differing items:
+E         {'as_of': '2026-10-03T06:30:40.516932Z'} != {'as_of': '2026-10-03T06:30:40.500525Z'}
+E         {'evidence_files': [{'access_level': 'INTERNAL', 'content_type': 'image/png', 'download': {'expires_at': '2026-10-03T0...e3b29d568975841ab356b6fec2d9cf8a6c20dc24c58774ff8a8a7f5618360ed'}, 'id': 'f2afcec2-6287-4d2e-a26a-c3fec9b6e54a', ...}]} != {'evidence_files': [{'access_level': 'INTERNAL', 'content_type': 'image/png', 'download': {'expires_at': '2026-10-03T0...e3b29d568975841ab356b6fec2d9cf8a6c20dc24c58774ff8a8a7f5618360ed'}, '...
+E         
+E         ...Full output truncated (2 lines hidden), use '-vv' to show
+
+backend/tests/integration/test_geo_r2_immutability.py:143: AssertionError
+_ test_committed_aggregate_attack_rolls_back_entire_transaction[UPDATE geo_manual_submissions SET identity_hash=identity_hash WHERE run_id=:run-ck_geo_manual_submissions_immutable] _
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55458/partsignal_geo208_a210e47f...45a084b01c4a'), surface=UUID('7ba605f4-adbc-4c7a-9c3f-eff120b97963'), name='虚构计划-30590a34-fc45-4fd5-958c-7b28995036fc')
+statement = 'UPDATE geo_manual_submissions SET identity_hash=identity_hash WHERE run_id=:run'
+constraint = 'ck_geo_manual_submissions_immutable'
+
+    @pytest.mark.parametrize(
+        "statement,constraint",
+        [
+            (
+                "UPDATE geo_answer_snapshots SET answer_text='篡改' WHERE run_id=:run",
+                "ck_geo_answers_immutable",
+            ),
+            ("DELETE FROM geo_answer_snapshots WHERE run_id=:run", "ck_geo_answers_immutable"),
+            (
+                "UPDATE geo_answer_citations SET id=id WHERE answer_snapshot_id=:answer",
+                "ck_geo_citations_immutable",
+            ),
+            (
+                "DELETE FROM geo_answer_citations WHERE answer_snapshot_id=:answer",
+                "ck_geo_citations_immutable",
+            ),
+            (
+                "UPDATE geo_manual_submissions SET identity_hash=identity_hash WHERE run_id=:run",
+                "ck_geo_manual_submissions_immutable",
+            ),
+            (
+                "DELETE FROM geo_manual_submissions WHERE run_id=:run",
+                "ck_geo_manual_submissions_immutable",
+            ),
+            (
+                "UPDATE geo_batch_creation_requests SET request_hash=request_hash WHERE batch_id=:batch",
+                "ck_geo_creation_immutable",
+            ),
+            ("DELETE FROM geo_batch_subjects WHERE batch_id=:batch", "ck_geo_creation_immutable"),
+            (
+                "UPDATE geo_observation_runs SET input_snapshot='{}',revision=revision+1 WHERE id=:run",
+                "ck_geo_runs_immutable",
+            ),
+            ("DELETE FROM geo_observation_runs WHERE id=:run", "ck_geo_runs_immutable"),
+            (
+                "UPDATE geo_observation_batches SET rule_snapshot='{}',revision=revision+1 WHERE id=:batch",
+                "ck_geo_batches_immutable",
+            ),
+            ("DELETE FROM geo_observation_batches WHERE id=:batch", "ck_geo_batches_immutable"),
+            (
+                "UPDATE file_records SET status='DELETING' WHERE id=:file",
+                "ck_geo_evidence_file_immutable",
+            ),
+            ("DELETE FROM file_records WHERE id=:file", "ck_geo_evidence_file_immutable"),
+        ],
+    )
+    def test_committed_aggregate_attack_rolls_back_entire_transaction(plans_api, statement, constraint):
+        api = plans_api
+        run = batch_run(api)[0]
+        file_id, _ = evidence(api)
+        value = payload(
+            run,
+            screenshot_file_id=str(file_id),
+            citations=[
+                {
+                    "original_url": "https://example.test/r2",
+                    "position": 1,
+                    "title": "虚构来源",
+                }
+            ],
+        )
+        result = submit(api, run, value)
+        assert result.status_code == 201, result.text
+        receipt = result.json()
+        before = committed_facts(api, run, file_id)
+        public_before = api.api.engineer.get(prefix(run)).json()
+        assert all(before[table] for table in before if table != "geo_manual_drafts")
+        with api.api.factory() as db:
+            # 先做一次合法更新，证明错误回滚的不只是最后一条非法语句。
+            db.execute(
+                text(
+                    "UPDATE query_topics SET canonical_question='必须回滚',revision=revision+1 WHERE id=:id"
+                ),
+                {"id": api.api.topic},
+            )
+            original_topic = api.api.engineer.get(f"/api/v1/query-topics/{api.api.topic}").json()
+            with pytest.raises(IntegrityError) as raised:
+                db.execute(
+                    text(statement),
+                    {
+                        "run": run.id,
+                        "batch": run.batch_id,
+                        "answer": receipt["answer_snapshot_id"],
+                        "file": file_id,
+                    },
+                )
+                db.commit()
+            assert raised.value.orig.sqlstate == "23514"
+            assert raised.value.orig.diag.constraint_name == constraint
+            db.rollback()
+            assert db.scalar(text("SELECT 1")) == 1
+        assert api.api.engineer.get(f"/api/v1/query-topics/{api.api.topic}").json() == original_topic
+        assert committed_facts(api, run, file_id) == before
+>       assert api.api.engineer.get(prefix(run)).json() == public_before
+E       AssertionError: assert {'answer': {'...ne, ...}, ...} == {'answer': {'...ne, ...}, ...}
+E         
+E         Omitting 7 identical items, use -vv to show
+E         Differing items:
+E         {'as_of': '2026-10-03T06:30:40.602707Z'} != {'as_of': '2026-10-03T06:30:40.586748Z'}
+E         {'evidence_files': [{'access_level': 'INTERNAL', 'content_type': 'image/png', 'download': {'expires_at': '2026-10-03T0...020b0db589e0808dce14c0f7de2833630b386bf341ce3c193e358559263f789'}, 'id': '35bbbab9-e0c3-4bde-94ad-21d18d3a883a', ...}]} != {'evidence_files': [{'access_level': 'INTERNAL', 'content_type': 'image/png', 'download': {'expires_at': '2026-10-03T0...020b0db589e0808dce14c0f7de2833630b386bf341ce3c193e358559263f789'}, '...
+E         
+E         ...Full output truncated (2 lines hidden), use '-vv' to show
+
+backend/tests/integration/test_geo_r2_immutability.py:143: AssertionError
+_ test_committed_aggregate_attack_rolls_back_entire_transaction[DELETE FROM geo_manual_submissions WHERE run_id=:run-ck_geo_manual_submissions_immutable] _
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55458/partsignal_geo208_a210e47f...e2d210ea9576'), surface=UUID('681aee9a-1d43-4070-8432-6bce300368e5'), name='虚构计划-31dcea1b-13db-4f8e-965b-7a87476fe8ad')
+statement = 'DELETE FROM geo_manual_submissions WHERE run_id=:run'
+constraint = 'ck_geo_manual_submissions_immutable'
+
+    @pytest.mark.parametrize(
+        "statement,constraint",
+        [
+            (
+                "UPDATE geo_answer_snapshots SET answer_text='篡改' WHERE run_id=:run",
+                "ck_geo_answers_immutable",
+            ),
+            ("DELETE FROM geo_answer_snapshots WHERE run_id=:run", "ck_geo_answers_immutable"),
+            (
+                "UPDATE geo_answer_citations SET id=id WHERE answer_snapshot_id=:answer",
+                "ck_geo_citations_immutable",
+            ),
+            (
+                "DELETE FROM geo_answer_citations WHERE answer_snapshot_id=:answer",
+                "ck_geo_citations_immutable",
+            ),
+            (
+                "UPDATE geo_manual_submissions SET identity_hash=identity_hash WHERE run_id=:run",
+                "ck_geo_manual_submissions_immutable",
+            ),
+            (
+                "DELETE FROM geo_manual_submissions WHERE run_id=:run",
+                "ck_geo_manual_submissions_immutable",
+            ),
+            (
+                "UPDATE geo_batch_creation_requests SET request_hash=request_hash WHERE batch_id=:batch",
+                "ck_geo_creation_immutable",
+            ),
+            ("DELETE FROM geo_batch_subjects WHERE batch_id=:batch", "ck_geo_creation_immutable"),
+            (
+                "UPDATE geo_observation_runs SET input_snapshot='{}',revision=revision+1 WHERE id=:run",
+                "ck_geo_runs_immutable",
+            ),
+            ("DELETE FROM geo_observation_runs WHERE id=:run", "ck_geo_runs_immutable"),
+            (
+                "UPDATE geo_observation_batches SET rule_snapshot='{}',revision=revision+1 WHERE id=:batch",
+                "ck_geo_batches_immutable",
+            ),
+            ("DELETE FROM geo_observation_batches WHERE id=:batch", "ck_geo_batches_immutable"),
+            (
+                "UPDATE file_records SET status='DELETING' WHERE id=:file",
+                "ck_geo_evidence_file_immutable",
+            ),
+            ("DELETE FROM file_records WHERE id=:file", "ck_geo_evidence_file_immutable"),
+        ],
+    )
+    def test_committed_aggregate_attack_rolls_back_entire_transaction(plans_api, statement, constraint):
+        api = plans_api
+        run = batch_run(api)[0]
+        file_id, _ = evidence(api)
+        value = payload(
+            run,
+            screenshot_file_id=str(file_id),
+            citations=[
+                {
+                    "original_url": "https://example.test/r2",
+                    "position": 1,
+                    "title": "虚构来源",
+                }
+            ],
+        )
+        result = submit(api, run, value)
+        assert result.status_code == 201, result.text
+        receipt = result.json()
+        before = committed_facts(api, run, file_id)
+        public_before = api.api.engineer.get(prefix(run)).json()
+        assert all(before[table] for table in before if table != "geo_manual_drafts")
+        with api.api.factory() as db:
+            # 先做一次合法更新，证明错误回滚的不只是最后一条非法语句。
+            db.execute(
+                text(
+                    "UPDATE query_topics SET canonical_question='必须回滚',revision=revision+1 WHERE id=:id"
+                ),
+                {"id": api.api.topic},
+            )
+            original_topic = api.api.engineer.get(f"/api/v1/query-topics/{api.api.topic}").json()
+            with pytest.raises(IntegrityError) as raised:
+                db.execute(
+                    text(statement),
+                    {
+                        "run": run.id,
+                        "batch": run.batch_id,
+                        "answer": receipt["answer_snapshot_id"],
+                        "file": file_id,
+                    },
+                )
+                db.commit()
+            assert raised.value.orig.sqlstate == "23514"
+            assert raised.value.orig.diag.constraint_name == constraint
+            db.rollback()
+            assert db.scalar(text("SELECT 1")) == 1
+        assert api.api.engineer.get(f"/api/v1/query-topics/{api.api.topic}").json() == original_topic
+        assert committed_facts(api, run, file_id) == before
+>       assert api.api.engineer.get(prefix(run)).json() == public_before
+E       AssertionError: assert {'answer': {'...ne, ...}, ...} == {'answer': {'...ne, ...}, ...}
+E         
+E         Omitting 7 identical items, use -vv to show
+E         Differing items:
+E         {'as_of': '2026-10-03T06:30:40.686403Z'} != {'as_of': '2026-10-03T06:30:40.670481Z'}
+E         {'evidence_files': [{'access_level': 'INTERNAL', 'content_type': 'image/png', 'download': {'expires_at': '2026-10-03T0...fbfba7144d7723b3226ec9b059e9c73cc52479d84fe360b143d070567f737d8'}, 'id': '058a5f80-ce31-475c-a236-1e0a2b92027a', ...}]} != {'evidence_files': [{'access_level': 'INTERNAL', 'content_type': 'image/png', 'download': {'expires_at': '2026-10-03T0...fbfba7144d7723b3226ec9b059e9c73cc52479d84fe360b143d070567f737d8'}, '...
+E         
+E         ...Full output truncated (2 lines hidden), use '-vv' to show
+
+backend/tests/integration/test_geo_r2_immutability.py:143: AssertionError
+_ test_committed_aggregate_attack_rolls_back_entire_transaction[UPDATE geo_batch_creation_requests SET request_hash=request_hash WHERE batch_id=:batch-ck_geo_creation_immutable] _
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55458/partsignal_geo208_a210e47f...97b05ba4186f'), surface=UUID('071de1d0-2e67-4e3b-985a-1e4f9beaa374'), name='虚构计划-28244ae3-5401-47cd-93a3-4a190dc1dbf4')
+statement = 'UPDATE geo_batch_creation_requests SET request_hash=request_hash WHERE batch_id=:batch'
+constraint = 'ck_geo_creation_immutable'
+
+    @pytest.mark.parametrize(
+        "statement,constraint",
+        [
+            (
+                "UPDATE geo_answer_snapshots SET answer_text='篡改' WHERE run_id=:run",
+                "ck_geo_answers_immutable",
+            ),
+            ("DELETE FROM geo_answer_snapshots WHERE run_id=:run", "ck_geo_answers_immutable"),
+            (
+                "UPDATE geo_answer_citations SET id=id WHERE answer_snapshot_id=:answer",
+                "ck_geo_citations_immutable",
+            ),
+            (
+                "DELETE FROM geo_answer_citations WHERE answer_snapshot_id=:answer",
+                "ck_geo_citations_immutable",
+            ),
+            (
+                "UPDATE geo_manual_submissions SET identity_hash=identity_hash WHERE run_id=:run",
+                "ck_geo_manual_submissions_immutable",
+            ),
+            (
+                "DELETE FROM geo_manual_submissions WHERE run_id=:run",
+                "ck_geo_manual_submissions_immutable",
+            ),
+            (
+                "UPDATE geo_batch_creation_requests SET request_hash=request_hash WHERE batch_id=:batch",
+                "ck_geo_creation_immutable",
+            ),
+            ("DELETE FROM geo_batch_subjects WHERE batch_id=:batch", "ck_geo_creation_immutable"),
+            (
+                "UPDATE geo_observation_runs SET input_snapshot='{}',revision=revision+1 WHERE id=:run",
+                "ck_geo_runs_immutable",
+            ),
+            ("DELETE FROM geo_observation_runs WHERE id=:run", "ck_geo_runs_immutable"),
+            (
+                "UPDATE geo_observation_batches SET rule_snapshot='{}',revision=revision+1 WHERE id=:batch",
+                "ck_geo_batches_immutable",
+            ),
+            ("DELETE FROM geo_observation_batches WHERE id=:batch", "ck_geo_batches_immutable"),
+            (
+                "UPDATE file_records SET status='DELETING' WHERE id=:file",
+                "ck_geo_evidence_file_immutable",
+            ),
+            ("DELETE FROM file_records WHERE id=:file", "ck_geo_evidence_file_immutable"),
+        ],
+    )
+    def test_committed_aggregate_attack_rolls_back_entire_transaction(plans_api, statement, constraint):
+        api = plans_api
+        run = batch_run(api)[0]
+        file_id, _ = evidence(api)
+        value = payload(
+            run,
+            screenshot_file_id=str(file_id),
+            citations=[
+                {
+                    "original_url": "https://example.test/r2",
+                    "position": 1,
+                    "title": "虚构来源",
+                }
+            ],
+        )
+        result = submit(api, run, value)
+        assert result.status_code == 201, result.text
+        receipt = result.json()
+        before = committed_facts(api, run, file_id)
+        public_before = api.api.engineer.get(prefix(run)).json()
+        assert all(before[table] for table in before if table != "geo_manual_drafts")
+        with api.api.factory() as db:
+            # 先做一次合法更新，证明错误回滚的不只是最后一条非法语句。
+            db.execute(
+                text(
+                    "UPDATE query_topics SET canonical_question='必须回滚',revision=revision+1 WHERE id=:id"
+                ),
+                {"id": api.api.topic},
+            )
+            original_topic = api.api.engineer.get(f"/api/v1/query-topics/{api.api.topic}").json()
+            with pytest.raises(IntegrityError) as raised:
+                db.execute(
+                    text(statement),
+                    {
+                        "run": run.id,
+                        "batch": run.batch_id,
+                        "answer": receipt["answer_snapshot_id"],
+                        "file": file_id,
+                    },
+                )
+                db.commit()
+            assert raised.value.orig.sqlstate == "23514"
+            assert raised.value.orig.diag.constraint_name == constraint
+            db.rollback()
+            assert db.scalar(text("SELECT 1")) == 1
+        assert api.api.engineer.get(f"/api/v1/query-topics/{api.api.topic}").json() == original_topic
+        assert committed_facts(api, run, file_id) == before
+>       assert api.api.engineer.get(prefix(run)).json() == public_before
+E       AssertionError: assert {'answer': {'...ne, ...}, ...} == {'answer': {'...ne, ...}, ...}
+E         
+E         Omitting 7 identical items, use -vv to show
+E         Differing items:
+E         {'as_of': '2026-10-03T06:30:40.766487Z'} != {'as_of': '2026-10-03T06:30:40.750980Z'}
+E         {'evidence_files': [{'access_level': 'INTERNAL', 'content_type': 'image/png', 'download': {'expires_at': '2026-10-03T0...bec21b8509d995c76a699d0abcec97b9d63051a62f5423c1ff0b19f929a0581'}, 'id': '7c5921d4-d737-455d-8994-cc81a480f7b3', ...}]} != {'evidence_files': [{'access_level': 'INTERNAL', 'content_type': 'image/png', 'download': {'expires_at': '2026-10-03T0...bec21b8509d995c76a699d0abcec97b9d63051a62f5423c1ff0b19f929a0581'}, '...
+E         
+E         ...Full output truncated (2 lines hidden), use '-vv' to show
+
+backend/tests/integration/test_geo_r2_immutability.py:143: AssertionError
+_ test_committed_aggregate_attack_rolls_back_entire_transaction[DELETE FROM geo_batch_subjects WHERE batch_id=:batch-ck_geo_creation_immutable] _
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55458/partsignal_geo208_a210e47f...69d0c7ddef45'), surface=UUID('6f31349f-d9e9-4b88-bf79-d684d3249c3b'), name='虚构计划-c004400a-ba1d-4b8c-b34b-738a08865ace')
+statement = 'DELETE FROM geo_batch_subjects WHERE batch_id=:batch'
+constraint = 'ck_geo_creation_immutable'
+
+    @pytest.mark.parametrize(
+        "statement,constraint",
+        [
+            (
+                "UPDATE geo_answer_snapshots SET answer_text='篡改' WHERE run_id=:run",
+                "ck_geo_answers_immutable",
+            ),
+            ("DELETE FROM geo_answer_snapshots WHERE run_id=:run", "ck_geo_answers_immutable"),
+            (
+                "UPDATE geo_answer_citations SET id=id WHERE answer_snapshot_id=:answer",
+                "ck_geo_citations_immutable",
+            ),
+            (
+                "DELETE FROM geo_answer_citations WHERE answer_snapshot_id=:answer",
+                "ck_geo_citations_immutable",
+            ),
+            (
+                "UPDATE geo_manual_submissions SET identity_hash=identity_hash WHERE run_id=:run",
+                "ck_geo_manual_submissions_immutable",
+            ),
+            (
+                "DELETE FROM geo_manual_submissions WHERE run_id=:run",
+                "ck_geo_manual_submissions_immutable",
+            ),
+            (
+                "UPDATE geo_batch_creation_requests SET request_hash=request_hash WHERE batch_id=:batch",
+                "ck_geo_creation_immutable",
+            ),
+            ("DELETE FROM geo_batch_subjects WHERE batch_id=:batch", "ck_geo_creation_immutable"),
+            (
+                "UPDATE geo_observation_runs SET input_snapshot='{}',revision=revision+1 WHERE id=:run",
+                "ck_geo_runs_immutable",
+            ),
+            ("DELETE FROM geo_observation_runs WHERE id=:run", "ck_geo_runs_immutable"),
+            (
+                "UPDATE geo_observation_batches SET rule_snapshot='{}',revision=revision+1 WHERE id=:batch",
+                "ck_geo_batches_immutable",
+            ),
+            ("DELETE FROM geo_observation_batches WHERE id=:batch", "ck_geo_batches_immutable"),
+            (
+                "UPDATE file_records SET status='DELETING' WHERE id=:file",
+                "ck_geo_evidence_file_immutable",
+            ),
+            ("DELETE FROM file_records WHERE id=:file", "ck_geo_evidence_file_immutable"),
+        ],
+    )
+    def test_committed_aggregate_attack_rolls_back_entire_transaction(plans_api, statement, constraint):
+        api = plans_api
+        run = batch_run(api)[0]
+        file_id, _ = evidence(api)
+        value = payload(
+            run,
+            screenshot_file_id=str(file_id),
+            citations=[
+                {
+                    "original_url": "https://example.test/r2",
+                    "position": 1,
+                    "title": "虚构来源",
+                }
+            ],
+        )
+        result = submit(api, run, value)
+        assert result.status_code == 201, result.text
+        receipt = result.json()
+        before = committed_facts(api, run, file_id)
+        public_before = api.api.engineer.get(prefix(run)).json()
+        assert all(before[table] for table in before if table != "geo_manual_drafts")
+        with api.api.factory() as db:
+            # 先做一次合法更新，证明错误回滚的不只是最后一条非法语句。
+            db.execute(
+                text(
+                    "UPDATE query_topics SET canonical_question='必须回滚',revision=revision+1 WHERE id=:id"
+                ),
+                {"id": api.api.topic},
+            )
+            original_topic = api.api.engineer.get(f"/api/v1/query-topics/{api.api.topic}").json()
+            with pytest.raises(IntegrityError) as raised:
+                db.execute(
+                    text(statement),
+                    {
+                        "run": run.id,
+                        "batch": run.batch_id,
+                        "answer": receipt["answer_snapshot_id"],
+                        "file": file_id,
+                    },
+                )
+                db.commit()
+            assert raised.value.orig.sqlstate == "23514"
+            assert raised.value.orig.diag.constraint_name == constraint
+            db.rollback()
+            assert db.scalar(text("SELECT 1")) == 1
+        assert api.api.engineer.get(f"/api/v1/query-topics/{api.api.topic}").json() == original_topic
+        assert committed_facts(api, run, file_id) == before
+>       assert api.api.engineer.get(prefix(run)).json() == public_before
+E       AssertionError: assert {'answer': {'...ne, ...}, ...} == {'answer': {'...ne, ...}, ...}
+E         
+E         Omitting 7 identical items, use -vv to show
+E         Differing items:
+E         {'as_of': '2026-10-03T06:30:40.849891Z'} != {'as_of': '2026-10-03T06:30:40.833930Z'}
+E         {'evidence_files': [{'access_level': 'INTERNAL', 'content_type': 'image/png', 'download': {'expires_at': '2026-10-03T0...4ef8d3fa93f974c21805018f8efdb3d5875ef1827a08c28e6dc81e88b138591'}, 'id': 'cb70aa76-6e26-40e8-b0a2-253fa1098f0e', ...}]} != {'evidence_files': [{'access_level': 'INTERNAL', 'content_type': 'image/png', 'download': {'expires_at': '2026-10-03T0...4ef8d3fa93f974c21805018f8efdb3d5875ef1827a08c28e6dc81e88b138591'}, '...
+E         
+E         ...Full output truncated (2 lines hidden), use '-vv' to show
+
+backend/tests/integration/test_geo_r2_immutability.py:143: AssertionError
+_ test_committed_aggregate_attack_rolls_back_entire_transaction[UPDATE geo_observation_runs SET input_snapshot='{}',revision=revision+1 WHERE id=:run-ck_geo_runs_immutable] _
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55458/partsignal_geo208_a210e47f...377c85a2219e'), surface=UUID('d05c9775-9d1e-4675-84c7-2291e631891a'), name='虚构计划-1acf7675-5a0f-4139-88b2-b447a7fb946f')
+statement = "UPDATE geo_observation_runs SET input_snapshot='{}',revision=revision+1 WHERE id=:run"
+constraint = 'ck_geo_runs_immutable'
+
+    @pytest.mark.parametrize(
+        "statement,constraint",
+        [
+            (
+                "UPDATE geo_answer_snapshots SET answer_text='篡改' WHERE run_id=:run",
+                "ck_geo_answers_immutable",
+            ),
+            ("DELETE FROM geo_answer_snapshots WHERE run_id=:run", "ck_geo_answers_immutable"),
+            (
+                "UPDATE geo_answer_citations SET id=id WHERE answer_snapshot_id=:answer",
+                "ck_geo_citations_immutable",
+            ),
+            (
+                "DELETE FROM geo_answer_citations WHERE answer_snapshot_id=:answer",
+                "ck_geo_citations_immutable",
+            ),
+            (
+                "UPDATE geo_manual_submissions SET identity_hash=identity_hash WHERE run_id=:run",
+                "ck_geo_manual_submissions_immutable",
+            ),
+            (
+                "DELETE FROM geo_manual_submissions WHERE run_id=:run",
+                "ck_geo_manual_submissions_immutable",
+            ),
+            (
+                "UPDATE geo_batch_creation_requests SET request_hash=request_hash WHERE batch_id=:batch",
+                "ck_geo_creation_immutable",
+            ),
+            ("DELETE FROM geo_batch_subjects WHERE batch_id=:batch", "ck_geo_creation_immutable"),
+            (
+                "UPDATE geo_observation_runs SET input_snapshot='{}',revision=revision+1 WHERE id=:run",
+                "ck_geo_runs_immutable",
+            ),
+            ("DELETE FROM geo_observation_runs WHERE id=:run", "ck_geo_runs_immutable"),
+            (
+                "UPDATE geo_observation_batches SET rule_snapshot='{}',revision=revision+1 WHERE id=:batch",
+                "ck_geo_batches_immutable",
+            ),
+            ("DELETE FROM geo_observation_batches WHERE id=:batch", "ck_geo_batches_immutable"),
+            (
+                "UPDATE file_records SET status='DELETING' WHERE id=:file",
+                "ck_geo_evidence_file_immutable",
+            ),
+            ("DELETE FROM file_records WHERE id=:file", "ck_geo_evidence_file_immutable"),
+        ],
+    )
+    def test_committed_aggregate_attack_rolls_back_entire_transaction(plans_api, statement, constraint):
+        api = plans_api
+        run = batch_run(api)[0]
+        file_id, _ = evidence(api)
+        value = payload(
+            run,
+            screenshot_file_id=str(file_id),
+            citations=[
+                {
+                    "original_url": "https://example.test/r2",
+                    "position": 1,
+                    "title": "虚构来源",
+                }
+            ],
+        )
+        result = submit(api, run, value)
+        assert result.status_code == 201, result.text
+        receipt = result.json()
+        before = committed_facts(api, run, file_id)
+        public_before = api.api.engineer.get(prefix(run)).json()
+        assert all(before[table] for table in before if table != "geo_manual_drafts")
+        with api.api.factory() as db:
+            # 先做一次合法更新，证明错误回滚的不只是最后一条非法语句。
+            db.execute(
+                text(
+                    "UPDATE query_topics SET canonical_question='必须回滚',revision=revision+1 WHERE id=:id"
+                ),
+                {"id": api.api.topic},
+            )
+            original_topic = api.api.engineer.get(f"/api/v1/query-topics/{api.api.topic}").json()
+            with pytest.raises(IntegrityError) as raised:
+                db.execute(
+                    text(statement),
+                    {
+                        "run": run.id,
+                        "batch": run.batch_id,
+                        "answer": receipt["answer_snapshot_id"],
+                        "file": file_id,
+                    },
+                )
+                db.commit()
+            assert raised.value.orig.sqlstate == "23514"
+            assert raised.value.orig.diag.constraint_name == constraint
+            db.rollback()
+            assert db.scalar(text("SELECT 1")) == 1
+        assert api.api.engineer.get(f"/api/v1/query-topics/{api.api.topic}").json() == original_topic
+        assert committed_facts(api, run, file_id) == before
+>       assert api.api.engineer.get(prefix(run)).json() == public_before
+E       AssertionError: assert {'answer': {'...ne, ...}, ...} == {'answer': {'...ne, ...}, ...}
+E         
+E         Omitting 7 identical items, use -vv to show
+E         Differing items:
+E         {'as_of': '2026-10-03T06:30:40.932956Z'} != {'as_of': '2026-10-03T06:30:40.917192Z'}
+E         {'evidence_files': [{'access_level': 'INTERNAL', 'content_type': 'image/png', 'download': {'expires_at': '2026-10-03T0...b451de4c86ff1f6ba5eee6f4358b1f1827ce85cae484b1ea9a8045cb95d6f3b'}, 'id': '20454055-7cf5-4df9-b244-6a4408188952', ...}]} != {'evidence_files': [{'access_level': 'INTERNAL', 'content_type': 'image/png', 'download': {'expires_at': '2026-10-03T0...b451de4c86ff1f6ba5eee6f4358b1f1827ce85cae484b1ea9a8045cb95d6f3b'}, '...
+E         
+E         ...Full output truncated (2 lines hidden), use '-vv' to show
+
+backend/tests/integration/test_geo_r2_immutability.py:143: AssertionError
+_ test_committed_aggregate_attack_rolls_back_entire_transaction[DELETE FROM geo_observation_runs WHERE id=:run-ck_geo_runs_immutable] _
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55458/partsignal_geo208_a210e47f...b9d3725a1511'), surface=UUID('fd496db2-1ebd-4460-8ca9-5b4406409028'), name='虚构计划-47ad3d47-eb19-47db-831c-7bf6f1f9ab4b')
+statement = 'DELETE FROM geo_observation_runs WHERE id=:run'
+constraint = 'ck_geo_runs_immutable'
+
+    @pytest.mark.parametrize(
+        "statement,constraint",
+        [
+            (
+                "UPDATE geo_answer_snapshots SET answer_text='篡改' WHERE run_id=:run",
+                "ck_geo_answers_immutable",
+            ),
+            ("DELETE FROM geo_answer_snapshots WHERE run_id=:run", "ck_geo_answers_immutable"),
+            (
+                "UPDATE geo_answer_citations SET id=id WHERE answer_snapshot_id=:answer",
+                "ck_geo_citations_immutable",
+            ),
+            (
+                "DELETE FROM geo_answer_citations WHERE answer_snapshot_id=:answer",
+                "ck_geo_citations_immutable",
+            ),
+            (
+                "UPDATE geo_manual_submissions SET identity_hash=identity_hash WHERE run_id=:run",
+                "ck_geo_manual_submissions_immutable",
+            ),
+            (
+                "DELETE FROM geo_manual_submissions WHERE run_id=:run",
+                "ck_geo_manual_submissions_immutable",
+            ),
+            (
+                "UPDATE geo_batch_creation_requests SET request_hash=request_hash WHERE batch_id=:batch",
+                "ck_geo_creation_immutable",
+            ),
+            ("DELETE FROM geo_batch_subjects WHERE batch_id=:batch", "ck_geo_creation_immutable"),
+            (
+                "UPDATE geo_observation_runs SET input_snapshot='{}',revision=revision+1 WHERE id=:run",
+                "ck_geo_runs_immutable",
+            ),
+            ("DELETE FROM geo_observation_runs WHERE id=:run", "ck_geo_runs_immutable"),
+            (
+                "UPDATE geo_observation_batches SET rule_snapshot='{}',revision=revision+1 WHERE id=:batch",
+                "ck_geo_batches_immutable",
+            ),
+            ("DELETE FROM geo_observation_batches WHERE id=:batch", "ck_geo_batches_immutable"),
+            (
+                "UPDATE file_records SET status='DELETING' WHERE id=:file",
+                "ck_geo_evidence_file_immutable",
+            ),
+            ("DELETE FROM file_records WHERE id=:file", "ck_geo_evidence_file_immutable"),
+        ],
+    )
+    def test_committed_aggregate_attack_rolls_back_entire_transaction(plans_api, statement, constraint):
+        api = plans_api
+        run = batch_run(api)[0]
+        file_id, _ = evidence(api)
+        value = payload(
+            run,
+            screenshot_file_id=str(file_id),
+            citations=[
+                {
+                    "original_url": "https://example.test/r2",
+                    "position": 1,
+                    "title": "虚构来源",
+                }
+            ],
+        )
+        result = submit(api, run, value)
+        assert result.status_code == 201, result.text
+        receipt = result.json()
+        before = committed_facts(api, run, file_id)
+        public_before = api.api.engineer.get(prefix(run)).json()
+        assert all(before[table] for table in before if table != "geo_manual_drafts")
+        with api.api.factory() as db:
+            # 先做一次合法更新，证明错误回滚的不只是最后一条非法语句。
+            db.execute(
+                text(
+                    "UPDATE query_topics SET canonical_question='必须回滚',revision=revision+1 WHERE id=:id"
+                ),
+                {"id": api.api.topic},
+            )
+            original_topic = api.api.engineer.get(f"/api/v1/query-topics/{api.api.topic}").json()
+            with pytest.raises(IntegrityError) as raised:
+                db.execute(
+                    text(statement),
+                    {
+                        "run": run.id,
+                        "batch": run.batch_id,
+                        "answer": receipt["answer_snapshot_id"],
+                        "file": file_id,
+                    },
+                )
+                db.commit()
+            assert raised.value.orig.sqlstate == "23514"
+            assert raised.value.orig.diag.constraint_name == constraint
+            db.rollback()
+            assert db.scalar(text("SELECT 1")) == 1
+        assert api.api.engineer.get(f"/api/v1/query-topics/{api.api.topic}").json() == original_topic
+        assert committed_facts(api, run, file_id) == before
+>       assert api.api.engineer.get(prefix(run)).json() == public_before
+E       AssertionError: assert {'answer': {'...ne, ...}, ...} == {'answer': {'...ne, ...}, ...}
+E         
+E         Omitting 7 identical items, use -vv to show
+E         Differing items:
+E         {'as_of': '2026-10-03T06:30:41.016639Z'} != {'as_of': '2026-10-03T06:30:41.000465Z'}
+E         {'evidence_files': [{'access_level': 'INTERNAL', 'content_type': 'image/png', 'download': {'expires_at': '2026-10-03T0...f8f8df875c6f247faa947fc92fcc70a7e8e286df14be414bd05f907beaf188f'}, 'id': '5b46bd11-2ca4-47d6-8f8c-a8283aa31266', ...}]} != {'evidence_files': [{'access_level': 'INTERNAL', 'content_type': 'image/png', 'download': {'expires_at': '2026-10-03T0...f8f8df875c6f247faa947fc92fcc70a7e8e286df14be414bd05f907beaf188f'}, '...
+E         
+E         ...Full output truncated (2 lines hidden), use '-vv' to show
+
+backend/tests/integration/test_geo_r2_immutability.py:143: AssertionError
+_ test_committed_aggregate_attack_rolls_back_entire_transaction[UPDATE geo_observation_batches SET rule_snapshot='{}',revision=revision+1 WHERE id=:batch-ck_geo_batches_immutable] _
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55458/partsignal_geo208_a210e47f...c7f42b148b03'), surface=UUID('d570ce25-ce98-4aed-bb03-991ec8dafc90'), name='虚构计划-2e7a60ab-22bf-4ec8-9851-249b006aa9c9')
+statement = "UPDATE geo_observation_batches SET rule_snapshot='{}',revision=revision+1 WHERE id=:batch"
+constraint = 'ck_geo_batches_immutable'
+
+    @pytest.mark.parametrize(
+        "statement,constraint",
+        [
+            (
+                "UPDATE geo_answer_snapshots SET answer_text='篡改' WHERE run_id=:run",
+                "ck_geo_answers_immutable",
+            ),
+            ("DELETE FROM geo_answer_snapshots WHERE run_id=:run", "ck_geo_answers_immutable"),
+            (
+                "UPDATE geo_answer_citations SET id=id WHERE answer_snapshot_id=:answer",
+                "ck_geo_citations_immutable",
+            ),
+            (
+                "DELETE FROM geo_answer_citations WHERE answer_snapshot_id=:answer",
+                "ck_geo_citations_immutable",
+            ),
+            (
+                "UPDATE geo_manual_submissions SET identity_hash=identity_hash WHERE run_id=:run",
+                "ck_geo_manual_submissions_immutable",
+            ),
+            (
+                "DELETE FROM geo_manual_submissions WHERE run_id=:run",
+                "ck_geo_manual_submissions_immutable",
+            ),
+            (
+                "UPDATE geo_batch_creation_requests SET request_hash=request_hash WHERE batch_id=:batch",
+                "ck_geo_creation_immutable",
+            ),
+            ("DELETE FROM geo_batch_subjects WHERE batch_id=:batch", "ck_geo_creation_immutable"),
+            (
+                "UPDATE geo_observation_runs SET input_snapshot='{}',revision=revision+1 WHERE id=:run",
+                "ck_geo_runs_immutable",
+            ),
+            ("DELETE FROM geo_observation_runs WHERE id=:run", "ck_geo_runs_immutable"),
+            (
+                "UPDATE geo_observation_batches SET rule_snapshot='{}',revision=revision+1 WHERE id=:batch",
+                "ck_geo_batches_immutable",
+            ),
+            ("DELETE FROM geo_observation_batches WHERE id=:batch", "ck_geo_batches_immutable"),
+            (
+                "UPDATE file_records SET status='DELETING' WHERE id=:file",
+                "ck_geo_evidence_file_immutable",
+            ),
+            ("DELETE FROM file_records WHERE id=:file", "ck_geo_evidence_file_immutable"),
+        ],
+    )
+    def test_committed_aggregate_attack_rolls_back_entire_transaction(plans_api, statement, constraint):
+        api = plans_api
+        run = batch_run(api)[0]
+        file_id, _ = evidence(api)
+        value = payload(
+            run,
+            screenshot_file_id=str(file_id),
+            citations=[
+                {
+                    "original_url": "https://example.test/r2",
+                    "position": 1,
+                    "title": "虚构来源",
+                }
+            ],
+        )
+        result = submit(api, run, value)
+        assert result.status_code == 201, result.text
+        receipt = result.json()
+        before = committed_facts(api, run, file_id)
+        public_before = api.api.engineer.get(prefix(run)).json()
+        assert all(before[table] for table in before if table != "geo_manual_drafts")
+        with api.api.factory() as db:
+            # 先做一次合法更新，证明错误回滚的不只是最后一条非法语句。
+            db.execute(
+                text(
+                    "UPDATE query_topics SET canonical_question='必须回滚',revision=revision+1 WHERE id=:id"
+                ),
+                {"id": api.api.topic},
+            )
+            original_topic = api.api.engineer.get(f"/api/v1/query-topics/{api.api.topic}").json()
+            with pytest.raises(IntegrityError) as raised:
+                db.execute(
+                    text(statement),
+                    {
+                        "run": run.id,
+                        "batch": run.batch_id,
+                        "answer": receipt["answer_snapshot_id"],
+                        "file": file_id,
+                    },
+                )
+                db.commit()
+            assert raised.value.orig.sqlstate == "23514"
+            assert raised.value.orig.diag.constraint_name == constraint
+            db.rollback()
+            assert db.scalar(text("SELECT 1")) == 1
+        assert api.api.engineer.get(f"/api/v1/query-topics/{api.api.topic}").json() == original_topic
+        assert committed_facts(api, run, file_id) == before
+>       assert api.api.engineer.get(prefix(run)).json() == public_before
+E       AssertionError: assert {'answer': {'...ne, ...}, ...} == {'answer': {'...ne, ...}, ...}
+E         
+E         Omitting 7 identical items, use -vv to show
+E         Differing items:
+E         {'as_of': '2026-10-03T06:30:41.105130Z'} != {'as_of': '2026-10-03T06:30:41.088266Z'}
+E         {'evidence_files': [{'access_level': 'INTERNAL', 'content_type': 'image/png', 'download': {'expires_at': '2026-10-03T0...4f63e8b5e2ecf28d2c2ab9a912301eae361a9be31ab4ad263bbb5c6adff784e'}, 'id': '5b624dd6-339b-4079-b35b-2e23e5ec59f7', ...}]} != {'evidence_files': [{'access_level': 'INTERNAL', 'content_type': 'image/png', 'download': {'expires_at': '2026-10-03T0...4f63e8b5e2ecf28d2c2ab9a912301eae361a9be31ab4ad263bbb5c6adff784e'}, '...
+E         
+E         ...Full output truncated (2 lines hidden), use '-vv' to show
+
+backend/tests/integration/test_geo_r2_immutability.py:143: AssertionError
+_ test_committed_aggregate_attack_rolls_back_entire_transaction[DELETE FROM geo_observation_batches WHERE id=:batch-ck_geo_batches_immutable] _
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55458/partsignal_geo208_a210e47f...a32da43a9a71'), surface=UUID('b1be2853-f800-42bf-8d94-f5a2f87be0a7'), name='虚构计划-3aa2ef8e-b81a-4950-b23a-3ab3af9dd204')
+statement = 'DELETE FROM geo_observation_batches WHERE id=:batch'
+constraint = 'ck_geo_batches_immutable'
+
+    @pytest.mark.parametrize(
+        "statement,constraint",
+        [
+            (
+                "UPDATE geo_answer_snapshots SET answer_text='篡改' WHERE run_id=:run",
+                "ck_geo_answers_immutable",
+            ),
+            ("DELETE FROM geo_answer_snapshots WHERE run_id=:run", "ck_geo_answers_immutable"),
+            (
+                "UPDATE geo_answer_citations SET id=id WHERE answer_snapshot_id=:answer",
+                "ck_geo_citations_immutable",
+            ),
+            (
+                "DELETE FROM geo_answer_citations WHERE answer_snapshot_id=:answer",
+                "ck_geo_citations_immutable",
+            ),
+            (
+                "UPDATE geo_manual_submissions SET identity_hash=identity_hash WHERE run_id=:run",
+                "ck_geo_manual_submissions_immutable",
+            ),
+            (
+                "DELETE FROM geo_manual_submissions WHERE run_id=:run",
+                "ck_geo_manual_submissions_immutable",
+            ),
+            (
+                "UPDATE geo_batch_creation_requests SET request_hash=request_hash WHERE batch_id=:batch",
+                "ck_geo_creation_immutable",
+            ),
+            ("DELETE FROM geo_batch_subjects WHERE batch_id=:batch", "ck_geo_creation_immutable"),
+            (
+                "UPDATE geo_observation_runs SET input_snapshot='{}',revision=revision+1 WHERE id=:run",
+                "ck_geo_runs_immutable",
+            ),
+            ("DELETE FROM geo_observation_runs WHERE id=:run", "ck_geo_runs_immutable"),
+            (
+                "UPDATE geo_observation_batches SET rule_snapshot='{}',revision=revision+1 WHERE id=:batch",
+                "ck_geo_batches_immutable",
+            ),
+            ("DELETE FROM geo_observation_batches WHERE id=:batch", "ck_geo_batches_immutable"),
+            (
+                "UPDATE file_records SET status='DELETING' WHERE id=:file",
+                "ck_geo_evidence_file_immutable",
+            ),
+            ("DELETE FROM file_records WHERE id=:file", "ck_geo_evidence_file_immutable"),
+        ],
+    )
+    def test_committed_aggregate_attack_rolls_back_entire_transaction(plans_api, statement, constraint):
+        api = plans_api
+        run = batch_run(api)[0]
+        file_id, _ = evidence(api)
+        value = payload(
+            run,
+            screenshot_file_id=str(file_id),
+            citations=[
+                {
+                    "original_url": "https://example.test/r2",
+                    "position": 1,
+                    "title": "虚构来源",
+                }
+            ],
+        )
+        result = submit(api, run, value)
+        assert result.status_code == 201, result.text
+        receipt = result.json()
+        before = committed_facts(api, run, file_id)
+        public_before = api.api.engineer.get(prefix(run)).json()
+        assert all(before[table] for table in before if table != "geo_manual_drafts")
+        with api.api.factory() as db:
+            # 先做一次合法更新，证明错误回滚的不只是最后一条非法语句。
+            db.execute(
+                text(
+                    "UPDATE query_topics SET canonical_question='必须回滚',revision=revision+1 WHERE id=:id"
+                ),
+                {"id": api.api.topic},
+            )
+            original_topic = api.api.engineer.get(f"/api/v1/query-topics/{api.api.topic}").json()
+            with pytest.raises(IntegrityError) as raised:
+                db.execute(
+                    text(statement),
+                    {
+                        "run": run.id,
+                        "batch": run.batch_id,
+                        "answer": receipt["answer_snapshot_id"],
+                        "file": file_id,
+                    },
+                )
+                db.commit()
+            assert raised.value.orig.sqlstate == "23514"
+            assert raised.value.orig.diag.constraint_name == constraint
+            db.rollback()
+            assert db.scalar(text("SELECT 1")) == 1
+        assert api.api.engineer.get(f"/api/v1/query-topics/{api.api.topic}").json() == original_topic
+        assert committed_facts(api, run, file_id) == before
+>       assert api.api.engineer.get(prefix(run)).json() == public_before
+E       AssertionError: assert {'answer': {'...ne, ...}, ...} == {'answer': {'...ne, ...}, ...}
+E         
+E         Omitting 7 identical items, use -vv to show
+E         Differing items:
+E         {'as_of': '2026-10-03T06:30:41.189914Z'} != {'as_of': '2026-10-03T06:30:41.173875Z'}
+E         {'evidence_files': [{'access_level': 'INTERNAL', 'content_type': 'image/png', 'download': {'expires_at': '2026-10-03T0...aeab72c79b7008a58dc8e553de00791429038d60c4116497378ce8e661765e9'}, 'id': 'a87dcb47-6170-44c9-a581-05e74a412da7', ...}]} != {'evidence_files': [{'access_level': 'INTERNAL', 'content_type': 'image/png', 'download': {'expires_at': '2026-10-03T0...aeab72c79b7008a58dc8e553de00791429038d60c4116497378ce8e661765e9'}, '...
+E         
+E         ...Full output truncated (2 lines hidden), use '-vv' to show
+
+backend/tests/integration/test_geo_r2_immutability.py:143: AssertionError
+_ test_committed_aggregate_attack_rolls_back_entire_transaction[UPDATE file_records SET status='DELETING' WHERE id=:file-ck_geo_evidence_file_immutable] _
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55458/partsignal_geo208_a210e47f...b64efc704ed9'), surface=UUID('4ca5dadf-7fd5-4d97-a97f-a789e7f95f3a'), name='虚构计划-7eb501f9-b755-44a2-85c3-323d7e91699e')
+statement = "UPDATE file_records SET status='DELETING' WHERE id=:file"
+constraint = 'ck_geo_evidence_file_immutable'
+
+    @pytest.mark.parametrize(
+        "statement,constraint",
+        [
+            (
+                "UPDATE geo_answer_snapshots SET answer_text='篡改' WHERE run_id=:run",
+                "ck_geo_answers_immutable",
+            ),
+            ("DELETE FROM geo_answer_snapshots WHERE run_id=:run", "ck_geo_answers_immutable"),
+            (
+                "UPDATE geo_answer_citations SET id=id WHERE answer_snapshot_id=:answer",
+                "ck_geo_citations_immutable",
+            ),
+            (
+                "DELETE FROM geo_answer_citations WHERE answer_snapshot_id=:answer",
+                "ck_geo_citations_immutable",
+            ),
+            (
+                "UPDATE geo_manual_submissions SET identity_hash=identity_hash WHERE run_id=:run",
+                "ck_geo_manual_submissions_immutable",
+            ),
+            (
+                "DELETE FROM geo_manual_submissions WHERE run_id=:run",
+                "ck_geo_manual_submissions_immutable",
+            ),
+            (
+                "UPDATE geo_batch_creation_requests SET request_hash=request_hash WHERE batch_id=:batch",
+                "ck_geo_creation_immutable",
+            ),
+            ("DELETE FROM geo_batch_subjects WHERE batch_id=:batch", "ck_geo_creation_immutable"),
+            (
+                "UPDATE geo_observation_runs SET input_snapshot='{}',revision=revision+1 WHERE id=:run",
+                "ck_geo_runs_immutable",
+            ),
+            ("DELETE FROM geo_observation_runs WHERE id=:run", "ck_geo_runs_immutable"),
+            (
+                "UPDATE geo_observation_batches SET rule_snapshot='{}',revision=revision+1 WHERE id=:batch",
+                "ck_geo_batches_immutable",
+            ),
+            ("DELETE FROM geo_observation_batches WHERE id=:batch", "ck_geo_batches_immutable"),
+            (
+                "UPDATE file_records SET status='DELETING' WHERE id=:file",
+                "ck_geo_evidence_file_immutable",
+            ),
+            ("DELETE FROM file_records WHERE id=:file", "ck_geo_evidence_file_immutable"),
+        ],
+    )
+    def test_committed_aggregate_attack_rolls_back_entire_transaction(plans_api, statement, constraint):
+        api = plans_api
+        run = batch_run(api)[0]
+        file_id, _ = evidence(api)
+        value = payload(
+            run,
+            screenshot_file_id=str(file_id),
+            citations=[
+                {
+                    "original_url": "https://example.test/r2",
+                    "position": 1,
+                    "title": "虚构来源",
+                }
+            ],
+        )
+        result = submit(api, run, value)
+        assert result.status_code == 201, result.text
+        receipt = result.json()
+        before = committed_facts(api, run, file_id)
+        public_before = api.api.engineer.get(prefix(run)).json()
+        assert all(before[table] for table in before if table != "geo_manual_drafts")
+        with api.api.factory() as db:
+            # 先做一次合法更新，证明错误回滚的不只是最后一条非法语句。
+            db.execute(
+                text(
+                    "UPDATE query_topics SET canonical_question='必须回滚',revision=revision+1 WHERE id=:id"
+                ),
+                {"id": api.api.topic},
+            )
+            original_topic = api.api.engineer.get(f"/api/v1/query-topics/{api.api.topic}").json()
+            with pytest.raises(IntegrityError) as raised:
+                db.execute(
+                    text(statement),
+                    {
+                        "run": run.id,
+                        "batch": run.batch_id,
+                        "answer": receipt["answer_snapshot_id"],
+                        "file": file_id,
+                    },
+                )
+                db.commit()
+            assert raised.value.orig.sqlstate == "23514"
+            assert raised.value.orig.diag.constraint_name == constraint
+            db.rollback()
+            assert db.scalar(text("SELECT 1")) == 1
+        assert api.api.engineer.get(f"/api/v1/query-topics/{api.api.topic}").json() == original_topic
+        assert committed_facts(api, run, file_id) == before
+>       assert api.api.engineer.get(prefix(run)).json() == public_before
+E       AssertionError: assert {'answer': {'...ne, ...}, ...} == {'answer': {'...ne, ...}, ...}
+E         
+E         Omitting 7 identical items, use -vv to show
+E         Differing items:
+E         {'as_of': '2026-10-03T06:30:41.274719Z'} != {'as_of': '2026-10-03T06:30:41.258379Z'}
+E         {'evidence_files': [{'access_level': 'INTERNAL', 'content_type': 'image/png', 'download': {'expires_at': '2026-10-03T0...3d3c4b9d05bc3eccd50f308f3b9bc06fe70a713c8eb625043ec86a0ed07a50f'}, 'id': '04b3dc93-5e08-4868-a519-9e3312746e84', ...}]} != {'evidence_files': [{'access_level': 'INTERNAL', 'content_type': 'image/png', 'download': {'expires_at': '2026-10-03T0...3d3c4b9d05bc3eccd50f308f3b9bc06fe70a713c8eb625043ec86a0ed07a50f'}, '...
+E         
+E         ...Full output truncated (2 lines hidden), use '-vv' to show
+
+backend/tests/integration/test_geo_r2_immutability.py:143: AssertionError
+_ test_committed_aggregate_attack_rolls_back_entire_transaction[DELETE FROM file_records WHERE id=:file-ck_geo_evidence_file_immutable] _
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55458/partsignal_geo208_a210e47f...46cab6f62641'), surface=UUID('309fb35c-f7bb-44d8-8329-5b4e064ebf9c'), name='虚构计划-b4148dde-27f9-4c68-b7b9-85854ca53335')
+statement = 'DELETE FROM file_records WHERE id=:file'
+constraint = 'ck_geo_evidence_file_immutable'
+
+    @pytest.mark.parametrize(
+        "statement,constraint",
+        [
+            (
+                "UPDATE geo_answer_snapshots SET answer_text='篡改' WHERE run_id=:run",
+                "ck_geo_answers_immutable",
+            ),
+            ("DELETE FROM geo_answer_snapshots WHERE run_id=:run", "ck_geo_answers_immutable"),
+            (
+                "UPDATE geo_answer_citations SET id=id WHERE answer_snapshot_id=:answer",
+                "ck_geo_citations_immutable",
+            ),
+            (
+                "DELETE FROM geo_answer_citations WHERE answer_snapshot_id=:answer",
+                "ck_geo_citations_immutable",
+            ),
+            (
+                "UPDATE geo_manual_submissions SET identity_hash=identity_hash WHERE run_id=:run",
+                "ck_geo_manual_submissions_immutable",
+            ),
+            (
+                "DELETE FROM geo_manual_submissions WHERE run_id=:run",
+                "ck_geo_manual_submissions_immutable",
+            ),
+            (
+                "UPDATE geo_batch_creation_requests SET request_hash=request_hash WHERE batch_id=:batch",
+                "ck_geo_creation_immutable",
+            ),
+            ("DELETE FROM geo_batch_subjects WHERE batch_id=:batch", "ck_geo_creation_immutable"),
+            (
+                "UPDATE geo_observation_runs SET input_snapshot='{}',revision=revision+1 WHERE id=:run",
+                "ck_geo_runs_immutable",
+            ),
+            ("DELETE FROM geo_observation_runs WHERE id=:run", "ck_geo_runs_immutable"),
+            (
+                "UPDATE geo_observation_batches SET rule_snapshot='{}',revision=revision+1 WHERE id=:batch",
+                "ck_geo_batches_immutable",
+            ),
+            ("DELETE FROM geo_observation_batches WHERE id=:batch", "ck_geo_batches_immutable"),
+            (
+                "UPDATE file_records SET status='DELETING' WHERE id=:file",
+                "ck_geo_evidence_file_immutable",
+            ),
+            ("DELETE FROM file_records WHERE id=:file", "ck_geo_evidence_file_immutable"),
+        ],
+    )
+    def test_committed_aggregate_attack_rolls_back_entire_transaction(plans_api, statement, constraint):
+        api = plans_api
+        run = batch_run(api)[0]
+        file_id, _ = evidence(api)
+        value = payload(
+            run,
+            screenshot_file_id=str(file_id),
+            citations=[
+                {
+                    "original_url": "https://example.test/r2",
+                    "position": 1,
+                    "title": "虚构来源",
+                }
+            ],
+        )
+        result = submit(api, run, value)
+        assert result.status_code == 201, result.text
+        receipt = result.json()
+        before = committed_facts(api, run, file_id)
+        public_before = api.api.engineer.get(prefix(run)).json()
+        assert all(before[table] for table in before if table != "geo_manual_drafts")
+        with api.api.factory() as db:
+            # 先做一次合法更新，证明错误回滚的不只是最后一条非法语句。
+            db.execute(
+                text(
+                    "UPDATE query_topics SET canonical_question='必须回滚',revision=revision+1 WHERE id=:id"
+                ),
+                {"id": api.api.topic},
+            )
+            original_topic = api.api.engineer.get(f"/api/v1/query-topics/{api.api.topic}").json()
+            with pytest.raises(IntegrityError) as raised:
+                db.execute(
+                    text(statement),
+                    {
+                        "run": run.id,
+                        "batch": run.batch_id,
+                        "answer": receipt["answer_snapshot_id"],
+                        "file": file_id,
+                    },
+                )
+                db.commit()
+            assert raised.value.orig.sqlstate == "23514"
+            assert raised.value.orig.diag.constraint_name == constraint
+            db.rollback()
+            assert db.scalar(text("SELECT 1")) == 1
+        assert api.api.engineer.get(f"/api/v1/query-topics/{api.api.topic}").json() == original_topic
+        assert committed_facts(api, run, file_id) == before
+>       assert api.api.engineer.get(prefix(run)).json() == public_before
+E       AssertionError: assert {'answer': {'...ne, ...}, ...} == {'answer': {'...ne, ...}, ...}
+E         
+E         Omitting 7 identical items, use -vv to show
+E         Differing items:
+E         {'as_of': '2026-10-03T06:30:41.358750Z'} != {'as_of': '2026-10-03T06:30:41.342628Z'}
+E         {'evidence_files': [{'access_level': 'INTERNAL', 'content_type': 'image/png', 'download': {'expires_at': '2026-10-03T0...67149e58ae181d2b56d45551b81b3c7a18889b4b8b883f33da87ad22852ad15'}, 'id': '029d952a-1014-4322-862f-1674300f5c18', ...}]} != {'evidence_files': [{'access_level': 'INTERNAL', 'content_type': 'image/png', 'download': {'expires_at': '2026-10-03T0...67149e58ae181d2b56d45551b81b3c7a18889b4b8b883f33da87ad22852ad15'}, '...
+E         
+E         ...Full output truncated (2 lines hidden), use '-vv' to show
+
+backend/tests/integration/test_geo_r2_immutability.py:143: AssertionError
+=========================== short test summary info ============================
+FAILED backend/tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[UPDATE geo_answer_snapshots SET answer_text='\u7be1\u6539' WHERE run_id=:run-ck_geo_answers_immutable]
+FAILED backend/tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[DELETE FROM geo_answer_snapshots WHERE run_id=:run-ck_geo_answers_immutable]
+FAILED backend/tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[UPDATE geo_answer_citations SET id=id WHERE answer_snapshot_id=:answer-ck_geo_citations_immutable]
+FAILED backend/tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[DELETE FROM geo_answer_citations WHERE answer_snapshot_id=:answer-ck_geo_citations_immutable]
+FAILED backend/tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[UPDATE geo_manual_submissions SET identity_hash=identity_hash WHERE run_id=:run-ck_geo_manual_submissions_immutable]
+FAILED backend/tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[DELETE FROM geo_manual_submissions WHERE run_id=:run-ck_geo_manual_submissions_immutable]
+FAILED backend/tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[UPDATE geo_batch_creation_requests SET request_hash=request_hash WHERE batch_id=:batch-ck_geo_creation_immutable]
+FAILED backend/tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[DELETE FROM geo_batch_subjects WHERE batch_id=:batch-ck_geo_creation_immutable]
+FAILED backend/tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[UPDATE geo_observation_runs SET input_snapshot='{}',revision=revision+1 WHERE id=:run-ck_geo_runs_immutable]
+FAILED backend/tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[DELETE FROM geo_observation_runs WHERE id=:run-ck_geo_runs_immutable]
+FAILED backend/tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[UPDATE geo_observation_batches SET rule_snapshot='{}',revision=revision+1 WHERE id=:batch-ck_geo_batches_immutable]
+FAILED backend/tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[DELETE FROM geo_observation_batches WHERE id=:batch-ck_geo_batches_immutable]
+FAILED backend/tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[UPDATE file_records SET status='DELETING' WHERE id=:file-ck_geo_evidence_file_immutable]
+FAILED backend/tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[DELETE FROM file_records WHERE id=:file-ck_geo_evidence_file_immutable]
+14 failed in 2.96s

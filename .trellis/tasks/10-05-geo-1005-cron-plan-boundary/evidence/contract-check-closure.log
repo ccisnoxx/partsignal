@@ -1,0 +1,4 @@
+# 最终文案收口后验证
+# uv run --project backend python -m app.tools.contract_check contracts/openapi.yaml
+# exit_code=0
+FastAPI 运行时操作与 OpenAPI 完整契约一致。

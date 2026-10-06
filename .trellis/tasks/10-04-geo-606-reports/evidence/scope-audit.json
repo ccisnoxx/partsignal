@@ -1,0 +1,67 @@
+{
+  "scope": "GEO-606",
+  "changed_baseline_paths": [
+    "backend/app/audit_types.py",
+    "backend/app/main.py",
+    "backend/app/services/geo_overview_queries.py",
+    "backend/tests/unit/test_contract.py",
+    "backend/tests/unit/test_runtime_response_metadata.py",
+    "contracts/database.md",
+    "contracts/openapi.yaml",
+    "deploy/scripts/e2e-local.sh",
+    "docs/geo-monitoring/03-technical/03-api-contract-design.md",
+    "docs/geo-monitoring/03-technical/04-frontend-architecture.md",
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "docs/geo-monitoring/SHA256SUMS",
+    "frontend/src/app/navigation.test.ts",
+    "frontend/src/app/navigation.ts",
+    "frontend/src/domains/audit/audit.model.ts",
+    "frontend/src/domains/geo-insights/insight-page-frame.tsx",
+    "frontend/src/routeTree.gen.ts",
+    "frontend/src/shared/api/generated/schema.d.ts",
+    "frontend/src/styles/global.css"
+  ],
+  "new_paths": [
+    "backend/app/routers/geo_reports.py",
+    "backend/app/schemas/geo_reports.py",
+    "backend/app/services/geo_report_csv.py",
+    "backend/app/services/geo_report_formulas.py",
+    "backend/app/services/geo_reports.py",
+    "backend/tests/integration/test_geo_reports.py",
+    "backend/tests/unit/test_geo_reports.py",
+    "frontend/src/domains/geo-reports/report-content.tsx",
+    "frontend/src/domains/geo-reports/report-page.tsx",
+    "frontend/src/domains/geo-reports/reports.api.ts",
+    "frontend/src/domains/geo-reports/reports.model.ts",
+    "frontend/src/domains/geo-reports/reports.test.tsx",
+    "frontend/src/routes/_app/geo/reports/index.tsx",
+    "frontend/src/routes/_app/geo/reports/print.tsx",
+    "frontend/tests/e2e/reports-real-stack.spec.ts"
+  ],
+  "missing_baseline_paths": [],
+  "maintained_file_count": 34,
+  "OpenAPI_added_paths": [
+    "/api/v1/geo/reports/citations.csv",
+    "/api/v1/geo/reports/claims.csv",
+    "/api/v1/geo/reports/opportunities.csv",
+    "/api/v1/geo/reports/preview",
+    "/api/v1/geo/reports/print",
+    "/api/v1/geo/reports/runs.csv"
+  ],
+  "OpenAPI_added_schemas": [
+    "GeoReportExport",
+    "GeoReportFormula",
+    "GeoReportPreview"
+  ],
+  "previous_OpenAPI_semantics_preserved": true,
+  "database_prefix_preserved": true,
+  "new_Alembic_revisions": [],
+  "e2e_default_only_adds_report_spec": true,
+  "doc_hash_mismatches": [],
+  "new_source_trailing_whitespace": [],
+  "status": {
+    "GEO-605": "done",
+    "GEO-606": "review",
+    "GEO-607": "planned"
+  }
+}

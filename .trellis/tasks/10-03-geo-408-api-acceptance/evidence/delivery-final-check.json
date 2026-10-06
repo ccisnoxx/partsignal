@@ -1,0 +1,10 @@
+{
+  "geo_408_status": "review",
+  "dependencies": {
+    "GEO-407": "done",
+    "GEO-307": "done"
+  },
+  "other_task_records_unchanged": true,
+  "document_checksum_count": 116,
+  "checksums_valid": true
+}

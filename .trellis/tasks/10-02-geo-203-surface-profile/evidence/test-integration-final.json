@@ -1,0 +1,6 @@
+{
+  "command": "make test-integration COMPOSE='docker compose -p partsignal-geo203-validation -f /tmp/geo203-compose.yaml'",
+  "exit_code": 0,
+  "seconds": 322.38,
+  "log": "test-integration-final.log"
+}

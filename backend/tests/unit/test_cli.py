@@ -83,6 +83,7 @@ def test_production_configuration_summary_contains_status_only(
             oss_endpoint="https://private-endpoint.example",
             redis_url="redis://redis:6379/0",
             cookie_secure=True,
+            geo_browser_collection_enabled=False,
         ),
     )
     monkeypatch.setenv("DATABASE_URL", "postgresql://user:secret@postgres/database")
@@ -103,6 +104,7 @@ def test_production_configuration_summary_contains_status_only(
     ):
         assert secret_value not in encoded
     assert '"environment": "production"' in encoded
+    assert '"geo_browser_collection_enabled": false' in encoded
     assert '"oss_access_key_secret_configured": true' in encoded
 
 

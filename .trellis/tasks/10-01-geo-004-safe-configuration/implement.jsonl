@@ -1,0 +1,8 @@
+{"file": ".trellis/tasks/10-01-geo-004-safe-configuration/prd.md", "reason": "GEO-004 目标、范围、验收与安全默认值设计"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "配置行为的定向测试和验证边界"}
+{"file": ".trellis/spec/backend/ai-configuration-guidelines.md", "reason": "既有生产安全与 Settings 配置 owner"}
+{"file": ".trellis/spec/infra/production-image-delivery.md", "reason": "共享 env、生产预检和交付边界"}
+{"file": "docs/geo-monitoring/03-technical/01-technical-architecture.md", "reason": "目标配置与 R0 实施范围"}
+{"file": "docs/geo-monitoring/03-technical/08-deployment-and-operations.md", "reason": "渐进启用与统一部署配置"}
+{"file": "docs/geo-monitoring/05-decisions/ADR-005-staged-collector-rollout.md", "reason": "Collector 分阶段边界，R0 不接入"}
+{"file": "docs/geo-monitoring/04-delivery/06-current-geo-baseline.md", "reason": "当前人工 GEO 与未来模型差异"}

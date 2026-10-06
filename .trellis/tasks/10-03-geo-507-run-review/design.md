@@ -1,0 +1,15 @@
+# GEO-507 设计
+
+复核应用命令与结果读模型各有单一owner：geo_reviews拥有事务、权限、revision、业务校验与审计；geo_review_projection拥有机器与latest review到当前结果的纯转换；geo_analysis_queries拥有固定批量读取及current pointer选择。现有Run GET复用同一RR请求，不新增客户端join接口。
+
+复用501闭合四栏correction。当前latest review替换之前review整体；CONFIRMED选机器，CORRECTED只在该记录明确覆盖的字段叠加机器。mentions允许新增/置0，recommendations可覆盖snapshot对象，claims只能既有id，citations只能同answer。机器与effective结果分开，人工字段不伪装机器confidence。
+
+写命令RC、User→Batch→Run→Analysis。User锁重验active/改密/角色，Run锁后先验证current成功analysis身份，再验证expected_run_revision。锁覆盖插入、Run revision+1、首次NEEDS_REVIEW完成、Batch刷新和SUCCESS audit。无Idempotency-Key；同payload旧revision也409，不自动重放。Run revision同时与pointer发布、重分析/采集生命周期共享串行化点。
+
+0056仅添加受控review发布分支。在同事务已追加本Run/current analysis的Review时，允许terminal Run仅revision+1；NEEDS_REVIEW→COMPLETED额外仅允许status和finished_at。数据库通过review.xmin=pg_current_xact_id()::xid验证本事务INSERT，PG16已实际验证该转换；旧review不授权新UPDATE。其他字段和原pointer发布分支原样保留。直接SQL旧review插入继续符合501数据合同，不臆造其历史Run状态或revision。
+
+当前有效review只在显式pointer内按created_at DESC,id DESC；读取全部revision/history采用固定查询，机器子结果按analysis集合批量装配。历史review validity是派生字段，不保存SUPERSEDED。每个review均保留，较早review被latest替代，旧analysis的review被current pointer替代。
+
+Review gate只表示当前成功analysis的必要人工门禁，不实现601通用资格。gate失败明确metric_eligible=false；gate通过metric_eligible=null、METRIC_ELIGIBILITY_NOT_IMPLEMENTED。needs_review筛选按current analysis.reasons与缺review计算，完成采集Run不会因重分析而倒退。Run workflow只在当前确需复核时显示REVIEW_REQUIRED/VIEW_REVIEW；复核命令动作由analysis读模型提供，现有前端动作枚举不扩展，页面留508。
+
+权限为内部单租户ADMIN/ENGINEER共享业务，created_by只追溯。无外部请求、secret存储、事实全文复制或真实AI测试。受控审计只ID/decision；不保存comment/correction/原始答案/事实。公共错误只固定代码与字段位置，未知DB异常遵循现有安全500。

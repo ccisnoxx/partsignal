@@ -1,0 +1,12 @@
+E501 Line too long (101 > 100)
+  --> backend/tests/integration/test_geo_security_review.py:68:101
+   |
+66 |     with harness.factory() as db:
+67 |         raw = db.get(GeoAnswerSnapshot, case.answer_id)
+68 |         assert raw.answer_text == answer and raw.answer_sha256 == sha256(answer.encode()).hexdigest()
+   |                                                                                                     ^
+69 |         assert db.scalar(select(GeoRunReview.id).where(GeoRunReview.run_id == case.run_id)) is None
+70 |         claims = list(
+   |
+
+Found 1 error.

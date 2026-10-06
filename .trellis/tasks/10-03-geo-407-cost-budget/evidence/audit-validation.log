@@ -1,0 +1,26 @@
+["/Users/sc/.codex/skills/multi-agent-orchestration/bin/work-plan", "summary", "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T114539Z-geo-407-b80a27dc/01-research.plan.json", "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T114539Z-geo-407-b80a27dc/01-research.execution.json", "--json", "--output", "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T114539Z-geo-407-b80a27dc/01-research.summary.json"]
+["/Users/sc/.codex/skills/multi-agent-orchestration/bin/work-plan", "summary", "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T114539Z-geo-407-b80a27dc/02-review.plan.json", "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T114539Z-geo-407-b80a27dc/02-review.execution.json", "--json", "--output", "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T114539Z-geo-407-b80a27dc/02-review.summary.json"]
+["/Users/sc/.codex/skills/multi-agent-orchestration/bin/work-plan", "digest", "--entry", "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T114539Z-geo-407-b80a27dc/01-research.plan.json", "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T114539Z-geo-407-b80a27dc/01-research.execution.json", "--entry", "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T114539Z-geo-407-b80a27dc/02-review.plan.json", "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T114539Z-geo-407-b80a27dc/02-review.execution.json", "--json", "--output", "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T114539Z-geo-407-b80a27dc/SUBAGENT_EXECUTION_DIGEST.json"]
+["/Users/sc/.codex/skills/multi-agent-orchestration/bin/work-plan", "render-digest", "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T114539Z-geo-407-b80a27dc/SUBAGENT_EXECUTION_DIGEST.json", "--output", "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T114539Z-geo-407-b80a27dc/SUBAGENT_EXECUTION_DIGEST.md"]
+["/Users/sc/.codex/skills/multi-agent-orchestration/bin/work-plan", "audit-finalize", "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T114539Z-geo-407-b80a27dc"]
+MULTI_AGENT_AUDIT_BUNDLE
+status: passed
+audit_id: 20261003T114539Z-geo-407-b80a27dc
+audit_dir: /Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T114539Z-geo-407-b80a27dc
+bundle_status: closed
+artifact_count: 14
+size_bytes: 24343
+summary: {"plan_count": 2, "executed_attempt_count": 2, "accepted_attempt_count": 2, "independent_review_count": 1, "attention_required": false, "anomaly_count": 0}
+errors: []
+warnings: []
+["/Users/sc/.codex/skills/multi-agent-orchestration/bin/work-plan", "audit-verify", "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T114539Z-geo-407-b80a27dc"]
+MULTI_AGENT_AUDIT_BUNDLE
+status: passed
+audit_id: 20261003T114539Z-geo-407-b80a27dc
+audit_dir: /Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T114539Z-geo-407-b80a27dc
+bundle_status: closed
+artifact_count: 14
+size_bytes: 24343
+summary: {"plan_count": 2, "executed_attempt_count": 2, "accepted_attempt_count": 2, "independent_review_count": 1, "attention_required": false, "anomaly_count": 0}
+errors: []
+warnings: []

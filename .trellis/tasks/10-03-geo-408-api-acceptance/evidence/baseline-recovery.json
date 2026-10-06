@@ -1,0 +1,18 @@
+{
+  "head_unchanged_paths_excluded": [
+    "docs/GEO系统前后端技术与部署方案.md",
+    "docs/GEO项目会话归档.md",
+    "docs/GEO多平台内容运营系统方案设计.md",
+    "docs/Hostdzire部署上线流程.md",
+    "docs/Hostdzire部署附录.md"
+  ],
+  "baseline_hash_matched_head_recovered": [
+    "deploy/scripts/e2e-environment.py"
+  ],
+  "changed_paths_without_original": [],
+  "baseline_hash_verified_reverse_recovered": [
+    "Makefile",
+    ".trellis/spec/infra/e2e-isolation.md",
+    "frontend/tests/e2e/geo-real-stack.spec.ts"
+  ]
+}

@@ -1,0 +1,225 @@
+diff --git a/frontend/src/routeTree.gen.ts b/frontend/src/routeTree.gen.ts
+index 82ab6967..77e07bbb 100644
+--- a/frontend/src/routeTree.gen.ts
++++ b/frontend/src/routeTree.gen.ts
+@@ -24,6 +24,8 @@ import { Route as AppSettingsRouteRouteImport } from './routes/_app/settings/rou
+ import { Route as AppUsersRouteImport } from './routes/_app/users'
+ import { Route as AccountSecurityRouteImport } from './routes/account/security'
+ import { Route as AppConfigurationIndexRouteImport } from './routes/_app/configuration/index'
++import { Route as AppConfigurationGeoEntitiesRouteImport } from './routes/_app/configuration/geo-entities'
++import { Route as AppConfigurationGeoSurfacesRouteImport } from './routes/_app/configuration/geo-surfaces'
+ import { Route as AppConfigurationPlatformTypesRouteImport } from './routes/_app/configuration/platform-types'
+ import { Route as AppConfigurationPlatformsRouteImport } from './routes/_app/configuration/platforms'
+ import { Route as AppConfigurationPromptsRouteImport } from './routes/_app/configuration/prompts'
+@@ -31,6 +33,8 @@ import { Route as AppContentVersionIdRouteImport } from './routes/_app/content/$
+ import { Route as AppContentTasksRouteRouteImport } from './routes/_app/content/tasks/route'
+ import { Route as AppGeoInsightsRouteRouteImport } from './routes/_app/geo/insights/route'
+ import { Route as AppGeoObservationsRouteRouteImport } from './routes/_app/geo/observations/route'
++import { Route as AppGeoPlansRouteImport } from './routes/_app/geo/plans'
++import { Route as AppGeoQuestionsRouteImport } from './routes/_app/geo/questions'
+ import { Route as AppGeoTopicsRouteRouteImport } from './routes/_app/geo/topics/route'
+ import { Route as AppObservationsIndexRouteImport } from './routes/_app/observations/index'
+ import { Route as AppObservationsTopicsRouteImport } from './routes/_app/observations/topics'
+@@ -154,6 +158,18 @@ const AppConfigurationIndexRoute = AppConfigurationIndexRouteImport.update({
+   path: '/configuration/',
+   getParentRoute: () => AppRouteRoute,
+ } as any)
++const AppConfigurationGeoEntitiesRoute =
++  AppConfigurationGeoEntitiesRouteImport.update({
++    id: '/configuration/geo-entities',
++    path: '/configuration/geo-entities',
++    getParentRoute: () => AppRouteRoute,
++  } as any)
++const AppConfigurationGeoSurfacesRoute =
++  AppConfigurationGeoSurfacesRouteImport.update({
++    id: '/configuration/geo-surfaces',
++    path: '/configuration/geo-surfaces',
++    getParentRoute: () => AppRouteRoute,
++  } as any)
+ const AppConfigurationPlatformTypesRoute =
+   AppConfigurationPlatformTypesRouteImport.update({
+     id: '/configuration/platform-types',
+@@ -191,6 +207,16 @@ const AppGeoObservationsRouteRoute = AppGeoObservationsRouteRouteImport.update({
+   path: '/observations',
+   getParentRoute: () => AppGeoRouteRoute,
+ } as any)
++const AppGeoPlansRoute = AppGeoPlansRouteImport.update({
++  id: '/plans',
++  path: '/plans',
++  getParentRoute: () => AppGeoRouteRoute,
++} as any)
++const AppGeoQuestionsRoute = AppGeoQuestionsRouteImport.update({
++  id: '/questions',
++  path: '/questions',
++  getParentRoute: () => AppGeoRouteRoute,
++} as any)
+ const AppGeoTopicsRouteRoute = AppGeoTopicsRouteRouteImport.update({
+   id: '/topics',
+   path: '/topics',
+@@ -482,10 +508,14 @@ export interface FileRoutesByFullPath {
+   '/publishing/issues': typeof AppPublishingIssuesRouteRouteWithChildren
+   '/publishing/work': typeof AppPublishingWorkRouteRouteWithChildren
+   '/settings/platforms': typeof AppSettingsPlatformsRouteRouteWithChildren
++  '/configuration/geo-entities': typeof AppConfigurationGeoEntitiesRoute
++  '/configuration/geo-surfaces': typeof AppConfigurationGeoSurfacesRoute
+   '/configuration/platform-types': typeof AppConfigurationPlatformTypesRoute
+   '/configuration/platforms': typeof AppConfigurationPlatformsRoute
+   '/configuration/prompts': typeof AppConfigurationPromptsRoute
+   '/content/$versionId': typeof AppContentVersionIdRoute
++  '/geo/plans': typeof AppGeoPlansRoute
++  '/geo/questions': typeof AppGeoQuestionsRoute
+   '/observations/topics': typeof AppObservationsTopicsRoute
+   '/products/$productId': typeof AppProductsProductIdRoute
+   '/products/new': typeof AppProductsNewRoute
+@@ -543,10 +573,14 @@ export interface FileRoutesByTo {
+   '/publications': typeof AppPublicationsRoute
+   '/users': typeof AppUsersRoute
+   '/account/security': typeof AccountSecurityRoute
++  '/configuration/geo-entities': typeof AppConfigurationGeoEntitiesRoute
++  '/configuration/geo-surfaces': typeof AppConfigurationGeoSurfacesRoute
+   '/configuration/platform-types': typeof AppConfigurationPlatformTypesRoute
+   '/configuration/platforms': typeof AppConfigurationPlatformsRoute
+   '/configuration/prompts': typeof AppConfigurationPromptsRoute
+   '/content/$versionId': typeof AppContentVersionIdRoute
++  '/geo/plans': typeof AppGeoPlansRoute
++  '/geo/questions': typeof AppGeoQuestionsRoute
+   '/observations/topics': typeof AppObservationsTopicsRoute
+   '/products/$productId': typeof AppProductsProductIdRoute
+   '/products/new': typeof AppProductsNewRoute
+@@ -617,10 +651,14 @@ export interface FileRoutesById {
+   '/_app/publishing/issues': typeof AppPublishingIssuesRouteRouteWithChildren
+   '/_app/publishing/work': typeof AppPublishingWorkRouteRouteWithChildren
+   '/_app/settings/platforms': typeof AppSettingsPlatformsRouteRouteWithChildren
++  '/_app/configuration/geo-entities': typeof AppConfigurationGeoEntitiesRoute
++  '/_app/configuration/geo-surfaces': typeof AppConfigurationGeoSurfacesRoute
+   '/_app/configuration/platform-types': typeof AppConfigurationPlatformTypesRoute
+   '/_app/configuration/platforms': typeof AppConfigurationPlatformsRoute
+   '/_app/configuration/prompts': typeof AppConfigurationPromptsRoute
+   '/_app/content/$versionId': typeof AppContentVersionIdRoute
++  '/_app/geo/plans': typeof AppGeoPlansRoute
++  '/_app/geo/questions': typeof AppGeoQuestionsRoute
+   '/_app/observations/topics': typeof AppObservationsTopicsRoute
+   '/_app/products/$productId': typeof AppProductsProductIdRoute
+   '/_app/products/new': typeof AppProductsNewRoute
+@@ -690,10 +728,14 @@ export interface FileRouteTypes {
+     | '/publishing/issues'
+     | '/publishing/work'
+     | '/settings/platforms'
++    | '/configuration/geo-entities'
++    | '/configuration/geo-surfaces'
+     | '/configuration/platform-types'
+     | '/configuration/platforms'
+     | '/configuration/prompts'
+     | '/content/$versionId'
++    | '/geo/plans'
++    | '/geo/questions'
+     | '/observations/topics'
+     | '/products/$productId'
+     | '/products/new'
+@@ -751,10 +793,14 @@ export interface FileRouteTypes {
+     | '/publications'
+     | '/users'
+     | '/account/security'
++    | '/configuration/geo-entities'
++    | '/configuration/geo-surfaces'
+     | '/configuration/platform-types'
+     | '/configuration/platforms'
+     | '/configuration/prompts'
+     | '/content/$versionId'
++    | '/geo/plans'
++    | '/geo/questions'
+     | '/observations/topics'
+     | '/products/$productId'
+     | '/products/new'
+@@ -824,10 +870,14 @@ export interface FileRouteTypes {
+     | '/_app/publishing/issues'
+     | '/_app/publishing/work'
+     | '/_app/settings/platforms'
++    | '/_app/configuration/geo-entities'
++    | '/_app/configuration/geo-surfaces'
+     | '/_app/configuration/platform-types'
+     | '/_app/configuration/platforms'
+     | '/_app/configuration/prompts'
+     | '/_app/content/$versionId'
++    | '/_app/geo/plans'
++    | '/_app/geo/questions'
+     | '/_app/observations/topics'
+     | '/_app/products/$productId'
+     | '/_app/products/new'
+@@ -988,6 +1038,20 @@ declare module '@tanstack/react-router' {
+       preLoaderRoute: typeof AppConfigurationIndexRouteImport
+       parentRoute: typeof AppRouteRoute
+     }
++    '/_app/configuration/geo-entities': {
++      id: '/_app/configuration/geo-entities'
++      path: '/configuration/geo-entities'
++      fullPath: '/configuration/geo-entities'
++      preLoaderRoute: typeof AppConfigurationGeoEntitiesRouteImport
++      parentRoute: typeof AppRouteRoute
++    }
++    '/_app/configuration/geo-surfaces': {
++      id: '/_app/configuration/geo-surfaces'
++      path: '/configuration/geo-surfaces'
++      fullPath: '/configuration/geo-surfaces'
++      preLoaderRoute: typeof AppConfigurationGeoSurfacesRouteImport
++      parentRoute: typeof AppRouteRoute
++    }
+     '/_app/configuration/platform-types': {
+       id: '/_app/configuration/platform-types'
+       path: '/configuration/platform-types'
+@@ -1037,6 +1101,20 @@ declare module '@tanstack/react-router' {
+       preLoaderRoute: typeof AppGeoObservationsRouteRouteImport
+       parentRoute: typeof AppGeoRouteRoute
+     }
++    '/_app/geo/plans': {
++      id: '/_app/geo/plans'
++      path: '/plans'
++      fullPath: '/geo/plans'
++      preLoaderRoute: typeof AppGeoPlansRouteImport
++      parentRoute: typeof AppGeoRouteRoute
++    }
++    '/_app/geo/questions': {
++      id: '/_app/geo/questions'
++      path: '/questions'
++      fullPath: '/geo/questions'
++      preLoaderRoute: typeof AppGeoQuestionsRouteImport
++      parentRoute: typeof AppGeoRouteRoute
++    }
+     '/_app/geo/topics': {
+       id: '/_app/geo/topics'
+       path: '/topics'
+@@ -1489,12 +1567,16 @@ interface AppGeoRouteRouteChildren {
+   AppGeoInsightsRouteRoute: typeof AppGeoInsightsRouteRouteWithChildren
+   AppGeoObservationsRouteRoute: typeof AppGeoObservationsRouteRouteWithChildren
+   AppGeoTopicsRouteRoute: typeof AppGeoTopicsRouteRouteWithChildren
++  AppGeoPlansRoute: typeof AppGeoPlansRoute
++  AppGeoQuestionsRoute: typeof AppGeoQuestionsRoute
+ }
+ 
+ const AppGeoRouteRouteChildren: AppGeoRouteRouteChildren = {
+   AppGeoInsightsRouteRoute: AppGeoInsightsRouteRouteWithChildren,
+   AppGeoObservationsRouteRoute: AppGeoObservationsRouteRouteWithChildren,
+   AppGeoTopicsRouteRoute: AppGeoTopicsRouteRouteWithChildren,
++  AppGeoPlansRoute: AppGeoPlansRoute,
++  AppGeoQuestionsRoute: AppGeoQuestionsRoute,
+ }
+ 
+ const AppGeoRouteRouteWithChildren = AppGeoRouteRoute._addFileChildren(
+@@ -1630,6 +1712,8 @@ interface AppRouteRouteChildren {
+   AppPublicationsRoute: typeof AppPublicationsRoute
+   AppUsersRoute: typeof AppUsersRoute
+   AppIndexRoute: typeof AppIndexRoute
++  AppConfigurationGeoEntitiesRoute: typeof AppConfigurationGeoEntitiesRoute
++  AppConfigurationGeoSurfacesRoute: typeof AppConfigurationGeoSurfacesRoute
+   AppConfigurationPlatformTypesRoute: typeof AppConfigurationPlatformTypesRoute
+   AppConfigurationPlatformsRoute: typeof AppConfigurationPlatformsRoute
+   AppConfigurationPromptsRoute: typeof AppConfigurationPromptsRoute
+@@ -1657,6 +1741,8 @@ const AppRouteRouteChildren: AppRouteRouteChildren = {
+   AppPublicationsRoute: AppPublicationsRoute,
+   AppUsersRoute: AppUsersRoute,
+   AppIndexRoute: AppIndexRoute,
++  AppConfigurationGeoEntitiesRoute: AppConfigurationGeoEntitiesRoute,
++  AppConfigurationGeoSurfacesRoute: AppConfigurationGeoSurfacesRoute,
+   AppConfigurationPlatformTypesRoute: AppConfigurationPlatformTypesRoute,
+   AppConfigurationPlatformsRoute: AppConfigurationPlatformsRoute,
+   AppConfigurationPromptsRoute: AppConfigurationPromptsRoute,

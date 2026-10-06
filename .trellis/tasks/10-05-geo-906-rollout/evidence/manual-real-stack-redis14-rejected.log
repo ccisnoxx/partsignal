@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/e2e-environment.py", line 124, in <module>
+    main()
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/e2e-environment.py", line 118, in main
+    preflight(args.redis_url, args.storage_port, args.geo_provider_port)
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/e2e-environment.py", line 73, in preflight
+    raise RuntimeError(f"E2E Redis DB {database} 启动前必须为空")
+RuntimeError: E2E Redis DB 14 启动前必须为空

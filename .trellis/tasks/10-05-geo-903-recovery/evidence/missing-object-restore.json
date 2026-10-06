@@ -1,0 +1,54 @@
+{
+  "operation": "restore",
+  "complete": false,
+  "database": "partsignal_e2e_20261005_063e5ad86703496583ceaed484bf715b",
+  "isolated": true,
+  "objects": [
+    {
+      "id": "3dd84c8b-53eb-491b-911f-f858f459184c",
+      "status": "VERIFIED"
+    },
+    {
+      "id": "a87b666f-ede2-480d-8089-82039857a3b9",
+      "status": "MISSING"
+    }
+  ],
+  "mismatched_sections": [],
+  "credentials": [
+    {
+      "id": "7f0b8380-a203-45ee-8305-96e549c69ff6",
+      "status": "DECRYPTED"
+    },
+    {
+      "id": "e8f8ecb1-6542-462b-babc-b351bfbde0d1",
+      "status": "DECRYPTED"
+    }
+  ],
+  "run_detail_count": 4,
+  "overview": {
+    "status": "READABLE",
+    "sha256": "bd7478f72fec18283c912853aced444ebb9887617de16f3a50743fa14af5870e"
+  },
+  "migration_head": [
+    "0065_geo_observability"
+  ],
+  "run_states": {
+    "PENDING": 3,
+    "COMPLETED": 1
+  },
+  "browser": {
+    "status": "N/A",
+    "environment": "GEO-903-owned-test-source",
+    "checked_at": "2026-10-05T17:52:50.428522+00:00",
+    "r7_deployed": false,
+    "browser_service_running": false,
+    "session_mounts_present": false,
+    "browser_collection_enabled": false,
+    "session_configured": false,
+    "session_rows": 0,
+    "checked_material_roots": 1,
+    "material_entries": 0
+  },
+  "external_provider_calls": 0,
+  "object_storage": "ISOLATED_TEMPORARY_DEVELOPMENT_TREE"
+}

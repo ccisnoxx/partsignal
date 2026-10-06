@@ -1,0 +1,48 @@
+ Container partsignal-geo406-fake-oss-1 Running 
+ Container partsignal-geo406-postgres-1 Running 
+ Container partsignal-geo406-redis-1 Running 
+ Container partsignal-geo406-postgres-1 Waiting 
+ Container partsignal-geo406-postgres-1 Healthy 
+ Container partsignal-geo406-backend-test-run-75f1b2ed10b4 Creating 
+ Container partsignal-geo406-backend-test-run-75f1b2ed10b4 Created 
+.........F
+=================================== FAILURES ===================================
+__________ test_success_late_after_retry_cannot_change_either_attempt __________
+
+worker_graph = WorkerGraph(api=PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_g...60d1a77b'), channel=UUID('3701f5f1-cc75-4020-95aa-c40bb5f51512'), call_id=UUID('e841d05b-0bd5-4b54-a795-45c164ac5331'))
+local_provider = <app.geo_fake_server.GeoFakeServer object at 0xe2ae7dbe63c0>
+
+    def test_success_late_after_retry_cannot_change_either_attempt(worker_graph, local_provider):
+        identity = worker_graph.create()
+        lease = geo_runs.claim_collection_run(identity)
+        result = lease.collector.collect(
+            lease.request, before_send=lambda: geo_runs.authorize_send(lease)
+        )
+        assert expire(worker_graph, identity) == 1
+        previous = facts(worker_graph, identity)
+        created = retry(worker_graph, identity)
+        successor = facts(worker_graph, created.run_id)
+        assert not geo_runs.submit_collection_result(lease, result)
+        assert not geo_runs.submit_collection_result(replace(lease, token=uuid4()), result)
+        assert facts(worker_graph, identity) == previous
+        assert facts(worker_graph, created.run_id) == successor
+        with worker_graph.api.api.factory() as db:
+>           assert db.scalar(select(func.count()).select_from(GeoAnswerSnapshot)) == 0
+E           assert 2 == 0
+E            +  where 2 = scalar(<sqlalchemy.sql.selectable.Select object at 0xe2ae7dc30740>)
+E            +    where scalar = <sqlalchemy.orm.session.Session object at 0xe2ae7dc30500>.scalar
+E            +    and   <sqlalchemy.sql.selectable.Select object at 0xe2ae7dc30740> = select_from(GeoAnswerSnapshot)
+E            +      where select_from = <sqlalchemy.sql.selectable.Select object at 0xe2ae7dc314c0>.select_from
+E            +        where <sqlalchemy.sql.selectable.Select object at 0xe2ae7dc314c0> = select(<sqlalchemy.sql.functions.count at 0xe2ae7dc31280; count>)
+E            +          where <sqlalchemy.sql.functions.count at 0xe2ae7dc31280; count> = <sqlalchemy.sql.functions._FunctionGenerator object at 0xe2ae7dc30230>()
+E            +            where <sqlalchemy.sql.functions._FunctionGenerator object at 0xe2ae7dc30230> = func.count
+
+tests/integration/test_geo_at_most_once.py:239: AssertionError
+------------------------------ Captured log call -------------------------------
+WARNING  partsignal.worker:geo_dispatch.py:46 GEO 投递失败 run_id=26c840a4-b50f-4a6a-921f-c9677e4faf48 error_type=ConnectionError
+WARNING  partsignal.worker:geo_dispatch.py:46 GEO 投递失败 run_id=1452a995-004b-4020-a94f-291f87c5a1bd error_type=ConnectionError
+=========================== short test summary info ============================
+FAILED tests/integration/test_geo_at_most_once.py::test_success_late_after_retry_cannot_change_either_attempt
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 9 passed in 3.46s
+

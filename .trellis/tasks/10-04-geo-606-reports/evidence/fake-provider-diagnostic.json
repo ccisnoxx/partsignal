@@ -1,0 +1,13 @@
+{
+  "command": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "pytest",
+    "backend/tests/unit/test_geo_fake_provider.py::test_call_counter_observes_duplicates_concurrency_and_instance_isolation",
+    "-q"
+  ],
+  "exit_code": 0,
+  "duration_seconds": 0.4
+}

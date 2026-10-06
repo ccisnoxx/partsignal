@@ -1,0 +1,12 @@
+{
+  "checked_baseline_files": 7614,
+  "unexpected_changes": [],
+  "new_files_outside_task": [
+    "backend/app/services/geo_citation_rules.py",
+    "backend/tests/integration/test_geo_citations.py",
+    "backend/tests/unit/test_geo_citations.py"
+  ],
+  "manifest_other_tasks_unchanged": true,
+  "root_contracts_generated_and_migrations_unchanged": true,
+  "owned_files_without_trailing_whitespace": 9
+}

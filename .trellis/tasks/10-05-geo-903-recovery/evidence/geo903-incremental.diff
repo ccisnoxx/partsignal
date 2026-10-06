@@ -1,0 +1,227 @@
+--- before/Makefile
++++ candidate/Makefile
+@@ -3,7 +3,7 @@
+ UV_CACHE_DIR ?= $(CURDIR)/.cache/uv
+ UV := UV_CACHE_DIR=$(UV_CACHE_DIR) uv
+ 
+-.PHONY: bootstrap contract-generate contract-check dev dev-infra migrate initialize-accounts lint typecheck test-unit test-integration e2e build build-frontend verify test-deploy-scripts test-frontend-container staging-redeploy-fast down test-geo-fixtures test-geo-collector-contract test-geo-performance test-geo-browser test-geo-browser-contract
++.PHONY: bootstrap contract-generate contract-check dev dev-infra migrate initialize-accounts lint typecheck test-unit test-integration e2e build build-frontend verify test-deploy-scripts test-frontend-container staging-redeploy-fast down test-geo-fixtures test-geo-collector-contract test-geo-performance test-geo-browser test-geo-browser-contract test-geo-recovery
+ 
+ bootstrap:
+ 	@test -f .env || cp .env.example .env
+@@ -82,7 +82,11 @@
+ test-geo-performance:
+ 	$(COMPOSE) run --rm -e GEO_PERF_PHASE=candidate -e GEO_PERF_OUTPUT=/app/tests/performance/.results/candidate backend-test pytest -s tests/performance/test_geo_insight_performance.py
+ 
+-test-deploy-scripts: test-frontend-container
++test-geo-recovery:
++	$(UV) run --project backend pytest backend/tests/unit/test_geo_recovery_boundaries.py
++	$(UV) run --project backend ruff check deploy/scripts/geo-recovery.py deploy/scripts/geo_recovery_bundle.py deploy/scripts/geo_recovery_environment.py
++
++test-deploy-scripts: test-frontend-container test-geo-recovery
+ 	$(UV) run --project backend python deploy/scripts/test-geo-browser.py
+ 	$(UV) run --project backend python deploy/scripts/test-geo-collector-contract.py
+ 	$(UV) run --project backend python deploy/scripts/check-geo-fixtures.py
+
+--- before/deploy/scripts/backup.sh
++++ candidate/deploy/scripts/backup.sh
+@@ -2,16 +2,24 @@
+ set -eu
+ umask 077
+ 
+-: "${BACKUP_DIR:?必须指定 BACKUP_DIR}"
+-: "${POSTGRES_DB:?必须指定 POSTGRES_DB}"
+-: "${POSTGRES_USER:?必须指定 POSTGRES_USER}"
++: "${DATABASE_URL:?必须指定只读备份来源 DATABASE_URL}"
++: "${BACKUP_DIR:?必须指定受保护 BACKUP_DIR}"
++: "${RECOVERY_BACKUP_KEY_FILE:?必须指定独立备份密钥文件}"
++: "${RECOVERY_SECRETS_FILE:?必须指定配套密钥清单文件}"
++: "${RECOVERY_DEPLOYMENT_EVIDENCE:?必须指定当前部署与材料检查证据}"
++: "${RECOVERY_RELEASE_MANIFEST:?必须指定来源 release manifest}"
+ 
+-timestamp=$(date -u +%Y%m%dT%H%M%SZ)
+-target="$BACKUP_DIR/partsignal-$timestamp.sql.gz"
++root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
+ mkdir -p "$BACKUP_DIR"
+-
+-docker compose -f "${COMPOSE_FILE:-compose.prod.yaml}" exec -T postgres \
+-  pg_dump --clean --if-exists --no-owner -U "$POSTGRES_USER" "$POSTGRES_DB" | gzip -9 >"$target"
+-
+-test -s "$target"
+-printf '%s\n' "$target"
++target="$BACKUP_DIR/geo-$(date -u +%Y%m%dT%H%M%SZ)-$$"
++set -- backup "$target" --backup-key-file "$RECOVERY_BACKUP_KEY_FILE" \
++  --secrets-file "$RECOVERY_SECRETS_FILE" --deployment-evidence "$RECOVERY_DEPLOYMENT_EVIDENCE" \
++  --release-manifest "$RECOVERY_RELEASE_MANIFEST"
++if [ -n "${RECOVERY_RUNTIME_ENV_FILE:-}" ]; then
++  set -- "$@" --runtime-env "$RECOVERY_RUNTIME_ENV_FILE"
++fi
++if [ -n "${RECOVERY_NGINX_CONFIG_FILE:-}" ]; then
++  set -- "$@" --nginx-config "$RECOVERY_NGINX_CONFIG_FILE"
++fi
++export PYTHONPATH="$root/backend${PYTHONPATH:+:$PYTHONPATH}"
++exec "${RECOVERY_PYTHON:-$root/backend/.venv/bin/python}" "$root/deploy/scripts/geo-recovery.py" "$@"
+
+--- before/deploy/scripts/restore-verify.sh
++++ candidate/deploy/scripts/restore-verify.sh
+@@ -1,12 +1,15 @@
+ #!/bin/sh
+ set -eu
++umask 077
+ 
+-: "${1:?用法: restore-verify.sh <backup.sql.gz>}"
+-: "${VERIFY_DATABASE_URL:?必须指定一次性验证数据库 VERIFY_DATABASE_URL}"
+-
+-backup=$1
+-test -s "$backup"
+-gzip -dc "$backup" | psql "$VERIFY_DATABASE_URL" --set ON_ERROR_STOP=on
+-psql "$VERIFY_DATABASE_URL" --set ON_ERROR_STOP=on -c 'select count(*) from alembic_version;'
+-psql "$VERIFY_DATABASE_URL" --set ON_ERROR_STOP=on -c 'select count(*) from users;'
+-printf '%s\n' "备份恢复验证通过"
++: "${1:?用法: restore-verify.sh <加密GEO备份集合目录>}"
++: "${RECOVERY_BACKUP_KEY_FILE:?必须指定独立备份密钥文件}"
++: "${RECOVERY_ADMIN_DATABASE_URL:?必须指定本机隔离演练PG管理连接}"
++if [ -n "${VERIFY_DATABASE_URL:-}" ]; then
++  printf '%s\n' 'EXISTING_RESTORE_TARGET_FORBIDDEN' >&2
++  exit 2
++fi
++root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
++export PYTHONPATH="$root/backend${PYTHONPATH:+:$PYTHONPATH}"
++exec "${RECOVERY_PYTHON:-$root/backend/.venv/bin/python}" "$root/deploy/scripts/geo-recovery.py" \
++  restore "$1" --backup-key-file "$RECOVERY_BACKUP_KEY_FILE"
+
+--- before/docs/geo-monitoring/03-technical/07-testing-and-quality.md
++++ candidate/docs/geo-monitoring/03-technical/07-testing-and-quality.md
+@@ -584,3 +584,8 @@
+ - 原子textfile在失败/超时时撤销旧成功，指标未知值不补零。指定仓库门禁与实际状态见[任务实施证据](../../../../.trellis/tasks/10-05-geo-902-observability/implement.md)。
+ 
+ 不将离线规则测试写成生产告警演练；不以Grafana JSON可解析证明实际服务器导入/渲染。
++
++
++## GEO-903 隔离备份恢复验证
++
++`backend/tests/unit/test_geo_recovery_boundaries.py`保护独立backup key/AAD流式认证加密、损坏/错误密钥/危险target拒绝与有材料不得N/A。`backend/tests/integration/test_geo_recovery.py`配合`geo_recovery_support.py`创建独立来源并执行custom dump/restore；既有HTTP人工提交/实际分析/复核形成历史，恢复后比对每表与全部RunDetail/Overview摘要、实际API key与敏感Header解密、截图/raw真实字节/HEAD，以及旧plan/window并发去重、恢复答案同值UPDATE的23514守卫和SIGTERM资源清理。缺失对象必须明确MISSING且不造完整恢复；扫描只读且不修改业务状态。具体命令、环境、首次失败与剩余限制见[903实施证据](../../../.trellis/tasks/10-05-geo-903-recovery/implement.md)。普通验证不访问真实AI/Browser/生产OSS；全量发布门禁留906。
+
+--- before/docs/geo-monitoring/03-technical/08-deployment-and-operations.md
++++ candidate/docs/geo-monitoring/03-technical/08-deployment-and-operations.md
+@@ -519,3 +519,8 @@
+ 监控与业务低表现分开；生产监控接入和阈值校准尚未执行。Task Brief与实际证据见
+ [902任务](../../../../.trellis/tasks/10-05-geo-902-observability/prd.md)及
+ [实施记录](../../../../.trellis/tasks/10-05-geo-902-observability/implement.md)。
++
++
++## 当前 R8：GEO-903 一致性集合和隔离恢复
++
++备份清单、静默窗口、认证加密、一次性owner数据库/对象树、Run Detail/指标/凭据对账、历史调度窗口及PENDING/RUNNING处置以[恢复Runbook](./09-backup-recovery-runbook.md)为当前操作入口。OpenAPI/schema/head不变；不启动consumer，不对生产OSS写入。Browser N/A须有实际部署、配置、PG与材料依据，存在材料转入802专用保护/恢复/撤销分支，不能因延期豁免。生产904/906检查和灾难切换不由本地演练代替。
+
+--- before/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ candidate/docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -1550,7 +1550,7 @@
+   phase: R8
+   release: R8
+   title: 完成数据库、OSS、密钥和会话备份恢复演练
+-  status: planned
++  status: review
+   dependencies:
+   - GEO-901
+   - GEO-902
+@@ -1568,6 +1568,8 @@
+   - 03-technical/01-technical-architecture.md
+   - 04-delivery/04-codex-execution-guide.md
+   - 05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md
++  trellis_task: .trellis/tasks/10-05-geo-903-recovery
++  execution_note: "2026-10-05：901/902 done；加密同snapshot数据库/对象/配套密钥集合与隔离恢复已交付，真实PG16/HTTP对象及反例23项通过，缺失对象显式失败、Browser新建来源有据N/A；指定lint/typecheck/diff通过，deploy gate保留902已记录旧配置断言失败。证据见Trellis implement；仅review，未生产或实施904/906。"
+ - id: GEO-904
+   phase: R8
+   release: R8
+
+--- before/docs/geo-monitoring/CHANGELOG.md
++++ candidate/docs/geo-monitoring/CHANGELOG.md
+@@ -1,4 +1,14 @@
+ # 文档包变更记录
++
++## GEO-903 / R8 成套备份与隔离恢复 — 2026-10-05（review）
++
++- 同只读RR快照库存/custom dump，逐个实际对象GET/hash；独立backup key认证加密所有资产与清单，备份密钥不进入集合。
++- AI/Session/Upload来源密钥配对及包内密钥真实验证；只新建owner随机PG目标，禁止现成/远端目标与继承PG*覆盖，对象仅单次临时树。
++- 全表数据与Run Detail/Overview摘要、结构清单、对象完整性、调度窗口并发去重及SIGTERM清理的隔离验收。
++- 恢复SQL仅为既有函数的受控search_path执行修复，保留认证DDL、触发器、约束；无OpenAPI/数据库合同/Alembic/指标/历史/前端变化。
++- Browser条件性N/A附新建来源部署/PG/配置/材料检查，存在材料则明确拒绝核心N/A；无生产或异地部署声明，不实现904/906。
++- 入口与停止/恢复步骤见[Runbook](./03-technical/09-backup-recovery-runbook.md)，实际结果和门禁限制见[实施记录](../../.trellis/tasks/10-05-geo-903-recovery/implement.md)。
++
+ 
+ ## GEO-902 / R8 运行、成本、失败与积压观测 — 2026-10-05（review）
+ 
+
+--- before/docs/geo-monitoring/README.md
++++ candidate/docs/geo-monitoring/README.md
+@@ -406,7 +406,7 @@
+ 状态以 manifest 为准；GEO-803 已人工接受为 done，未实施 GEO-804 真实平台或 GEO-805 生产证据捕获。804～807 按 ADR-006 延期。
+ 
+ 
+-GEO-901 / R8 已交付限批材料清理、dry-run、引用保护和低敏不可变墓碑，状态为review等待人工接受。0064加法前滚、默认保留策略不启用且新任务只预览；所有指标/Answer历史与引用raw保持。实际验证、Browser开发环境N/A与覆盖边界见[Task Brief](../../.trellis/tasks/10-05-geo-901-retention/prd.md)、[实施证据](../../.trellis/tasks/10-05-geo-901-retention/implement.md)及[运维](./03-technical/08-deployment-and-operations.md)。生产Browser false/无会话由904/906另行实测，903恢复未实施。
++GEO-901 / R8 已交付限批材料清理、dry-run、引用保护和低敏不可变墓碑，状态为review等待人工接受。0064加法前滚、默认保留策略不启用且新任务只预览；所有指标/Answer历史与引用raw保持。实际验证、Browser开发环境N/A与覆盖边界见[Task Brief](../../.trellis/tasks/10-05-geo-901-retention/prd.md)、[实施证据](../../.trellis/tasks/10-05-geo-901-retention/implement.md)及[运维](./03-technical/08-deployment-and-operations.md)。生产Browser false/无会话由904/906另行实测；903恢复记录见下方。
+ 
+ 
+ GEO-902 / R8 增加受保护运维CLI、PG低敏指标、稳定JSON日志、Worker/Beat真实健康与
+@@ -414,4 +414,12 @@
+ 业务低表现不影响容器健康。无公共API/前端行为变化，0065为加法迁移、无历史回填。
+ 实际验证和限制见[Task Brief](../../.trellis/tasks/10-05-geo-902-observability/prd.md)、
+ [实施记录](../../.trellis/tasks/10-05-geo-902-observability/implement.md)和
+-[运维资产](../../deploy/observability/geo/README.md)。只交付review，未部署生产或实施903/905。
++[运维资产](../../deploy/observability/geo/README.md)。当时只交付review，未部署生产或实施903/905；当前状态以manifest为准。
++
++
++GEO-903 / R8 交付加密一致性集合、数据库/对象/密钥成套恢复扫描和一次性隔离演练。
++入口及资产/恢复/停止/Browser条件流程见[恢复Runbook](./03-technical/09-backup-recovery-runbook.md)。
++真实PG16、对象HTTP GET/HEAD、配套凭据、Run Detail/Overview、调度去重与中断清理的
++实际证据见[Task Brief](../../.trellis/tasks/10-05-geo-903-recovery/prd.md)与
++[实施记录](../../.trellis/tasks/10-05-geo-903-recovery/implement.md)。只交付review，等待人工接受；
++Browser N/A只适用于新建演练来源的检查证据，生产false/无会话由904/906另核实。
+
+--- before/docs/geo-monitoring/SHA256SUMS
++++ candidate/docs/geo-monitoring/SHA256SUMS
+@@ -14,8 +14,8 @@
+ a0291d4a77609a1db741e3adc84d19ab712ac3ffff8c49f8572ac09b1c5327eb  ./03-technical/04-frontend-architecture.md
+ daf8f8cec2dfb8996c316ca259ae6eea161d944337f340ce9c6180bc9c87c0f5  ./03-technical/05-worker-and-collector-architecture.md
+ 596532a0304d246a9051872ebed910156983b9fd2cd146ef234fd6700e07c1eb  ./03-technical/06-security-and-compliance.md
+-41cd9ee65de0b8e0eef2b32d0da38e5937f1793e7f69f0ea3ba68ccbe4a0d79e  ./03-technical/07-testing-and-quality.md
+-040a09c481139faef4330c7a6e4d1a09d5353db4caf3fc67c6ceffb975307df6  ./03-technical/08-deployment-and-operations.md
++860c59c8931b872683626c7598bf1c72586b97406c087bb0a4d0e8bee692f935  ./03-technical/07-testing-and-quality.md
++d221bc4e4709e48be9302fbe16dac798c54fd125287fbfe4a04b3ab98fe0bc1d  ./03-technical/08-deployment-and-operations.md
+ 46f6d9585856b518af06b01863b0e25b3b00906ffde987d7453fcf810a85db93  ./04-delivery/01-implementation-roadmap.md
+ eee6ed49f55846ab63c464b2696112b270572e050b43195bdb2a9fddb8122613  ./04-delivery/02-work-breakdown-structure.md
+ fe8eb7c838c0616c6330ba9c9cc0b4c2c1d51a07d682e325764a74bff3283afd  ./04-delivery/03-requirement-traceability-matrix.md
+@@ -106,16 +106,17 @@
+ 7106b3f1df66de6ba41a4d7ca85e291b8b181f78e2b7c0ef91f4fa696d1f9e8b  ./04-delivery/geo-003-baseline/sources.json
+ 316ab24c5f645e18d39c529c7fcbca2260b14a5375cc5ebd799a5b7c6cfc8f40  ./04-delivery/geo-003-baseline/tests.json
+ 9dae298eb77cc0063394bfacea27b02ece69bf2a7dceba637ef1320565810ec7  ./04-delivery/geo-003-baseline/validation.md
+-d0c142117adf1504cf3c95071f0b6edee72593792e87989c147f10dfde4dd862  ./04-delivery/task-manifest.yaml
++ab3249f29ff026385df8db93c8a1906817fc9eb427c3282f6204688755ef2d25  ./04-delivery/task-manifest.yaml
+ 2c0f8d8ba314039b44e48614481c28e615e996c2e4ed444c8f07362b5cd75de9  ./05-decisions/ADR-001-extend-modular-monolith.md
+ 4e0ec1be59e33c2f3e83ee50abc55ffe35d2d0bf471c19cc2c713b391fc12cee  ./05-decisions/ADR-002-unified-observation-run-model.md
+ 00baab5f8fe68fbaf75e3aa7b07a0cfbd7c510e39b6a70ea462d9ab941330dc7  ./05-decisions/ADR-003-separate-collection-analysis-review.md
+ 8f4f24331d4ea91574e5a4a56c3eacd9d89e193011c48f8d9f5e413198793909  ./05-decisions/ADR-004-no-unified-geo-score.md
+ 6197eb3379ad5c5f99c499ab8b74eac5cf18e6df26a3f5c34c4e9bf83845593b  ./05-decisions/ADR-005-staged-collector-rollout.md
+ c3e9f23a90bd7fc9b47760d53c56fd6f09f73065dff5b19c1040ee5fd608a560  ./05-decisions/GEO-002-architecture-review.md
+-2fd5f0692a0a3ea148618df22e3c71a156095df210300f750016b9b1d21b549d  ./CHANGELOG.md
+-6754129c314f59339a87352cf75fe7b0c1451a9bbcda40a524ad58a61495098a  ./README.md
++a279a8b717e5ae5ffa149a34d215a0e3712e1d024d48d723b47f44681955f685  ./CHANGELOG.md
++e23c36a3e3aeec29189916c5857a86a270886eaa47705621cba4f792ac20a49e  ./README.md
+ 670f9d9e94e3a36b849691f8531a30433ea0253f234b855d08331b6d2b1905cd  ./04-delivery/10-r6-opportunity-acceptance.md
+ 2ecb8425899de5f1ae4f6a1f0b130f93aba201fbc9c084856d6893835d0484e9  ./02-business/05-manual-geo-observation-sop.md
+ 063efdbae17e86fc90ff7e6cff80ecdfdb6eee1e37416e5e3179531c7260a7cd  ./04-delivery/09-r4-analysis-acceptance.md
+ 2fbec827c69bc5ed179ee8752b252ef1419f97392c38b6770c9184fa9ba641ba  ./05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md
++48ee02798a720cd1c74067e040677bf18947e56933521c2d409b4feb81cc4c0e  ./03-technical/09-backup-recovery-runbook.md
+
+--- before/docs/operations.md
++++ candidate/docs/operations.md
+@@ -59,6 +59,8 @@
+ 
+ 数据库备份必须权限受限，并配套异地、加密和保留策略；只生成本机压缩文件不等于备份完成。恢复能力必须定期在隔离数据库验证，验证目标不得指向业务主库。
+ 
++GEO核心一致性集合、密钥清单、缺失对象报告、隔离恢复和未终态处置见[GEO-903恢复Runbook](./geo-monitoring/03-technical/09-backup-recovery-runbook.md)。`backup.sh`生成认证加密集合，`restore-verify.sh`只创建随机owner标记的一次性库，不再接受任意VERIFY_DATABASE_URL或仅SQL gzip。
++
+ 数据库备份与当时的 `AI_CREDENTIAL_ENCRYPTION_KEY` 必须成对保护。恢复数据库但使用另一主密钥，会使已有 AI 渠道凭据无法解密。
+ 
+ 应用回滚只允许使用与当前数据库契约兼容的旧版本，并必须重新完成相应验收。状态机或数据契约不兼容时，先停止相关写流量与 Scheduler，再由负责人确认前滚或恢复方案。

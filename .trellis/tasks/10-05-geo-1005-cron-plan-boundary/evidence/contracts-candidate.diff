@@ -1,0 +1,179 @@
+--- a/contracts/openapi.yaml
++++ b/contracts/openapi.yaml
+@@ -6252,6 +6252,7 @@
+       tags:
+       - geo-plans
+       operationId: listGeoMonitoringPlans
++      description: 支持按 CRON 查询只读历史；其存储 ACTIVE 不表示 V1.0 调度可用，读模型投影为 UNSUPPORTED_SCHEDULE 且无写动作。
+       parameters:
+       - name: q
+         in: query
+@@ -6334,6 +6335,7 @@
+       tags:
+       - geo-plans
+       operationId: createGeoMonitoringPlan
++      description: V1.0 仅支持 MANUAL_ONLY。合法 CRON 请求或历史 CRON 写命令返回 409 GEO_PLAN_CRON_UNSUPPORTED；历史配置、状态和快照只读保留，不降级、不创建执行。
+       parameters:
+       - &id002
+         name: X-CSRF-Token
+@@ -6411,6 +6413,7 @@
+       tags:
+       - geo-plans
+       operationId: getGeoMonitoringPlan
++      description: 历史 CRON 保留原始 status，workflow_stage 为 UNSUPPORTED_SCHEDULE，primary_task 为 VIEW_HISTORY，available_actions 为空；run_entry.reason_code 为 GEO_PLAN_CRON_UNSUPPORTED。不承诺自动运行。
+       parameters:
+       - &id003
+         name: plan_id
+@@ -6447,6 +6450,7 @@
+       tags:
+       - geo-plans
+       operationId: updateGeoMonitoringPlan
++      description: V1.0 仅支持 MANUAL_ONLY。合法 CRON 请求或历史 CRON 写命令返回 409 GEO_PLAN_CRON_UNSUPPORTED；历史配置、状态和快照只读保留，不降级、不创建执行。
+       parameters:
+       - *id003
+       - *id002
+@@ -6485,6 +6489,7 @@
+       tags:
+       - geo-plans
+       operationId: deleteGeoMonitoringPlan
++      description: V1.0 仅支持 MANUAL_ONLY。合法 CRON 请求或历史 CRON 写命令返回 409 GEO_PLAN_CRON_UNSUPPORTED；历史配置、状态和快照只读保留，不降级、不创建执行。
+       parameters:
+       - *id003
+       - name: expected_revision
+@@ -6521,6 +6526,7 @@
+       tags:
+       - geo-plans
+       operationId: activateGeoMonitoringPlan
++      description: V1.0 仅支持 MANUAL_ONLY。合法 CRON 请求或历史 CRON 写命令返回 409 GEO_PLAN_CRON_UNSUPPORTED；历史配置、状态和快照只读保留，不降级、不创建执行。
+       parameters:
+       - *id003
+       - *id002
+@@ -6560,6 +6566,7 @@
+       tags:
+       - geo-plans
+       operationId: pauseGeoMonitoringPlan
++      description: V1.0 仅支持 MANUAL_ONLY。合法 CRON 请求或历史 CRON 写命令返回 409 GEO_PLAN_CRON_UNSUPPORTED；历史配置、状态和快照只读保留，不降级、不创建执行。
+       parameters:
+       - *id003
+       - *id002
+@@ -6599,6 +6606,7 @@
+       tags:
+       - geo-plans
+       operationId: resumeGeoMonitoringPlan
++      description: V1.0 仅支持 MANUAL_ONLY。合法 CRON 请求或历史 CRON 写命令返回 409 GEO_PLAN_CRON_UNSUPPORTED；历史配置、状态和快照只读保留，不降级、不创建执行。
+       parameters:
+       - *id003
+       - *id002
+@@ -6638,6 +6646,7 @@
+       tags:
+       - geo-plans
+       operationId: archiveGeoMonitoringPlan
++      description: V1.0 仅支持 MANUAL_ONLY。合法 CRON 请求或历史 CRON 写命令返回 409 GEO_PLAN_CRON_UNSUPPORTED；历史配置、状态和快照只读保留，不降级、不创建执行。
+       parameters:
+       - *id003
+       - *id002
+@@ -6677,6 +6686,7 @@
+       tags:
+       - geo-plans
+       operationId: copyGeoMonitoringPlan
++      description: V1.0 仅支持 MANUAL_ONLY。合法 CRON 请求或历史 CRON 写命令返回 409 GEO_PLAN_CRON_UNSUPPORTED；历史配置、状态和快照只读保留，不降级、不创建执行。
+       parameters:
+       - *id003
+       - *id002
+@@ -6717,6 +6727,7 @@
+       - geo-plans
+       summary: Run Now
+       operationId: runGeoMonitoringPlanNow
++      description: V1.0 首次运行仅支持 MANUAL_ONLY；历史 CRON 首次 run 返回 409 GEO_PLAN_CRON_UNSUPPORTED，配置与快照只读保留。已有幂等回执只读重放，不创建 Batch/Run 或重新投递。
+       security:
+       - sessionCookie: []
+       parameters:
+@@ -6901,6 +6912,7 @@
+       - geo-batches
+       summary: Create Batch
+       operationId: createGeoObservationBatch
++      description: V1.0 首次 PLAN 批次仅接受 MANUAL_ONLY，历史 CRON 返回 409 GEO_PLAN_CRON_UNSUPPORTED；AD_HOC 仅人工配置。已提交幂等回执只读重放，不创建或重新投递。
+       security:
+       - sessionCookie: []
+       parameters:
+@@ -11134,6 +11146,7 @@
+       - geo-opportunities
+       summary: Create Retest
+       operationId: createGeoOpportunityRetest
++      description: 人工独立复测从已提交的不可变基线复制严格矩阵并创建 RETEST；历史 plan_id/CRON 快照仅作来源追溯，不执行或修改当前 Plan，继续受可比性、权限与外发门禁约束。
+       security:
+       - sessionCookie: []
+       parameters:
+@@ -19927,6 +19940,7 @@
+       type: string
+     GeoPlanWorkflowStage:
+       enum:
++      - UNSUPPORTED_SCHEDULE
+       - CONFIGURATION_REQUIRED
+       - READY
+       - ACTIVE
+@@ -19952,6 +19966,7 @@
+             - PLAN_NOT_DISABLED
+             - ARCHIVED
+             - HAS_BATCH_HISTORY
++            - SCHEDULE_UNSUPPORTED
+             type: string
+           title: Blockers
+           type: array
+@@ -19967,7 +19982,9 @@
+           title: Available
+           type: boolean
+         reason_code:
+-          const: UI_NOT_IMPLEMENTED
++          enum:
++          - UI_NOT_IMPLEMENTED
++          - GEO_PLAN_CRON_UNSUPPORTED
+           title: Reason Code
+           type: string
+       required:
+--- a/contracts/database.md
++++ b/contracts/database.md
+@@ -13,6 +13,18 @@
+ ## GEO MonitoringPlan 合同（GEO-206 / R1）
+ 
+ `0047_geo_monitoring_plans` 从 `0046_geo_surfaces_profiles` 仅新增四表、完整性/归档守卫和时区目录函数。不回填旧 QueryTopic/GeoObservation，不创建 Batch/Run，不执行调度或外部采集。公司内部单租户共享配置，created_by/updated_by 是服务端追溯，不是用户私有归属。GEO-208 已接线 Plan 命令、权限/CAS/审计；矩阵、当前资源活动和运行资格复用 GEO-207。无新表/列/Alembic revision。
++
++### V1.0 调度边界（GEO-1005）
++
++V1.0 仅允许 MANUAL_ONLY Plan 配置写入；从当前 Plan 首次人工建批仅接受 MANUAL_ONLY。CRON 枚举、表达式 Schema、存储状态及不可变快照结构保留，供升级前历史读取；它们不构成运行授权，不新增数据库状态或迁移。
++
++`geo_plan_policy.require_supported_schedule` 是版本边界的唯一 owner。经过身份重验和既有 Plan 锁/CAS 的新建、更新、activate/resume/pause/archive/copy/delete、首次 `/run` 或 PLAN Batch 创建，以及内部 scheduled factory 首次窗口，均对 CRON 返回 `409 GEO_PLAN_CRON_UNSUPPORTED`，message 为“V1.0 不支持 CRON 计划；历史计划只读，请新建人工计划或人工批次”，details={}。MANUAL→CRON 与历史 CRON→MANUAL 更新同样拒绝。格式不合法仍是 422 VALIDATION_ERROR，过期 revision 仍为 REVISION_CONFLICT；鉴权/CSRF 边界保持。
++
++历史 CRON 的配置、关系、status（包括旧 ACTIVE）、revision、追溯、Batch/Run/快照和审计不变、不删除。列表/详情投影 `workflow_stage=UNSUPPORTED_SCHEDULE`、`primary_task=VIEW_HISTORY`、`available_actions=[]`、deletion blocker `SCHEDULE_UNSUPPORTED`、run reason `GEO_PLAN_CRON_UNSUPPORTED`；存储 ACTIVE 仅是历史生命周期，UI 明确当前版本不调度、不运行。不能原地停用或默认为 MANUAL。
++
++拒绝在任何业务 flush、规则冻结、引用锁存、Batch/Run/幂等记录/成功审计或提交后投递之前发生，事务 owner 回滚。MANUAL create/activate/run 及 AD_HOC 人工 Batch 正常。已提交手工幂等回执或 scheduled 同窗口回执仍可只读重放，返回原 batch，不重验当前资格、不建数据、不重投 Redis；这不构成新的 CRON 执行入口。Beat 不注册到期建批任务，现有分析/租约恢复/补投递继续独立工作。未来接入生产 Scheduler 须另行交付与验收后解除本边界。
++
++现有 Retest 是人工调用的独立 Batch 命令：从已提交、不可变的基线 Batch 复制严格矩阵，创建 trigger_type=RETEST 的批次。原 plan_id 和 CRON 快照仅作来源追溯，不读取或执行当前 CRON Plan、不改写原计划或快照，不伪装成 SCHEDULED；既有可比性、权限及外发门禁继续裁决。这不属于当前 Plan 的执行入口；详见 GEO-705 冻结基线合同。
+ 
+ ### geo_monitoring_plans
+ 
+@@ -64,13 +76,13 @@
+ 
+ ### GEO-208 命令、快照与审计
+ 
+-ADMIN/ENGINEER 管理内部共享配置，创建/复制强制 DISABLED/revision0，服务器创建与更新身份。PATCH 完整替换配置；忽略集合顺序的 no-op 不改 revision/updated_at/updated_by 或审计。DISABLED/PAUSED 可保存存在且结构完整但当前不可运行的资源选择；ACTIVE 实际修改与 activate/resume 必须通过共享资格。状态转换只允许 DISABLED→ACTIVE、ACTIVE→PAUSED、PAUSED→ACTIVE、非归档→ARCHIVED；重复命令明确拒绝。ACTIVE 归档在同事务内先暂停，无可见中间态、一次 revision 和一条归档审计。ARCHIVED 只读/复制。DELETE 仅 DISABLED，保留审计 tombstone；当前未建 Batch 表，不伪造历史引用。
++ADMIN/ENGINEER 管理内部共享配置，创建/复制强制 DISABLED/revision0，服务器创建与更新身份。PATCH 完整替换配置；忽略集合顺序的 no-op 不改 revision/updated_at/updated_by 或审计。DISABLED/PAUSED 可保存存在且结构完整但当前不可运行的资源选择；ACTIVE 实际修改与 activate/resume 必须通过共享资格。状态转换只允许 DISABLED→ACTIVE、ACTIVE→PAUSED、PAUSED→ACTIVE、非归档→ARCHIVED；重复命令明确拒绝。ACTIVE 归档在同事务内先暂停，无可见中间态、一次 revision 和一条归档审计。ARCHIVED 只读/复制。DELETE 仅 DISABLED，保留审计 tombstone；Batch 历史引用由 GEO-303 的真实计数保护；上述命令仅适用于 V1.0 的 MANUAL_ONLY，历史 CRON 遵循只读边界。
+ 
+ 命令要求 READ COMMITTED，User FOR NO KEY UPDATE→Channel→Model→Product→品牌Subject→Subject→QueryTopic→Variant→Surface→Profile→Plan。资源取旧/新配置并集且各组 UUID 排序；锁后重验 Subject 父身份、Variant 主题、Profile 绑定/revision 与 Plan revision/配置。漂移返回 409 REVISION_CONFLICT，不扩大锁集、不自动重放。运行资格读取非敏感当前列，不加载凭据正文。读请求在认证前建立 REPEATABLE READ、禁 autoflush；详情7次/列表非空页8次应用批量 SELECT，空页2次，与页内Plan数量无关。
+ 
+ 业务 flush 后只对四项 Plan 完整性 constraint triggers 执行 SET CONSTRAINTS … IMMEDIATE，再追加最小白名单成功审计并 commit。新增八个 `geo_monitoring_plan.*` 成功动作，CONFIGURATION 模块、GeoMonitoringPlan target；facts 仅 status/revision，不存名称、description、问题、settings 或秘密。审计失败/未知完整性失败整体回滚。精确 `23514 + ck_geo_monitoring_plans_archived` 映射 409 GEO_PLAN_ARCHIVED；三种 required 完整性约束映射 422 GEO_PLAN_EMPTY；三个 membership 资源FK的 `23503` 映射 422 GEO_PLAN_REFERENCE_INVALID；其他异常原样失败。非法转换/资格失败/非DISABLED删除分别409 INVALID_STATE_TRANSITION / GEO_PLAN_PROFILE_INELIGIBLE（明确预算超出为GEO_PLAN_BUDGET_EXCEEDED）/GEO_PLAN_IN_USE。
+ 
+-`/run` 接受 required expected_revision、Idempotency-Key，通过身份/锁/revision/归档边界后501 NOT_IMPLEMENTED；不保存命令或幂等结果、不创建Batch/Run、不写成功审计、不投递Redis。重复相同key仍501。Plan配置更新只写自身四表，配置引用不标记历史首次运行；已创建Batch冻结由GEO-303实现并独立验证，GEO-208不提供伪造快照证明。
++`/run` 已由 GEO-303 接线：required expected_revision、Idempotency-Key，首次 MANUAL_ONLY 通过身份/锁/revision/归档与当前资格后返回 201 冻结 Batch/Run；相同请求重放首次回执。CRON 首次 run 返回 409 GEO_PLAN_CRON_UNSUPPORTED。Plan 配置命令只写自身四表，不标记资源首次运行；首次引用与执行快照由批次创建 owner 持锁冻结。MANUAL 采集不连接 Redis；已获准的 API Collection 仍遵循既有提交后投递合同。
+ 
+ ## GEO EngineSurface / CollectionProfile 合同（GEO-203 / R1）
+ 
+@@ -882,7 +894,7 @@
+ 
+ 同一事务先插入PLANNED/revision0 Batch、主体引用和完整根矩阵（每块250行），最后更新QUEUED/revision1；根Runs保持PENDING/revision0/attempt1/NOT_STARTED。提前执行0048数量与0049主体完整性约束，再提交审计及手工幂等记录；任一阶段失败全部回滚，包括首次引用锁存。矩阵至少覆盖1000 roots，不乘主体数量，不静默缩减阻断资源。
+ 
+-手工幂等在当前用户鉴权后先查已提交记录：同请求返回首次batch_id/requested_run_count/created_at；异请求409 IDEMPOTENCY_CONFLICT；配置修订/停用/归档不影响重放，也不重复成功审计。首次计划请求必填expected_revision，ARCHIVED拒绝；DISABLED/PAUSED/ACTIVE均可在当前资格满足时手工创建，不改变计划状态/revision。调度内部服务只接受ACTIVE CRON计划的新窗口；身份SHA256(`geo-batch-schedule:` + plan UUID + `:` + UTC ISO微秒时间)，不含revision，同窗口重放不检查后续配置。HTTP不能伪造SCHEDULED或RETEST。
++手工幂等在当前用户鉴权后先查已提交记录：同请求返回首次batch_id/requested_run_count/created_at；异请求409 IDEMPOTENCY_CONFLICT；配置修订/停用/归档不影响重放，也不重复成功审计。首次计划请求必填expected_revision，ARCHIVED拒绝；DISABLED/PAUSED/ACTIVE均可在当前资格满足时手工创建，不改变计划状态/revision。V1.0 调度内部服务拒绝 CRON 首次窗口（409 GEO_PLAN_CRON_UNSUPPORTED）；未来交付后才可接受 ACTIVE CRON 新窗口；身份SHA256(`geo-batch-schedule:` + plan UUID + `:` + UTC ISO微秒时间)，不含revision，同窗口重放不检查后续配置。HTTP不能伪造SCHEDULED或RETEST。
+ 
+ 主体真实run引用由Batch主体关系连接Runs统计；Profile、Plan、User的删除投影及命令接入真实历史。手工成功审计 geo_observation_batch.created 与业务同事务，只包含plan_id、requested_run_count、trigger_type。系统调度created_by=NULL，不伪造审计用户。无Redis/Collector/派发/分析。唯一冲突仅按精确23505+约束名映射，其他未知数据库失败不吞掉。0049禁止破坏性降级；保留历史并前向修复。
+ 

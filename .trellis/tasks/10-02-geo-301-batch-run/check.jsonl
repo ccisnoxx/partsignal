@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "指定门禁与风险比例验证"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "历史前滚/不可变/并发最终防线"}
+{"file": "docs/geo-monitoring/03-technical/07-testing-and-quality.md", "reason": "R2迁移、唯一单元和终态反例"}

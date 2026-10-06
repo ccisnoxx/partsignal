@@ -1,0 +1,9 @@
+请独立只读复核 GEO-206 MonitoringPlan 候选实现。工作目录 /Users/sc/PycharmProjects/partsignal。你没有写入所有权，不得修改文件、Git 或环境；你不是唯一协作者，保护用户和其他任务改动。仅在阻塞、所有权冲突或最终交付时汇报，最终使用中文。
+
+先读根 AGENTS.md、backend/AGENTS.md、适用 spec 和 .trellis/tasks/10-02-geo-206-monitoring-plan/prd.md、design.md。目标：仅配置契约、四表 ORM/0047/Schema，至少一个 PRIMARY、prompt、profile；关系唯一、CHECK、RESTRICT 删除阻断。状态 DISABLED/ACTIVE/PAUSED/ARCHIVED、repeat1..10、MANUAL_ONLY/CRON、IANA timezone、finite budget numeric14,6、rule_set_revision/revision；Plan 无运行状态。禁止实现 GEO-207 矩阵、GEO-208 Plan 命令/API、Batch/Run、采集、指标。依赖202/205已人工接受done。
+
+大量工作树改动来自先前任务，请用 evidence/before 中保存的同路径起点辨认本任务增量；新文件为 geo_monitoring_plans model/schema、0047迁移和206测试。根 contracts 是权威。目标文档需看 docs/geo-monitoring/02-business/02-domain-model.md 的3.4、03-workflows-and-state-machines.md计划状态机，03-technical/02-data-architecture.md4.2/4.3及03-api-contract-design.md6，WBS206完整行。
+
+重点复核：1) deferred完整性检查允许同事务替换且RC/RR并发最后PRIMARY不能写偏斜；关系触发器父行同值UPDATE与归档守卫/FK/删除是否存在遗漏；2)迁移仅expand保留旧数据、ORM与DDL一致，前向恢复/安全拒绝downgrade；3)OpenAPI/Pydantic字段/枚举/默认/闭合配置一致，不夹带后续API；4)新真实关系接入 Subject/Prompt/Profile/User 删除查询及精确FK错误映射，角色投影与旧历史first_referenced_at语义保持。相关 service 的 geo_catalog_queries、geo_catalog、geo_prompt_variant_queries、geo_prompt_variants、geo_surface_queries/projections/commands、identity，schemas geo_prompt_variants/geo_surface_management，前端只加MONITORING_PLAN文案及generated类型。测试在 test_geo_monitoring_plan_contract、test_geo_monitoring_plans、test_geo_plan_reference_api；test_geo_surfaces_profiles仅把历史迁移fixture固定0046而业务fixture继续head。
+
+已有证据：初始基线unit129/PG61通过；最终定向124通过，空库upgrade0047成功，lint/typecheck/contract已通过或正在最终确认，完整unit/integration运行中。不要重复普通门禁；若需反例，优先只读推理，明确未运行范围。最终按严重程度给可确认的 file:line、触发条件、影响、具体修复方向；无确认问题则说明实际覆盖和未验证边界。自检不等于独立验收，报告不直接修复。

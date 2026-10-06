@@ -1,0 +1,33 @@
+
+> partsignal-frontend-v2@0.1.0 typecheck
+> tsc -b --pretty false
+
+src/domains/geo-runs/run-retry.test.tsx(21,71): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+  Overload 2 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+src/domains/geo-runs/run-retry.test.tsx(39,73): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+  Overload 2 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+src/domains/geo-runs/run-retry.test.tsx(52,58): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+  Overload 2 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+src/domains/geo-runs/run-retry.test.tsx(53,25): error TS2345: Argument of type '{ id: string; attempt_no: number; previous_attempt_id: string; status: "PENDING"; error_stage?: "ANALYSIS" | "COLLECTION" | "REVIEW" | null | undefined; error_code?: "COLLECTOR_CONFIGURATION_INVALID" | ... 15 more ... | undefined; ... 4 more ...; finished_at?: string | ... 1 more ... | undefined; }' is not assignable to parameter of type '{ id: string; attempt_no: number; previous_attempt_id: string | null; status: "FAILED" | "CANCELLED" | "PENDING" | "RUNNING" | "COLLECTED" | "ANALYZING" | "NEEDS_REVIEW" | "COMPLETED" | "BUDGET_BLOCKED"; ... 6 more ...; finished_at: string | null; }'.
+  Types of property 'error_stage' are incompatible.
+    Type '"ANALYSIS" | "COLLECTION" | "REVIEW" | null | undefined' is not assignable to type '"ANALYSIS" | "COLLECTION" | "REVIEW" | null'.
+      Type 'undefined' is not assignable to type '"ANALYSIS" | "COLLECTION" | "REVIEW" | null'.
+src/domains/geo-runs/run-retry.test.tsx(65,58): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+  Overload 2 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+src/domains/geo-runs/run-retry.test.tsx(68,78): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+  Overload 2 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.

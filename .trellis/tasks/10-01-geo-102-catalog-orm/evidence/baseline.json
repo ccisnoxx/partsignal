@@ -1,0 +1,7 @@
+{
+  "command": "UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/unit/test_geo_catalog_contract.py backend/tests/unit/test_contract.py backend/tests/unit/test_contract_check.py backend/tests/integration/test_migrations.py::test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent",
+  "exit_code": 0,
+  "result": "158 passed, 1 skipped in 9.86s",
+  "skip_reason": "未设置 PARTSIGNAL_TEST_DATABASE_URL 或 APP_ENV=test 的 DATABASE_URL",
+  "dependency": "GEO-101=done; Trellis completed; 2026-10-01 用户接受"
+}

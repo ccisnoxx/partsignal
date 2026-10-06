@@ -1,0 +1,138 @@
+ Image partsignal-geo304-backend-test Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 607B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 594B done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/python:3.12-slim
+#3 ...
+
+#4 [auth] astral-sh/uv:pull token for ghcr.io
+#4 DONE 0.0s
+
+#5 [internal] load metadata for ghcr.io/astral-sh/uv:0.7.13
+#5 ...
+
+#3 [internal] load metadata for docker.io/library/python:3.12-slim
+#3 DONE 1.7s
+
+#5 [internal] load metadata for ghcr.io/astral-sh/uv:0.7.13
+#5 DONE 2.1s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 152B done
+#6 DONE 0.0s
+
+#7 FROM ghcr.io/astral-sh/uv:0.7.13@sha256:6c1e19020ec221986a210027040044a5df8de762eb36d5240e382bc41d7a9043
+#7 resolve ghcr.io/astral-sh/uv:0.7.13@sha256:6c1e19020ec221986a210027040044a5df8de762eb36d5240e382bc41d7a9043 done
+#7 DONE 0.0s
+
+#8 [runtime 1/7] FROM docker.io/library/python:3.12-slim@sha256:dddfd7e07f9d15aeeca61529320492139d21cac7f0070c00609243e51e4e0016
+#8 resolve docker.io/library/python:3.12-slim@sha256:dddfd7e07f9d15aeeca61529320492139d21cac7f0070c00609243e51e4e0016 done
+#8 DONE 0.0s
+
+#9 [internal] load build context
+#9 transferring context: 1.16MB 0.0s done
+#9 DONE 0.0s
+
+#10 [runtime 2/7] WORKDIR /app
+#10 CACHED
+
+#11 [runtime 3/7] COPY --from=ghcr.io/astral-sh/uv:0.7.13 /uv /uvx /bin/
+#11 CACHED
+
+#12 [runtime 4/7] COPY pyproject.toml uv.lock* ./
+#12 CACHED
+
+#13 [runtime 5/7] RUN uv sync --no-dev --no-install-project
+#13 CACHED
+
+#14 [runtime 6/7] COPY . .
+#14 DONE 0.1s
+
+#15 [runtime 7/7] RUN uv sync --no-dev
+#15 0.194 Resolved 88 packages in 4ms
+#15 0.205    Building partsignal-backend @ file:///app
+#15 3.545       Built partsignal-backend @ file:///app
+#15 3.546 Prepared 1 package in 3.34s
+#15 3.548 Installed 1 package in 2ms
+#15 3.705 Bytecode compiled 2466 files in 156ms
+#15 3.705  + partsignal-backend==0.1.0 (from file:///app)
+#15 DONE 3.7s
+
+#16 [test 1/1] RUN uv sync --all-extras
+#16 0.094 Resolved 88 packages in 0.38ms
+#16 1.184 Downloading mypy (13.1MiB)
+#16 1.184 Downloading ruff (10.5MiB)
+#16 1.184 Downloading pygments (1.2MiB)
+#16 1.656  Downloading pygments
+#16 2.527  Downloading ruff
+#16 2.790  Downloading mypy
+#16 2.790 Prepared 20 packages in 2.69s
+#16 2.852 Installed 20 packages in 61ms
+#16 3.188 Bytecode compiled 3437 files in 335ms
+#16 3.188  + attrs==26.1.0
+#16 3.188  + coverage==7.15.0
+#16 3.188  + httpcore2==2.9.1
+#16 3.188  + httpx2==2.9.1
+#16 3.188  + iniconfig==2.3.0
+#16 3.188  + jsonschema==4.26.0
+#16 3.188  + jsonschema-specifications==2025.9.1
+#16 3.188  + librt==0.13.0
+#16 3.188  + mypy==1.20.2
+#16 3.188  + mypy-extensions==1.1.0
+#16 3.188  + pathspec==1.1.1
+#16 3.188  + pluggy==1.6.0
+#16 3.188  + pygments==2.20.0
+#16 3.188  + pytest==8.4.2
+#16 3.188  + pytest-cov==6.3.0
+#16 3.188  + referencing==0.37.0
+#16 3.188  + rpds-py==2026.6.3
+#16 3.188  + ruff==0.15.21
+#16 3.188  + truststore==0.10.4
+#16 3.188  + types-pyyaml==6.0.12.20260518
+#16 DONE 3.3s
+
+#17 exporting to image
+#17 exporting layers
+#17 exporting layers 2.9s done
+#17 exporting manifest sha256:811b3f7c3049aed7ce378fc1fc284cfa37d6db2a5aaee89b57839fb75969b4ed
+#17 exporting manifest sha256:811b3f7c3049aed7ce378fc1fc284cfa37d6db2a5aaee89b57839fb75969b4ed done
+#17 exporting config sha256:e631658283deb6dc08fed7ace3d8f2106b288de56cb4f3c4b25911cf64da834f done
+#17 exporting attestation manifest sha256:9c5ff33166b9119c5dfbccace29da0e90876e3c9dea5fdf6289e0c9272f1e230 done
+#17 exporting manifest list sha256:7dbe7e91cc866d230f7eb28fdb88b0fc5be6520588d015858af76bdff64b9c98 done
+#17 naming to docker.io/library/partsignal-geo304-backend-test:latest done
+#17 unpacking to docker.io/library/partsignal-geo304-backend-test:latest
+#17 unpacking to docker.io/library/partsignal-geo304-backend-test:latest 0.7s done
+#17 DONE 3.6s
+
+#18 resolving provenance for metadata file
+#18 DONE 0.0s
+ Image partsignal-geo304-backend-test Built 
+ Network partsignal-geo304-validation_default Creating 
+ Network partsignal-geo304-validation_default Created 
+ Volume partsignal-geo304-validation_geo304-oss Creating 
+ Volume partsignal-geo304-validation_geo304-oss Created 
+ Volume partsignal-geo304-validation_geo304-postgres Creating 
+ Volume partsignal-geo304-validation_geo304-postgres Created 
+ Container partsignal-geo304-validation-fake-oss-1 Creating 
+ Container partsignal-geo304-validation-redis-1 Creating 
+ Container partsignal-geo304-validation-postgres-1 Creating 
+ Container partsignal-geo304-validation-fake-oss-1 Created 
+ Container partsignal-geo304-validation-redis-1 Created 
+ Container partsignal-geo304-validation-postgres-1 Created 
+ Container partsignal-geo304-validation-postgres-1 Starting 
+ Container partsignal-geo304-validation-redis-1 Starting 
+ Container partsignal-geo304-validation-fake-oss-1 Starting 
+ Container partsignal-geo304-validation-fake-oss-1 Started 
+ Container partsignal-geo304-validation-redis-1 Started 
+ Container partsignal-geo304-validation-postgres-1 Started 
+ Container partsignal-geo304-validation-fake-oss-1 Waiting 
+ Container partsignal-geo304-validation-postgres-1 Waiting 
+ Container partsignal-geo304-validation-redis-1 Waiting 
+ Container partsignal-geo304-validation-redis-1 Healthy 
+ Container partsignal-geo304-validation-fake-oss-1 Healthy 
+ Container partsignal-geo304-validation-postgres-1 Healthy 

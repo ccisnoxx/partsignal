@@ -1,0 +1,167 @@
+{
+  "full_worktree": {
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "exit_code": 2,
+    "classification": "仅未改 GEO-1001 审计既存 12 处 Markdown 硬换行尾空格"
+  },
+  "task_diff": {
+    "added_line_trailing_whitespace": [],
+    "method": "git diff --no-index --check <before-file or /dev/null> <current-file>; exit 1 only means a diff exists",
+    "files": [
+      {
+        "file": "backend/app/config.py",
+        "exit_code": 1,
+        "whitespace_errors": 0
+      },
+      {
+        "file": "backend/app/cli.py",
+        "exit_code": 1,
+        "whitespace_errors": 0
+      },
+      {
+        "file": "backend/tests/unit/test_geo_configuration.py",
+        "exit_code": 1,
+        "whitespace_errors": 0
+      },
+      {
+        "file": "backend/tests/unit/test_cli.py",
+        "exit_code": 1,
+        "whitespace_errors": 0
+      },
+      {
+        "file": ".env.production.example",
+        "exit_code": 1,
+        "whitespace_errors": 0
+      },
+      {
+        "file": "deploy/compose.prod.yaml",
+        "exit_code": 1,
+        "whitespace_errors": 0
+      },
+      {
+        "file": "deploy/compose.geo-browser.yaml",
+        "exit_code": 1,
+        "whitespace_errors": 0
+      },
+      {
+        "file": "deploy/compose.geo-browser-sessions.yaml",
+        "exit_code": 1,
+        "whitespace_errors": 0
+      },
+      {
+        "file": "deploy/scripts/check-production-inputs.py",
+        "exit_code": 1,
+        "whitespace_errors": 0
+      },
+      {
+        "file": "deploy/scripts/deploy.sh",
+        "exit_code": 1,
+        "whitespace_errors": 0
+      },
+      {
+        "file": "deploy/scripts/activate-production.sh",
+        "exit_code": 1,
+        "whitespace_errors": 0
+      },
+      {
+        "file": "deploy/scripts/rollback-production-frontend.sh",
+        "exit_code": 1,
+        "whitespace_errors": 0
+      },
+      {
+        "file": "deploy/scripts/create-release-manifest.py",
+        "exit_code": 1,
+        "whitespace_errors": 0
+      },
+      {
+        "file": "deploy/scripts/prepare-production-data.py",
+        "exit_code": 1,
+        "whitespace_errors": 0
+      },
+      {
+        "file": "deploy/scripts/test-deploy-production.sh",
+        "exit_code": 1,
+        "whitespace_errors": 0
+      },
+      {
+        "file": "deploy/scripts/test-geo-configuration.py",
+        "exit_code": 1,
+        "whitespace_errors": 0
+      },
+      {
+        "file": "deploy/scripts/test-geo-browser.py",
+        "exit_code": 1,
+        "whitespace_errors": 0
+      },
+      {
+        "file": "browser-collector/src/service.mjs",
+        "exit_code": 1,
+        "whitespace_errors": 0
+      },
+      {
+        "file": "browser-collector/src/main.mjs",
+        "exit_code": 1,
+        "whitespace_errors": 0
+      },
+      {
+        "file": "browser-collector/tests/service.test.mjs",
+        "exit_code": 1,
+        "whitespace_errors": 0
+      },
+      {
+        "file": "docs/production-configuration.md",
+        "exit_code": 1,
+        "whitespace_errors": 0
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+        "exit_code": 1,
+        "whitespace_errors": 0
+      },
+      {
+        "file": "docs/geo-monitoring/01-product/05-v1-release-capability-matrix.md",
+        "exit_code": 1,
+        "whitespace_errors": 0
+      },
+      {
+        "file": "docs/geo-monitoring/03-technical/01-technical-architecture.md",
+        "exit_code": 1,
+        "whitespace_errors": 0
+      },
+      {
+        "file": "docs/geo-monitoring/CHANGELOG.md",
+        "exit_code": 1,
+        "whitespace_errors": 0
+      },
+      {
+        "file": "docs/geo-monitoring/SHA256SUMS",
+        "exit_code": 1,
+        "whitespace_errors": 0
+      },
+      {
+        "file": ".trellis/spec/infra/production-image-delivery.md",
+        "exit_code": 1,
+        "whitespace_errors": 0
+      },
+      {
+        "file": "docs/Hostdzire部署附录.md",
+        "exit_code": 1,
+        "whitespace_errors": 0
+      },
+      {
+        "file": "docs/Hostdzire部署上线流程.md",
+        "exit_code": 1,
+        "whitespace_errors": 0
+      },
+      {
+        "file": "backend/tests/unit/test_geo_production_boundary.py",
+        "exit_code": 1,
+        "whitespace_errors": 0
+      }
+    ]
+  }
+}

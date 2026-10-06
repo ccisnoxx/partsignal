@@ -1,0 +1,162 @@
+[
+  {
+    "path": ".trellis/spec/infra/e2e-isolation.md",
+    "kind": "modified",
+    "lines": 87
+  },
+  {
+    "path": "deploy/scripts/e2e-local.sh",
+    "kind": "modified",
+    "lines": 215
+  },
+  {
+    "path": "docs/geo-monitoring/03-technical/04-frontend-architecture.md",
+    "kind": "modified",
+    "lines": 357
+  },
+  {
+    "path": "docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md",
+    "kind": "modified",
+    "lines": 184
+  },
+  {
+    "path": "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "kind": "modified",
+    "lines": 1503
+  },
+  {
+    "path": "docs/geo-monitoring/CHANGELOG.md",
+    "kind": "modified",
+    "lines": 187
+  },
+  {
+    "path": "docs/geo-monitoring/README.md",
+    "kind": "modified",
+    "lines": 240
+  },
+  {
+    "path": "docs/geo-monitoring/SHA256SUMS",
+    "kind": "modified",
+    "lines": 114
+  },
+  {
+    "path": "frontend/src/app/navigation.test.ts",
+    "kind": "modified",
+    "lines": 81
+  },
+  {
+    "path": "frontend/src/app/navigation.ts",
+    "kind": "modified",
+    "lines": 140
+  },
+  {
+    "path": "frontend/src/domains/geo-plans/plan-actions.ts",
+    "kind": "new",
+    "lines": 31
+  },
+  {
+    "path": "frontend/src/domains/geo-plans/plan-controls.tsx",
+    "kind": "new",
+    "lines": 11
+  },
+  {
+    "path": "frontend/src/domains/geo-plans/plan-detail.tsx",
+    "kind": "new",
+    "lines": 125
+  },
+  {
+    "path": "frontend/src/domains/geo-plans/plan-list.tsx",
+    "kind": "new",
+    "lines": 55
+  },
+  {
+    "path": "frontend/src/domains/geo-plans/plan-options.tsx",
+    "kind": "new",
+    "lines": 61
+  },
+  {
+    "path": "frontend/src/domains/geo-plans/plan-preview.model.test.ts",
+    "kind": "new",
+    "lines": 29
+  },
+  {
+    "path": "frontend/src/domains/geo-plans/plan-preview.model.ts",
+    "kind": "new",
+    "lines": 40
+  },
+  {
+    "path": "frontend/src/domains/geo-plans/plan-preview.test.tsx",
+    "kind": "new",
+    "lines": 46
+  },
+  {
+    "path": "frontend/src/domains/geo-plans/plan-preview.tsx",
+    "kind": "new",
+    "lines": 33
+  },
+  {
+    "path": "frontend/src/domains/geo-plans/plan-wizard-steps.tsx",
+    "kind": "new",
+    "lines": 37
+  },
+  {
+    "path": "frontend/src/domains/geo-plans/plan-wizard.test.tsx",
+    "kind": "new",
+    "lines": 261
+  },
+  {
+    "path": "frontend/src/domains/geo-plans/plan-wizard.tsx",
+    "kind": "new",
+    "lines": 216
+  },
+  {
+    "path": "frontend/src/domains/geo-plans/plans-page.test.tsx",
+    "kind": "new",
+    "lines": 113
+  },
+  {
+    "path": "frontend/src/domains/geo-plans/plans-page.tsx",
+    "kind": "new",
+    "lines": 67
+  },
+  {
+    "path": "frontend/src/domains/geo-plans/plans.api.ts",
+    "kind": "new",
+    "lines": 76
+  },
+  {
+    "path": "frontend/src/domains/geo-plans/plans.model.test.ts",
+    "kind": "new",
+    "lines": 34
+  },
+  {
+    "path": "frontend/src/domains/geo-plans/plans.model.ts",
+    "kind": "new",
+    "lines": 65
+  },
+  {
+    "path": "frontend/src/domains/geo-plans/plans.options.ts",
+    "kind": "new",
+    "lines": 29
+  },
+  {
+    "path": "frontend/src/domains/geo-plans/plans.test-support.tsx",
+    "kind": "new",
+    "lines": 46
+  },
+  {
+    "path": "frontend/src/routeTree.gen.ts",
+    "kind": "modified",
+    "lines": 1774
+  },
+  {
+    "path": "frontend/src/routes/_app/geo/plans.tsx",
+    "kind": "new",
+    "lines": 17
+  },
+  {
+    "path": "frontend/tests/e2e/plans-real-stack.spec.ts",
+    "kind": "new",
+    "lines": 207
+  }
+]

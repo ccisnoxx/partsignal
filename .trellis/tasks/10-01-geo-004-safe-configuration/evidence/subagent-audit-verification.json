@@ -1,0 +1,18 @@
+{
+  "audit_id": "20261001T210943Z-geo-004-ed6dacba",
+  "status": "closed",
+  "summary": {
+    "plan_count": 1,
+    "executed_attempt_count": 1,
+    "accepted_attempt_count": 1,
+    "independent_review_count": 1,
+    "attention_required": false,
+    "anomaly_count": 0
+  },
+  "verification": {
+    "status": "passed",
+    "verified_at": "2026-10-01T21:17:34Z",
+    "errors": [],
+    "warnings": []
+  }
+}

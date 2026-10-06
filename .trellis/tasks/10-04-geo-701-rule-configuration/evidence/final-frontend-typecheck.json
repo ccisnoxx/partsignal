@@ -1,0 +1,12 @@
+{
+  "command": [
+    "npm",
+    "--prefix",
+    "frontend",
+    "run",
+    "typecheck"
+  ],
+  "started_at": "2026-10-04T15:30:06.974734+00:00",
+  "duration_seconds": 19.852415249974,
+  "exit_code": 0
+}

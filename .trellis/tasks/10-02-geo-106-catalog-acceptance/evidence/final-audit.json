@@ -1,0 +1,32 @@
+{
+  "changed_existing_files": [
+    "docs/geo-monitoring/01-product/03-information-architecture-and-page-spec.md",
+    "docs/geo-monitoring/03-technical/04-frontend-architecture.md",
+    "docs/geo-monitoring/03-technical/07-testing-and-quality.md",
+    "docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md",
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "docs/geo-monitoring/CHANGELOG.md",
+    "docs/geo-monitoring/README.md",
+    "docs/geo-monitoring/SHA256SUMS",
+    ".trellis/spec/infra/e2e-isolation.md",
+    "deploy/scripts/e2e-local.sh"
+  ],
+  "new_files_outside_task": [
+    "backend/tests/integration/test_geo_catalog_acceptance.py",
+    "docs/geo-monitoring/01-product/04-catalog-user-guide.md",
+    "frontend/tests/e2e/catalog-real-stack.spec.ts"
+  ],
+  "protected_unchanged": {
+    "contracts/openapi.yaml": true,
+    "contracts/database.md": true,
+    "backend/alembic/versions/0044_geo_catalog.py": true,
+    "frontend/src/shared/api/generated/schema.d.ts": true,
+    "frontend/tests/e2e/geo-real-stack.spec.ts": true,
+    "frontend/tests/e2e/fact-workspace.spec.ts": true
+  },
+  "manifest_only_change": "GEO-106 planned -> in_progress -> review",
+  "dependency_GEO_105": "done",
+  "task_status": "review",
+  "unrelated_files_modified": [],
+  "new_human_sources_below_500_lines": true
+}

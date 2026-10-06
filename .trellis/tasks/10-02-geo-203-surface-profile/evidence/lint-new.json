@@ -1,0 +1,6 @@
+{
+  "command": "UV_CACHE_DIR=.cache/uv uv run --project backend ruff check backend/app/models/geo_surfaces.py backend/app/schemas/geo_surfaces.py backend/alembic/versions/0046_geo_surfaces_profiles.py backend/tests/unit/test_geo_surface_contract.py",
+  "exit_code": 0,
+  "seconds": 0.03,
+  "log": "lint-new.log"
+}

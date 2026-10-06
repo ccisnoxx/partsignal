@@ -1,0 +1,11 @@
+{
+  "command": [
+    "shasum",
+    "-a",
+    "256",
+    "-c",
+    "SHA256SUMS"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 0.03
+}

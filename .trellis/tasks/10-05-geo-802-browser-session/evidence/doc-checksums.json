@@ -1,0 +1,14 @@
+[
+  {
+    "file": "03-technical/06-security-and-compliance.md",
+    "passed": true
+  },
+  {
+    "file": "03-technical/08-deployment-and-operations.md",
+    "passed": true
+  },
+  {
+    "file": "04-delivery/task-manifest.yaml",
+    "passed": true
+  }
+]

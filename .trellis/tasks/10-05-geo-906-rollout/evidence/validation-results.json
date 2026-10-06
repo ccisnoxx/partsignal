@@ -1,0 +1,125 @@
+{
+  "task_id": "GEO-906",
+  "results": [
+    {
+      "command": "UV_CACHE_DIR=.cache/uv uv run --project backend python deploy/scripts/test-geo-configuration.py",
+      "exit_code": 1,
+      "log": "baseline-configuration.log",
+      "status": "FAILED_BASELINE",
+      "detail": "旧断言禁止已验收geo_cleanup_artifacts注册，诊断见baseline-failure-diagnosis.md"
+    },
+    {
+      "command": "UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/unit/test_geo_configuration.py backend/tests/unit/test_geo_worker_configuration.py backend/tests/unit/test_geo_ops_health.py -q",
+      "exit_code": 0,
+      "log": "baseline-unit.log",
+      "status": "PASSED",
+      "detail": "选定配置/Worker/health基线通过"
+    },
+    {
+      "command": "UV_CACHE_DIR=.cache/uv uv run --project backend python deploy/scripts/test-geo-configuration.py",
+      "exit_code": 0,
+      "log": "configuration-candidate.log",
+      "status": "PASSED",
+      "detail": "18配置，共享Settings，启动外部调用0"
+    },
+    {
+      "command": "make lint",
+      "exit_code": 0,
+      "log": "make-lint.log",
+      "status": "PASSED",
+      "detail": "Browser lint/Ruff/前端ESLint"
+    },
+    {
+      "command": "make typecheck",
+      "exit_code": 0,
+      "log": "make-typecheck.log",
+      "status": "PASSED",
+      "detail": "Browser/后端249源码/前端TS"
+    },
+    {
+      "command": "UV_CACHE_DIR=.cache/uv uv run --project backend ruff check deploy/scripts/test-geo-configuration.py",
+      "exit_code": 0,
+      "log": null,
+      "status": "PASSED",
+      "detail": "工具直接返回All checks passed，无独立日志文件"
+    },
+    {
+      "command": "make test-deploy-scripts",
+      "exit_code": 0,
+      "log": "make-test-deploy-scripts.log",
+      "status": "PASSED",
+      "detail": "生产身份/网络/阶段/生命周期、18配置及既有恢复边界"
+    },
+    {
+      "command": "make verify",
+      "exit_code": 2,
+      "log": "make-verify.log",
+      "status": "FAILED_ENVIRONMENT",
+      "detail": "contract/lint/typecheck/unit通过；集成54 failed/1116 passed/6 setup errors，608.48s；七文件fake OSS名称解析/StorageUnavailable，6恢复缺显式PG工具；原完整命令未通过"
+    },
+    {
+      "command": "PYTHONPATH=backend UV_CACHE_DIR=.cache/uv uv run --project backend python .trellis/tasks/10-05-geo-906-rollout/evidence/run-recovery-tests.py",
+      "exit_code": 0,
+      "log": "recovery-isolated.log",
+      "status": "PASSED",
+      "detail": "显式本地PG16容器工具；6 passed/15.81s；owned隔离恢复及SIGTERM清理"
+    },
+    {
+      "command": "docker compose --env-file .env -f deploy/compose.dev.yaml run --rm backend-test pytest tests/integration/test_geo_answer_files.py tests/integration/test_geo_manual_collection.py tests/integration/test_geo_manual_collection_boundaries.py tests/integration/test_geo_manual_races.py tests/integration/test_geo_r2_immutability.py tests/integration/test_geo_read_consistency.py tests/integration/test_geo_read_models.py",
+      "exit_code": 0,
+      "log": "manual-integration-corrected.log",
+      "status": "PASSED",
+      "detail": "只启动既有本地fake OSS后定向82 passed/15.28s；不改业务源码，不代替完整verify"
+    },
+    {
+      "command": "PYTHONPATH=backend UV_CACHE_DIR=.cache/uv uv run --project backend python .trellis/tasks/10-05-geo-906-rollout/evidence/run-manual-e2e.py",
+      "exit_code": 1,
+      "log": "manual-real-stack-redis14-rejected.log",
+      "status": "REJECTED_ENVIRONMENT",
+      "detail": "首次DB14非空preflight拒绝，未创建资源，不flush未知数据"
+    },
+    {
+      "command": "PYTHONPATH=backend UV_CACHE_DIR=.cache/uv uv run --project backend python .trellis/tasks/10-05-geo-906-rollout/evidence/run-manual-e2e.py",
+      "exit_code": 0,
+      "log": "manual-real-stack.log",
+      "status": "PASSED",
+      "detail": "固定空/无外部client DB13，canonical筛选loop/review；2 passed/1.3m，secret scan clean，owned DB/Redis/端口/目录清理"
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0,
+      "log": "git-diff-check-final.log",
+      "status": "PASSED",
+      "detail": "实际全工作树检查，906未跟踪增量另保存candidate-source.patch"
+    },
+    {
+      "command": "python3 .trellis/scripts/task.py validate .trellis/tasks/10-05-geo-906-rollout",
+      "exit_code": 0,
+      "log": null,
+      "status": "PASSED",
+      "detail": "implement/check各5个真实context条目；工具直接输出无独立日志文件"
+    }
+  ],
+  "not_run": [
+    {
+      "command": "生产回环/公网smoke及前端权限/安全/导航验收",
+      "reason": "目标/获准入口、固定candidate和阶段人工批准缺失，未访问生产"
+    },
+    {
+      "command": "目标环境恢复/停止演练、MANUAL正式内部试用和监控观察期",
+      "reason": "同一目标、批准、负责人、试用/容量/观察期输入缺失；本地不能替代现场"
+    },
+    {
+      "command": "make verify中的test-geo-performance/build/e2e/test-deploy-scripts及最终Compose检查",
+      "reason": "原命令在test-integration失败停止；test-deploy-scripts另独立通过，定向MANUAL E2E另通过，未把补测记全门禁成功"
+    },
+    {
+      "command": "初始化前artifact失败阶段回滚演练",
+      "reason": "既有release所有者不支持该恢复路径，P1保留，不能手改状态或提前activate绕过"
+    },
+    {
+      "command": "真实外部AI/Browser平台测试",
+      "reason": "任务禁止普通测试真实调用；R7 deferred，Browser持续关闭"
+    }
+  ]
+}

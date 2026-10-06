@@ -1,0 +1,11 @@
+{
+  "updated": [
+    "docs/geo-monitoring/03-technical/03-api-contract-design.md",
+    "docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md",
+    "docs/geo-monitoring/03-technical/08-deployment-and-operations.md",
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "docs/geo-monitoring/README.md"
+  ],
+  "verified_entry_count": 115,
+  "mismatches": []
+}

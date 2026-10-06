@@ -1,0 +1,44 @@
+ Container geo704-validation-backend-test-run-402d7ea0e3a5 Creating 
+ Container geo704-validation-backend-test-run-402d7ea0e3a5 Created 
+......F                                                                  [100%]
+=================================== FAILURES ===================================
+_ test_publication_open_link_repair_unique_failure_and_article_deletion_blocker _
+
+api = ReviewAPI(harness=AnalysisHarness(database=AnswerDatabase(runs=RunDatabase(plan=PlanDatabase(url='postgresql://partsig...s=<starlette.testclient.TestClient object at 0xf6e8746b5730>, engineer_id=UUID('1ca19d7f-305b-4ffb-bb07-e71385b30e02'))
+
+    def test_publication_open_link_repair_unique_failure_and_article_deletion_blocker(api):
+        _, _, _, identity, payload = ready(api)
+        with api.harness.factory() as db:
+            task = content_planning.create_content_task(
+                db=db,
+                payload=ContentTaskCreate(
+                    **{k: v for k, v in payload.items() if k != "expected_revision"}
+                ),
+                actor=db.get(User, api.engineer_id),
+                request_id="geo704-original",
+                idempotency_key=str(uuid4()),
+            )
+            task_id = task.id
+        article_id = publish_task(api, task_id, payload["fact_version_id"])
+        identity = citation_opportunity(api, identity)
+        request = {
+            "mode": "OPEN_ISSUE",
+            "expected_revision": 2,
+            "published_article_id": str(article_id),
+            "kind": "FACT_CHANGED",
+            "description": "行动的私密说明，不应进入审计",
+        }
+        opened = post(api, identity, "publication-repair", request, "geo704-open-issue")
+>       assert opened.status_code == 200, opened.text
+E       AssertionError: {"error":{"code":"VALIDATION_ERROR","message":"请求数据不符合接口契约","details":{"errors":[{"loc":["body","OPEN_ISSUE","kind"],"msg":"请求字段不符合接口契约","type":"enum"}]},"request_id":"geo704-integration"}}
+E       assert 422 == 200
+E        +  where 422 = <Response [422 Unprocessable Entity]>.status_code
+
+tests/integration/test_geo_opportunity_actions.py:374: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+=========================== short test summary info ============================
+FAILED tests/integration/test_geo_opportunity_actions.py::test_publication_open_link_repair_unique_failure_and_article_deletion_blocker
+1 failed, 6 passed in 8.22s
+

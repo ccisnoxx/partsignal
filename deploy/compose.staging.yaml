@@ -1,5 +1,8 @@
 name: partsignal-staging
 
+include:
+  - compose.geo-browser.yaml
+
 x-backend: &backend
   image: ${PARTSIGNAL_BACKEND_IMAGE:-partsignal-backend}:${PARTSIGNAL_VERSION:?必须指定 PARTSIGNAL_VERSION}
   build:
@@ -101,15 +104,16 @@ services:
 
   worker:
     <<: *backend
-    command: [celery, -A, 'app.worker:celery_app', worker, --loglevel=INFO, --concurrency=1, --pidfile=/tmp/partsignal-worker.pid]
+    command: [celery, -A, 'app.worker:celery_app', worker, --loglevel=INFO, --pidfile=/tmp/partsignal-worker.pid]
     restart: unless-stopped
     mem_limit: 512m
     cpus: 0.75
     healthcheck:
-      test: [CMD, python, -c, "import os, pathlib; os.kill(int(pathlib.Path('/tmp/partsignal-worker.pid').read_text()), 0)"]
-      interval: 10s
-      timeout: 3s
-      retries: 12
+      test: [CMD, python, -m, app.geo_observability, health, worker]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 90s
 
   scheduler:
     <<: *backend
@@ -118,10 +122,11 @@ services:
     mem_limit: 128m
     cpus: 0.25
     healthcheck:
-      test: [CMD, python, -c, "import os, pathlib; os.kill(int(pathlib.Path('/tmp/partsignal-beat.pid').read_text()), 0)"]
-      interval: 10s
-      timeout: 3s
-      retries: 12
+      test: [CMD, python, -m, app.geo_observability, health, scheduler]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 90s
 
   frontend:
     image: ${PARTSIGNAL_FRONTEND_IMAGE:-partsignal-frontend}:${PARTSIGNAL_VERSION}

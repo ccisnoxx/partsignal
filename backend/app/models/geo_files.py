@@ -10,9 +10,11 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     ForeignKey,
+    Index,
     String,
     Text,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -92,6 +94,10 @@ class FileRecord(Base):
     """对象上传、未引用保留与幂等删除生命周期。"""
 
     __tablename__ = "file_records"
+    __table_args__ = (Index(
+        "ix_file_records_unscheduled_retention", "verified_at", "id",
+        postgresql_where=text("status='VERIFIED' AND cleanup_after IS NULL"),
+    ),)
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
     category: Mapped[str] = mapped_column(String(40), nullable=False)
     original_filename: Mapped[str] = mapped_column(String(500), nullable=False)

@@ -1,0 +1,5 @@
+真实 SourceFileLoader 读取树外 unchecked-hash 缓存
+真实 SourceFileLoader 读取树外 unchecked-hash 缓存
+Production upgrade 数据所有权与候选绑定校验通过。
+真实镜像：树内/树外缓存拒绝；历史runtime清除反例要求失败时策略证明，CAS前拒绝且状态/数据保持；不访问数据库
+镜像/temp资源已精确清理

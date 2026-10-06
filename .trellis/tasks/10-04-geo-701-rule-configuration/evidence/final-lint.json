@@ -1,0 +1,9 @@
+{
+  "command": [
+    "make",
+    "lint"
+  ],
+  "started_at": "2026-10-04T15:29:34.237364+00:00",
+  "duration_seconds": 0.06708416697802022,
+  "exit_code": 2
+}

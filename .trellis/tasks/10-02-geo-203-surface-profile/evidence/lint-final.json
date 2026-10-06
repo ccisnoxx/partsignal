@@ -1,0 +1,6 @@
+{
+  "command": "make lint",
+  "exit_code": 0,
+  "seconds": 8.45,
+  "log": "lint-final.log"
+}

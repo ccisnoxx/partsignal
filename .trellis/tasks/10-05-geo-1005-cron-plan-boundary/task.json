@@ -1,0 +1,32 @@
+{
+  "id": "geo-1005-cron-plan-boundary",
+  "name": "geo-1005-cron-plan-boundary",
+  "title": "GEO-1005：收口 V1.0 CRON Plan 边界",
+  "description": "V1.0 禁止 CRON 创建及写命令，历史只读、MANUAL 正常；合同、UI、测试与文档收口",
+  "status": "review",
+  "dev_type": null,
+  "scope": "fullstack",
+  "package": null,
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-10-05",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "实现、定向验证与 fresh 独立只读复核完成；等待人工接受。不提交、推送、归档或执行生产操作。",
+  "meta": {
+    "manifest_id": "GEO-1005",
+    "delivery_status": "review",
+    "audit_id": "20261006T043057Z-geo-1005-a8585a73",
+    "independent_review_record": ".trellis/tasks/10-05-geo-1005-cron-plan-boundary/evidence/independent-review.md",
+    "validation_record": ".trellis/tasks/10-05-geo-1005-cron-plan-boundary/evidence/validation-results.json"
+  }
+}

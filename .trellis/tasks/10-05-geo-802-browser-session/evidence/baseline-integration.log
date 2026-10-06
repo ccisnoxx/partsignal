@@ -1,0 +1,30 @@
+...........F..                                                           [100%]
+=================================== FAILURES ===================================
+_____ test_current_binding_test_reset_noop_and_role_safe_model_projection ______
+
+surface_api = SurfaceAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55432/partsignal_geo205_dffea6cb06), factory=se...arlette.testclient.TestClient object at 0x110276990>, engineer=<starlette.testclient.TestClient object at 0x110274980>)
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10fb5ec60>
+
+    def test_current_binding_test_reset_noop_and_role_safe_model_projection(
+        surface_api: SurfaceAPI, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        api = surface_api
+        api_registry(monkeypatch)
+        channel, model = model_binding(api)
+        surface = api.surface(surface_kind="MODEL_API", compliance_status="APPROVED")
+        sid = surface["summary"]["id"]
+        api.admin.post(f"{SURFACES}/{sid}/enable", json={"expected_revision": 0})
+        row = api.profile(
+            surface, "API", adapter_key="test-api", ai_channel_id=str(channel), ai_model_id=str(model)
+        )
+        pid = row["summary"]["id"]
+        mark_profile_tested(api, pid)
+        enabled = api.admin.post(f"{PROFILES}/{pid}/enable", json={"expected_revision": 1})
+>       assert enabled.status_code == 200, enabled.text
+E       AssertionError: {"error":{"code":"GEO_PROFILE_INELIGIBLE","message":"采集配置当前无法启用","details":{"blockers":[{"code":"ENVIRONMENT_UNSUPPORTED","field":"environment"}]},"request_id":"7c8d2daa-c922-4e2e-b84c-2089f6d8d032"}}
+E       assert 409 == 200
+E        +  where 409 = <Response [409 Conflict]>.status_code
+
+backend/tests/integration/test_geo_surface_management_transactions.py:227: AssertionError
+=========================== short test summary info ============================
+FAILED backend/tests/integration/test_geo_surface_management_transactions.py::test_current_binding_test_reset_noop_and_role_safe_model_projection

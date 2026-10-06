@@ -1,0 +1,28 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend ruff check backend
+E501 Line too long (103 > 100)
+  --> backend/app/services/geo_opportunity_action_views.py:18:101
+   |
+16 |     db: Session, actions: Sequence[GeoOpportunityAction]
+17 | ) -> list[GeoOpportunityActionRecord]:
+18 |     targets: dict[str, tuple[type[Product] | type[ContentTask] | type[PublishedContentIssue], str]] = {
+   |                                                                                                     ^^^
+19 |         "Product": (Product, "/products/{id}/facts"),
+20 |         "ContentTask": (ContentTask, "/content/tasks/{id}"),
+   |
+
+SIM117 [*] Use a single `with` statement with multiple contexts instead of nested `with` statements
+  --> backend/tests/integration/test_geo_opportunity_action_migration.py:91:9
+   |
+89 |               == "0060_geo_opportunity_actions"
+90 |           )
+91 | /         with pytest.raises(psycopg.errors.ObjectNotInPrerequisiteState):
+92 | |             with conn.transaction():
+   | |____________________________________^
+93 |                   conn.execute(
+94 |                       "UPDATE geo_opportunity_actions SET status_snapshot='CHANGED' WHERE id=%s",
+   |
+help: Combine `with` statements
+
+Found 2 errors.
+[*] 1 fixable with the `--fix` option.
+make: *** [lint] Error 1

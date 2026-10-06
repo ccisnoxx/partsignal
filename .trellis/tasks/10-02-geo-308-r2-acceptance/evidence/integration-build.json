@@ -1,0 +1,15 @@
+{
+  "command": [
+    "docker",
+    "compose",
+    "-f",
+    ".trellis/tasks/10-02-geo-308-r2-acceptance/evidence/compose.validation.yaml",
+    "build",
+    "backend-test",
+    "fake-oss"
+  ],
+  "exit_code": 0,
+  "started_at": "2026-10-03T06:32:25.372909+00:00",
+  "seconds": 13.94,
+  "log": "integration-build.log"
+}

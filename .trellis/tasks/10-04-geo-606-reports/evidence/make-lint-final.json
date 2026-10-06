@@ -1,0 +1,8 @@
+{
+  "command": [
+    "make",
+    "lint"
+  ],
+  "exit_code": 2,
+  "duration_seconds": 0.04
+}

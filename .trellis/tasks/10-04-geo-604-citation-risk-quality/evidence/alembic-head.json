@@ -1,0 +1,15 @@
+{
+  "argv": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "alembic",
+    "-c",
+    "backend/alembic.ini",
+    "heads"
+  ],
+  "exit_code": 0,
+  "started_at": "2026-10-04T08:20:43.921864+00:00",
+  "finished_at": "2026-10-04T08:20:44.245615+00:00"
+}

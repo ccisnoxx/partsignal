@@ -1,0 +1,2844 @@
+--- a/backend/alembic/versions/0049_geo_batch_creation.py
++++ b/backend/alembic/versions/0049_geo_batch_creation.py
+@@ -0,0 +1,102 @@
++"""创建幂等与批次主体引用；不修改已冻结的 Batch/Run 输入。"""
++
++from alembic import op
++
++revision = "0049_geo_batch_creation"
++down_revision = "0048_geo_batches_runs"
++branch_labels = None
++depends_on = None
++
++
++def upgrade() -> None:
++    op.execute("""
++CREATE TABLE geo_batch_creation_requests (
++    identity_hash VARCHAR(64) NOT NULL,
++    request_hash VARCHAR(64) NOT NULL,
++    batch_id UUID NOT NULL,
++    CONSTRAINT pk_geo_batch_creation_requests PRIMARY KEY (identity_hash),
++    CONSTRAINT uq_geo_batch_creation_requests_batch UNIQUE (batch_id),
++    CONSTRAINT ck_geo_batch_creation_requests_hashes CHECK (
++        identity_hash ~ '^[0-9a-f]{64}$' AND request_hash ~ '^[0-9a-f]{64}$'),
++    CONSTRAINT fk_geo_batch_creation_requests_batch FOREIGN KEY (batch_id)
++        REFERENCES geo_observation_batches(id) ON DELETE RESTRICT
++);
++CREATE TABLE geo_batch_subjects (
++    batch_id UUID NOT NULL,
++    subject_id UUID NOT NULL,
++    role VARCHAR(16) NOT NULL,
++    CONSTRAINT pk_geo_batch_subjects PRIMARY KEY (batch_id, subject_id),
++    CONSTRAINT ck_geo_batch_subjects_role CHECK (role IN ('PRIMARY','COMPETITOR','REFERENCE')),
++    CONSTRAINT fk_geo_batch_subjects_batch FOREIGN KEY (batch_id)
++        REFERENCES geo_observation_batches(id) ON DELETE RESTRICT,
++    CONSTRAINT fk_geo_batch_subjects_subject FOREIGN KEY (subject_id)
++        REFERENCES geo_subjects(id) ON DELETE RESTRICT
++);
++CREATE INDEX ix_geo_batch_subjects_subject ON geo_batch_subjects(subject_id, batch_id);
++-- 从权威快照回填；引用缺失由 FK 明确失败，不丢弃或猜测历史。
++INSERT INTO geo_batch_subjects(batch_id, subject_id, role)
++SELECT b.id, (s->>'subject_id')::uuid, s->>'role'
++FROM geo_observation_batches b,
++     LATERAL jsonb_array_elements(b.plan_snapshot->'subjects') s;
++
++CREATE FUNCTION geo_creation_immutable() RETURNS trigger LANGUAGE plpgsql AS $$
++BEGIN
++    RAISE EXCEPTION 'GEO 创建身份与历史引用不可修改或删除'
++        USING ERRCODE='23514', CONSTRAINT='ck_geo_creation_immutable';
++END $$;
++CREATE TRIGGER geo_creation_request_immutable BEFORE UPDATE OR DELETE
++ON geo_batch_creation_requests FOR EACH ROW EXECUTE FUNCTION geo_creation_immutable();
++CREATE TRIGGER geo_batch_subject_immutable BEFORE UPDATE OR DELETE
++ON geo_batch_subjects FOR EACH ROW EXECUTE FUNCTION geo_creation_immutable();
++
++CREATE FUNCTION geo_batch_subject_insert_guard() RETURNS trigger LANGUAGE plpgsql AS $$
++DECLARE b geo_observation_batches%ROWTYPE;
++BEGIN
++    SELECT * INTO b FROM geo_observation_batches WHERE id=NEW.batch_id FOR UPDATE;
++    IF NOT FOUND OR b.status <> 'PLANNED' OR NOT EXISTS (
++        SELECT 1 FROM jsonb_array_elements(b.plan_snapshot->'subjects') s
++        WHERE s->>'subject_id'=NEW.subject_id::text AND s->>'role'=NEW.role
++    ) THEN
++        RAISE EXCEPTION '批次主体引用必须在创建期间匹配冻结配置'
++            USING ERRCODE='23514', CONSTRAINT='ck_geo_batch_subjects_snapshot';
++    END IF;
++    RETURN NEW;
++END $$;
++CREATE TRIGGER geo_batch_subject_insert BEFORE INSERT ON geo_batch_subjects
++FOR EACH ROW EXECUTE FUNCTION geo_batch_subject_insert_guard();
++
++CREATE FUNCTION geo_batch_subject_complete_guard() RETURNS trigger LANGUAGE plpgsql AS $$
++DECLARE snapshot jsonb;
++BEGIN
++    SELECT plan_snapshot INTO snapshot FROM geo_observation_batches WHERE id=NEW.id;
++    IF (SELECT count(*) FROM geo_batch_subjects WHERE batch_id=NEW.id)
++        <> jsonb_array_length(snapshot->'subjects') THEN
++        RAISE EXCEPTION '批次主体引用不完整'
++            USING ERRCODE='23514', CONSTRAINT='ck_geo_batch_subjects_complete';
++    END IF;
++    RETURN NULL;
++END $$;
++CREATE CONSTRAINT TRIGGER geo_batch_subjects_complete AFTER INSERT ON geo_observation_batches
++DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION geo_batch_subject_complete_guard();
++
++CREATE FUNCTION geo_creation_request_insert_guard() RETURNS trigger LANGUAGE plpgsql AS $$
++BEGIN
++    IF NOT EXISTS (SELECT 1 FROM geo_observation_batches
++                   WHERE id=NEW.batch_id AND trigger_type='MANUAL') THEN
++        RAISE EXCEPTION '手工幂等身份只能引用手工批次'
++            USING ERRCODE='23514', CONSTRAINT='ck_geo_creation_request_manual';
++    END IF;
++    RETURN NEW;
++END $$;
++CREATE TRIGGER geo_creation_request_insert BEFORE INSERT ON geo_batch_creation_requests
++FOR EACH ROW EXECUTE FUNCTION geo_creation_request_insert_guard();
++    """)
++
++
++def downgrade() -> None:
++    op.execute("""
++        DO $$ BEGIN
++            RAISE EXCEPTION '0049 创建身份与历史引用不可安全降级；保留历史并使用前向修复'
++                USING ERRCODE='55000';
++        END $$;
++    """)
+--- a/backend/app/audit_types.py
++++ b/backend/app/audit_types.py
+@@ -76,6 +76,7 @@
+         "platform_profile.deleted",
+         "platform_account.deleted",
+         "geo_observation.deleted",
++        "geo_observation_batch.created",
+         "geo_monitoring_plan.created",
+         "geo_monitoring_plan.updated",
+         "geo_monitoring_plan.activated",
+@@ -174,6 +175,9 @@
+             "article_result_count",
+             "attachment_count",
+             "observation_count",
++            "plan_id",
++            "requested_run_count",
++            "trigger_type",
+             "product_id",
+             "publication_count",
+             "query_topic_id",
+--- a/backend/app/main.py
++++ b/backend/app/main.py
+@@ -26,6 +26,7 @@
+ )
+ from app.routers.configuration import router as configuration_router
+ from app.routers.files import router as files_router
++from app.routers.geo_batches import router as geo_batches_router
+ from app.routers.geo_catalog import router as geo_catalog_router
+ from app.routers.geo_monitoring_plans import router as geo_monitoring_plans_router
+ from app.routers.geo_questions import router as geo_questions_router
+@@ -328,6 +329,7 @@
+ app.include_router(geo_catalog_router)
+ app.include_router(geo_questions_router)
+ app.include_router(geo_monitoring_plans_router)
++app.include_router(geo_batches_router)
+ app.include_router(geo_surface_management_router)
+ app.include_router(configuration_router)
+ app.include_router(product_facts_router)
+--- a/backend/app/models/__init__.py
++++ b/backend/app/models/__init__.py
+@@ -3,6 +3,7 @@
+ import app.models.ai_generation  # noqa: F401
+ import app.models.configuration  # noqa: F401
+ import app.models.content  # noqa: F401
++import app.models.geo_batch_creation  # noqa: F401
+ import app.models.geo_catalog  # noqa: F401
+ import app.models.geo_files  # noqa: F401
+ import app.models.geo_monitoring_plans  # noqa: F401
+--- a/backend/app/models/geo_batch_creation.py
++++ b/backend/app/models/geo_batch_creation.py
+@@ -0,0 +1,57 @@
++"""创建身份与冻结主体引用；不保存第二套执行状态。"""
++
++import uuid
++
++from sqlalchemy import CheckConstraint, ForeignKey, Index, String, UniqueConstraint
++from sqlalchemy.dialects.postgresql import UUID
++from sqlalchemy.orm import Mapped, mapped_column
++from sqlalchemy.schema import conv
++
++from app.db import Base
++
++
++class GeoBatchCreationRequest(Base):
++    __tablename__ = "geo_batch_creation_requests"
++    __table_args__ = (
++        UniqueConstraint("batch_id", name="uq_geo_batch_creation_requests_batch"),
++        CheckConstraint(
++            "identity_hash ~ '^[0-9a-f]{64}$' AND request_hash ~ '^[0-9a-f]{64}$'",
++            name=conv("ck_geo_batch_creation_requests_hashes"),
++        ),
++    )
++
++    identity_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
++    request_hash: Mapped[str] = mapped_column(String(64), nullable=False)
++    batch_id: Mapped[uuid.UUID] = mapped_column(
++        UUID(as_uuid=True),
++        ForeignKey(
++            "geo_observation_batches.id",
++            name="fk_geo_batch_creation_requests_batch",
++            ondelete="RESTRICT",
++        ),
++        nullable=False,
++    )
++
++
++class GeoBatchSubject(Base):
++    __tablename__ = "geo_batch_subjects"
++    __table_args__ = (
++        CheckConstraint(
++            "role IN ('PRIMARY','COMPETITOR','REFERENCE')", name=conv("ck_geo_batch_subjects_role")
++        ),
++        Index("ix_geo_batch_subjects_subject", "subject_id", "batch_id"),
++    )
++
++    batch_id: Mapped[uuid.UUID] = mapped_column(
++        UUID(as_uuid=True),
++        ForeignKey(
++            "geo_observation_batches.id", name="fk_geo_batch_subjects_batch", ondelete="RESTRICT"
++        ),
++        primary_key=True,
++    )
++    subject_id: Mapped[uuid.UUID] = mapped_column(
++        UUID(as_uuid=True),
++        ForeignKey("geo_subjects.id", name="fk_geo_batch_subjects_subject", ondelete="RESTRICT"),
++        primary_key=True,
++    )
++    role: Mapped[str] = mapped_column(String(16), nullable=False)
+--- a/backend/app/routers/geo_batches.py
++++ b/backend/app/routers/geo_batches.py
+@@ -0,0 +1,39 @@
++"""批次创建 HTTP 边界；事务、锁和写入均属于应用服务。"""
++
++from typing import Annotated
++
++from fastapi import APIRouter, Header, Request
++
++from app.deps import CsrfProtected, DbSession, EngineerUser
++from app.errors import error_responses
++from app.schemas.geo_batch_creation import GeoBatchCreated, GeoObservationBatchCreate
++from app.services.geo_batches import create_manual_batch
++
++router = APIRouter(prefix="/api/v1/geo/observation-batches", tags=["geo-batches"])
++
++
++@router.post(
++    "",
++    status_code=201,
++    response_model=GeoBatchCreated,
++    operation_id="createGeoObservationBatch",
++    responses=error_responses(401, 403, 404, 409, 422),
++)
++def create_batch(
++    payload: GeoObservationBatchCreate,
++    request: Request,
++    db: DbSession,
++    user: EngineerUser,
++    _csrf: CsrfProtected,
++    idempotency_key: Annotated[
++        str,
++        Header(alias="Idempotency-Key", min_length=1, max_length=160, pattern=r"^[\x21-\x7E]+$"),
++    ],
++) -> GeoBatchCreated:
++    return create_manual_batch(
++        db=db,
++        payload=payload,
++        idempotency_key=idempotency_key,
++        actor=user,
++        request_id=request.state.request_id,
++    )
+--- a/backend/app/routers/geo_monitoring_plans.py
++++ b/backend/app/routers/geo_monitoring_plans.py
+@@ -8,6 +8,7 @@
+ 
+ from app.deps import CsrfProtected, DbSession, EngineerUser
+ from app.errors import error_responses
++from app.schemas.geo_batch_creation import GeoBatchCreated, GeoPlanBatchCreate
+ from app.schemas.geo_monitoring_plans import (
+     GeoMonitoringPlanCreate,
+     GeoMonitoringPlanRevisionRequest,
+@@ -23,6 +24,7 @@
+ from app.schemas.geo_plan_preview import GeoMonitoringPlanPreview
+ from app.services import geo_plan_commands as commands
+ from app.services import geo_plan_queries as queries
++from app.services.geo_batches import create_manual_batch
+ from app.services.geo_plans import preview_plan
+ 
+ router = APIRouter(prefix="/api/v1/geo/monitoring-plans", tags=["geo-plans"])
+@@ -259,14 +261,15 @@
+ 
+ @router.post(
+     "/{plan_id}/run",
+-    status_code=501,
+-    response_model=None,
++    status_code=201,
++    response_model=GeoBatchCreated,
+     operation_id="runGeoMonitoringPlanNow",
+-    responses=error_responses(401, 403, 404, 409, 422, 501),
++    responses=error_responses(401, 403, 404, 409, 422),
+ )
+ def run_now(
+     plan_id: UUID,
+     payload: GeoMonitoringPlanRevisionRequest,
++    request: Request,
+     db: DbSession,
+     user: EngineerUser,
+     _csrf: CsrfProtected,
+@@ -274,11 +277,13 @@
+         str,
+         Header(alias="Idempotency-Key", min_length=1, max_length=160, pattern=r"^[\x21-\x7E]+$"),
+     ],
+-) -> None:
+-    commands.run_now(
+-        db=db,
+-        plan_id=plan_id,
+-        expected_revision=payload.expected_revision,
++) -> GeoBatchCreated:
++    return create_manual_batch(
++        db=db,
++        payload=GeoPlanBatchCreate(
++            source="PLAN", plan_id=plan_id, expected_revision=payload.expected_revision
++        ),
+         idempotency_key=idempotency_key,
+         actor=user,
+-    )
++        request_id=request.state.request_id,
++    )
+--- a/backend/app/schemas/geo_batch_creation.py
++++ b/backend/app/schemas/geo_batch_creation.py
+@@ -0,0 +1,39 @@
++"""批次创建命令与稳定回执；不暴露派发、读模型或内部调度权限。"""
++
++from typing import Annotated, Literal
++from uuid import UUID
++
++from pydantic import AwareDatetime, Field
++
++from app.schemas.base import ContractModel
++from app.schemas.geo_monitoring_plans import (
++    GeoMonitoringPlanConfiguration,
++    GeoMonitoringPlanRevisionRequest,
++    GeoPlanScheduleKind,
++)
++
++
++class GeoPlanBatchCreate(GeoMonitoringPlanRevisionRequest):
++    source: Literal["PLAN"]
++    plan_id: UUID
++
++
++class GeoAdHocBatchConfiguration(GeoMonitoringPlanConfiguration):
++    schedule_kind: Literal[GeoPlanScheduleKind.MANUAL_ONLY] = GeoPlanScheduleKind.MANUAL_ONLY
++    cron_expression: None = None
++
++
++class GeoAdHocBatchCreate(ContractModel):
++    source: Literal["AD_HOC"]
++    configuration: GeoAdHocBatchConfiguration
++
++
++GeoObservationBatchCreate = Annotated[
++    GeoPlanBatchCreate | GeoAdHocBatchCreate, Field(discriminator="source")
++]
++
++
++class GeoBatchCreated(ContractModel):
++    batch_id: UUID
++    requested_run_count: Annotated[int, Field(strict=True, ge=1)]
++    created_at: AwareDatetime
+--- a/backend/app/schemas/geo_plan_management.py
++++ b/backend/app/schemas/geo_plan_management.py
+@@ -43,12 +43,12 @@
+ 
+ 
+ class GeoPlanDeletion(ContractModel):
+-    blockers: list[Literal["PLAN_NOT_DISABLED", "ARCHIVED"]]
++    blockers: list[Literal["PLAN_NOT_DISABLED", "ARCHIVED", "HAS_BATCH_HISTORY"]]
+ 
+ 
+ class GeoPlanRunEntry(ContractModel):
+     available: Literal[False]
+-    reason_code: Literal["NOT_IMPLEMENTED"]
++    reason_code: Literal["UI_NOT_IMPLEMENTED"]
+ 
+ 
+ class GeoMonitoringPlanCopy(GeoMonitoringPlanRevisionRequest):
+--- a/backend/app/services/geo_batch_snapshots.py
++++ b/backend/app/services/geo_batch_snapshots.py
+@@ -0,0 +1,171 @@
++"""在工厂已持有资源锁时组装安全快照；批量读，无事务或外部 I/O。"""
++
++from collections import defaultdict
++from dataclasses import dataclass
++from typing import Any
++from uuid import UUID
++
++from pydantic import TypeAdapter
++from sqlalchemy import select
++from sqlalchemy.orm import Session
++
++from app.collectors.registry import collector_registry
++from app.models.configuration import QueryTopic
++from app.models.geo_catalog import GeoSubject, GeoSubjectAlias, GeoSubjectDomain
++from app.models.geo_prompt_variants import GeoPromptVariant
++from app.models.geo_surfaces import GeoEngineSurface
++from app.models.product_facts import Product
++from app.schemas.geo_monitoring_plans import GeoMonitoringPlanConfiguration
++from app.schemas.geo_runs import (
++    GeoRunDataClassification,
++    GeoRunInputSnapshot,
++    GeoRunProfileSnapshot,
++    GeoRunPromptSnapshot,
++    GeoRunSubjectSnapshot,
++)
++from app.services.geo_collection_profiles import ProfileFacts
++
++_PROFILE: TypeAdapter[GeoRunProfileSnapshot] = TypeAdapter(GeoRunProfileSnapshot)
++
++
++@dataclass(frozen=True)
++class BatchInputs:
++    prompts: dict[UUID, GeoRunPromptSnapshot]
++    profiles: dict[UUID, GeoRunProfileSnapshot]
++    subjects: list[GeoRunSubjectSnapshot]
++    rule_set_revision: int
++
++    def input_for(self, prompt_id: UUID, profile_id: UUID) -> dict[str, Any]:
++        # 当前命令没有数据外发授权；分类为 INTERNAL，不能因调用者未提供而猜为 PUBLIC。
++        return GeoRunInputSnapshot(
++            schema_version=1,
++            data_classification=GeoRunDataClassification.INTERNAL,
++            prompt=self.prompts[prompt_id],
++            profile=self.profiles[profile_id],
++            subjects=self.subjects,
++            rule_set_revision=self.rule_set_revision,
++        ).model_dump(mode="json")
++
++
++def freeze_inputs(
++    db: Session, value: GeoMonitoringPlanConfiguration, profiles: dict[UUID, ProfileFacts]
++) -> BatchInputs:
++    v, q = GeoPromptVariant, QueryTopic
++    prompts = {
++        row.id: GeoRunPromptSnapshot.model_validate(dict(row))
++        for row in db.execute(
++            select(
++                v.id,
++                v.revision,
++                v.query_topic_id,
++                q.revision.label("query_topic_revision"),
++                q.canonical_question,
++                q.intent_type,
++                v.prompt_text,
++                v.mention_mode,
++                v.priority,
++                v.language_code,
++                v.region_code,
++            )
++            .join(q, q.id == v.query_topic_id)
++            .where(v.id.in_(value.prompt_variant_ids))
++        ).mappings()
++    }
++    s = GeoEngineSurface
++    surfaces = {
++        row.id: dict(row)
++        for row in db.execute(
++            select(
++                s.id,
++                s.revision,
++                s.name,
++                s.surface_kind,
++                s.provider_brand,
++                s.compliance_status,
++                s.capabilities,
++            ).where(s.id.in_({facts.surface.id for facts in profiles.values()}))
++        ).mappings()
++    }
++    frozen_profiles = {}
++    for identity in value.collection_profile_ids:
++        profile = profiles[identity].profile
++        frozen_profiles[identity] = _PROFILE.validate_python(
++            {
++                **{
++                    name: getattr(profile, name)
++                    for name in (
++                        "id",
++                        "revision",
++                        "name",
++                        "collection_mode",
++                        "adapter_key",
++                        "ai_channel_id",
++                        "ai_model_id",
++                        "language_code",
++                        "region_code",
++                        "login_state",
++                        "web_search_policy",
++                    )
++                },
++                "settings": dict(profile.settings),
++                "adapter_version": collector_registry.resolve(profile.adapter_key).version,
++                "surface": surfaces[profile.engine_surface_id],
++            }
++        )
++    ids = [item.subject_id for item in value.subjects]
++    aliases: dict[UUID, list[dict[str, Any]]] = defaultdict(list)
++    domains: dict[UUID, list[dict[str, Any]]] = defaultdict(list)
++    a, d = GeoSubjectAlias, GeoSubjectDomain
++    for row in db.execute(
++        select(a.subject_id, a.alias, a.normalized_alias, a.alias_kind, a.language_code)
++        .where(a.subject_id.in_(ids), a.is_active)
++        .order_by(a.subject_id, a.normalized_alias)
++    ).mappings():
++        aliases[row.subject_id].append(
++            {key: val for key, val in row.items() if key != "subject_id"}
++        )
++    for row in db.execute(
++        select(d.subject_id, d.hostname, d.relation_type)
++        .where(d.subject_id.in_(ids), d.is_active)
++        .order_by(d.subject_id, d.hostname)
++    ).mappings():
++        domains[row.subject_id].append(
++            {key: val for key, val in row.items() if key != "subject_id"}
++        )
++    subject, product = GeoSubject, Product
++    roles = {item.subject_id: item.role for item in value.subjects}
++    subjects = [
++        GeoRunSubjectSnapshot.model_validate(
++            {
++                "id": row.id,
++                "revision": row.revision,
++                "subject_type": row.subject_type,
++                "role": roles[row.id],
++                "product_id": row.product_id,
++                "parent_subject_id": row.parent_subject_id,
++                "canonical_name": row.part_number if row.product_id else row.canonical_name,
++                "display_name": f"{row.brand} {row.part_number}"
++                if row.product_id
++                else row.display_name,
++                "aliases": aliases[row.id],
++                "domains": domains[row.id],
++            }
++        )
++        for row in db.execute(
++            select(
++                subject.id,
++                subject.revision,
++                subject.subject_type,
++                subject.product_id,
++                subject.parent_subject_id,
++                subject.canonical_name,
++                subject.display_name,
++                product.part_number,
++                product.brand,
++            )
++            .outerjoin(product, product.id == subject.product_id)
++            .where(subject.id.in_(ids))
++            .order_by(subject.id)
++        ).mappings()
++    ]
++    return BatchInputs(prompts, frozen_profiles, subjects, value.rule_set_revision)
+--- a/backend/app/services/geo_batches.py
++++ b/backend/app/services/geo_batches.py
+@@ -0,0 +1,322 @@
++"""批次创建事务 owner；锁内冻结输入，提交后只返回稳定回执，不派发。"""
++
++import hashlib
++import json
++from collections.abc import Iterator
++from contextlib import contextmanager
++from datetime import UTC, datetime
++from itertools import batched
++from uuid import UUID, uuid4
++
++from sqlalchemy import func, insert, select, text, update
++from sqlalchemy.exc import IntegrityError
++from sqlalchemy.orm import Session
++
++from app.audit import append_audit
++from app.audit_types import AuditEntry, AuditModule, AuditOutcome
++from app.config import settings
++from app.errors import AppError, not_found
++from app.models.geo_batch_creation import GeoBatchCreationRequest, GeoBatchSubject
++from app.models.geo_monitoring_plans import GeoMonitoringPlan
++from app.models.geo_prompt_variants import GeoPromptVariant
++from app.models.geo_runs import GeoObservationBatch, GeoObservationRun
++from app.models.geo_surfaces import GeoEngineSurface
++from app.models.identity import User
++from app.schemas.geo_batch_creation import (
++    GeoAdHocBatchCreate,
++    GeoBatchCreated,
++    GeoObservationBatchCreate,
++    GeoPlanBatchCreate,
++)
++from app.schemas.geo_monitoring_plans import GeoMonitoringPlanConfiguration, GeoMonitoringPlanStatus
++from app.schemas.geo_runs import GeoBatchPlanSnapshot, GeoBatchRuleSnapshot
++from app.services.geo_batch_snapshots import freeze_inputs
++from app.services.geo_collector_eligibility import GeoRuntimeSwitches
++from app.services.geo_plan_configuration import canonical_configuration
++from app.services.geo_plan_locks import command, lock_plan, lock_resources
++from app.services.geo_plan_policy import require_eligible, require_mutable, require_references
++from app.services.geo_plans import PlanMatrixSelection, RunMatrixBuilder, load_matrix_facts
++
++
++def _digest(value: str) -> str:
++    return hashlib.sha256(value.encode()).hexdigest()
++
++
++def manual_identity(actor_id: UUID, key: str) -> str:
++    # 同一用户跨两个创建入口共享命名空间；不保存或记录原始 key。
++    if not 1 <= len(key) <= 160 or any(not 0x21 <= ord(c) <= 0x7E for c in key):
++        raise AppError("VALIDATION_ERROR", "创建幂等键必须为1至160字符可见ASCII", 422)
++    return _digest(f"geo-batch-manual:{actor_id}:{key}")
++
++
++def schedule_identity(plan_id: UUID, scheduled_for: datetime) -> str:
++    if scheduled_for.tzinfo is None or scheduled_for.utcoffset() is None:
++        raise ValueError("调度窗口必须包含时区")
++    window = scheduled_for.astimezone(UTC).isoformat(timespec="microseconds")
++    return _digest(f"geo-batch-schedule:{plan_id}:{window}")
++
++
++def _lock_identity(db: Session, identity: str) -> None:
++    # 固定64位 advisory xact lock；哈希碰撞只造成等待，真实身份仍由表/索引裁决。
++    key = int.from_bytes(bytes.fromhex(identity)[:8], "big", signed=True)
++    db.execute(select(func.pg_advisory_xact_lock(key)))
++
++
++def _receipt(batch: GeoObservationBatch) -> GeoBatchCreated:
++    return GeoBatchCreated(
++        batch_id=batch.id,
++        requested_run_count=batch.requested_run_count,
++        created_at=batch.created_at,
++    )
++
++
++def _request_hash(payload: GeoObservationBatchCreate) -> str:
++    data = payload.model_dump(mode="json")
++    if isinstance(payload, GeoAdHocBatchCreate):
++        data["configuration"] = canonical_configuration(payload.configuration).model_dump(
++            mode="json"
++        )
++    return _digest(json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=False))
++
++
++def _latch_references(
++    db: Session, value: GeoMonitoringPlanConfiguration, surfaces: set[UUID]
++) -> None:
++    for model, ids in ((GeoPromptVariant, value.prompt_variant_ids), (GeoEngineSurface, surfaces)):
++        db.execute(
++            update(model)
++            .where(model.id.in_(ids), model.first_referenced_at.is_(None))
++            .values(
++                first_referenced_at=func.clock_timestamp(),
++                updated_at=func.clock_timestamp(),
++                revision=model.revision + 1,
++            )
++            .execution_options(synchronize_session=False)
++        )
++
++
++def _create(
++    db: Session,
++    value: GeoMonitoringPlanConfiguration,
++    *,
++    plan: GeoMonitoringPlan | None,
++    actor: User | None,
++    scheduled_for: datetime | None,
++    identity: str | None,
++    request_id: str | None,
++) -> GeoObservationBatch:
++    selection = PlanMatrixSelection.from_configuration(value)
++    subjects, prompts, profiles = load_matrix_facts(db, [selection])
++    switches = GeoRuntimeSwitches(
++        settings.environment,
++        settings.geo_monitoring_enabled,
++        settings.geo_api_collection_enabled,
++        settings.geo_browser_collection_enabled,
++    )
++    matrix = RunMatrixBuilder().build(
++        selection, subjects=subjects, prompts=prompts, profiles=profiles, switches=switches
++    )
++    require_references(matrix.preview())
++    require_eligible(matrix.preview())
++    _latch_references(db, value, {facts.surface.id for facts in profiles.values()})
++    # 锁存也属于配置 revision，必须用锁存后的安全事实冻结。
++    _, _, profiles = load_matrix_facts(db, [selection])
++    inputs = freeze_inputs(db, value, profiles)
++    batch = GeoObservationBatch(
++        id=uuid4(),
++        plan_id=plan.id if plan else None,
++        trigger_type="SCHEDULED" if scheduled_for is not None else "MANUAL",
++        scheduled_for=scheduled_for,
++        schedule_identity=identity,
++        plan_snapshot=GeoBatchPlanSnapshot.model_validate(
++            value.model_dump()
++            | {
++                "schema_version": 1,
++                "plan_id": plan.id if plan else None,
++                "plan_revision": plan.revision if plan else None,
++            }
++        ).model_dump(mode="json"),
++        rule_snapshot=GeoBatchRuleSnapshot(
++            schema_version=1, rule_set_revision=value.rule_set_revision
++        ).model_dump(mode="json"),
++        requested_run_count=matrix.run_count,
++        created_by=actor.id if actor else None,
++    )
++    db.add(batch)
++    db.flush()
++    db.execute(
++        insert(GeoBatchSubject),
++        [
++            {"batch_id": batch.id, "subject_id": s.subject_id, "role": s.role}
++            for s in value.subjects
++        ],
++    )
++    # 每 prompt/profile 只组装一次；repeat 只复制持久化输入，不重新读取当前配置。
++    snapshots = {
++        (p, c): inputs.input_for(p, c)
++        for p in selection.prompt_variant_ids
++        for c in selection.collection_profile_ids
++    }
++    for cells in batched(matrix.cells(), 250):
++        db.execute(
++            insert(GeoObservationRun),
++            [
++                {
++                    "id": uuid4(),
++                    "batch_id": batch.id,
++                    "prompt_variant_id": c.prompt_variant_id,
++                    "collection_profile_id": c.collection_profile_id,
++                    "repeat_index": c.repeat_index,
++                    "input_snapshot": snapshots[c.prompt_variant_id, c.collection_profile_id],
++                }
++                for c in cells
++            ],
++        )
++    batch.status, batch.revision = "QUEUED", 1
++    db.flush()
++    db.execute(
++        text(
++            "SET CONSTRAINTS geo_batch_complete, geo_run_batch_complete, "
++            "geo_batch_subjects_complete IMMEDIATE"
++        )
++    )
++    if actor is not None:
++        if request_id is None:
++            raise ValueError("手工创建必须有 request_id")
++        append_audit(
++            db,
++            AuditEntry(
++                actor_id=actor.id,
++                business_module=AuditModule.GEO_OBSERVATION,
++                action="geo_observation_batch.created",
++                target_type="GeoObservationBatch",
++                target_id=batch.id,
++                request_id=request_id,
++                outcome=AuditOutcome.SUCCESS,
++                result_message="GEO 观测批次已创建",
++                details={
++                    "facts": {
++                        "plan_id": str(plan.id) if plan else None,
++                        "requested_run_count": matrix.run_count,
++                        "trigger_type": "MANUAL",
++                    }
++                },
++            ),
++        )
++    return batch
++
++
++def create_manual_batch(
++    *,
++    db: Session,
++    payload: GeoObservationBatchCreate,
++    idempotency_key: str,
++    actor: User,
++    request_id: str,
++) -> GeoBatchCreated:
++    with command(db, actor) as current, _creation_errors(db):
++        identity = manual_identity(current.id, idempotency_key)
++        request_hash = _request_hash(payload)
++        _lock_identity(db, identity)
++        previous = db.get(GeoBatchCreationRequest, identity, populate_existing=True)
++        if previous is not None:
++            if previous.request_hash != request_hash:
++                raise AppError("IDEMPOTENCY_CONFLICT", "此幂等键已用于不同创建请求", 409)
++            batch = db.get(GeoObservationBatch, previous.batch_id, populate_existing=True)
++            assert batch is not None  # RESTRICT FK 保证回执目标存在。
++            result = _receipt(batch)
++            db.commit()
++            return result
++        if isinstance(payload, GeoPlanBatchCreate):
++            plan, value = lock_plan(db, payload.plan_id, payload.expected_revision)
++            require_mutable(GeoMonitoringPlanStatus(plan.status))
++        else:
++            plan = None
++            value = canonical_configuration(payload.configuration)
++            lock_resources(db, [value])
++        batch = _create(
++            db,
++            value,
++            plan=plan,
++            actor=current,
++            scheduled_for=None,
++            identity=None,
++            request_id=request_id,
++        )
++        db.add(
++            GeoBatchCreationRequest(
++                identity_hash=identity, request_hash=request_hash, batch_id=batch.id
++            )
++        )
++        result = _receipt(batch)
++        db.commit()
++        return result
++
++
++def create_scheduled_batch(
++    *,
++    db: Session,
++    plan_id: UUID,
++    scheduled_for: datetime,
++) -> GeoBatchCreated:
++    """内部调度调用边界；不计算窗口，不对 HTTP 开放系统权限。"""
++    try:
++        with _creation_errors(db):
++            db.autoflush = False
++            if db.connection().get_isolation_level() != "READ COMMITTED":
++                raise ValueError("批次创建要求 READ COMMITTED")
++            identity = schedule_identity(plan_id, scheduled_for)
++            _lock_identity(db, identity)
++            previous = db.scalar(
++                select(GeoObservationBatch)
++                .where(
++                    GeoObservationBatch.plan_id == plan_id,
++                    GeoObservationBatch.scheduled_for == scheduled_for,
++                )
++                .execution_options(populate_existing=True)
++            )
++            if previous is not None:
++                result = _receipt(previous)
++                db.commit()
++                return result
++            initial = db.get(GeoMonitoringPlan, plan_id, populate_existing=True)
++            if initial is None:
++                raise not_found("监测计划")
++            plan, value = lock_plan(db, plan_id, initial.revision)
++            if plan.status != "ACTIVE" or value.schedule_kind != "CRON":
++                raise AppError("INVALID_STATE_TRANSITION", "调度只允许活动 CRON 计划", 409)
++            batch = _create(
++                db,
++                value,
++                plan=plan,
++                actor=None,
++                scheduled_for=scheduled_for.astimezone(UTC),
++                identity=identity,
++                request_id=None,
++            )
++            result = _receipt(batch)
++            db.commit()
++            return result
++    except Exception:
++        db.rollback()
++        raise
++
++
++@contextmanager
++def _creation_errors(db: Session) -> Iterator[None]:
++    try:
++        yield
++    except IntegrityError as error:
++        pair = (
++            getattr(error.orig, "sqlstate", None),
++            getattr(getattr(error.orig, "diag", None), "constraint_name", None),
++        )
++        db.rollback()
++        if pair in {
++            ("23505", "uq_geo_batches_schedule_window"),
++            ("23505", "uq_geo_batches_schedule_identity"),
++        }:
++            raise AppError("GEO_SCHEDULE_WINDOW_EXISTS", "该计划时间窗口已有批次", 409) from error
++        if pair == ("23505", "pk_geo_batch_creation_requests"):
++            raise AppError("IDEMPOTENCY_CONFLICT", "创建身份已被其他请求使用", 409) from error
++        raise
+--- a/backend/app/services/geo_catalog.py
++++ b/backend/app/services/geo_catalog.py
+@@ -79,6 +79,7 @@
+             if pair in {
+                 ("23503", "fk_geo_subjects_parent_identity"),
+                 ("23503", "fk_geo_monitoring_plan_subjects_subject"),
++                ("23503", "fk_geo_batch_subjects_subject"),
+             }:
+                 mapped = AppError("GEO_SUBJECT_IN_USE", "监测对象仍有直接引用，不能删除", 409)
+         elif pair == ("23505", "uq_geo_subjects_active_own_product"):
+--- a/backend/app/services/geo_catalog_queries.py
++++ b/backend/app/services/geo_catalog_queries.py
+@@ -12,8 +12,10 @@
+ 
+ from app.deps import DbSession
+ from app.errors import AppError, not_found
++from app.models.geo_batch_creation import GeoBatchSubject
+ from app.models.geo_catalog import GeoSubject, GeoSubjectAlias, GeoSubjectDomain
+ from app.models.geo_monitoring_plans import GeoMonitoringPlanSubject
++from app.models.geo_runs import GeoObservationRun
+ from app.models.product_facts import Product
+ from app.schemas.common import AccountType
+ from app.schemas.geo_catalog import GeoSubjectListPage, GeoSubjectOut, GeoSubjectType
+@@ -61,12 +63,26 @@
+         if ids
+         else {}
+     )
+-    # Run/Analysis/Opportunity 尚未实施；Plan 已通过真实 RESTRICT 关系接入。
++    runs = (
++        dict(
++            db.execute(
++                select(GeoBatchSubject.subject_id, func.count(GeoObservationRun.id))
++                .join(GeoObservationRun, GeoObservationRun.batch_id == GeoBatchSubject.batch_id)
++                .where(GeoBatchSubject.subject_id.in_(ids))
++                .group_by(GeoBatchSubject.subject_id)
++            )
++            .tuples()
++            .all()
++        )
++        if ids
++        else {}
++    )
++    # Analysis/Opportunity 仍未实施；Run 使用冻结主体关系，不使用当前 Plan。
+     return {
+         key: SubjectReferenceCounts(
+             child_subject_count=int(children.get(key, 0)),
+             monitoring_plan_count=int(plans.get(key, 0)),
+-            observation_run_count=0,
++            observation_run_count=int(runs.get(key, 0)),
+             analysis_count=0,
+             opportunity_count=0,
+         )
+--- a/backend/app/services/geo_plan_commands.py
++++ b/backend/app/services/geo_plan_commands.py
+@@ -1,7 +1,6 @@
+ """计划配置与生命周期命令的事务 owner；不持久化执行或快照。"""
+ 
+ from datetime import UTC, datetime
+-from typing import NoReturn
+ from uuid import UUID, uuid4
+ 
+ from sqlalchemy import delete, text
+@@ -26,47 +25,21 @@
+ from app.schemas.geo_monitoring_plans import GeoMonitoringPlanStatus as Status
+ from app.schemas.geo_plan_management import GeoMonitoringPlanCopy, GeoMonitoringPlanDetail
+ from app.schemas.geo_plan_preview import GeoMonitoringPlanPreview
++from app.services.geo_plan_configuration import canonical_configuration
+ from app.services.geo_plan_locks import command, lock_plan, lock_resources
+-from app.services.geo_plan_policy import PlanTransition, require_mutable, transition
+-from app.services.geo_plan_queries import CONFIGURATION_FIELDS, plan_detail, previews
+-
+-
+-def _configuration(value: GeoMonitoringPlanConfiguration) -> GeoMonitoringPlanConfiguration:
+-    fields = value.model_dump(exclude={"expected_revision"})
+-    fields["subjects"] = sorted(fields["subjects"], key=lambda s: s["subject_id"])
+-    for name in ("prompt_variant_ids", "collection_profile_ids"):
+-        fields[name] = sorted(fields[name])
+-    return GeoMonitoringPlanConfiguration.model_validate(fields)
+-
+-
+-def _require_references(preview: GeoMonitoringPlanPreview) -> None:
+-    missing = [
+-        b
+-        for b in preview.blockers
+-        if b.code in {"SUBJECT_NOT_FOUND", "PROMPT_NOT_FOUND", "PROFILE_NOT_FOUND"}
+-    ]
+-    if missing:
+-        raise AppError(
+-            "GEO_PLAN_REFERENCE_INVALID",
+-            "计划引用的资源不存在",
+-            422,
+-            {"blockers": [b.model_dump(mode="json") for b in missing]},
+-        )
+-
+-
+-def _require_eligible(preview: GeoMonitoringPlanPreview) -> None:
+-    if preview.blockers:
+-        code = (
+-            "GEO_PLAN_BUDGET_EXCEEDED"
+-            if any(b.code == "BUDGET_EXCEEDED" for b in preview.blockers)
+-            else "GEO_PLAN_PROFILE_INELIGIBLE"
+-        )
+-        raise AppError(
+-            code,
+-            "计划当前不具备运行资格，请修正阻断项",
+-            409,
+-            {"blockers": [b.model_dump(mode="json") for b in preview.blockers]},
+-        )
++from app.services.geo_plan_policy import (
++    PlanTransition,
++    require_eligible,
++    require_mutable,
++    require_references,
++    transition,
++)
++from app.services.geo_plan_queries import (
++    CONFIGURATION_FIELDS,
++    plan_batch_counts,
++    plan_detail,
++    previews,
++)
+ 
+ 
+ def _flush_business(db: Session) -> None:
+@@ -93,6 +66,8 @@
+             for name in ("primary", "prompt", "profile")
+         }:
+             mapped = AppError("GEO_PLAN_EMPTY", "计划至少需要一个 PRIMARY、问题变体和采集配置", 422)
++        elif pair == ("23503", "fk_geo_batches_plan"):
++            mapped = AppError("GEO_PLAN_IN_USE", "计划已有批次历史，请归档", 409)
+         elif pair in {
+             ("23503", "fk_geo_monitoring_plan_" + name + "_" + label)
+             for name, label in (
+@@ -161,7 +136,7 @@
+         _flush_business(db)
+         _audit(db, plan, actor, request_id, action)
+     db.flush()
+-    result = plan_detail(plan, value, preview)
++    result = plan_detail(plan, value, preview, plan_batch_counts(db, [plan.id]).get(plan.id, 0))
+     db.commit()
+     return result
+ 
+@@ -176,7 +151,7 @@
+     db: Session, value: GeoMonitoringPlanConfiguration, actor: User, request_id: str, action: str
+ ) -> GeoMonitoringPlanDetail:
+     preview = previews(db, [value])[0]
+-    _require_references(preview)
++    require_references(preview)
+     plan = GeoMonitoringPlan(
+         id=uuid4(),
+         **{name: getattr(value, name) for name in CONFIGURATION_FIELDS},
+@@ -195,7 +170,7 @@
+     *, db: Session, payload: GeoMonitoringPlanCreate, actor: User, request_id: str
+ ) -> GeoMonitoringPlanDetail:
+     with command(db, actor) as current:
+-        value = _configuration(payload)
++        value = canonical_configuration(payload)
+         lock_resources(db, [value])
+         return _create(db, value, current, request_id, "created")
+ 
+@@ -204,15 +179,15 @@
+     *, db: Session, plan_id: UUID, payload: GeoMonitoringPlanUpdate, actor: User, request_id: str
+ ) -> GeoMonitoringPlanDetail:
+     with command(db, actor) as current:
+-        value = _configuration(payload)
++        value = canonical_configuration(payload)
+         plan, before = lock_plan(db, plan_id, payload.expected_revision, value)
+         require_mutable(Status(plan.status))
+         preview = previews(db, [value])[0]
+-        _require_references(preview)
++        require_references(preview)
+         changed = value != before
+         if changed:
+             if plan.status == Status.ACTIVE:
+-                _require_eligible(preview)
++                require_eligible(preview)
+             for name in CONFIGURATION_FIELDS:
+                 setattr(plan, name, getattr(value, name))
+             if any(
+@@ -246,7 +221,7 @@
+         target = transition(Status(plan.status), operation)
+         preview = previews(db, [value])[0]
+         if target == Status.ACTIVE:
+-            _require_eligible(preview)
++            require_eligible(preview)
+         if target == Status.ARCHIVED and plan.status == Status.ACTIVE:
+             # ACTIVE归档在同一事务内先暂停，不产生可见中间态或第二条成功审计。
+             plan.status = Status.PAUSED
+@@ -283,17 +258,9 @@
+             raise AppError(
+                 "GEO_PLAN_IN_USE", "只能删除尚未启用的 DISABLED 计划；其他计划请归档", 409
+             )
++        if plan_batch_counts(db, [plan.id]).get(plan.id, 0):
++            raise AppError("GEO_PLAN_IN_USE", "计划已有批次历史，请归档", 409)
+         db.delete(plan)
+         _flush_business(db)
+         _audit(db, plan, current, request_id, "deleted")
+         db.commit()
+-
+-
+-def run_now(
+-    *, db: Session, plan_id: UUID, expected_revision: int, idempotency_key: str, actor: User
+-) -> NoReturn:
+-    with command(db, actor):
+-        plan, _ = lock_plan(db, plan_id, expected_revision)
+-        require_mutable(Status(plan.status))
+-        # GEO-303尚未实施，不保存命令或幂等结果，不写成功审计、不返回伪造资源。
+-        raise AppError("NOT_IMPLEMENTED", "立即运行将在批次创建能力交付后开放", 501)
+--- a/backend/app/services/geo_plan_configuration.py
++++ b/backend/app/services/geo_plan_configuration.py
+@@ -0,0 +1,13 @@
++"""计划写命令与创建身份共用的配置集合规范化。"""
++
++from app.schemas.geo_monitoring_plans import GeoMonitoringPlanConfiguration
++
++
++def canonical_configuration(
++    value: GeoMonitoringPlanConfiguration,
++) -> GeoMonitoringPlanConfiguration:
++    fields = value.model_dump(exclude={"expected_revision"})
++    fields["subjects"] = sorted(fields["subjects"], key=lambda s: s["subject_id"])
++    for name in ("prompt_variant_ids", "collection_profile_ids"):
++        fields[name] = sorted(fields[name])
++    return GeoMonitoringPlanConfiguration.model_validate(fields)
+--- a/backend/app/services/geo_plan_policy.py
++++ b/backend/app/services/geo_plan_policy.py
+@@ -16,6 +16,7 @@
+ from app.schemas.geo_plan_management import (
+     GeoPlanWorkflowStage as Stage,
+ )
++from app.schemas.geo_plan_preview import GeoMonitoringPlanPreview
+ 
+ type PlanTransition = Literal["activate", "pause", "resume", "archive"]
+ 
+@@ -74,3 +75,33 @@
+         actions,
+         GeoPlanDeletion(blockers=[] if status == Status.DISABLED else ["PLAN_NOT_DISABLED"]),
+     )
++
++
++def require_references(preview: GeoMonitoringPlanPreview) -> None:
++    missing = [
++        b
++        for b in preview.blockers
++        if b.code in {"SUBJECT_NOT_FOUND", "PROMPT_NOT_FOUND", "PROFILE_NOT_FOUND"}
++    ]
++    if missing:
++        raise AppError(
++            "GEO_PLAN_REFERENCE_INVALID",
++            "计划引用的资源不存在",
++            422,
++            {"blockers": [b.model_dump(mode="json") for b in missing]},
++        )
++
++
++def require_eligible(preview: GeoMonitoringPlanPreview) -> None:
++    if preview.blockers:
++        code = (
++            "GEO_PLAN_BUDGET_EXCEEDED"
++            if any(b.code == "BUDGET_EXCEEDED" for b in preview.blockers)
++            else "GEO_PLAN_PROFILE_INELIGIBLE"
++        )
++        raise AppError(
++            code,
++            "计划当前不具备运行资格，请修正阻断项",
++            409,
++            {"blockers": [b.model_dump(mode="json") for b in preview.blockers]},
++        )
+--- a/backend/app/services/geo_plan_queries.py
++++ b/backend/app/services/geo_plan_queries.py
+@@ -16,6 +16,7 @@
+     GeoMonitoringPlanPrompt,
+     GeoMonitoringPlanSubject,
+ )
++from app.models.geo_runs import GeoObservationBatch
+ from app.schemas.geo_monitoring_plans import (
+     GeoMonitoringPlanConfiguration,
+     GeoPlanScheduleKind,
+@@ -131,8 +132,12 @@
+     plan: GeoMonitoringPlan,
+     value: GeoMonitoringPlanConfiguration,
+     preview: GeoMonitoringPlanPreview,
++    batch_count: int = 0,
+ ) -> GeoMonitoringPlanDetail:
+     stage, task, actions, deletion = projection(Status(plan.status), eligible=not preview.blockers)
++    if batch_count:
++        actions = [action for action in actions if action != "DELETE"]
++        deletion.blockers.append("HAS_BATCH_HISTORY")
+     return GeoMonitoringPlanDetail.model_validate(
+         value.model_dump()
+         | {name: getattr(plan, name) for name in METADATA_FIELDS}
+@@ -142,16 +147,31 @@
+             "primary_task": task,
+             "available_actions": actions,
+             "deletion": deletion,
+-            "run_entry": GeoPlanRunEntry(available=False, reason_code="NOT_IMPLEMENTED"),
++            "run_entry": GeoPlanRunEntry(available=False, reason_code="UI_NOT_IMPLEMENTED"),
+         }
+     )
++
++
++def plan_batch_counts(db: Session, ids: Sequence[UUID]) -> dict[UUID, int]:
++    if not ids:
++        return {}
++    return {
++        identity: count
++        for identity, count in db.execute(
++            select(GeoObservationBatch.plan_id, func.count())
++            .where(GeoObservationBatch.plan_id.in_(ids))
++            .group_by(GeoObservationBatch.plan_id)
++        ).tuples()
++        if identity is not None
++    }
+ 
+ 
+ def details(db: Session, plans: Sequence[GeoMonitoringPlan]) -> list[GeoMonitoringPlanDetail]:
+     values = configurations(db, plans)
+     results = previews(db, list(values.values()))
++    counts = plan_batch_counts(db, [plan.id for plan in plans])
+     return [
+-        plan_detail(plan, values[plan.id], preview)
++        plan_detail(plan, values[plan.id], preview, counts.get(plan.id, 0))
+         for plan, preview in zip(plans, results, strict=True)
+     ]
+ 
+--- a/backend/app/services/geo_surface_commands.py
++++ b/backend/app/services/geo_surface_commands.py
+@@ -37,6 +37,7 @@
+ from app.services.geo_surface_projections import surface_deletion
+ from app.services.geo_surface_queries import (
+     profile_plan_counts,
++    profile_run_counts,
+     profiles_read,
+     surface_profile_counts,
+     surfaces_read,
+@@ -78,7 +79,10 @@
+             ("23514", "ck_geo_engine_surfaces_history"),
+         }:
+             mapped = _surface_in_use()
+-        if deleting_profile and pair == ("23503", "fk_geo_monitoring_plan_profiles_profile"):
++        if deleting_profile and pair in {
++            ("23503", "fk_geo_monitoring_plan_profiles_profile"),
++            ("23503", "fk_geo_runs_profile"),
++        }:
+             mapped = AppError("GEO_PROFILE_IN_USE", "采集配置仍被监测计划引用，不能删除", 409)
+         if mapped is None:
+             raise
+@@ -410,6 +414,14 @@
+                 409,
+                 {"blockers": [{"type": "MONITORING_PLAN", "count": count}]},
+             )
++        runs = profile_run_counts(db, [profile.id]).get(profile.id, 0)
++        if runs:
++            raise AppError(
++                "GEO_PROFILE_IN_USE",
++                "采集配置仍有运行历史，不能删除",
++                409,
++                {"blockers": [{"type": "HISTORICAL_REFERENCE", "count": runs}]},
++            )
+         db.delete(profile)
+         _flush_business(db, deleting_profile=True)
+         _audit(db, profile, current, request_id, "geo_collection_profile.deleted")
+--- a/backend/app/services/geo_surface_projections.py
++++ b/backend/app/services/geo_surface_projections.py
+@@ -97,6 +97,7 @@
+     *,
+     actor_type: AccountType,
+     plan_count: int = 0,
++    run_count: int = 0,
+ ) -> GeoCollectionProfileRead:
+     if profile.id != facts.profile.id or profile.engine_surface_id != surface.id:
+         raise ValueError("采集配置投影必须使用同一当前归属与快照")
+@@ -144,7 +145,7 @@
+         actions.append(Action.DISABLE)
+     elif not blockers:
+         actions.append(Action.ENABLE)
+-    if not plan_count:
++    if not plan_count and not run_count:
+         actions.append(Action.DELETE)
+     configuration = _PROFILE_OUT.validate_python(
+         {
+@@ -185,9 +186,16 @@
+         else Task.ENABLE_PROFILE,
+         available_actions=actions,
+         deletion=GeoConfigurationDeletionProjection(
+-            blockers=[DeletionBlocker(type=DeletionType.MONITORING_PLAN, count=plan_count)]
+-            if plan_count
+-            else []
++            blockers=(
++                [DeletionBlocker(type=DeletionType.MONITORING_PLAN, count=plan_count)]
++                if plan_count
++                else []
++            )
++            + (
++                [DeletionBlocker(type=DeletionType.HISTORICAL_REFERENCE, count=run_count)]
++                if run_count
++                else []
++            )
+         ),
+         activation_blockers=blockers,
+     )
+--- a/backend/app/services/geo_surface_queries.py
++++ b/backend/app/services/geo_surface_queries.py
+@@ -9,6 +9,7 @@
+ 
+ from app.errors import not_found
+ from app.models.geo_monitoring_plans import GeoMonitoringPlanProfile
++from app.models.geo_runs import GeoObservationRun
+ from app.models.geo_surfaces import GeoCollectionProfile, GeoEngineSurface
+ from app.schemas.common import AccountType
+ from app.schemas.geo_surface_management import (
+@@ -61,6 +62,22 @@
+     )
+ 
+ 
++def profile_run_counts(db: Session, ids: Sequence[UUID]) -> dict[UUID, int]:
++    return (
++        dict(
++            db.execute(
++                select(GeoObservationRun.collection_profile_id, func.count())
++                .where(GeoObservationRun.collection_profile_id.in_(ids))
++                .group_by(GeoObservationRun.collection_profile_id)
++            )
++            .tuples()
++            .all()
++        )
++        if ids
++        else {}
++    )
++
++
+ def profiles_read(
+     db: Session, profiles: Sequence[GeoCollectionProfile], *, actor_type: AccountType
+ ) -> list[GeoCollectionProfileRead]:
+@@ -76,6 +93,7 @@
+     }
+     facts = load_profile_facts(db, [item.id for item in profiles])
+     plans = profile_plan_counts(db, [item.id for item in profiles])
++    runs = profile_run_counts(db, [item.id for item in profiles])
+     return [
+         profile_read(
+             item,
+@@ -83,6 +101,7 @@
+             facts[item.id],
+             actor_type=actor_type,
+             plan_count=plans.get(item.id, 0),
++            run_count=runs.get(item.id, 0),
+         )
+         for item in profiles
+     ]
+--- a/backend/app/services/identity.py
++++ b/backend/app/services/identity.py
+@@ -26,6 +26,7 @@
+ from app.models.geo_files import FileRecord, GeoObservation
+ from app.models.geo_monitoring_plans import GeoMonitoringPlan
+ from app.models.geo_prompt_variants import GeoPromptVariant
++from app.models.geo_runs import GeoObservationBatch
+ from app.models.geo_surfaces import GeoCollectionProfile, GeoEngineSurface
+ from app.models.identity import (
+     SessionRecord,
+@@ -98,6 +99,7 @@
+         GeoCollectionProfile.created_by,
+         GeoMonitoringPlan.created_by,
+         GeoMonitoringPlan.updated_by,
++        GeoObservationBatch.created_by,
+         FileRecord.uploader_id,
+         FactVersion.created_by,
+         FactVersion.approved_by,
+--- a/backend/tests/integration/test_geo_batch_creation.py
++++ b/backend/tests/integration/test_geo_batch_creation.py
+@@ -0,0 +1,426 @@
++"""真实 PostgreSQL 创建合同：冻结、身份、完整性与失败原子性。"""
++
++from concurrent.futures import ThreadPoolExecutor
++from copy import deepcopy
++from datetime import UTC, datetime, timedelta, timezone
++from threading import Barrier
++from uuid import UUID, uuid4
++
++import pytest
++from sqlalchemy import func, select, text
++
++from app.errors import AppError
++from app.models.geo_batch_creation import GeoBatchCreationRequest, GeoBatchSubject
++from app.models.geo_prompt_variants import GeoPromptVariant
++from app.models.geo_runs import GeoObservationBatch, GeoObservationRun
++from app.models.geo_surfaces import GeoCollectionProfile, GeoEngineSurface
++from app.models.identity import AuditLog, User
++from app.schemas.geo_batch_creation import GeoAdHocBatchCreate, GeoPlanBatchCreate
++from app.services import geo_batches
++from tests.integration.geo_plans_support import (
++    PREFIX,
++    PlansAPI,
++)
++from tests.integration.geo_plans_support import (
++    plans_api as plans_api,
++)
++from tests.integration.geo_plans_support import (
++    questions_api as questions_api,
++)
++from tests.integration.geo_plans_support import (
++    questions_engine as questions_engine,
++)
++
++pytestmark = pytest.mark.integration
++BATCHES = "/api/v1/geo/observation-batches"
++
++
++def create(api: PlansAPI, value: dict, key: str = "geo303-create"):
++    return api.api.engineer.post(BATCHES, json=value, headers={"Idempotency-Key": key})
++
++
++def plan_request(row: dict) -> dict:
++    return {"source": "PLAN", "plan_id": row["id"], "expected_revision": row["revision"]}
++
++
++def counts(api: PlansAPI) -> tuple[int, ...]:
++    with api.api.factory() as db:
++        return tuple(
++            db.scalar(select(func.count()).select_from(model))
++            for model in (
++                GeoObservationBatch,
++                GeoObservationRun,
++                GeoBatchCreationRequest,
++                GeoBatchSubject,
++                AuditLog,
++            )
++        )
++
++
++def invoke(api: PlansAPI, value: dict, key: str):
++    payload = (
++        GeoPlanBatchCreate if value["source"] == "PLAN" else GeoAdHocBatchCreate
++    ).model_validate(value)
++    with api.api.factory() as db:
++        return geo_batches.create_manual_batch(
++            db=db,
++            payload=payload,
++            actor=db.get(User, api.api.engineer_id),
++            idempotency_key=key,
++            request_id=str(uuid4()),
++        )
++
++
++def test_plan_freezes_safe_snapshots_and_replays_after_configuration_changes(plans_api: PlansAPI):
++    api = plans_api
++    row = api.create(repeat_count=2)
++    value = plan_request(row)
++    result = create(api, value)
++    assert result.status_code == 201, result.text
++    receipt = result.json()
++    assert set(receipt) == {"batch_id", "requested_run_count", "created_at"}
++    assert receipt["requested_run_count"] == 2
++    batch_id = UUID(receipt["batch_id"])
++    with api.api.factory() as db:
++        batch = db.get(GeoObservationBatch, batch_id)
++        runs = db.scalars(
++            select(GeoObservationRun).where(GeoObservationRun.batch_id == batch_id)
++        ).all()
++        assert batch.status == "QUEUED" and batch.revision == 1
++        assert batch.requested_run_count == len(runs) == 2
++        assert {r.repeat_index for r in runs} == {1, 2}
++        assert all(
++            r.status == "PENDING"
++            and r.revision == 0
++            and r.attempt_no == 1
++            and r.external_call_state == "NOT_STARTED"
++            and r.cost_amount is None
++            for r in runs
++        )
++        snapshots = deepcopy([r.input_snapshot for r in runs])
++        plan_snapshot = deepcopy(batch.plan_snapshot)
++        assert plan_snapshot["plan_revision"] == 0
++        assert snapshots[0]["prompt"]["revision"] == 1
++        assert snapshots[0]["profile"]["surface"]["revision"] == 1
++        assert snapshots[0]["profile"]["adapter_version"] == "1"
++        assert snapshots[0]["data_classification"] == "INTERNAL"
++        assert db.get(GeoPromptVariant, api.prompt).first_referenced_at is not None
++        assert db.get(GeoEngineSurface, api.surface).first_referenced_at is not None
++        db.execute(
++            text(
++                "UPDATE geo_collection_profiles SET name='变更后的配置', "
++                "is_active=false, revision=revision+1 WHERE id=:id"
++            ),
++            {"id": api.profile},
++        )
++        db.execute(
++            text(
++                "UPDATE geo_prompt_variants SET is_active=false, revision=revision+1 WHERE id=:id"
++            ),
++            {"id": api.prompt},
++        )
++        db.commit()
++    changed = api.api.engineer.patch(
++        f"{PREFIX}/{row['id']}",
++        json=api.payload(name="变更后的计划", repeat_count=10, expected_revision=0),
++    )
++    assert changed.status_code == 200, changed.text
++    replay = create(api, value)
++    assert replay.status_code == 201 and replay.json() == receipt
++    assert create(api, plan_request(changed.json()), "new-current-key").status_code == 409
++    with api.api.factory() as db:
++        assert db.get(GeoObservationBatch, batch_id).plan_snapshot == plan_snapshot
++        after = db.scalars(
++            select(GeoObservationRun).where(GeoObservationRun.batch_id == batch_id)
++        ).all()
++        assert [r.input_snapshot for r in after] == snapshots
++        logs = db.scalars(select(AuditLog).where(AuditLog.target_id == str(batch_id))).all()
++        assert len(logs) == 1 and logs[0].action == "geo_observation_batch.created"
++        assert "变更后的" not in str(logs[0].details)
++
++
++def test_manual_same_key_concurrent_and_conflicting_payload(plans_api: PlansAPI):
++    api = plans_api
++    row = api.create()
++    before = counts(api)
++    barrier = Barrier(2)
++
++    def attempt():
++        barrier.wait(timeout=5)
++        return invoke(api, plan_request(row), "concurrent-key")
++
++    with ThreadPoolExecutor(max_workers=2) as pool:
++        results = list(pool.map(lambda _: attempt(), range(2)))
++    assert results[0] == results[1]
++    after = counts(api)
++    assert tuple(a - b for a, b in zip(after, before, strict=True)) == (1, 3, 1, 1, 1)
++    other = create(api, {**plan_request(row), "expected_revision": 99}, "concurrent-key")
++    assert other.status_code == 409 and other.json()["error"]["code"] == "IDEMPOTENCY_CONFLICT"
++    assert counts(api) == after
++    # 两个公共入口的相同计划命令共享身份与规范载荷。
++    replay = api.api.engineer.post(
++        f"{PREFIX}/{row['id']}/run",
++        json={"expected_revision": 0},
++        headers={"Idempotency-Key": "concurrent-key"},
++    )
++    assert replay.json() == results[0].model_dump(mode="json")
++
++
++def test_adhoc_canonical_identity_and_history_references(plans_api: PlansAPI):
++    api = plans_api
++    request = {"source": "AD_HOC", "configuration": api.payload(repeat_count=1)}
++    before = counts(api)
++    result = create(api, request)
++    assert result.status_code == 201, result.text
++    explicit = deepcopy(request)
++    explicit["configuration"].update(
++        description="虚构内部说明，不进入审计",
++        timezone="Asia/Shanghai",
++        schedule_kind="MANUAL_ONLY",
++        cron_expression=None,
++        rule_set_revision=1,
++        budget_limit=None,
++    )
++    assert create(api, explicit).json() == result.json()
++    assert tuple(a - b for a, b in zip(counts(api), before, strict=True)) == (1, 1, 1, 1, 1)
++    subject = api.api.admin.get(f"/api/v1/geo/subjects/{api.subject}").json()
++    assert subject["references"]["observation_run_count"] == 1
++    denied = api.api.admin.delete(
++        f"/api/v1/geo/subjects/{api.subject}", params={"expected_revision": subject["revision"]}
++    )
++    assert denied.status_code == 409 and denied.json()["error"]["code"] == "GEO_SUBJECT_IN_USE"
++    profile = api.api.admin.get(f"/api/v1/geo/collection-profiles/{api.profile}").json()
++    assert "DELETE" not in profile["available_actions"]
++    assert profile["deletion"]["blockers"] == [{"type": "HISTORICAL_REFERENCE", "count": 1}]
++    denied = api.api.admin.delete(
++        f"/api/v1/geo/collection-profiles/{api.profile}",
++        params={"expected_revision": profile["summary"]["revision"]},
++    )
++    assert denied.status_code == 409 and denied.json()["error"]["code"] == "GEO_PROFILE_IN_USE"
++
++
++def large_matrix(api: PlansAPI) -> dict:
++    prompts, profiles = [api.prompt], [api.profile]
++    with api.api.factory() as db:
++        for index in range(9):
++            prompt = GeoPromptVariant(
++                query_topic_id=api.api.topic,
++                prompt_text=f"虚构矩阵问题{index}",
++                mention_mode="UNBRANDED",
++                language_code="zh-hans",
++                region_code="CN",
++                priority="CORE",
++                created_by=api.api.engineer_id,
++            )
++            profile = GeoCollectionProfile(
++                engine_surface_id=api.surface,
++                name=f"虚构配置{index}",
++                collection_mode="MANUAL",
++                adapter_key="manual",
++                language_code="zh-hans",
++                region_code="CN",
++                login_state="ANONYMOUS",
++                web_search_policy="UNKNOWN",
++                settings_json={},
++                is_active=True,
++                created_by=api.api.admin_id,
++            )
++            db.add_all([prompt, profile])
++            db.flush()
++            prompts.append(prompt.id)
++            profiles.append(profile.id)
++        db.commit()
++    return {
++        "source": "AD_HOC",
++        "configuration": api.payload(
++            prompt_variant_ids=[str(p) for p in prompts],
++            collection_profile_ids=[str(p) for p in profiles],
++            repeat_count=10,
++        ),
++    }
++
++
++def test_1000_runs_without_partial_matrix(plans_api: PlansAPI):
++    api = plans_api
++    value = large_matrix(api)
++    from time import perf_counter
++
++    started = perf_counter()
++    result = create(api, value)
++    elapsed = perf_counter() - started
++    print(f"GEO-303 1000 runs 创建耗时：{elapsed:.3f}s")
++    assert elapsed < 5.0
++    assert result.status_code == 201, result.text
++    assert result.json()["requested_run_count"] == 1000
++    batch_id = UUID(result.json()["batch_id"])
++    with api.api.factory() as db:
++        runs = db.scalars(
++            select(GeoObservationRun).where(GeoObservationRun.batch_id == batch_id)
++        ).all()
++        assert len(runs) == 1000 and len({r.run_cell_key for r in runs}) == 1000
++        assert {r.repeat_index for r in runs} == set(range(1, 11))
++        assert all(r.attempt_no == 1 and r.previous_attempt_id is None for r in runs)
++        assert (
++            db.scalar(
++                select(func.count())
++                .select_from(GeoBatchSubject)
++                .where(GeoBatchSubject.batch_id == batch_id)
++            )
++            == 1
++        )
++    reordered = deepcopy(value)
++    reordered["configuration"]["prompt_variant_ids"].reverse()
++    reordered["configuration"]["collection_profile_ids"].reverse()
++    assert create(api, reordered).json() == result.json()
++
++
++@pytest.mark.parametrize("failure", ["run_chunk", "audit"])
++def test_failure_rolls_back_every_creation_effect(plans_api: PlansAPI, monkeypatch, failure):
++    api = plans_api
++    value = (
++        large_matrix(api)
++        if failure == "run_chunk"
++        else {"source": "AD_HOC", "configuration": api.payload()}
++    )
++    before = counts(api)
++    if failure == "audit":
++
++        def failed_audit(*args, **kwargs):
++            raise RuntimeError("虚构审计故障")
++
++        monkeypatch.setattr(geo_batches, "append_audit", failed_audit)
++    with api.api.factory() as db:
++        if failure == "run_chunk":
++            original = db.execute
++            calls = 0
++
++            def fail_second_chunk(statement, *args, **kwargs):
++                nonlocal calls
++                if (
++                    getattr(getattr(statement, "table", None), "name", None)
++                    == "geo_observation_runs"
++                ):
++                    calls += 1
++                    if calls == 2:
++                        raise RuntimeError("虚构第二块写入故障")
++                return original(statement, *args, **kwargs)
++
++            monkeypatch.setattr(db, "execute", fail_second_chunk)
++        with pytest.raises(RuntimeError, match="虚构"):
++            geo_batches.create_manual_batch(
++                db=db,
++                payload=GeoAdHocBatchCreate.model_validate(value),
++                actor=db.get(User, api.api.engineer_id),
++                idempotency_key="failed-create",
++                request_id="failure-test",
++            )
++        if failure == "run_chunk":
++            assert calls == 2
++    assert counts(api) == before
++    with api.api.factory() as db:
++        assert db.get(GeoPromptVariant, api.prompt).first_referenced_at is None
++        assert db.get(GeoEngineSurface, api.surface).first_referenced_at is None
++
++
++def test_schedule_concurrent_window_identity_ignores_revision(plans_api: PlansAPI):
++    api = plans_api
++    row = api.create(schedule_kind="CRON", cron_expression="0 * * * *")
++    active = api.action(row, "activate").json()
++    window = datetime(2026, 10, 3, tzinfo=UTC)
++    barrier = Barrier(2)
++
++    def attempt():
++        barrier.wait(timeout=5)
++        with api.api.factory() as db:
++            return geo_batches.create_scheduled_batch(
++                db=db, plan_id=UUID(row["id"]), scheduled_for=window
++            )
++
++    before = counts(api)
++    with ThreadPoolExecutor(max_workers=2) as pool:
++        receipts = list(pool.map(lambda _: attempt(), range(2)))
++    assert receipts[0] == receipts[1]
++    assert tuple(a - b for a, b in zip(counts(api), before, strict=True)) == (1, 3, 0, 1, 0)
++    paused = api.action(active, "pause").json()
++    assert paused["revision"] != active["revision"]
++    with api.api.factory() as db:
++        replay = geo_batches.create_scheduled_batch(
++            db=db,
++            plan_id=UUID(row["id"]),
++            scheduled_for=window.astimezone(timezone(timedelta(hours=8))),
++        )
++        assert replay == receipts[0]
++        with pytest.raises(AppError, match="调度"):
++            geo_batches.create_scheduled_batch(
++                db=db, plan_id=UUID(row["id"]), scheduled_for=window + timedelta(hours=1)
++            )
++        batch = db.get(GeoObservationBatch, receipts[0].batch_id)
++        assert (
++            batch.created_by is None and batch.plan_snapshot["plan_revision"] == active["revision"]
++        )
++        assert batch.schedule_identity == geo_batches.schedule_identity(UUID(row["id"]), window)
++
++
++def test_creation_rejects_untrusted_fields_and_auth_failures(plans_api: PlansAPI):
++    api = plans_api
++    request = {"source": "AD_HOC", "configuration": api.payload()}
++    before = counts(api)
++    for patch in (
++        {"created_by": str(api.api.admin_id)},
++        {"trigger_type": "SCHEDULED"},
++        {"input_snapshot": {"api_key": "sensitive-marker"}},
++        {"source": "RETEST"},
++    ):
++        result = create(api, request | patch)
++        assert result.status_code == 422 and "sensitive-marker" not in result.text
++    invalid = deepcopy(request)
++    invalid["configuration"].update(schedule_kind="CRON", cron_expression="0 0 * * *")
++    assert create(api, invalid).status_code == 422
++    assert api.api.engineer.post(BATCHES, json=request).status_code == 422
++    csrf = api.api.engineer.headers.pop("X-CSRF-Token")
++    try:
++        assert create(api, request).status_code == 422
++    finally:
++        api.api.engineer.headers["X-CSRF-Token"] = csrf
++    assert counts(api) == before
++
++
++def test_database_count_failure_is_atomic(plans_api: PlansAPI, monkeypatch):
++    from itertools import islice
++
++    from sqlalchemy.exc import IntegrityError
++
++    from app.services.geo_plans import RunMatrix
++
++    api = plans_api
++    value = {"source": "AD_HOC", "configuration": api.payload()}
++    before = counts(api)
++    original = RunMatrix.cells
++    monkeypatch.setattr(
++        RunMatrix, "cells", lambda matrix: islice(original(matrix), matrix.run_count - 1)
++    )
++    with pytest.raises(IntegrityError) as caught:
++        invoke(api, value, "incomplete-matrix")
++    assert caught.value.orig.diag.constraint_name == "ck_geo_batches_run_count"
++    assert counts(api) == before
++
++
++def test_plan_stale_revision_and_history_delete(plans_api: PlansAPI):
++    api = plans_api
++    row = api.create()
++    stale = create(api, {**plan_request(row), "expected_revision": 1})
++    assert stale.status_code == 409 and stale.json()["error"]["code"] == "REVISION_CONFLICT"
++    result = create(api, plan_request(row))
++    assert result.status_code == 201, result.text
++    current = api.api.engineer.get(f"{PREFIX}/{row['id']}").json()
++    assert (
++        "DELETE" not in current["available_actions"]
++        and "HAS_BATCH_HISTORY" in current["deletion"]["blockers"]
++    )
++    deleted = api.api.engineer.delete(f"{PREFIX}/{row['id']}", params={"expected_revision": 0})
++    assert deleted.status_code == 409 and deleted.json()["error"]["code"] == "GEO_PLAN_IN_USE"
++    archived = api.action(current, "archive")
++    assert archived.status_code == 200, archived.text
++    assert create(api, plan_request(row)).json() == result.json()
++    fresh = create(api, plan_request(archived.json()), "fresh-after-archive")
++    assert fresh.status_code == 409 and fresh.json()["error"]["code"] == "GEO_PLAN_ARCHIVED"
+--- a/backend/tests/integration/test_geo_batch_creation_migration.py
++++ b/backend/tests/integration/test_geo_batch_creation_migration.py
+@@ -0,0 +1,100 @@
++"""0049 非空历史前滚、引用回填与不可逆降级安全停止。"""
++
++import subprocess
++import sys
++
++import psycopg
++import pytest
++from alembic.autogenerate import compare_metadata
++from alembic.migration import MigrationContext
++from sqlalchemy import create_engine
++
++from app.db import Base
++from tests.integration.geo_runs_support import (
++    RunDatabase,
++    batch,
++    run,
++)
++from tests.integration.geo_runs_support import (
++    plan_database as plan_database,
++)
++from tests.integration.geo_runs_support import (
++    run_database as run_database,
++)
++from tests.integration.test_migrations import run_alembic
++
++pytestmark = pytest.mark.integration
++
++
++def test_forward_preserves_nonempty_frozen_inputs_and_matches_metadata(run_database: RunDatabase):
++    db = run_database
++    with psycopg.connect(db.url) as conn:
++        identity = batch(conn, db)
++        run_id = run(conn, db, identity)
++        before = conn.execute(
++            "SELECT plan_snapshot, rule_snapshot FROM geo_observation_batches WHERE id=%s",
++            (identity,),
++        ).fetchone()
++        input_before = conn.execute(
++            "SELECT input_snapshot FROM geo_observation_runs WHERE id=%s", (run_id,)
++        ).fetchone()[0]
++    forward = run_alembic(db.plan.env, db.plan.backend_dir, "head")
++    assert forward.returncode == 0
++    with psycopg.connect(db.url) as conn:
++        assert (
++            conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
++            == "0049_geo_batch_creation"
++        )
++        assert (
++            conn.execute(
++                "SELECT plan_snapshot, rule_snapshot FROM geo_observation_batches WHERE id=%s",
++                (identity,),
++            ).fetchone()
++            == before
++        )
++        assert (
++            conn.execute(
++                "SELECT input_snapshot FROM geo_observation_runs WHERE id=%s", (run_id,)
++            ).fetchone()[0]
++            == input_before
++        )
++        assert conn.execute(
++            "SELECT subject_id::text, role FROM geo_batch_subjects WHERE batch_id=%s", (identity,)
++        ).fetchall() == [(db.input["subjects"][0]["id"], "PRIMARY")]
++        assert conn.execute("SELECT count(*) FROM geo_batch_creation_requests").fetchone()[0] == 0
++        with pytest.raises(psycopg.errors.CheckViolation) as caught:
++            conn.execute("DELETE FROM geo_batch_subjects WHERE batch_id=%s", (identity,))
++        assert caught.value.diag.constraint_name == "ck_geo_creation_immutable"
++    engine = create_engine(db.url.replace("postgresql://", "postgresql+psycopg://", 1))
++    tables = {"geo_batch_creation_requests", "geo_batch_subjects"}
++    try:
++        with engine.connect() as conn:
++            context = MigrationContext.configure(
++                conn,
++                opts={
++                    "compare_type": True,
++                    "compare_server_default": True,
++                    "include_object": lambda obj, name, kind, reflected, compared: (
++                        obj.name in tables if kind == "table" else obj.table.name in tables
++                    ),
++                },
++            )
++            assert compare_metadata(context, Base.metadata) == []
++    finally:
++        engine.dispose()
++    stopped = subprocess.run(
++        [sys.executable, "-m", "alembic", "downgrade", "0048_geo_batches_runs"],
++        cwd=db.plan.backend_dir,
++        env=db.plan.env,
++        capture_output=True,
++        text=True,
++    )
++    assert (
++        stopped.returncode != 0
++        and "0049 创建身份与历史引用不可安全降级" in stopped.stdout + stopped.stderr
++    )
++    with psycopg.connect(db.url) as conn:
++        assert (
++            conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
++            == "0049_geo_batch_creation"
++        )
+--- a/backend/tests/integration/test_geo_plan_api.py
++++ b/backend/tests/integration/test_geo_plan_api.py
+@@ -31,7 +31,7 @@
+     assert row["status"] == "DISABLED" and row["revision"] == 0
+     assert row["workflow_stage"] == "READY"
+     assert {"ACTIVATE", "UPDATE", "DELETE"} <= set(row["available_actions"])
+-    assert row["run_entry"] == {"available": False, "reason_code": "NOT_IMPLEMENTED"}
++    assert row["run_entry"] == {"available": False, "reason_code": "UI_NOT_IMPLEMENTED"}
+     noop = api.api.engineer.patch(path, json=api.payload(expected_revision=0))
+     assert noop.status_code == 200 and noop.json() == row
+     assert len(logs(api, row["id"])) == 1
+@@ -203,18 +203,25 @@
+     assert api.api.engineer.get(f"{PREFIX}/{uuid4()}").status_code == 404
+ 
+ 
+-def test_csrf_auth_permissions_and_run_placeholder(plans_api: PlansAPI) -> None:
++def test_csrf_auth_permissions_and_idempotent_run(plans_api: PlansAPI) -> None:
+     api = plans_api
+     row = api.create()
+     path = f"{PREFIX}/{row['id']}"
+     before = deepcopy(row)
+     assert api.api.engineer.post(f"{path}/run", json={"expected_revision": 0}).status_code == 422
++    receipts = []
+     for _ in range(2):
+         result = api.api.engineer.post(
+             f"{path}/run", json={"expected_revision": 0}, headers={"Idempotency-Key": "208-command"}
+         )
+-        assert result.status_code == 501 and result.json()["error"]["code"] == "NOT_IMPLEMENTED"
+-    assert api.api.engineer.get(path).json() == before and len(logs(api, row["id"])) == 1
++        assert result.status_code == 201, result.text
++        receipts.append(result.json())
++    after = api.api.engineer.get(path).json()
++    assert receipts[0] == receipts[1]
++    assert after["revision"] == before["revision"] and after["deletion"]["blockers"] == [
++        "HAS_BATCH_HISTORY"
++    ]
++    assert len(logs(api, row["id"])) == 1
+     csrf = api.api.engineer.headers.pop("X-CSRF-Token")
+     try:
+         assert api.api.engineer.post(f"{PREFIX}/preview", json=api.payload()).status_code == 422
+--- a/backend/tests/integration/test_migrations.py
++++ b/backend/tests/integration/test_migrations.py
+@@ -326,7 +326,7 @@
+ 
+         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+             cursor.execute("SELECT version_num FROM alembic_version")
+-            assert cursor.fetchone() == ("0048_geo_batches_runs",)
++            assert cursor.fetchone() == ("0049_geo_batch_creation",)
+             cursor.execute(
+                 "SELECT tablename FROM pg_tables "
+                 "WHERE schemaname = 'public' AND tablename = ANY(%s)",
+@@ -484,10 +484,10 @@
+             text=True,
+         )
+         assert downgrade.returncode != 0
+-        assert "0048 Batch/Run 无法安全降级" in downgrade.stdout + downgrade.stderr
++        assert "0049 创建身份与历史引用不可安全降级" in downgrade.stdout + downgrade.stderr
+         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+             cursor.execute("SELECT version_num FROM alembic_version")
+-            assert cursor.fetchone() == ("0048_geo_batches_runs",)
++            assert cursor.fetchone() == ("0049_geo_batch_creation",)
+ 
+ 
+ @pytest.mark.integration
+--- a/backend/tests/unit/test_contract.py
++++ b/backend/tests/unit/test_contract.py
+@@ -53,9 +53,9 @@
+     contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+     document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+     operations = operation_map(document)
+-    assert len(operations) == 209
+-    assert len({operation["operationId"] for operation in operations.values()}) == 209
+-    assert sum(len(operation["responses"]) for operation in operations.values()) == 1336
++    assert len(operations) == 210
++    assert len({operation["operationId"] for operation in operations.values()}) == 210
++    assert sum(len(operation["responses"]) for operation in operations.values()) == 1343
+ 
+     expected_parameter = {
+         "name": "X-Request-ID",
+@@ -307,6 +307,8 @@
+             "createGeoEngineSurface",
+             "createGeoCollectionProfile",
+             "copyGeoMonitoringPlan",
++            "createGeoObservationBatch",
++            "runGeoMonitoringPlanNow",
+         ),
+         ("201", "401", "403", "409", "422", "503"): (
+             "createPlatformLogoCandidate",
+@@ -345,7 +347,6 @@
+         ("200", "401", "403", "404", "409", "422", "503"): (
+             "completeFileUpload",
+         ),
+-        ("401", "403", "404", "409", "422", "501"): ("runGeoMonitoringPlanNow",),
+         ("200", "401", "403", "404", "409", "422", "502", "504"): (
+             "discoverAIChannelModels",
+         ),
+@@ -362,7 +363,7 @@
+         if isinstance(operation, dict) and "operationId" in operation
+     }
+ 
+-    assert len(expected) == 209
++    assert len(expected) == 210
+     assert set(operations) == set(expected)
+     for operation_id, operation in operations.items():
+         responses = operation["responses"]
+@@ -390,7 +391,7 @@
+         "getWorkbench",
+     }
+     assert len(validation_free) == 14
+-    assert sum("422" in statuses for statuses in expected.values()) == 195
++    assert sum("422" in statuses for statuses in expected.values()) == 196
+     assert {
+         operation_id for operation_id, statuses in expected.items() if "422" not in statuses
+     } == validation_free
+--- a/backend/tests/unit/test_geo_batch_creation_contract.py
++++ b/backend/tests/unit/test_geo_batch_creation_contract.py
+@@ -0,0 +1,62 @@
++"""创建输入与持久化身份的公共合同，不执行 Collector。"""
++
++from datetime import UTC, datetime, timedelta, timezone
++from uuid import uuid4
++
++import pytest
++from pydantic import TypeAdapter, ValidationError
++
++from app.schemas.geo_batch_creation import (
++    GeoAdHocBatchCreate,
++    GeoBatchCreated,
++    GeoObservationBatchCreate,
++    GeoPlanBatchCreate,
++)
++from app.services.geo_batches import manual_identity, schedule_identity
++from tests.unit.test_geo_monitoring_plan_contract import contract as contract
++from tests.unit.test_geo_monitoring_plan_contract import payload, validate
++
++
++@pytest.mark.parametrize("model", [GeoAdHocBatchCreate, GeoPlanBatchCreate, GeoBatchCreated])
++def test_creation_components_match_authority(contract, model):
++    schema = TypeAdapter(model).json_schema(
++        ref_template="#/components/schemas/{model}",
++        mode="serialization" if model is GeoBatchCreated else "validation",
++    )
++    definitions = schema.pop("$defs", {})
++    assert contract["components"]["schemas"][model.__name__] == schema
++    for name, definition in definitions.items():
++        assert contract["components"]["schemas"][name] == definition
++
++
++@pytest.mark.parametrize("source", ["PLAN", "AD_HOC"])
++def test_closed_request_and_response(contract, source):
++    value = (
++        {"source": source, "plan_id": str(uuid4()), "expected_revision": 0}
++        if source == "PLAN"
++        else {"source": source, "configuration": payload()}
++    )
++    model = GeoPlanBatchCreate if source == "PLAN" else GeoAdHocBatchCreate
++    parsed = TypeAdapter(GeoObservationBatchCreate).validate_python(value)
++    validate(contract, model.__name__, value)
++    for field in ("created_by", "scheduled_for", "status", "input_snapshot", "trigger_type"):
++        with pytest.raises(ValidationError):
++            TypeAdapter(GeoObservationBatchCreate).validate_python(value | {field: "untrusted"})
++    assert parsed.source == source
++    receipt = GeoBatchCreated(
++        batch_id=uuid4(), requested_run_count=1000, created_at=datetime.now(UTC)
++    )
++    validate(contract, "GeoBatchCreated", receipt.model_dump(mode="json"))
++
++
++def test_identity_namespaces_and_timezone_normalization():
++    user, plan = uuid4(), uuid4()
++    window = datetime(2026, 10, 3, tzinfo=UTC)
++    assert manual_identity(user, "same-key") == manual_identity(user, "same-key")
++    assert manual_identity(user, "same-key") != manual_identity(uuid4(), "same-key")
++    assert schedule_identity(plan, window) == schedule_identity(
++        plan, window.astimezone(timezone(timedelta(hours=8)))
++    )
++    assert schedule_identity(plan, window) != schedule_identity(plan, window + timedelta(hours=1))
++    with pytest.raises(ValueError, match="时区"):
++        schedule_identity(plan, datetime(2026, 10, 3))
+--- a/backend/tests/unit/test_geo_plan_management.py
++++ b/backend/tests/unit/test_geo_plan_management.py
+@@ -78,5 +78,4 @@
+     ]
+     assert len(operations) == 12
+     run = paths["/api/v1/geo/monitoring-plans/{plan_id}/run"]["post"]
+-    assert not any(code.startswith("2") for code in run["responses"])
+-    assert "501" in run["responses"]
++    assert "201" in run["responses"] and "501" not in run["responses"]
+--- a/backend/tests/unit/test_runtime_response_metadata.py
++++ b/backend/tests/unit/test_runtime_response_metadata.py
+@@ -645,9 +645,9 @@
+     runtime = app.openapi()
+     operations = _operation_map(runtime)
+ 
+-    assert len(operations) == 209
+-    assert len(set(operations)) == 209
+-    assert sum(len(operation["responses"]) for operation in operations.values()) == 1336
++    assert len(operations) == 210
++    assert len(set(operations)) == 210
++    assert sum(len(operation["responses"]) for operation in operations.values()) == 1343
+     parameter_ref = {"$ref": "#/components/parameters/RequestIdHeader"}
+     header_ref = {"$ref": "#/components/headers/RequestIdResponseHeader"}
+     parameter_schema = {
+@@ -692,10 +692,10 @@
+     augmented = app.openapi()
+     stripped = _strip_request_context_metadata(augmented)
+ 
+-    assert sum(len(operation["responses"]) for operation in _operation_map(raw).values()) == 1127
++    assert sum(len(operation["responses"]) for operation in _operation_map(raw).values()) == 1133
+     assert sum(
+         len(operation["responses"]) for operation in _operation_map(stripped).values()
+-    ) == 1127
++    ) == 1133
+     # 安装版本的 FastAPI 省略 None 默认；这里只移除已声明且显式恢复的两处 annotation。
+     raw_settings = raw["components"]["schemas"]["GeoApiSettings"]["properties"]
+     stripped_settings = stripped["components"]["schemas"]["GeoApiSettings"]["properties"]
+--- a/contracts/database.md
++++ b/contracts/database.md
+@@ -847,3 +847,27 @@
+ Batch 投影要求完整初始矩阵与历史，不接受分页或缓存作为事实，不择优答案。每 cell 最大 attempt_no 决定状态，retry 后 Batch 缓存可再次 QUEUED/RUNNING，原 Run 仍不可变。逐 cell 当前 Profile/资源资格与 actor/真实命令接线能力是动作投影输入，不写入历史快照。
+ 
+ RUNNING 的未发送恢复还要求过期租约及 token 已撤销，不能以 NOT_STARTED 单独判定；后续写入 owner 必须锁内校验 token/期限/状态，撤销旧 lease 并实际 UPDATE revision+1。读时动作不代替该写入校验。现有锁顺序、单后继唯一索引、revision 和 0048 终态/外发进度守卫继续仲裁；本任务不新增事务、幂等存储、锁或数据库守卫，也没有 Alembic revision、数据回填或历史迁移。
++
++## GEO 批次创建合同（GEO-303 / R2）
++
++`0049_geo_batch_creation`（down_revision=`0048_geo_batches_runs`）只增加下列创建关系，不改变0048的历史输入、状态机或旧 GeoObservation。
++
++| 表/字段 | 合同 |
++|---|---|
++| geo_batch_creation_requests.identity_hash | varchar(64)，pk_geo_batch_creation_requests；SHA256(`geo-batch-manual:` + actor UUID + `:` + 可见ASCII Idempotency-Key)，用户作用域且跨两个创建端点共用；不保存原 key |
++| request_hash | varchar(64) NOT NULL；规范化命令来源、计划ID/expected_revision或临时完整配置的JSON摘要；两项哈希受 ck_geo_batch_creation_requests_hashes 保护 |
++| batch_id | UUID NOT NULL，fk_geo_batch_creation_requests_batch → Batch RESTRICT；uq_geo_batch_creation_requests_batch；insert guard 只允许 MANUAL |
++| geo_batch_subjects.batch_id / subject_id | UUID复合PK；fk_geo_batch_subjects_batch / subject → Batch/Subject RESTRICT；ix_geo_batch_subjects_subject(subject_id,batch_id) |
++| role | varchar(16)，PRIMARY/COMPETITOR/REFERENCE；ck_geo_batch_subjects_role |
++
++`geo_creation_request_immutable`、`geo_batch_subject_immutable` 禁止任何 UPDATE/DELETE（ck_geo_creation_immutable）；主体 insert guard 在 Batch 锁内只接受 PLANNED 且与冻结 plan_snapshot 的主体ID/role相符的行（ck_geo_batch_subjects_snapshot）。`geo_batch_subjects_complete` 为新 Batch INSERT 的 deferred constraint trigger，提交时要求主体引用数等于冻结主体集合（ck_geo_batch_subjects_complete）。回填在守卫建立前从既有 plan_snapshot.subjects 建立精确引用；缺失 Subject 明确 FK 失败，事务DDL全部回滚，不跳过历史。
++
++创建服务是事务 owner。锁序：手工 User非键更新锁→创建身份 advisory xact lock→既有 AIChannel/AIModel→Product→品牌→Subject→QueryTopic→Prompt→Surface→Profile→Plan→新Batch→Runs；调度省略User。READ COMMITTED 锁后复核 revision、资格和资源身份；同计划配置更新复用同一协议。创建身份哈希取有符号64位 advisory lock；碰撞最多产生额外等待，真实唯一性仍由持久化身份/窗口裁决。
++
++首次创建冻结完整计划/规则配置、Prompt/Topic、Profile/Surface安全配置及adapter版本、所选主体及活动alias/domain；OWN_PRODUCT名称从当前Product明确转换，不保存事实正文。Prompt/Surface首次引用锁存与 revision+1 在同一创建事务中完成；快照记录锁存后的 revision。GEO-303 输入分类明确为 INTERNAL，不建立外发授权，也不接受客户端分类/快照。费用及用量未知仍为NULL。
++
++同一事务先插入PLANNED/revision0 Batch、主体引用和完整根矩阵（每块250行），最后更新QUEUED/revision1；根Runs保持PENDING/revision0/attempt1/NOT_STARTED。提前执行0048数量与0049主体完整性约束，再提交审计及手工幂等记录；任一阶段失败全部回滚，包括首次引用锁存。矩阵至少覆盖1000 roots，不乘主体数量，不静默缩减阻断资源。
++
++手工幂等在当前用户鉴权后先查已提交记录：同请求返回首次batch_id/requested_run_count/created_at；异请求409 IDEMPOTENCY_CONFLICT；配置修订/停用/归档不影响重放，也不重复成功审计。首次计划请求必填expected_revision，ARCHIVED拒绝；DISABLED/PAUSED/ACTIVE均可在当前资格满足时手工创建，不改变计划状态/revision。调度内部服务只接受ACTIVE CRON计划的新窗口；身份SHA256(`geo-batch-schedule:` + plan UUID + `:` + UTC ISO微秒时间)，不含revision，同窗口重放不检查后续配置。HTTP不能伪造SCHEDULED或RETEST。
++
++主体真实run引用由Batch主体关系连接Runs统计；Profile、Plan、User的删除投影及命令接入真实历史。手工成功审计 geo_observation_batch.created 与业务同事务，只包含plan_id、requested_run_count、trigger_type。系统调度created_by=NULL，不伪造审计用户。无Redis/Collector/派发/分析。唯一冲突仅按精确23505+约束名映射，其他未知数据库失败不吞掉。0049禁止破坏性降级；保留历史并前向修复。
+--- a/contracts/openapi.yaml
++++ b/contracts/openapi.yaml
+@@ -6715,9 +6715,18 @@
+     post:
+       tags:
+       - geo-plans
++      summary: Run Now
+       operationId: runGeoMonitoringPlanNow
++      security:
++      - sessionCookie: []
+       parameters:
+-      - *id003
++      - name: plan_id
++        in: path
++        required: true
++        schema:
++          type: string
++          format: uuid
++          title: Plan Id
+       - name: Idempotency-Key
+         in: header
+         required: true
+@@ -6727,31 +6736,104 @@
+           maxLength: 160
+           pattern: ^[\x21-\x7E]+$
+           title: Idempotency-Key
+-      - *id002
+-      - *id001
+-      responses:
+-        '501':
+-          $ref: '#/components/responses/ErrorResponse'
+-        '400':
+-          $ref: '#/components/responses/ErrorResponse'
+-        '401':
+-          $ref: '#/components/responses/ErrorResponse'
+-        '403':
+-          $ref: '#/components/responses/ErrorResponse'
+-        '404':
+-          $ref: '#/components/responses/ErrorResponse'
+-        '409':
+-          $ref: '#/components/responses/ErrorResponse'
+-        '422':
+-          $ref: '#/components/responses/ErrorResponse'
+-      security:
+-      - sessionCookie: []
++      - name: X-CSRF-Token
++        in: header
++        required: true
++        schema:
++          type: string
++          minLength: 32
++          title: X-Csrf-Token
++      - $ref: '#/components/parameters/RequestIdHeader'
+       requestBody:
+         required: true
+         content:
+           application/json:
+             schema:
+               $ref: '#/components/schemas/GeoMonitoringPlanRevisionRequest'
++      responses:
++        '201':
++          description: Successful Response
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoBatchCreated'
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++  /api/v1/geo/observation-batches:
++    post:
++      tags:
++      - geo-batches
++      summary: Create Batch
++      operationId: createGeoObservationBatch
++      security:
++      - sessionCookie: []
++      parameters:
++      - name: Idempotency-Key
++        in: header
++        required: true
++        schema:
++          type: string
++          minLength: 1
++          maxLength: 160
++          pattern: ^[\x21-\x7E]+$
++          title: Idempotency-Key
++      - name: X-CSRF-Token
++        in: header
++        required: true
++        schema:
++          type: string
++          minLength: 32
++          title: X-Csrf-Token
++      - $ref: '#/components/parameters/RequestIdHeader'
++      requestBody:
++        required: true
++        content:
++          application/json:
++            schema:
++              oneOf:
++              - $ref: '#/components/schemas/GeoPlanBatchCreate'
++              - $ref: '#/components/schemas/GeoAdHocBatchCreate'
++              discriminator:
++                propertyName: source
++                mapping:
++                  PLAN: '#/components/schemas/GeoPlanBatchCreate'
++                  AD_HOC: '#/components/schemas/GeoAdHocBatchCreate'
++              title: Payload
++      responses:
++        '201':
++          description: Successful Response
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoBatchCreated'
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
+ components:
+   securitySchemes:
+     sessionCookie:
+@@ -14856,13 +14938,14 @@
+       additionalProperties: false
+       properties:
+         blockers:
+-          type: array
+           items:
+             enum:
+             - PLAN_NOT_DISABLED
+             - ARCHIVED
++            - HAS_BATCH_HISTORY
+             type: string
+           title: Blockers
++          type: array
+       required:
+       - blockers
+       title: GeoPlanDeletion
+@@ -14875,7 +14958,7 @@
+           title: Available
+           type: boolean
+         reason_code:
+-          const: NOT_IMPLEMENTED
++          const: UI_NOT_IMPLEMENTED
+           title: Reason Code
+           type: string
+       required:
+@@ -16184,3 +16267,161 @@
+             $ref: '#/components/schemas/GeoBatchAction'
+       required: [status, workflow_stage, primary_task, available_actions]
+       title: GeoBatchWorkflowProjection
++    GeoAdHocBatchConfiguration:
++      additionalProperties: false
++      allOf:
++      - else:
++          properties:
++            cron_expression:
++              type: 'null'
++        if:
++          properties:
++            schedule_kind:
++              const: CRON
++          required:
++          - schedule_kind
++        then:
++          properties:
++            cron_expression:
++              type: string
++          required:
++          - cron_expression
++      properties:
++        name:
++          maxLength: 200
++          minLength: 1
++          pattern: ^[^\s\x00](?:[^\x00]*[^\s\x00])?$
++          title: Name
++          type: string
++        description:
++          default: ''
++          pattern: ^[^\x00]*$
++          title: Description
++          type: string
++        subjects:
++          contains:
++            properties:
++              role:
++                const: PRIMARY
++            required:
++            - role
++          description: subject_id 在集合内唯一；至少一个 PRIMARY，不由对象类型推断角色。
++          items:
++            $ref: '#/components/schemas/GeoPlanSubject'
++          minContains: 1
++          minItems: 1
++          title: Subjects
++          type: array
++          uniqueItems: true
++        prompt_variant_ids:
++          items:
++            format: uuid
++            type: string
++          minItems: 1
++          title: Prompt Variant Ids
++          type: array
++          uniqueItems: true
++        collection_profile_ids:
++          items:
++            format: uuid
++            type: string
++          minItems: 1
++          title: Collection Profile Ids
++          type: array
++          uniqueItems: true
++        repeat_count:
++          default: 3
++          maximum: 10
++          minimum: 1
++          title: Repeat Count
++          type: integer
++        schedule_kind:
++          const: MANUAL_ONLY
++          default: MANUAL_ONLY
++          title: Schedule Kind
++          type: string
++        cron_expression:
++          default: null
++          title: Cron Expression
++          type: 'null'
++        timezone:
++          default: Asia/Shanghai
++          maxLength: 64
++          minLength: 1
++          title: Timezone
++          type: string
++        budget_limit:
++          anyOf:
++          - pattern: ^(?:0|[1-9][0-9]{0,7})(?:\.[0-9]{1,6})?$(?![\s\S])
++            type: string
++          - type: 'null'
++          default: null
++          title: Budget Limit
++        rule_set_revision:
++          default: 1
++          minimum: 1
++          title: Rule Set Revision
++          type: integer
++      required:
++      - name
++      - subjects
++      - prompt_variant_ids
++      - collection_profile_ids
++      title: GeoAdHocBatchConfiguration
++      type: object
++    GeoAdHocBatchCreate:
++      additionalProperties: false
++      properties:
++        source:
++          const: AD_HOC
++          title: Source
++          type: string
++        configuration:
++          $ref: '#/components/schemas/GeoAdHocBatchConfiguration'
++      required:
++      - source
++      - configuration
++      title: GeoAdHocBatchCreate
++      type: object
++    GeoPlanBatchCreate:
++      additionalProperties: false
++      properties:
++        expected_revision:
++          minimum: 0
++          title: Expected Revision
++          type: integer
++        source:
++          const: PLAN
++          title: Source
++          type: string
++        plan_id:
++          format: uuid
++          title: Plan Id
++          type: string
++      required:
++      - expected_revision
++      - source
++      - plan_id
++      title: GeoPlanBatchCreate
++      type: object
++    GeoBatchCreated:
++      additionalProperties: false
++      properties:
++        batch_id:
++          format: uuid
++          title: Batch Id
++          type: string
++        requested_run_count:
++          minimum: 1
++          title: Requested Run Count
++          type: integer
++        created_at:
++          format: date-time
++          title: Created At
++          type: string
++      required:
++      - batch_id
++      - requested_run_count
++      - created_at
++      title: GeoBatchCreated
++      type: object
+--- a/docs/geo-monitoring/02-business/03-workflows-and-state-machines.md
++++ b/docs/geo-monitoring/02-business/03-workflows-and-state-machines.md
+@@ -51,9 +51,9 @@
+ 
+ ### 1.2 GEO-208 当前交付边界
+ 
+-上表与流程图描述最终运行能力。GEO-208保留四态和合法转换；当前run-now为501命令占位，available_actions没有RUN_NOW，run_entry明确NOT_IMPLEMENTED。创建/复制都是DISABLED；结构完整且资源存在即可保存DISABLED/PAUSED，preview阻断保留给修复；ACTIVATE/RESUME只在当前无阻断时投影，命令仍锁内重新裁决。ACTIVE实际修改复用同一资格规则，状态保持ACTIVE、revision+1；同值配置（含集合重排）不改变revision/时间/审计。活动配置UPDATE由CREATE_REVISION动作表达，不创建第二套历史配置表。
+-
+-当前资源动作：非归档有PREVIEW/COPY/ARCHIVE；DISABLED有UPDATE/DELETE及合格时ACTIVATE；ACTIVE有PAUSE/CREATE_REVISION；PAUSED有UPDATE及合格时RESUME；ARCHIVED仅COPY。workflow_stage与primary_task由服务端typed投影，VIEW_RUNTIME/VIEW_HISTORY不代表尚未实施的运行/历史API已经可用。ACTIVE归档同事务内先暂停后归档，仅一次版本和一条审计，无可见中间态。非法或重复转换409，归档写入409 GEO_PLAN_ARCHIVED。实际Batch冻结和运行状态机留后续任务。
++上表与流程图描述最终运行能力。GEO-208保留四态和合法转换；GEO-303已实现run-now与临时批次的原子创建；R1页面尚无运行交互，available_actions没有RUN_NOW，run_entry明确UI_NOT_IMPLEMENTED。首次手工创建要求计划非ARCHIVED、revision匹配及当前资格；ACTIVE/PAUSED/DISABLED可手工创建，不改变计划状态。已有批次历史禁止删除计划。创建/复制都是DISABLED；结构完整且资源存在即可保存DISABLED/PAUSED，preview阻断保留给修复；ACTIVATE/RESUME只在当前无阻断时投影，命令仍锁内重新裁决。ACTIVE实际修改复用同一资格规则，状态保持ACTIVE、revision+1；同值配置（含集合重排）不改变revision/时间/审计。活动配置UPDATE由CREATE_REVISION动作表达，不创建第二套历史配置表。
++
++当前资源动作：非归档有PREVIEW/COPY/ARCHIVE；DISABLED有UPDATE、无批次历史时DELETE及合格时ACTIVATE；ACTIVE有PAUSE/CREATE_REVISION；PAUSED有UPDATE及合格时RESUME；ARCHIVED仅COPY。workflow_stage与primary_task由服务端typed投影，VIEW_RUNTIME/VIEW_HISTORY不代表尚未实施的运行/历史API已经可用。ACTIVE归档同事务内先暂停后归档，仅一次版本和一条审计，无可见中间态。非法或重复转换409，归档写入409 GEO_PLAN_ARCHIVED。GEO-303已冻结Batch输入并创建QUEUED/PENDING初态；派发、执行与运行读模型留后续任务。
+ 
+ ## 2. 批次创建流程
+ 
+--- a/docs/geo-monitoring/03-technical/02-data-architecture.md
++++ b/docs/geo-monitoring/03-technical/02-data-architecture.md
+@@ -180,6 +180,8 @@
+ - SCHEDULED 保存 `scheduled_for` 和 SHA256 `schedule_identity`；唯一 `(plan_id, scheduled_for)` 不含计划 revision，另有非空摘要 partial unique。
+ - Plan、基线 Batch、创建 User 的历史 FK 均 RESTRICT。RETEST 必填 source opportunity UUID 和 baseline；机会实体由 GEO-702 引入后追加真实 FK，本阶段没有复测命令。
+ - `requested_run_count` 计初始 attempt1 的逻辑 cell；deferred CHECK 在创建提交时保证数量相等，不允许空批次或后续扩张根矩阵。
++
++GEO-303 增量 `0049_geo_batch_creation` 增加不可变 `geo_batch_creation_requests` 和 `geo_batch_subjects`，精确表/索引/守卫、幂等与回填以 [批次创建数据库合同](../../../contracts/database.md#geo-批次创建合同geo-303--r2) 为权威。手工身份按用户作用域保存key/request摘要；主体历史每批次一组关系，FK防止身份删除。0048非空快照只回填引用，不重写JSON。创建先PLANNED，完整矩阵后QUEUED；Prompt/Surface首次引用锁存与全部数据同事务提交。
+ 
+ ## 5.2 `geo_observation_runs`
+ 
+--- a/docs/geo-monitoring/03-technical/03-api-contract-design.md
++++ b/docs/geo-monitoring/03-technical/03-api-contract-design.md
+@@ -172,7 +172,7 @@
+ 
+ ADMIN 与 ENGINEER 均可配置变体；当前资源属于内部单租户共享配置，created_by 为服务端审计身份。所有写请求需要 session 与 CSRF。Application Service 以 User→QueryTopic→Variant（User 使用 FOR NO KEY UPDATE，与审计 FK KEY SHARE 兼容） 顺序锁定、重读身份与 revision；历史首次引用后只允许停用及复制为新身份，禁止编辑、重启和删除。相同值更新/启停不增加 revision、更新时间或成功审计；无 Idempotency-Key，重复身份创建返回 409，不自动重放。
+ 
+-列表/详情包含当前主题摘要、workflow_stage、primary_task、available_actions、deletion.blockers 和 run_entry；读取采用认证前建立的 REPEATABLE READ 快照并关闭 autoflush，不做逐行查询。当前主题摘要不是历史运行快照。运行入口固定不可用（NOT_IMPLEMENTED），无运行端点或 Batch/Run。删除使用 required expected_revision query，启停使用 RevisionRequest body。成功审计同业务事务，仅含 revision/is_active 与稳定身份，不记录问题正文。
++列表/详情包含当前主题摘要、workflow_stage、primary_task、available_actions、deletion.blockers 和 run_entry；读取采用认证前建立的 REPEATABLE READ 快照并关闭 autoflush，不做逐行查询。当前主题摘要不是历史运行快照。Prompt页面直接运行入口仍不可用（NOT_IMPLEMENTED）；GEO-303通过计划/临时批次创建API冻结变体输入，Prompt自身不拥有创建端点。删除使用 required expected_revision query，启停使用 RevisionRequest body。成功审计同业务事务，仅含 revision/is_active 与稳定身份，不记录问题正文。
+ 
+ GEO-202 命令入口舍弃认证依赖待写的 `SessionRecord.last_seen_at` 活动提示，避免 User→Session 与改密的 Session→User 形成锁环；不修改 expires_at/revoked_at，也不放宽认证或 CSRF。会话有效期按 expires_at、撤销按 revoked_at 裁决，last_seen_at 不参与安全决定。User 的 FOR NO KEY UPDATE 仍阻止资格字段更新与删除；主题/变体继续 FOR UPDATE。真实同账号主题编辑/删除与同 Cookie 改密交错均由 PostgreSQL 回归验证。
+ 
+@@ -199,7 +199,7 @@
+ 
+ 详情 `GeoMonitoringPlanDetail` 包含完整配置、preview、workflow_stage、primary_task、available_actions、deletion与run_entry；列表items使用同一模型，不返回未实施的last_batch/运行健康/成功率。列表q为名称字面子串，status/schedule_kind为闭合筛选，sort为UPDATED_DESC/NAME_ASC，page从1、page_size=10/20/50（默认20），稳定UUID次序。GET/preview在认证前RR且禁autoflush，不写心跳；count/page/关系/资格共享快照且固定批量查询。
+ 
+-run_entry 固定 `{available: false, reason_code: NOT_IMPLEMENTED}`，不投影RUN_NOW。`POST /geo/monitoring-plans/{id}/run` 只建立命令边界：required expected_revision与1..160字节可见ASCII Idempotency-Key，先裁决权限、revision、ARCHIVED边界，随后501标准错误。无成功响应、Batch/Run/幂等存储/dispatch或成功审计；key重放仍501。完整执行及快照冻结由GEO-303实施，计划向导由GEO-209实施。
++GEO-303 已开放计划创建 API：`POST /geo/monitoring-plans/{id}/run` 必填 expected_revision 和1..160字符可见ASCII Idempotency-Key，返回201 `GeoBatchCreated` 稳定回执。非归档计划在当前资格满足时可手工创建，计划状态/revision不变；同用户同键同请求重放原回执，异请求409 IDEMPOTENCY_CONFLICT。当前R1页面仍不提供运行交互，run_entry为 `{available:false,reason_code:UI_NOT_IMPLEMENTED}`，不投影RUN_NOW；运行页面由后续任务交付。计划存在批次历史时删除投影增加 HAS_BATCH_HISTORY，不提供 DELETE，命令返回 GEO_PLAN_IN_USE。
+ 
+ ### 6.1 预览请求
+ 
+@@ -241,7 +241,7 @@
+ 
+ ## 7. 批次 API
+ 
+-GEO-301 / R2 当前仅建立根 OpenAPI 数据组件 `GeoObservationBatchOut`、`GeoObservationRunOut` 及闭合输入/计划/规则快照、状态与错误枚举；公共 Run 隐藏 lease_token。以下操作仍是后续任务设计，不是已开放端点，现有 Plan run-now 仍为 501。费用 wire 为有限非负十进制字符串，未知为 null；阶段/错误码闭合，不返回异常或供应商原始正文。
++GEO-301 / R2 已建立根OpenAPI基础数据和闭合快照组件；GEO-302已建立状态与动作策略；GEO-303开放两个批次创建入口。以下列表/详情/取消/运行操作仍是后续任务设计，尚未开放。公共Run隐藏lease_token；费用未知为null，不返回异常或供应商原始正文。
+ 
+ | 方法 | 路径 | operationId |
+ |---|---|---|
+@@ -251,11 +251,15 @@
+ | POST | `/geo/observation-batches/{id}/cancel` | `cancelGeoObservationBatch` |
+ | GET | `/geo/observation-batches/{id}/runs` | `listGeoObservationBatchRuns` |
+ 
+-`createGeoObservationBatch` 支持：
+-
+-- 计划立即运行；
+-- 临时选择变体/profile/对象；
+-- 不直接支持 RETEST，复测通过机会命令创建。
++GEO-303 `POST /geo/observation-batches` / `createGeoObservationBatch` 使用required Idempotency-Key与闭合source判别联合：
++
++- `PLAN`：plan_id与expected_revision；与计划run-now入口共用请求身份。
++- `AD_HOC`：configuration为完整计划配置形状，但schedule_kind只能MANUAL_ONLY、cron_expression只能null；不保存临时Plan。
++- 返回201 `{batch_id,requested_run_count,created_at}`；不把之后变化的Batch状态写入幂等回执。
++- 两入口都要求ADMIN/ENGINEER、session与CSRF；当前共享内部业务权限，用户仅限定key命名空间。鉴权后优先重放首次结果，首次创建才锁内校验当前revision/资格。
++- 错误复用AUTH_REQUIRED/PASSWORD_CHANGE_REQUIRED/FORBIDDEN/VALIDATION_ERROR/NOT_FOUND/REVISION_CONFLICT/GEO_PLAN_REFERENCE_INVALID/GEO_PLAN_PROFILE_INELIGIBLE/GEO_PLAN_BUDGET_EXCEEDED/GEO_PLAN_ARCHIVED/IDEMPOTENCY_CONFLICT；未知内部失败不伪造成功。
++- 不支持客户端actor/status/snapshot/classification/scheduled_for、SCHEDULED或RETEST。调度创建仅内部应用服务，窗口UTC规范化且身份不含plan revision；Scheduler循环仍属后续任务。
++- 创建不调用外部平台，不派发Redis；稳定执行ID和后续状态读模型由对应任务接入。
+ 
+ ## 8. 运行 API
+ 
+--- a/docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md
++++ b/docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md
+@@ -176,7 +176,7 @@
+ schedule_identity = sha256(plan_id + canonical_utc_scheduled_for)
+ ```
+ 
+-GEO-301 已定义数据库唯一 `(plan_id, scheduled_for)` 及非空 SHA256 摘要索引；身份不含 plan_revision，计划更新不能使同窗口再次创建。具体时间规范化和调度执行由 GEO-402 实施。
++GEO-301 已定义数据库唯一 `(plan_id, scheduled_for)` 及非空 SHA256 摘要索引；身份不含 plan_revision，计划更新不能使同窗口再次创建。GEO-303内部批次工厂已规范化aware窗口为UTC微秒时间，创建身份使用固定命名空间与计划ID，不含revision；同窗口重放首次批次。仅首次新窗口要求ACTIVE CRON及当前资格。窗口计算、扫描、补跑与调度执行由GEO-402实施，工厂不派发Redis或调用Collector。
+ 
+ ### 6.2 时区和错过窗口
+ 
+--- a/docs/geo-monitoring/03-technical/07-testing-and-quality.md
++++ b/docs/geo-monitoring/03-technical/07-testing-and-quality.md
+@@ -441,3 +441,7 @@
+ [ ] 文档和任务状态已更新
+ [ ] 验证命令和结果已记录
+ ```
++
++### GEO-303：批次创建验收边界
++
++使用真实PostgreSQL验证计划/临时配置冻结、同键并发/异载荷、调度同窗口跨revision与时区、1000 roots、分块写入/审计/数量完整性失败全回滚、历史引用删除保护及0048非空前滚/metadata对齐。普通验证不访问真实AI；创建没有派发或浏览器旅程。指定完整门禁、定向验证与测量证据见 [实施记录](../../../.trellis/tasks/10-02-geo-303-batch-factory/implement.md)。
+--- a/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ b/docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -507,7 +507,7 @@
+   phase: R2
+   release: R2
+   title: 实现批次工厂、计划快照和创建幂等
+-  status: planned
++  status: review
+   dependencies:
+   - GEO-302
+   - GEO-207
+@@ -523,6 +523,7 @@
+   - 02-business/03-workflows-and-state-machines.md
+   - 03-technical/01-technical-architecture.md
+   - 04-delivery/04-codex-execution-guide.md
++  review_note: 2026-10-02实现与本地验证完成；计划/临时安全快照、原子Batch与根Runs、用户作用域手工幂等和UTC调度窗口身份已实现。0049增量身份与主体历史关系，1000 runs创建0.729秒，后端2642/前端1067单元及667 PostgreSQL集成通过；合同、lint、typecheck、diff检查与独立只读复核通过。精确命令、首轮断言修正、前滚和限制见GEO-303 Task Brief与implement.md；仅进入review，待人工验收，不实施后续任务。
+ - id: GEO-304
+   phase: R2
+   release: R2
+--- a/docs/geo-monitoring/CHANGELOG.md
++++ b/docs/geo-monitoring/CHANGELOG.md
+@@ -1,4 +1,11 @@
+ # 文档包变更记录
++
++## GEO-303 批次工厂、计划快照和创建幂等 — 2026-10-02
++
++- 从计划与临时完整配置冻结安全快照，原子创建Batch与根Runs，稳定回执与用户作用域手工幂等共用两个API入口。
++- 内部调度工厂规范UTC窗口，不含plan revision；只创建，不计算窗口或派发。
++- 0049增量创建身份与主体历史关系，回填既有快照引用；接入真实删除保护和最小成功审计。
++- 真实PostgreSQL覆盖同键并发、1000 runs、配置变化及全回滚；最终状态与门禁/独立复核证据见GEO-303 Task Brief，不自行标记done。
+ 
+ ## GEO-302 Batch/Run 状态策略与动作投影 — 2026-10-02（review）
+ 
+--- a/docs/geo-monitoring/README.md
++++ b/docs/geo-monitoring/README.md
+@@ -56,6 +56,8 @@
+ 本任务不提供 Plan API、矩阵预览、调度执行或 Batch/Run，尚未迁移生产数据库。
+ 当前状态与逐项验证见 [Task Brief](../../.trellis/tasks/10-02-geo-206-monitoring-plan/prd.md)
+ 和 [实施证据](../../.trellis/tasks/10-02-geo-206-monitoring-plan/implement.md)，本地验收后交付 review，等待人工接受。
++
++GEO-303 / R2 已实现计划/临时批次工厂、完整安全快照和手工/调度创建身份，状态及最终本地验证见 [Task Brief](../../.trellis/tasks/10-02-geo-303-batch-factory/prd.md) 与 [实施证据](../../.trellis/tasks/10-02-geo-303-batch-factory/implement.md)。创建不派发、不接入Collector或运行页面；根合同为创建与历史引用权威。
+ 
+ ## 1. 文档包用途
+ 
+--- a/frontend/src/domains/geo-plans/plan-detail.tsx
++++ b/frontend/src/domains/geo-plans/plan-detail.tsx
+@@ -99,7 +99,7 @@
+     {message && <PlanNotice>{message}</PlanNotice>}
+     <dl className="grid min-w-0 gap-3 text-sm sm:grid-cols-2"><div className="sm:col-span-2"><dt className="text-text-muted">计划名称</dt><dd className="break-words">{plan.name}</dd></div><div className="sm:col-span-2"><dt className="text-text-muted">说明</dt><dd className="whitespace-pre-wrap break-words">{plan.description || '未填写说明'}</dd></div><div><dt className="text-text-muted">调度配置</dt><dd className="break-words">{scheduleLabels[plan.schedule_kind]} · {plan.cron_expression ?? '按需触发'} · {plan.timezone}</dd></div><div><dt className="text-text-muted">预算上限</dt><dd>{plan.budget_limit ?? '未设置'}</dd></div><div className="sm:col-span-2"><dt className="text-text-muted">监测对象与角色</dt><dd className="space-y-1">{plan.subjects.map((item) => <p className="break-all" key={item.subject_id}>{roleLabels[item.role]} · {item.subject_id}</p>)}</dd></div><div className="sm:col-span-2"><dt className="text-text-muted">问题变体</dt><dd className="space-y-1">{plan.prompt_variant_ids.map((id) => <p className="break-all" key={id}><a className="text-interaction-primary underline" href={`/geo/questions?selected=${id}`} rel="noopener noreferrer" target="_blank">{id}</a></p>)}</dd></div><div className="sm:col-span-2"><dt className="text-text-muted">采集配置</dt><dd className="space-y-1">{plan.collection_profile_ids.map((id) => <p className="break-all" key={id}>{id}</p>)}</dd></div></dl>
+     <section className="min-w-0 space-y-3" ref={preview} tabIndex={-1}><PlanPreviewPanel onFix={plan.available_actions.includes('UPDATE') || plan.available_actions.includes('CREATE_REVISION') ? (step) => onEdit(step) : undefined} preview={plan.preview} /></section>
+-    <PlanNotice>R1 当前提供配置与预览。立即运行尚未开放（{plan.run_entry.reason_code}），定时执行和批次历史将在后续任务交付。</PlanNotice>
++    <PlanNotice>当前页面提供配置与预览。运行交互尚未开放（{plan.run_entry.reason_code}），定时执行和批次历史将在后续任务交付。</PlanNotice>
+     {plan.deletion.blockers.length > 0 && <section aria-label="删除条件" className="space-y-2 border-t border-border-subtle pt-3" ref={conditions} tabIndex={-1}><h3 className="type-section-title">删除条件</h3>{plan.deletion.blockers.map((code) => <p className="text-sm" key={code}>{deletionReason(code)}</p>)}</section>}
+     <Dialog onOpenChange={(open) => { if (!open && !busy) setIntent(undefined); }} open={Boolean(intent)}><DialogContent finalFocus={() => finalFocus.current?.isConnected ? finalFocus.current : null} showCloseButton={!busy}><DialogHeader><DialogTitle>确认{intent ? actionLabels[intent.action] : '操作'}</DialogTitle><DialogDescription>{intent ? confirmationText(intent.action) : ''} Revision {intent?.revision}。</DialogDescription></DialogHeader>
+       {intent?.action === 'COPY' && <div className="space-y-1 text-sm"><label htmlFor="plan-copy-name">新计划名称</label><Input {...copyForm.register('name')} aria-describedby={copyErrors.name ? 'plan-copy-error' : undefined} aria-invalid={Boolean(copyErrors.name)} disabled={busy} id="plan-copy-name" maxLength={200} />{copyErrors.name && <span className="text-danger" id="plan-copy-error">{copyErrors.name.message}</span>}</div>}
+@@ -111,7 +111,7 @@
+     </DialogContent></Dialog>
+   </section>;
+ }
+-function deletionReason(code: PlanDetail['deletion']['blockers'][number]) { switch (code) { case 'PLAN_NOT_DISABLED': return '当前计划不是未启用状态，服务端不允许删除；可按可用动作归档。'; case 'ARCHIVED': return '归档计划只读，不能删除；可复制为新计划。'; default: return assertNever(code); } }
++function deletionReason(code: PlanDetail['deletion']['blockers'][number]) { switch (code) { case 'PLAN_NOT_DISABLED': return '当前计划不是未启用状态，服务端不允许删除；可按可用动作归档。'; case 'HAS_BATCH_HISTORY': return '计划已有批次历史，请归档以保留执行记录。'; case 'ARCHIVED': return '归档计划只读，不能删除；可复制为新计划。'; default: return assertNever(code); } }
+ function confirmationText(action: Command) { switch (action) {
+   case 'ACTIVATE': return '服务端会重新检查当前资源资格。启用仅保存计划状态，R1 尚未执行调度或采集。';
+   case 'PAUSE': return '暂停计划，不改变已保存的配置或历史。';
+--- a/frontend/src/domains/geo-plans/plan-wizard.test.tsx
++++ b/frontend/src/domains/geo-plans/plan-wizard.test.tsx
+@@ -22,7 +22,7 @@
+   return { prompt_count: 1, profile_count: 1, repeat_count: 3, run_count: runCount, manual_run_count: runCount, api_run_count: 0, browser_run_count: 0, unresolved_run_count: 0, estimated_cost: { value: null, currency: null, coverage: 'NONE', known_run_count: 0, unknown_run_count: runCount, known_costs: [] }, blockers: [], warnings: [{ code: 'COST_UNKNOWN', field: 'estimated_cost', resource_id: null, related_resource_id: null }] };
+ }
+ function plan(overrides: Partial<PlanDetail> = {}): PlanDetail {
+-  return { id, name: '原始计划', description: '原始说明', subjects: [{ subject_id: subjectId, role: 'PRIMARY' }], prompt_variant_ids: [promptId], collection_profile_ids: [profileId], repeat_count: 3, schedule_kind: 'MANUAL_ONLY', cron_expression: null, timezone: 'Asia/Shanghai', budget_limit: null, rule_set_revision: 1, status: 'DISABLED', revision: 7, created_by: id, updated_by: id, created_at: time, updated_at: time, preview: preview(), workflow_stage: 'READY', primary_task: 'ACTIVATE', available_actions: ['UPDATE', 'PREVIEW', 'ACTIVATE'], deletion: { blockers: [] }, run_entry: { available: false, reason_code: 'NOT_IMPLEMENTED' }, ...overrides };
++  return { id, name: '原始计划', description: '原始说明', subjects: [{ subject_id: subjectId, role: 'PRIMARY' }], prompt_variant_ids: [promptId], collection_profile_ids: [profileId], repeat_count: 3, schedule_kind: 'MANUAL_ONLY', cron_expression: null, timezone: 'Asia/Shanghai', budget_limit: null, rule_set_revision: 1, status: 'DISABLED', revision: 7, created_by: id, updated_by: id, created_at: time, updated_at: time, preview: preview(), workflow_stage: 'READY', primary_task: 'ACTIVATE', available_actions: ['UPDATE', 'PREVIEW', 'ACTIVATE'], deletion: { blockers: [] }, run_entry: { available: false, reason_code: 'UI_NOT_IMPLEMENTED' }, ...overrides };
+ }
+ function subject(subject_id = subjectId, label = '监测品牌'): components['schemas']['GeoSubjectOut'] {
+   return { id: subject_id, subject_type: 'OWN_BRAND', product_id: null, product: null, parent_subject_id: null, parent: null, canonical_name: label, display_name: label, description: '', is_active: true, aliases: [], domains: [], references: { child_subject_count: 0, monitoring_plan_count: 0, observation_run_count: 0, analysis_count: 0, opportunity_count: 0 }, workflow_stage: 'ACTIVE', primary_task: 'MANAGE_SUBJECT', available_actions: [], deletion: null, revision: 1, created_by: id, created_at: time, updated_at: time };
+--- a/frontend/src/domains/geo-plans/plans-page.test.tsx
++++ b/frontend/src/domains/geo-plans/plans-page.test.tsx
+@@ -18,7 +18,7 @@
+     const get = mockReads(() => plan({ preview: { ...plan().preview, run_count: 97 } }));
+     const { router } = renderPlans(`/geo/plans?selected=${planId}&q=原始&status=DISABLED&schedule_kind=MANUAL_ONLY&page=2&page_size=10&sort=NAME_ASC`);
+     const workspace = await screen.findByRole('region', { name: '监测计划详情' });
+-    expect(within(workspace).getByText(/NOT_IMPLEMENTED/)).toBeVisible();
++    expect(within(workspace).getByText(/UI_NOT_IMPLEMENTED/)).toBeVisible();
+     expect(within(workspace).getByText('97')).toBeVisible();
+     expect(get).toHaveBeenCalledWith('/api/v1/geo/monitoring-plans', expect.objectContaining({ params: { query: { q: '原始', status: 'DISABLED', schedule_kind: 'MANUAL_ONLY', page: 2, page_size: 10, sort: 'NAME_ASC' } } }));
+     await userEvent.setup().click(screen.getByRole('button', { name: '关闭' }));
+--- a/frontend/src/domains/geo-plans/plans.test-support.tsx
++++ b/frontend/src/domains/geo-plans/plans.test-support.tsx
+@@ -18,7 +18,7 @@
+   return { prompt_count: 1, profile_count: 1, repeat_count: 3, run_count: 3, manual_run_count: 3, api_run_count: 0, browser_run_count: 0, unresolved_run_count: 0, estimated_cost: { value: null, currency: null, coverage: 'NONE', known_run_count: 0, unknown_run_count: 3, known_costs: [] }, blockers: [], warnings: [{ code: 'COST_UNKNOWN', field: 'estimated_cost', resource_id: null, related_resource_id: null }], ...overrides };
+ }
+ function plan(overrides: Partial<PlanDetail> = {}): PlanDetail {
+-  return { id: planId, name: '原始监测计划', description: '计划说明', subjects: [{ subject_id: subjectId, role: 'PRIMARY' }], prompt_variant_ids: [promptId], collection_profile_ids: [profileId], repeat_count: 3, schedule_kind: 'MANUAL_ONLY', cron_expression: null, timezone: 'Asia/Shanghai', budget_limit: null, rule_set_revision: 1, status: 'DISABLED', revision: 7, created_by: user.id, updated_by: user.id, created_at: '2026-10-02T08:00:00Z', updated_at: '2026-10-02T08:00:00Z', preview: preview(), workflow_stage: 'READY', primary_task: 'ACTIVATE', available_actions: ['UPDATE', 'PREVIEW', 'ACTIVATE', 'ARCHIVE', 'COPY', 'DELETE'], deletion: { blockers: [] }, run_entry: { available: false, reason_code: 'NOT_IMPLEMENTED' }, ...overrides };
++  return { id: planId, name: '原始监测计划', description: '计划说明', subjects: [{ subject_id: subjectId, role: 'PRIMARY' }], prompt_variant_ids: [promptId], collection_profile_ids: [profileId], repeat_count: 3, schedule_kind: 'MANUAL_ONLY', cron_expression: null, timezone: 'Asia/Shanghai', budget_limit: null, rule_set_revision: 1, status: 'DISABLED', revision: 7, created_by: user.id, updated_by: user.id, created_at: '2026-10-02T08:00:00Z', updated_at: '2026-10-02T08:00:00Z', preview: preview(), workflow_stage: 'READY', primary_task: 'ACTIVATE', available_actions: ['UPDATE', 'PREVIEW', 'ACTIVATE', 'ARCHIVE', 'COPY', 'DELETE'], deletion: { blockers: [] }, run_entry: { available: false, reason_code: 'UI_NOT_IMPLEMENTED' }, ...overrides };
+ }
+ function response<T>(data: T) { return { data, response: Response.json(data) } as never; }
+ function failure(code = 'REVISION_CONFLICT', status = 409) {
+--- a/frontend/src/shared/api/generated/schema.d.ts
++++ b/frontend/src/shared/api/generated/schema.d.ts
+@@ -2618,7 +2618,25 @@
+         };
+         get?: never;
+         put?: never;
++        /** Run Now */
+         post: operations["runGeoMonitoringPlanNow"];
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++    "/api/v1/geo/observation-batches": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        get?: never;
++        put?: never;
++        /** Create Batch */
++        post: operations["createGeoObservationBatch"];
+         delete?: never;
+         options?: never;
+         head?: never;
+@@ -7387,7 +7405,7 @@
+         /** GeoPlanDeletion */
+         GeoPlanDeletion: {
+             /** Blockers */
+-            blockers: ("PLAN_NOT_DISABLED" | "ARCHIVED")[];
++            blockers: ("PLAN_NOT_DISABLED" | "ARCHIVED" | "HAS_BATCH_HISTORY")[];
+         };
+         /** GeoPlanRunEntry */
+         GeoPlanRunEntry: {
+@@ -7400,7 +7418,7 @@
+              * Reason Code
+              * @constant
+              */
+-            reason_code: "NOT_IMPLEMENTED";
++            reason_code: "UI_NOT_IMPLEMENTED";
+         };
+         /** GeoMonitoringPlanCopy */
+         GeoMonitoringPlanCopy: {
+@@ -7986,6 +8004,95 @@
+             primary_task: components["schemas"]["GeoBatchPrimaryTask"];
+             available_actions: components["schemas"]["GeoBatchAction"][];
+         };
++        /** GeoAdHocBatchConfiguration */
++        GeoAdHocBatchConfiguration: {
++            /** Name */
++            name: string;
++            /**
++             * Description
++             * @default
++             */
++            description: string;
++            /**
++             * Subjects
++             * @description subject_id 在集合内唯一；至少一个 PRIMARY，不由对象类型推断角色。
++             */
++            subjects: components["schemas"]["GeoPlanSubject"][];
++            /** Prompt Variant Ids */
++            prompt_variant_ids: string[];
++            /** Collection Profile Ids */
++            collection_profile_ids: string[];
++            /**
++             * Repeat Count
++             * @default 3
++             */
++            repeat_count: number;
++            /**
++             * Schedule Kind
++             * @default MANUAL_ONLY
++             * @constant
++             */
++            schedule_kind: "MANUAL_ONLY";
++            /**
++             * Cron Expression
++             * @default null
++             */
++            cron_expression: null;
++            /**
++             * Timezone
++             * @default Asia/Shanghai
++             */
++            timezone: string;
++            /**
++             * Budget Limit
++             * @default null
++             */
++            budget_limit: string | null;
++            /**
++             * Rule Set Revision
++             * @default 1
++             */
++            rule_set_revision: number;
++        } & unknown;
++        /** GeoAdHocBatchCreate */
++        GeoAdHocBatchCreate: {
++            /**
++             * @description discriminator enum property added by openapi-typescript
++             * @enum {string}
++             */
++            source: "AD_HOC";
++            configuration: components["schemas"]["GeoAdHocBatchConfiguration"];
++        };
++        /** GeoPlanBatchCreate */
++        GeoPlanBatchCreate: {
++            /** Expected Revision */
++            expected_revision: number;
++            /**
++             * @description discriminator enum property added by openapi-typescript
++             * @enum {string}
++             */
++            source: "PLAN";
++            /**
++             * Plan Id
++             * Format: uuid
++             */
++            plan_id: string;
++        };
++        /** GeoBatchCreated */
++        GeoBatchCreated: {
++            /**
++             * Batch Id
++             * Format: uuid
++             */
++            batch_id: string;
++            /** Requested Run Count */
++            requested_run_count: number;
++            /**
++             * Created At
++             * Format: date-time
++             */
++            created_at: string;
++        };
+     };
+     responses: {
+         /** @description 业务或校验错误 */
+@@ -14881,13 +14988,57 @@
+             };
+         };
+         responses: {
++            /** @description Successful Response */
++            201: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoBatchCreated"];
++                };
++            };
+             400: components["responses"]["ErrorResponse"];
+             401: components["responses"]["ErrorResponse"];
+             403: components["responses"]["ErrorResponse"];
+             404: components["responses"]["ErrorResponse"];
+             409: components["responses"]["ErrorResponse"];
+             422: components["responses"]["ErrorResponse"];
+-            501: components["responses"]["ErrorResponse"];
++        };
++    };
++    createGeoObservationBatch: {
++        parameters: {
++            query?: never;
++            header: {
++                "Idempotency-Key": string;
++                "X-CSRF-Token": string;
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path?: never;
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["GeoPlanBatchCreate"] | components["schemas"]["GeoAdHocBatchCreate"];
++            };
++        };
++        responses: {
++            /** @description Successful Response */
++            201: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoBatchCreated"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
+         };
+     };
+ }

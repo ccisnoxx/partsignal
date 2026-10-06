@@ -1,0 +1,12 @@
+{
+  "scope": "GEO-606",
+  "maintained_file_count": 34,
+  "previous_OpenAPI_semantics_preserved": true,
+  "database_prefix_preserved": true,
+  "e2e_default_only_adds_report_spec": true,
+  "status": {
+    "GEO-605": "done",
+    "GEO-606": "review",
+    "GEO-607": "planned"
+  }
+}

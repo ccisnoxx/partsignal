@@ -1,0 +1,12 @@
+{
+  "command": [
+    "shasum",
+    "-a",
+    "256",
+    "-c",
+    "SHA256SUMS"
+  ],
+  "started_at": "2026-10-04T14:14:26.274321+00:00",
+  "duration_seconds": 0.03165991703281179,
+  "exit_code": 0
+}

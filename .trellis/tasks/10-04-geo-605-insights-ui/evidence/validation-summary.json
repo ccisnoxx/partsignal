@@ -1,0 +1,150 @@
+{
+  "git_diff_check": {
+    "evidence": "git-diff-check-delivery",
+    "argv": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "exit_code": 0,
+    "started_at": "2026-10-04T10:06:36.584490+00:00",
+    "finished_at": "2026-10-04T10:06:36.616061+00:00"
+  },
+  "lint": {
+    "evidence": "make-lint-navigation",
+    "argv": [
+      "make",
+      "lint"
+    ],
+    "exit_code": 0,
+    "started_at": "2026-10-04T09:50:40.889449+00:00",
+    "finished_at": "2026-10-04T09:51:00.383074+00:00"
+  },
+  "typecheck": {
+    "evidence": "make-typecheck-navigation",
+    "argv": [
+      "make",
+      "typecheck"
+    ],
+    "exit_code": 0,
+    "started_at": "2026-10-04T09:50:40.889460+00:00",
+    "finished_at": "2026-10-04T09:51:00.129836+00:00"
+  },
+  "frontend_test": {
+    "evidence": "frontend-test-navigation",
+    "argv": [
+      "npm",
+      "--prefix",
+      "frontend",
+      "run",
+      "test"
+    ],
+    "exit_code": 0,
+    "started_at": "2026-10-04T09:50:40.889455+00:00",
+    "finished_at": "2026-10-04T09:51:12.446379+00:00"
+  },
+  "frontend_typecheck": {
+    "evidence": "frontend-typecheck-navigation",
+    "argv": [
+      "npm",
+      "--prefix",
+      "frontend",
+      "run",
+      "typecheck"
+    ],
+    "exit_code": 0,
+    "started_at": "2026-10-04T09:51:29.808754+00:00",
+    "finished_at": "2026-10-04T09:51:37.767273+00:00"
+  },
+  "e2e": {
+    "evidence": "make-e2e-delivery",
+    "argv": [
+      "env",
+      "DATABASE_URL=postgresql+psycopg://partsignal:partsignal_dev@127.0.0.1:55468/partsignal",
+      "REDIS_URL=redis://127.0.0.1:56408/14",
+      "make",
+      "e2e"
+    ],
+    "exit_code": 0,
+    "started_at": "2026-10-04T09:51:30.939559+00:00",
+    "finished_at": "2026-10-04T10:03:46.737332+00:00"
+  },
+  "contract": {
+    "evidence": "make-contract-check",
+    "argv": [
+      "make",
+      "contract-check"
+    ],
+    "exit_code": 0,
+    "started_at": "2026-10-04T09:11:31.210491+00:00",
+    "finished_at": "2026-10-04T09:11:35.418177+00:00"
+  },
+  "unit": {
+    "evidence": "make-test-unit",
+    "argv": [
+      "make",
+      "test-unit"
+    ],
+    "exit_code": 0,
+    "started_at": "2026-10-04T09:12:06.270339+00:00",
+    "finished_at": "2026-10-04T09:13:27.731578+00:00"
+  },
+  "target_e2e": {
+    "evidence": "geo605-e2e-final-target",
+    "argv": [
+      "env",
+      "DATABASE_URL=postgresql+psycopg://partsignal:partsignal_dev@127.0.0.1:55468/partsignal",
+      "REDIS_URL=redis://127.0.0.1:56408/14",
+      "PARTSIGNAL_E2E_SPEC=tests/e2e/insights-real-stack.spec.ts",
+      "deploy/scripts/e2e-local.sh",
+      "tests/e2e/plans-real-stack.spec.ts"
+    ],
+    "exit_code": 0,
+    "started_at": "2026-10-04T09:33:24.426927+00:00",
+    "finished_at": "2026-10-04T09:34:49.700898+00:00"
+  },
+  "navigation_e2e": {
+    "evidence": "mobile-navigation-e2e",
+    "argv": [
+      "npm",
+      "--prefix",
+      "frontend",
+      "run",
+      "e2e",
+      "--",
+      "tests/e2e/prompt-workspace.spec.ts",
+      "--project=foundation-mobile",
+      "--grep",
+      "管理员从导航进入"
+    ],
+    "exit_code": 0,
+    "started_at": "2026-10-04T09:49:01.258243+00:00",
+    "finished_at": "2026-10-04T09:49:12.137834+00:00"
+  },
+  "scope": {
+    "evidence": "scope-verification-final",
+    "argv": [
+      "backend/.venv/bin/python",
+      ".trellis/tasks/10-04-geo-605-insights-ui/evidence/verify_scope.py"
+    ],
+    "exit_code": 0,
+    "started_at": "2026-10-04T10:07:14.509809+00:00",
+    "finished_at": "2026-10-04T10:07:14.944424+00:00"
+  },
+  "cleanup": {
+    "evidence": "test-infra-cleanup",
+    "argv": [
+      "docker",
+      "compose",
+      "-p",
+      "partsignal-geo605",
+      "-f",
+      ".trellis/tasks/10-04-geo-605-insights-ui/evidence/validation-compose.yaml",
+      "down",
+      "-v"
+    ],
+    "exit_code": 0,
+    "started_at": "2026-10-04T10:04:52.890520+00:00",
+    "finished_at": "2026-10-04T10:04:53.231700+00:00"
+  }
+}

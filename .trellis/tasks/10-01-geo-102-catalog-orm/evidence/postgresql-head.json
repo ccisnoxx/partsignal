@@ -1,0 +1,199 @@
+{
+  "postgres_version": "16.15",
+  "head": "0044_geo_catalog",
+  "catalog_tables": [
+    "geo_subject_aliases",
+    "geo_subject_domains",
+    "geo_subjects"
+  ],
+  "constraints": [
+    {
+      "table": "geo_subject_aliases",
+      "name": "ck_geo_subject_aliases_kind",
+      "kind": "c"
+    },
+    {
+      "table": "geo_subject_aliases",
+      "name": "ck_geo_subject_aliases_language",
+      "kind": "c"
+    },
+    {
+      "table": "geo_subject_aliases",
+      "name": "ck_geo_subject_aliases_text",
+      "kind": "c"
+    },
+    {
+      "table": "geo_subject_aliases",
+      "name": "fk_geo_subject_aliases_subject_id_subjects",
+      "kind": "f"
+    },
+    {
+      "table": "geo_subject_aliases",
+      "name": "pk_geo_subject_aliases",
+      "kind": "p"
+    },
+    {
+      "table": "geo_subject_aliases",
+      "name": "uq_geo_subject_aliases_subject_normalized",
+      "kind": "u"
+    },
+    {
+      "table": "geo_subject_domains",
+      "name": "ck_geo_subject_domains_active",
+      "kind": "c"
+    },
+    {
+      "table": "geo_subject_domains",
+      "name": "ck_geo_subject_domains_hostname",
+      "kind": "c"
+    },
+    {
+      "table": "geo_subject_domains",
+      "name": "ck_geo_subject_domains_relation",
+      "kind": "c"
+    },
+    {
+      "table": "geo_subject_domains",
+      "name": "fk_geo_subject_domains_subject_id_subjects",
+      "kind": "f"
+    },
+    {
+      "table": "geo_subject_domains",
+      "name": "pk_geo_subject_domains",
+      "kind": "p"
+    },
+    {
+      "table": "geo_subject_domains",
+      "name": "uq_geo_subject_domains_subject_hostname",
+      "kind": "u"
+    },
+    {
+      "table": "geo_subjects",
+      "name": "ck_geo_subjects_names",
+      "kind": "c"
+    },
+    {
+      "table": "geo_subjects",
+      "name": "ck_geo_subjects_parent_not_self",
+      "kind": "c"
+    },
+    {
+      "table": "geo_subjects",
+      "name": "ck_geo_subjects_parent_type",
+      "kind": "c"
+    },
+    {
+      "table": "geo_subjects",
+      "name": "ck_geo_subjects_product_identity",
+      "kind": "c"
+    },
+    {
+      "table": "geo_subjects",
+      "name": "ck_geo_subjects_revision_nonnegative",
+      "kind": "c"
+    },
+    {
+      "table": "geo_subjects",
+      "name": "ck_geo_subjects_type",
+      "kind": "c"
+    },
+    {
+      "table": "geo_subjects",
+      "name": "fk_geo_subjects_created_by_users",
+      "kind": "f"
+    },
+    {
+      "table": "geo_subjects",
+      "name": "fk_geo_subjects_parent_identity",
+      "kind": "f"
+    },
+    {
+      "table": "geo_subjects",
+      "name": "fk_geo_subjects_product_id_products",
+      "kind": "f"
+    },
+    {
+      "table": "geo_subjects",
+      "name": "pk_geo_subjects",
+      "kind": "p"
+    },
+    {
+      "table": "geo_subjects",
+      "name": "uq_geo_subjects_id_type",
+      "kind": "u"
+    }
+  ],
+  "indexes": [
+    {
+      "table": "geo_subject_aliases",
+      "name": "ix_geo_subject_aliases_normalized_active",
+      "definition": "CREATE INDEX ix_geo_subject_aliases_normalized_active ON public.geo_subject_aliases USING btree (normalized_alias, is_active, subject_id)"
+    },
+    {
+      "table": "geo_subject_aliases",
+      "name": "pk_geo_subject_aliases",
+      "definition": "CREATE UNIQUE INDEX pk_geo_subject_aliases ON public.geo_subject_aliases USING btree (id)"
+    },
+    {
+      "table": "geo_subject_aliases",
+      "name": "uq_geo_subject_aliases_subject_normalized",
+      "definition": "CREATE UNIQUE INDEX uq_geo_subject_aliases_subject_normalized ON public.geo_subject_aliases USING btree (subject_id, normalized_alias)"
+    },
+    {
+      "table": "geo_subject_domains",
+      "name": "ix_geo_subject_domains_hostname",
+      "definition": "CREATE INDEX ix_geo_subject_domains_hostname ON public.geo_subject_domains USING btree (hostname, subject_id)"
+    },
+    {
+      "table": "geo_subject_domains",
+      "name": "pk_geo_subject_domains",
+      "definition": "CREATE UNIQUE INDEX pk_geo_subject_domains ON public.geo_subject_domains USING btree (id)"
+    },
+    {
+      "table": "geo_subject_domains",
+      "name": "uq_geo_subject_domains_subject_hostname",
+      "definition": "CREATE UNIQUE INDEX uq_geo_subject_domains_subject_hostname ON public.geo_subject_domains USING btree (subject_id, hostname)"
+    },
+    {
+      "table": "geo_subjects",
+      "name": "ix_geo_subjects_created_by",
+      "definition": "CREATE INDEX ix_geo_subjects_created_by ON public.geo_subjects USING btree (created_by)"
+    },
+    {
+      "table": "geo_subjects",
+      "name": "ix_geo_subjects_parent_id",
+      "definition": "CREATE INDEX ix_geo_subjects_parent_id ON public.geo_subjects USING btree (parent_subject_id)"
+    },
+    {
+      "table": "geo_subjects",
+      "name": "ix_geo_subjects_product_id",
+      "definition": "CREATE INDEX ix_geo_subjects_product_id ON public.geo_subjects USING btree (product_id) WHERE (product_id IS NOT NULL)"
+    },
+    {
+      "table": "geo_subjects",
+      "name": "ix_geo_subjects_type_active_name_id",
+      "definition": "CREATE INDEX ix_geo_subjects_type_active_name_id ON public.geo_subjects USING btree (subject_type, is_active, normalized_name, id)"
+    },
+    {
+      "table": "geo_subjects",
+      "name": "ix_geo_subjects_updated_id",
+      "definition": "CREATE INDEX ix_geo_subjects_updated_id ON public.geo_subjects USING btree (updated_at, id)"
+    },
+    {
+      "table": "geo_subjects",
+      "name": "pk_geo_subjects",
+      "definition": "CREATE UNIQUE INDEX pk_geo_subjects ON public.geo_subjects USING btree (id)"
+    },
+    {
+      "table": "geo_subjects",
+      "name": "uq_geo_subjects_active_own_product",
+      "definition": "CREATE UNIQUE INDEX uq_geo_subjects_active_own_product ON public.geo_subjects USING btree (product_id) WHERE (((subject_type)::text = 'OWN_PRODUCT'::text) AND is_active)"
+    },
+    {
+      "table": "geo_subjects",
+      "name": "uq_geo_subjects_id_type",
+      "definition": "CREATE UNIQUE INDEX uq_geo_subjects_id_type ON public.geo_subjects USING btree (id, subject_type)"
+    }
+  ],
+  "identity_trigger": "geo_subjects_identity_guard"
+}

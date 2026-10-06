@@ -1,0 +1,155 @@
+ Container partsignal-geo602-validation-fake-oss-1 Running 
+ Container partsignal-geo602-validation-postgres-1 Running 
+ Container partsignal-geo602-validation-redis-1 Running 
+ Container partsignal-geo602-validation-postgres-1 Waiting 
+ Container partsignal-geo602-validation-postgres-1 Healthy 
+ Container partsignal-geo602-validation-backend-test-run-8a8d30431960 Creating 
+ Container partsignal-geo602-validation-backend-test-run-8a8d30431960 Created 
+.FFFFF                                                                   [100%]
+=================================== FAILURES ===================================
+____ test_current_review_and_all_cards_reproduce_from_same_filtered_samples ____
+
+review_api = ReviewAPI(harness=AnalysisHarness(database=AnswerDatabase(runs=RunDatabase(plan=PlanDatabase(url='postgresql://partsig...s=<starlette.testclient.TestClient object at 0xe259e0cf4aa0>, engineer_id=UUID('8a1fddcf-e81c-4afc-86c5-cf280505b829'))
+
+    def test_current_review_and_all_cards_reproduce_from_same_filtered_samples(review_api):
+        api = review_api
+        case = api.create()
+        before = overview(api, case)
+        assert before["data_quality"]["eligible_run_count"] == 0
+        assert api.submit(case).status_code == 201
+        value = overview(api, case)
+>       assert (
+            value["data_quality"]["candidate_run_count"]
+            == value["data_quality"]["eligible_run_count"]
+            == 1
+        )
+E       assert 1 == 0
+
+tests/integration/test_geo_overview.py:106: AssertionError
+_______ test_filters_are_shared_by_cells_products_risks_batches_quality ________
+
+review_api = ReviewAPI(harness=AnalysisHarness(database=AnswerDatabase(runs=RunDatabase(plan=PlanDatabase(url='postgresql://partsig...s=<starlette.testclient.TestClient object at 0xe259e33d7b90>, engineer_id=UUID('4bf7a8e6-1424-4001-ab0c-982e06f4e3d7'))
+
+    def test_filters_are_shared_by_cells_products_risks_batches_quality(review_api):
+        api = review_api
+        case = api.create()
+        assert api.submit(case).status_code == 201
+        snapshot = case.input
+        patch = {
+            "subject_ids": snapshot["subjects"][1]["id"],
+>           "query_topic_ids": snapshot["prompt"]["query_topic_id"],
+                               ^^^^^^^^^^^^^^^^^^
+            "prompt_variant_ids": snapshot["prompt"]["id"],
+            "engine_surface_ids": snapshot["profile"]["surface"]["id"],
+            "collection_profile_ids": snapshot["profile"]["id"],
+            "collection_modes": snapshot["profile"]["collection_mode"],
+            "language_codes": snapshot["profile"]["language_code"],
+            "region_codes": snapshot["profile"]["region_code"],
+            "login_states": snapshot["profile"]["login_state"],
+            "intent_types": snapshot["prompt"]["intent_type"],
+            "mention_mode": snapshot["prompt"]["mention_mode"],
+            "review_policy": "REVIEWED_ONLY",
+        }
+E       KeyError: 'prompt'
+
+tests/integration/test_geo_overview.py:159: KeyError
+__________ test_repeatable_read_cannot_mix_new_review_between_queries __________
+
+review_api = ReviewAPI(harness=AnalysisHarness(database=AnswerDatabase(runs=RunDatabase(plan=PlanDatabase(url='postgresql://partsig...s=<starlette.testclient.TestClient object at 0xe259e0f43860>, engineer_id=UUID('f2b82ff7-9393-4cd5-acfb-82861a37e29e'))
+
+    def test_repeatable_read_cannot_mix_new_review_between_queries(review_api):
+        api = review_api
+        case = api.create()
+        inserted = False
+    
+        def after_run(conn, cursor, statement, parameters, context, many):
+            nonlocal inserted
+            if inserted or "FROM geo_observation_runs" not in statement:
+                return
+            inserted = True
+            assert api.submit(case).status_code == 201
+    
+        engine = api.harness.factory.kw["bind"]
+        event.listen(engine, "after_cursor_execute", after_run)
+        try:
+            value = overview(api, case)
+        finally:
+            event.remove(engine, "after_cursor_execute", after_run)
+        assert inserted and value["data_quality"]["eligible_run_count"] == 0
+>       assert overview(api, case)["data_quality"]["eligible_run_count"] == 1
+E       assert 0 == 1
+
+tests/integration/test_geo_overview.py:223: AssertionError
+________ test_query_count_is_fixed_with_empty_dense_and_review_history _________
+
+review_api = ReviewAPI(harness=AnalysisHarness(database=AnswerDatabase(runs=RunDatabase(plan=PlanDatabase(url='postgresql://partsig...s=<starlette.testclient.TestClient object at 0xe259e0bc64b0>, engineer_id=UUID('5ad97b74-833f-458a-bc5b-f2120ce3ccd0'))
+
+    def test_query_count_is_fixed_with_empty_dense_and_review_history(review_api):
+        api = review_api
+    
+        def capture(**patch):
+            sqls, levels = [], []
+    
+            def before(conn, cursor, statement, parameters, context, many):
+                sqls.append(statement)
+                levels.append(conn.get_isolation_level())
+    
+            engine = api.harness.factory.kw["bind"]
+            event.listen(engine, "before_cursor_execute", before)
+            try:
+                value = overview(api, **patch)
+            finally:
+                event.remove(engine, "before_cursor_execute", before)
+            assert all(sql.lstrip().startswith("SELECT") for sql in sqls)
+            assert all(level == "REPEATABLE READ" for level in levels)
+            assert not any(
+                word in sql
+                for sql in sqls
+                for word in ("lease_token", "ai_channel_headers", "api_key_encrypted")
+            )
+            return value, len(sqls)
+    
+        _, empty = capture(subject_ids=str(uuid4()))
+        case = api.create()
+        for _ in range(3):
+            assert api.submit(case).status_code == 201
+        for _ in range(4):
+            api.create(review_required=False, products=0)
+        value, dense = capture()
+        assert value["data_quality"]["candidate_run_count"] >= 5
+>       assert empty == dense == 14
+E       assert 13 == 14
+
+tests/integration/test_geo_overview.py:259: AssertionError
+_ test_new_current_analysis_does_not_reuse_old_review_and_analysis_count_is_run_level _
+
+review_api = ReviewAPI(harness=AnalysisHarness(database=AnswerDatabase(runs=RunDatabase(plan=PlanDatabase(url='postgresql://partsig...s=<starlette.testclient.TestClient object at 0xe259e0e71640>, engineer_id=UUID('38484497-ebfb-439b-93cf-6f0ff9df8149'))
+
+    def test_new_current_analysis_does_not_reuse_old_review_and_analysis_count_is_run_level(review_api):
+        api = review_api
+        case = api.create()
+        assert api.submit(case).status_code == 201
+        api.reanalyze(case)
+        value = overview(api, case)
+        analysis = next(
+            c for c in value["data_quality"]["cards"] if c["metric_code"] == "analysis_run_coverage"
+        )
+        assert (analysis["numerator"], analysis["denominator"]) == (1, 1)
+        assert value["data_quality"]["eligible_run_count"] == 0
+        assert (
+            overview(api, case, review_policy="REVIEWED_ONLY")["data_quality"]["candidate_run_count"]
+            == 0
+        )
+        assert api.submit(case).status_code == 201
+>       assert overview(api, case)["data_quality"]["eligible_run_count"] == 1
+E       assert 0 == 1
+
+tests/integration/test_geo_overview.py:278: AssertionError
+=========================== short test summary info ============================
+FAILED tests/integration/test_geo_overview.py::test_current_review_and_all_cards_reproduce_from_same_filtered_samples
+FAILED tests/integration/test_geo_overview.py::test_filters_are_shared_by_cells_products_risks_batches_quality
+FAILED tests/integration/test_geo_overview.py::test_repeatable_read_cannot_mix_new_review_between_queries
+FAILED tests/integration/test_geo_overview.py::test_query_count_is_fixed_with_empty_dense_and_review_history
+FAILED tests/integration/test_geo_overview.py::test_new_current_analysis_does_not_reuse_old_review_and_analysis_count_is_run_level
+5 failed, 1 passed in 5.54s
+

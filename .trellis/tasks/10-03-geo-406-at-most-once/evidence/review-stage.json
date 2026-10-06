@@ -1,0 +1,15 @@
+{
+  "audit_id": "20261003T110351Z-geo-406-c1fe5ce3",
+  "audit_dir": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T110351Z-geo-406-c1fe5ce3",
+  "sequence": 1,
+  "name": "independent-review",
+  "prefix": "01-independent-review",
+  "paths": {
+    "draft": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T110351Z-geo-406-c1fe5ce3/01-independent-review.draft.json",
+    "plan": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T110351Z-geo-406-c1fe5ce3/01-independent-review.plan.json",
+    "dispatch_dir": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T110351Z-geo-406-c1fe5ce3/01-independent-review.dispatches",
+    "execution": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T110351Z-geo-406-c1fe5ce3/01-independent-review.execution.json",
+    "summary_json": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T110351Z-geo-406-c1fe5ce3/01-independent-review.summary.json",
+    "summary_text": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T110351Z-geo-406-c1fe5ce3/01-independent-review.summary.txt"
+  }
+}

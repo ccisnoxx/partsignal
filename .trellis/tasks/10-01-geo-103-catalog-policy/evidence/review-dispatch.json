@@ -1,0 +1,12 @@
+{
+  "task_id": "geo103-review-a1",
+  "agent_type": "critical_reviewer",
+  "fork_turns": "none",
+  "runtime_ref": "/root/geo103_catalog_review",
+  "runtime_ref_source": "spawn_metadata",
+  "nickname": "Pauli",
+  "model_override": null,
+  "reasoning_effort_override": null,
+  "guard_status": "passed",
+  "audit_id": "20261002T062023Z-geo-103-catalog-review-d852ceb3"
+}

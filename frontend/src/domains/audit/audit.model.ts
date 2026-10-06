@@ -37,6 +37,11 @@ const auditRelatedRegistry = new Map<string, 'NONE' | 'AVAILABLE' | 'MISSING'>([
   ['PublicationWork', 'NONE'],
   ['PublishedContentIssue', 'NONE'],
   ['GeoObservation', 'NONE'],
+  ['GeoOpportunity', 'NONE'],
+  ['GeoSubject', 'NONE'],
+  ['GeoPromptVariant', 'NONE'],
+  ['GeoEngineSurface', 'NONE'],
+  ['GeoCollectionProfile', 'AVAILABLE'],
   ['PlatformProfile', 'NONE'],
   ['PlatformProfileVersion', 'MISSING'],
   ['PlatformAccount', 'AVAILABLE'],
@@ -63,15 +68,18 @@ const auditFactFields: Record<AuditModule, ReadonlySet<string>> = {
     'revision', 'status', 'status_event_count', 'task_id', 'trigger_status',
   ]),
   GEO_OBSERVATION: new Set([
+    'scope', 'evaluated_cells', 'created', 'existing_reused', 'skipped', 'unavailable_reasons',
+    'baseline_id', 'baseline_batch_id', 'batch_id', 'requested_run_count',
     'article_count', 'article_result_count', 'attachment_count', 'observation_count', 'product_id',
     'publication_count', 'query_topic_id', 'root_observation_id', 'supersedes_id',
+    'action_id', 'action_type', 'target_type', 'target_id', 'decision_id', 'decision', 'export_type', 'as_of', 'filter_sha256', 'revision', 'status',
   ]),
   CONFIGURATION: new Set([
     'account_count', 'allowed_domain_count', 'bound_platform_count', 'bound_platform_ids', 'channel_id',
     'configured', 'header_name', 'is_active', 'is_sensitive', 'model_count', 'platform_account_count',
     'platform_profile_id', 'platform_type_id', 'previous_active_version_id', 'protocol_type',
     'provider_brand', 'reason', 'reference_count', 'replacement_version_id', 'revision', 'status',
-    'test_status', 'unbound_platform_count', 'version',
+    'test_status', 'session_reference', 'unbound_platform_count', 'version',
   ]),
   FILE_MANAGEMENT: new Set(['access_level', 'category', 'size', 'status']),
 };
@@ -367,6 +375,33 @@ function parseAuditLogDetailResponse(value: unknown, requestedLogId: string): Au
     const base = projectRuntimeAuditLog(response, true);
     if (base.id !== canonicalRuntimeUuid(requestedLogId)) throw auditRuntimeProjectionFailed();
     const related = projectRuntimeRelatedEntry(ownValue(response, 'related_entry'), base);
+    if (base.action === 'geo_rule_set.updated') {
+      const facts = runtimeRecord(ownValue(response, 'facts'));
+      exactOwnKeys(facts, ['revision']);
+      runtimePositiveInteger(facts, 'revision');
+      if (base.business_module !== 'CONFIGURATION' || base.target_type !== 'GeoRuleSet'
+        || runtimeArray(ownValue(response, 'changes')).length !== 0) throw auditRuntimeProjectionFailed();
+    }
+    if (base.action === 'geo_opportunity.acknowledged' || base.action === 'geo_opportunity.dismissed') {
+      const facts = runtimeRecord(ownValue(response, 'facts'));
+      exactOwnKeys(facts, ['revision', 'status']);
+      runtimePositiveInteger(facts, 'revision');
+      const status = runtimeString(facts, 'status');
+      if (base.business_module !== 'GEO_OBSERVATION' || base.target_type !== 'GeoOpportunity'
+        || status !== (base.action === 'geo_opportunity.acknowledged' ? 'ACKNOWLEDGED' : 'DISMISSED')
+        || runtimeArray(ownValue(response, 'changes')).length !== 0) throw auditRuntimeProjectionFailed();
+    }
+    if (base.action === 'geo_opportunity.resolved' || base.action === 'geo_opportunity.continued') {
+      const facts = runtimeRecord(ownValue(response, 'facts'));
+      exactOwnKeys(facts, ['decision_id', 'decision', 'revision', 'status']);
+      runtimeUuid(facts, 'decision_id');
+      runtimePositiveInteger(facts, 'revision');
+      const continued = base.action === 'geo_opportunity.continued';
+      runtimeEnum(facts, 'decision', continued ? ['CONTINUE'] : ['MANUAL_RESOLVE', 'RETEST_RESOLVE']);
+      if (base.business_module !== 'GEO_OBSERVATION' || base.target_type !== 'GeoOpportunity'
+        || runtimeString(facts, 'status') !== (continued ? 'IN_PROGRESS' : 'RESOLVED')
+        || runtimeArray(ownValue(response, 'changes')).length !== 0) throw auditRuntimeProjectionFailed();
+    }
     return {
       ...base,
       target_id: related.targetId,
@@ -540,11 +575,59 @@ const auditActionLabels: Record<string, string> = {
   'content_version.approve': '批准内容版本', 'content_version.deleted': '删除内容版本', 'content_task.deleted': '删除内容任务', 'content_task.permanently_deleted': '永久删除内容任务',
   'publication_work.completed': '完成发布工作', 'published_article.permanently_deleted': '永久删除发布成果',
   'query_topic.created': '创建问题主题', 'query_topic.updated': '更新问题主题', 'query_topic.deleted': '删除问题主题',
+  'geo_report.export_started': '开始 GEO CSV 导出',
+  'geo_report.print_prepared': '准备 GEO 打印报告',
   'geo_observation.deleted': '删除 GEO 观测',
+  'geo_rule_set.updated': '更新 GEO 规则集',
+  'geo_opportunity.opened': '创建 GEO 机会',
+  'geo_opportunity.evaluated': '管理员评估 GEO 机会',
+  'geo.retest.created': '创建 GEO 严格复测',
+  'geo_opportunity.acknowledged': '确认 GEO 机会',
+  'geo_opportunity.dismissed': '忽略 GEO 机会',
+  'geo_opportunity.resolved': '解决 GEO 机会',
+  'geo_opportunity.continued': '继续跟进 GEO 机会',
+  'geo_opportunity.action_linked': '关联 GEO 机会行动',
+  'geo_prompt_variant.created': '创建 GEO 问题变体',
+  'geo_prompt_variant.updated': '更新 GEO 问题变体',
+  'geo_prompt_variant.enabled': '启用 GEO 问题变体',
+  'geo_prompt_variant.disabled': '停用 GEO 问题变体',
+  'geo_prompt_variant.deleted': '删除 GEO 问题变体',
+  'geo_engine_surface.created': '创建 GEO 观测面',
+  'geo_engine_surface.updated': '更新 GEO 观测面',
+  'geo_engine_surface.enabled': '启用 GEO 观测面',
+  'geo_engine_surface.disabled': '停用 GEO 观测面',
+  'geo_engine_surface.deleted': '删除 GEO 观测面',
+  'geo_collection_profile.created': '创建 GEO 采集配置',
+  'geo_collection_profile.updated': '更新 GEO 采集配置',
+  'geo_collection_profile.enabled': '启用 GEO 采集配置',
+  'geo_collection_profile.disabled': '停用 GEO 采集配置',
+  'geo_collection_profile.tested': '保存 GEO 连接测试结果',
+  'geo_collection_profile.deleted': '删除 GEO 采集配置',
+  'geo_browser_session.imported': '导入浏览器会话',
+  'geo_browser_session.health_checked': '检查浏览器会话存储',
+  'geo_browser_session.revoked': '撤销浏览器会话',
+  'geo_browser_session.purged': '清理已撤销会话密文',
+  'geo_browser_session.accessed': '授权读取浏览器会话密文',
+  'geo_subject.created': '创建 GEO 监测对象',
+  'geo_subject.updated': '更新 GEO 监测对象',
+  'geo_subject.enabled': '启用 GEO 监测对象',
+  'geo_subject.disabled': '停用 GEO 监测对象',
+  'geo_subject.deleted': '删除 GEO 监测对象',
+  'geo_subject_alias.created': '创建 GEO 别名',
+  'geo_subject_alias.updated': '更新 GEO 别名',
+  'geo_subject_alias.deleted': '删除 GEO 别名',
+  'geo_subject_domain.created': '创建 GEO 域名',
+  'geo_subject_domain.deleted': '删除 GEO 域名',
 };
 
 const auditFieldLabels: Record<string, string> = {
-  account_type: '账号类型', is_active: '启用状态', source: '来源', status: '状态', row_count: '行数', revision: '修订号', display_name: '显示名称',
+  session_reference: '浏览器会话引用',
+  baseline_id: '冻结基线 ID', baseline_batch_id: '基线批次 ID', batch_id: '复测批次 ID', requested_run_count: '请求运行数',
+  action_id: '行动 ID', action_type: '行动类型', target_type: '目标类型', target_id: '目标 ID',
+  export_type: '导出类型', as_of: '数据截止时间', filter_sha256: '筛选摘要 SHA-256',
+  scope: '评估范围', evaluated_cells: '评估结果数', created: '新建机会数',
+  existing_reused: '复用机会结果数', skipped: '跳过结果数', unavailable_reasons: '不可用原因',
+  decision_id: '处理记录 ID', decision: '处理选择', account_type: '账号类型', is_active: '启用状态', source: '来源', status: '状态', row_count: '行数', revision: '修订号', display_name: '显示名称',
   product_id: '产品 ID', review_record_count: '审核记录数', version: '版本', fact_version_id: '事实版本 ID', platform_profile_id: '平台 ID', platform_profile_version_id: '平台版本 ID', platform_type_id: '平台类型 ID', previous_active_version_id: '原活动版本 ID', reason: '原因', replacement_version_id: '替代版本 ID',
   generation_job_count: '生成作业数', content_version_count: '内容版本数', content_review_record_count: '内容审核记录数', publication_work_count: '发布工作数', generation_data_classification: '生成数据分级', generation_input_configured: '生成输入配置状态',
   based_on_id: '基线版本 ID', content_version_id: '内容版本 ID', retry_of_id: '重试来源 ID', source_content_version_id: '来源内容版本 ID', task_id: '任务 ID',
@@ -622,7 +705,11 @@ function resolveAuditRelatedLink(detail: AuditLogDetail): AuditRelatedLink | und
     case 'ContentVersion': return related.parent_id ? { href: `/content/tasks/${related.parent_id}`, label: '查看所属任务' } : undefined;
     case 'PublicationWork': return targetId ? { href: `/publishing/work/${targetId}`, label: '查看发布工作' } : undefined;
     case 'PublishedContentIssue': return targetId ? { href: `/publishing/issues/${targetId}`, label: '查看内容问题' } : undefined;
+    case 'GeoEngineSurface': return targetId ? { href: `/configuration/geo-surfaces?surface_id=${targetId}`, label: '查看观测面' } : undefined;
+    case 'GeoCollectionProfile': return targetId && related.parent_id ? { href: `/configuration/geo-surfaces?tab=profiles&surface_id=${related.parent_id}&profile_id=${targetId}`, label: '查看采集配置' } : undefined;
+    case 'GeoPromptVariant': return targetId ? { href: `/geo/questions?selected=${targetId}`, label: '查看问题变体' } : undefined;
     case 'GeoObservation': return targetId ? { href: `/geo/observations/${targetId}`, label: '查看 GEO 观测' } : undefined;
+    case 'GeoOpportunity': return targetId ? { href: `/geo/opportunities?opportunity_id=${targetId}`, label: '查看 GEO 机会' } : undefined;
     case 'PlatformProfile': return targetId ? { href: `/settings/platforms/${targetId}`, label: '查看平台' } : undefined;
     case 'PlatformAccount': return related.parent_id ? { href: `/settings/platforms/${related.parent_id}?tab=accounts`, label: '查看平台账号' } : undefined;
     case 'AIChannel': return targetId ? { href: `/settings/ai/${targetId}?tab=basic`, label: '查看 AI 渠道' } : undefined;

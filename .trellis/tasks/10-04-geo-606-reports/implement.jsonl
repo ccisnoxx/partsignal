@@ -1,0 +1,6 @@
+{"file": ".trellis/tasks/10-04-geo-606-reports/design.md", "reason": "当前报告/CSV/审计实现合同"}
+{"file": ".trellis/tasks/10-04-geo-606-reports/prd.md", "reason": "GEO606范围与验收"}
+{"file": "docs/geo-monitoring/03-technical/03-api-contract-design.md", "reason": "六个报告API与错误/字段边界"}
+{"file": "docs/geo-monitoring/03-technical/04-frontend-architecture.md", "reason": "完整基础筛选与打印路由"}
+{"file": "contracts/database.md", "reason": "一致读取/审计不变量"}
+{"file": ".trellis/spec/infra/e2e-isolation.md", "reason": "隔离真实栈生命周期"}

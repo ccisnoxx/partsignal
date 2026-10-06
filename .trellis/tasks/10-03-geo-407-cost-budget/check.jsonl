@@ -1,0 +1,6 @@
+{"file": "contracts/openapi.yaml", "reason": "GEO-407权威合同/不变量"}
+{"file": "contracts/database.md", "reason": "GEO-407权威合同/不变量"}
+{"file": ".trellis/tasks/10-03-geo-407-cost-budget/prd.md", "reason": "GEO-407权威合同/不变量"}
+{"file": ".trellis/tasks/10-03-geo-407-cost-budget/design.md", "reason": "GEO-407权威合同/不变量"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "GEO-407权威合同/不变量"}
+{"file": "docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md", "reason": "GEO-407权威合同/不变量"}

@@ -1,0 +1,32 @@
+{
+  "changed_existing": [
+    "backend/tests/integration/test_geo_catalog.py",
+    "docs/geo-monitoring/01-product/02-geo-core-prd.md",
+    "docs/geo-monitoring/02-business/02-domain-model.md",
+    "docs/geo-monitoring/03-technical/02-data-architecture.md",
+    "docs/geo-monitoring/03-technical/03-api-contract-design.md",
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "docs/geo-monitoring/CHANGELOG.md",
+    "docs/geo-monitoring/README.md",
+    "docs/geo-monitoring/SHA256SUMS",
+    "backend/app/models/__init__.py",
+    "backend/app/schemas/common.py",
+    "backend/app/services/content_planning.py",
+    "backend/app/services/identity.py",
+    "backend/tests/integration/test_migrations.py",
+    "contracts/database.md",
+    "contracts/openapi.yaml",
+    "frontend/src/app/auth/auth-provider.tsx",
+    "frontend/src/domains/content/content-task-lifecycle.tsx",
+    "frontend/src/shared/api/generated/schema.d.ts"
+  ],
+  "new": [
+    "backend/alembic/versions/0045_geo_prompt_variants.py",
+    "backend/app/geo_prompt_variants.py",
+    "backend/app/models/geo_prompt_variants.py",
+    "backend/app/schemas/geo_prompt_variants.py",
+    "backend/tests/integration/test_geo_prompt_variants.py",
+    "backend/tests/unit/test_geo_prompt_variant_contract.py"
+  ],
+  "task_record_directory": ".trellis/tasks/10-02-geo-201-prompt-variant"
+}

@@ -1,0 +1,122 @@
+[
+  {
+    "path": "backend/app/services/geo_metrics.py",
+    "new_file": false,
+    "line_count": 337,
+    "sha256": "3bd2b24c542cb63dd2054a6793787ee6bf3043b16dc24a927396c7c3bdff027b"
+  },
+  {
+    "path": "backend/app/main.py",
+    "new_file": false,
+    "line_count": 384,
+    "sha256": "cda57412558a96ee43647dd5c98560924ce62e2e9c2638d7fa2ceabc482b3550"
+  },
+  {
+    "path": "contracts/openapi.yaml",
+    "new_file": false,
+    "line_count": 22339,
+    "sha256": "11d52b6c9127f80fbd0a8e1d672694c6b5dea7a38d8ef047db3655af7bbb5488"
+  },
+  {
+    "path": "contracts/database.md",
+    "new_file": false,
+    "line_count": 1174,
+    "sha256": "a345a93e3f9e06bc5a8c7c1bc198078af852d6767217610f09ccbafffb08bd3f"
+  },
+  {
+    "path": "backend/tests/unit/test_contract.py",
+    "new_file": false,
+    "line_count": 1910,
+    "sha256": "289363f52f01c2dad5c29e5817aecc3d15aff332b4a1d683ba9425dd6ca37b9b"
+  },
+  {
+    "path": "backend/tests/unit/test_runtime_response_metadata.py",
+    "new_file": false,
+    "line_count": 1205,
+    "sha256": "6ba0fb335a16de01bab2996f7cd24ba38d5ab5db346c090501edd3ca75694fae"
+  },
+  {
+    "path": "frontend/src/shared/api/generated/schema.d.ts",
+    "new_file": false,
+    "line_count": 17740,
+    "sha256": "ffd7fc92acab64992892cf4bc28813ef5919104e185181e745a6fd30ecfe4ece"
+  },
+  {
+    "path": "docs/geo-monitoring/README.md",
+    "new_file": false,
+    "line_count": 360,
+    "sha256": "d6c0c2f1ab9b7a04188d5fdd1dcc32256beecf87922753fd559db9c87c9d06b2"
+  },
+  {
+    "path": "docs/geo-monitoring/SHA256SUMS",
+    "new_file": false,
+    "line_count": 116,
+    "sha256": "dc3afae7829285c8c1437075736d1b1c1e02e27d6b551ab61fefeea504ae859a"
+  },
+  {
+    "path": "docs/geo-monitoring/02-business/04-monitoring-methodology-and-metrics.md",
+    "new_file": false,
+    "line_count": 597,
+    "sha256": "cfa3c57ef855723a49e2f68599bd9c16eafdc24cab77e70a7c42869a8a9ad1cd"
+  },
+  {
+    "path": "docs/geo-monitoring/03-technical/03-api-contract-design.md",
+    "new_file": false,
+    "line_count": 634,
+    "sha256": "a7e2fee96959f005b841ccaeb51999c2ba6ca9396681d156395648a0e5337abc"
+  },
+  {
+    "path": "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "new_file": false,
+    "line_count": 1555,
+    "sha256": "47efdb5d7d609bef553a093f1a40616b851f20ec9eb353698129b9c8dbafbeb3"
+  },
+  {
+    "path": "docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md",
+    "new_file": false,
+    "line_count": 214,
+    "sha256": "7145623c152476b0d21db32ac18fe1581935ae3e96242ae78c73d885df3dc0c8"
+  },
+  {
+    "path": "backend/app/services/geo_metric_views.py",
+    "new_file": true,
+    "line_count": 56,
+    "sha256": "9bf806f2a6fdf9b1ef791f9dbdddf597af03c1d423428aa339e67bd87697da49"
+  },
+  {
+    "path": "backend/app/services/geo_answer_insights.py",
+    "new_file": true,
+    "line_count": 362,
+    "sha256": "3e73f759217aababbff35bb9b668fef04b1920dcc30243d07aa5aa6667aad5bf"
+  },
+  {
+    "path": "backend/app/schemas/geo_answer_insights.py",
+    "new_file": true,
+    "line_count": 172,
+    "sha256": "9207c0d78aca6b14b6be68866513cf9934e36b0244892d5ebf0ee302a8c33e50"
+  },
+  {
+    "path": "backend/app/routers/geo_answer_insights.py",
+    "new_file": true,
+    "line_count": 54,
+    "sha256": "69387ad7bc66e33c6913effe270e1135a22d2c55eea479b6500a40704f1f1c0e"
+  },
+  {
+    "path": "backend/tests/unit/test_geo_metric_trends.py",
+    "new_file": true,
+    "line_count": 193,
+    "sha256": "1670721fef67ac865d2d45e5ca04a71ce8c281c3240d9737543c1d4187257445"
+  },
+  {
+    "path": "backend/tests/unit/test_geo_answer_insights.py",
+    "new_file": true,
+    "line_count": 140,
+    "sha256": "1345677c52daef6c283ced6c549178b60c3a3cd0f32c8b6a80d0a507a1493caa"
+  },
+  {
+    "path": "backend/tests/integration/test_geo_answer_insights.py",
+    "new_file": true,
+    "line_count": 228,
+    "sha256": "326e8321c56ab5440d4aa51012557edf15d43bd88eaed43fe67c5ee972bf491e"
+  }
+]

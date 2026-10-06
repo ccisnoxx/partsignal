@@ -1,0 +1,16 @@
+{
+  "argv": [
+    "docker",
+    "compose",
+    "-f",
+    ".trellis/tasks/10-04-geo-702-opportunity-evaluation/evidence/compose.yaml",
+    "run",
+    "--rm",
+    "backend-test",
+    "pytest",
+    "tests/integration/test_geo_opportunity_baseline.py",
+    "-q"
+  ],
+  "exit_code": 1,
+  "seconds": 6.27
+}

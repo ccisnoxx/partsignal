@@ -1,0 +1,17 @@
+MULTI_AGENT_AUDIT_BUNDLE
+status: failed
+audit_id: 20261003T045826Z-geo-307-ee12561b
+audit_dir: /Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T045826Z-geo-307-ee12561b
+bundle_status: open
+artifact_count: 16
+size_bytes: 26013
+summary: {"plan_count": 3, "executed_attempt_count": 3, "accepted_attempt_count": 3, "independent_review_count": 2, "attention_required": false, "anomaly_count": 0}
+errors:
+  - plan/summary plan_id sets differ: plans=['geo307-independent-review', 'geo307-manual-editor', 'geo307-recovery-review'], summaries=['geo307-independent-review', 'geo307-recovery-review']
+  - audit bundle must contain exactly one Digest JSON; found 0
+  - audit bundle must contain exactly one Digest Markdown; found 0
+  - audit stage 01-manual-editor is missing summary_json: 01-manual-editor.summary.json
+  - manifest artifact inventory does not match files on disk
+  - audit bundle is not closed
+  - audit manifest verification status is not passed
+warnings: []

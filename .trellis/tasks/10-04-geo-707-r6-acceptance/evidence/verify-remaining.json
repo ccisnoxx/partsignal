@@ -1,0 +1,27 @@
+{
+  "argv": [
+    "make",
+    "COMPOSE=docker compose -f .trellis/tasks/10-04-geo-707-r6-acceptance/evidence/compose.yaml",
+    "-o",
+    "contract-check",
+    "-o",
+    "lint",
+    "-o",
+    "typecheck",
+    "-o",
+    "test-unit",
+    "-o",
+    "test-integration",
+    "-o",
+    "test-geo-performance",
+    "-o",
+    "build",
+    "-o",
+    "build-frontend",
+    "-o",
+    "e2e",
+    "verify"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 57.356
+}

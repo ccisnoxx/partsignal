@@ -1,0 +1,87 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend ruff check backend
+I001 [*] Import block is un-sorted or un-formatted
+  --> backend/tests/geo_e2e_fixture.py:16:5
+   |
+14 |   def seed_closed_run() -> dict[str, object]:
+15 |       assemble()
+16 | /     import app.models  # noqa: F401
+17 | |     from app.config import settings
+18 | |     from app.db import SessionLocal
+19 | |     from app.models.ai_generation import AIChannel, AIModel
+20 | |     from app.models.configuration import QueryTopic
+21 | |     from app.models.geo_catalog import GeoSubject
+22 | |     from app.models.geo_prompt_variants import GeoPromptVariant
+23 | |     from app.models.geo_runs import GeoObservationRun
+24 | |     from app.models.geo_surfaces import GeoCollectionProfile, GeoEngineSurface
+25 | |     from app.models.identity import User
+26 | |     from app.schemas.common import RevisionRequest
+27 | |     from app.schemas.geo_batch_creation import GeoAdHocBatchCreate
+28 | |     from app.services import ai_configuration, geo_batches, geo_profile_tests, geo_surface_commands
+29 | |     from app.services.credentials import CredentialCipher
+30 | |     from tests.geo_e2e_environment import PROVIDER_API_URL
+31 | |
+32 | |     from sqlalchemy import select
+   | |_________________________________^
+33 |
+34 |       identity = uuid4()
+   |
+help: Organize imports
+
+E501 Line too long (101 > 100)
+  --> backend/tests/geo_e2e_fixture.py:38:94
+   |
+36 |     with SessionLocal() as db:
+37 |         # 单独 fixture actor，不修改 UI 登录账号或它的首次改密事实。
+38 |         actor = User(username=f"geo408-fixture-{identity.hex}", display_name="GEO408 虚构前置管理员",
+   |                                                                                                     ^
+39 |                      password_hash="unused-fixture-account", account_type="ADMIN", is_active=True,
+40 |                      must_change_password=False, revision=0)
+   |
+
+E501 Line too long (102 > 100)
+  --> backend/tests/geo_e2e_fixture.py:73:101
+   |
+71 |         db.flush()
+72 |         prompt = GeoPromptVariant(query_topic_id=topic.id, prompt_text=prompt_text,
+73 |                                   mention_mode="UNBRANDED", language_code="zh-hans", region_code="CN",
+   |                                                                                                     ^^
+74 |                                   priority="CORE", created_by=actor.id)
+75 |         profile = GeoCollectionProfile(
+   |
+
+E501 Line too long (102 > 100)
+   --> backend/tests/geo_e2e_fixture.py:104:101
+    |
+102 |             raise RuntimeError("GEO408 前置 Profile 真实诊断未通过")
+103 |         geo_surface_commands.set_profile_active(
+104 |             **common, profile_id=profile.id, expected_revision=tested.summary.revision, is_active=True
+    |                                                                                                     ^^
+105 |         )
+106 |         configuration = {
+    |
+
+E501 Line too long (104 > 100)
+  --> backend/tests/geo_e2e_runtime.py:79:101
+   |
+77 |     from app.config import settings
+78 |
+79 |     if settings.database_url != environment.database_url or settings.redis_url != environment.redis_url:
+   |                                                                                                     ^^^^
+80 |         raise ValueError("GEO E2E 当前 Settings 与已验证环境不一致")
+81 |     registry.collector_registry = registry.CollectorRegistry([
+   |
+
+E501 Line too long (105 > 100)
+   --> backend/tests/geo_e2e_runtime.py:182:101
+    |
+180 |             # 控制协议只有闭合 fixture 参数；先配置，再执行真实 Collector 的一次发送。
+181 |             with httpx.Client(trust_env=False, timeout=5, follow_redirects=False) as client:
+182 |                 response = client.put(f"{PROVIDER_URL}/__geo__/scenarios/{request.run_id}", json=payload)
+    |                                                                                                     ^^^^^
+183 |                 response.raise_for_status()
+184 |             return self.collector.collect(request, before_send=before_send)
+    |
+
+Found 6 errors.
+[*] 1 fixable with the `--fix` option.
+make: *** [lint] Error 1

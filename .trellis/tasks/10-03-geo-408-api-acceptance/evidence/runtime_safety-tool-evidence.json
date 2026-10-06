@@ -1,0 +1,165 @@
+{
+  "source": "/Users/sc/.codex/sessions/2026/10/03/rollout-2026-10-03T05-36-40-01a101c4-3d6d-7cc3-8e8b-dbe7b5c7d746.jsonl",
+  "calls": [
+    {
+      "tool": "exec",
+      "input": "const results = await Promise.allSettled([\n  tools.exec_command({cmd:\"cat AGENTS.md\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:20000}),\n  tools.exec_command({cmd:\"cat backend/AGENTS.md\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:20000}),\n  tools.exec_command({cmd:\"cat /Users/sc/.codex/skills/structured-response/SKILL.md\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:10000}),\n  tools.exec_command({cmd:\"rg --files .trellis/spec .trellis/tasks/10-03-geo-408-api-acceptance docs/geo-monitoring/03-technical backend/app backend/tests | rg '(infra|geo|408|index|AGENTS|config|celery|dispatch|admission|execution)'\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:15000})\n]);\nfor (let i=0;i<results.length;i++) text({i,result:results[i]});\n"
+    },
+    {
+      "tool": "exec",
+      "input": "// @exec: {\"max_output_tokens\": 24000}\nconst results = await Promise.allSettled([\n  tools.exec_command({cmd:\"wc -l docs/geo-monitoring/03-technical/{01-technical-architecture,02-data-architecture,03-api-contract-design,05-worker-and-collector-architecture,06-security-and-compliance,07-testing-and-quality,08-deployment-and-operations}.md contracts/database.md backend/app/geo_fake_server.py deploy/compose.dev.yaml deploy/scripts/e2e-local.sh\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:2000}),\n  tools.exec_command({cmd:\"cat .trellis/spec/infra/index.md .trellis/spec/infra/domain-security-operations.md .trellis/workflow.md\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:14000}),\n  tools.exec_command({cmd:\"rg --files .trellis/tasks/10-03-geo-408-api-acceptance | rg -v '/evidence/'\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:2000}),\n  tools.exec_command({cmd:\"rg --files backend | rg '(0048|0050|0052|0053|collectors/|worker|config.py|geo.*test|test.*geo)'\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:5000}),\n  tools.exec_command({cmd:\"cat /Users/sc/.codex/skills/structured-response/references/task-patterns.md\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:5000})\n]);\nfor (let i=0;i<results.length;i++) text({i,result:results[i]});\n"
+    },
+    {
+      "tool": "exec",
+      "input": "// @exec: {\"max_output_tokens\": 26000}\nconst results = await Promise.allSettled([\n  tools.exec_command({cmd:\"nl -ba docs/geo-monitoring/03-technical/01-technical-architecture.md\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:10000}),\n  tools.exec_command({cmd:\"nl -ba docs/geo-monitoring/03-technical/02-data-architecture.md\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:10000}),\n  tools.exec_command({cmd:\"cat .trellis/tasks/10-03-geo-408-api-acceptance/prd.md .trellis/tasks/10-03-geo-408-api-acceptance/task.json .trellis/tasks/10-03-geo-408-api-acceptance/implement.jsonl .trellis/tasks/10-03-geo-408-api-acceptance/check.jsonl\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:5000}),\n  tools.exec_command({cmd:\"cat .trellis/spec/infra/e2e-isolation.md .trellis/spec/infra/development-object-storage.md\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:5000})\n]);\nfor (let i=0;i<results.length;i++) text({i,result:results[i]});\n"
+    },
+    {
+      "tool": "exec",
+      "input": "// @exec: {\"max_output_tokens\": 29000}\nconst results = await Promise.allSettled([\n  tools.exec_command({cmd:\"nl -ba docs/geo-monitoring/03-technical/03-api-contract-design.md\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:15000}),\n  tools.exec_command({cmd:\"nl -ba docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:18000}),\n  tools.exec_command({cmd:\"cat .trellis/spec/infra/e2e-isolation.md\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:6000}),\n  tools.exec_command({cmd:\"cat .trellis/spec/infra/development-object-storage.md\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:3000})\n]);\nfor (let i=0;i<results.length;i++) text({i,result:results[i]});\n"
+    },
+    {
+      "tool": "exec",
+      "input": "// @exec: {\"max_output_tokens\": 12000}\ntext(await tools.exec_command({cmd:\"nl -ba docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:12000}));\n"
+    },
+    {
+      "tool": "exec",
+      "input": "// @exec: {\"max_output_tokens\": 20000}\nconst results = await Promise.allSettled([\n tools.exec_command({cmd:\"nl -ba docs/geo-monitoring/03-technical/06-security-and-compliance.md\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:7000}),\n tools.exec_command({cmd:\"nl -ba docs/geo-monitoring/03-technical/07-testing-and-quality.md\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:10000}),\n tools.exec_command({cmd:\"nl -ba .trellis/spec/infra/e2e-isolation.md\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:6000}),\n tools.exec_command({cmd:\"nl -ba .trellis/spec/infra/development-object-storage.md\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:3000})\n]);\nfor (let i=0;i<results.length;i++) text({i,result:results[i]});\n"
+    },
+    {
+      "tool": "exec",
+      "input": "// @exec: {\"max_output_tokens\": 13000}\ntext(await tools.exec_command({cmd:\"nl -ba docs/geo-monitoring/03-technical/08-deployment-and-operations.md\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:10000}));\ntext(await tools.exec_command({cmd:\"sed -n '31,57p' .trellis/spec/infra/e2e-isolation.md; cat .trellis/spec/infra/development-object-storage.md\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:4000}));\n"
+    },
+    {
+      "tool": "exec",
+      "input": "// @exec: {\"max_output_tokens\": 15000}\nconst results = await Promise.allSettled([\n tools.exec_command({cmd:\"rg -n '^##|^###' contracts/database.md\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:3000}),\n tools.exec_command({cmd:\"nl -ba backend/app/geo_fake_server.py\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:9000}),\n tools.exec_command({cmd:\"nl -ba deploy/compose.dev.yaml\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:5000}),\n tools.exec_command({cmd:\"nl -ba deploy/scripts/e2e-local.sh\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:7000})\n]);\nfor(let i=0;i<results.length;i++) text({i,result:results[i]});\n"
+    },
+    {
+      "tool": "exec",
+      "input": "// @exec: {\"max_output_tokens\": 14000}\ntext(await tools.exec_command({cmd:\"nl -ba contracts/database.md | sed -n '1,314p'\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:14000}));\ntext(await tools.exec_command({cmd:\"wc -l backend/alembic/versions/{0048_geo_batches_runs,0050_geo_answer_evidence,0052_geo_profile_tests,0053_geo_collection_admission}.py backend/alembic/sql/{0048_geo_run_guards,0048_geo_run_snapshots,0050_geo_answer_functions,0050_geo_answer_guards,0052_geo_profile_tests,0053_geo_collection_admission}.sql backend/app/{config,worker}.py backend/app/services/{geo_runs,geo_collection_execution,geo_collection_admission,geo_dispatch,geo_run_lifecycle,geo_collection_profiles,geo_profile_tests,geo_catalog_locks}.py\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:2000}));\n"
+    },
+    {
+      "tool": "exec",
+      "input": "// @exec: {\"max_output_tokens\": 15000}\nconst results = await Promise.allSettled([\ntools.exec_command({cmd:\"nl -ba contracts/database.md | sed -n '157,197p;795,914p'\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:8000}),\ntools.exec_command({cmd:\"nl -ba contracts/database.md | sed -n '915,1021p'\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:8000}),\ntools.exec_command({cmd:\"wc -l backend/alembic/versions/{0048_geo_batches_runs,0050_geo_answer_evidence,0052_geo_profile_tests,0053_geo_collection_admission}.py backend/alembic/sql/{0048_geo_run_guards,0048_geo_run_snapshots,0050_geo_answer_functions,0050_geo_answer_guards,0052_geo_profile_tests,0053_geo_collection_admission}.sql backend/app/{config,worker}.py backend/app/services/{geo_runs,geo_collection_execution,geo_collection_admission,geo_dispatch,geo_run_lifecycle,geo_collection_profiles,geo_profile_tests,geo_catalog_locks}.py\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:2000})\n]);\nfor(let i=0;i<results.length;i++) text({i,result:results[i]});\n"
+    },
+    {
+      "tool": "exec",
+      "input": "// @exec: {\"max_output_tokens\": 13000}\nconst results = await Promise.allSettled([\n tools.exec_command({cmd:\"nl -ba backend/app/config.py; nl -ba backend/app/worker.py\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:6500}),\n tools.exec_command({cmd:\"nl -ba backend/app/services/geo_collection_execution.py; nl -ba backend/app/collectors/registry.py\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:6500}),\n tools.exec_command({cmd:\"nl -ba backend/tests/integration/geo_worker_support.py; nl -ba backend/tests/fixtures/geo_provider/README.md\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:6500})\n]);\nfor(let i=0;i<results.length;i++) text({i,result:results[i]});\n"
+    },
+    {
+      "tool": "exec",
+      "input": "// @exec: {\"max_output_tokens\": 12000}\nconst results = await Promise.allSettled([\n tools.exec_command({cmd:\"nl -ba backend/app/collectors/registry.py | sed -n '34,162p'; nl -ba backend/app/collectors/openai_compatible.py\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:7500}),\n tools.exec_command({cmd:\"nl -ba backend/app/services/geo_collection_profiles.py; nl -ba backend/app/services/geo_batch_snapshots.py\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:6500})\n]);\nfor(let i=0;i<results.length;i++) text({i,result:results[i]});\n"
+    },
+    {
+      "tool": "exec",
+      "input": "// @exec: {\"max_output_tokens\": 10000}\nconst results = await Promise.allSettled([\n tools.exec_command({cmd:\"nl -ba backend/app/services/geo_runs.py\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:7000}),\n tools.exec_command({cmd:\"nl -ba backend/app/services/geo_collection_admission.py; rg --files backend/app/services | rg '(admission|reservation|budget|rate)'\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:4500})\n]);\nfor(let i=0;i<results.length;i++) text({i,result:results[i]});\n"
+    },
+    {
+      "tool": "exec",
+      "input": "// @exec: {\"max_output_tokens\": 10000}\nconst results = await Promise.allSettled([\n tools.exec_command({cmd:\"nl -ba backend/app/services/geo_dispatch.py; nl -ba backend/app/services/geo_run_lifecycle.py\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:7500}),\n tools.exec_command({cmd:\"nl -ba backend/app/services/geo_collector_eligibility.py; nl -ba backend/app/services/geo_profile_tests.py\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:6000})\n]);\nfor(let i=0;i<results.length;i++) text({i,result:results[i]});\n"
+    },
+    {
+      "tool": "exec",
+      "input": "// @exec: {\"max_output_tokens\": 10000}\nconst results = await Promise.allSettled([\ntools.exec_command({cmd:\"nl -ba backend/alembic/versions/0048_geo_batches_runs.py; nl -ba backend/alembic/sql/0048_geo_run_guards.sql\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:6000}),\ntools.exec_command({cmd:\"nl -ba backend/alembic/sql/0048_geo_run_snapshots.sql\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:5000})\n]);\nfor(let i=0;i<results.length;i++) text({i,result:results[i]});\n"
+    },
+    {
+      "tool": "exec",
+      "input": "// @exec: {\"max_output_tokens\": 10000}\nconst results = await Promise.allSettled([\n tools.exec_command({cmd:\"nl -ba backend/alembic/versions/0050_geo_answer_evidence.py; nl -ba backend/alembic/sql/0050_geo_answer_functions.sql; nl -ba backend/alembic/sql/0050_geo_answer_guards.sql\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:7000}),\n tools.exec_command({cmd:\"nl -ba backend/alembic/versions/0052_geo_profile_tests.py; nl -ba backend/alembic/sql/0052_geo_profile_tests.sql\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:4000})\n]);\nfor(let i=0;i<results.length;i++) text({i,result:results[i]});\n"
+    },
+    {
+      "tool": "exec",
+      "input": "// @exec: {\"max_output_tokens\": 7000}\ntext(await tools.exec_command({cmd:\"nl -ba backend/alembic/versions/0053_geo_collection_admission.py; nl -ba backend/alembic/sql/0053_geo_collection_admission.sql\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:7000}));\n"
+    },
+    {
+      "tool": "exec",
+      "input": "// @exec: {\"max_output_tokens\": 7000}\nconst results=await Promise.allSettled([\n tools.exec_command({cmd:\"wc -l backend/tests/integration/{test_geo_worker,test_geo_at_most_once,test_geo_collection_admission,test_geo_profile_tests,test_geo_profile_test_races,geo_profile_test_support}.py backend/tests/unit/{test_geo_openai_collector,test_geo_openai_network,test_geo_worker_configuration,test_geo_fake_provider,test_geo_configuration}.py frontend/tests/e2e/{runs-real-stack,ai-channel-configuration-real-stack,surfaces-real-stack,plans-real-stack}.spec.ts frontend/playwright.config.ts; rg -n '^def test|^async def test|^def |^class |spawn|subprocess|celery|kill|profile|revision' backend/tests/integration/test_geo_at_most_once.py backend/tests/integration/test_geo_worker.py\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:7000}),\n tools.exec_command({cmd:\"nl -ba backend/tests/geo_network_guard.py; nl -ba deploy/scripts/e2e-environment.py | sed -n '1,110p'; nl -ba frontend/playwright.config.ts\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:7000})\n]);for(let i=0;i<results.length;i++) text({i,result:results[i]});\n"
+    },
+    {
+      "tool": "exec",
+      "input": "// @exec: {\"max_output_tokens\": 10000}\ntext(await tools.exec_command({cmd:\"nl -ba backend/tests/integration/test_geo_worker.py | sed -n '1,295p'\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:6500}));\ntext(await tools.exec_command({cmd:\"nl -ba backend/tests/integration/test_geo_worker.py | sed -n '296,479p'\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:4500}));\n"
+    },
+    {
+      "tool": "exec",
+      "input": "// @exec: {\"max_output_tokens\": 9000}\ntext(await tools.exec_command({cmd:\"nl -ba backend/tests/integration/test_geo_at_most_once.py | sed -n '1,250p'\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:4500}));\ntext(await tools.exec_command({cmd:\"nl -ba backend/tests/integration/test_geo_at_most_once.py | sed -n '251,486p'\",workdir:\"/Users/sc/PycharmProjects/partsignal\",max_output_tokens:4500}));\n"
+    },
+    {
+      "tool": "exec",
+      "input": "const r = await tools.exec_command({cmd:\"wc -l backend/tests/integration/test_geo_collection_admission.py backend/tests/integration/test_geo_profile_tests.py backend/tests/integration/test_geo_profile_test_races.py backend/tests/integration/geo_profile_test_support.py backend/tests/unit/test_geo_worker_configuration.py backend/tests/unit/test_geo_configuration.py backend/tests/unit/test_geo_fake_provider.py backend/tests/geo_reference_collector.py backend/tests/geo_collector_contract.py backend/tests/geo_openai_support.py backend/app/services/geo_run_retries.py backend/app/services/geo_surface_locks.py backend/app/collectors/pinned_http.py frontend/tests/e2e/runs-real-stack.spec.ts frontend/tests/e2e/ai-channel-configuration-real-stack.spec.ts\",max_output_tokens:2000});text(r.output);\n"
+    },
+    {
+      "tool": "exec",
+      "input": "const out = await Promise.allSettled([\ntools.exec_command({cmd:\"rg --files backend/app | rg '(pinned|http|geo_run_retries|geo_surface_locks)'\",\"max_output_tokens\":2000}),\ntools.exec_command({cmd:\"nl -ba backend/tests/integration/test_geo_profile_tests.py\\nnl -ba backend/tests/integration/test_geo_profile_test_races.py\\nnl -ba backend/tests/integration/geo_profile_test_support.py\",\"max_output_tokens\":14000}),\ntools.exec_command({cmd:\"nl -ba backend/tests/unit/test_geo_worker_configuration.py\\nnl -ba backend/tests/unit/test_geo_configuration.py\\nnl -ba backend/tests/unit/test_geo_fake_provider.py\",\"max_output_tokens\":14000})\n]);for(let i=0;i<out.length;i++){text({i,...out[i]});}\n"
+    },
+    {
+      "tool": "exec",
+      "input": "text(await tools.exec_command({cmd:\"nl -ba backend/tests/integration/geo_profile_test_support.py\\nnl -ba backend/app/services/pinned_http.py\\nnl -ba backend/app/services/geo_run_retries.py\",\"max_output_tokens\":18000}));\n"
+    },
+    {
+      "tool": "exec",
+      "input": "text(await tools.exec_command({cmd:\"nl -ba backend/tests/integration/test_geo_collection_admission.py\",\"max_output_tokens\":10000}));\n"
+    },
+    {
+      "tool": "exec",
+      "input": "const out = await Promise.allSettled([\ntools.exec_command({cmd:\"nl -ba backend/tests/geo_reference_collector.py\\nnl -ba backend/tests/geo_collector_contract.py\\nnl -ba backend/tests/geo_openai_support.py\",\"max_output_tokens\":12000}),\ntools.exec_command({cmd:\"nl -ba backend/app/services/geo_surface_locks.py\\nnl -ba frontend/tests/e2e/runs-real-stack.spec.ts\",\"max_output_tokens\":12000})\n]);for(let i=0;i<out.length;i++){text({i,...out[i]});}\n"
+    },
+    {
+      "tool": "exec",
+      "input": "text(await tools.exec_command({cmd:\"nl -ba backend/tests/geo_collector_contract.py | sed -n '224,246p'\\nnl -ba backend/tests/geo_openai_support.py\\nnl -ba backend/app/services/geo_surface_locks.py\",\"max_output_tokens\":6000}));\n"
+    },
+    {
+      "tool": "exec",
+      "input": "text(await tools.exec_command({cmd:\"nl -ba frontend/tests/e2e/ai-channel-configuration-real-stack.spec.ts | sed -n '1,275p'\",\"max_output_tokens\":8500}));\n"
+    },
+    {
+      "tool": "exec",
+      "input": "text(await tools.exec_command({cmd:\"nl -ba frontend/tests/e2e/ai-channel-configuration-real-stack.spec.ts | sed -n '276,521p'\\nrg -n 'uv run|pytest|integration|test-backend|e2e-local|verify-gate' Makefile backend/pyproject.toml deploy/scripts/verify-gate* .trellis/spec/infra/e2e-isolation.md\",\"max_output_tokens\":9500}));\n"
+    },
+    {
+      "tool": "exec",
+      "input": "text(await tools.exec_command({cmd:\"rg -n 'uv run|pytest|integration|test-backend|e2e-local|verify-gate' Makefile backend/pyproject.toml .trellis/spec/infra/e2e-isolation.md\\nrg --files backend/tests deploy/scripts | rg '(conftest|verify|secret|e2e)'\\nnl -ba backend/tests/integration/conftest.py\",\"max_output_tokens\":7000}));\n"
+    },
+    {
+      "tool": "exec",
+      "input": "text(await tools.exec_command({cmd:\"nl -ba Makefile | sed -n '1,100p'\\nnl -ba deploy/scripts/test-integration.sh\\nnl -ba backend/tests/conftest.py\\nrg -n 'DATABASE_URL|TEST_DATABASE|REDIS_URL|DROP|create_all|drop_all|schema|table|skip' backend/tests/integration/geo_questions_support.py backend/tests/integration/geo_surface_management_support.py backend/tests/integration/geo_plans_support.py\",\"max_output_tokens\":6000}));\n"
+    },
+    {
+      "tool": "exec",
+      "input": "text(await tools.exec_command({cmd:\"nl -ba backend/tests/integration/geo_surface_management_support.py | sed -n '1,220p'\\nnl -ba backend/tests/integration/geo_questions_support.py | sed -n '1,190p'\\nrg -n 'backend-test|DATABASE_URL|REDIS_URL|command:' deploy/compose.dev.yaml\",\"max_output_tokens\":8500}));\n"
+    },
+    {
+      "tool": "exec",
+      "input": "text(await tools.exec_command({cmd:\"nl -ba backend/tests/integration/test_migrations.py | sed -n '1,110p'\\nnl -ba backend/tests/integration/test_geo_worker.py | sed -n '38,115p'\\nrg -n '(PROJECT_DIR|UV=|uv run|ADMIN|SEED|PARTSIGNAL_E2E|REDIS)' deploy/scripts/e2e-local.sh\",\"max_output_tokens\":5000}));\n"
+    },
+    {
+      "tool": "exec",
+      "input": "text(await tools.exec_command({cmd:\"rg --files backend/app/api | rg 'geo'\\nrg -n 'geo_monitoring_enabled|require_geo|MONITORING_DISABLED|api_collection_enabled|AccountType|assert_account' backend/app/api backend/app/services/geo_batch* backend/app/services/geo_run* backend/app/services/geo_profile_tests.py backend/app/services/geo_surface_policies.py\",\"max_output_tokens\":5000}));\n"
+    },
+    {
+      "tool": "exec",
+      "input": "text(await tools.exec_command({cmd:\"rg --files backend/app | rg '(routers/geo|geo_surface_policy|geo_run_policy|geo_batch_policy|geo_batches)'\",\"max_output_tokens\":2500}));\n"
+    },
+    {
+      "tool": "exec",
+      "input": "text(await tools.exec_command({cmd:\"nl -ba backend/app/routers/geo_surface_management.py\\nnl -ba backend/app/routers/geo_run_commands.py\\nnl -ba backend/app/routers/geo_reads.py\\nnl -ba backend/app/services/geo_batches.py\",\"max_output_tokens\":14000}));\n"
+    },
+    {
+      "tool": "exec",
+      "input": "text(await tools.exec_command({cmd:\"rg -n 'GEO-408|GEO-801|GEO-902|INTERNAL|PUBLIC|默认关闭|停止|关闭|熔断|COLLECTED|NOT_IMPLEMENTED|fake|fixture|E2E|429|并发|锁序|预算|真实' docs/geo-monitoring/03-technical/{01-technical-architecture,02-data-architecture,03-api-contract-design,05-worker-and-collector-architecture,06-security-and-compliance,07-testing-and-quality,08-deployment-and-operations}.md\\nnl -ba backend/app/services/geo_profile_tests.py | sed -n '1,203p'\\nnl -ba backend/app/config.py | sed -n '157,224p'\",\"max_output_tokens\":10000}));\n"
+    },
+    {
+      "tool": "exec",
+      "input": "text(await tools.exec_command({cmd:\"nl -ba backend/pyproject.toml | sed -n '65,90p'\\nnl -ba docs/geo-monitoring/03-technical/08-deployment-and-operations.md | sed -n '350,402p'\\nnl -ba docs/geo-monitoring/03-technical/07-testing-and-quality.md | sed -n '340,517p'\\nnl -ba .trellis/spec/infra/e2e-isolation.md | sed -n '34,84p'\",\"max_output_tokens\":8500}));\n"
+    },
+    {
+      "tool": "exec",
+      "input": "text(await tools.exec_command({cmd:\"rg --files backend | rg '(0048_geo|0050_geo|0052_geo|0053_geo)'\\nnl -ba backend/tests/unit/test_geo_worker_configuration.py\\nnl -ba backend/app/services/geo_collection_execution.py | sed -n '35,123p'\\nnl -ba backend/app/services/geo_batch_snapshots.py | sed -n '28,48p'\\nrg -n 'FOR|read_snapshot|geo_monitoring|AccountType' backend/app/services/geo_plan_locks.py backend/app/services/geo_catalog_queries.py backend/app/deps.py\",\"max_output_tokens\":5000}));\n"
+    },
+    {
+      "tool": "exec",
+      "input": "text(await tools.exec_command({cmd:\"rg -n 'estimate|cost|budget' backend/app/services/geo_plans.py backend/app/services/geo_plan_previews.py backend/app/services/geo_estimates.py backend/app/services/geo_plan_policy.py\\nnl -ba backend/app/services/geo_plans.py | sed -n '1,210p'\",\"max_output_tokens\":6000}));\n"
+    },
+    {
+      "tool": "exec",
+      "input": "text(await tools.exec_command({cmd:\"rg -n 'def get_run|def get_batch|geo_monitoring|settings|qualify|raise' backend/app/services/geo_read_queries.py backend/app/services/geo_read_assembly.py\\nnl -ba backend/app/services/geo_read_queries.py | sed -n '1,100p'\\nrg -n 'downgrade|55000' backend/alembic/versions/{0048_geo_batches_runs,0050_geo_answer_evidence,0052_geo_profile_tests,0053_geo_collection_admission}.py\",\"max_output_tokens\":3500}));\n"
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+
+> partsignal-frontend-v2@0.1.0 test
+> vitest run src/domains/geo-rules/geo-rules-page.test.tsx -t 新 token commit
+
+
+ RUN  v4.1.10 /Users/sc/PycharmProjects/partsignal/frontend
+
+ ❯ src/domains/geo-rules/geo-rules-page.test.tsx (21 tests | 1 failed | 20 skipped) 153ms
+     × 新 token commit 当下取消旧预览，不留下等待 passive effect 的可写窗口 152ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/domains/geo-rules/geo-rules-page.test.tsx > GEO 规则配置工作区 > 新 token commit 当下取消旧预览，不留下等待 passive effect 的可写窗口
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ src/domains/geo-rules/geo-rules-page.test.tsx:172:29
+    170|     await screen.findByRole('button', { name: '取消预览' });
+    171|     await act(async () => { changeToken('commit-token'); });
+    172|     expect(abortedAtCommit).toBe(true);
+       |                             ^
+    173|     expect(screen.queryByRole('region', { name: '服务端规则预览结果' })).not.to…
+    174|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 20 skipped (21)
+   Start at  08:37:22
+   Duration  1.41s (transform 704ms, setup 47ms, import 950ms, tests 153ms, environment 211ms)
+
+{"candidate_restored": true, "sha256": "027e9e69cb496b5c0b723b37e2460f043b69578a8158b224fdd8cb40f9ca1aaa"}

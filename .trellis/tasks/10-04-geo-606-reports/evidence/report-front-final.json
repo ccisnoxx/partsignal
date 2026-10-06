@@ -1,0 +1,13 @@
+{
+  "command": [
+    "npm",
+    "--prefix",
+    "frontend",
+    "run",
+    "test",
+    "--",
+    "src/domains/geo-reports"
+  ],
+  "exit_code": 0,
+  "duration_seconds": 2.54
+}

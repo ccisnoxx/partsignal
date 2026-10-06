@@ -17,13 +17,13 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-type NavId = 'workbench' | 'products' | 'content-tasks' | 'publishing-work' | 'publishing-articles' | 'publishing-issues' | 'geo-insights' | 'geo-topics' | 'geo-observations' | 'platforms' | 'prompts' | 'ai-channels' | 'users' | 'audit';
+type NavId = 'workbench' | 'products' | 'content-tasks' | 'publishing-work' | 'publishing-articles' | 'publishing-issues' | 'geo-overview' | 'geo-reports' | 'geo-answer-insights' | 'geo-insights' | 'geo-topics' | 'geo-questions' | 'geo-plans' | 'geo-runs' | 'geo-opportunities' | 'geo-observations' | 'geo-entities' | 'geo-surfaces' | 'geo-rules' | 'platforms' | 'prompts' | 'ai-channels' | 'users' | 'audit';
 type AppLayout = 'app' | 'print';
 
 type NavigationItem = {
   id: NavId;
   label: string;
-  to: '/' | '/products' | '/content/tasks' | '/publishing/work' | '/publishing/articles' | '/publishing/issues' | '/geo/insights' | '/geo/topics' | '/geo/observations' | '/settings/platforms' | '/settings/prompts' | '/settings/ai' | '/system/users' | '/system/audit';
+  to: '/' | '/products' | '/content/tasks' | '/publishing/work' | '/publishing/articles' | '/publishing/issues' | '/geo/overview' | '/geo/reports' | '/geo/insights/answers' | '/geo/insights' | '/geo/topics' | '/geo/questions' | '/geo/plans' | '/geo/runs' | '/geo/opportunities' | '/geo/observations' | '/configuration/geo-entities' | '/configuration/geo-surfaces' | '/configuration/geo-rules' | '/settings/platforms' | '/settings/prompts' | '/settings/ai' | '/system/users' | '/system/audit';
   icon: LucideIcon;
   adminOnly?: boolean;
 };
@@ -71,8 +71,15 @@ const navigationSections: readonly NavigationSection[] = [
   {
     label: 'GEO',
     items: [
+      { id: 'geo-overview', label: '总览', to: '/geo/overview', icon: LayoutDashboardIcon },
+      { id: 'geo-answer-insights', label: '回答洞察', to: '/geo/insights/answers', icon: ChartSplineIcon },
+      { id: 'geo-reports', label: '报告', to: '/geo/reports', icon: FileTextIcon },
       { id: 'geo-insights', label: '洞察', to: '/geo/insights', icon: ChartSplineIcon },
       { id: 'geo-topics', label: '问题主题', to: '/geo/topics', icon: MessagesSquareIcon },
+      { id: 'geo-questions', label: '问题库', to: '/geo/questions', icon: MessagesSquareIcon },
+      { id: 'geo-plans', label: '监测计划', to: '/geo/plans', icon: ClipboardListIcon },
+      { id: 'geo-runs', label: '运行中心', to: '/geo/runs', icon: ClipboardListIcon },
+      { id: 'geo-opportunities', label: '机会工作台', to: '/geo/opportunities', icon: ListTodoIcon },
       { id: 'geo-observations', label: '观测记录', to: '/geo/observations', icon: EyeIcon },
     ],
   },
@@ -80,6 +87,9 @@ const navigationSections: readonly NavigationSection[] = [
     label: '业务配置',
     items: [
       { id: 'platforms', label: '平台与账号', to: '/settings/platforms', icon: Settings2Icon },
+      { id: 'geo-surfaces', label: 'GEO 平台与采集配置', to: '/configuration/geo-surfaces', icon: BotIcon, adminOnly: true },
+      { id: 'geo-entities', label: '监测对象与竞品', to: '/configuration/geo-entities', icon: BoxesIcon, adminOnly: true },
+      { id: 'geo-rules', label: 'GEO 规则与阈值', to: '/configuration/geo-rules', icon: Settings2Icon, adminOnly: true },
       { id: 'prompts', label: 'Prompt 管理', to: '/settings/prompts', icon: FileTextIcon, adminOnly: true },
       { id: 'ai-channels', label: 'AI 渠道', to: '/settings/ai', icon: BotIcon, adminOnly: true },
     ],

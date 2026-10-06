@@ -1,0 +1,105 @@
+{
+  "baseline-unit": {
+    "command": [
+      "uv",
+      "run",
+      "--project",
+      "backend",
+      "pytest",
+      "backend/tests/unit/test_geo_analysis.py",
+      "backend/tests/unit/test_geo_recommendations.py",
+      "backend/tests/unit/test_geo_citations.py",
+      "backend/tests/unit/test_geo_claims.py",
+      "backend/tests/unit/test_geo_analysis_contract.py",
+      "backend/tests/unit/test_geo_review_contract.py",
+      "backend/tests/unit/test_geo_read_contract.py",
+      "backend/tests/unit/test_geo_fixtures.py"
+    ],
+    "exit_code": 0
+  },
+  "cleanup": {
+    "command": [
+      "docker",
+      "compose",
+      "-p",
+      "partsignal-geo601-validation",
+      "-f",
+      ".trellis/tasks/10-03-geo-601-metric-formulas/evidence/validation-compose.yaml",
+      "down",
+      "--remove-orphans"
+    ],
+    "exit_code": 0
+  },
+  "contract-check": {
+    "command": [
+      "make",
+      "contract-check"
+    ],
+    "exit_code": 0
+  },
+  "diff-check": {
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "exit_code": 0
+  },
+  "diff-final": {
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "exit_code": 0
+  },
+  "document-hashes-final": {
+    "command": [
+      "shasum",
+      "-a",
+      "256",
+      "-c",
+      "SHA256SUMS"
+    ],
+    "exit_code": 1
+  },
+  "document-hashes": {
+    "command": [
+      "shasum",
+      "-a",
+      "256",
+      "-c",
+      "SHA256SUMS"
+    ],
+    "exit_code": 2
+  },
+  "integration-baseline": {
+    "command": [
+      "make",
+      "test-integration",
+      "COMPOSE=docker compose -p partsignal-geo601-validation -f .trellis/tasks/10-03-geo-601-metric-formulas/evidence/validation-compose.yaml"
+    ],
+    "exit_code": 0
+  },
+  "lint": {
+    "command": [
+      "make",
+      "lint"
+    ],
+    "exit_code": 0
+  },
+  "typecheck": {
+    "command": [
+      "make",
+      "typecheck"
+    ],
+    "exit_code": 0
+  },
+  "unit": {
+    "command": [
+      "make",
+      "test-unit"
+    ],
+    "exit_code": 0
+  }
+}

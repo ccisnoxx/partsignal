@@ -1,0 +1,2 @@
+backend/app/services/product_facts.py:562: error: Argument 3 to "in_use" has incompatible type "list[tuple[str, str, int | None]]"; expected "list[tuple[str, str, int]]"  [arg-type]
+Found 1 error in 1 file (checked 89 source files)

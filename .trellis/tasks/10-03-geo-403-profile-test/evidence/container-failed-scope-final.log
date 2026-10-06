@@ -1,0 +1,30 @@
+ Container partsignal-geo403-postgres-1 Running 
+ Container partsignal-geo403-redis-1 Running 
+ Container partsignal-geo403-fake-oss-1 Running 
+ Container partsignal-geo403-postgres-1 Waiting 
+ Container partsignal-geo403-postgres-1 Healthy 
+ Container partsignal-geo403-backend-test-run-336fddaf01cb Creating 
+ Container partsignal-geo403-backend-test-run-336fddaf01cb Created 
+........................................................................ [ 96%]
+...                                                                      [100%]
+=============================== warnings summary ===============================
+tests/integration/test_geo_profile_test_migration.py::test_0052_forward_invalidates_only_current_api_qualification
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_profile_test_migration.py:76: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+
+tests/integration/test_geo_profile_test_migration.py::test_0052_forward_invalidates_only_current_api_qualification
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_profile_test_migration.py:76: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+
+tests/integration/test_geo_manual_migration.py::test_0051_preserves_nonempty_0050_evidence_and_safe_stop
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_migration.py:71: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+
+tests/integration/test_geo_manual_migration.py::test_0051_preserves_nonempty_0050_evidence_and_safe_stop
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_migration.py:71: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+
+tests/integration/test_geo_answer_migration.py::test_forward_keeps_nonempty_history_and_matches_models
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_answer_migration.py:54: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+
+tests/integration/test_geo_answer_migration.py::test_forward_keeps_nonempty_history_and_matches_models
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_answer_migration.py:54: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+75 passed, 6 warnings in 22.03s

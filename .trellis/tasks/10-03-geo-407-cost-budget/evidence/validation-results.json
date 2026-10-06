@@ -1,0 +1,88 @@
+{
+  "task": "GEO-407",
+  "status": "review",
+  "checked_at": "2026-10-03T12:23:17.736937+00:00",
+  "checks": [
+    {
+      "command": "git diff --check",
+      "exit_code": 0,
+      "log": "diff-check.log",
+      "result": null
+    },
+    {
+      "command": "make lint",
+      "exit_code": 0,
+      "log": "lint-candidate.log",
+      "result": null
+    },
+    {
+      "command": "make typecheck",
+      "exit_code": 0,
+      "log": "typecheck-candidate.log",
+      "result": {
+        "mypy_source_files": 158
+      }
+    },
+    {
+      "command": "make test-unit",
+      "exit_code": 0,
+      "log": "unit-second.log",
+      "result": {
+        "backend_passed": 2999,
+        "frontend_passed": 1125,
+        "frontend_files": 120
+      }
+    },
+    {
+      "command": "make contract-generate",
+      "exit_code": 0,
+      "log": "contract-generate-final.log",
+      "result": null
+    },
+    {
+      "command": "make contract-check",
+      "exit_code": 0,
+      "log": "contract-check-final.log",
+      "result": null
+    },
+    {
+      "command": "docker --context colima compose -p partsignal-geo407 -f .trellis/tasks/10-03-geo-407-cost-budget/evidence/validation-compose.yaml run --rm backend-test pytest tests/integration/test_geo_runs.py tests/integration/test_geo_collection_admission.py tests/integration/test_geo_admission_migration.py tests/integration/test_geo_read_models.py tests/integration/test_geo_worker.py tests/integration/test_geo_at_most_once.py -q",
+      "exit_code": 0,
+      "log": "target-final.log",
+      "result": {
+        "passed": 101
+      }
+    },
+    {
+      "command": "make test-integration COMPOSE='docker --context colima compose -p partsignal-geo407 -f .trellis/tasks/10-03-geo-407-cost-budget/evidence/validation-compose.yaml'",
+      "exit_code": 0,
+      "log": "integration-final.log",
+      "result": {
+        "passed": 884,
+        "warnings": 20
+      }
+    },
+    {
+      "command": "docker --context colima compose -p partsignal-geo407 -f .trellis/tasks/10-03-geo-407-cost-budget/evidence/validation-compose.yaml down -v",
+      "exit_code": 0,
+      "log": "cleanup.log",
+      "result": null
+    }
+  ],
+  "first_full_integration": {
+    "passed": 878,
+    "failed": 2,
+    "log": "integration-first.log",
+    "classification": "旧 0048 fixture 的当前公共投影和 settings 默认字段漂移，已修正并重跑"
+  },
+  "not_run": [
+    {
+      "check": "Playwright 自动 API 纵向 E2E/浏览器矩阵",
+      "reason": "GEO-408，未在本任务实现自动 Run 页面或完整新旅程"
+    },
+    {
+      "check": "真实外部 AI/生产迁移/发布",
+      "reason": "普通测试只使用 fake provider，生产操作不在授权实施范围"
+    }
+  ]
+}

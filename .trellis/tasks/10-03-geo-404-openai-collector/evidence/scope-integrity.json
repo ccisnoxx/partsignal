@@ -1,0 +1,15 @@
+{
+  "backend/app/collectors/openai_compatible.py": true,
+  "backend/app/collectors/openai_response.py": true,
+  "backend/app/services/pinned_http.py": true,
+  "backend/tests/geo_openai_support.py": true,
+  "backend/tests/unit/test_geo_openai_collector.py": true,
+  "backend/tests/unit/test_geo_openai_response.py": true,
+  "backend/tests/unit/test_geo_openai_network.py": true,
+  "deploy/scripts/test-geo-collector-contract.py": true,
+  "backend/tests/unit/test_geo_collector_contract.py": true,
+  "backend/app/collectors/registry.py": true,
+  "contracts/openapi.yaml": true,
+  "contracts/database.md": true,
+  "frontend/src/shared/api/generated/schema.d.ts": true
+}

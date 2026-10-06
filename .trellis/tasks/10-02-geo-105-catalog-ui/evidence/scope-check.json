@@ -1,0 +1,45 @@
+{
+  "task": "GEO-105",
+  "changed": [
+    "contracts/database.md",
+    "docs/geo-monitoring/03-technical/04-frontend-architecture.md",
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "docs/geo-monitoring/CHANGELOG.md",
+    "docs/geo-monitoring/README.md",
+    "docs/geo-monitoring/SHA256SUMS",
+    "frontend/src/app/navigation.test.ts",
+    "frontend/src/app/navigation.ts",
+    "frontend/src/routeTree.gen.ts"
+  ],
+  "new": [
+    "frontend/src/domains/geo-catalog/catalog-commands.test.tsx",
+    "frontend/src/domains/geo-catalog/catalog-controls.tsx",
+    "frontend/src/domains/geo-catalog/catalog-detail.tsx",
+    "frontend/src/domains/geo-catalog/catalog-dictionary-form.tsx",
+    "frontend/src/domains/geo-catalog/catalog-form-command.tsx",
+    "frontend/src/domains/geo-catalog/catalog-form.model.ts",
+    "frontend/src/domains/geo-catalog/catalog-list.tsx",
+    "frontend/src/domains/geo-catalog/catalog-options.tsx",
+    "frontend/src/domains/geo-catalog/catalog-page.test.tsx",
+    "frontend/src/domains/geo-catalog/catalog-page.tsx",
+    "frontend/src/domains/geo-catalog/catalog-route.test.tsx",
+    "frontend/src/domains/geo-catalog/catalog-subject-form.tsx",
+    "frontend/src/domains/geo-catalog/catalog.api.test.ts",
+    "frontend/src/domains/geo-catalog/catalog.api.ts",
+    "frontend/src/domains/geo-catalog/catalog.model.test.ts",
+    "frontend/src/domains/geo-catalog/catalog.model.ts",
+    "frontend/src/domains/geo-catalog/catalog.test-support.tsx",
+    "frontend/src/routes/_app/configuration/geo-entities.tsx",
+    "frontend/tests/e2e/catalog-ui.spec.ts"
+  ],
+  "deleted": [],
+  "initial_fingerprint_omitted_tracked": [
+    "docs/GEO多平台内容运营系统方案设计.md",
+    "docs/GEO系统前后端技术与部署方案.md",
+    "docs/GEO项目会话归档.md",
+    "docs/Hostdzire部署上线流程.md",
+    "docs/Hostdzire部署附录.md"
+  ],
+  "scope_matches_task_relatedFiles": true,
+  "unrelated_existing_fingerprinted_files_unchanged": true
+}

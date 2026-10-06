@@ -1,0 +1,6 @@
+{
+  "user_decision": "两个都采用指标方法口径",
+  "top_recommendation_denominator": "reliable_order_eligible_runs",
+  "severe_error_denominator": "assessable_claim_eligible_runs",
+  "previous_blocker_resolved": true
+}

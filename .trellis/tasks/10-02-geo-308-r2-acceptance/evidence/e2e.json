@@ -1,0 +1,10 @@
+{
+  "command": [
+    "make",
+    "e2e"
+  ],
+  "exit_code": 0,
+  "started_at": "2026-10-03T06:38:06.032234+00:00",
+  "seconds": 569.32,
+  "log": "e2e.log"
+}

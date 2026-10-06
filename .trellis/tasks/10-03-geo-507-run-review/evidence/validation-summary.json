@@ -1,0 +1,112 @@
+{
+  "git diff --check": {
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "exit_code": 0
+  },
+  "make contract-check": {
+    "command": [
+      "make",
+      "contract-check"
+    ],
+    "exit_code": 0
+  },
+  "make lint / make typecheck": {
+    "command": [
+      "make",
+      "lint",
+      "typecheck"
+    ],
+    "exit_code": 0
+  },
+  "make test-unit": {
+    "command": [
+      "make",
+      "test-unit"
+    ],
+    "exit_code": 0
+  },
+  "make test-integration": {
+    "command": [
+      "make",
+      "test-integration",
+      "COMPOSE=docker compose -p partsignal-geo507-validation -f .trellis/tasks/10-03-geo-507-run-review/evidence/validation-compose.yaml"
+    ],
+    "exit_code": 0
+  },
+  "targeted_reviews": {
+    "command": [
+      "docker",
+      "compose",
+      "-p",
+      "partsignal-geo507-validation",
+      "-f",
+      ".trellis/tasks/10-03-geo-507-run-review/evidence/validation-compose.yaml",
+      "run",
+      "--rm",
+      "backend-test",
+      "pytest",
+      "tests/integration/test_geo_reviews.py",
+      "tests/integration/test_geo_review_concurrency.py",
+      "tests/integration/test_geo_review_migration.py",
+      "tests/integration/test_geo_review_guards.py",
+      "tests/integration/test_geo_review_reads.py",
+      "-q"
+    ],
+    "exit_code": 0
+  },
+  "workflow_regression": {
+    "command": [
+      "docker",
+      "compose",
+      "-p",
+      "partsignal-geo507-validation",
+      "-f",
+      ".trellis/tasks/10-03-geo-507-run-review/evidence/validation-compose.yaml",
+      "run",
+      "--rm",
+      "backend-test",
+      "pytest",
+      "tests/integration/test_geo_review_reads.py",
+      "tests/integration/test_geo_reviews.py",
+      "tests/integration/test_geo_read_models.py",
+      "tests/integration/test_geo_read_consistency.py",
+      "-q"
+    ],
+    "exit_code": 0
+  },
+  "head_regressions": {
+    "command": [
+      "docker",
+      "compose",
+      "-p",
+      "partsignal-geo507-validation",
+      "-f",
+      ".trellis/tasks/10-03-geo-507-run-review/evidence/validation-compose.yaml",
+      "run",
+      "--rm",
+      "backend-test",
+      "pytest",
+      "tests/integration/test_geo_admission_migration.py",
+      "tests/integration/test_geo_answer_migration.py",
+      "-q"
+    ],
+    "exit_code": 0
+  },
+  "cleanup": {
+    "command": [
+      "docker",
+      "compose",
+      "-p",
+      "partsignal-geo507-validation",
+      "-f",
+      ".trellis/tasks/10-03-geo-507-run-review/evidence/validation-compose.yaml",
+      "down",
+      "--remove-orphans"
+    ],
+    "exit_code": 0
+  }
+}

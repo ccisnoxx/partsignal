@@ -1,0 +1,14 @@
+{
+  "command": [
+    "npm",
+    "--prefix",
+    "frontend",
+    "run",
+    "test",
+    "--",
+    "src/domains/geo-reports",
+    "src/app/navigation.test.ts"
+  ],
+  "exit_code": 1,
+  "duration_seconds": 0.97
+}

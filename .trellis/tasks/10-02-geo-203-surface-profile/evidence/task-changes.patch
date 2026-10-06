@@ -1,0 +1,3625 @@
+--- before/contracts/openapi.yaml
++++ after/contracts/openapi.yaml
+@@ -11219,3 +11219,1095 @@
+       - page
+       - page_size
+       type: object
++    GeoComplianceStatus:
++      enum:
++      - NOT_REVIEWED
++      - APPROVED
++      - REJECTED
++      - SUSPENDED
++      type: string
++    GeoSurfaceCapabilities:
++      additionalProperties: false
++      properties:
++        answer_text:
++          const: true
++          title: Answer Text
++          type: boolean
++        citations:
++          title: Citations
++          type: boolean
++        web_search_signal:
++          title: Web Search Signal
++          type: boolean
++        model_version:
++          title: Model Version
++          type: boolean
++        usage:
++          title: Usage
++          type: boolean
++        cost:
++          title: Cost
++          type: boolean
++      required:
++      - answer_text
++      - citations
++      - web_search_signal
++      - model_version
++      - usage
++      - cost
++      type: object
++    GeoSurfaceKind:
++      enum:
++      - CONSUMER_UI
++      - MODEL_API
++      - SEARCH_API
++      - MANUAL_SITE
++      type: string
++    GeoSurfaceProviderBrand:
++      enum:
++      - OPENAI
++      - ANTHROPIC
++      - GOOGLE
++      - AZURE_OPENAI
++      - ZHIPU
++      - QWEN
++      - CUSTOM
++      type: string
++    GeoEngineSurfaceCreate:
++      additionalProperties: false
++      properties:
++        name:
++          maxLength: 160
++          minLength: 1
++          pattern: ^[^\s\x00](?:[^\x00]*[^\s\x00])?$
++          title: Name
++          type: string
++        slug:
++          maxLength: 100
++          minLength: 1
++          pattern: ^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$
++          title: Slug
++          type: string
++        surface_kind:
++          $ref: '#/components/schemas/GeoSurfaceKind'
++        provider_brand:
++          $ref: '#/components/schemas/GeoSurfaceProviderBrand'
++        website_url:
++          anyOf:
++          - maxLength: 2083
++            minLength: 1
++            pattern: ^https?://[^\s/?#@]+(?:/[^\s?#]*)?$
++            type: string
++          - type: 'null'
++          title: Website Url
++        compliance_status:
++          $ref: '#/components/schemas/GeoComplianceStatus'
++        capabilities:
++          $ref: '#/components/schemas/GeoSurfaceCapabilities'
++      required:
++      - name
++      - slug
++      - surface_kind
++      - provider_brand
++      - website_url
++      - compliance_status
++      - capabilities
++      type: object
++    GeoEngineSurfaceUpdate:
++      additionalProperties: false
++      properties:
++        name:
++          maxLength: 160
++          minLength: 1
++          pattern: ^[^\s\x00](?:[^\x00]*[^\s\x00])?$
++          title: Name
++          type: string
++        slug:
++          maxLength: 100
++          minLength: 1
++          pattern: ^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$
++          title: Slug
++          type: string
++        surface_kind:
++          $ref: '#/components/schemas/GeoSurfaceKind'
++        provider_brand:
++          $ref: '#/components/schemas/GeoSurfaceProviderBrand'
++        website_url:
++          anyOf:
++          - maxLength: 2083
++            minLength: 1
++            pattern: ^https?://[^\s/?#@]+(?:/[^\s?#]*)?$
++            type: string
++          - type: 'null'
++          title: Website Url
++        compliance_status:
++          $ref: '#/components/schemas/GeoComplianceStatus'
++        capabilities:
++          $ref: '#/components/schemas/GeoSurfaceCapabilities'
++        expected_revision:
++          minimum: 0
++          title: Expected Revision
++          type: integer
++      required:
++      - name
++      - slug
++      - surface_kind
++      - provider_brand
++      - website_url
++      - compliance_status
++      - capabilities
++      - expected_revision
++      type: object
++    GeoEngineSurfaceOut:
++      additionalProperties: false
++      properties:
++        name:
++          maxLength: 160
++          minLength: 1
++          pattern: ^[^\s\x00](?:[^\x00]*[^\s\x00])?$
++          title: Name
++          type: string
++        slug:
++          maxLength: 100
++          minLength: 1
++          pattern: ^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$
++          title: Slug
++          type: string
++        surface_kind:
++          $ref: '#/components/schemas/GeoSurfaceKind'
++        provider_brand:
++          $ref: '#/components/schemas/GeoSurfaceProviderBrand'
++        website_url:
++          anyOf:
++          - maxLength: 2083
++            minLength: 1
++            pattern: ^https?://[^\s/?#@]+(?:/[^\s?#]*)?$
++            type: string
++          - type: 'null'
++          title: Website Url
++        compliance_status:
++          $ref: '#/components/schemas/GeoComplianceStatus'
++        capabilities:
++          $ref: '#/components/schemas/GeoSurfaceCapabilities'
++        id:
++          format: uuid
++          title: Id
++          type: string
++        is_active:
++          title: Is Active
++          type: boolean
++        revision:
++          minimum: 0
++          title: Revision
++          type: integer
++        first_referenced_at:
++          anyOf:
++          - format: date-time
++            type: string
++          - type: 'null'
++          title: First Referenced At
++        created_by:
++          format: uuid
++          title: Created By
++          type: string
++        created_at:
++          format: date-time
++          title: Created At
++          type: string
++        updated_at:
++          format: date-time
++          title: Updated At
++          type: string
++      required:
++      - name
++      - slug
++      - surface_kind
++      - provider_brand
++      - website_url
++      - compliance_status
++      - capabilities
++      - id
++      - is_active
++      - revision
++      - first_referenced_at
++      - created_by
++      - created_at
++      - updated_at
++      type: object
++    GeoApiProfileCreate:
++      additionalProperties: false
++      oneOf:
++      - properties:
++          ai_channel_id:
++            type: 'null'
++          ai_model_id:
++            type: 'null'
++      - properties:
++          ai_channel_id:
++            type: string
++          ai_model_id:
++            type: string
++      properties:
++        name:
++          maxLength: 160
++          minLength: 1
++          pattern: ^[^\s\x00](?:[^\x00]*[^\s\x00])?$
++          title: Name
++          type: string
++        adapter_key:
++          maxLength: 100
++          minLength: 1
++          pattern: ^[a-z][a-z0-9_-]*$
++          title: Adapter Key
++          type: string
++        language_code:
++          maxLength: 16
++          minLength: 2
++          pattern: ^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$
++          title: Language Code
++          type: string
++        region_code:
++          maxLength: 2
++          minLength: 2
++          pattern: ^[A-Za-z]{2}$
++          title: Region Code
++          type: string
++        web_search_policy:
++          $ref: '#/components/schemas/GeoWebSearchPolicy'
++        collection_mode:
++          const: API
++          title: Collection Mode
++          type: string
++        ai_channel_id:
++          anyOf:
++          - format: uuid
++            type: string
++          - type: 'null'
++          title: Ai Channel Id
++        ai_model_id:
++          anyOf:
++          - format: uuid
++            type: string
++          - type: 'null'
++          title: Ai Model Id
++        login_state:
++          const: NOT_APPLICABLE
++          title: Login State
++          type: string
++        settings:
++          $ref: '#/components/schemas/GeoApiSettings'
++        engine_surface_id:
++          format: uuid
++          title: Engine Surface Id
++          type: string
++      required:
++      - name
++      - adapter_key
++      - language_code
++      - region_code
++      - web_search_policy
++      - collection_mode
++      - ai_channel_id
++      - ai_model_id
++      - login_state
++      - settings
++      - engine_surface_id
++      type: object
++    GeoApiSettings:
++      additionalProperties: false
++      properties:
++        temperature:
++          anyOf:
++          - maximum: 2
++            minimum: 0
++            type: number
++          - type: 'null'
++          default: null
++          title: Temperature
++        max_output_tokens:
++          anyOf:
++          - maximum: 65536
++            minimum: 1
++            type: integer
++          - type: 'null'
++          default: null
++          title: Max Output Tokens
++      type: object
++    GeoBrowserProfileCreate:
++      additionalProperties: false
++      properties:
++        name:
++          maxLength: 160
++          minLength: 1
++          pattern: ^[^\s\x00](?:[^\x00]*[^\s\x00])?$
++          title: Name
++          type: string
++        adapter_key:
++          maxLength: 100
++          minLength: 1
++          pattern: ^[a-z][a-z0-9_-]*$
++          title: Adapter Key
++          type: string
++        language_code:
++          maxLength: 16
++          minLength: 2
++          pattern: ^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$
++          title: Language Code
++          type: string
++        region_code:
++          maxLength: 2
++          minLength: 2
++          pattern: ^[A-Za-z]{2}$
++          title: Region Code
++          type: string
++        web_search_policy:
++          $ref: '#/components/schemas/GeoWebSearchPolicy'
++        collection_mode:
++          const: BROWSER
++          title: Collection Mode
++          type: string
++        ai_channel_id:
++          title: Ai Channel Id
++          type: 'null'
++        ai_model_id:
++          title: Ai Model Id
++          type: 'null'
++        login_state:
++          enum:
++          - ANONYMOUS
++          - AUTHENTICATED
++          title: Login State
++          type: string
++        settings:
++          $ref: '#/components/schemas/GeoBrowserSettings'
++        engine_surface_id:
++          format: uuid
++          title: Engine Surface Id
++          type: string
++      required:
++      - name
++      - adapter_key
++      - language_code
++      - region_code
++      - web_search_policy
++      - collection_mode
++      - ai_channel_id
++      - ai_model_id
++      - login_state
++      - settings
++      - engine_surface_id
++      type: object
++    GeoBrowserSettings:
++      additionalProperties: false
++      properties:
++        require_screenshot:
++          default: true
++          title: Require Screenshot
++          type: boolean
++        answer_timeout_seconds:
++          default: 120
++          maximum: 600
++          minimum: 10
++          title: Answer Timeout Seconds
++          type: integer
++      type: object
++    GeoManualProfileCreate:
++      additionalProperties: false
++      properties:
++        name:
++          maxLength: 160
++          minLength: 1
++          pattern: ^[^\s\x00](?:[^\x00]*[^\s\x00])?$
++          title: Name
++          type: string
++        adapter_key:
++          const: manual
++          title: Adapter Key
++          type: string
++        language_code:
++          maxLength: 16
++          minLength: 2
++          pattern: ^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$
++          title: Language Code
++          type: string
++        region_code:
++          maxLength: 2
++          minLength: 2
++          pattern: ^[A-Za-z]{2}$
++          title: Region Code
++          type: string
++        web_search_policy:
++          $ref: '#/components/schemas/GeoWebSearchPolicy'
++        collection_mode:
++          const: MANUAL
++          title: Collection Mode
++          type: string
++        ai_channel_id:
++          title: Ai Channel Id
++          type: 'null'
++        ai_model_id:
++          title: Ai Model Id
++          type: 'null'
++        login_state:
++          enum:
++          - ANONYMOUS
++          - AUTHENTICATED
++          title: Login State
++          type: string
++        settings:
++          $ref: '#/components/schemas/GeoManualSettings'
++        engine_surface_id:
++          format: uuid
++          title: Engine Surface Id
++          type: string
++      required:
++      - name
++      - adapter_key
++      - language_code
++      - region_code
++      - web_search_policy
++      - collection_mode
++      - ai_channel_id
++      - ai_model_id
++      - login_state
++      - settings
++      - engine_surface_id
++      type: object
++    GeoManualSettings:
++      additionalProperties: false
++      properties:
++        require_screenshot:
++          default: true
++          title: Require Screenshot
++          type: boolean
++      type: object
++    GeoWebSearchPolicy:
++      enum:
++      - UNKNOWN
++      - REQUESTED
++      - REQUIRED
++      - NOT_APPLICABLE
++      type: string
++    GeoCollectionProfileCreate:
++      discriminator:
++        mapping:
++          API: '#/components/schemas/GeoApiProfileCreate'
++          BROWSER: '#/components/schemas/GeoBrowserProfileCreate'
++          MANUAL: '#/components/schemas/GeoManualProfileCreate'
++        propertyName: collection_mode
++      oneOf:
++      - $ref: '#/components/schemas/GeoManualProfileCreate'
++      - $ref: '#/components/schemas/GeoApiProfileCreate'
++      - $ref: '#/components/schemas/GeoBrowserProfileCreate'
++    GeoApiProfileUpdate:
++      additionalProperties: false
++      oneOf:
++      - properties:
++          ai_channel_id:
++            type: 'null'
++          ai_model_id:
++            type: 'null'
++      - properties:
++          ai_channel_id:
++            type: string
++          ai_model_id:
++            type: string
++      properties:
++        name:
++          maxLength: 160
++          minLength: 1
++          pattern: ^[^\s\x00](?:[^\x00]*[^\s\x00])?$
++          title: Name
++          type: string
++        adapter_key:
++          maxLength: 100
++          minLength: 1
++          pattern: ^[a-z][a-z0-9_-]*$
++          title: Adapter Key
++          type: string
++        language_code:
++          maxLength: 16
++          minLength: 2
++          pattern: ^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$
++          title: Language Code
++          type: string
++        region_code:
++          maxLength: 2
++          minLength: 2
++          pattern: ^[A-Za-z]{2}$
++          title: Region Code
++          type: string
++        web_search_policy:
++          $ref: '#/components/schemas/GeoWebSearchPolicy'
++        collection_mode:
++          const: API
++          title: Collection Mode
++          type: string
++        ai_channel_id:
++          anyOf:
++          - format: uuid
++            type: string
++          - type: 'null'
++          title: Ai Channel Id
++        ai_model_id:
++          anyOf:
++          - format: uuid
++            type: string
++          - type: 'null'
++          title: Ai Model Id
++        login_state:
++          const: NOT_APPLICABLE
++          title: Login State
++          type: string
++        settings:
++          $ref: '#/components/schemas/GeoApiSettings'
++        expected_revision:
++          minimum: 0
++          title: Expected Revision
++          type: integer
++      required:
++      - name
++      - adapter_key
++      - language_code
++      - region_code
++      - web_search_policy
++      - collection_mode
++      - ai_channel_id
++      - ai_model_id
++      - login_state
++      - settings
++      - expected_revision
++      type: object
++    GeoBrowserProfileUpdate:
++      additionalProperties: false
++      properties:
++        name:
++          maxLength: 160
++          minLength: 1
++          pattern: ^[^\s\x00](?:[^\x00]*[^\s\x00])?$
++          title: Name
++          type: string
++        adapter_key:
++          maxLength: 100
++          minLength: 1
++          pattern: ^[a-z][a-z0-9_-]*$
++          title: Adapter Key
++          type: string
++        language_code:
++          maxLength: 16
++          minLength: 2
++          pattern: ^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$
++          title: Language Code
++          type: string
++        region_code:
++          maxLength: 2
++          minLength: 2
++          pattern: ^[A-Za-z]{2}$
++          title: Region Code
++          type: string
++        web_search_policy:
++          $ref: '#/components/schemas/GeoWebSearchPolicy'
++        collection_mode:
++          const: BROWSER
++          title: Collection Mode
++          type: string
++        ai_channel_id:
++          title: Ai Channel Id
++          type: 'null'
++        ai_model_id:
++          title: Ai Model Id
++          type: 'null'
++        login_state:
++          enum:
++          - ANONYMOUS
++          - AUTHENTICATED
++          title: Login State
++          type: string
++        settings:
++          $ref: '#/components/schemas/GeoBrowserSettings'
++        expected_revision:
++          minimum: 0
++          title: Expected Revision
++          type: integer
++      required:
++      - name
++      - adapter_key
++      - language_code
++      - region_code
++      - web_search_policy
++      - collection_mode
++      - ai_channel_id
++      - ai_model_id
++      - login_state
++      - settings
++      - expected_revision
++      type: object
++    GeoManualProfileUpdate:
++      additionalProperties: false
++      properties:
++        name:
++          maxLength: 160
++          minLength: 1
++          pattern: ^[^\s\x00](?:[^\x00]*[^\s\x00])?$
++          title: Name
++          type: string
++        adapter_key:
++          const: manual
++          title: Adapter Key
++          type: string
++        language_code:
++          maxLength: 16
++          minLength: 2
++          pattern: ^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$
++          title: Language Code
++          type: string
++        region_code:
++          maxLength: 2
++          minLength: 2
++          pattern: ^[A-Za-z]{2}$
++          title: Region Code
++          type: string
++        web_search_policy:
++          $ref: '#/components/schemas/GeoWebSearchPolicy'
++        collection_mode:
++          const: MANUAL
++          title: Collection Mode
++          type: string
++        ai_channel_id:
++          title: Ai Channel Id
++          type: 'null'
++        ai_model_id:
++          title: Ai Model Id
++          type: 'null'
++        login_state:
++          enum:
++          - ANONYMOUS
++          - AUTHENTICATED
++          title: Login State
++          type: string
++        settings:
++          $ref: '#/components/schemas/GeoManualSettings'
++        expected_revision:
++          minimum: 0
++          title: Expected Revision
++          type: integer
++      required:
++      - name
++      - adapter_key
++      - language_code
++      - region_code
++      - web_search_policy
++      - collection_mode
++      - ai_channel_id
++      - ai_model_id
++      - login_state
++      - settings
++      - expected_revision
++      type: object
++    GeoCollectionProfileUpdate:
++      discriminator:
++        mapping:
++          API: '#/components/schemas/GeoApiProfileUpdate'
++          BROWSER: '#/components/schemas/GeoBrowserProfileUpdate'
++          MANUAL: '#/components/schemas/GeoManualProfileUpdate'
++        propertyName: collection_mode
++      oneOf:
++      - $ref: '#/components/schemas/GeoManualProfileUpdate'
++      - $ref: '#/components/schemas/GeoApiProfileUpdate'
++      - $ref: '#/components/schemas/GeoBrowserProfileUpdate'
++    GeoApiProfileOut:
++      additionalProperties: false
++      allOf:
++      - oneOf:
++        - properties:
++            last_test_status:
++              const: UNTESTED
++            last_tested_at:
++              type: 'null'
++        - properties:
++            last_test_status:
++              enum:
++              - PASSED
++              - FAILED
++            last_tested_at:
++              format: date-time
++              type: string
++      oneOf:
++      - properties:
++          ai_channel_id:
++            type: 'null'
++          ai_model_id:
++            type: 'null'
++      - properties:
++          ai_channel_id:
++            type: string
++          ai_model_id:
++            type: string
++      properties:
++        id:
++          format: uuid
++          title: Id
++          type: string
++        engine_surface_id:
++          format: uuid
++          title: Engine Surface Id
++          type: string
++        is_active:
++          title: Is Active
++          type: boolean
++        last_test_status:
++          $ref: '#/components/schemas/GeoProfileTestStatus'
++        last_tested_at:
++          anyOf:
++          - format: date-time
++            type: string
++          - type: 'null'
++          title: Last Tested At
++        revision:
++          minimum: 0
++          title: Revision
++          type: integer
++        created_by:
++          format: uuid
++          title: Created By
++          type: string
++        created_at:
++          format: date-time
++          title: Created At
++          type: string
++        updated_at:
++          format: date-time
++          title: Updated At
++          type: string
++        name:
++          maxLength: 160
++          minLength: 1
++          pattern: ^[^\s\x00](?:[^\x00]*[^\s\x00])?$
++          title: Name
++          type: string
++        adapter_key:
++          maxLength: 100
++          minLength: 1
++          pattern: ^[a-z][a-z0-9_-]*$
++          title: Adapter Key
++          type: string
++        language_code:
++          maxLength: 16
++          minLength: 2
++          pattern: ^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$
++          title: Language Code
++          type: string
++        region_code:
++          maxLength: 2
++          minLength: 2
++          pattern: ^[A-Za-z]{2}$
++          title: Region Code
++          type: string
++        web_search_policy:
++          $ref: '#/components/schemas/GeoWebSearchPolicy'
++        collection_mode:
++          const: API
++          title: Collection Mode
++          type: string
++        ai_channel_id:
++          anyOf:
++          - format: uuid
++            type: string
++          - type: 'null'
++          title: Ai Channel Id
++        ai_model_id:
++          anyOf:
++          - format: uuid
++            type: string
++          - type: 'null'
++          title: Ai Model Id
++        login_state:
++          const: NOT_APPLICABLE
++          title: Login State
++          type: string
++        settings:
++          $ref: '#/components/schemas/GeoApiSettings'
++      required:
++      - id
++      - engine_surface_id
++      - is_active
++      - last_test_status
++      - last_tested_at
++      - revision
++      - created_by
++      - created_at
++      - updated_at
++      - name
++      - adapter_key
++      - language_code
++      - region_code
++      - web_search_policy
++      - collection_mode
++      - ai_channel_id
++      - ai_model_id
++      - login_state
++      - settings
++      type: object
++    GeoBrowserProfileOut:
++      additionalProperties: false
++      allOf:
++      - oneOf:
++        - properties:
++            last_test_status:
++              const: UNTESTED
++            last_tested_at:
++              type: 'null'
++        - properties:
++            last_test_status:
++              enum:
++              - PASSED
++              - FAILED
++            last_tested_at:
++              format: date-time
++              type: string
++      properties:
++        id:
++          format: uuid
++          title: Id
++          type: string
++        engine_surface_id:
++          format: uuid
++          title: Engine Surface Id
++          type: string
++        is_active:
++          title: Is Active
++          type: boolean
++        last_test_status:
++          $ref: '#/components/schemas/GeoProfileTestStatus'
++        last_tested_at:
++          anyOf:
++          - format: date-time
++            type: string
++          - type: 'null'
++          title: Last Tested At
++        revision:
++          minimum: 0
++          title: Revision
++          type: integer
++        created_by:
++          format: uuid
++          title: Created By
++          type: string
++        created_at:
++          format: date-time
++          title: Created At
++          type: string
++        updated_at:
++          format: date-time
++          title: Updated At
++          type: string
++        name:
++          maxLength: 160
++          minLength: 1
++          pattern: ^[^\s\x00](?:[^\x00]*[^\s\x00])?$
++          title: Name
++          type: string
++        adapter_key:
++          maxLength: 100
++          minLength: 1
++          pattern: ^[a-z][a-z0-9_-]*$
++          title: Adapter Key
++          type: string
++        language_code:
++          maxLength: 16
++          minLength: 2
++          pattern: ^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$
++          title: Language Code
++          type: string
++        region_code:
++          maxLength: 2
++          minLength: 2
++          pattern: ^[A-Za-z]{2}$
++          title: Region Code
++          type: string
++        web_search_policy:
++          $ref: '#/components/schemas/GeoWebSearchPolicy'
++        collection_mode:
++          const: BROWSER
++          title: Collection Mode
++          type: string
++        ai_channel_id:
++          title: Ai Channel Id
++          type: 'null'
++        ai_model_id:
++          title: Ai Model Id
++          type: 'null'
++        login_state:
++          enum:
++          - ANONYMOUS
++          - AUTHENTICATED
++          title: Login State
++          type: string
++        settings:
++          $ref: '#/components/schemas/GeoBrowserSettings'
++      required:
++      - id
++      - engine_surface_id
++      - is_active
++      - last_test_status
++      - last_tested_at
++      - revision
++      - created_by
++      - created_at
++      - updated_at
++      - name
++      - adapter_key
++      - language_code
++      - region_code
++      - web_search_policy
++      - collection_mode
++      - ai_channel_id
++      - ai_model_id
++      - login_state
++      - settings
++      type: object
++    GeoManualProfileOut:
++      additionalProperties: false
++      allOf:
++      - oneOf:
++        - properties:
++            last_test_status:
++              const: UNTESTED
++            last_tested_at:
++              type: 'null'
++        - properties:
++            last_test_status:
++              enum:
++              - PASSED
++              - FAILED
++            last_tested_at:
++              format: date-time
++              type: string
++      properties:
++        id:
++          format: uuid
++          title: Id
++          type: string
++        engine_surface_id:
++          format: uuid
++          title: Engine Surface Id
++          type: string
++        is_active:
++          title: Is Active
++          type: boolean
++        last_test_status:
++          $ref: '#/components/schemas/GeoProfileTestStatus'
++        last_tested_at:
++          anyOf:
++          - format: date-time
++            type: string
++          - type: 'null'
++          title: Last Tested At
++        revision:
++          minimum: 0
++          title: Revision
++          type: integer
++        created_by:
++          format: uuid
++          title: Created By
++          type: string
++        created_at:
++          format: date-time
++          title: Created At
++          type: string
++        updated_at:
++          format: date-time
++          title: Updated At
++          type: string
++        name:
++          maxLength: 160
++          minLength: 1
++          pattern: ^[^\s\x00](?:[^\x00]*[^\s\x00])?$
++          title: Name
++          type: string
++        adapter_key:
++          const: manual
++          title: Adapter Key
++          type: string
++        language_code:
++          maxLength: 16
++          minLength: 2
++          pattern: ^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$
++          title: Language Code
++          type: string
++        region_code:
++          maxLength: 2
++          minLength: 2
++          pattern: ^[A-Za-z]{2}$
++          title: Region Code
++          type: string
++        web_search_policy:
++          $ref: '#/components/schemas/GeoWebSearchPolicy'
++        collection_mode:
++          const: MANUAL
++          title: Collection Mode
++          type: string
++        ai_channel_id:
++          title: Ai Channel Id
++          type: 'null'
++        ai_model_id:
++          title: Ai Model Id
++          type: 'null'
++        login_state:
++          enum:
++          - ANONYMOUS
++          - AUTHENTICATED
++          title: Login State
++          type: string
++        settings:
++          $ref: '#/components/schemas/GeoManualSettings'
++      required:
++      - id
++      - engine_surface_id
++      - is_active
++      - last_test_status
++      - last_tested_at
++      - revision
++      - created_by
++      - created_at
++      - updated_at
++      - name
++      - adapter_key
++      - language_code
++      - region_code
++      - web_search_policy
++      - collection_mode
++      - ai_channel_id
++      - ai_model_id
++      - login_state
++      - settings
++      type: object
++    GeoProfileTestStatus:
++      enum:
++      - UNTESTED
++      - PASSED
++      - FAILED
++      type: string
++    GeoCollectionProfileOut:
++      discriminator:
++        mapping:
++          API: '#/components/schemas/GeoApiProfileOut'
++          BROWSER: '#/components/schemas/GeoBrowserProfileOut'
++          MANUAL: '#/components/schemas/GeoManualProfileOut'
++        propertyName: collection_mode
++      oneOf:
++      - $ref: '#/components/schemas/GeoManualProfileOut'
++      - $ref: '#/components/schemas/GeoApiProfileOut'
++      - $ref: '#/components/schemas/GeoBrowserProfileOut'
++    GeoCollectionMode:
++      enum:
++      - MANUAL
++      - API
++      - BROWSER
++      type: string
++    GeoProfileLoginState:
++      enum:
++      - ANONYMOUS
++      - AUTHENTICATED
++      - NOT_APPLICABLE
++      type: string
+--- before/contracts/database.md
++++ after/contracts/database.md
+@@ -9,6 +9,66 @@
+ - Revisions `0001` through `0008` use `app.migration_schema_v1` as a frozen metadata snapshot; future runtime model changes must add a new revision and must not edit that snapshot.
+ - JSONB is limited to immutable generation snapshots, structured generation output, and audit details. Editable product facts use one Markdown body on `products`; platform rules and normalized fact subgraphs no longer exist after `0025`.
+ - Review records, publication work events, publication verifications, observations, and audit logs cannot be modified in place。`0027` 仅在物理删除停用用户时允许把匹配 `audit_logs.actor_id` 置空；`0029` 允许管理员按完整更正链删除人工 GEO 观测；`0037` 允许普通删除未成功发布的任务聚合，并允许管理员永久删除已归档任务聚合。发布与 GEO 历史在保留期间仍禁止原地改写，删除只能从显式业务命令进入。
++
++## GEO EngineSurface / CollectionProfile 合同（GEO-203 / R1）
++
++`0046_geo_surfaces_profiles` 在 `0045_geo_prompt_variants` 后仅增量创建两表及 AIModel 复合唯一键，无回填、seed、生产迁移或旧 GEO 数据改写。当前交付是数据组件/ORM/Schema，标准 paths 不增加端点；Registry/运行资格属于 GEO-204，管理 API/页面属于 GEO-205。内部单租户共享配置，created_by 是服务端追溯身份，ADMIN 管理、ENGINEER 后续仅消费非敏感摘要，不是新增身份体系。
++
++### geo_engine_surfaces
++
++| 列 | 类型/默认 | 合同 |
++|---|---|---|
++| id | UUID | pk_geo_engine_surfaces |
++| name / slug | varchar(160) / varchar(100) | 非空无首尾空白；slug小写连字符标识，uq_geo_engine_surfaces_slug 包含停用行 |
++| surface_kind | varchar(24) | CONSUMER_UI / MODEL_API / SEARCH_API / MANUAL_SITE |
++| provider_brand | varchar(40) | OPENAI / ANTHROPIC / GOOGLE / AZURE_OPENAI / ZHIPU / QWEN / CUSTOM；展示目录，不猜测adapter协议 |
++| website_url | text NULL | 仅信息地址，不发请求；http/https，无userinfo、query、fragment，Schema使用HttpUrl额外验证 |
++| compliance_status | varchar(24) | NOT_REVIEWED / APPROVED / REJECTED / SUSPENDED；默认NOT_REVIEWED |
++| capabilities | JSONB | 六键全部必填、闭合且布尔：answer_text=true，citations/web_search_signal/model_version/usage/cost；不代表单次结果 |
++| is_active / revision | boolean false / integer 0 | 配置合法不表示启用或运行资格 |
++| first_referenced_at | timestamptz NULL | 内部首次运行引用锁存，>=created_at；设置后不可清除/改写，已引用不可DELETE，配置更新只影响未来快照 |
++| created_by | UUID | fk_geo_engine_surfaces_creator → users.id RESTRICT |
++| created_at / updated_at | timestamptz now() | 创建身份不可变，真实变更由命令服务更新 |
++
++CHECK前缀`ck_geo_engine_surfaces_`：name、slug、kind、provider、website、compliance、capabilities、revision、reference_time。索引：`ix_geo_engine_surfaces_active_name(is_active,name,id)`、`ix_geo_engine_surfaces_creator(created_by)`。
++
++### geo_collection_profiles
++
++| 列 | 类型/默认 | 合同 |
++|---|---|---|
++| id | UUID | pk_geo_collection_profiles |
++| engine_surface_id | UUID | fk_geo_collection_profiles_surface → geo_engine_surfaces.id RESTRICT；归属创建后不可变 |
++| name | varchar(160) | 非空无首尾空白；uq_geo_collection_profiles_surface_name(engine_surface_id,name)，包含停用行 |
++| collection_mode / adapter_key | varchar(16) / varchar(100) | MANUAL/API/BROWSER；adapter为小写标识，MANUAL固定manual；模式创建后不可变 |
++| ai_channel_id / ai_model_id | UUID NULL | MANUAL/BROWSER全空；API全空或全非空；MATCH FULL禁止半绑定 |
++| language_code / region_code | varchar(16) / varchar(16) | 与PromptVariant相同显式格式；小写语言/两位大写地区，不推断真实注册状态 |
++| login_state | varchar(24) | API=NOT_APPLICABLE；MANUAL/BROWSER=ANONYMOUS或AUTHENTICATED |
++| web_search_policy | varchar(24) | UNKNOWN / REQUESTED / REQUIRED / NOT_APPLICABLE；配置意图，不是实际搜索事实 |
++| settings_json | JSONB DEFAULT '{}' | 按模式闭合非敏感配置，见下表；未知键/嵌套JSON/类型/范围明确拒绝 |
++| is_active / revision | boolean false / integer 0 | 无自动启用 |
++| last_test_status / last_tested_at | varchar(16) UNTESTED / timestamptz NULL | UNTESTED⇔时间空；PASSED/FAILED必须有时间；测试实施属于后续任务 |
++| created_by | UUID | fk_geo_collection_profiles_creator → users.id RESTRICT |
++| created_at / updated_at | timestamptz now() | 创建追溯不变 |
++
++`uq_ai_models_id_channel UNIQUE(id,channel_id)` 是同一AIModel权威归属的可引用键，原channel+model_id唯一键不变。`fk_geo_collection_profiles_model_channel (ai_model_id,ai_channel_id) → ai_models(id,channel_id) MATCH FULL ON UPDATE RESTRICT ON DELETE SET NULL` 验证真实模型归属；通过既有AIModel.channel_id FK验证渠道存在。既有channel→models CASCADE保持，删除渠道或模型成对清空两引用，Profile保留，不恢复secret/不猜替代模型。API空绑定可以表示显式adapter配置或解绑后的配置；必须由GEO-204 registry/资格判定可用，不能由数据合法性推断可执行。
++
++| 模式 | settings允许键与默认语义 |
++|---|---|
++| MANUAL | require_screenshot:boolean，缺省true |
++| API | temperature:number/null，0..2；max_output_tokens:integer/null，1..65536；缺省null（无覆盖） |
++| BROWSER | require_screenshot:boolean，缺省true；answer_timeout_seconds:integer，10..600，缺省120 |
++
++公共`settings`与持久化`settings_json`显式转换，Out不提供AI key、密文、Cookie、Header、浏览器会话/路径、任意request_parameters或自由JSON。全部叶子是闭合bool/number/null；不能把secret藏入允许值。API空绑定与MANUAL/BROWSER凭据禁止由Pydantic判别联合、OpenAPI oneOf及DB CHECK/MATCH FULL共同覆盖。能力函数`geo_surface_capabilities_valid`和settings函数`geo_profile_settings_valid`是0046冻结的IMMUTABLE合同，不导入运行时Schema。
++
++CHECK前缀`ck_geo_collection_profiles_`：name、mode、adapter、model_mode、language、region、login、search、settings、test、revision。索引：`ix_geo_collection_profiles_surface_active(engine_surface_id,is_active)`、`ix_geo_collection_profiles_model(ai_model_id,ai_channel_id)`、`ix_geo_collection_profiles_creator(created_by)`。
++
++### 版本、生命周期及错误
++
++两资源独立revision owner；创建0，实际配置/测试/历史锁存变化恰好+1，no-op保持revision/updated_at；数据库守卫保护id、creator、created_at与Profile归属/模式，更新时间不倒退。AIModel FK的SET NULL是明确的引用解绑副作用，不自动递增配置revision或变更测试事实；后续运行资格必须重读当前绑定，不以历史PASSED授予执行资格，管理接线负责资格失效投影。Surface的历史锁存仅防止删除，不冻结当前配置，未来真实运行需在持锁同事务设置锁存并保存不可变快照。Profile真实历史RESTRICT FK由未来Run消费方接入，本任务不伪造Run引用。
++
++未来写命令锁序为User→AIChannel→AIModel→Surface→Profile；服务负责事务、expected_revision CAS、测试结果过期检查和最小成功审计。本阶段无命令幂等、队列或外部调用。User.created_by两表引用接入现有批量删除预检/投影，RESTRICT提供最终防线。
++
++唯一冲突仅`23505 + uq_geo_engine_surfaces_slug / uq_geo_collection_profiles_surface_name`；归属仅`23503 + fk_geo_collection_profiles_model_channel`；非法配置仅本节具名`23514`。本任务不新增HTTP错误码/mapper；GEO-205需在命令边界逐项定义，未知异常保持失败，不能按文本或宽泛SQLSTATE猜测。downgrade以55000拒绝删表，恢复用前滚修复或迁移前备份。
+ 
+ ## GEO PromptVariant 合同（GEO-201 / R1）
+ 
+--- before/backend/app/models/__init__.py
++++ after/backend/app/models/__init__.py
+@@ -6,6 +6,7 @@
+ import app.models.geo_catalog  # noqa: F401
+ import app.models.geo_files  # noqa: F401
+ import app.models.geo_prompt_variants  # noqa: F401
++import app.models.geo_surfaces  # noqa: F401
+ import app.models.identity  # noqa: F401
+ import app.models.product_facts  # noqa: F401
+ import app.models.publication  # noqa: F401
+--- before/backend/app/models/ai_generation.py
++++ after/backend/app/models/ai_generation.py
+@@ -101,6 +101,7 @@
+     __tablename__ = "ai_models"
+     __table_args__ = (
+         UniqueConstraint("channel_id", "model_id"),
++        UniqueConstraint("id", "channel_id", name="uq_ai_models_id_channel"),
+         CheckConstraint(
+             "test_status IN ('UNTESTED', 'PASSED', 'FAILED')",
+             name="ck_ai_models_test_status",
+--- before/backend/tests/integration/test_migrations.py
++++ after/backend/tests/integration/test_migrations.py
+@@ -326,7 +326,7 @@
+ 
+         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+             cursor.execute("SELECT version_num FROM alembic_version")
+-            assert cursor.fetchone() == ("0045_geo_prompt_variants",)
++            assert cursor.fetchone() == ("0046_geo_surfaces_profiles",)
+             cursor.execute(
+                 "SELECT tablename FROM pg_tables "
+                 "WHERE schemaname = 'public' AND tablename = ANY(%s)",
+@@ -484,10 +484,10 @@
+             text=True,
+         )
+         assert downgrade.returncode != 0
+-        assert "0045 GEO PromptVariant 无法安全降级" in downgrade.stdout + downgrade.stderr
++        assert "0046 GEO Surface/Profile 无法安全降级" in downgrade.stdout + downgrade.stderr
+         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+             cursor.execute("SELECT version_num FROM alembic_version")
+-            assert cursor.fetchone() == ("0045_geo_prompt_variants",)
++            assert cursor.fetchone() == ("0046_geo_surfaces_profiles",)
+ 
+ 
+ @pytest.mark.integration
+--- before/backend/tests/integration/test_geo_prompt_variants.py
++++ after/backend/tests/integration/test_geo_prompt_variants.py
+@@ -9,6 +9,7 @@
+ import uuid
+ from collections.abc import Iterator
+ from concurrent.futures import ThreadPoolExecutor
++from contextlib import contextmanager
+ from dataclasses import dataclass
+ from pathlib import Path
+ from typing import Any
+@@ -52,8 +53,8 @@
+     ]
+ 
+ 
+-@pytest.fixture(scope="module")
+-def variant_database() -> Iterator[VariantDatabase]:
++@contextmanager
++def prepared_variant_database(target_revision: str) -> Iterator[VariantDatabase]:
+     with temporary_database("partsignal_geo201") as (url, env, backend_dir):
+         run_alembic(env, backend_dir, "0044_geo_catalog")
+         actor, admin, topic = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+@@ -97,8 +98,21 @@
+                 },
+             )
+             before = snapshot(connection)
+-        run_alembic(env, backend_dir, "head")
++        run_alembic(env, backend_dir, target_revision)
+         yield VariantDatabase(url, env, backend_dir, actor, admin, topic, before)
++
++
++@pytest.fixture(scope="module")
++def variant_database() -> Iterator[VariantDatabase]:
++    # 当前服务使用 head；历史迁移验收使用独立数据库，避免夹具相互污染。
++    with prepared_variant_database("head") as database:
++        yield database
++
++
++@pytest.fixture(scope="module")
++def variant_migration_database() -> Iterator[VariantDatabase]:
++    with prepared_variant_database("0045_geo_prompt_variants") as database:
++        yield database
+ 
+ 
+ @pytest.fixture
+@@ -136,8 +150,10 @@
+     )
+ 
+ 
+-def test_additive_migration_metadata_and_safe_stop(variant_database: VariantDatabase) -> None:
+-    database = variant_database
++def test_additive_migration_metadata_and_safe_stop(
++    variant_migration_database: VariantDatabase,
++) -> None:
++    database = variant_migration_database
+     with psycopg.connect(database.url) as connection:
+         assert snapshot(connection) == database.before
+         assert connection.execute("SELECT version_num FROM alembic_version").fetchone() == (
+--- before/frontend/src/shared/api/generated/schema.d.ts
++++ after/frontend/src/shared/api/generated/schema.d.ts
+@@ -6085,6 +6085,558 @@
+             /** @enum {integer} */
+             page_size: 10 | 20 | 50;
+         };
++        /** @enum {string} */
++        GeoComplianceStatus: "NOT_REVIEWED" | "APPROVED" | "REJECTED" | "SUSPENDED";
++        GeoSurfaceCapabilities: {
++            /**
++             * Answer Text
++             * @constant
++             */
++            answer_text: true;
++            /** Citations */
++            citations: boolean;
++            /** Web Search Signal */
++            web_search_signal: boolean;
++            /** Model Version */
++            model_version: boolean;
++            /** Usage */
++            usage: boolean;
++            /** Cost */
++            cost: boolean;
++        };
++        /** @enum {string} */
++        GeoSurfaceKind: "CONSUMER_UI" | "MODEL_API" | "SEARCH_API" | "MANUAL_SITE";
++        /** @enum {string} */
++        GeoSurfaceProviderBrand: "OPENAI" | "ANTHROPIC" | "GOOGLE" | "AZURE_OPENAI" | "ZHIPU" | "QWEN" | "CUSTOM";
++        GeoEngineSurfaceCreate: {
++            /** Name */
++            name: string;
++            /** Slug */
++            slug: string;
++            surface_kind: components["schemas"]["GeoSurfaceKind"];
++            provider_brand: components["schemas"]["GeoSurfaceProviderBrand"];
++            /** Website Url */
++            website_url: string | null;
++            compliance_status: components["schemas"]["GeoComplianceStatus"];
++            capabilities: components["schemas"]["GeoSurfaceCapabilities"];
++        };
++        GeoEngineSurfaceUpdate: {
++            /** Name */
++            name: string;
++            /** Slug */
++            slug: string;
++            surface_kind: components["schemas"]["GeoSurfaceKind"];
++            provider_brand: components["schemas"]["GeoSurfaceProviderBrand"];
++            /** Website Url */
++            website_url: string | null;
++            compliance_status: components["schemas"]["GeoComplianceStatus"];
++            capabilities: components["schemas"]["GeoSurfaceCapabilities"];
++            /** Expected Revision */
++            expected_revision: number;
++        };
++        GeoEngineSurfaceOut: {
++            /** Name */
++            name: string;
++            /** Slug */
++            slug: string;
++            surface_kind: components["schemas"]["GeoSurfaceKind"];
++            provider_brand: components["schemas"]["GeoSurfaceProviderBrand"];
++            /** Website Url */
++            website_url: string | null;
++            compliance_status: components["schemas"]["GeoComplianceStatus"];
++            capabilities: components["schemas"]["GeoSurfaceCapabilities"];
++            /**
++             * Id
++             * Format: uuid
++             */
++            id: string;
++            /** Is Active */
++            is_active: boolean;
++            /** Revision */
++            revision: number;
++            /** First Referenced At */
++            first_referenced_at: string | null;
++            /**
++             * Created By
++             * Format: uuid
++             */
++            created_by: string;
++            /**
++             * Created At
++             * Format: date-time
++             */
++            created_at: string;
++            /**
++             * Updated At
++             * Format: date-time
++             */
++            updated_at: string;
++        };
++        GeoApiProfileCreate: {
++            /** Name */
++            name: string;
++            /** Adapter Key */
++            adapter_key: string;
++            /** Language Code */
++            language_code: string;
++            /** Region Code */
++            region_code: string;
++            web_search_policy: components["schemas"]["GeoWebSearchPolicy"];
++            /**
++             * @description discriminator enum property added by openapi-typescript
++             * @enum {string}
++             */
++            collection_mode: "API";
++            /** Ai Channel Id */
++            ai_channel_id: string | null;
++            /** Ai Model Id */
++            ai_model_id: string | null;
++            /**
++             * Login State
++             * @constant
++             */
++            login_state: "NOT_APPLICABLE";
++            settings: components["schemas"]["GeoApiSettings"];
++            /**
++             * Engine Surface Id
++             * Format: uuid
++             */
++            engine_surface_id: string;
++        } & ({
++            ai_channel_id?: null;
++            ai_model_id?: null;
++        } | {
++            ai_channel_id?: string;
++            ai_model_id?: string;
++        });
++        GeoApiSettings: {
++            /**
++             * Temperature
++             * @default null
++             */
++            temperature: number | null;
++            /**
++             * Max Output Tokens
++             * @default null
++             */
++            max_output_tokens: number | null;
++        };
++        GeoBrowserProfileCreate: {
++            /** Name */
++            name: string;
++            /** Adapter Key */
++            adapter_key: string;
++            /** Language Code */
++            language_code: string;
++            /** Region Code */
++            region_code: string;
++            web_search_policy: components["schemas"]["GeoWebSearchPolicy"];
++            /**
++             * @description discriminator enum property added by openapi-typescript
++             * @enum {string}
++             */
++            collection_mode: "BROWSER";
++            /** Ai Channel Id */
++            ai_channel_id: null;
++            /** Ai Model Id */
++            ai_model_id: null;
++            /**
++             * Login State
++             * @enum {string}
++             */
++            login_state: "ANONYMOUS" | "AUTHENTICATED";
++            settings: components["schemas"]["GeoBrowserSettings"];
++            /**
++             * Engine Surface Id
++             * Format: uuid
++             */
++            engine_surface_id: string;
++        };
++        GeoBrowserSettings: {
++            /**
++             * Require Screenshot
++             * @default true
++             */
++            require_screenshot: boolean;
++            /**
++             * Answer Timeout Seconds
++             * @default 120
++             */
++            answer_timeout_seconds: number;
++        };
++        GeoManualProfileCreate: {
++            /** Name */
++            name: string;
++            /**
++             * Adapter Key
++             * @constant
++             */
++            adapter_key: "manual";
++            /** Language Code */
++            language_code: string;
++            /** Region Code */
++            region_code: string;
++            web_search_policy: components["schemas"]["GeoWebSearchPolicy"];
++            /**
++             * @description discriminator enum property added by openapi-typescript
++             * @enum {string}
++             */
++            collection_mode: "MANUAL";
++            /** Ai Channel Id */
++            ai_channel_id: null;
++            /** Ai Model Id */
++            ai_model_id: null;
++            /**
++             * Login State
++             * @enum {string}
++             */
++            login_state: "ANONYMOUS" | "AUTHENTICATED";
++            settings: components["schemas"]["GeoManualSettings"];
++            /**
++             * Engine Surface Id
++             * Format: uuid
++             */
++            engine_surface_id: string;
++        };
++        GeoManualSettings: {
++            /**
++             * Require Screenshot
++             * @default true
++             */
++            require_screenshot: boolean;
++        };
++        /** @enum {string} */
++        GeoWebSearchPolicy: "UNKNOWN" | "REQUESTED" | "REQUIRED" | "NOT_APPLICABLE";
++        GeoCollectionProfileCreate: components["schemas"]["GeoManualProfileCreate"] | components["schemas"]["GeoApiProfileCreate"] | components["schemas"]["GeoBrowserProfileCreate"];
++        GeoApiProfileUpdate: {
++            /** Name */
++            name: string;
++            /** Adapter Key */
++            adapter_key: string;
++            /** Language Code */
++            language_code: string;
++            /** Region Code */
++            region_code: string;
++            web_search_policy: components["schemas"]["GeoWebSearchPolicy"];
++            /**
++             * @description discriminator enum property added by openapi-typescript
++             * @enum {string}
++             */
++            collection_mode: "API";
++            /** Ai Channel Id */
++            ai_channel_id: string | null;
++            /** Ai Model Id */
++            ai_model_id: string | null;
++            /**
++             * Login State
++             * @constant
++             */
++            login_state: "NOT_APPLICABLE";
++            settings: components["schemas"]["GeoApiSettings"];
++            /** Expected Revision */
++            expected_revision: number;
++        } & ({
++            ai_channel_id?: null;
++            ai_model_id?: null;
++        } | {
++            ai_channel_id?: string;
++            ai_model_id?: string;
++        });
++        GeoBrowserProfileUpdate: {
++            /** Name */
++            name: string;
++            /** Adapter Key */
++            adapter_key: string;
++            /** Language Code */
++            language_code: string;
++            /** Region Code */
++            region_code: string;
++            web_search_policy: components["schemas"]["GeoWebSearchPolicy"];
++            /**
++             * @description discriminator enum property added by openapi-typescript
++             * @enum {string}
++             */
++            collection_mode: "BROWSER";
++            /** Ai Channel Id */
++            ai_channel_id: null;
++            /** Ai Model Id */
++            ai_model_id: null;
++            /**
++             * Login State
++             * @enum {string}
++             */
++            login_state: "ANONYMOUS" | "AUTHENTICATED";
++            settings: components["schemas"]["GeoBrowserSettings"];
++            /** Expected Revision */
++            expected_revision: number;
++        };
++        GeoManualProfileUpdate: {
++            /** Name */
++            name: string;
++            /**
++             * Adapter Key
++             * @constant
++             */
++            adapter_key: "manual";
++            /** Language Code */
++            language_code: string;
++            /** Region Code */
++            region_code: string;
++            web_search_policy: components["schemas"]["GeoWebSearchPolicy"];
++            /**
++             * @description discriminator enum property added by openapi-typescript
++             * @enum {string}
++             */
++            collection_mode: "MANUAL";
++            /** Ai Channel Id */
++            ai_channel_id: null;
++            /** Ai Model Id */
++            ai_model_id: null;
++            /**
++             * Login State
++             * @enum {string}
++             */
++            login_state: "ANONYMOUS" | "AUTHENTICATED";
++            settings: components["schemas"]["GeoManualSettings"];
++            /** Expected Revision */
++            expected_revision: number;
++        };
++        GeoCollectionProfileUpdate: components["schemas"]["GeoManualProfileUpdate"] | components["schemas"]["GeoApiProfileUpdate"] | components["schemas"]["GeoBrowserProfileUpdate"];
++        GeoApiProfileOut: ({
++            /**
++             * Id
++             * Format: uuid
++             */
++            id: string;
++            /**
++             * Engine Surface Id
++             * Format: uuid
++             */
++            engine_surface_id: string;
++            /** Is Active */
++            is_active: boolean;
++            last_test_status: components["schemas"]["GeoProfileTestStatus"];
++            /** Last Tested At */
++            last_tested_at: string | null;
++            /** Revision */
++            revision: number;
++            /**
++             * Created By
++             * Format: uuid
++             */
++            created_by: string;
++            /**
++             * Created At
++             * Format: date-time
++             */
++            created_at: string;
++            /**
++             * Updated At
++             * Format: date-time
++             */
++            updated_at: string;
++            /** Name */
++            name: string;
++            /** Adapter Key */
++            adapter_key: string;
++            /** Language Code */
++            language_code: string;
++            /** Region Code */
++            region_code: string;
++            web_search_policy: components["schemas"]["GeoWebSearchPolicy"];
++            /**
++             * Collection Mode
++             * @constant
++             */
++            collection_mode: "API";
++            /** Ai Channel Id */
++            ai_channel_id: string | null;
++            /** Ai Model Id */
++            ai_model_id: string | null;
++            /**
++             * Login State
++             * @constant
++             */
++            login_state: "NOT_APPLICABLE";
++            settings: components["schemas"]["GeoApiSettings"];
++        } & (({
++            /** @constant */
++            last_test_status?: "UNTESTED";
++            last_tested_at?: null;
++        } | {
++            /** @enum {unknown} */
++            last_test_status?: "PASSED" | "FAILED";
++            /** Format: date-time */
++            last_tested_at?: string;
++        }) & {
++            /**
++             * @description discriminator enum property added by openapi-typescript
++             * @enum {string}
++             */
++            collection_mode: "API";
++        })) & ({
++            ai_channel_id?: null;
++            ai_model_id?: null;
++        } | {
++            ai_channel_id?: string;
++            ai_model_id?: string;
++        });
++        GeoBrowserProfileOut: {
++            /**
++             * Id
++             * Format: uuid
++             */
++            id: string;
++            /**
++             * Engine Surface Id
++             * Format: uuid
++             */
++            engine_surface_id: string;
++            /** Is Active */
++            is_active: boolean;
++            last_test_status: components["schemas"]["GeoProfileTestStatus"];
++            /** Last Tested At */
++            last_tested_at: string | null;
++            /** Revision */
++            revision: number;
++            /**
++             * Created By
++             * Format: uuid
++             */
++            created_by: string;
++            /**
++             * Created At
++             * Format: date-time
++             */
++            created_at: string;
++            /**
++             * Updated At
++             * Format: date-time
++             */
++            updated_at: string;
++            /** Name */
++            name: string;
++            /** Adapter Key */
++            adapter_key: string;
++            /** Language Code */
++            language_code: string;
++            /** Region Code */
++            region_code: string;
++            web_search_policy: components["schemas"]["GeoWebSearchPolicy"];
++            /**
++             * Collection Mode
++             * @constant
++             */
++            collection_mode: "BROWSER";
++            /** Ai Channel Id */
++            ai_channel_id: null;
++            /** Ai Model Id */
++            ai_model_id: null;
++            /**
++             * Login State
++             * @enum {string}
++             */
++            login_state: "ANONYMOUS" | "AUTHENTICATED";
++            settings: components["schemas"]["GeoBrowserSettings"];
++        } & (({
++            /** @constant */
++            last_test_status?: "UNTESTED";
++            last_tested_at?: null;
++        } | {
++            /** @enum {unknown} */
++            last_test_status?: "PASSED" | "FAILED";
++            /** Format: date-time */
++            last_tested_at?: string;
++        }) & {
++            /**
++             * @description discriminator enum property added by openapi-typescript
++             * @enum {string}
++             */
++            collection_mode: "BROWSER";
++        });
++        GeoManualProfileOut: {
++            /**
++             * Id
++             * Format: uuid
++             */
++            id: string;
++            /**
++             * Engine Surface Id
++             * Format: uuid
++             */
++            engine_surface_id: string;
++            /** Is Active */
++            is_active: boolean;
++            last_test_status: components["schemas"]["GeoProfileTestStatus"];
++            /** Last Tested At */
++            last_tested_at: string | null;
++            /** Revision */
++            revision: number;
++            /**
++             * Created By
++             * Format: uuid
++             */
++            created_by: string;
++            /**
++             * Created At
++             * Format: date-time
++             */
++            created_at: string;
++            /**
++             * Updated At
++             * Format: date-time
++             */
++            updated_at: string;
++            /** Name */
++            name: string;
++            /**
++             * Adapter Key
++             * @constant
++             */
++            adapter_key: "manual";
++            /** Language Code */
++            language_code: string;
++            /** Region Code */
++            region_code: string;
++            web_search_policy: components["schemas"]["GeoWebSearchPolicy"];
++            /**
++             * Collection Mode
++             * @constant
++             */
++            collection_mode: "MANUAL";
++            /** Ai Channel Id */
++            ai_channel_id: null;
++            /** Ai Model Id */
++            ai_model_id: null;
++            /**
++             * Login State
++             * @enum {string}
++             */
++            login_state: "ANONYMOUS" | "AUTHENTICATED";
++            settings: components["schemas"]["GeoManualSettings"];
++        } & (({
++            /** @constant */
++            last_test_status?: "UNTESTED";
++            last_tested_at?: null;
++        } | {
++            /** @enum {unknown} */
++            last_test_status?: "PASSED" | "FAILED";
++            /** Format: date-time */
++            last_tested_at?: string;
++        }) & {
++            /**
++             * @description discriminator enum property added by openapi-typescript
++             * @enum {string}
++             */
++            collection_mode: "MANUAL";
++        });
++        /** @enum {string} */
++        GeoProfileTestStatus: "UNTESTED" | "PASSED" | "FAILED";
++        GeoCollectionProfileOut: components["schemas"]["GeoManualProfileOut"] | components["schemas"]["GeoApiProfileOut"] | components["schemas"]["GeoBrowserProfileOut"];
++        /** @enum {string} */
++        GeoCollectionMode: "MANUAL" | "API" | "BROWSER";
++        /** @enum {string} */
++        GeoProfileLoginState: "ANONYMOUS" | "AUTHENTICATED" | "NOT_APPLICABLE";
+     };
+     responses: {
+         /** @description 业务或校验错误 */
+--- before/docs/geo-monitoring/CHANGELOG.md
++++ after/docs/geo-monitoring/CHANGELOG.md
+@@ -1,4 +1,12 @@
+ # 文档包变更记录
++
++## GEO-203 EngineSurface/Profile 数据契约 — 2026-10-02（review）
++
++- GEO-004/GEO-101 依赖均 done；新增两类主数据公共 components、模式判别 Schema、ORM 与 0046 expand 迁移，只交付 GEO-203。
++- MANUAL/API/BROWSER、闭合六项能力、合规枚举、非敏感 settings、同渠道 AIModel 复合 FK、成对 SET NULL 与 User/Surface RESTRICT；新配置默认停用/UNTESTED，revision 和创建身份受数据库守卫。
++- PRD 的旧 surface_type/合规名称及技术默认值统一到详细领域与权威根合同。旧行不回填；0046 拒绝有损 downgrade，使用前滚恢复或备份。
++- Task 记录保存指定门禁、模式/FK/秘密/迁移直接 SQL 证据与独立只读复核；不把未执行门禁视为通过。无新端点、页面、Registry、运行资格、外部调用、Batch/Run、指标或生产迁移。
++- [实施证据](../../.trellis/tasks/10-02-geo-203-surface-profile/implement.md)记录精确结果、初次失败修正和环境清理。
+ 
+ ## GEO-202 问题变体 API 与工作区 — 2026-10-02（review）
+ 
+--- before/docs/geo-monitoring/README.md
++++ after/docs/geo-monitoring/README.md
+@@ -33,6 +33,8 @@
+ GEO-201 / R1 已新增问题变体合同、ORM 与 `0045_geo_prompt_variants`，复用 QueryTopic，明确 BRANDED/UNBRANDED、语言、地区、优先级及 revision。历史引用后只能停用，首次引用不可逆；GEO-201 未提供端点，后续 GEO-202 实施见下文，回答级 Run 未实施。交付状态与逐项验证见 [Task Brief](../../.trellis/tasks/10-02-geo-201-prompt-variant/prd.md) 和 [实施证据](../../.trellis/tasks/10-02-geo-201-prompt-variant/implement.md)。
+ 
+ GEO-202 / R1 已实现问题变体 Application Service、七个 API 与 `/geo/questions` 工作区，当前状态为 `review`。显式点名属性、历史语义、revision 和动作投影由服务端裁决，运行入口占位不创建 Batch/Run。任务内真实 API E2E 通过；完整门禁仍保留 GEO-106 已记录的未修改上传断言与编辑器焦点失败。Task Brief、逐项验证和实际状态见 [任务记录](../../.trellis/tasks/10-02-geo-202-question-workspace/prd.md) 与 [实施证据](../../.trellis/tasks/10-02-geo-202-question-workspace/implement.md)。
++
++GEO-203 / R1 已实现 EngineSurface/Profile 数据组件、ORM、Schema 和 `0046_geo_surfaces_profiles`，本地验证完成后进入 `review`，等待人工验收。三模式、同渠道模型引用、闭合能力/非敏感 settings、默认停用与测试状态均受结构约束；只重生成前端类型。实施与逐项验证见 [Task Brief](../../.trellis/tasks/10-02-geo-203-surface-profile/prd.md) 和 [实施证据](../../.trellis/tasks/10-02-geo-203-surface-profile/implement.md)。未实施 GEO-204 Registry/资格、GEO-205 管理接口/页面、外部采集或回答级 Batch/Run；未迁移生产数据库。
+ 
+ ## 1. 文档包用途
+ 
+--- before/docs/geo-monitoring/SHA256SUMS
++++ after/docs/geo-monitoring/SHA256SUMS
+@@ -1,15 +1,15 @@
+ 0ec5e67515fa5c383612130415bfc70185a607ac65006fcc932dd750c137bbde  ./00-governance/01-document-governance.md
+ b5906690eb04c8d27911a09722761e7cf4c244ecab2fbe39a55d94c794ee8728  ./00-governance/02-glossary.md
+ 670367ab19f32e811ec651a5be24a9ca062699f1fec60571c97b055ac7f1fb15  ./01-product/01-product-vision-and-scope.md
+-ec0fdeee9676b701a88d637899aaee564ec4dec9a1623060b56206e658d5ec65  ./01-product/02-geo-core-prd.md
++813055a6ecd380b1362f697dba8006a0bedd22d8261aa6e090841eb82bb03f6a  ./01-product/02-geo-core-prd.md
+ 7ea6985cdc63749a10c73b801f69349dc2f0ac797b9aa87622723f26b988bcbe  ./01-product/03-information-architecture-and-page-spec.md
+ 3892c8f83318ee460de04960a5162b4d777db06eb731a5999cdee946cd8042e3  ./02-business/01-business-architecture.md
+-a0495264dae41230acc2674a5853f12afe0040772e864e293174e26ccc99b039  ./02-business/02-domain-model.md
++e41b583666283267e005f121a8b7af6e82e5415319b457fbfa8f326179ef22d6  ./02-business/02-domain-model.md
+ ecd00edfdb3bd3dc1e301206d4988774d0a6b425dae5eb6cd71459da3716b0b2  ./02-business/03-workflows-and-state-machines.md
+ 30e1976c61c18150724cf4b89ead9e2d960b0cea729ba377b06c7c384c264899  ./02-business/04-monitoring-methodology-and-metrics.md
+ 2ce491f8dbf89639aabbf59b5afb7a3fd43520e40e7848e4e9e3049c85436689  ./03-technical/01-technical-architecture.md
+-85d86486287b5f5af463911516b57c498957b8bae722e3bae808c1300d00fb28  ./03-technical/02-data-architecture.md
+-8e23f290fc573c943048e493657ba0cbe684560f2fbc17ad8d63e09c4b0a0343  ./03-technical/03-api-contract-design.md
++ac53188d22f0fcc1dc03cb2936f547fefd5d396430663321cad8b5a786db99eb  ./03-technical/02-data-architecture.md
++ed830d0f18dc33cb5786cfaa198813fd463b55ae837664029db32980f710f99e  ./03-technical/03-api-contract-design.md
+ ab4c5640c2ca1316ffec8872bdc1dbdd821ce43d2fe8f48b38b5b7c3219b0960  ./03-technical/04-frontend-architecture.md
+ e79eacbf9f64dd314e64d2bff61d53e95e369208143fc4cda64ff99f50f7e3e4  ./03-technical/05-worker-and-collector-architecture.md
+ 2698d3095cfaeb5857d6bafd3efd633d9d50b813257054e7568d779be35d7dd7  ./03-technical/06-security-and-compliance.md
+@@ -17,7 +17,7 @@
+ 61a4dd642c6f74b581e95eb2269453be79d71a75fa240269eb001e56f45e2b83  ./03-technical/08-deployment-and-operations.md
+ f8c643e46c1159c51bd2e271e87de1d0e5a0448e2845af01f33bef5e4e1d411b  ./04-delivery/01-implementation-roadmap.md
+ acf0bde87ddfc34ebbc09543c1f2c2c1f496d48f330727b5e943807267eed41c  ./04-delivery/02-work-breakdown-structure.md
+-13ff9da69ee642da5d1f439e4510b1ed6cc84978a78917e632b7575049523d35  ./04-delivery/03-requirement-traceability-matrix.md
++1cec9eee4dbc935bc8349b21d176d8591fb3ac33e191896849cc6492c70ce9a7  ./04-delivery/03-requirement-traceability-matrix.md
+ 8991d4c1ec5cc872904aa3b10ffbb2f77ca46a4bfda88589d290f7fd92c2f1fb  ./04-delivery/04-codex-execution-guide.md
+ f600bcdfc2788659654825a020fb2aa0fcbe7acf9827b97eab25aadd7a20ff51  ./04-delivery/05-task-template.md
+ 0ec18f9ce8589f4c8e222fddc6d15853c949ad2b227381b584e2c81c4c4e47b0  ./04-delivery/06-current-geo-baseline.md
+@@ -102,13 +102,13 @@
+ 7106b3f1df66de6ba41a4d7ca85e291b8b181f78e2b7c0ef91f4fa696d1f9e8b  ./04-delivery/geo-003-baseline/sources.json
+ 316ab24c5f645e18d39c529c7fcbca2260b14a5375cc5ebd799a5b7c6cfc8f40  ./04-delivery/geo-003-baseline/tests.json
+ 9dae298eb77cc0063394bfacea27b02ece69bf2a7dceba637ef1320565810ec7  ./04-delivery/geo-003-baseline/validation.md
+-524590b274dbf75d8c18846fc4ff39132804772634c976838517e61e24768543  ./04-delivery/task-manifest.yaml
++16cf27839d8e34b8fb52961514e526414d3bec94ad48318bda3fc449f81aac2c  ./04-delivery/task-manifest.yaml
+ 2c0f8d8ba314039b44e48614481c28e615e996c2e4ed444c8f07362b5cd75de9  ./05-decisions/ADR-001-extend-modular-monolith.md
+ 4e0ec1be59e33c2f3e83ee50abc55ffe35d2d0bf471c19cc2c713b391fc12cee  ./05-decisions/ADR-002-unified-observation-run-model.md
+ 00baab5f8fe68fbaf75e3aa7b07a0cfbd7c510e39b6a70ea462d9ab941330dc7  ./05-decisions/ADR-003-separate-collection-analysis-review.md
+ 09d2ba6a3d8f07ca61309d0a9d4a557c30a1d16853d73139e15b43ca6f1303bb  ./05-decisions/ADR-004-no-unified-geo-score.md
+ 6197eb3379ad5c5f99c499ab8b74eac5cf18e6df26a3f5c34c4e9bf83845593b  ./05-decisions/ADR-005-staged-collector-rollout.md
+ c3e9f23a90bd7fc9b47760d53c56fd6f09f73065dff5b19c1040ee5fd608a560  ./05-decisions/GEO-002-architecture-review.md
+-1da635310599670f74704cf35751d665c777dfdefe45437b7a7e50fa2a5c360c  ./CHANGELOG.md
+-adfbc81eb3a83d11a6a048720a128e40b9a6c8933e6908c9ef6ef99cd62a020c  ./README.md
++e94448dcd4446c3d8b33effaf62cbe89a2f131cd94da6ac3208c37d5e03a94db  ./CHANGELOG.md
++a39bfb7d4f070013a4447b95c0867f25964c3f290dd5a3de6f2d917f8f4fc0e4  ./README.md
+ 36be92c676c3150e5953f01498418900d3e2bcc1f37a0bda31b9892e57b8a2d0  ./01-product/04-catalog-user-guide.md
+--- before/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ after/docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -305,7 +305,7 @@
+   phase: R1
+   release: R1
+   title: 定义并实现 EngineSurface 与 CollectionProfile 数据契约
+-  status: planned
++  status: review
+   dependencies:
+   - GEO-004
+   - GEO-101
+@@ -323,6 +323,9 @@
+   - 02-business/03-workflows-and-state-machines.md
+   - 03-technical/01-technical-architecture.md
+   - 04-delivery/04-codex-execution-guide.md
++  trellis_task: .trellis/tasks/10-02-geo-203-surface-profile
++  validation_record: .trellis/tasks/10-02-geo-203-surface-profile/implement.md
++  review_note: 数据组件、ORM、Schema与0046迁移已实现；模式/FK/秘密/迁移定向通过，1042项后端单元、940项前端、541项PG集成及指定门禁通过。独立只读复核两项Schema差异已修正并反例验证；无Registry、管理接口、采集或生产迁移，等待人工验收。
+ - id: GEO-204
+   phase: R1
+   release: R1
+--- before/docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md
++++ after/docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md
+@@ -160,3 +160,7 @@
+ - 指标公式变更必须更新 REQ、金标和报告；
+ - 任务拆分后保留原 ID 为 Epic 或在 manifest 中明确 superseded；
+ - 关闭需求需要 ADR/产品决策，不能只删除任务。
++
++## GEO-203 数据契约证据（R1 / review）
++
++CAP-GEO-03 的模式、环境、能力、合规数据与非敏感 Profile 响应由 [Task Brief](../../../.trellis/tasks/10-02-geo-203-surface-profile/prd.md)、[实施证据](../../../.trellis/tasks/10-02-geo-203-surface-profile/implement.md)、test_geo_surface_contract.py 与 test_geo_surfaces_profiles.py 覆盖模式组合、FK、秘密字段缺失和迁移。REQ-GEO-SEC-001 本任务只实现合规状态与秘密配置数据边界；运行批准、权限和管理操作由 GEO-204/205/804 后续验收，不能把数据契约通过视为自动采集资格已实现。
+--- before/docs/geo-monitoring/03-technical/02-data-architecture.md
++++ after/docs/geo-monitoring/03-technical/02-data-architecture.md
+@@ -86,68 +86,18 @@
+ 
+ ## 3.4 `geo_engine_surfaces`
+ 
+-| 字段 | 类型 | 约束 |
+-|---|---|---|
+-| id | UUID | PK |
+-| name | varchar(160) | 非空 |
+-| slug | varchar(100) | 唯一 |
+-| surface_kind | varchar(24) | CONSUMER_UI/MODEL_API/SEARCH_API/MANUAL_SITE |
+-| provider_brand | varchar(40) | 受控目录或 CUSTOM |
+-| website_url | text nullable | HttpUrl 边界校验 |
+-| compliance_status | varchar(24) | NOT_REVIEWED/APPROVED/REJECTED/SUSPENDED |
+-| capabilities | JSONB | 不可变受控布尔能力集合，更新按 revision |
+-| is_active | boolean | 默认 true |
+-| revision | integer | 有效变更恰好 +1，初始 0 |
+-| first_referenced_at | timestamptz nullable | 不可逆首次引用锁存 |
+-| created_by | UUID | users.id RESTRICT |
+-| created_at/updated_at | timestamptz | |
+-
+-`capabilities` 初始键：
+-
+-```json
+-{
+-  "answer_text": true,
+-  "citations": false,
+-  "web_search_signal": false,
+-  "model_version": false,
+-  "usage": false,
+-  "cost": false
+-}
+-```
+-
+-禁止任意扩展键；Schema 和数据库检查由任务确定。
++GEO-203 / R1 已在 `0046_geo_surfaces_profiles` 增量建立该表。完整列类型、枚举、CHECK/UNIQUE/FK/index 和 revision/首次引用守卫见 [权威数据库合同](../../../contracts/database.md#geo-enginesurface--collectionprofile-合同geo-203--r1)，避免在技术目标文档维护第二套声明。
++
++Surface 的六项闭合布尔 capabilities 必须齐全，answer_text=true；website_url 不含认证信息/query/fragment；默认 is_active=false、compliance_status=NOT_REVIEWED、revision=0。首次引用锁存不可清除/改写，已引用 Surface 不可删除；未来历史通过不可变快照保存，当前配置没有被伪装成历史 Run。
+ 
+ ## 3.5 `geo_collection_profiles`
+ 
+-| 字段 | 类型 | 约束 |
+-|---|---|---|
+-| id | UUID | PK |
+-| engine_surface_id | UUID | FK geo_engine_surfaces.id |
+-| name | varchar(160) | 非空 |
+-| collection_mode | varchar(16) | MANUAL/API/BROWSER |
+-| adapter_key | varchar(100) | 非空 |
+-| ai_channel_id | UUID nullable | FK ai_channels.id SET NULL |
+-| ai_model_id | UUID nullable | FK ai_models.id SET NULL |
+-| language_code | varchar(16) | 非空 |
+-| region_code | varchar(16) | 非空 |
+-| login_state | varchar(24) | ANONYMOUS/AUTHENTICATED/NOT_APPLICABLE |
+-| web_search_policy | varchar(24) | UNKNOWN/REQUESTED/REQUIRED/NOT_APPLICABLE |
+-| settings_json | JSONB | 受控非敏感 adapter 配置 |
+-| is_active | boolean | |
+-| last_test_status | varchar(16) | UNTESTED/PASSED/FAILED |
+-| last_tested_at | timestamptz nullable | |
+-| revision | integer | |
+-| created_by | UUID | |
+-| created_at/updated_at | timestamptz | |
+-
+-约束：
+-
+-- API 模式的模型/adapter 组合满足协议目录；
+-- MANUAL 模式 `ai_channel_id/ai_model_id` 均为空；
+-- BROWSER 模式不得绑定 AI 凭据；
+-- `settings_json` 不含 secret；
+-- `(engine_surface_id, name)` 唯一；
+-- ai_model 必须属于 ai_channel（应用服务 + 触发器/复合约束策略在实现任务确认）。
++同一 `0046` 创建 Profile，公共判别联合与闭合 settings 见 [OpenAPI](../../../contracts/openapi.yaml)。`settings_json` 是持久化名称，响应显式转换为 `settings`，不得直接公开 ORM 或 join AI 凭据。
++
++- MANUAL/BROWSER 两个 AI 引用均为空；MANUAL adapter=manual。API 两引用同时空或同时存在，由 MATCH FULL 复合 FK 指向 AIModel(id,channel_id)，数据库验证同渠道归属；AIModel 新增对应复合 UNIQUE，已有渠道 CASCADE 模型删除与 Profile 成对 SET NULL 保持一致。
++- Surface 和 User created_by 使用 RESTRICT；(engine_surface_id,name) 唯一；MANUAL/BROWSER 与 API 的 login_state、语言/地区、web_search_policy 和模式专属 settings 均有命名 CHECK，未知键/secret 拒绝。
++- 新 Profile is_active=false、UNTESTED；测试状态/时间一致。身份/Surface/模式不可变；有效配置更新 revision 恰好 +1，no-op 保留 revision/updated_at，不自动提交事务。
++- 0046 仅 expand，不回填旧 GEO、PromptVariant 或 AI 配置，不创建 Registry、Batch/Run 或 Collector。旧 head 前滚与空库验证在 Task 证据；downgrade 明确拒绝破坏性删除，恢复采用前滚修复或迁移前备份。
+ 
+ ## 4. Planning 表
+ 
+--- before/docs/geo-monitoring/03-technical/03-api-contract-design.md
++++ after/docs/geo-monitoring/03-technical/03-api-contract-design.md
+@@ -106,6 +106,10 @@
+ 
+ ## 4. 观测面与采集配置 API
+ 
++GEO-203 / R1 只新增标准 components：GeoEngineSurfaceCreate/Update/Out、GeoCollectionProfileCreate/Update/Out 及其判别分支、模式/合规/能力/settings 枚举和闭合数据模型。Root OpenAPI → generated types → Pydantic 声明一致；未新增 paths、operationId、Router 或 UI。以下管理操作仍是 GEO-205 目标，Registry/validate_profile 仍是 GEO-204 目标。
++
++Create/Out 按 collection_mode 判别，Update 使用不可变模式和完整可编辑配置、必填 expected_revision，不接受 Surface 身份/模式变更或创建元数据。三种 settings 均 additionalProperties=false；只返回非敏感布尔/数值。API refs 两空或两非空，MANUAL/BROWSER refs 只能 null，model 实际归属由数据库复合 FK 确认。
++
+ | 方法 | 路径 | operationId |
+ |---|---|---|
+ | GET/POST | `/geo/engine-surfaces` | `list/createGeoEngineSurfaces` |
+--- before/docs/geo-monitoring/01-product/02-geo-core-prd.md
++++ after/docs/geo-monitoring/01-product/02-geo-core-prd.md
+@@ -895,28 +895,18 @@
+ 
+ 保存用于引用分类的精确 IDNA hostname 和 OWNED/OFFICIAL/DISTRIBUTOR/OTHER 配置关系；不执行网络请求或验证域名所有权。跨 Subject 相同 hostname 保留歧义。当前命令仅创建/删除，is_active 恒 true，使用父 Subject revision。
+ 
+-### `GeoEngineSurface`
+-
+-```yaml
+-id: uuid
+-name: string
+-slug: string
+-surface_type: CONSUMER_UI | MODEL_API | SEARCH_PRODUCT
+-collection_modes: MANUAL[] | API[] | BROWSER[]
+-default_collection_mode: enum
+-provider_brand: string
+-model_or_product_label: string | null
+-supports_citations: boolean
+-supports_web_search_signal: boolean
+-requires_account: boolean
+-locale: string | null
+-region: string | null
+-compliance_status: APPROVED | REVIEW_REQUIRED | BLOCKED
+-is_active: boolean
+-revision: integer
+-```
+-
+-秘密字段、API Key 和浏览器会话使用既有加密边界或专用受保护存储，不进入普通响应、日志、审计详情或运行快照。
++### `GeoEngineSurface` / `GeoCollectionProfile`
++
++GEO-203 / R1 建立数据契约，权威字段与模式见 [OpenAPI](../../../contracts/openapi.yaml) 和 [数据库合同](../../../contracts/database.md#geo-enginesurface--collectionprofile-合同geo-203--r1)。观测面与采集配置分别建模；模式、模型引用和语言/地区由 Profile 拥有，不在 Surface 维护第二份派生配置。
++
++- Surface：name/slug、`surface_kind`（CONSUMER_UI/MODEL_API/SEARCH_API/MANUAL_SITE）、受控 provider_brand、可空 website_url、合规状态 NOT_REVIEWED/APPROVED/REJECTED/SUSPENDED、闭合 capabilities、is_active/revision 和创建追溯。
++- capabilities 六项布尔：answer_text（必须 true）、citations、web_search_signal、model_version、usage、cost；能力不表示某次回答已实际搜索或引用。
++- Profile：Surface 身份、name、MANUAL/API/BROWSER、adapter_key、AI channel/model 可空成对引用、language_code/region_code、login_state、web_search_policy、非敏感 settings、is_active、测试状态/时间、revision 和创建追溯。
++- MANUAL 的 adapter_key=manual；MANUAL/BROWSER 两个 AI 引用均为空，login_state 为 ANONYMOUS/AUTHENTICATED。API 为 NOT_APPLICABLE，模型必须属于同一 channel，或两引用均空保留明确 API adapter 配置。具体注册与运行资格由 GEO-204 判定，空引用不会触发自动回退。
++- settings 仅含模式专属的布尔/数值参数，拒绝任意扩展键；不接受或返回密钥、Cookie、Header、浏览器会话或资料路径。
++- 新 Surface/Profile 默认停用，Profile 默认 UNTESTED；配置合法不代表可以执行。GEO-203 不提供管理/连接测试接口、页面或 Collector。
++
++秘密字段、API Key 和浏览器会话使用既有加密边界或未来专用受保护存储，不进入 Profile、普通响应、日志、审计详情或运行快照。
+ 
+ ### `GeoPromptVariant`
+ 
+@@ -1333,8 +1323,8 @@
+ ## 14.4 合规
+ 
+ - 每个 BROWSER 观测面必须维护合规状态；
+-- `BLOCKED` 平台不能启动自动采集；
+-- `REVIEW_REQUIRED` 平台只能用于受控试运行；
++- `REJECTED` / `SUSPENDED` 观测面不能启动自动采集；
++- `NOT_REVIEWED` 必须完成批准，只有 `APPROVED` 可以进入 BROWSER 自动采集资格校验；GEO-203 仅实现合规数据，不实现该运行门禁；
+ - 人工观测不规避平台访问控制；
+ - 账号和网络资源必须由公司授权。
+ 
+--- before/docs/geo-monitoring/02-business/02-domain-model.md
++++ after/docs/geo-monitoring/02-business/02-domain-model.md
+@@ -161,44 +161,24 @@
+ 
+ ## 3.3 GeoEngineSurface / GeoCollectionProfile 聚合
+ 
++GEO-203 / R1 的数据契约已实现，字段、命名约束和 revision 以 [根 OpenAPI](../../../contracts/openapi.yaml) 与 [数据库合同](../../../contracts/database.md#geo-enginesurface--collectionprofile-合同geo-203--r1) 为权威。运行资格与命令分别由 GEO-204、GEO-205 实施。
++
+ ### GeoEngineSurface
+ 
+-表示业务可识别的 AI 产品或 API 表面，例如“豆包 Web”“DeepSeek Web”“OpenAI-compatible API”。
+-
+-关键字段：
+-
+-- `name/slug`
+-- `surface_kind`：`CONSUMER_UI | MODEL_API | SEARCH_API | MANUAL_SITE`
+-- `provider_brand`
+-- `website_url`
+-- `is_active`
+-- `compliance_status`：`NOT_REVIEWED | APPROVED | REJECTED | SUSPENDED`
+-- `capabilities`
+-- `revision`
++表示业务可识别的 AI 产品或 API 表面，例如“豆包 Web”“DeepSeek Web”“OpenAI-compatible API”。拥有 name/slug、surface_kind（CONSUMER_UI/MODEL_API/SEARCH_API/MANUAL_SITE）、受控 provider_brand、无认证信息/query/fragment 的可空 website_url、compliance_status（NOT_REVIEWED/APPROVED/REJECTED/SUSPENDED）、六项闭合 capabilities、is_active/revision 与创建追溯。first_referenced_at 是不可逆内部首次引用锁存；未来运行保存当时配置快照，不覆盖历史。
+ 
+ ### GeoCollectionProfile
+ 
+-表示可运行配置：
+-
+-- `engine_surface_id`
+-- `collection_mode`：`MANUAL | API | BROWSER`
+-- `ai_channel_id/ai_model_id`（API 模式）
+-- `adapter_key`
+-- `language_code/region_code`
+-- `login_state`：`ANONYMOUS | AUTHENTICATED | NOT_APPLICABLE`
+-- `web_search_policy`：`UNKNOWN | REQUESTED | REQUIRED | NOT_APPLICABLE`
+-- `is_active`
+-- `last_test_status/last_tested_at`
+-- `revision`
+-
+-### 不变量
+-
+-1. API 模式必须绑定已配置模型或明确的 API adapter；
+-2. MANUAL 模式不能绑定自动调用凭据；
+-3. BROWSER 模式必须有批准的 adapter 和 `APPROVED` 合规状态；
+-4. 停用 profile 不影响历史批次；
+-5. 能力标识只描述可观测能力，不虚构某次运行真的发生了搜索或引用；
+-6. 凭据、Cookie 和敏感 Header 不进入 profile 公共响应。
++表示采集配置，结构合法不表示当前可运行。拥有 engine_surface_id/name、collection_mode（MANUAL/API/BROWSER）、adapter_key、ai_channel_id/ai_model_id、language_code/region_code、login_state、web_search_policy、非敏感 settings、is_active、last_test_status/last_tested_at、revision 与创建追溯。配置身份、Surface 归属和模式不可更改；切换模式建立新 Profile。
++
++### 不变量
++
++1. API 的模型引用必须成对、属于同一 channel；两空仅表示 adapter-only 配置或既有模型被删除。明确 API adapter 的注册/批准资格由 GEO-204 判定，不猜测、不自动回退。
++2. MANUAL adapter 固定 manual，MANUAL/BROWSER 两个 AI 引用均空；其 login_state 为 ANONYMOUS/AUTHENTICATED，API 为 NOT_APPLICABLE。
++3. BROWSER 运行必须有批准 adapter 和 APPROVED 合规状态；GEO-203 只存结构，Registry/运行门禁由后续任务拥有。
++4. 新 Surface/Profile 默认停用、Profile UNTESTED；UNTESTED 无测试时间，PASSED/FAILED 必须有时间。AI model/channel 删除保留 Profile，成对 SET NULL 不伪造配置 revision、测试或审计事实；后续资格必须重读引用，不把保留的 PASSED 当作运行许可。
++5. 能力标识只描述可观测能力，不虚构某次运行真的发生搜索或引用；更新当前配置不覆盖未来批次快照。
++6. settings 按模式闭合、仅布尔/数值；凭据、Cookie、Header 和浏览器资料不进入持久化 Profile 或公共响应。
+ 
+ ## 3.4 GeoMonitoringPlan 聚合
+ 
+--- /dev/null
++++ after/backend/app/models/geo_surfaces.py
+@@ -0,0 +1,202 @@
++"""GEO 观测配置，不拥有凭据、运行资格或 Collector 生命周期。"""
++
++import uuid
++from datetime import datetime
++from typing import Any
++
++from sqlalchemy import (
++    Boolean,
++    CheckConstraint,
++    DateTime,
++    ForeignKey,
++    ForeignKeyConstraint,
++    Index,
++    Integer,
++    String,
++    Text,
++    UniqueConstraint,
++    func,
++    text,
++)
++from sqlalchemy.dialects.postgresql import JSONB, UUID
++from sqlalchemy.orm import Mapped, mapped_column
++from sqlalchemy.schema import conv
++
++from app.db import Base
++from app.models.base import new_uuid
++
++
++class GeoEngineSurface(Base):
++    __tablename__ = "geo_engine_surfaces"
++    __table_args__ = (
++        UniqueConstraint("slug", name="uq_geo_engine_surfaces_slug"),
++        CheckConstraint(
++            "geo_configuration_text_valid(name)", name=conv("ck_geo_engine_surfaces_name")
++        ),
++        CheckConstraint(
++            "slug ~ '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'", name=conv("ck_geo_engine_surfaces_slug")
++        ),
++        CheckConstraint(
++            "surface_kind IN ('CONSUMER_UI','MODEL_API','SEARCH_API','MANUAL_SITE')",
++            name=conv("ck_geo_engine_surfaces_kind"),
++        ),
++        CheckConstraint(
++            "provider_brand IN "
++            "('OPENAI','ANTHROPIC','GOOGLE','AZURE_OPENAI','ZHIPU','QWEN','CUSTOM')",
++            name=conv("ck_geo_engine_surfaces_provider"),
++        ),
++        CheckConstraint(
++            "website_url IS NULL OR (length(website_url) BETWEEN 1 AND 2083 "
++            "AND website_url ~ '^https?://[^[:space:]/?#@]+(/[^[:space:]?#]*)?$')",
++            name=conv("ck_geo_engine_surfaces_website"),
++        ),
++        CheckConstraint(
++            "compliance_status IN ('NOT_REVIEWED','APPROVED','REJECTED','SUSPENDED')",
++            name=conv("ck_geo_engine_surfaces_compliance"),
++        ),
++        CheckConstraint(
++            "geo_surface_capabilities_valid(capabilities)",
++            name=conv("ck_geo_engine_surfaces_capabilities"),
++        ),
++        CheckConstraint("revision >= 0", name=conv("ck_geo_engine_surfaces_revision")),
++        CheckConstraint(
++            "first_referenced_at IS NULL OR first_referenced_at >= created_at",
++            name=conv("ck_geo_engine_surfaces_reference_time"),
++        ),
++        Index("ix_geo_engine_surfaces_active_name", "is_active", "name", "id"),
++        Index("ix_geo_engine_surfaces_creator", "created_by"),
++    )
++    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
++    name: Mapped[str] = mapped_column(String(160), nullable=False)
++    slug: Mapped[str] = mapped_column(String(100), nullable=False)
++    surface_kind: Mapped[str] = mapped_column(String(24), nullable=False)
++    provider_brand: Mapped[str] = mapped_column(String(40), nullable=False)
++    website_url: Mapped[str | None] = mapped_column(Text)
++    compliance_status: Mapped[str] = mapped_column(
++        String(24), nullable=False, default="NOT_REVIEWED", server_default="NOT_REVIEWED"
++    )
++    capabilities: Mapped[dict[str, bool]] = mapped_column(JSONB, nullable=False)
++    is_active: Mapped[bool] = mapped_column(
++        Boolean, nullable=False, default=False, server_default=text("false")
++    )
++    revision: Mapped[int] = mapped_column(
++        Integer, nullable=False, default=0, server_default=text("0")
++    )
++    first_referenced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
++    created_by: Mapped[uuid.UUID] = mapped_column(
++        UUID(as_uuid=True),
++        ForeignKey("users.id", name="fk_geo_engine_surfaces_creator", ondelete="RESTRICT"),
++        nullable=False,
++    )
++    created_at: Mapped[datetime] = mapped_column(
++        DateTime(timezone=True), nullable=False, server_default=func.now()
++    )
++    updated_at: Mapped[datetime] = mapped_column(
++        DateTime(timezone=True), nullable=False, server_default=func.now()
++    )
++
++
++class GeoCollectionProfile(Base):
++    __tablename__ = "geo_collection_profiles"
++    __table_args__ = (
++        UniqueConstraint(
++            "engine_surface_id", "name", name="uq_geo_collection_profiles_surface_name"
++        ),
++        ForeignKeyConstraint(
++            ["ai_model_id", "ai_channel_id"],
++            ["ai_models.id", "ai_models.channel_id"],
++            name="fk_geo_collection_profiles_model_channel",
++            match="FULL",
++            ondelete="SET NULL",
++            onupdate="RESTRICT",
++        ),
++        CheckConstraint(
++            "geo_configuration_text_valid(name)", name=conv("ck_geo_collection_profiles_name")
++        ),
++        CheckConstraint(
++            "collection_mode IN ('MANUAL','API','BROWSER')",
++            name=conv("ck_geo_collection_profiles_mode"),
++        ),
++        CheckConstraint(
++            "adapter_key ~ '^[a-z][a-z0-9_-]*$' "
++            "AND (collection_mode <> 'MANUAL' OR adapter_key = 'manual')",
++            name=conv("ck_geo_collection_profiles_adapter"),
++        ),
++        CheckConstraint(
++            "collection_mode = 'API' OR (ai_channel_id IS NULL AND ai_model_id IS NULL)",
++            name=conv("ck_geo_collection_profiles_model_mode"),
++        ),
++        CheckConstraint(
++            "length(language_code) BETWEEN 2 AND 16 "
++            "AND language_code ~ '^[a-z]{2,8}(-[a-z0-9]{1,8})*$'",
++            name=conv("ck_geo_collection_profiles_language"),
++        ),
++        CheckConstraint(
++            "length(region_code) = 2 AND region_code ~ '^[A-Z]{2}$'",
++            name=conv("ck_geo_collection_profiles_region"),
++        ),
++        CheckConstraint(
++            "(collection_mode = 'API' AND login_state = 'NOT_APPLICABLE') OR "
++            "(collection_mode IN ('MANUAL','BROWSER') "
++            "AND login_state IN ('ANONYMOUS','AUTHENTICATED'))",
++            name=conv("ck_geo_collection_profiles_login"),
++        ),
++        CheckConstraint(
++            "web_search_policy IN ('UNKNOWN','REQUESTED','REQUIRED','NOT_APPLICABLE')",
++            name=conv("ck_geo_collection_profiles_search"),
++        ),
++        CheckConstraint(
++            "geo_profile_settings_valid(collection_mode, settings_json)",
++            name=conv("ck_geo_collection_profiles_settings"),
++        ),
++        CheckConstraint(
++            "(last_test_status = 'UNTESTED' AND last_tested_at IS NULL) OR "
++            "(last_test_status IN ('PASSED','FAILED') AND last_tested_at IS NOT NULL)",
++            name=conv("ck_geo_collection_profiles_test"),
++        ),
++        CheckConstraint("revision >= 0", name=conv("ck_geo_collection_profiles_revision")),
++        Index("ix_geo_collection_profiles_surface_active", "engine_surface_id", "is_active"),
++        Index("ix_geo_collection_profiles_model", "ai_model_id", "ai_channel_id"),
++        Index("ix_geo_collection_profiles_creator", "created_by"),
++    )
++    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
++    engine_surface_id: Mapped[uuid.UUID] = mapped_column(
++        UUID(as_uuid=True),
++        ForeignKey(
++            "geo_engine_surfaces.id", name="fk_geo_collection_profiles_surface", ondelete="RESTRICT"
++        ),
++        nullable=False,
++    )
++    name: Mapped[str] = mapped_column(String(160), nullable=False)
++    collection_mode: Mapped[str] = mapped_column(String(16), nullable=False)
++    adapter_key: Mapped[str] = mapped_column(String(100), nullable=False)
++    ai_channel_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
++    ai_model_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
++    language_code: Mapped[str] = mapped_column(String(16), nullable=False)
++    region_code: Mapped[str] = mapped_column(String(16), nullable=False)
++    login_state: Mapped[str] = mapped_column(String(24), nullable=False)
++    web_search_policy: Mapped[str] = mapped_column(String(24), nullable=False)
++    settings_json: Mapped[dict[str, Any]] = mapped_column(
++        JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb")
++    )
++    is_active: Mapped[bool] = mapped_column(
++        Boolean, nullable=False, default=False, server_default=text("false")
++    )
++    last_test_status: Mapped[str] = mapped_column(
++        String(16), nullable=False, default="UNTESTED", server_default="UNTESTED"
++    )
++    last_tested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
++    revision: Mapped[int] = mapped_column(
++        Integer, nullable=False, default=0, server_default=text("0")
++    )
++    created_by: Mapped[uuid.UUID] = mapped_column(
++        UUID(as_uuid=True),
++        ForeignKey("users.id", name="fk_geo_collection_profiles_creator", ondelete="RESTRICT"),
++        nullable=False,
++    )
++    created_at: Mapped[datetime] = mapped_column(
++        DateTime(timezone=True), nullable=False, server_default=func.now()
++    )
++    updated_at: Mapped[datetime] = mapped_column(
++        DateTime(timezone=True), nullable=False, server_default=func.now()
++    )
+--- /dev/null
++++ after/backend/app/schemas/geo_surfaces.py
+@@ -0,0 +1,310 @@
++"""GEO-203 的观测配置数据合同；Registry 与命令资格由后续任务拥有。"""
++
++from datetime import datetime
++from enum import StrEnum
++from typing import Annotated, Any, Literal, Self
++from uuid import UUID
++
++from pydantic import AfterValidator, Field, HttpUrl, StrictBool, field_validator, model_validator
++
++from app.schemas.base import ContractModel
++from app.schemas.geo_prompt_variants import PromptLanguage, PromptRegion, Revision
++
++
++class GeoSurfaceKind(StrEnum):
++    CONSUMER_UI = "CONSUMER_UI"
++    MODEL_API = "MODEL_API"
++    SEARCH_API = "SEARCH_API"
++    MANUAL_SITE = "MANUAL_SITE"
++
++
++class GeoComplianceStatus(StrEnum):
++    NOT_REVIEWED = "NOT_REVIEWED"
++    APPROVED = "APPROVED"
++    REJECTED = "REJECTED"
++    SUSPENDED = "SUSPENDED"
++
++
++class GeoCollectionMode(StrEnum):
++    MANUAL = "MANUAL"
++    API = "API"
++    BROWSER = "BROWSER"
++
++
++class GeoProfileLoginState(StrEnum):
++    ANONYMOUS = "ANONYMOUS"
++    AUTHENTICATED = "AUTHENTICATED"
++    NOT_APPLICABLE = "NOT_APPLICABLE"
++
++
++class GeoWebSearchPolicy(StrEnum):
++    UNKNOWN = "UNKNOWN"
++    REQUESTED = "REQUESTED"
++    REQUIRED = "REQUIRED"
++    NOT_APPLICABLE = "NOT_APPLICABLE"
++
++
++class GeoProfileTestStatus(StrEnum):
++    UNTESTED = "UNTESTED"
++    PASSED = "PASSED"
++    FAILED = "FAILED"
++
++
++class GeoSurfaceProviderBrand(StrEnum):
++    OPENAI = "OPENAI"
++    ANTHROPIC = "ANTHROPIC"
++    GOOGLE = "GOOGLE"
++    AZURE_OPENAI = "AZURE_OPENAI"
++    ZHIPU = "ZHIPU"
++    QWEN = "QWEN"
++    CUSTOM = "CUSTOM"
++
++
++def require_trimmed(value: str) -> str:
++    if value != value.strip() or not value.strip() or "\x00" in value:
++        raise ValueError("文本必须非空且不含首尾空白或 NUL")
++    return value
++
++
++def require_public_website(value: str) -> str:
++    url = HttpUrl(value)
++    if url.username or url.password or url.query is not None or url.fragment is not None:
++        raise ValueError("网站地址不得含认证信息、query 或 fragment")
++    return value
++
++
++Name = Annotated[
++    str,
++    Field(
++        strict=True,
++        min_length=1,
++        max_length=160,
++        pattern=r"^[^\s\x00](?:[^\x00]*[^\s\x00])?$",
++    ),
++    AfterValidator(require_trimmed),
++]
++AdapterKey = Annotated[
++    str,
++    Field(strict=True, min_length=1, max_length=100, pattern=r"^[a-z][a-z0-9_-]*$"),
++]
++Website = Annotated[
++    str,
++    Field(
++        strict=True, min_length=1, max_length=2083, pattern=r"^https?://[^\s/?#@]+(?:/[^\s?#]*)?$"
++    ),
++    AfterValidator(require_public_website),
++]
++
++
++class GeoSurfaceCapabilities(ContractModel):
++    # 能力描述配置可观测性，不能充当某次回答的搜索/引用事实。
++    answer_text: Literal[True]
++    citations: StrictBool
++    web_search_signal: StrictBool
++    model_version: StrictBool
++    usage: StrictBool
++    cost: StrictBool
++
++    @field_validator("answer_text", mode="before")
++    @classmethod
++    def require_answer_capability(cls, value: object) -> Literal[True]:
++        if value is not True:
++            raise ValueError("answer_text 必须为布尔 true")
++        return True
++
++
++class GeoEngineSurfaceCreate(ContractModel):
++    name: Name
++    slug: str = Field(
++        strict=True, min_length=1, max_length=100, pattern=r"^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
++    )
++    surface_kind: GeoSurfaceKind
++    provider_brand: GeoSurfaceProviderBrand
++    website_url: Website | None
++    compliance_status: GeoComplianceStatus
++    capabilities: GeoSurfaceCapabilities
++
++
++class GeoEngineSurfaceUpdate(GeoEngineSurfaceCreate):
++    expected_revision: Revision
++
++
++class GeoEngineSurfaceOut(GeoEngineSurfaceCreate):
++    id: UUID
++    is_active: StrictBool
++    revision: Revision
++    first_referenced_at: datetime | None
++    created_by: UUID
++    created_at: datetime
++    updated_at: datetime
++
++
++class GeoManualSettings(ContractModel):
++    require_screenshot: StrictBool = True
++
++
++class GeoApiSettings(ContractModel):
++    temperature: Annotated[float, Field(strict=True, ge=0, le=2, allow_inf_nan=False)] | None = None
++    max_output_tokens: Annotated[int, Field(strict=True, ge=1, le=65536)] | None = None
++
++
++class GeoBrowserSettings(ContractModel):
++    require_screenshot: StrictBool = True
++    answer_timeout_seconds: int = Field(strict=True, ge=10, le=600, default=120)
++
++
++class _ProfileConfiguration(ContractModel):
++    name: Name
++    adapter_key: AdapterKey
++    language_code: PromptLanguage
++    region_code: PromptRegion
++    web_search_policy: GeoWebSearchPolicy
++
++
++class GeoManualProfileConfiguration(_ProfileConfiguration):
++    collection_mode: Literal["MANUAL"]
++    adapter_key: Literal["manual"]
++    ai_channel_id: None
++    ai_model_id: None
++    login_state: Literal["ANONYMOUS", "AUTHENTICATED"]
++    settings: GeoManualSettings
++
++
++_API_REFERENCE_CONSTRAINT: dict[str, Any] = {
++    "oneOf": [
++        {
++            "properties": {
++                "ai_channel_id": {"type": "null"},
++                "ai_model_id": {"type": "null"},
++            }
++        },
++        {
++            "properties": {
++                "ai_channel_id": {"type": "string"},
++                "ai_model_id": {"type": "string"},
++            }
++        },
++    ]
++}
++
++
++class GeoApiProfileConfiguration(_ProfileConfiguration):
++    model_config = {"json_schema_extra": _API_REFERENCE_CONSTRAINT}
++    collection_mode: Literal["API"]
++    ai_channel_id: UUID | None
++    ai_model_id: UUID | None
++    login_state: Literal["NOT_APPLICABLE"]
++    settings: GeoApiSettings
++
++    @model_validator(mode="after")
++    def require_paired_model(self) -> Self:
++        if (self.ai_channel_id is None) != (self.ai_model_id is None):
++            raise ValueError("API 的 channel/model 引用必须同时提供或同时为空")
++        return self
++
++
++class GeoBrowserProfileConfiguration(_ProfileConfiguration):
++    collection_mode: Literal["BROWSER"]
++    ai_channel_id: None
++    ai_model_id: None
++    login_state: Literal["ANONYMOUS", "AUTHENTICATED"]
++    settings: GeoBrowserSettings
++
++
++class GeoManualProfileCreate(GeoManualProfileConfiguration):
++    engine_surface_id: UUID
++
++
++class GeoApiProfileCreate(GeoApiProfileConfiguration):
++    engine_surface_id: UUID
++
++
++class GeoBrowserProfileCreate(GeoBrowserProfileConfiguration):
++    engine_surface_id: UUID
++
++
++GeoCollectionProfileCreate = Annotated[
++    GeoManualProfileCreate | GeoApiProfileCreate | GeoBrowserProfileCreate,
++    Field(discriminator="collection_mode"),
++]
++
++
++class GeoManualProfileUpdate(GeoManualProfileConfiguration):
++    expected_revision: Revision
++
++
++class GeoApiProfileUpdate(GeoApiProfileConfiguration):
++    expected_revision: Revision
++
++
++class GeoBrowserProfileUpdate(GeoBrowserProfileConfiguration):
++    expected_revision: Revision
++
++
++GeoCollectionProfileUpdate = Annotated[
++    GeoManualProfileUpdate | GeoApiProfileUpdate | GeoBrowserProfileUpdate,
++    Field(discriminator="collection_mode"),
++]
++
++
++def profile_response_schema(schema: dict[str, Any]) -> None:
++    # 响应的测试事实与时间成对；API 的模型引用 oneOf 必须同时保留。
++    schema["allOf"] = [
++        {
++            "oneOf": [
++                {
++                    "properties": {
++                        "last_test_status": {"const": "UNTESTED"},
++                        "last_tested_at": {"type": "null"},
++                    }
++                },
++                {
++                    "properties": {
++                        "last_test_status": {"enum": ["PASSED", "FAILED"]},
++                        "last_tested_at": {"type": "string", "format": "date-time"},
++                    }
++                },
++            ]
++        }
++    ]
++    if schema["properties"]["collection_mode"].get("const") == "API":
++        schema["oneOf"] = _API_REFERENCE_CONSTRAINT["oneOf"]
++
++
++class _ProfileMetadata(ContractModel):
++    model_config = {"json_schema_extra": profile_response_schema}
++    id: UUID
++    engine_surface_id: UUID
++    is_active: StrictBool
++    last_test_status: GeoProfileTestStatus
++    last_tested_at: datetime | None
++    revision: Revision
++    created_by: UUID
++    created_at: datetime
++    updated_at: datetime
++
++    @model_validator(mode="after")
++    def require_test_time(self) -> Self:
++        if (self.last_test_status == GeoProfileTestStatus.UNTESTED) != (
++            self.last_tested_at is None
++        ):
++            raise ValueError("UNTESTED 不得有测试时间，已测试状态必须有测试时间")
++        return self
++
++
++class GeoManualProfileOut(GeoManualProfileConfiguration, _ProfileMetadata):
++    pass
++
++
++class GeoApiProfileOut(GeoApiProfileConfiguration, _ProfileMetadata):
++    pass
++
++
++class GeoBrowserProfileOut(GeoBrowserProfileConfiguration, _ProfileMetadata):
++    pass
++
++
++GeoCollectionProfileOut = Annotated[
++    GeoManualProfileOut | GeoApiProfileOut | GeoBrowserProfileOut,
++    Field(discriminator="collection_mode"),
++]
+--- /dev/null
++++ after/backend/alembic/versions/0046_geo_surfaces_profiles.py
+@@ -0,0 +1,261 @@
++"""新增观测配置与闭合JSON合同；不回填旧GEO或实现运行资格。"""
++
++from alembic import op
++
++revision = "0046_geo_surfaces_profiles"
++down_revision = "0045_geo_prompt_variants"
++branch_labels = None
++depends_on = None
++
++
++def upgrade() -> None:
++    op.execute("""
++        CREATE FUNCTION geo_configuration_text_valid(value text) RETURNS boolean
++        LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE AS $$
++            SELECT length(value) > 0 AND value = btrim(value,
++                chr(9)||chr(10)||chr(11)||chr(12)||chr(13)||chr(28)||chr(29)||chr(30)||chr(31)
++                ||chr(32)||chr(133)||chr(160)||chr(5760)||chr(8192)||chr(8193)||chr(8194)
++                ||chr(8195)||chr(8196)||chr(8197)||chr(8198)||chr(8199)||chr(8200)||chr(8201)
++                ||chr(8202)||chr(8232)||chr(8233)||chr(8239)||chr(8287)||chr(12288))
++        $$;
++        CREATE FUNCTION geo_surface_capabilities_valid(value jsonb) RETURNS boolean
++        LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE AS $$
++        DECLARE keys text[] :=
++            ARRAY['answer_text','citations','web_search_signal','model_version','usage','cost'];
++                key text;
++        BEGIN
++            IF jsonb_typeof(value) <> 'object' OR NOT value ?& keys OR value - keys <>
++                '{}'::jsonb THEN
++                RETURN false;
++            END IF;
++            FOREACH key IN ARRAY keys LOOP
++                IF jsonb_typeof(value -> key) <> 'boolean' THEN RETURN false; END IF;
++            END LOOP;
++            RETURN value -> 'answer_text' = 'true'::jsonb;
++        END $$;
++        CREATE FUNCTION geo_profile_settings_valid(mode text, value jsonb) RETURNS boolean
++        LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE AS $$
++        DECLARE key text; item jsonb; allowed text[];
++        BEGIN
++            IF jsonb_typeof(value) <> 'object' THEN RETURN false; END IF;
++            CASE mode
++                WHEN 'MANUAL' THEN allowed := ARRAY['require_screenshot'];
++                WHEN 'API' THEN allowed := ARRAY['temperature','max_output_tokens'];
++                WHEN 'BROWSER' THEN allowed := ARRAY['require_screenshot','answer_timeout_seconds'];
++                ELSE RETURN false;
++            END CASE;
++            IF value - allowed <> '{}'::jsonb THEN RETURN false; END IF;
++            FOR key, item IN SELECT * FROM jsonb_each(value) LOOP
++                IF key = 'require_screenshot' THEN
++                    IF jsonb_typeof(item) <> 'boolean' THEN RETURN false; END IF;
++                ELSIF item = 'null'::jsonb AND mode = 'API' THEN
++                    CONTINUE;
++                ELSIF jsonb_typeof(item) <> 'number' THEN
++                    RETURN false;
++                ELSIF key = 'temperature' THEN
++                    IF item::text::numeric NOT BETWEEN 0 AND 2 THEN RETURN false; END IF;
++                ELSE
++                    IF item::text !~ '^[0-9]+$' THEN RETURN false; END IF;
++                    IF key = 'max_output_tokens' AND item::text::numeric NOT BETWEEN 1 AND 65536
++                        THEN
++                        RETURN false;
++                    END IF;
++                    IF key = 'answer_timeout_seconds' AND item::text::numeric NOT BETWEEN 10 AND
++                        600 THEN
++                        RETURN false;
++                    END IF;
++                END IF;
++            END LOOP;
++            RETURN true;
++        END $$;
++    """)
++    op.execute("""
++        ALTER TABLE ai_models ADD CONSTRAINT uq_ai_models_id_channel UNIQUE (id, channel_id);
++    """)
++    op.execute("""
++        CREATE TABLE geo_engine_surfaces (
++            id UUID NOT NULL,
++            name VARCHAR(160) NOT NULL,
++            slug VARCHAR(100) NOT NULL,
++            surface_kind VARCHAR(24) NOT NULL,
++            provider_brand VARCHAR(40) NOT NULL,
++            website_url TEXT,
++            compliance_status VARCHAR(24) DEFAULT 'NOT_REVIEWED' NOT NULL,
++            capabilities JSONB NOT NULL,
++            is_active BOOLEAN DEFAULT false NOT NULL,
++            revision INTEGER DEFAULT 0 NOT NULL,
++            first_referenced_at TIMESTAMP WITH TIME ZONE,
++            created_by UUID NOT NULL,
++            created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
++            updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
++            CONSTRAINT pk_geo_engine_surfaces PRIMARY KEY (id),
++            CONSTRAINT uq_geo_engine_surfaces_slug UNIQUE (slug),
++            CONSTRAINT ck_geo_engine_surfaces_name CHECK (geo_configuration_text_valid(name)),
++            CONSTRAINT ck_geo_engine_surfaces_slug CHECK (slug ~ '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'),
++            CONSTRAINT ck_geo_engine_surfaces_kind CHECK (surface_kind IN
++                ('CONSUMER_UI','MODEL_API','SEARCH_API','MANUAL_SITE')),
++            CONSTRAINT ck_geo_engine_surfaces_provider CHECK (provider_brand IN
++                ('OPENAI','ANTHROPIC','GOOGLE','AZURE_OPENAI','ZHIPU','QWEN','CUSTOM')),
++            CONSTRAINT ck_geo_engine_surfaces_website CHECK (website_url IS NULL OR
++                (length(website_url) BETWEEN 1 AND 2083 AND website_url ~
++                '^https?://[^[:space:]/?#@]+(/[^[:space:]?#]*)?$')),
++            CONSTRAINT ck_geo_engine_surfaces_compliance CHECK (compliance_status IN
++                ('NOT_REVIEWED','APPROVED','REJECTED','SUSPENDED')),
++            CONSTRAINT ck_geo_engine_surfaces_capabilities CHECK
++                (geo_surface_capabilities_valid(capabilities)),
++            CONSTRAINT ck_geo_engine_surfaces_revision CHECK (revision >= 0),
++            CONSTRAINT ck_geo_engine_surfaces_reference_time CHECK (first_referenced_at IS NULL
++                OR first_referenced_at >= created_at),
++            CONSTRAINT fk_geo_engine_surfaces_creator FOREIGN KEY(created_by) REFERENCES users
++                (id) ON DELETE RESTRICT
++        );
++    """)
++    op.execute("""
++        CREATE INDEX ix_geo_engine_surfaces_active_name ON geo_engine_surfaces (is_active, name,
++            id);
++    """)
++    op.execute("""
++        CREATE INDEX ix_geo_engine_surfaces_creator ON geo_engine_surfaces (created_by);
++    """)
++    op.execute("""
++        CREATE TABLE geo_collection_profiles (
++            id UUID NOT NULL,
++            engine_surface_id UUID NOT NULL,
++            name VARCHAR(160) NOT NULL,
++            collection_mode VARCHAR(16) NOT NULL,
++            adapter_key VARCHAR(100) NOT NULL,
++            ai_channel_id UUID,
++            ai_model_id UUID,
++            language_code VARCHAR(16) NOT NULL,
++            region_code VARCHAR(16) NOT NULL,
++            login_state VARCHAR(24) NOT NULL,
++            web_search_policy VARCHAR(24) NOT NULL,
++            settings_json JSONB DEFAULT '{}'::jsonb NOT NULL,
++            is_active BOOLEAN DEFAULT false NOT NULL,
++            last_test_status VARCHAR(16) DEFAULT 'UNTESTED' NOT NULL,
++            last_tested_at TIMESTAMP WITH TIME ZONE,
++            revision INTEGER DEFAULT 0 NOT NULL,
++            created_by UUID NOT NULL,
++            created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
++            updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
++            CONSTRAINT pk_geo_collection_profiles PRIMARY KEY (id),
++            CONSTRAINT uq_geo_collection_profiles_surface_name UNIQUE (engine_surface_id, name),
++            CONSTRAINT fk_geo_collection_profiles_model_channel FOREIGN KEY(ai_model_id,
++                ai_channel_id) REFERENCES ai_models (id, channel_id) MATCH FULL ON DELETE SET
++                NULL ON UPDATE RESTRICT,
++            CONSTRAINT ck_geo_collection_profiles_name CHECK (geo_configuration_text_valid(name)),
++            CONSTRAINT ck_geo_collection_profiles_mode CHECK (collection_mode IN
++                ('MANUAL','API','BROWSER')),
++            CONSTRAINT ck_geo_collection_profiles_adapter CHECK (adapter_key ~
++                '^[a-z][a-z0-9_-]*$' AND (collection_mode <> 'MANUAL' OR adapter_key =
++                'manual')),
++            CONSTRAINT ck_geo_collection_profiles_model_mode CHECK (collection_mode = 'API' OR
++                (ai_channel_id IS NULL AND ai_model_id IS NULL)),
++            CONSTRAINT ck_geo_collection_profiles_language CHECK (length(language_code) BETWEEN
++                2 AND 16 AND language_code ~ '^[a-z]{2,8}(-[a-z0-9]{1,8})*$'),
++            CONSTRAINT ck_geo_collection_profiles_region CHECK (length(region_code) = 2 AND
++                region_code ~ '^[A-Z]{2}$'),
++            CONSTRAINT ck_geo_collection_profiles_login CHECK ((collection_mode = 'API' AND
++                login_state = 'NOT_APPLICABLE') OR (collection_mode IN ('MANUAL','BROWSER') AND
++                login_state IN ('ANONYMOUS','AUTHENTICATED'))),
++            CONSTRAINT ck_geo_collection_profiles_search CHECK (web_search_policy IN
++                ('UNKNOWN','REQUESTED','REQUIRED','NOT_APPLICABLE')),
++            CONSTRAINT ck_geo_collection_profiles_settings CHECK
++                (geo_profile_settings_valid(collection_mode, settings_json)),
++            CONSTRAINT ck_geo_collection_profiles_test CHECK ((last_test_status = 'UNTESTED' AND
++                last_tested_at IS NULL) OR (last_test_status IN ('PASSED','FAILED') AND
++                last_tested_at IS NOT NULL)),
++            CONSTRAINT ck_geo_collection_profiles_revision CHECK (revision >= 0),
++            CONSTRAINT fk_geo_collection_profiles_surface FOREIGN KEY(engine_surface_id)
++                REFERENCES geo_engine_surfaces (id) ON DELETE RESTRICT,
++            CONSTRAINT fk_geo_collection_profiles_creator FOREIGN KEY(created_by) REFERENCES
++                users (id) ON DELETE RESTRICT
++        );
++    """)
++    op.execute("""
++        CREATE INDEX ix_geo_collection_profiles_creator ON geo_collection_profiles (created_by);
++    """)
++    op.execute("""
++        CREATE INDEX ix_geo_collection_profiles_model ON geo_collection_profiles (ai_model_id,
++            ai_channel_id);
++    """)
++    op.execute("""
++        CREATE INDEX ix_geo_collection_profiles_surface_active ON geo_collection_profiles
++            (engine_surface_id, is_active);
++    """)
++    op.execute("""
++        CREATE FUNCTION geo_guard_surface_configuration() RETURNS trigger LANGUAGE plpgsql AS $$
++        DECLARE prior jsonb; current_row jsonb; prefix text; changed boolean;
++        BEGIN
++            prefix := 'ck_' || TG_TABLE_NAME || '_';
++            IF TG_OP = 'DELETE' THEN
++                IF TG_TABLE_NAME = 'geo_engine_surfaces' AND
++                    to_jsonb(OLD) ->> 'first_referenced_at' IS NOT NULL THEN
++                    RAISE EXCEPTION '已引用观测面不可删除'
++                        USING ERRCODE = '23514', CONSTRAINT = prefix || 'history';
++                END IF;
++                RETURN OLD;
++            END IF;
++            current_row := to_jsonb(NEW);
++            IF TG_OP = 'INSERT' THEN
++                IF NEW.revision <> 0 OR current_row ->> 'first_referenced_at' IS NOT NULL THEN
++                    RAISE EXCEPTION '观测配置必须从未引用的revision 0创建'
++                        USING ERRCODE = '23514', CONSTRAINT = prefix || 'initial';
++                END IF;
++                RETURN NEW;
++            END IF;
++            prior := to_jsonb(OLD);
++            IF ROW(NEW.id, NEW.created_by, NEW.created_at)
++                IS DISTINCT FROM ROW(OLD.id, OLD.created_by, OLD.created_at) OR
++                (TG_TABLE_NAME = 'geo_collection_profiles' AND
++                    (current_row -> 'engine_surface_id' IS DISTINCT FROM prior ->
++                        'engine_surface_id'
++                     OR current_row -> 'collection_mode' IS DISTINCT FROM prior ->
++                         'collection_mode')) THEN
++                RAISE EXCEPTION '观测配置身份与归属不可变'
++                    USING ERRCODE = '23514', CONSTRAINT = prefix || 'identity';
++            END IF;
++            IF TG_TABLE_NAME = 'geo_engine_surfaces' AND prior ->> 'first_referenced_at' IS NOT NULL
++                AND current_row -> 'first_referenced_at' IS DISTINCT FROM prior ->
++                    'first_referenced_at' THEN
++                RAISE EXCEPTION '首次引用锁存不可改写'
++                    USING ERRCODE = '23514', CONSTRAINT = prefix || 'history';
++            END IF;
++            -- FK 的成对SET NULL仅解绑身份；不伪造配置更新、测试或审计事实。
++            IF TG_TABLE_NAME = 'geo_collection_profiles' AND pg_trigger_depth() > 1
++                AND current_row ->> 'ai_channel_id' IS NULL AND current_row ->> 'ai_model_id' IS
++                    NULL
++                AND current_row - ARRAY['ai_channel_id','ai_model_id'] =
++                    prior - ARRAY['ai_channel_id','ai_model_id'] THEN
++                RETURN NEW;
++            END IF;
++            changed := current_row - ARRAY['revision','updated_at'] IS DISTINCT FROM
++                       prior - ARRAY['revision','updated_at'];
++            IF NEW.revision <> OLD.revision + (CASE WHEN changed THEN 1 ELSE 0 END) THEN
++                RAISE EXCEPTION '有效配置变更revision必须恰好递增一次'
++                    USING ERRCODE = '23514', CONSTRAINT = prefix || 'revision_step';
++            END IF;
++            IF NEW.updated_at < OLD.updated_at OR
++                (NOT changed AND NEW.updated_at IS DISTINCT FROM OLD.updated_at) THEN
++                RAISE EXCEPTION '更新时间不得倒退，no-op不得改写时间'
++                    USING ERRCODE = '23514', CONSTRAINT = prefix || 'updated_at';
++            END IF;
++            RETURN NEW;
++        END $$;
++        CREATE TRIGGER geo_engine_surface_guard BEFORE INSERT OR UPDATE OR DELETE ON
++            geo_engine_surfaces
++            FOR EACH ROW EXECUTE FUNCTION geo_guard_surface_configuration();
++        CREATE TRIGGER geo_collection_profile_guard BEFORE INSERT OR UPDATE OR DELETE ON
++            geo_collection_profiles
++            FOR EACH ROW EXECUTE FUNCTION geo_guard_surface_configuration();
++    """)
++
++
++def downgrade() -> None:
++    # 显式保留配置与可能已建立的历史；恢复使用前滚修复或迁移前备份。
++    op.execute("""
++        DO $$ BEGIN
++            RAISE EXCEPTION '0046 GEO Surface/Profile 无法安全降级；使用前向修复'
++                USING ERRCODE = '55000';
++        END $$;
++    """)
+--- /dev/null
++++ after/backend/tests/unit/test_geo_surface_contract.py
+@@ -0,0 +1,268 @@
++"""观测配置模式、闭合数据与OpenAPI数据组件一致性。"""
++
++from copy import deepcopy
++from datetime import UTC, datetime
++from pathlib import Path
++from typing import Any
++from uuid import uuid4
++
++import pytest
++import yaml
++from jsonschema import Draft202012Validator, FormatChecker
++from jsonschema import ValidationError as JsonError
++from pydantic import TypeAdapter, ValidationError
++
++from app.schemas import geo_surfaces as schemas
++
++
++def capabilities() -> dict[str, bool]:
++    return {
++        "answer_text": True,
++        "citations": False,
++        "web_search_signal": False,
++        "model_version": False,
++        "usage": False,
++        "cost": False,
++    }
++
++
++def surface_payload(**patch: Any) -> dict[str, Any]:
++    return {
++        "name": "虚构观测面",
++        "slug": "fictional-ui",
++        "surface_kind": "CONSUMER_UI",
++        "provider_brand": "CUSTOM",
++        "website_url": "https://example.com/ai",
++        "compliance_status": "NOT_REVIEWED",
++        "capabilities": capabilities(),
++        **patch,
++    }
++
++
++def profile_payload(mode: str = "MANUAL", **patch: Any) -> dict[str, Any]:
++    return {
++        "engine_surface_id": str(uuid4()),
++        "name": "虚构配置",
++        "collection_mode": mode,
++        "adapter_key": "manual" if mode == "MANUAL" else "fictional-adapter",
++        "ai_channel_id": None,
++        "ai_model_id": None,
++        "language_code": "zh-hans",
++        "region_code": "CN",
++        "login_state": "NOT_APPLICABLE" if mode == "API" else "ANONYMOUS",
++        "web_search_policy": "UNKNOWN",
++        "settings": {},
++        **patch,
++    }
++
++
++@pytest.fixture(scope="module")
++def contract() -> dict[str, Any]:
++    return yaml.safe_load(
++        (Path(__file__).resolve().parents[3] / "contracts/openapi.yaml").read_text()
++    )
++
++
++def validate(contract: dict[str, Any], name: str, value: Any) -> None:
++    Draft202012Validator(
++        {"$ref": f"#/components/schemas/{name}", "components": contract["components"]},
++        format_checker=FormatChecker(),
++    ).validate(value)
++
++
++@pytest.mark.parametrize("mode", ["MANUAL", "API", "BROWSER"])
++def test_supported_profiles_validate_in_schema_and_openapi(
++    mode: str, contract: dict[str, Any]
++) -> None:
++    value = profile_payload(mode)
++    parsed = TypeAdapter(schemas.GeoCollectionProfileCreate).validate_python(value)
++    assert parsed.collection_mode == mode
++    validate(contract, "GeoCollectionProfileCreate", value)
++    if mode == "API":
++        value.update(ai_channel_id=str(uuid4()), ai_model_id=str(uuid4()))
++        TypeAdapter(schemas.GeoCollectionProfileCreate).validate_python(value)
++        validate(contract, "GeoCollectionProfileCreate", value)
++
++
++@pytest.mark.parametrize("mode", ["MANUAL", "API", "BROWSER"])
++@pytest.mark.parametrize(
++    "key", ["api_key", "api_key_ciphertext", "Cookie", "headers", "session_path"]
++)
++def test_secrets_rejected_at_every_configuration_level(
++    mode: str, key: str, contract: dict[str, Any]
++) -> None:
++    for location in ["root", "settings"]:
++        value = profile_payload(mode)
++        target = value if location == "root" else value["settings"]
++        target[key] = "fictional-secret-marker"
++        with pytest.raises(ValidationError):
++            TypeAdapter(schemas.GeoCollectionProfileCreate).validate_python(value)
++        with pytest.raises(JsonError):
++            validate(contract, "GeoCollectionProfileCreate", value)
++
++
++@pytest.mark.parametrize(
++    "mode,patch",
++    [
++        ("MANUAL", {"ai_model_id": str(uuid4()), "ai_channel_id": str(uuid4())}),
++        ("BROWSER", {"ai_model_id": str(uuid4()), "ai_channel_id": str(uuid4())}),
++        ("API", {"ai_model_id": str(uuid4())}),
++        ("API", {"ai_channel_id": str(uuid4())}),
++        ("API", {"login_state": "AUTHENTICATED"}),
++        ("BROWSER", {"login_state": "NOT_APPLICABLE"}),
++        ("MANUAL", {"adapter_key": "some-api"}),
++        ("API", {"settings": {"temperature": True}}),
++        ("API", {"settings": {"temperature": 2.01}}),
++        ("API", {"settings": {"max_output_tokens": 1.0}}),
++        ("API", {"settings": {"max_output_tokens": 0}}),
++        ("BROWSER", {"settings": {"answer_timeout_seconds": 601}}),
++        ("MANUAL", {"settings": {"require_screenshot": "secret"}}),
++        ("BROWSER", {"settings": {"answer_timeout_seconds": {"Cookie": "fake"}}}),
++        ("API", {"web_search_policy": "GUESSED"}),
++        ("MANUAL", {"collection_mode": "AUTO"}),
++    ],
++)
++def test_invalid_combinations_fail_in_both_contracts(
++    mode: str, patch: dict[str, Any], contract: dict[str, Any]
++) -> None:
++    value = profile_payload(mode, **patch)
++    with pytest.raises(ValidationError):
++        TypeAdapter(schemas.GeoCollectionProfileCreate).validate_python(value)
++    # JSON Schema允许1.0代表数学整数；Pydantic的严格JSON输入再拒绝该Python float。
++    if patch != {"settings": {"max_output_tokens": 1.0}}:
++        with pytest.raises(JsonError):
++            validate(contract, "GeoCollectionProfileCreate", value)
++
++
++@pytest.mark.parametrize(
++    "patch",
++    [
++        {"capabilities": {**capabilities(), "secret": False}},
++        {"capabilities": {**capabilities(), "citations": 1}},
++        {"capabilities": {**capabilities(), "answer_text": False}},
++        {"capabilities": {**capabilities(), "answer_text": 1}},
++        {"capabilities": {k: v for k, v in capabilities().items() if k != "cost"}},
++        {"website_url": "https://user:fake@example.com"},
++        {"website_url": "https://example.com/?api_key=fake"},
++        {"website_url": "https://example.com/#fake"},
++        {"surface_kind": "SEARCH_PRODUCT"},
++        {"compliance_status": "BLOCKED"},
++        {"provider_brand": "UNREGISTERED"},
++        {"name": "\u00a0虚构平台"},
++    ],
++)
++def test_surface_rejects_unknown_or_sensitive_configuration(patch: dict[str, Any]) -> None:
++    with pytest.raises(ValidationError):
++        schemas.GeoEngineSurfaceCreate.model_validate(surface_payload(**patch))
++
++
++@pytest.mark.parametrize("mode", ["MANUAL", "API", "BROWSER"])
++def test_response_is_closed_and_contains_only_non_sensitive_settings(
++    mode: str, contract: dict[str, Any]
++) -> None:
++    value = profile_payload(mode)
++    now = datetime.now(UTC).isoformat()
++    value.update(
++        id=str(uuid4()),
++        is_active=False,
++        last_test_status="UNTESTED",
++        last_tested_at=None,
++        revision=0,
++        created_by=str(uuid4()),
++        created_at=now,
++        updated_at=now,
++    )
++    output = (
++        TypeAdapter(schemas.GeoCollectionProfileOut).validate_python(value).model_dump(mode="json")
++    )
++    validate(contract, "GeoCollectionProfileOut", output)
++    for key in [
++        "api_key",
++        "api_key_ciphertext",
++        "Cookie",
++        "headers",
++        "session_path",
++        "settings_json",
++    ]:
++        assert key not in output and key not in output["settings"]
++        bad = deepcopy(output)
++        bad[key] = "fictional-secret-marker"
++        with pytest.raises(ValidationError):
++            TypeAdapter(schemas.GeoCollectionProfileOut).validate_python(bad)
++    for status, tested_at in [("PASSED", None), ("FAILED", None), ("UNTESTED", now)]:
++        bad = {**value, "last_test_status": status, "last_tested_at": tested_at}
++        with pytest.raises(ValidationError):
++            TypeAdapter(schemas.GeoCollectionProfileOut).validate_python(bad)
++        with pytest.raises(JsonError):
++            validate(contract, "GeoCollectionProfileOut", bad)
++    if mode == "API":
++        bad = {**value, "ai_model_id": str(uuid4())}
++        with pytest.raises(JsonError):
++            validate(contract, "GeoCollectionProfileOut", bad)
++
++
++@pytest.mark.parametrize("name", ["\x00", "\x00虚构", "虚构\x00", "虚\x00构"])
++def test_surface_and_profile_names_reject_nul_in_public_schema(
++    name: str, contract: dict[str, Any]
++) -> None:
++    for component, payload, model in [
++        ("GeoEngineSurfaceCreate", surface_payload(name=name), schemas.GeoEngineSurfaceCreate),
++        (
++            "GeoCollectionProfileCreate",
++            profile_payload(name=name),
++            schemas.GeoCollectionProfileCreate,
++        ),
++    ]:
++        with pytest.raises(ValidationError):
++            TypeAdapter(model).validate_python(payload)
++        with pytest.raises(JsonError):
++            validate(contract, component, payload)
++
++
++def test_full_update_requires_revision_and_no_client_metadata() -> None:
++    value = profile_payload("API")
++    value.pop("engine_surface_id")
++    adapter = TypeAdapter(schemas.GeoCollectionProfileUpdate)
++    with pytest.raises(ValidationError):
++        adapter.validate_python(value)
++    parsed = adapter.validate_python({**value, "expected_revision": 2})
++    assert parsed.expected_revision == 2
++    for patch in [
++        {"expected_revision": True},
++        {"expected_revision": -1},
++        {"is_active": True},
++        {"last_test_status": "PASSED"},
++        {"created_by": str(uuid4())},
++    ]:
++        with pytest.raises(ValidationError):
++            adapter.validate_python({**value, "expected_revision": 2, **patch})
++
++
++def test_public_schema_components_match_pydantic_and_no_routes(contract: dict[str, Any]) -> None:
++    def clean(value: Any) -> Any:
++        if isinstance(value, dict):
++            return {
++                k: clean(v) for k, v in value.items() if k not in {"title", "description", "$defs"}
++            }
++        if isinstance(value, list):
++            return [clean(v) for v in value]
++        return value
++
++    for name in [
++        "GeoEngineSurfaceCreate",
++        "GeoEngineSurfaceUpdate",
++        "GeoEngineSurfaceOut",
++        "GeoCollectionProfileCreate",
++        "GeoCollectionProfileUpdate",
++        "GeoCollectionProfileOut",
++    ]:
++        schema = TypeAdapter(getattr(schemas, name)).json_schema(
++            ref_template="#/components/schemas/{model}"
++        )
++        for key, definition in schema.pop("$defs", {}).items():
++            assert clean(definition) == clean(contract["components"]["schemas"][key])
++        assert clean(schema) == clean(contract["components"]["schemas"][name])
++    assert all(
++        "engine-surfaces" not in path and "collection-profiles" not in path
++        for path in contract["paths"]
++    )
+--- /dev/null
++++ after/backend/tests/integration/test_geo_surfaces_profiles.py
+@@ -0,0 +1,428 @@
++"""PostgreSQL16 的观测配置约束、前滚、敏感数据和真实引用生命周期。"""
++
++from collections.abc import Iterator
++from dataclasses import dataclass
++from datetime import UTC, datetime
++from pathlib import Path
++from typing import Any
++from uuid import UUID, uuid4
++
++import psycopg
++import pytest
++from alembic.autogenerate import compare_metadata
++from alembic.migration import MigrationContext
++from psycopg.types.json import Jsonb
++from pydantic import TypeAdapter
++from sqlalchemy import create_engine
++from sqlalchemy.orm import Session
++
++from app.db import Base
++from app.errors import AppError
++from app.models.geo_surfaces import GeoCollectionProfile, GeoEngineSurface
++from app.models.identity import User
++from app.schemas.geo_surfaces import GeoCollectionProfileOut, GeoEngineSurfaceOut
++from app.services.identity import delete_user, users_out
++from tests.integration.test_geo_catalog import insert_row
++from tests.integration.test_migrations import run_alembic, temporary_database
++from tests.unit.test_geo_surface_contract import capabilities, profile_payload, surface_payload
++
++pytestmark = pytest.mark.integration
++
++
++@dataclass
++class SurfaceDatabase:
++    url: str
++    env: dict[str, str]
++    backend_dir: Path
++    actor: UUID
++    admin: UUID
++    channel: UUID
++    other_channel: UUID
++    model: UUID
++    before: list[Any]
++
++
++def snapshot(connection: psycopg.Connection[Any]) -> list[Any]:
++    return [
++        connection.execute(f"SELECT to_jsonb(t) FROM {table} t ORDER BY id").fetchall()
++        for table in [
++            "users",
++            "ai_channels",
++            "ai_models",
++            "geo_observations",
++            "geo_prompt_variants",
++        ]
++    ]
++
++
++@pytest.fixture(scope="module")
++def surface_database() -> Iterator[SurfaceDatabase]:
++    with temporary_database("partsignal_geo203") as (url, env, backend_dir):
++        run_alembic(env, backend_dir, "0045_geo_prompt_variants")
++        actor, admin, channel, other, model = (uuid4() for _ in range(5))
++        with psycopg.connect(url) as connection:
++            for user, active in [(actor, False), (admin, True)]:
++                insert_row(
++                    connection,
++                    "users",
++                    {
++                        "id": user,
++                        "username": f"geo203-{user}",
++                        "display_name": "虚构用户",
++                        "password_hash": "not-used",
++                        "account_type": "ADMIN",
++                        "is_active": active,
++                        "must_change_password": False,
++                        "revision": 0,
++                    },
++                )
++            for identity in [channel, other]:
++                insert_row(
++                    connection,
++                    "ai_channels",
++                    {
++                        "id": identity,
++                        "name": "虚构渠道",
++                        "description": "测试",
++                        "protocol_type": "openai-compatible-chat-completions",
++                        "provider_brand": "CUSTOM",
++                        "base_url": "https://example.com",
++                        "api_key_ciphertext": "fictional-encrypted-marker",
++                        "api_key_updated_at": datetime.now(UTC),
++                        "timeout_seconds": 30,
++                        "is_enabled": False,
++                        "revision": 0,
++                        "created_by": admin,
++                    },
++                )
++            insert_row(
++                connection,
++                "ai_models",
++                {
++                    "id": model,
++                    "channel_id": channel,
++                    "display_name": "虚构模型",
++                    "model_id": "fictional-model",
++                    "request_parameters": Jsonb({}),
++                    "is_enabled": False,
++                    "test_status": "UNTESTED",
++                    "revision": 0,
++                    "created_by": admin,
++                },
++            )
++            before = snapshot(connection)
++        run_alembic(env, backend_dir, "head")
++        yield SurfaceDatabase(url, env, backend_dir, actor, admin, channel, other, model, before)
++
++
++@pytest.fixture
++def connection(surface_database: SurfaceDatabase) -> Iterator[psycopg.Connection[Any]]:
++    with psycopg.connect(surface_database.url) as connection:
++        try:
++            yield connection
++        finally:
++            connection.rollback()
++
++
++def insert_surface(connection: psycopg.Connection[Any], db: SurfaceDatabase, **patch: Any) -> UUID:
++    identity = uuid4()
++    values = {
++        "id": identity,
++        "created_by": db.actor,
++        **surface_payload(slug=f"fictional-{identity.hex}"),
++        **patch,
++    }
++    if isinstance(values["capabilities"], (dict, list)):
++        values["capabilities"] = Jsonb(values["capabilities"])
++    insert_row(connection, "geo_engine_surfaces", values)
++    return identity
++
++
++def insert_profile(
++    connection: psycopg.Connection[Any],
++    db: SurfaceDatabase,
++    surface: UUID,
++    mode: str = "MANUAL",
++    **patch: Any,
++) -> UUID:
++    identity = uuid4()
++    values = {
++        "id": identity,
++        "created_by": db.actor,
++        **profile_payload(mode, engine_surface_id=surface, name=f"配置-{identity.hex}"),
++    }
++    values["settings_json"] = Jsonb(values.pop("settings"))
++    values.update(patch)
++    if isinstance(values["settings_json"], (dict, list)):
++        values["settings_json"] = Jsonb(values["settings_json"])
++    insert_row(connection, "geo_collection_profiles", values)
++    return identity
++
++
++def test_old_head_forward_preserves_rows_metadata_and_downgrade_stops(
++    surface_database: SurfaceDatabase,
++) -> None:
++    db = surface_database
++    with psycopg.connect(db.url) as connection:
++        assert snapshot(connection) == db.before
++        assert connection.execute("SELECT version_num FROM alembic_version").fetchone() == (
++            "0046_geo_surfaces_profiles",
++        )
++    engine = create_engine(db.url.replace("postgresql://", "postgresql+psycopg://", 1))
++    try:
++        with engine.connect() as conn:
++            context = MigrationContext.configure(
++                conn,
++                opts={
++                    "compare_type": True,
++                    # 既有 AIModel 的默认值差异不属于本次新增复合唯一键的范围。
++                    "compare_server_default": lambda ctx, inspected, metadata, *rest: (
++                        False if metadata.table.name == "ai_models" else None
++                    ),
++                    "include_object": lambda obj, name, kind, reflected, compared: (
++                        kind != "table"
++                        or name in {"geo_engine_surfaces", "geo_collection_profiles", "ai_models"}
++                    ),
++                },
++            )
++            assert compare_metadata(context, Base.metadata) == []
++    finally:
++        engine.dispose()
++    import subprocess
++    import sys
++
++    result = subprocess.run(
++        [sys.executable, "-m", "alembic", "downgrade", "0045_geo_prompt_variants"],
++        env=db.env,
++        cwd=db.backend_dir,
++        capture_output=True,
++        text=True,
++    )
++    assert result.returncode != 0
++    assert "0046 GEO Surface/Profile 无法安全降级" in result.stdout + result.stderr
++    with psycopg.connect(db.url) as connection:
++        assert connection.execute("SELECT version_num FROM alembic_version").fetchone() == (
++            "0046_geo_surfaces_profiles",
++        )
++
++
++@pytest.mark.parametrize("mode", ["MANUAL", "API", "BROWSER"])
++def test_valid_modes_defaults_and_public_response_no_secret(
++    connection: psycopg.Connection[Any], surface_database: SurfaceDatabase, mode: str
++) -> None:
++    db = surface_database
++    surface = insert_surface(connection, db)
++    profile = insert_profile(connection, db, surface, mode)
++    surface_row = connection.execute(
++        "SELECT to_jsonb(t) FROM geo_engine_surfaces t WHERE id=%s", (surface,)
++    ).fetchone()[0]
++    GeoEngineSurfaceOut.model_validate(surface_row)
++    row = connection.execute(
++        "SELECT to_jsonb(t) FROM geo_collection_profiles t WHERE id=%s", (profile,)
++    ).fetchone()[0]
++    assert row["is_active"] is False and row["revision"] == 0
++    assert row["last_test_status"] == "UNTESTED" and row["last_tested_at"] is None
++    row["settings"] = row.pop("settings_json")
++    output = TypeAdapter(GeoCollectionProfileOut).validate_python(row).model_dump_json()
++    for secret in ["fictional-encrypted-marker", "api_key", "Cookie", "headers", "session_path"]:
++        assert secret not in output
++
++
++@pytest.mark.parametrize(
++    "mode,patch,constraint",
++    [
++        ("MANUAL", {"ai_channel_id": uuid4(), "ai_model_id": uuid4()}, "model_mode"),
++        ("BROWSER", {"ai_channel_id": uuid4(), "ai_model_id": uuid4()}, "model_mode"),
++        ("API", {"login_state": "ANONYMOUS"}, "login"),
++        ("BROWSER", {"login_state": "NOT_APPLICABLE"}, "login"),
++        ("MANUAL", {"adapter_key": "fictional-api"}, "adapter"),
++        ("API", {"adapter_key": "UNKNOWN KEY"}, "adapter"),
++        ("API", {"settings_json": {"temperature": True}}, "settings"),
++        ("API", {"settings_json": {"temperature": 2.1}}, "settings"),
++        ("API", {"settings_json": {"max_output_tokens": 1.0}}, "settings"),
++        ("API", {"settings_json": {"max_output_tokens": 0}}, "settings"),
++        ("API", {"settings_json": {"max_output_tokens": 65537}}, "settings"),
++        ("MANUAL", {"settings_json": {"require_screenshot": "fake"}}, "settings"),
++        ("BROWSER", {"settings_json": {"answer_timeout_seconds": 601}}, "settings"),
++        ("BROWSER", {"settings_json": {"answer_timeout_seconds": None}}, "settings"),
++        ("MANUAL", {"settings_json": {"api_key": "fake"}}, "settings"),
++        ("API", {"settings_json": {"headers": {"Authorization": "fake"}}}, "settings"),
++        ("BROWSER", {"settings_json": {"Cookie": "fake"}}, "settings"),
++        ("BROWSER", {"settings_json": []}, "settings"),
++        ("API", {"language_code": "ZH"}, "language"),
++        ("API", {"region_code": "cn"}, "region"),
++        ("API", {"web_search_policy": "AUTO"}, "search"),
++        ("API", {"last_test_status": "PASSED"}, "test"),
++        ("MANUAL", {"name": "\u00a0虚构"}, "name"),
++    ],
++)
++def test_sql_rejects_invalid_combinations(
++    connection: psycopg.Connection[Any],
++    surface_database: SurfaceDatabase,
++    mode: str,
++    patch: dict[str, Any],
++    constraint: str,
++) -> None:
++    surface = insert_surface(connection, surface_database)
++    with pytest.raises(psycopg.errors.CheckViolation) as error, connection.transaction():
++        insert_profile(connection, surface_database, surface, mode, **patch)
++    assert error.value.diag.constraint_name == f"ck_geo_collection_profiles_{constraint}"
++
++
++@pytest.mark.parametrize(
++    "patch,constraint",
++    [
++        ({"capabilities": {**capabilities(), "api_key": False}}, "capabilities"),
++        ({"capabilities": {**capabilities(), "answer_text": 1}}, "capabilities"),
++        ({"capabilities": {**capabilities(), "answer_text": False}}, "capabilities"),
++        ({"capabilities": {}}, "capabilities"),
++        ({"capabilities": []}, "capabilities"),
++        ({"compliance_status": "BLOCKED"}, "compliance"),
++        ({"surface_kind": "SEARCH_PRODUCT"}, "kind"),
++        ({"provider_brand": "GUESSED"}, "provider"),
++        ({"website_url": "https://user:fake@example.com"}, "website"),
++        ({"website_url": "https://example.com/?token=fake"}, "website"),
++    ],
++)
++def test_sql_surface_closed_capabilities_and_enums(
++    connection: psycopg.Connection[Any],
++    surface_database: SurfaceDatabase,
++    patch: dict[str, Any],
++    constraint: str,
++) -> None:
++    with pytest.raises(psycopg.errors.CheckViolation) as error, connection.transaction():
++        insert_surface(connection, surface_database, **patch)
++    assert error.value.diag.constraint_name == f"ck_geo_engine_surfaces_{constraint}"
++
++
++@pytest.mark.parametrize("patch", ["channel_only", "model_only", "wrong_channel", "missing_model"])
++def test_model_pair_must_exist_and_belong_to_channel(
++    connection: psycopg.Connection[Any], surface_database: SurfaceDatabase, patch: str
++) -> None:
++    db = surface_database
++    refs = {"ai_model_id": db.model, "ai_channel_id": db.channel}
++    if patch == "channel_only":
++        refs["ai_model_id"] = None
++    if patch == "model_only":
++        refs["ai_channel_id"] = None
++    if patch == "wrong_channel":
++        refs["ai_channel_id"] = db.other_channel
++    if patch == "missing_model":
++        refs["ai_model_id"] = uuid4()
++    surface = insert_surface(connection, db)
++    with pytest.raises(psycopg.errors.ForeignKeyViolation) as error, connection.transaction():
++        insert_profile(connection, db, surface, "API", **refs)
++    assert error.value.diag.constraint_name == "fk_geo_collection_profiles_model_channel"
++
++
++@pytest.mark.parametrize("delete_table", ["ai_models", "ai_channels"])
++def test_ai_delete_nulls_pair_keeps_profile_and_existing_lifecycle(
++    connection: psycopg.Connection[Any], surface_database: SurfaceDatabase, delete_table: str
++) -> None:
++    db = surface_database
++    surface = insert_surface(connection, db)
++    profile = insert_profile(
++        connection, db, surface, "API", ai_channel_id=db.channel, ai_model_id=db.model
++    )
++    before = connection.execute(
++        "SELECT to_jsonb(t) FROM geo_collection_profiles t WHERE id=%s", (profile,)
++    ).fetchone()[0]
++    connection.execute(
++        f"DELETE FROM {delete_table} WHERE id=%s",
++        (db.model if delete_table == "ai_models" else db.channel,),
++    )
++    after = connection.execute(
++        "SELECT to_jsonb(t) FROM geo_collection_profiles t WHERE id=%s", (profile,)
++    ).fetchone()[0]
++    assert after == {**before, "ai_channel_id": None, "ai_model_id": None}
++
++
++def test_surface_user_restrict_and_names_unique(
++    connection: psycopg.Connection[Any], surface_database: SurfaceDatabase
++) -> None:
++    db = surface_database
++    surface = insert_surface(connection, db, slug="unique-surface")
++    insert_profile(connection, db, surface, name="唯一配置")
++    for table, identity in [("geo_engine_surfaces", surface), ("users", db.actor)]:
++        with pytest.raises(psycopg.errors.ForeignKeyViolation), connection.transaction():
++            connection.execute(f"DELETE FROM {table} WHERE id=%s", (identity,))
++    for kind in ["surface", "profile"]:
++        with pytest.raises(psycopg.errors.UniqueViolation) as error, connection.transaction():
++            if kind == "surface":
++                insert_surface(connection, db, slug="unique-surface")
++            else:
++                insert_profile(connection, db, surface, name="唯一配置")
++        assert error.value.diag.constraint_name == (
++            "uq_geo_engine_surfaces_slug"
++            if kind == "surface"
++            else "uq_geo_collection_profiles_surface_name"
++        )
++
++
++def test_revision_identity_and_history_latch(
++    connection: psycopg.Connection[Any], surface_database: SurfaceDatabase
++) -> None:
++    surface = insert_surface(connection, surface_database)
++    profile = insert_profile(connection, surface_database, surface)
++    for table, identity in [("geo_engine_surfaces", surface), ("geo_collection_profiles", profile)]:
++        with pytest.raises(psycopg.errors.CheckViolation) as error, connection.transaction():
++            connection.execute(f"UPDATE {table} SET name='新配置' WHERE id=%s", (identity,))
++        assert error.value.diag.constraint_name == f"ck_{table}_revision_step"
++        connection.execute(
++            f"UPDATE {table} SET name='新配置', revision=revision+1, updated_at=now() WHERE id=%s",
++            (identity,),
++        )
++        connection.execute(f"UPDATE {table} SET name=name WHERE id=%s", (identity,))
++        with pytest.raises(psycopg.errors.CheckViolation) as error, connection.transaction():
++            connection.execute(
++                f"UPDATE {table} SET created_by=%s, revision=revision+1 WHERE id=%s",
++                (surface_database.admin, identity),
++            )
++        assert error.value.diag.constraint_name == f"ck_{table}_identity"
++    connection.execute(
++        "UPDATE geo_engine_surfaces SET first_referenced_at=now(), revision=revision+1 WHERE id=%s",
++        (surface,),
++    )
++    for statement in [
++        "UPDATE geo_engine_surfaces SET first_referenced_at=NULL, revision=revision+1 WHERE id=%s",
++        "DELETE FROM geo_engine_surfaces WHERE id=%s",
++    ]:
++        with pytest.raises(psycopg.errors.CheckViolation) as error, connection.transaction():
++            connection.execute(statement, (surface,))
++        assert error.value.diag.constraint_name == "ck_geo_engine_surfaces_history"
++
++
++def test_orm_defaults_and_user_deletion_projection(surface_database: SurfaceDatabase) -> None:
++    db = surface_database
++    engine = create_engine(db.url.replace("postgresql://", "postgresql+psycopg://", 1))
++    try:
++        with Session(engine) as session:
++            surface = GeoEngineSurface(
++                **{**surface_payload(slug=f"orm-{uuid4().hex}"), "created_by": db.actor}
++            )
++            session.add(surface)
++            session.flush()
++            values = profile_payload(engine_surface_id=surface.id)
++            values["settings_json"] = values.pop("settings")
++            profile = GeoCollectionProfile(**{**values, "created_by": db.actor})
++            session.add(profile)
++            session.flush()
++            assert not surface.is_active and surface.revision == 0
++            assert not profile.is_active and profile.revision == 0
++            actor = session.get(User, db.admin)
++            user = session.get(User, db.actor)
++            assert actor is not None and user is not None
++            projection = users_out(session, [user], actor=actor)[0]
++            assert projection.deletion is not None
++            assert projection.deletion.blockers[0].count == 2
++            with pytest.raises(AppError) as error:
++                delete_user(
++                    db=session,
++                    user_id=user.id,
++                    expected_revision=user.revision,
++                    actor=actor,
++                    request_id="geo203-user-reference",
++                )
++            assert error.value.code == "USER_IN_USE"
++    finally:
++        engine.dispose()

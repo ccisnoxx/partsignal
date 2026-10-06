@@ -1,0 +1,47 @@
+{
+  "id": "geo-102-catalog-orm",
+  "name": "geo-102-catalog-orm",
+  "title": "GEO-102 实现 GEO Catalog ORM 与 Alembic",
+  "description": "R1：三表 ORM、新前滚迁移、metadata 和 PostgreSQL 约束验证；不实现 CRUD/API/UI。",
+  "status": "completed",
+  "dev_type": "backend",
+  "scope": "geo-catalog",
+  "package": null,
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-10-01",
+  "completedAt": "2026-10-01",
+  "branch": "geo/GEO-102",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "backend/app/models/geo_catalog.py",
+    "backend/app/models/__init__.py",
+    "backend/alembic/versions/0044_geo_catalog.py",
+    "backend/tests/unit/test_geo_catalog_metadata.py",
+    "backend/tests/integration/test_geo_catalog.py",
+    "backend/tests/integration/test_geo_catalog_constraints.py",
+    "backend/tests/integration/test_migrations.py",
+    "contracts/database.md",
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml"
+  ],
+  "notes": "实现与本地指定验证完成；独立只读复核及执行审计通过，2026-10-01 本会话用户人工审查并接受 GEO-102 的实现与测试证据；manifest=done，Trellis=completed。本次只记录验收，不提交、归档或实施后续任务。",
+  "meta": {
+    "geo_task_id": "GEO-102",
+    "release": "R1",
+    "dependencies": {
+      "GEO-101": "done"
+    },
+    "manifest_status": "done",
+    "accepted_at": "2026-10-01",
+    "accepted_by": "本会话用户",
+    "accepted_scope": "GEO-102 Catalog ORM/Alembic、数据库约束及已记录的实现与测试证据；不包含 Schema/Service/API/UI 或后续任务。",
+    "acceptance_basis": "用户明确表示：我已经人工审查并接受 GEO-102 的实现与测试证据。"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "contracts/openapi.yaml": "18207339c2fc560afd0a85b32bada117f92b1539e05d89c7e4652c38001d66b1",
+  "contracts/database.md": "50407ddcdcaa7520fe95d7c685baa06122863abcbd6edf8d01b1abc460977c44",
+  "backend/tests/unit/test_geo_catalog_contract.py": "72fdf11c0dcba9ff1634d59c0c944c55cc711e970bd0f2ab29340f9b8b0b9d02",
+  "frontend/src/shared/api/generated/schema.d.ts": "f158f9e121f22a60336213356bd3bd4f8a9fce7f679c32ce9aaaa7df2910b435",
+  "docs/geo-monitoring/README.md": "2eb3c5657ab20d04c7d9ebc44cec17dd3d989e898e1e1c73c11aadde09ad25b6",
+  "docs/geo-monitoring/CHANGELOG.md": "8aa36b20bc229ca4a7f7eeae4a8ffceb5cf0521428dd4b597c803def93842209",
+  "docs/geo-monitoring/01-product/02-geo-core-prd.md": "5c60a5f297e13455c54f9f3c67ed35de5d3cab38f975cf8bfcbba866422674ab",
+  "docs/geo-monitoring/02-business/02-domain-model.md": "849b60afd66a9e714a43e3611ec546d9c58205bd25204c8c9851306e971037f7",
+  "docs/geo-monitoring/03-technical/02-data-architecture.md": "1872a6478dcb6cb224df786ed633fb131e344c2301bd55815d1dc794b817038b",
+  "docs/geo-monitoring/03-technical/03-api-contract-design.md": "8118c90ffde495d69c069f19f31d3995c1f36a5b33f66c7107b28802f9d76d12",
+  "docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md": "800a92ebb843d1e3dd99566b55b3869550a43ebbabe15a8a1b6b00f125fc4999"
+}

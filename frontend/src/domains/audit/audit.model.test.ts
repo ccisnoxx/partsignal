@@ -60,6 +60,50 @@ function expectRuntimeProjectionFailure(value: unknown, requestedLogId: string =
 }
 
 describe('系统审计 model', () => {
+  it('管理员机会评估安全回执可展示，未知对象不生成导航', () => {
+    const evaluated = parseAuditLogDetailResponse(runtimeDetail({
+      business_module: 'GEO_OBSERVATION', action: 'geo_opportunity.evaluated',
+      target_type: 'GeoOpportunityEvaluationRun', changes: [],
+      related_entry: { status: 'UNSUPPORTED', kind: null, parent_id: null },
+      facts: { scope: 'FILTERED', evaluated_cells: 10, created: 1, existing_reused: 0,
+        skipped: 9, unavailable_reasons: ['INSUFFICIENT_SAMPLE'], revision: 1,
+        as_of: '2026-10-05T08:00:00Z', filter_sha256: 'a'.repeat(64) },
+    }), runtimeLog.id);
+    expect(auditActionLabel(evaluated.action)).toBe('管理员评估 GEO 机会');
+    expect(projectAuditFacts(evaluated.facts).map((item) => item.label)).toContain('评估结果数');
+    expect(resolveAuditRelatedLink(evaluated)).toBeUndefined();
+    expectRuntimeProjectionFailure(runtimeDetail({
+      business_module: 'GEO_OBSERVATION', action: 'geo_opportunity.evaluated',
+      facts: { answer_text: 'audit-runtime-secret-sentinel' },
+    }));
+  });
+
+  it('机会创建与严格复测审计使用登记动作、闭合安全事实和机会导航', () => {
+    const common = {
+      business_module: 'GEO_OBSERVATION', target_type: 'GeoOpportunity', changes: [],
+      related_entry: { status: 'AVAILABLE', kind: 'GeoOpportunity', parent_id: null },
+    };
+    const opened = parseAuditLogDetailResponse(runtimeDetail({ ...common,
+      action: 'geo_opportunity.opened', facts: { revision: 1, status: 'OPEN' },
+    }), runtimeLog.id);
+    expect(auditActionLabel(opened.action)).toBe('创建 GEO 机会');
+    const retest = parseAuditLogDetailResponse(runtimeDetail({ ...common,
+      action: 'geo.retest.created', facts: { baseline_id: runtimeLog.id,
+        baseline_batch_id: runtimeLog.id, batch_id: runtimeLog.id,
+        requested_run_count: 5, revision: 4 },
+    }), runtimeLog.id);
+    expect(auditActionLabel(retest.action)).toBe('创建 GEO 严格复测');
+    expect(projectAuditFacts(retest.facts).map((item) => item.label)).toEqual([
+      '冻结基线 ID', '基线批次 ID', '复测批次 ID', '请求运行数', '修订号',
+    ]);
+    expect(resolveAuditRelatedLink(retest)).toMatchObject({
+      href: `/geo/opportunities?opportunity_id=${runtimeLog.target_id}`,
+    });
+    expectRuntimeProjectionFailure(runtimeDetail({ ...common, action: 'geo.retest.created',
+      facts: { baseline_id: runtimeLog.id, answer_text: 'audit-runtime-secret-sentinel' },
+    }));
+  });
+
   it('初始化一次近三天 UTC 范围并规范化 URL/API 字段', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-08-16T08:30:45.000Z'));
@@ -304,11 +348,27 @@ describe('系统审计 model', () => {
     expectRuntimeProjectionFailure(runtimeDetail({ facts: { reason: customPrototypeArray } }));
   });
 
+  it('问题变体审计按登记类型跳转详情，已删除资源不显示入口', () => {
+    const detail = parseAuditLogDetailResponse(runtimeDetail({
+      action: 'geo_prompt_variant.created', target_type: 'GeoPromptVariant',
+      related_entry: { status: 'AVAILABLE', kind: 'GeoPromptVariant', parent_id: null },
+    }), runtimeLog.id);
+    expect(resolveAuditRelatedLink(detail)).toEqual({
+      href: `/geo/questions?selected=${runtimeLog.target_id}`, label: '查看问题变体',
+    });
+    expect(auditActionLabel(detail.action)).toBe('创建 GEO 问题变体');
+    const missing = parseAuditLogDetailResponse(runtimeDetail({
+      action: 'geo_prompt_variant.deleted', target_type: 'GeoPromptVariant',
+      related_entry: { status: 'MISSING', kind: 'GeoPromptVariant', parent_id: null },
+    }), runtimeLog.id);
+    expect(resolveAuditRelatedLink(missing)).toBeUndefined();
+  });
+
   it('related_entry 严格遵循后端 target registry、status 与 parent 矩阵', () => {
     const parentId = '50000000-0000-4000-8000-000000000001';
     const parentlessKinds = [
-      'Product', 'ContentTask', 'PublicationWork', 'PublishedContentIssue', 'GeoObservation',
-      'PlatformProfile', 'AIChannel',
+      'Product', 'ContentTask', 'PublicationWork', 'PublishedContentIssue', 'GeoObservation', 'GeoOpportunity',
+      'PlatformProfile', 'AIChannel', 'GeoPromptVariant',
     ] as const;
     const parentKinds = ['FactVersion', 'ContentVersion', 'PlatformAccount', 'AIModel'] as const;
     const validCases = [
@@ -398,5 +458,55 @@ describe('系统审计 model', () => {
       logId: '00000000-0000-4000-8000-000000000099',
     });
     expect(auditSearchToApiParams(search)).not.toHaveProperty('log_id');
+  });
+
+  it('GEO 规则更新只投影 revision，不展示配置或其他配置模块详情', () => {
+    const update = runtimeDetail({
+      business_module: 'CONFIGURATION', action: 'geo_rule_set.updated', target_type: 'GeoRuleSet', target_id: 'current',
+      facts: { revision: 3 }, changes: [], related_entry: { status: 'UNSUPPORTED', kind: null, parent_id: null },
+    });
+    const detail = parseAuditLogDetailResponse(update, runtimeLog.id);
+    expect(auditActionLabel(detail.action)).toBe('更新 GEO 规则集');
+    expect(projectAuditFacts(detail.facts)).toEqual([{ field: 'revision', label: '修订号', value: '3' }]);
+    expect(resolveAuditRelatedLink(detail)).toBeUndefined();
+    for (const facts of [{ revision: 3, configuration: 'hidden' }, { revision: 3, reason: 'hidden' }, { revision: 0 }]) {
+      expectRuntimeProjectionFailure({ ...update, facts });
+    }
+    expectRuntimeProjectionFailure({ ...update, changes: [{ field: 'revision', before: 2, after: 3 }] });
+  });
+  it.each([
+    ['geo_opportunity.acknowledged', 'ACKNOWLEDGED', '确认 GEO 机会'],
+    ['geo_opportunity.dismissed', 'DISMISSED', '忽略 GEO 机会'],
+  ])('机会审计 %s 仅允许低敏状态与修订号，并链接到机会 Drawer', (action, status, label) => {
+    const raw = runtimeDetail({ action, business_module: 'GEO_OBSERVATION', target_type: 'GeoOpportunity',
+      changes: [], facts: { revision: 3, status }, related_entry: { status: 'AVAILABLE', kind: 'GeoOpportunity', parent_id: null } });
+    const parsed = parseAuditLogDetailResponse(raw, runtimeLog.id);
+    expect(auditActionLabel(action)).toBe(label);
+    expect(projectAuditFacts(parsed.facts)).toEqual([{ field: 'revision', label: '修订号', value: '3' }, { field: 'status', label: '状态', value: status }]);
+    expect(resolveAuditRelatedLink(parsed)).toEqual({ href: `/geo/opportunities?opportunity_id=${runtimeLog.target_id}`, label: '查看 GEO 机会' });
+    for (const facts of [{ revision: 3, status, resolution_comment: 'hidden' }, { revision: 3, status, answer_text: 'hidden' }, { revision: 3, status, download_url: 'hidden' }, { revision: 0, status }, { revision: 3, status: 'OPEN' }]) expectRuntimeProjectionFailure({ ...raw, facts });
+    expectRuntimeProjectionFailure({ ...raw, business_module: 'CONFIGURATION' });
+    expectRuntimeProjectionFailure({ ...raw, changes: [{ field: 'status', after: status }] });
+  });
+});
+
+
+describe('GEO-706 处理审计安全投影', () => {
+  it.each([
+    ['geo_opportunity.resolved', 'MANUAL_RESOLVE', 'RESOLVED', '解决 GEO 机会'],
+    ['geo_opportunity.resolved', 'RETEST_RESOLVE', 'RESOLVED', '解决 GEO 机会'],
+    ['geo_opportunity.continued', 'CONTINUE', 'IN_PROGRESS', '继续跟进 GEO 机会'],
+  ])('%s / %s 仅展示低敏处理身份', (action, decision, status, label) => {
+    const facts = { decision_id: '00000000-0000-4000-8000-000000000706', decision, revision: 4, status };
+    const raw = runtimeDetail({ action, business_module: 'GEO_OBSERVATION', target_type: 'GeoOpportunity',
+      changes: [], facts, related_entry: { status: 'AVAILABLE', kind: 'GeoOpportunity', parent_id: null } });
+    const parsed = parseAuditLogDetailResponse(raw, runtimeLog.id);
+    expect(auditActionLabel(parsed.action)).toBe(label);
+    expect(projectAuditFacts(parsed.facts)).toContainEqual({ field: 'decision_id', label: '处理记录 ID', value: facts.decision_id });
+    for (const patch of [
+      { resolution_comment: '保密依据' }, { comparison_snapshot: '内部证据' },
+      { decision_id: 'invalid' }, { decision: 'UNKNOWN' }, { status: 'OPEN' }, { revision: 0 },
+    ]) expectRuntimeProjectionFailure({ ...raw, facts: { ...facts, ...patch } });
+    expectRuntimeProjectionFailure({ ...raw, changes: [{ field: 'status', after: status }] });
   });
 });

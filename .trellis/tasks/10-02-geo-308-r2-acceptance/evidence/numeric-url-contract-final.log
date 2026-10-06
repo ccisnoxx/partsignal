@@ -1,0 +1,26 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
++ actual - expected
+
++ [Object: null prototype] {
+- {
+    q: '12345678'
+  }
+
+    at file:///Users/sc/PycharmProjects/partsignal/frontend/[eval1]:1:227
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:230:26
+    at async ModuleLoader.executeModuleJob (node:internal/modules/esm/loader:227:20)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: [Object: null prototype] { q: '12345678' },
+  expected: { q: '12345678' },
+  operator: 'deepStrictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.16.0

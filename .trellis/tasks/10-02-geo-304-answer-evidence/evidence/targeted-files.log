@@ -1,0 +1,187 @@
+.....F..                                                                 [100%]
+=================================== FAILURES ===================================
+_ test_recheck_does_not_accept_changed_or_missing_object[unavailable-DEPENDENCY_UNAVAILABLE-503] _
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+>           yield
+
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:101: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:250: in handle_request
+    resp = self._pool.handle_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py:256: in handle_request
+    raise exc from None
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py:236: in handle_request
+    response = connection.handle_request(
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:101: in handle_request
+    raise exc
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:78: in handle_request
+    stream = self._connect(request)
+             ^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py:124: in _connect
+    stream = self._network_backend.connect_tcp(**kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpcore/_backends/sync.py:207: in connect_tcp
+    with map_exceptions(exc_map):
+         ^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+map = {<class 'TimeoutError'>: <class 'httpcore.ConnectTimeout'>, <class 'OSError'>: <class 'httpcore.ConnectError'>}
+
+    @contextlib.contextmanager
+    def map_exceptions(map: ExceptionMapping) -> typing.Iterator[None]:
+        try:
+            yield
+        except Exception as exc:  # noqa: PIE786
+            for from_exc, to_exc in map.items():
+                if isinstance(exc, from_exc):
+>                   raise to_exc(exc) from exc
+E                   httpcore.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+backend/.venv/lib/python3.12/site-packages/httpcore/_exceptions.py:14: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x10b342570>
+object_key = 'geo304/9176f750-6746-46e3-b452-cd7ab6397581.txt'
+
+    def delete(self, object_key: str) -> None:
+        """幂等删除开发对象及其元数据。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("delete", object_key, expires_at, internal=True)
+        try:
+>           response = httpx.delete(url, timeout=10)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+backend/app/services/storage.py:146: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/httpx/_api.py:426: in delete
+    return request(
+backend/.venv/lib/python3.12/site-packages/httpx/_api.py:109: in request
+    return client.request(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:914: in send
+    response = self._send_handling_auth(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:249: in handle_request
+    with map_httpcore_exceptions():
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+            yield
+        except Exception as exc:
+            mapped_exc = None
+    
+            for from_exc, to_exc in HTTPCORE_EXC_MAP.items():
+                if not isinstance(exc, from_exc):
+                    continue
+                # We want to map to the most specific exception we can find.
+                # Eg if `exc` is an `httpcore.ReadTimeout`, we want to map to
+                # `httpx.ReadTimeout`, not just `httpx.TimeoutException`.
+                if mapped_exc is None or issubclass(to_exc, mapped_exc):
+                    mapped_exc = to_exc
+    
+            if mapped_exc is None:  # pragma: no cover
+                raise
+    
+            message = str(exc)
+>           raise mapped_exc(message) from exc
+E           httpx.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+backend/.venv/lib/python3.12/site-packages/httpx/_transports/default.py:118: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+answer_database = AnswerDatabase(runs=RunDatabase(plan=PlanDatabase(url='postgresql://partsignal:partsignal_dev@127.0.0.1:55454/partsign...ind': 'LEGACY_MODEL_RESULT', 'web_search_enabled': True},)]]), legacy_run=UUID('ea9c57b5-8935-4bc7-bf0b-80ea6b103861'))
+engine = Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55454/partsignal_geo206_3c3db63ccb)
+storage = <app.services.storage.DevelopmentEvidenceStorage object at 0x10b342570>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b3419a0>
+case = 'unavailable', code = 'DEPENDENCY_UNAVAILABLE', status = 503
+
+    @pytest.mark.parametrize(
+        "case,code,status",
+        [
+            ("owner", "PERMISSION_DENIED", 403),
+            ("missing", "FILE_INTEGRITY_FAILED", 422),
+            ("changed", "FILE_INTEGRITY_FAILED", 422),
+            ("duplicate", "FILE_INTEGRITY_FAILED", 422),
+            ("unavailable", "DEPENDENCY_UNAVAILABLE", 503),
+        ],
+    )
+    def test_recheck_does_not_accept_changed_or_missing_object(
+        answer_database, engine, storage, monkeypatch, case, code, status
+    ):
+        db = answer_database
+        with psycopg.connect(db.url) as conn:
+            identity, key = evidence(conn, db, storage)
+        try:
+            if case == "missing":
+                storage.delete(key)
+            elif case == "changed":
+                data = b"changed object"
+                storage.put(
+                    key, data, content_type="text/plain", sha256=hashlib.sha256(data).hexdigest()
+                )
+            elif case == "unavailable":
+                monkeypatch.setattr(settings, "development_storage_internal_url", "http://127.0.0.1:1")
+            with Session(engine) as session, pytest.raises(AppError) as caught:
+                lock_answer_evidence_files(
+                    session,
+                    uploader_id=uuid4() if case == "owner" else db.runs.plan.actor,
+                    screenshot_file_id=identity if case == "duplicate" else None,
+                    raw_payload_file_id=identity,
+                    storage=storage,
+                )
+            assert caught.value.code == code and caught.value.status_code == status
+        finally:
+            if case == "unavailable":
+                monkeypatch.undo()
+>           storage.delete(key)
+
+backend/tests/integration/test_geo_answer_files.py:143: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <app.services.storage.DevelopmentEvidenceStorage object at 0x10b342570>
+object_key = 'geo304/9176f750-6746-46e3-b452-cd7ab6397581.txt'
+
+    def delete(self, object_key: str) -> None:
+        """幂等删除开发对象及其元数据。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("delete", object_key, expires_at, internal=True)
+        try:
+            response = httpx.delete(url, timeout=10)
+            if response.status_code != 404:
+                response.raise_for_status()
+        except (httpx.HTTPStatusError, httpx.RequestError) as error:
+>           raise StorageUnavailable("开发对象存储 DELETE 请求失败") from error
+E           app.services.storage.StorageUnavailable: 开发对象存储 DELETE 请求失败
+
+backend/app/services/storage.py:150: StorageUnavailable
+=========================== short test summary info ============================
+FAILED backend/tests/integration/test_geo_answer_files.py::test_recheck_does_not_accept_changed_or_missing_object[unavailable-DEPENDENCY_UNAVAILABLE-503]
+1 failed, 7 passed in 2.77s

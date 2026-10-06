@@ -1,0 +1,34 @@
+{
+  "id": "geo-1002-v1-release-scope",
+  "name": "geo-1002-v1-release-scope",
+  "title": "GEO-1002 冻结 GEO Core V1.0 人工优先发布范围和发布门禁",
+  "description": "文档与任务治理：接受 ADR-007，定义 GEO-1002 至 GEO-1010 与 R9A；不修改运行代码、根合同或部署脚本",
+  "status": "review",
+  "dev_type": "docs",
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-10-05",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "docs/geo-monitoring"
+  ],
+  "notes": "2026-10-05：文档范围和发布门禁冻结交付 review，不自行 done；后续任务 planned，生产仍 NO-GO。离线验证通过；完整 diff 检查保留未改审计的 12 处既存尾空格，详见 implement。",
+  "meta": {
+    "manifest_id": "GEO-1002",
+    "delivery_status": "review",
+    "audit_id": "20261006T034504Z-geo-1002-v1-release-scope-2b036082",
+    "independent_review_record": ".trellis/tasks/10-05-geo-1002-v1-release-scope/evidence/independent-review.md",
+    "validation_record": ".trellis/tasks/10-05-geo-1002-v1-release-scope/implement.md"
+  }
+}

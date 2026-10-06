@@ -1,0 +1,25 @@
+# 仅本任务隔离验证环境；使用样例配置，不触碰既有开发卷。
+services:
+  postgres:
+    environment:
+      POSTGRES_DB: geo103_validation
+      POSTGRES_USER: partsignal
+      POSTGRES_PASSWORD: partsignal_dev
+    ports: !override
+      - 127.0.0.1:55439:5432
+  redis:
+    ports: !reset []
+  fake-oss:
+    image: partsignal-dev-fake-oss:latest
+    env_file: !override
+      - ../.env.example
+    ports: !reset []
+  backend-test:
+    image: partsignal-dev-backend-test:latest
+    env_file: !override
+      - ../.env.example
+    environment:
+      DATABASE_URL: postgresql+psycopg://partsignal:partsignal_dev@postgres:5432/geo103_validation
+networks:
+  partsignal-internal:
+    name: partsignal-geo103-validation

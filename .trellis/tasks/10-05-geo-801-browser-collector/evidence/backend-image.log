@@ -1,0 +1,72 @@
+#0 building with "colima" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 594B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python:3.12-slim
+#2 ...
+
+#3 [auth] astral-sh/uv:pull token for ghcr.io
+#3 DONE 0.0s
+
+#4 [internal] load metadata for ghcr.io/astral-sh/uv:0.7.13
+#4 DONE 1.8s
+
+#2 [internal] load metadata for docker.io/library/python:3.12-slim
+#2 DONE 2.0s
+
+#5 [internal] load .dockerignore
+#5 transferring context: 152B done
+#5 DONE 0.0s
+
+#6 FROM ghcr.io/astral-sh/uv:0.7.13@sha256:6c1e19020ec221986a210027040044a5df8de762eb36d5240e382bc41d7a9043
+#6 resolve ghcr.io/astral-sh/uv:0.7.13@sha256:6c1e19020ec221986a210027040044a5df8de762eb36d5240e382bc41d7a9043 done
+#6 DONE 0.0s
+
+#7 [runtime 1/7] FROM docker.io/library/python:3.12-slim@sha256:02108f5d322dd89f1c9e552442c25acb0543dfdbc455693a5599624f20d9155d
+#7 resolve docker.io/library/python:3.12-slim@sha256:02108f5d322dd89f1c9e552442c25acb0543dfdbc455693a5599624f20d9155d done
+#7 DONE 0.0s
+
+#8 [internal] load build context
+#8 transferring context: 441.49kB 0.0s done
+#8 DONE 0.0s
+
+#9 [runtime 2/7] WORKDIR /app
+#9 CACHED
+
+#10 [runtime 4/7] COPY pyproject.toml uv.lock* ./
+#10 CACHED
+
+#11 [runtime 3/7] COPY --from=ghcr.io/astral-sh/uv:0.7.13 /uv /uvx /bin/
+#11 CACHED
+
+#12 [runtime 5/7] RUN uv sync --no-dev --no-install-project
+#12 CACHED
+
+#13 [runtime 6/7] COPY . .
+#13 DONE 0.2s
+
+#14 [runtime 7/7] RUN uv sync --no-dev
+#14 0.211 Resolved 88 packages in 4ms
+#14 0.214    Building partsignal-backend @ file:///app
+#14 3.516       Built partsignal-backend @ file:///app
+#14 3.517 Prepared 1 package in 3.30s
+#14 3.521 Installed 1 package in 3ms
+#14 3.896 Bytecode compiled 2466 files in 374ms
+#14 3.896  + partsignal-backend==0.1.0 (from file:///app)
+#14 DONE 3.9s
+
+#15 exporting to image
+#15 exporting layers
+#15 exporting layers 1.4s done
+#15 exporting manifest sha256:b5edc6d972162f6c2af4f4c3f4491017413c65e8b33d3c5350a12f6cf4473a8a
+#15 exporting manifest sha256:b5edc6d972162f6c2af4f4c3f4491017413c65e8b33d3c5350a12f6cf4473a8a 0.0s done
+#15 exporting config sha256:eaf704389a0c7c501454f145e0e534921bc214524ce02477437a3731d36ca0d0 0.0s done
+#15 exporting attestation manifest sha256:a96996770dde44adb0c61cca1a733c1b3986b8b5e96d3bdabf0969c957230860 0.0s done
+#15 exporting manifest list sha256:067b018e7bbd13d24e5512ff6084223659c6ad5759081455beb0a6d811308a78
+#15 exporting manifest list sha256:067b018e7bbd13d24e5512ff6084223659c6ad5759081455beb0a6d811308a78 0.0s done
+#15 naming to docker.io/library/partsignal-geo801-backend:test done
+#15 unpacking to docker.io/library/partsignal-geo801-backend:test
+#15 unpacking to docker.io/library/partsignal-geo801-backend:test 0.5s done
+#15 DONE 2.1s

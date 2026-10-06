@@ -1,0 +1,20 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ test_stability_recovery_preserves_frozen_rule_repeat_gate_above_sample_policy _
+
+    def test_stability_recovery_preserves_frozen_rule_repeat_gate_above_sample_policy():
+        base = source()
+        value = frozen(
+            base,
+            "UNSTABLE_RESULT",
+            config=GeoRuleConfiguration(unstable_minimum_repeats=10, recovery={"minimum_runs": 5}),
+        )
+        short, _ = judge(value, cohort(base, [True] * 5), [base])
+>       assert short.required_run_count == 10 and short.status == "INSUFFICIENT_SAMPLE"
+E       AssertionError: assert (5 == 10)
+E        +  where 5 = GeoRetestRecovery(status=<GeoRetestRecoveryStatus.RECOVERED: 'RECOVERED'>, rule_snapshot=GeoRuleSnapshot(schema_versio...RY_THRESHOLD', reference_value=None, observed_value=1.0, threshold=0.67, reasons=[], manual_confirmation_required=True).required_run_count
+
+backend/tests/unit/test_geo_retest_recovery.py:118: AssertionError
+=========================== short test summary info ============================
+FAILED backend/tests/unit/test_geo_retest_recovery.py::test_stability_recovery_preserves_frozen_rule_repeat_gate_above_sample_policy
+1 failed in 0.42s

@@ -1,0 +1,17 @@
+{
+  "command": [
+    "docker",
+    "compose",
+    "-p",
+    "partsignal-geo503-validation",
+    "-f",
+    ".trellis/tasks/10-03-geo-503-recommendation-ranking/evidence/validation-compose.yaml",
+    "up",
+    "-d",
+    "--build",
+    "postgres",
+    "redis",
+    "fake-oss"
+  ],
+  "exit_code": 0
+}

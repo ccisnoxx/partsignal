@@ -1,0 +1,14 @@
+{
+  "command": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "pytest",
+    "backend/tests/unit/test_contract.py",
+    "backend/tests/unit/test_runtime_response_metadata.py",
+    "-q"
+  ],
+  "exit_code": 1,
+  "duration_seconds": 25.27
+}

@@ -1,0 +1,740 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
+      "description": "受保护partsignal-geo采集任务",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    }
+  ],
+  "id": null,
+  "uid": "partsignal-geo-902",
+  "title": "PartSignal GEO 系统运行与成本",
+  "tags": [
+    "partsignal",
+    "geo",
+    "operations"
+  ],
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "30s",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "快照状态",
+      "type": "timeseries",
+      "description": "缺失、0或超过180秒快照告警。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "geo_observability_up{job=\"partsignal-geo\"}",
+          "legendFormat": "{{mode}} {{stage}} {{status}} {{operation}} {{currency}} {{error_code}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Worker/Scheduler心跳年龄",
+      "type": "timeseries",
+      "description": "记录实际循环；不能证明业务计划扫描已接线。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "time() - geo_operation_last_success_timestamp_seconds{job=\"partsignal-geo\",operation=~\"worker_heartbeat|scheduler_tick\"}",
+          "legendFormat": "{{mode}} {{stage}} {{status}} {{operation}} {{currency}} {{error_code}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "运行状态（采集模式独立）",
+      "type": "timeseries",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "geo_run_status_count{job=\"partsignal-geo\"}",
+          "legendFormat": "{{mode}} {{stage}} {{status}} {{operation}} {{currency}} {{error_code}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "批次状态",
+      "type": "timeseries",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "geo_batch_status_count{job=\"partsignal-geo\"}",
+          "legendFormat": "{{mode}} {{stage}} {{status}} {{operation}} {{currency}} {{error_code}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Pending数量",
+      "type": "timeseries",
+      "description": "MANUAL_ENTRY是待人工录入；不触发自动采集告警。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "geo_pending_count{job=\"partsignal-geo\"}",
+          "legendFormat": "{{mode}} {{stage}} {{status}} {{operation}} {{currency}} {{error_code}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "最老Pending年龄",
+      "type": "timeseries",
+      "description": "来自当前阶段开始时间；分析不继承此前人工待录入年龄。snapshot定位稳定ID。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "geo_pending_oldest_seconds{job=\"partsignal-geo\"}",
+          "legendFormat": "{{mode}} {{stage}} {{status}} {{operation}} {{currency}} {{error_code}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "最老补投递Due年龄",
+      "type": "timeseries",
+      "description": "根据last_dispatch_attempt_at，不替代最老Pending年龄。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "geo_dispatch_due_oldest_seconds{job=\"partsignal-geo\"}",
+          "legendFormat": "{{mode}} {{stage}} {{status}} {{operation}} {{currency}} {{error_code}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "过期lease",
+      "type": "timeseries",
+      "description": "采集/分析分开；包括终态Run的重分析。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "geo_running_expired_count{job=\"partsignal-geo\"}",
+          "legendFormat": "{{mode}} {{stage}} {{status}} {{operation}} {{currency}} {{error_code}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "24小时运行技术失败",
+      "type": "timeseries",
+      "description": "Opportunity业务低表现不参与系统告警。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "geo_run_failure_count_24h{job=\"partsignal-geo\"}",
+          "legendFormat": "{{mode}} {{stage}} {{status}} {{operation}} {{currency}} {{error_code}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "24小时分析任务失败",
+      "type": "timeseries",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "geo_analysis_failure_count_24h{job=\"partsignal-geo\"}",
+          "legendFormat": "{{mode}} {{stage}} {{status}} {{operation}} {{currency}} {{error_code}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "当前分析有效复核积压",
+      "type": "timeseries",
+      "description": "按当前revision与同revision有效复核判断。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 40,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "geo_review_backlog{job=\"partsignal-geo\"}",
+          "legendFormat": "{{mode}} {{stage}} {{status}} {{operation}} {{currency}} {{error_code}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "title": "UTC日API发送尝试数",
+      "type": "timeseries",
+      "description": "所有sent attempt；不是Run唯一数。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 40,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "geo_api_calls_daily{job=\"partsignal-geo\"}",
+          "legendFormat": "{{mode}} {{stage}} {{status}} {{operation}} {{currency}} {{error_code}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "title": "报告费用（币种独立）",
+      "type": "timeseries",
+      "description": "不能跨币种求和；UNKNOWN不按零合并。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 48,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "geo_reported_cost_daily{job=\"partsignal-geo\"}",
+          "legendFormat": "{{mode}} {{stage}} {{status}} {{operation}} {{currency}} {{error_code}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "title": "费用覆盖率",
+      "type": "timeseries",
+      "description": "API日发送attempt报告覆盖；无分母N/A；不是Insights业务公式。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 48,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "geo_cost_coverage_rate{job=\"partsignal-geo\"}",
+          "legendFormat": "{{mode}} {{stage}} {{status}} {{operation}} {{currency}} {{error_code}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "title": "费用未知数量",
+      "type": "timeseries",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 56,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "geo_cost_unknown_daily{job=\"partsignal-geo\"}",
+          "legendFormat": "{{mode}} {{stage}} {{status}} {{operation}} {{currency}} {{error_code}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "title": "日预算利用率",
+      "type": "timeseries",
+      "description": "按币种；未配置、未知或不匹配为N/A。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 56,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "geo_daily_budget_utilization{job=\"partsignal-geo\"}",
+          "legendFormat": "{{mode}} {{stage}} {{status}} {{operation}} {{currency}} {{error_code}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "title": "边界累计失败",
+      "type": "timeseries",
+      "description": "无记录N/A；历史累计非零不证明当前失联。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 64,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "geo_operation_failure_total{job=\"partsignal-geo\"}",
+          "legendFormat": "{{mode}} {{stage}} {{status}} {{operation}} {{currency}} {{error_code}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "title": "边界最近耗时",
+      "type": "timeseries",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 64,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "geo_operation_duration_ms{job=\"partsignal-geo\"}",
+          "legendFormat": "{{mode}} {{stage}} {{status}} {{operation}} {{currency}} {{error_code}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "title": "会话材料元数据",
+      "type": "timeseries",
+      "description": "AVAILABLE不证明真实登录；login probe NOT_IMPLEMENTED。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 72,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "geo_browser_session_count{job=\"partsignal-geo\"}",
+          "legendFormat": "{{mode}} {{stage}} {{status}} {{operation}} {{currency}} {{error_code}}",
+          "range": true
+        }
+      ]
+    }
+  ]
+}

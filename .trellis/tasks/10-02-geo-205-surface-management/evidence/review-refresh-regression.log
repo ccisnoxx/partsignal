@@ -1,0 +1,13 @@
+
+> partsignal-frontend-v2@0.1.0 test
+> vitest run src/domains/geo-catalog/surfaces-refresh.test.tsx src/domains/geo-catalog/surfaces.api.test.ts src/domains/geo-catalog/surfaces-page.test.tsx src/domains/geo-catalog/surfaces-commands.test.tsx
+
+
+ RUN  v4.1.10 /Users/sc/PycharmProjects/partsignal/frontend
+
+
+ Test Files  4 passed (4)
+      Tests  45 passed (45)
+   Start at  10:31:26
+   Duration  2.86s (transform 2.76s, setup 215ms, import 4.02s, tests 3.20s, environment 968ms)
+

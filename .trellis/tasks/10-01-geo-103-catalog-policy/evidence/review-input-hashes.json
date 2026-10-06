@@ -1,0 +1,13 @@
+{
+  "backend/app/schemas/geo_catalog.py": "b2058f712d155f987a830d90b15d4fbc56e37832ff55b7eaf48726df9b200099",
+  "backend/app/services/geo_catalog_normalization.py": "71425b26a12eaf5f963c6cc54e25f2132252ff64077e41db7a85299cfea2ebf9",
+  "backend/app/services/geo_catalog_policy.py": "b0d89ee75027f433ad3578b81464da24cf19032f4ccd9fe326a197a770f162d3",
+  "backend/app/services/geo_subjects.py": "f62cd75ebc727ad735210c8dbc4713e6ccd7d97e75c136ef17b4415c7086e8c1",
+  "backend/tests/unit/test_geo_catalog_schema.py": "a689c678196dcfdf1ff8cbbdbb9b609033993d2d06ae23a881b29ca6e3e2a09a",
+  "backend/tests/unit/test_geo_catalog_policy.py": "0c962535b5b2059e3166aa7f184b6cdd83f20cd20795c5be6fddd6c52566c51b",
+  "backend/tests/unit/test_geo_catalog_projection.py": "f31cdf042c32240f529c86c526d3bde05b443e37f7d99371d9dd09b3b7c09b45",
+  "backend/pyproject.toml": "9f280994e17b23e833717a85a1390ec84a373b8d80a80b183d4b0b8a880b17d0",
+  "backend/uv.lock": "1b8f6077ea096cbfae512355198918ac2dde96244456651c3a93e21e6700fff6",
+  "contracts/openapi.yaml": "18207339c2fc560afd0a85b32bada117f92b1539e05d89c7e4652c38001d66b1",
+  "contracts/database.md": "f983b15f7954a6fd954c46b4ada6fe54ffbb60f18bbe8b75ec441de20552cb62"
+}

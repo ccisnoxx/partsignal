@@ -1,0 +1,259 @@
+{
+  "citation-conversion-fixed": {
+    "command": [
+      "uv",
+      "run",
+      "--project",
+      "backend",
+      "pytest",
+      "backend/tests/unit/test_geo_citations.py"
+    ],
+    "exit_code": 0
+  },
+  "citation-integration-first": {
+    "command": [
+      "docker",
+      "compose",
+      "-p",
+      "partsignal-geo504-validation",
+      "-f",
+      ".trellis/tasks/10-03-geo-504-citation-attribution/evidence/validation-compose.yaml",
+      "run",
+      "--rm",
+      "backend-test",
+      "pytest",
+      "tests/integration/test_geo_citations.py"
+    ],
+    "exit_code": 0
+  },
+  "citation-unit-first": {
+    "command": [
+      "uv",
+      "run",
+      "--project",
+      "backend",
+      "pytest",
+      "backend/tests/unit/test_geo_citations.py"
+    ],
+    "exit_code": 1
+  },
+  "citation-unit-corrected": {
+    "command": [
+      "uv",
+      "run",
+      "--project",
+      "backend",
+      "pytest",
+      "backend/tests/unit/test_geo_citations.py",
+      "backend/tests/unit/test_geo_analysis.py",
+      "backend/tests/unit/test_geo_recommendations.py"
+    ],
+    "exit_code": 0
+  },
+  "git-diff-check": {
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "exit_code": 0
+  },
+  "docs-sha": {
+    "command": [
+      "sh",
+      "-c",
+      "cd docs/geo-monitoring && shasum -a 256 -c SHA256SUMS"
+    ],
+    "exit_code": 0
+  },
+  "candidate-lint": {
+    "command": [
+      "uv",
+      "run",
+      "--project",
+      "backend",
+      "ruff",
+      "check",
+      "backend/app/services/geo_analysis.py",
+      "backend/app/services/geo_citation_rules.py",
+      "backend/tests/unit/test_geo_citations.py",
+      "backend/tests/integration/test_geo_citations.py"
+    ],
+    "exit_code": 0
+  },
+  "make-typecheck": {
+    "command": [
+      "make",
+      "typecheck"
+    ],
+    "exit_code": 2
+  },
+  "baseline-contract": {
+    "command": [
+      "make",
+      "contract-check"
+    ],
+    "exit_code": 0
+  },
+  "cleanup": {
+    "command": [
+      "docker",
+      "compose",
+      "-p",
+      "partsignal-geo504-validation",
+      "-f",
+      ".trellis/tasks/10-03-geo-504-citation-attribution/evidence/validation-compose.yaml",
+      "down",
+      "--volumes",
+      "--remove-orphans"
+    ],
+    "exit_code": 0
+  },
+  "task-context": {
+    "command": [
+      "python3",
+      ".trellis/scripts/task.py",
+      "validate",
+      ".trellis/tasks/10-03-geo-504-citation-attribution"
+    ],
+    "exit_code": 0
+  },
+  "test-environment": {
+    "command": [
+      "docker",
+      "compose",
+      "-p",
+      "partsignal-geo504-validation",
+      "-f",
+      ".trellis/tasks/10-03-geo-504-citation-attribution/evidence/validation-compose.yaml",
+      "up",
+      "-d",
+      "--build",
+      "postgres",
+      "redis",
+      "fake-oss"
+    ],
+    "exit_code": 0
+  },
+  "make-test-unit": {
+    "command": [
+      "make",
+      "test-unit"
+    ],
+    "exit_code": 0
+  },
+  "make-test-integration": {
+    "command": [
+      "make",
+      "test-integration",
+      "COMPOSE=docker compose -p partsignal-geo504-validation -f /Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-03-geo-504-citation-attribution/evidence/validation-compose.yaml"
+    ],
+    "exit_code": 0
+  },
+  "baseline-unit": {
+    "command": [
+      "uv",
+      "run",
+      "--project",
+      "backend",
+      "pytest",
+      "backend/tests/unit/test_geo_analysis.py",
+      "backend/tests/unit/test_geo_recommendations.py",
+      "backend/tests/unit/test_geo_analysis_contract.py",
+      "backend/tests/unit/test_geo_answer_contract.py",
+      "backend/tests/unit/test_geo_catalog_schema.py"
+    ],
+    "exit_code": 0
+  },
+  "migration-head": {
+    "command": [
+      "uv",
+      "run",
+      "--project",
+      "backend",
+      "alembic",
+      "-c",
+      "backend/alembic.ini",
+      "heads"
+    ],
+    "exit_code": 0
+  },
+  "citation-integration-final": {
+    "command": [
+      "docker",
+      "compose",
+      "-p",
+      "partsignal-geo504-validation",
+      "-f",
+      ".trellis/tasks/10-03-geo-504-citation-attribution/evidence/validation-compose.yaml",
+      "run",
+      "--rm",
+      "backend-test",
+      "pytest",
+      "tests/integration/test_geo_citations.py"
+    ],
+    "exit_code": 0
+  },
+  "citation-unit-final": {
+    "command": [
+      "uv",
+      "run",
+      "--project",
+      "backend",
+      "pytest",
+      "backend/tests/unit/test_geo_citations.py",
+      "backend/tests/unit/test_geo_analysis.py",
+      "backend/tests/unit/test_geo_recommendations.py",
+      "backend/tests/unit/test_geo_analysis_contract.py",
+      "backend/tests/unit/test_geo_answer_contract.py"
+    ],
+    "exit_code": 0
+  },
+  "git-diff-check-final": {
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "exit_code": 0
+  },
+  "candidate-contract": {
+    "command": [
+      "make",
+      "contract-check"
+    ],
+    "exit_code": 0
+  },
+  "baseline-integration": {
+    "command": [
+      "docker",
+      "compose",
+      "-p",
+      "partsignal-geo504-validation",
+      "-f",
+      ".trellis/tasks/10-03-geo-504-citation-attribution/evidence/validation-compose.yaml",
+      "run",
+      "--rm",
+      "backend-test",
+      "pytest",
+      "tests/integration/test_geo_analysis.py",
+      "tests/integration/test_geo_analysis_input.py",
+      "tests/integration/test_geo_answers.py"
+    ],
+    "exit_code": 0
+  },
+  "make-typecheck-corrected": {
+    "command": [
+      "make",
+      "typecheck"
+    ],
+    "exit_code": 0
+  },
+  "make-lint": {
+    "command": [
+      "make",
+      "lint"
+    ],
+    "exit_code": 0
+  }
+}

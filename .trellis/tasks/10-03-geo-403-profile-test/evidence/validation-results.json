@@ -1,0 +1,39 @@
+{
+  "git diff --check": {
+    "exit_code": 0
+  },
+  "make lint": {
+    "exit_code": 0
+  },
+  "make typecheck": {
+    "exit_code": 0
+  },
+  "make test-unit": {
+    "exit_code": 0,
+    "backend_passed": 2857,
+    "frontend_passed": 1125
+  },
+  "make test-integration (isolated COMPOSE)": {
+    "exit_code": 0,
+    "passed": 822,
+    "warnings": 18
+  },
+  "npm --prefix frontend run test": {
+    "exit_code": 0,
+    "passed": 1125
+  },
+  "npm --prefix frontend run typecheck": {
+    "exit_code": 0
+  },
+  "make contract-check": {
+    "exit_code": 0
+  },
+  "GEO403 targeted PostgreSQL/TLS/security/races/migration": {
+    "exit_code": 0,
+    "passed": 32
+  },
+  "prior failure scope in consistent container environment": {
+    "exit_code": 0,
+    "passed": 75
+  }
+}

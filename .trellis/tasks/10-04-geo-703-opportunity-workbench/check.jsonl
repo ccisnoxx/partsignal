@@ -1,0 +1,4 @@
+{"file": "docs/geo-monitoring/04-delivery/task-manifest.yaml", "reason": "703切片及唯一依赖702 done"}
+{"file": ".trellis/tasks/10-04-geo-703-opportunity-workbench/design.md", "reason": "703冻结方案和文档裁决"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "后端合同与定向验证"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "组件与真实API验收"}

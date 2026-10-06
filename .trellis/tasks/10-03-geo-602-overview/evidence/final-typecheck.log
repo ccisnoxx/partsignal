@@ -1,0 +1,7 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend mypy --config-file backend/pyproject.toml backend/app
+Success: no issues found in 185 source files
+npm --prefix frontend run typecheck
+
+> partsignal-frontend-v2@0.1.0 typecheck
+> tsc -b --pretty false
+

@@ -1,0 +1,15 @@
+{
+  "code_unchanged_since_successful_validation": true,
+  "candidate_file_count": 36,
+  "baseline_hashes_verified": true,
+  "new_files_explicit": [
+    "backend/alembic/sql/0053_geo_collection_admission.sql",
+    "backend/alembic/versions/0053_geo_collection_admission.py",
+    "backend/app/models/geo_collection_admission.py",
+    "backend/app/services/geo_collection_admission.py",
+    "backend/tests/integration/test_geo_admission_migration.py",
+    "backend/tests/integration/test_geo_collection_admission.py"
+  ],
+  "trailing_whitespace": [],
+  "unrelated_changes_preserved": true
+}

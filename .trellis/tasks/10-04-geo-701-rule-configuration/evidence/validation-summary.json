@@ -1,0 +1,147 @@
+{
+  "task": "GEO-701",
+  "status": "review",
+  "results": {
+    "final-diff-check": {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "started_at": "2026-10-04T15:41:51.283262+00:00",
+      "duration_seconds": 0.030652750050649047,
+      "exit_code": 0
+    },
+    "final-contract-check": {
+      "command": [
+        "make",
+        "contract-check"
+      ],
+      "started_at": "2026-10-04T15:29:34.237374+00:00",
+      "duration_seconds": 3.9257264169864357,
+      "exit_code": 0
+    },
+    "final-lint-after-review": {
+      "command": [
+        "make",
+        "lint"
+      ],
+      "started_at": "2026-10-04T15:38:40.989810+00:00",
+      "duration_seconds": 20.74710454198066,
+      "exit_code": 0
+    },
+    "final-types-after-review": {
+      "command": [
+        "make",
+        "typecheck"
+      ],
+      "started_at": "2026-10-04T15:38:40.989771+00:00",
+      "duration_seconds": 18.954800125036854,
+      "exit_code": 0
+    },
+    "final-unit": {
+      "command": [
+        "make",
+        "test-unit"
+      ],
+      "started_at": "2026-10-04T15:26:56.425339+00:00",
+      "duration_seconds": 81.31247358303517,
+      "exit_code": 0
+    },
+    "final-integration": {
+      "command": [
+        "make",
+        "test-integration",
+        "COMPOSE=docker compose -p partsignal-geo701-validation -f .trellis/tasks/10-04-geo-701-rule-configuration/evidence/validation-compose.yaml"
+      ],
+      "started_at": "2026-10-04T15:29:34.237365+00:00",
+      "duration_seconds": 510.08038316696184,
+      "exit_code": 0
+    },
+    "final-frontend-after-review": {
+      "command": [
+        "npm",
+        "--prefix",
+        "frontend",
+        "run",
+        "test"
+      ],
+      "started_at": "2026-10-04T15:38:40.989806+00:00",
+      "duration_seconds": 35.57026275002863,
+      "exit_code": 0
+    },
+    "final-frontend-typecheck": {
+      "command": [
+        "npm",
+        "--prefix",
+        "frontend",
+        "run",
+        "typecheck"
+      ],
+      "started_at": "2026-10-04T15:30:06.974734+00:00",
+      "duration_seconds": 19.852415249974,
+      "exit_code": 0
+    },
+    "final-e2e": {
+      "command": [
+        "python3",
+        ".trellis/tasks/10-04-geo-701-rule-configuration/evidence/run_e2e.py"
+      ],
+      "started_at": "2026-10-04T15:38:40.989791+00:00",
+      "duration_seconds": 31.92704366700491,
+      "exit_code": 0
+    },
+    "final-document-checksums": {
+      "command": [
+        "shasum",
+        "-a",
+        "256",
+        "-c",
+        "SHA256SUMS"
+      ],
+      "started_at": "2026-10-04T15:42:13.847765+00:00",
+      "duration_seconds": 0.04066691698972136,
+      "exit_code": 0
+    },
+    "cleanup-integration": {
+      "command": [
+        "docker",
+        "compose",
+        "-p",
+        "partsignal-geo701-validation",
+        "-f",
+        ".trellis/tasks/10-04-geo-701-rule-configuration/evidence/validation-compose.yaml",
+        "down",
+        "-v",
+        "--remove-orphans"
+      ],
+      "started_at": "2026-10-04T15:41:20.802662+00:00",
+      "duration_seconds": 0.45667558402055874,
+      "exit_code": 0
+    },
+    "cleanup-e2e": {
+      "command": [
+        "docker",
+        "compose",
+        "-p",
+        "partsignal-geo701-e2e",
+        "-f",
+        ".trellis/tasks/10-04-geo-701-rule-configuration/evidence/e2e-infra.yaml",
+        "down",
+        "--remove-orphans"
+      ],
+      "started_at": "2026-10-04T15:41:20.802662+00:00",
+      "duration_seconds": 0.37064333399757743,
+      "exit_code": 0
+    }
+  },
+  "counts": {
+    "backend_unit": 3577,
+    "frontend_unit_latest": 1222,
+    "integration": 1025,
+    "integration_warnings": 29,
+    "targeted_real_stack_e2e": 1
+  },
+  "backend_unit_reused_after_frontend_only_fix": true,
+  "audit_id": "20261004T144634Z-geo-701-78866027"
+}

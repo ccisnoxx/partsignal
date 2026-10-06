@@ -1,0 +1,18 @@
+test_image_migration_mismatch_preserves_failed_candidate (recovery_tests.UpgradeRecoveryTests.test_image_migration_mismatch_preserves_failed_candidate) ... FAIL
+
+======================================================================
+FAIL: test_image_migration_mismatch_preserves_failed_candidate (recovery_tests.UpgradeRecoveryTests.test_image_migration_mismatch_preserves_failed_candidate)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-upgrade-recovery.py", line 486, in test_image_migration_mismatch_preserves_failed_candidate
+    with self.assertRaisesRegex(owner.DataStateError, "镜像内迁移树"):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: DataStateError not raised
+
+----------------------------------------------------------------------
+Ran 1 test in 0.017s
+
+FAILED (failures=1)
+Production upgrade 数据所有权与候选绑定校验通过。
+升级前向恢复候选已显式绑定；仍未初始化，必须重新 deploy 和验收。
+确认反例：仅旧镜像迁移内容不符时，pre-review候选错误接受恢复。

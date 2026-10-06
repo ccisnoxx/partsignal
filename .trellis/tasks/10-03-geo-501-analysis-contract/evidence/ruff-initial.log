@@ -1,0 +1,2042 @@
+E501 Line too long (107 > 100)
+  --> backend/app/models/geo_analysis.py:37:101
+   |
+35 |         UniqueConstraint("id", "run_id", name="uq_geo_analysis_id_run"),
+36 |         CheckConstraint("revision >= 1", name=conv("ck_geo_analysis_revision")),
+37 |         CheckConstraint("status IN ('PENDING','COMPLETED','FAILED')", name=conv("ck_geo_analysis_status")),
+   |                                                                                                     ^^^^^^^
+38 |         CheckConstraint(
+39 |             "analyzer_type IN ('DETERMINISTIC','HYBRID','EXTERNAL_MODEL') AND "
+   |
+
+E501 Line too long (104 > 100)
+  --> backend/app/models/geo_analysis.py:42:101
+   |
+40 |             "analyzer_version ~ '[^[:space:]]'", name=conv("ck_geo_analysis_analyzer"),
+41 |         ),
+42 |         CheckConstraint("geo_analysis_input_valid(input_snapshot)", name=conv("ck_geo_analysis_input")),
+   |                                                                                                     ^^^^
+43 |         CheckConstraint(
+44 |             "geo_analysis_summary_valid(confidence_summary, review_required_reasons)",
+   |
+
+E501 Line too long (125 > 100)
+  --> backend/app/models/geo_analysis.py:48:101
+   |
+46 |         ),
+47 |         CheckConstraint(
+48 |             "(status = 'FAILED' AND error_code IS NOT NULL AND error_code = 'ANALYSIS_FAILED' AND error_summary IS NOT NULL "
+   |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^
+49 |             "AND error_summary ~ '[^[:space:]]') OR (status <> 'FAILED' AND error_code IS NULL "
+50 |             "AND error_summary IS NULL)", name=conv("ck_geo_analysis_error"),
+   |
+
+E501 Line too long (111 > 100)
+  --> backend/app/models/geo_analysis.py:55:101
+   |
+53 |             "(status = 'PENDING') = (finished_at IS NULL) AND "
+54 |             "(finished_at IS NULL OR finished_at >= created_at) AND "
+55 |             "(status = 'COMPLETED' OR (confidence_summary IS NULL AND review_required_reasons = '[]'::jsonb))",
+   |                                                                                                     ^^^^^^^^^^^
+56 |             name=conv("ck_geo_analysis_finish"),
+57 |         ),
+   |
+
+E501 Line too long (131 > 100)
+  --> backend/app/models/geo_analysis.py:64:101
+   |
+62 |     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+63 |     run_id: Mapped[uuid.UUID] = mapped_column(
+64 |         UUID(as_uuid=True), ForeignKey("geo_observation_runs.id", name="fk_geo_analysis_run", ondelete="RESTRICT"), nullable=False,
+   |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+65 |     )
+66 |     answer_snapshot_id: Mapped[uuid.UUID] = mapped_column(
+   |
+
+E501 Line too long (134 > 100)
+  --> backend/app/models/geo_analysis.py:67:101
+   |
+65 |     )
+66 |     answer_snapshot_id: Mapped[uuid.UUID] = mapped_column(
+67 |         UUID(as_uuid=True), ForeignKey("geo_answer_snapshots.id", name="fk_geo_analysis_answer", ondelete="RESTRICT"), nullable=False,
+   |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+68 |     )
+69 |     revision: Mapped[int] = mapped_column(Integer, nullable=False)
+   |
+
+E501 Line too long (139 > 100)
+  --> backend/app/models/geo_analysis.py:75:101
+   |
+73 | …olumn(JSONB, nullable=False)
+74 | …
+75 | …56(input_snapshot, analyzer_type, analyzer_version)", persisted=True), nullable=False,
+   |                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+76 | …
+77 | … = mapped_column(JSONB(none_as_null=True), nullable=True)
+   |
+
+E501 Line too long (110 > 100)
+  --> backend/app/models/geo_analysis.py:77:101
+   |
+75 |         String(64), Computed("geo_analysis_input_sha256(input_snapshot, analyzer_type, analyzer_version)", persisted=True), nullable=F…
+76 |     )
+77 |     confidence_summary: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True), nullable=True)
+   |                                                                                                     ^^^^^^^^^^
+78 |     review_required_reasons: Mapped[list[str]] = mapped_column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
+79 |     error_code: Mapped[str | None] = mapped_column(String(100))
+   |
+
+E501 Line too long (121 > 100)
+  --> backend/app/models/geo_analysis.py:78:101
+   |
+76 |     )
+77 |     confidence_summary: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True), nullable=True)
+78 |     review_required_reasons: Mapped[list[str]] = mapped_column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
+   |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^
+79 |     error_code: Mapped[str | None] = mapped_column(String(100))
+80 |     error_summary: Mapped[str | None] = mapped_column(String(500))
+   |
+
+E501 Line too long (116 > 100)
+  --> backend/app/models/geo_analysis.py:81:101
+   |
+79 |     error_code: Mapped[str | None] = mapped_column(String(100))
+80 |     error_summary: Mapped[str | None] = mapped_column(String(500))
+81 |     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+   |                                                                                                     ^^^^^^^^^^^^^^^^
+82 |     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+   |
+
+E501 Line too long (119 > 100)
+  --> backend/app/models/geo_analysis.py:90:101
+   |
+88 |     __tablename__ = "geo_analysis_fact_versions"
+89 |     __table_args__ = (
+90 |         UniqueConstraint("analysis_revision_id", "subject_id", "fact_version_id", name="uq_geo_analysis_fact_binding"),
+   |                                                                                                     ^^^^^^^^^^^^^^^^^^^
+91 |         Index("ix_geo_analysis_facts_subject", "subject_id"),
+92 |         Index("ix_geo_analysis_facts_version", "fact_version_id"),
+   |
+
+E501 Line too long (146 > 100)
+  --> backend/app/models/geo_analysis.py:95:101
+   |
+93 | …
+94 | …mn(
+95 | …sions.id", name="fk_geo_analysis_facts_analysis", ondelete="RESTRICT"), primary_key=True,
+   |                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+96 | …
+97 | …
+   |
+
+E501 Line too long (135 > 100)
+   --> backend/app/models/geo_analysis.py:98:101
+    |
+ 96 | …
+ 97 | …
+ 98 | ….id", name="fk_geo_analysis_facts_subject", ondelete="RESTRICT"), primary_key=True,
+    |                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 99 | …
+100 | …mn(
+    |
+
+E501 Line too long (134 > 100)
+   --> backend/app/models/geo_analysis.py:101:101
+    |
+ 99 |     )
+100 |     fact_version_id: Mapped[uuid.UUID] = mapped_column(
+101 |         UUID(as_uuid=True), ForeignKey("fact_versions.id", name="fk_geo_analysis_facts_version", ondelete="RESTRICT"), nullable=False,
+    |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+102 |     )
+    |
+
+E501 Line too long (104 > 100)
+   --> backend/app/models/geo_analysis.py:108:101
+    |
+106 |     __tablename__ = "geo_entity_mentions"
+107 |     __table_args__ = (
+108 |         UniqueConstraint("analysis_revision_id", "subject_id", name="uq_geo_mentions_analysis_subject"),
+    |                                                                                                     ^^^^
+109 |         CheckConstraint("mention_count >= 1 AND (first_character_offset IS NULL OR first_character_offset >= 0)", name=conv("ck_geo_m…
+110 |         CheckConstraint("geo_analysis_strings_valid(matched_aliases, 240, 1, NULL)", name=conv("ck_geo_mentions_aliases")),
+    |
+
+E501 Line too long (150 > 100)
+   --> backend/app/models/geo_analysis.py:109:101
+    |
+107 | …
+108 | …d", name="uq_geo_mentions_analysis_subject"),
+109 | …acter_offset IS NULL OR first_character_offset >= 0)", name=conv("ck_geo_mentions_count")),
+    |                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+110 | …_aliases, 240, 1, NULL)", name=conv("ck_geo_mentions_aliases")),
+111 | …ETWEEN 0 AND 1", name=conv("ck_geo_mentions_confidence")),
+    |
+
+E501 Line too long (123 > 100)
+   --> backend/app/models/geo_analysis.py:110:101
+    |
+108 | …     UniqueConstraint("analysis_revision_id", "subject_id", name="uq_geo_mentions_analysis_subject"),
+109 | …     CheckConstraint("mention_count >= 1 AND (first_character_offset IS NULL OR first_character_offset >= 0)", name=conv("ck_geo_men…
+110 | …     CheckConstraint("geo_analysis_strings_valid(matched_aliases, 240, 1, NULL)", name=conv("ck_geo_mentions_aliases")),
+    |                                                                                                   ^^^^^^^^^^^^^^^^^^^^^^^
+111 | …     CheckConstraint("confidence IS NULL OR confidence BETWEEN 0 AND 1", name=conv("ck_geo_mentions_confidence")),
+112 | …     Index("ix_geo_mentions_subject", "subject_id"),
+    |
+
+E501 Line too long (117 > 100)
+   --> backend/app/models/geo_analysis.py:111:101
+    |
+109 |         CheckConstraint("mention_count >= 1 AND (first_character_offset IS NULL OR first_character_offset >= 0)", name=conv("ck_geo_m…
+110 |         CheckConstraint("geo_analysis_strings_valid(matched_aliases, 240, 1, NULL)", name=conv("ck_geo_mentions_aliases")),
+111 |         CheckConstraint("confidence IS NULL OR confidence BETWEEN 0 AND 1", name=conv("ck_geo_mentions_confidence")),
+    |                                                                                                     ^^^^^^^^^^^^^^^^^
+112 |         Index("ix_geo_mentions_subject", "subject_id"),
+113 |     )
+    |
+
+E501 Line too long (190 > 100)
+   --> backend/app/models/geo_analysis.py:115:101
+    |
+113 | …
+114 | … default=new_uuid)
+115 | … ForeignKey("geo_analysis_revisions.id", name="fk_geo_mentions_analysis", ondelete="RESTRICT"), nullable=False)
+    |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+116 | …y("geo_subjects.id", name="fk_geo_mentions_subject", ondelete="RESTRICT"), nullable=False)
+117 | …
+    |
+
+E501 Line too long (169 > 100)
+   --> backend/app/models/geo_analysis.py:116:101
+    |
+114 | …_key=True, default=new_uuid)
+115 | …uid=True), ForeignKey("geo_analysis_revisions.id", name="fk_geo_mentions_analysis", ondelete="RESTRICT"), nullable=False)
+116 | … ForeignKey("geo_subjects.id", name="fk_geo_mentions_subject", ondelete="RESTRICT"), nullable=False)
+    |                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+117 | …e)
+118 | …r)
+    |
+
+E501 Line too long (111 > 100)
+   --> backend/app/models/geo_analysis.py:126:101
+    |
+124 |     __tablename__ = "geo_recommendations"
+125 |     __table_args__ = (
+126 |         UniqueConstraint("analysis_revision_id", "subject_id", name="uq_geo_recommendations_analysis_subject"),
+    |                                                                                                     ^^^^^^^^^^^
+127 |         CheckConstraint("recommendation IN ('RECOMMENDED','CONSIDERED','NOT_RECOMMENDED','UNKNOWN') AND (rank IS NULL OR rank >= 1)",…
+128 |         CheckConstraint("rationale_excerpt IS NULL OR (length(rationale_excerpt) <= 2000 AND rationale_excerpt ~ '[^[:space:]]')", na…
+    |
+
+E501 Line too long (176 > 100)
+   --> backend/app/models/geo_analysis.py:127:101
+    |
+125 | …
+126 | …geo_recommendations_analysis_subject"),
+127 | …NOT_RECOMMENDED','UNKNOWN') AND (rank IS NULL OR rank >= 1)", name=conv("ck_geo_recommendations_kind")),
+    |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+128 | …excerpt) <= 2000 AND rationale_excerpt ~ '[^[:space:]]')", name=conv("ck_geo_recommendations_excerpt")),
+129 | …1", name=conv("ck_geo_recommendations_confidence")),
+    |
+
+E501 Line too long (176 > 100)
+   --> backend/app/models/geo_analysis.py:128:101
+    |
+126 | …geo_recommendations_analysis_subject"),
+127 | …NOT_RECOMMENDED','UNKNOWN') AND (rank IS NULL OR rank >= 1)", name=conv("ck_geo_recommendations_kind")),
+128 | …excerpt) <= 2000 AND rationale_excerpt ~ '[^[:space:]]')", name=conv("ck_geo_recommendations_excerpt")),
+    |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+129 | …1", name=conv("ck_geo_recommendations_confidence")),
+130 | …
+    |
+
+E501 Line too long (124 > 100)
+   --> backend/app/models/geo_analysis.py:129:101
+    |
+127 |         CheckConstraint("recommendation IN ('RECOMMENDED','CONSIDERED','NOT_RECOMMENDED','UNKNOWN') AND (rank IS NULL OR rank >= 1)",…
+128 |         CheckConstraint("rationale_excerpt IS NULL OR (length(rationale_excerpt) <= 2000 AND rationale_excerpt ~ '[^[:space:]]')", na…
+129 |         CheckConstraint("confidence IS NULL OR confidence BETWEEN 0 AND 1", name=conv("ck_geo_recommendations_confidence")),
+    |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^
+130 |         Index("ix_geo_recommendations_subject", "subject_id"),
+131 |     )
+    |
+
+E501 Line too long (197 > 100)
+   --> backend/app/models/geo_analysis.py:133:101
+    |
+131 | …
+132 | …ault=new_uuid)
+133 | …eignKey("geo_analysis_revisions.id", name="fk_geo_recommendations_analysis", ondelete="RESTRICT"), nullable=False)
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+134 | …eo_subjects.id", name="fk_geo_recommendations_subject", ondelete="RESTRICT"), nullable=False)
+135 | …
+    |
+
+E501 Line too long (176 > 100)
+   --> backend/app/models/geo_analysis.py:134:101
+    |
+132 | …y=True, default=new_uuid)
+133 | …=True), ForeignKey("geo_analysis_revisions.id", name="fk_geo_recommendations_analysis", ondelete="RESTRICT"), nullable=False)
+134 | …reignKey("geo_subjects.id", name="fk_geo_recommendations_subject", ondelete="RESTRICT"), nullable=False)
+    |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+135 | …se)
+136 | …
+    |
+
+E501 Line too long (284 > 100)
+   --> backend/app/models/geo_analysis.py:144:101
+    |
+142 | …
+143 | …
+144 | …nalysis_fact_versions.analysis_revision_id", "geo_analysis_fact_versions.subject_id", "geo_analysis_fact_versions.fact_version_id"], name="fk_geo_claims_fact_binding", ondelete="RESTRICT"),
+    |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+145 | …ERTIFICATION','LIFECYCLE_STATUS','APPLICATION','REPLACEMENT_RELATION','COMPATIBILITY_CONDITION','OTHER')", name=conv("ck_geo_claims_kind")),
+146 | …ty IN ('LOW','MEDIUM','HIGH','CRITICAL')", name=conv("ck_geo_claims_result")),
+    |
+
+E501 Line too long (235 > 100)
+   --> backend/app/models/geo_analysis.py:145:101
+    |
+143 | …
+144 | …nalysis_fact_versions.analysis_revision_id", "geo_analysis_fact_versions.subject_id", "geo_analysis_fact_versions.fact_version_id"], name="fk_geo…
+145 | …ERTIFICATION','LIFECYCLE_STATUS','APPLICATION','REPLACEMENT_RELATION','COMPATIBILITY_CONDITION','OTHER')", name=conv("ck_geo_claims_kind")),
+    |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+146 | …ty IN ('LOW','MEDIUM','HIGH','CRITICAL')", name=conv("ck_geo_claims_result")),
+147 | …pt IS NULL)", name=conv("ck_geo_claims_evidence")),
+    |
+
+E501 Line too long (173 > 100)
+   --> backend/app/models/geo_analysis.py:146:101
+    |
+144 | …ct_version_id"], ["geo_analysis_fact_versions.analysis_revision_id", "geo_analysis_fact_versions.subject_id", "geo_analysis_fact_ver…
+145 | …','TEMPERATURE_GRADE','CERTIFICATION','LIFECYCLE_STATUS','APPLICATION','REPLACEMENT_RELATION','COMPATIBILITY_CONDITION','OTHER')", n…
+146 | …UNJUDGEABLE') AND severity IN ('LOW','MEDIUM','HIGH','CRITICAL')", name=conv("ck_geo_claims_result")),
+    |                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+147 | …UDGEABLE' AND fact_excerpt IS NULL)", name=conv("ck_geo_claims_evidence")),
+148 | …^[:space:]]' AND length(explanation) <= 2000 AND explanation ~ '[^[:space:]]' AND (fact_excerpt IS NULL OR (length(fact_excerpt) <= …
+    |
+
+E501 Line too long (146 > 100)
+   --> backend/app/models/geo_analysis.py:147:101
+    |
+145 | …ETER','PACKAGE','TEMPERATURE_GRADE','CERTIFICATION','LIFECYCLE_STATUS','APPLICATION','REPLACEMENT_RELATION','COMPATIBILITY_CONDITION…
+146 | …,'INCORRECT','UNJUDGEABLE') AND severity IN ('LOW','MEDIUM','HIGH','CRITICAL')", name=conv("ck_geo_claims_result")),
+147 | …verdict = 'UNJUDGEABLE' AND fact_excerpt IS NULL)", name=conv("ck_geo_claims_evidence")),
+    |                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+148 | …laim_text ~ '[^[:space:]]' AND length(explanation) <= 2000 AND explanation ~ '[^[:space:]]' AND (fact_excerpt IS NULL OR (length(fac…
+149 | … BETWEEN 0 AND 1", name=conv("ck_geo_claims_confidence")),
+    |
+
+E501 Line too long (279 > 100)
+   --> backend/app/models/geo_analysis.py:148:101
+    |
+146 | …ty IN ('LOW','MEDIUM','HIGH','CRITICAL')", name=conv("ck_geo_claims_result")),
+147 | …pt IS NULL)", name=conv("ck_geo_claims_evidence")),
+148 | …explanation) <= 2000 AND explanation ~ '[^[:space:]]' AND (fact_excerpt IS NULL OR (length(fact_excerpt) <= 2000 AND fact_excerpt ~ '[^[:space:]]'))", name=conv("ck_geo_claims_text")),
+    |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+149 | …laims_confidence")),
+150 | …
+    |
+
+E501 Line too long (115 > 100)
+   --> backend/app/models/geo_analysis.py:149:101
+    |
+147 | …     CheckConstraint("fact_version_id IS NOT NULL OR (verdict = 'UNJUDGEABLE' AND fact_excerpt IS NULL)", name=conv("ck_geo_claims_e…
+148 | …     CheckConstraint("length(claim_text) <= 2000 AND claim_text ~ '[^[:space:]]' AND length(explanation) <= 2000 AND explanation ~ '…
+149 | …     CheckConstraint("confidence IS NULL OR confidence BETWEEN 0 AND 1", name=conv("ck_geo_claims_confidence")),
+    |                                                                                                   ^^^^^^^^^^^^^^^
+150 | …     Index("ix_geo_claims_subject_result", "subject_id", "verdict", "severity", "id"),
+151 | …     Index("ix_geo_claims_analysis", "analysis_revision_id"),
+    |
+
+E501 Line too long (188 > 100)
+   --> backend/app/models/geo_analysis.py:155:101
+    |
+153 | …
+154 | …, default=new_uuid)
+155 | …, ForeignKey("geo_analysis_revisions.id", name="fk_geo_claims_analysis", ondelete="RESTRICT"), nullable=False)
+    |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+156 | …ey("geo_subjects.id", name="fk_geo_claims_subject", ondelete="RESTRICT"), nullable=False)
+157 | …e), ForeignKey("fact_versions.id", name="fk_geo_claims_fact", ondelete="RESTRICT"))
+    |
+
+E501 Line too long (167 > 100)
+   --> backend/app/models/geo_analysis.py:156:101
+    |
+154 | …y_key=True, default=new_uuid)
+155 | …uuid=True), ForeignKey("geo_analysis_revisions.id", name="fk_geo_claims_analysis", ondelete="RESTRICT"), nullable=False)
+156 | …, ForeignKey("geo_subjects.id", name="fk_geo_claims_subject", ondelete="RESTRICT"), nullable=False)
+    |                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+157 | …s_uuid=True), ForeignKey("fact_versions.id", name="fk_geo_claims_fact", ondelete="RESTRICT"))
+158 | …se)
+    |
+
+E501 Line too long (161 > 100)
+   --> backend/app/models/geo_analysis.py:157:101
+    |
+155 | …as_uuid=True), ForeignKey("geo_analysis_revisions.id", name="fk_geo_claims_analysis", ondelete="RESTRICT"), nullable=False)
+156 | …ue), ForeignKey("geo_subjects.id", name="fk_geo_claims_subject", ondelete="RESTRICT"), nullable=False)
+157 | …D(as_uuid=True), ForeignKey("fact_versions.id", name="fk_geo_claims_fact", ondelete="RESTRICT"))
+    |                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+158 | …False)
+159 | …
+    |
+
+E501 Line too long (132 > 100)
+   --> backend/app/models/geo_analysis.py:160:101
+    |
+158 |     claim_kind: Mapped[str] = mapped_column(String(40), nullable=False)
+159 |     claim_text: Mapped[str] = mapped_column(Text, nullable=False)
+160 |     claim_sha256: Mapped[str] = mapped_column(String(64), Computed("geo_answer_sha256(claim_text)", persisted=True), nullable=False)
+    |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+161 |     verdict: Mapped[str] = mapped_column(String(16), nullable=False)
+162 |     severity: Mapped[str] = mapped_column(String(16), nullable=False)
+    |
+
+E501 Line too long (186 > 100)
+   --> backend/app/models/geo_analysis.py:171:101
+    |
+169 | …
+170 | …
+171 | …is_revisions.id", "geo_analysis_revisions.run_id"], name="fk_geo_reviews_analysis_run", ondelete="RESTRICT"),
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+172 | …LL) OR (decision = 'CORRECTED' AND correction_payload IS NOT NULL AND geo_review_corrections_valid(correction_payload) AND comment ~…
+173 | …comment")),
+    |
+
+E501 Line too long (266 > 100)
+   --> backend/app/models/geo_analysis.py:172:101
+    |
+170 | …
+171 | …"geo_analysis_revisions.run_id"], name="fk_geo_reviews_analysis_run", ondelete="RESTRICT"),
+172 | … 'CORRECTED' AND correction_payload IS NOT NULL AND geo_review_corrections_valid(correction_payload) AND comment ~ '[^[:space:]]')", name=conv("ck_geo_reviews_decision")),
+    |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+173 | …
+174 | …"), text("id DESC")),
+    |
+
+E501 Line too long (116 > 100)
+   --> backend/app/models/geo_analysis.py:174:101
+    |
+172 |         CheckConstraint("(decision = 'CONFIRMED' AND correction_payload IS NULL) OR (decision = 'CORRECTED' AND correction_payload IS…
+173 |         CheckConstraint("length(comment) <= 2000", name=conv("ck_geo_reviews_comment")),
+174 |         Index("ix_geo_reviews_current", "run_id", "analysis_revision_id", text("created_at DESC"), text("id DESC")),
+    |                                                                                                     ^^^^^^^^^^^^^^^^
+175 |         Index("ix_geo_reviews_reviewer", "reviewer_id"),
+176 |     )
+    |
+
+E501 Line too long (168 > 100)
+   --> backend/app/models/geo_analysis.py:178:101
+    |
+176 | …
+177 | …y_key=True, default=new_uuid)
+178 | …reignKey("geo_observation_runs.id", name="fk_geo_reviews_run", ondelete="RESTRICT"), nullable=False)
+    |                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+179 | …uuid=True), nullable=False)
+180 | …)
+    |
+
+E501 Line too long (110 > 100)
+   --> backend/app/models/geo_analysis.py:181:101
+    |
+179 |     analysis_revision_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+180 |     decision: Mapped[str] = mapped_column(String(16), nullable=False)
+181 |     correction_payload: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True), nullable=True)
+    |                                                                                                     ^^^^^^^^^^
+182 |     comment: Mapped[str] = mapped_column(Text, nullable=False)
+183 |     reviewer_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", name="fk_geo_reviews_reviewer", ondelet…
+    |
+
+E501 Line too long (163 > 100)
+   --> backend/app/models/geo_analysis.py:183:101
+    |
+181 | …umn(JSONB(none_as_null=True), nullable=True)
+182 | …
+183 | …ue), ForeignKey("users.id", name="fk_geo_reviews_reviewer", ondelete="RESTRICT"), nullable=False)
+    |                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+184 | …=True), nullable=False, server_default=func.now())
+    |
+
+E501 Line too long (116 > 100)
+   --> backend/app/models/geo_analysis.py:184:101
+    |
+182 |     comment: Mapped[str] = mapped_column(Text, nullable=False)
+183 |     reviewer_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", name="fk_geo_reviews_reviewer", ondelet…
+184 |     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    |                                                                                                     ^^^^^^^^^^^^^^^^
+    |
+
+E501 Line too long (127 > 100)
+   --> backend/app/schemas/geo_analysis.py:102:101
+    |
+100 |     model_config = {"json_schema_extra": {"oneOf": [
+101 |         {"properties": {
+102 |             **{name: {"type": "null"} for name in ("model_name", "model_version", "prompt_template_version", "prompt_sha256")},
+    |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+103 |             "parameters": {"properties": {name: {"type": "null"} for name in ("temperature", "top_p", "max_output_tokens", "seed")}},
+104 |         }},
+    |
+
+E501 Line too long (133 > 100)
+   --> backend/app/schemas/geo_analysis.py:103:101
+    |
+101 | …
+102 | …"model_name", "model_version", "prompt_template_version", "prompt_sha256")},
+103 | …ype": "null"} for name in ("temperature", "top_p", "max_output_tokens", "seed")}},
+    |                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+104 | …
+105 | …r name in ("model_name", "model_version", "prompt_template_version", "prompt_sha256")}},
+    |
+
+E501 Line too long (139 > 100)
+   --> backend/app/schemas/geo_analysis.py:105:101
+    |
+103 | …": "null"} for name in ("temperature", "top_p", "max_output_tokens", "seed")}},
+104 | …
+105 | …ame in ("model_name", "model_version", "prompt_template_version", "prompt_sha256")}},
+    |                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+106 | …
+    |
+
+E501 Line too long (104 > 100)
+   --> backend/app/schemas/geo_analysis.py:117:101
+    |
+115 |     @model_validator(mode="after")
+116 |     def model_identity_complete(self) -> Self:
+117 |         values = (self.model_name, self.model_version, self.prompt_template_version, self.prompt_sha256)
+    |                                                                                                     ^^^^
+118 |         if any(value is not None for value in values) and any(value is None for value in values):
+119 |             raise ValueError("模型、版本和提示身份必须完整或全部为空")
+    |
+
+E501 Line too long (113 > 100)
+   --> backend/app/schemas/geo_analysis.py:120:101
+    |
+118 |         if any(value is not None for value in values) and any(value is None for value in values):
+119 |             raise ValueError("模型、版本和提示身份必须完整或全部为空")
+120 |         if self.model_name is None and any(value is not None for value in self.parameters.model_dump().values()):
+    |                                                                                                     ^^^^^^^^^^^^^
+121 |             raise ValueError("无模型配置不得携带模型参数")
+122 |         return self
+    |
+
+E501 Line too long (115 > 100)
+   --> backend/app/schemas/geo_analysis.py:159:101
+    |
+157 |          "else": {"properties": {"finished_at": {"type": "string"}}}},
+158 |         {"if": {"properties": {"status": {"const": "FAILED"}}},
+159 |          "then": {"properties": {"error_code": {"const": "ANALYSIS_FAILED"}, "error_summary": {"type": "string"}}},
+    |                                                                                                     ^^^^^^^^^^^^^^^
+160 |          "else": {"properties": {"error_code": {"type": "null"}, "error_summary": {"type": "null"}}}},
+161 |         {"if": {"properties": {"status": {"enum": ["PENDING", "FAILED"]}}},
+    |
+
+E501 Line too long (102 > 100)
+   --> backend/app/schemas/geo_analysis.py:160:101
+    |
+158 |         {"if": {"properties": {"status": {"const": "FAILED"}}},
+159 |          "then": {"properties": {"error_code": {"const": "ANALYSIS_FAILED"}, "error_summary": {"type": "string"}}},
+160 |          "else": {"properties": {"error_code": {"type": "null"}, "error_summary": {"type": "null"}}}},
+    |                                                                                                     ^^
+161 |         {"if": {"properties": {"status": {"enum": ["PENDING", "FAILED"]}}},
+162 |          "then": {"properties": {"confidence_summary": {"type": "null"}, "review_required_reasons": {"maxItems": 0}}}},
+    |
+
+E501 Line too long (119 > 100)
+   --> backend/app/schemas/geo_analysis.py:162:101
+    |
+160 |          "else": {"properties": {"error_code": {"type": "null"}, "error_summary": {"type": "null"}}}},
+161 |         {"if": {"properties": {"status": {"enum": ["PENDING", "FAILED"]}}},
+162 |          "then": {"properties": {"confidence_summary": {"type": "null"}, "review_required_reasons": {"maxItems": 0}}}},
+    |                                                                                                     ^^^^^^^^^^^^^^^^^^^
+163 |     ]}}
+164 |     id: UUID
+    |
+
+E501 Line too long (128 > 100)
+   --> backend/app/schemas/geo_analysis.py:191:101
+    |
+189 |         elif self.error_code is not None or self.error_summary is not None:
+190 |             raise ValueError("未失败分析不得伪造错误")
+191 |         if self.status != GeoAnalysisStatus.COMPLETED and (self.confidence_summary is not None or self.review_required_reasons):
+    |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+192 |             raise ValueError("只有成功分析可提供结果摘要")
+193 |         if (self.analyzer_type == GeoAnalyzerType.DETERMINISTIC) != (self.input_snapshot.configuration.model_name is None):
+    |
+
+E501 Line too long (123 > 100)
+   --> backend/app/schemas/geo_analysis.py:193:101
+    |
+191 |         if self.status != GeoAnalysisStatus.COMPLETED and (self.confidence_summary is not None or self.review_required_reasons):
+192 |             raise ValueError("只有成功分析可提供结果摘要")
+193 |         if (self.analyzer_type == GeoAnalyzerType.DETERMINISTIC) != (self.input_snapshot.configuration.model_name is None):
+    |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^
+194 |             raise ValueError("分析器类型与模型配置不一致")
+195 |         return self
+    |
+
+E501 Line too long (104 > 100)
+   --> backend/app/schemas/geo_analysis.py:221:101
+    |
+219 |     model_config = {"json_schema_extra": {
+220 |         "if": {"properties": {"fact_version_id": {"type": "null"}}},
+221 |         "then": {"properties": {"verdict": {"const": "UNJUDGEABLE"}, "fact_excerpt": {"type": "null"}}},
+    |                                                                                                     ^^^^
+222 |     }}
+223 |     id: UUID
+    |
+
+E501 Line too long (123 > 100)
+   --> backend/app/schemas/geo_analysis.py:238:101
+    |
+236 |     @model_validator(mode="after")
+237 |     def evidence_required(self) -> Self:
+238 |         if self.fact_version_id is None and (self.verdict != GeoClaimVerdict.UNJUDGEABLE or self.fact_excerpt is not None):
+    |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^
+239 |             raise ValueError("缺少事实版本时只能不可核验且不得伪造事实摘录")
+240 |         return self
+    |
+
+E501 Line too long (113 > 100)
+   --> backend/app/schemas/geo_analysis.py:246:101
+    |
+244 |     model_config = {"json_schema_extra": {
+245 |         "if": {"properties": {"mention_count": {"const": 0}}},
+246 |         "then": {"properties": {"first_character_offset": {"type": "null"}, "matched_aliases": {"maxItems": 0}}},
+    |                                                                                                     ^^^^^^^^^^^^^
+247 |         "else": {"properties": {"matched_aliases": {"minItems": 1}}},
+248 |     }}
+    |
+
+E501 Line too long (105 > 100)
+   --> backend/app/schemas/geo_analysis.py:256:101
+    |
+254 |     @model_validator(mode="after")
+255 |     def absent_mention(self) -> Self:
+256 |         if self.mention_count == 0 and (self.first_character_offset is not None or self.matched_aliases):
+    |                                                                                                     ^^^^^
+257 |             raise ValueError("未提及时不得保留位置或命中别名")
+258 |         if self.mention_count > 0 and not self.matched_aliases:
+    |
+
+E501 Line too long (122 > 100)
+   --> backend/app/schemas/geo_analysis.py:312:101
+    |
+310 |         "if": {"properties": {"decision": {"const": "CONFIRMED"}}},
+311 |         "then": {"properties": {"correction_payload": {"type": "null"}}},
+312 |         "else": {"properties": {"correction_payload": {"type": "object"}, "comment": {"minLength": 1, "pattern": r"\S"}}},
+    |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^
+313 |     }}
+314 |     id: UUID
+    |
+
+E501 Line too long (105 > 100)
+  --> backend/tests/integration/geo_analysis_support.py:26:101
+   |
+26 | def collected_case(conn: psycopg.Connection[Any], db: AnswerDatabase, products: int = 0) -> AnalysisCase:
+   |                                                                                                     ^^^^^
+27 |     value = deepcopy(db.runs.input)
+28 |     facts = []
+   |
+
+E501 Line too long (104 > 100)
+  --> backend/tests/integration/geo_analysis_support.py:32:94
+   |
+30 |         product, subject, fact = uuid4(), uuid4(), uuid4()
+31 |         insert_row(conn, "products", {"id": product, "part_number": f"GEO501-{product}",
+32 |             "normalized_part_number": str(product), "brand": "虚构品牌", "normalized_brand": "虚构品牌",
+   |                                                                                                     ^^^^
+33 |             "category": "虚构器件", "status": "ACTIVE", "revision": 0, "facts_revision": 0,
+34 |             "facts_body_markdown": "虚构公开事实"})
+   |
+
+E501 Line too long (110 > 100)
+  --> backend/tests/integration/geo_analysis_support.py:35:101
+   |
+33 |             "category": "虚构器件", "status": "ACTIVE", "revision": 0, "facts_revision": 0,
+34 |             "facts_body_markdown": "虚构公开事实"})
+35 |         insert_row(conn, "geo_subjects", {"id": subject, "subject_type": "OWN_PRODUCT", "product_id": product,
+   |                                                                                                     ^^^^^^^^^^
+36 |             "created_by": db.runs.plan.actor})
+37 |         leaf = deepcopy(value["subjects"][0]);leaf.update(id=str(subject), subject_type="OWN_PRODUCT",
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> backend/tests/integration/geo_analysis_support.py:37:46
+   |
+35 |         insert_row(conn, "geo_subjects", {"id": subject, "subject_type": "OWN_PRODUCT", "product_id": product,
+36 |             "created_by": db.runs.plan.actor})
+37 |         leaf = deepcopy(value["subjects"][0]);leaf.update(id=str(subject), subject_type="OWN_PRODUCT",
+   |                                              ^
+38 |             product_id=str(product), role="REFERENCE", canonical_name=f"GEO501-{number}", display_name=f"GEO501-{number}")
+39 |         value["subjects"].append(leaf)
+   |
+
+E501 Line too long (102 > 100)
+  --> backend/tests/integration/geo_analysis_support.py:37:101
+   |
+35 |         insert_row(conn, "geo_subjects", {"id": subject, "subject_type": "OWN_PRODUCT", "product_id": product,
+36 |             "created_by": db.runs.plan.actor})
+37 |         leaf = deepcopy(value["subjects"][0]);leaf.update(id=str(subject), subject_type="OWN_PRODUCT",
+   |                                                                                                     ^^
+38 |             product_id=str(product), role="REFERENCE", canonical_name=f"GEO501-{number}", display_name=f"GEO501-{number}")
+39 |         value["subjects"].append(leaf)
+   |
+
+E501 Line too long (122 > 100)
+  --> backend/tests/integration/geo_analysis_support.py:38:101
+   |
+36 |             "created_by": db.runs.plan.actor})
+37 |         leaf = deepcopy(value["subjects"][0]);leaf.update(id=str(subject), subject_type="OWN_PRODUCT",
+38 |             product_id=str(product), role="REFERENCE", canonical_name=f"GEO501-{number}", display_name=f"GEO501-{number}")
+   |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^
+39 |         value["subjects"].append(leaf)
+40 |         insert_row(conn, "fact_versions", {"id": fact, "product_id": product, "version": 1,
+   |
+
+E501 Line too long (106 > 100)
+  --> backend/tests/integration/geo_analysis_support.py:43:101
+   |
+41 |             "status": "APPROVED", "classification": "PUBLIC", "body_markdown": "虚构公开事实",
+42 |             "change_summary": "测试核验依据", "revision": 0, "created_by": db.runs.plan.actor,
+43 |             "approved_by": db.runs.plan.actor, "approved_at": conn.execute("SELECT now()").fetchone()[0]})
+   |                                                                                                     ^^^^^^
+44 |         facts.append(fact)
+45 |     root = batch(conn, db.runs, plan_snapshot=Jsonb(plan_snapshot(value)))
+   |
+
+E501 Line too long (120 > 100)
+  --> backend/tests/integration/geo_analysis_support.py:47:101
+   |
+45 |     root = batch(conn, db.runs, plan_snapshot=Jsonb(plan_snapshot(value)))
+46 |     for item in value["subjects"]:
+47 |         insert_row(conn, "geo_batch_subjects", {"batch_id": root, "subject_id": UUID(item["id"]), "role": item["role"]})
+   |                                                                                                     ^^^^^^^^^^^^^^^^^^^^
+48 |     identity = run(conn, db.runs, root, input_snapshot=Jsonb(value))
+49 |     answer = snapshot(conn, db, identity)
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> backend/tests/integration/geo_analysis_support.py:51:30
+   |
+49 |     answer = snapshot(conn, db, identity)
+50 |     collect(conn, identity)
+51 |     frozen = analysis_input(); frozen["subjects"] = value["subjects"]
+   |                              ^
+52 |     frozen["answer_sha256"] = conn.execute("SELECT answer_sha256 FROM geo_answer_snapshots WHERE id=%s", (answer,)).fetchone()[0]
+53 |     frozen["fact_versions"] = [{"subject_id": leaf["id"], "fact_version_id": str(fact)}
+   |
+
+E501 Line too long (129 > 100)
+  --> backend/tests/integration/geo_analysis_support.py:52:101
+   |
+50 |     collect(conn, identity)
+51 |     frozen = analysis_input(); frozen["subjects"] = value["subjects"]
+52 |     frozen["answer_sha256"] = conn.execute("SELECT answer_sha256 FROM geo_answer_snapshots WHERE id=%s", (answer,)).fetchone()[0]
+   |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+53 |     frozen["fact_versions"] = [{"subject_id": leaf["id"], "fact_version_id": str(fact)}
+54 |         for leaf, fact in zip(value["subjects"][1:], facts, strict=True)]
+   |
+
+E501 Line too long (139 > 100)
+  --> backend/tests/integration/geo_analysis_support.py:59:101
+   |
+58 | …ysisCase, **patch: Any) -> UUID:
+59 | …sion),0)+1 FROM geo_analysis_revisions WHERE run_id=%s", (case.run_id,)).fetchone()[0]
+   |                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+60 | …answer_snapshot_id": case.answer_id,
+61 | …MINISTIC", "analyzer_version": "fixture-v1",
+   |
+
+E501 Line too long (108 > 100)
+  --> backend/tests/integration/geo_analysis_support.py:70:101
+   |
+68 |     for binding in case.input["fact_versions"]:
+69 |         insert_row(conn, "geo_analysis_fact_versions", {"analysis_revision_id": analysis,
+70 |             "subject_id": UUID(binding["subject_id"]), "fact_version_id": UUID(binding["fact_version_id"])})
+   |                                                                                                     ^^^^^^^^
+   |
+
+E501 Line too long (137 > 100)
+  --> backend/tests/integration/geo_analysis_support.py:74:101
+   |
+73 | …UUID, failed: bool = False) -> None:
+74 | …status=%s, finished_at=clock_timestamp(),error_code=%s,error_summary=%s WHERE id=%s",
+   |                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+75 | …SIS_FAILED" if failed else None, "虚构分析失败" if failed else None, analysis))
+   |
+
+E501 Line too long (131 > 100)
+  --> backend/tests/integration/geo_analysis_support.py:75:95
+   |
+73 | …s: UUID, failed: bool = False) -> None:
+74 | …ET status=%s, finished_at=clock_timestamp(),error_code=%s,error_summary=%s WHERE id=%s",
+75 | …ALYSIS_FAILED" if failed else None, "虚构分析失败" if failed else None, analysis))
+   |                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+
+E501 Line too long (140 > 100)
+  --> backend/tests/integration/geo_analysis_support.py:79:101
+   |
+78 | …sisCase, analysis: UUID) -> None:
+79 | …ent_analysis_revision_id=%s,revision=revision+1 WHERE id=%s", (analysis, case.run_id))
+   |                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+
+E501 Line too long (113 > 100)
+  --> backend/tests/integration/geo_analysis_support.py:82:101
+   |
+82 | def review(conn: psycopg.Connection[Any], case: AnalysisCase, analysis: UUID, actor: UUID, **patch: Any) -> UUID:
+   |                                                                                                     ^^^^^^^^^^^^^
+83 |     values = {"id": uuid4(), "run_id": case.run_id, "analysis_revision_id": analysis,
+84 |         "decision": "CONFIRMED", "comment": "虚构人工确认", "reviewer_id": actor, **patch}
+   |
+
+E501 Line too long (122 > 100)
+  --> backend/tests/integration/test_geo_analysis.py:43:101
+   |
+41 |     conn, db = answer_connection, answer_database
+42 |     case = collected_case(conn, db, products=2)
+43 |     original = conn.execute("SELECT to_jsonb(a) FROM geo_answer_snapshots a WHERE id=%s", (case.answer_id,)).fetchone()[0]
+   |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^
+44 |     analysis = pending(conn, case); bind(conn, case, analysis)
+45 |     subject = UUID(case.input["subjects"][1]["id"])
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> backend/tests/integration/test_geo_analysis.py:44:35
+   |
+42 |     case = collected_case(conn, db, products=2)
+43 |     original = conn.execute("SELECT to_jsonb(a) FROM geo_answer_snapshots a WHERE id=%s", (case.answer_id,)).fetchone()[0]
+44 |     analysis = pending(conn, case); bind(conn, case, analysis)
+   |                                   ^
+45 |     subject = UUID(case.input["subjects"][1]["id"])
+46 |     mention, recommendation, claim = uuid4(), uuid4(), uuid4()
+   |
+
+E501 Line too long (116 > 100)
+  --> backend/tests/integration/test_geo_analysis.py:47:101
+   |
+45 |     subject = UUID(case.input["subjects"][1]["id"])
+46 |     mention, recommendation, claim = uuid4(), uuid4(), uuid4()
+47 |     insert_row(conn, "geo_entity_mentions", {"id": mention, "analysis_revision_id": analysis, "subject_id": subject,
+   |                                                                                                     ^^^^^^^^^^^^^^^^
+48 |         "mention_count": 1, "matched_aliases": Jsonb(["GEO501-0"]), "first_character_offset": 0})
+49 |     insert_row(conn, "geo_recommendations", {"id": recommendation, "analysis_revision_id": analysis, "subject_id": subject,
+   |
+
+E501 Line too long (123 > 100)
+  --> backend/tests/integration/test_geo_analysis.py:49:101
+   |
+47 |     insert_row(conn, "geo_entity_mentions", {"id": mention, "analysis_revision_id": analysis, "subject_id": subject,
+48 |         "mention_count": 1, "matched_aliases": Jsonb(["GEO501-0"]), "first_character_offset": 0})
+49 |     insert_row(conn, "geo_recommendations", {"id": recommendation, "analysis_revision_id": analysis, "subject_id": subject,
+   |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^
+50 |         "recommendation": "UNKNOWN", "rank": None})
+51 |     insert_row(conn, "geo_claim_assessments", {"id": claim, "analysis_revision_id": analysis, "subject_id": subject,
+   |
+
+E501 Line too long (116 > 100)
+  --> backend/tests/integration/test_geo_analysis.py:51:101
+   |
+49 |     insert_row(conn, "geo_recommendations", {"id": recommendation, "analysis_revision_id": analysis, "subject_id": subject,
+50 |         "recommendation": "UNKNOWN", "rank": None})
+51 |     insert_row(conn, "geo_claim_assessments", {"id": claim, "analysis_revision_id": analysis, "subject_id": subject,
+   |                                                                                                     ^^^^^^^^^^^^^^^^
+52 |         "fact_version_id": case.facts[0], "claim_kind": "IDENTITY", "claim_text": "虚构声明",
+53 |         "verdict": "ACCURATE", "severity": "LOW", "fact_excerpt": "虚构公开事实", "explanation": "依据冻结事实"})
+   |
+
+E501 Line too long (113 > 100)
+  --> backend/tests/integration/test_geo_analysis.py:53:94
+   |
+51 |     insert_row(conn, "geo_claim_assessments", {"id": claim, "analysis_revision_id": analysis, "subject_id": subject,
+52 |         "fact_version_id": case.facts[0], "claim_kind": "IDENTITY", "claim_text": "虚构声明",
+53 |         "verdict": "ACCURATE", "severity": "LOW", "fact_excerpt": "虚构公开事实", "explanation": "依据冻结事实"})
+   |                                                                                                     ^^^^^^^^^^^^^
+54 |     finish(conn, analysis); publish(conn, case, analysis)
+55 |     reviewed = review(conn, case, analysis, db.runs.plan.actor)
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> backend/tests/integration/test_geo_analysis.py:54:27
+   |
+52 |         "fact_version_id": case.facts[0], "claim_kind": "IDENTITY", "claim_text": "虚构声明",
+53 |         "verdict": "ACCURATE", "severity": "LOW", "fact_excerpt": "虚构公开事实", "explanation": "依据冻结事实"})
+54 |     finish(conn, analysis); publish(conn, case, analysis)
+   |                           ^
+55 |     reviewed = review(conn, case, analysis, db.runs.plan.actor)
+56 |     conn.execute("SET CONSTRAINTS ALL IMMEDIATE")
+   |
+
+E501 Line too long (130 > 100)
+  --> backend/tests/integration/test_geo_analysis.py:57:101
+   |
+55 | …ns.plan.actor)
+56 | …
+57 | …geo_answer_snapshots a WHERE id=%s", (case.answer_id,)).fetchone()[0] == original
+   |                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+58 | …revision_id FROM geo_observation_runs WHERE id=%s", (case.run_id,)).fetchone()[0] == analysis
+59 | …eviews WHERE analysis_revision_id=%s ORDER BY created_at DESC,id DESC LIMIT 1", (analysis,)).fetchone()[0] == reviewed
+   |
+
+E501 Line too long (142 > 100)
+  --> backend/tests/integration/test_geo_analysis.py:58:101
+   |
+56 | …
+57 | …swer_snapshots a WHERE id=%s", (case.answer_id,)).fetchone()[0] == original
+58 | …on_id FROM geo_observation_runs WHERE id=%s", (case.run_id,)).fetchone()[0] == analysis
+   |                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+59 | … WHERE analysis_revision_id=%s ORDER BY created_at DESC,id DESC LIMIT 1", (analysis,)).fetchone()[0] == reviewed
+60 | …nalysis),("geo_entity_mentions",mention),
+   |
+
+E501 Line too long (167 > 100)
+  --> backend/tests/integration/test_geo_analysis.py:59:101
+   |
+57 | …ts a WHERE id=%s", (case.answer_id,)).fetchone()[0] == original
+58 | …eo_observation_runs WHERE id=%s", (case.run_id,)).fetchone()[0] == analysis
+59 | …sis_revision_id=%s ORDER BY created_at DESC,id DESC LIMIT 1", (analysis,)).fetchone()[0] == reviewed
+   |                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+60 | …eo_entity_mentions",mention),
+61 | …nts",claim),("geo_run_reviews",reviewed)]:
+   |
+
+E501 Line too long (155 > 100)
+  --> backend/tests/integration/test_geo_analysis.py:64:101
+   |
+62 | …
+63 | …, conn.transaction():
+64 | …=%s" if operation == "UPDATE" else "DELETE FROM {} WHERE id=%s").format(sql.Identifier(table))
+   |                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+65 | …
+66 | …fact_version_id=fact_version_id", "DELETE FROM geo_analysis_fact_versions"]:
+   |
+
+E501 Line too long (137 > 100)
+  --> backend/tests/integration/test_geo_analysis.py:66:101
+   |
+64 | … WHERE id=%s" if operation == "UPDATE" else "DELETE FROM {} WHERE id=%s").format(sql.Identifier(table))
+65 | …
+66 | …ions SET fact_version_id=fact_version_id", "DELETE FROM geo_analysis_fact_versions"]:
+   |                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+67 | …tion), conn.transaction():
+68 | …revision_id=%s", (analysis,))
+   |
+
+E501 Line too long (101 > 100)
+  --> backend/tests/integration/test_geo_analysis.py:73:101
+   |
+73 | def test_pending_input_frozen_and_children_cannot_commit_partial(answer_connection, answer_database):
+   |                                                                                                     ^
+74 |     conn = answer_connection; case = collected_case(conn,answer_database); analysis = pending(conn,case)
+75 |     with pytest.raises(psycopg.errors.CheckViolation) as error, conn.transaction():
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> backend/tests/integration/test_geo_analysis.py:74:29
+   |
+73 | def test_pending_input_frozen_and_children_cannot_commit_partial(answer_connection, answer_database):
+74 |     conn = answer_connection; case = collected_case(conn,answer_database); analysis = pending(conn,case)
+   |                             ^
+75 |     with pytest.raises(psycopg.errors.CheckViolation) as error, conn.transaction():
+76 |         conn.execute("UPDATE geo_analysis_revisions SET analyzer_version='changed' WHERE id=%s",(analysis,))
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> backend/tests/integration/test_geo_analysis.py:74:74
+   |
+73 | def test_pending_input_frozen_and_children_cannot_commit_partial(answer_connection, answer_database):
+74 |     conn = answer_connection; case = collected_case(conn,answer_database); analysis = pending(conn,case)
+   |                                                                          ^
+75 |     with pytest.raises(psycopg.errors.CheckViolation) as error, conn.transaction():
+76 |         conn.execute("UPDATE geo_analysis_revisions SET analyzer_version='changed' WHERE id=%s",(analysis,))
+   |
+
+E501 Line too long (104 > 100)
+  --> backend/tests/integration/test_geo_analysis.py:74:101
+   |
+73 | def test_pending_input_frozen_and_children_cannot_commit_partial(answer_connection, answer_database):
+74 |     conn = answer_connection; case = collected_case(conn,answer_database); analysis = pending(conn,case)
+   |                                                                                                     ^^^^
+75 |     with pytest.raises(psycopg.errors.CheckViolation) as error, conn.transaction():
+76 |         conn.execute("UPDATE geo_analysis_revisions SET analyzer_version='changed' WHERE id=%s",(analysis,))
+   |
+
+E501 Line too long (108 > 100)
+  --> backend/tests/integration/test_geo_analysis.py:76:101
+   |
+74 |     conn = answer_connection; case = collected_case(conn,answer_database); analysis = pending(conn,case)
+75 |     with pytest.raises(psycopg.errors.CheckViolation) as error, conn.transaction():
+76 |         conn.execute("UPDATE geo_analysis_revisions SET analyzer_version='changed' WHERE id=%s",(analysis,))
+   |                                                                                                     ^^^^^^^^
+77 |     assert error.value.diag.constraint_name == "ck_geo_analysis_immutable"
+78 |     with pytest.raises(psycopg.errors.CheckViolation) as error, conn.transaction():
+   |
+
+E701 Multiple statements on one line (colon)
+  --> backend/tests/integration/test_geo_analysis.py:84:74
+   |
+82 |     assert error.value.diag.constraint_name == "ck_geo_analysis_results_complete"
+83 |     finish(conn,analysis,failed=True)
+84 |     with pytest.raises(psycopg.errors.CheckViolation), conn.transaction(): finish(conn,analysis)
+   |                                                                          ^
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> backend/tests/integration/test_geo_analysis.py:88:29
+   |
+87 | def test_unique_revision_subject_and_success_input(answer_connection, answer_database):
+88 |     conn = answer_connection; case = collected_case(conn,answer_database); analysis = pending(conn,case)
+   |                             ^
+89 |     with pytest.raises(psycopg.errors.CheckViolation), conn.transaction(): pending(conn,case,revision=1)
+90 |     subject=UUID(case.input["subjects"][0]["id"])
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> backend/tests/integration/test_geo_analysis.py:88:74
+   |
+87 | def test_unique_revision_subject_and_success_input(answer_connection, answer_database):
+88 |     conn = answer_connection; case = collected_case(conn,answer_database); analysis = pending(conn,case)
+   |                                                                          ^
+89 |     with pytest.raises(psycopg.errors.CheckViolation), conn.transaction(): pending(conn,case,revision=1)
+90 |     subject=UUID(case.input["subjects"][0]["id"])
+   |
+
+E501 Line too long (104 > 100)
+  --> backend/tests/integration/test_geo_analysis.py:88:101
+   |
+87 | def test_unique_revision_subject_and_success_input(answer_connection, answer_database):
+88 |     conn = answer_connection; case = collected_case(conn,answer_database); analysis = pending(conn,case)
+   |                                                                                                     ^^^^
+89 |     with pytest.raises(psycopg.errors.CheckViolation), conn.transaction(): pending(conn,case,revision=1)
+90 |     subject=UUID(case.input["subjects"][0]["id"])
+   |
+
+E701 Multiple statements on one line (colon)
+  --> backend/tests/integration/test_geo_analysis.py:89:74
+   |
+87 | def test_unique_revision_subject_and_success_input(answer_connection, answer_database):
+88 |     conn = answer_connection; case = collected_case(conn,answer_database); analysis = pending(conn,case)
+89 |     with pytest.raises(psycopg.errors.CheckViolation), conn.transaction(): pending(conn,case,revision=1)
+   |                                                                          ^
+90 |     subject=UUID(case.input["subjects"][0]["id"])
+91 |     for table, values in [("geo_entity_mentions",{"mention_count":1,"matched_aliases":Jsonb(["虚构品牌"])}),
+   |
+
+E501 Line too long (104 > 100)
+  --> backend/tests/integration/test_geo_analysis.py:89:101
+   |
+87 | def test_unique_revision_subject_and_success_input(answer_connection, answer_database):
+88 |     conn = answer_connection; case = collected_case(conn,answer_database); analysis = pending(conn,case)
+89 |     with pytest.raises(psycopg.errors.CheckViolation), conn.transaction(): pending(conn,case,revision=1)
+   |                                                                                                     ^^^^
+90 |     subject=UUID(case.input["subjects"][0]["id"])
+91 |     for table, values in [("geo_entity_mentions",{"mention_count":1,"matched_aliases":Jsonb(["虚构品牌"])}),
+   |
+
+E501 Line too long (108 > 100)
+  --> backend/tests/integration/test_geo_analysis.py:91:98
+   |
+89 |     with pytest.raises(psycopg.errors.CheckViolation), conn.transaction(): pending(conn,case,revision=1)
+90 |     subject=UUID(case.input["subjects"][0]["id"])
+91 |     for table, values in [("geo_entity_mentions",{"mention_count":1,"matched_aliases":Jsonb(["虚构品牌"])}),
+   |                                                                                                     ^^^^^^^^
+92 |         ("geo_recommendations",{"recommendation":"UNKNOWN"})]:
+93 |         insert_row(conn,table,{"id":uuid4(),"analysis_revision_id":analysis,"subject_id":subject,**values})
+   |
+
+E701 Multiple statements on one line (colon)
+   --> backend/tests/integration/test_geo_analysis.py:98:83
+    |
+ 96 |     finish(conn,analysis)
+ 97 |     duplicate=pending(conn,case)
+ 98 |     with pytest.raises(psycopg.errors.UniqueViolation) as error,conn.transaction(): finish(conn,duplicate)
+    |                                                                                   ^
+ 99 |     assert error.value.diag.constraint_name=="uq_geo_analysis_success_input"
+100 |     finish(conn,duplicate,failed=True)
+    |
+
+E501 Line too long (106 > 100)
+   --> backend/tests/integration/test_geo_analysis.py:98:101
+    |
+ 96 |     finish(conn,analysis)
+ 97 |     duplicate=pending(conn,case)
+ 98 |     with pytest.raises(psycopg.errors.UniqueViolation) as error,conn.transaction(): finish(conn,duplicate)
+    |                                                                                                     ^^^^^^
+ 99 |     assert error.value.diag.constraint_name=="uq_geo_analysis_success_input"
+100 |     finish(conn,duplicate,failed=True)
+    |
+
+E501 Line too long (118 > 100)
+   --> backend/tests/integration/test_geo_analysis.py:101:101
+    |
+ 99 |     assert error.value.diag.constraint_name=="uq_geo_analysis_success_input"
+100 |     finish(conn,duplicate,failed=True)
+101 |     assert conn.execute("SELECT count(*) FROM geo_analysis_revisions WHERE run_id=%s",(case.run_id,)).fetchone()[0]==2
+    |                                                                                                     ^^^^^^^^^^^^^^^^^^
+102 |     conn.execute("SET CONSTRAINTS ALL IMMEDIATE")
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> backend/tests/integration/test_geo_analysis.py:106:27
+    |
+105 | def test_pointer_latest_success_failure_and_stale_review(answer_connection,answer_database):
+106 |     conn=answer_connection;db=answer_database;case=collected_case(conn,db)
+    |                           ^
+107 |     first=pending(conn,case);finish(conn,first);publish(conn,case,first)
+108 |     old_review=review(conn,case,first,db.runs.plan.actor)
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> backend/tests/integration/test_geo_analysis.py:106:46
+    |
+105 | def test_pointer_latest_success_failure_and_stale_review(answer_connection,answer_database):
+106 |     conn=answer_connection;db=answer_database;case=collected_case(conn,db)
+    |                                              ^
+107 |     first=pending(conn,case);finish(conn,first);publish(conn,case,first)
+108 |     old_review=review(conn,case,first,db.runs.plan.actor)
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> backend/tests/integration/test_geo_analysis.py:107:29
+    |
+105 | def test_pointer_latest_success_failure_and_stale_review(answer_connection,answer_database):
+106 |     conn=answer_connection;db=answer_database;case=collected_case(conn,db)
+107 |     first=pending(conn,case);finish(conn,first);publish(conn,case,first)
+    |                             ^
+108 |     old_review=review(conn,case,first,db.runs.plan.actor)
+109 |     failed=pending(conn,case,analyzer_version="fixture-v2");finish(conn,failed,failed=True)
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> backend/tests/integration/test_geo_analysis.py:107:48
+    |
+105 | def test_pointer_latest_success_failure_and_stale_review(answer_connection,answer_database):
+106 |     conn=answer_connection;db=answer_database;case=collected_case(conn,db)
+107 |     first=pending(conn,case);finish(conn,first);publish(conn,case,first)
+    |                                                ^
+108 |     old_review=review(conn,case,first,db.runs.plan.actor)
+109 |     failed=pending(conn,case,analyzer_version="fixture-v2");finish(conn,failed,failed=True)
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> backend/tests/integration/test_geo_analysis.py:109:60
+    |
+107 |     first=pending(conn,case);finish(conn,first);publish(conn,case,first)
+108 |     old_review=review(conn,case,first,db.runs.plan.actor)
+109 |     failed=pending(conn,case,analyzer_version="fixture-v2");finish(conn,failed,failed=True)
+    |                                                            ^
+110 |     assert conn.execute("SELECT current_analysis_revision_id FROM geo_observation_runs WHERE id=%s",(case.run_id,)).fetchone()[0]==fi…
+111 |     for target in [failed,None]:
+    |
+
+E501 Line too long (136 > 100)
+   --> backend/tests/integration/test_geo_analysis.py:110:101
+    |
+108 | …ctor)
+109 | …re-v2");finish(conn,failed,failed=True)
+110 | …ision_id FROM geo_observation_runs WHERE id=%s",(case.run_id,)).fetchone()[0]==first
+    |                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+111 | …
+112 | …tion),conn.transaction(): publish(conn,case,target)
+    |
+
+E701 Multiple statements on one line (colon)
+   --> backend/tests/integration/test_geo_analysis.py:112:77
+    |
+110 |     assert conn.execute("SELECT current_analysis_revision_id FROM geo_observation_runs WHERE id=%s",(case.run_id,)).fetchone()[0]==fi…
+111 |     for target in [failed,None]:
+112 |         with pytest.raises(psycopg.errors.CheckViolation),conn.transaction(): publish(conn,case,target)
+    |                                                                             ^
+113 |     latest=pending(conn,case,analyzer_version="fixture-v3");finish(conn,latest);publish(conn,case,latest)
+114 |     for target in [first,failed]:
+    |
+
+E501 Line too long (103 > 100)
+   --> backend/tests/integration/test_geo_analysis.py:112:101
+    |
+110 |     assert conn.execute("SELECT current_analysis_revision_id FROM geo_observation_runs WHERE id=%s",(case.run_id,)).fetchone()[0]==fi…
+111 |     for target in [failed,None]:
+112 |         with pytest.raises(psycopg.errors.CheckViolation),conn.transaction(): publish(conn,case,target)
+    |                                                                                                     ^^^
+113 |     latest=pending(conn,case,analyzer_version="fixture-v3");finish(conn,latest);publish(conn,case,latest)
+114 |     for target in [first,failed]:
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> backend/tests/integration/test_geo_analysis.py:113:60
+    |
+111 |     for target in [failed,None]:
+112 |         with pytest.raises(psycopg.errors.CheckViolation),conn.transaction(): publish(conn,case,target)
+113 |     latest=pending(conn,case,analyzer_version="fixture-v3");finish(conn,latest);publish(conn,case,latest)
+    |                                                            ^
+114 |     for target in [first,failed]:
+115 |         with pytest.raises(psycopg.errors.CheckViolation),conn.transaction(): publish(conn,case,target)
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> backend/tests/integration/test_geo_analysis.py:113:80
+    |
+111 |     for target in [failed,None]:
+112 |         with pytest.raises(psycopg.errors.CheckViolation),conn.transaction(): publish(conn,case,target)
+113 |     latest=pending(conn,case,analyzer_version="fixture-v3");finish(conn,latest);publish(conn,case,latest)
+    |                                                                                ^
+114 |     for target in [first,failed]:
+115 |         with pytest.raises(psycopg.errors.CheckViolation),conn.transaction(): publish(conn,case,target)
+    |
+
+E701 Multiple statements on one line (colon)
+   --> backend/tests/integration/test_geo_analysis.py:115:77
+    |
+113 |     latest=pending(conn,case,analyzer_version="fixture-v3");finish(conn,latest);publish(conn,case,latest)
+114 |     for target in [first,failed]:
+115 |         with pytest.raises(psycopg.errors.CheckViolation),conn.transaction(): publish(conn,case,target)
+    |                                                                             ^
+116 |     with pytest.raises(psycopg.errors.CheckViolation) as error,conn.transaction():review(conn,case,first,db.runs.plan.actor)
+117 |     assert error.value.diag.constraint_name=="ck_geo_reviews_current_analysis"
+    |
+
+E501 Line too long (103 > 100)
+   --> backend/tests/integration/test_geo_analysis.py:115:101
+    |
+113 |     latest=pending(conn,case,analyzer_version="fixture-v3");finish(conn,latest);publish(conn,case,latest)
+114 |     for target in [first,failed]:
+115 |         with pytest.raises(psycopg.errors.CheckViolation),conn.transaction(): publish(conn,case,target)
+    |                                                                                                     ^^^
+116 |     with pytest.raises(psycopg.errors.CheckViolation) as error,conn.transaction():review(conn,case,first,db.runs.plan.actor)
+117 |     assert error.value.diag.constraint_name=="ck_geo_reviews_current_analysis"
+    |
+
+E701 Multiple statements on one line (colon)
+   --> backend/tests/integration/test_geo_analysis.py:116:82
+    |
+114 |     for target in [first,failed]:
+115 |         with pytest.raises(psycopg.errors.CheckViolation),conn.transaction(): publish(conn,case,target)
+116 |     with pytest.raises(psycopg.errors.CheckViolation) as error,conn.transaction():review(conn,case,first,db.runs.plan.actor)
+    |                                                                                  ^
+117 |     assert error.value.diag.constraint_name=="ck_geo_reviews_current_analysis"
+118 |     assert conn.execute("SELECT id FROM geo_run_reviews WHERE run_id=%s AND analysis_revision_id=(SELECT current_analysis_revision_id…
+    |
+
+E501 Line too long (124 > 100)
+   --> backend/tests/integration/test_geo_analysis.py:116:101
+    |
+114 |     for target in [first,failed]:
+115 |         with pytest.raises(psycopg.errors.CheckViolation),conn.transaction(): publish(conn,case,target)
+116 |     with pytest.raises(psycopg.errors.CheckViolation) as error,conn.transaction():review(conn,case,first,db.runs.plan.actor)
+    |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^
+117 |     assert error.value.diag.constraint_name=="ck_geo_reviews_current_analysis"
+118 |     assert conn.execute("SELECT id FROM geo_run_reviews WHERE run_id=%s AND analysis_revision_id=(SELECT current_analysis_revision_id…
+    |
+
+E501 Line too long (219 > 100)
+   --> backend/tests/integration/test_geo_analysis.py:118:101
+    |
+116 | …case,first,db.runs.plan.actor)
+117 | …
+118 | …id=(SELECT current_analysis_revision_id FROM geo_observation_runs WHERE id=%s)",(case.run_id,case.run_id)).fetchone() is None
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+119 | …[0]==old_review
+    |
+
+E501 Line too long (109 > 100)
+   --> backend/tests/integration/test_geo_analysis.py:119:101
+    |
+117 |     assert error.value.diag.constraint_name=="ck_geo_reviews_current_analysis"
+118 |     assert conn.execute("SELECT id FROM geo_run_reviews WHERE run_id=%s AND analysis_revision_id=(SELECT current_analysis_revision_id…
+119 |     assert conn.execute("SELECT id FROM geo_run_reviews WHERE id=%s",(old_review,)).fetchone()[0]==old_review
+    |                                                                                                     ^^^^^^^^^
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> backend/tests/integration/test_geo_analysis.py:123:27
+    |
+122 | def test_terminal_run_publication_cannot_change_collection(answer_connection,answer_database):
+123 |     conn=answer_connection;case=collected_case(conn,answer_database)
+    |                           ^
+124 |     conn.execute("UPDATE geo_observation_runs SET status='COMPLETED',finished_at=now(),revision=revision+1 WHERE id=%s",(case.run_id,…
+125 |     before=conn.execute("SELECT to_jsonb(r)-ARRAY['current_analysis_revision_id','revision'] FROM geo_observation_runs r WHERE id=%s"…
+    |
+
+E501 Line too long (135 > 100)
+   --> backend/tests/integration/test_geo_analysis.py:124:101
+    |
+122 | …ection(answer_connection,answer_database):
+123 | …answer_database)
+124 | …atus='COMPLETED',finished_at=now(),revision=revision+1 WHERE id=%s",(case.run_id,))
+    |                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+125 | …urrent_analysis_revision_id','revision'] FROM geo_observation_runs r WHERE id=%s",(case.run_id,)).fetchone()[0]
+126 | …)
+    |
+
+E501 Line too long (163 > 100)
+   --> backend/tests/integration/test_geo_analysis.py:125:101
+    |
+123 | …e)
+124 | …D',finished_at=now(),revision=revision+1 WHERE id=%s",(case.run_id,))
+125 | …s_revision_id','revision'] FROM geo_observation_runs r WHERE id=%s",(case.run_id,)).fetchone()[0]
+    |                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+126 | …
+127 | …n.transaction():
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> backend/tests/integration/test_geo_analysis.py:126:32
+    |
+124 |     conn.execute("UPDATE geo_observation_runs SET status='COMPLETED',finished_at=now(),revision=revision+1 WHERE id=%s",(case.run_id,…
+125 |     before=conn.execute("SELECT to_jsonb(r)-ARRAY['current_analysis_revision_id','revision'] FROM geo_observation_runs r WHERE id=%s"…
+126 |     analysis=pending(conn,case);finish(conn,analysis)
+    |                                ^
+127 |     with pytest.raises(psycopg.errors.CheckViolation) as error,conn.transaction():
+128 |         conn.execute("UPDATE geo_observation_runs SET current_analysis_revision_id=%s,status='COLLECTED',finished_at=NULL,revision=re…
+    |
+
+E501 Line too long (178 > 100)
+   --> backend/tests/integration/test_geo_analysis.py:128:101
+    |
+126 | …
+127 | …action():
+128 | …vision_id=%s,status='COLLECTED',finished_at=NULL,revision=revision+1 WHERE id=%s",(analysis,case.run_id))
+    |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+129 | …ation"
+130 | …
+    |
+
+E501 Line too long (171 > 100)
+   --> backend/tests/integration/test_geo_analysis.py:131:101
+    |
+129 | …lication"
+130 | …
+131 | …vision_id','revision'] FROM geo_observation_runs r WHERE id=%s",(case.run_id,)).fetchone()[0]==before
+    |                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> backend/tests/integration/test_geo_analysis.py:135:27
+    |
+134 | def test_wrong_run_subject_and_hash_rejected(answer_connection,answer_database):
+135 |     conn=answer_connection;case=collected_case(conn,answer_database);other=collected_case(conn,answer_database)
+    |                           ^
+136 |     for patch in [{"answer_snapshot_id":other.answer_id}, {"revision":3}]:
+137 |         with pytest.raises(psycopg.errors.CheckViolation),conn.transaction():pending(conn,case,**patch)
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> backend/tests/integration/test_geo_analysis.py:135:69
+    |
+134 | def test_wrong_run_subject_and_hash_rejected(answer_connection,answer_database):
+135 |     conn=answer_connection;case=collected_case(conn,answer_database);other=collected_case(conn,answer_database)
+    |                                                                     ^
+136 |     for patch in [{"answer_snapshot_id":other.answer_id}, {"revision":3}]:
+137 |         with pytest.raises(psycopg.errors.CheckViolation),conn.transaction():pending(conn,case,**patch)
+    |
+
+E701 Multiple statements on one line (colon)
+   --> backend/tests/integration/test_geo_analysis.py:137:77
+    |
+135 |     conn=answer_connection;case=collected_case(conn,answer_database);other=collected_case(conn,answer_database)
+136 |     for patch in [{"answer_snapshot_id":other.answer_id}, {"revision":3}]:
+137 |         with pytest.raises(psycopg.errors.CheckViolation),conn.transaction():pending(conn,case,**patch)
+    |                                                                             ^
+138 |     invalid=deepcopy(case.input);invalid["answer_sha256"]="0"*64
+139 |     with pytest.raises(psycopg.errors.CheckViolation),conn.transaction(): pending(conn,case,input_snapshot=Jsonb(invalid))
+    |
+
+E501 Line too long (103 > 100)
+   --> backend/tests/integration/test_geo_analysis.py:137:101
+    |
+135 |     conn=answer_connection;case=collected_case(conn,answer_database);other=collected_case(conn,answer_database)
+136 |     for patch in [{"answer_snapshot_id":other.answer_id}, {"revision":3}]:
+137 |         with pytest.raises(psycopg.errors.CheckViolation),conn.transaction():pending(conn,case,**patch)
+    |                                                                                                     ^^^
+138 |     invalid=deepcopy(case.input);invalid["answer_sha256"]="0"*64
+139 |     with pytest.raises(psycopg.errors.CheckViolation),conn.transaction(): pending(conn,case,input_snapshot=Jsonb(invalid))
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> backend/tests/integration/test_geo_analysis.py:138:33
+    |
+136 |     for patch in [{"answer_snapshot_id":other.answer_id}, {"revision":3}]:
+137 |         with pytest.raises(psycopg.errors.CheckViolation),conn.transaction():pending(conn,case,**patch)
+138 |     invalid=deepcopy(case.input);invalid["answer_sha256"]="0"*64
+    |                                 ^
+139 |     with pytest.raises(psycopg.errors.CheckViolation),conn.transaction(): pending(conn,case,input_snapshot=Jsonb(invalid))
+140 |     analysis=pending(conn,case);finish(conn,analysis)
+    |
+
+E701 Multiple statements on one line (colon)
+   --> backend/tests/integration/test_geo_analysis.py:139:73
+    |
+137 |         with pytest.raises(psycopg.errors.CheckViolation),conn.transaction():pending(conn,case,**patch)
+138 |     invalid=deepcopy(case.input);invalid["answer_sha256"]="0"*64
+139 |     with pytest.raises(psycopg.errors.CheckViolation),conn.transaction(): pending(conn,case,input_snapshot=Jsonb(invalid))
+    |                                                                         ^
+140 |     analysis=pending(conn,case);finish(conn,analysis)
+141 |     with pytest.raises(psycopg.errors.CheckViolation),conn.transaction():publish(conn,other,analysis)
+    |
+
+E501 Line too long (122 > 100)
+   --> backend/tests/integration/test_geo_analysis.py:139:101
+    |
+137 |         with pytest.raises(psycopg.errors.CheckViolation),conn.transaction():pending(conn,case,**patch)
+138 |     invalid=deepcopy(case.input);invalid["answer_sha256"]="0"*64
+139 |     with pytest.raises(psycopg.errors.CheckViolation),conn.transaction(): pending(conn,case,input_snapshot=Jsonb(invalid))
+    |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^
+140 |     analysis=pending(conn,case);finish(conn,analysis)
+141 |     with pytest.raises(psycopg.errors.CheckViolation),conn.transaction():publish(conn,other,analysis)
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> backend/tests/integration/test_geo_analysis.py:140:32
+    |
+138 |     invalid=deepcopy(case.input);invalid["answer_sha256"]="0"*64
+139 |     with pytest.raises(psycopg.errors.CheckViolation),conn.transaction(): pending(conn,case,input_snapshot=Jsonb(invalid))
+140 |     analysis=pending(conn,case);finish(conn,analysis)
+    |                                ^
+141 |     with pytest.raises(psycopg.errors.CheckViolation),conn.transaction():publish(conn,other,analysis)
+    |
+
+E701 Multiple statements on one line (colon)
+   --> backend/tests/integration/test_geo_analysis.py:141:73
+    |
+139 |     with pytest.raises(psycopg.errors.CheckViolation),conn.transaction(): pending(conn,case,input_snapshot=Jsonb(invalid))
+140 |     analysis=pending(conn,case);finish(conn,analysis)
+141 |     with pytest.raises(psycopg.errors.CheckViolation),conn.transaction():publish(conn,other,analysis)
+    |                                                                         ^
+    |
+
+E501 Line too long (101 > 100)
+   --> backend/tests/integration/test_geo_analysis.py:141:101
+    |
+139 |     with pytest.raises(psycopg.errors.CheckViolation),conn.transaction(): pending(conn,case,input_snapshot=Jsonb(invalid))
+140 |     analysis=pending(conn,case);finish(conn,analysis)
+141 |     with pytest.raises(psycopg.errors.CheckViolation),conn.transaction():publish(conn,other,analysis)
+    |                                                                                                     ^
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> backend/tests/integration/test_geo_analysis.py:145:27
+    |
+144 | def test_fact_manifest_qualification_claim_binding_and_deletion(answer_connection,answer_database):
+145 |     conn=answer_connection;db=answer_database;case=collected_case(conn,db,products=2);analysis=pending(conn,case)
+    |                           ^
+146 |     with pytest.raises(psycopg.errors.CheckViolation) as error,conn.transaction():conn.execute("SET CONSTRAINTS ALL IMMEDIATE")
+147 |     assert error.value.diag.constraint_name=="ck_geo_analysis_fact_manifest"
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> backend/tests/integration/test_geo_analysis.py:145:46
+    |
+144 | def test_fact_manifest_qualification_claim_binding_and_deletion(answer_connection,answer_database):
+145 |     conn=answer_connection;db=answer_database;case=collected_case(conn,db,products=2);analysis=pending(conn,case)
+    |                                              ^
+146 |     with pytest.raises(psycopg.errors.CheckViolation) as error,conn.transaction():conn.execute("SET CONSTRAINTS ALL IMMEDIATE")
+147 |     assert error.value.diag.constraint_name=="ck_geo_analysis_fact_manifest"
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> backend/tests/integration/test_geo_analysis.py:145:86
+    |
+144 | def test_fact_manifest_qualification_claim_binding_and_deletion(answer_connection,answer_database):
+145 |     conn=answer_connection;db=answer_database;case=collected_case(conn,db,products=2);analysis=pending(conn,case)
+    |                                                                                      ^
+146 |     with pytest.raises(psycopg.errors.CheckViolation) as error,conn.transaction():conn.execute("SET CONSTRAINTS ALL IMMEDIATE")
+147 |     assert error.value.diag.constraint_name=="ck_geo_analysis_fact_manifest"
+    |
+
+E701 Multiple statements on one line (colon)
+   --> backend/tests/integration/test_geo_analysis.py:146:82
+    |
+144 | def test_fact_manifest_qualification_claim_binding_and_deletion(answer_connection,answer_database):
+145 |     conn=answer_connection;db=answer_database;case=collected_case(conn,db,products=2);analysis=pending(conn,case)
+146 |     with pytest.raises(psycopg.errors.CheckViolation) as error,conn.transaction():conn.execute("SET CONSTRAINTS ALL IMMEDIATE")
+    |                                                                                  ^
+147 |     assert error.value.diag.constraint_name=="ck_geo_analysis_fact_manifest"
+148 |     one,two=case.input["fact_versions"]
+    |
+
+E501 Line too long (127 > 100)
+   --> backend/tests/integration/test_geo_analysis.py:146:101
+    |
+144 | def test_fact_manifest_qualification_claim_binding_and_deletion(answer_connection,answer_database):
+145 |     conn=answer_connection;db=answer_database;case=collected_case(conn,db,products=2);analysis=pending(conn,case)
+146 |     with pytest.raises(psycopg.errors.CheckViolation) as error,conn.transaction():conn.execute("SET CONSTRAINTS ALL IMMEDIATE")
+    |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+147 |     assert error.value.diag.constraint_name=="ck_geo_analysis_fact_manifest"
+148 |     one,two=case.input["fact_versions"]
+    |
+
+E701 Multiple statements on one line (colon)
+   --> backend/tests/integration/test_geo_analysis.py:160:78
+    |
+158 |     finish(conn,analysis)
+159 |     conn.execute("SET CONSTRAINTS ALL IMMEDIATE")
+160 |     with pytest.raises(psycopg.errors.ForeignKeyViolation),conn.transaction():conn.execute("DELETE FROM fact_versions WHERE id=%s",(c…
+    |                                                                              ^
+161 |     conn.execute("UPDATE fact_versions SET status='RETIRED',revision=revision+1 WHERE id=%s",(case.facts[0],))
+162 |     assert conn.execute("SELECT count(*) FROM geo_analysis_fact_versions WHERE analysis_revision_id=%s",(analysis,)).fetchone()[0]==2
+    |
+
+E501 Line too long (148 > 100)
+   --> backend/tests/integration/test_geo_analysis.py:160:101
+    |
+158 | …
+159 | …
+160 | …,conn.transaction():conn.execute("DELETE FROM fact_versions WHERE id=%s",(case.facts[0],))
+    |                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+161 | …',revision=revision+1 WHERE id=%s",(case.facts[0],))
+162 | …_fact_versions WHERE analysis_revision_id=%s",(analysis,)).fetchone()[0]==2
+    |
+
+E501 Line too long (110 > 100)
+   --> backend/tests/integration/test_geo_analysis.py:161:101
+    |
+159 |     conn.execute("SET CONSTRAINTS ALL IMMEDIATE")
+160 |     with pytest.raises(psycopg.errors.ForeignKeyViolation),conn.transaction():conn.execute("DELETE FROM fact_versions WHERE id=%s",(c…
+161 |     conn.execute("UPDATE fact_versions SET status='RETIRED',revision=revision+1 WHERE id=%s",(case.facts[0],))
+    |                                                                                                     ^^^^^^^^^^
+162 |     assert conn.execute("SELECT count(*) FROM geo_analysis_fact_versions WHERE analysis_revision_id=%s",(analysis,)).fetchone()[0]==2
+163 |     next_analysis=pending(conn,case,analyzer_version="fixture-v2")
+    |
+
+E501 Line too long (133 > 100)
+   --> backend/tests/integration/test_geo_analysis.py:162:101
+    |
+160 | …lation),conn.transaction():conn.execute("DELETE FROM fact_versions WHERE id=%s",(case.facts[0],))
+161 | …RETIRED',revision=revision+1 WHERE id=%s",(case.facts[0],))
+162 | …nalysis_fact_versions WHERE analysis_revision_id=%s",(analysis,)).fetchone()[0]==2
+    |                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+163 | …n="fixture-v2")
+164 | …n) as error,conn.transaction():bind(conn,case,next_analysis)
+    |
+
+E701 Multiple statements on one line (colon)
+   --> backend/tests/integration/test_geo_analysis.py:164:82
+    |
+162 |     assert conn.execute("SELECT count(*) FROM geo_analysis_fact_versions WHERE analysis_revision_id=%s",(analysis,)).fetchone()[0]==2
+163 |     next_analysis=pending(conn,case,analyzer_version="fixture-v2")
+164 |     with pytest.raises(psycopg.errors.CheckViolation) as error,conn.transaction():bind(conn,case,next_analysis)
+    |                                                                                  ^
+165 |     assert error.value.diag.constraint_name=="ck_geo_analysis_fact_qualification"
+    |
+
+E501 Line too long (111 > 100)
+   --> backend/tests/integration/test_geo_analysis.py:164:101
+    |
+162 |     assert conn.execute("SELECT count(*) FROM geo_analysis_fact_versions WHERE analysis_revision_id=%s",(analysis,)).fetchone()[0]==2
+163 |     next_analysis=pending(conn,case,analyzer_version="fixture-v2")
+164 |     with pytest.raises(psycopg.errors.CheckViolation) as error,conn.transaction():bind(conn,case,next_analysis)
+    |                                                                                                     ^^^^^^^^^^^
+165 |     assert error.value.diag.constraint_name=="ck_geo_analysis_fact_qualification"
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> backend/tests/integration/test_geo_analysis.py:169:27
+    |
+168 | def test_review_corrected_scope_clock_and_reference_projection(answer_connection,answer_database):
+169 |     conn=answer_connection;db=answer_database;case=collected_case(conn,db);analysis=pending(conn,case);finish(conn,analysis);publish(…
+    |                           ^
+170 |     value=corrections();value["mentions"][0]["subject_id"]=case.input["subjects"][0]["id"]
+171 |     first=review(conn,case,analysis,db.runs.plan.actor,decision="CORRECTED",correction_payload=Jsonb(value),created_at="2000-01-01")
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> backend/tests/integration/test_geo_analysis.py:169:46
+    |
+168 | def test_review_corrected_scope_clock_and_reference_projection(answer_connection,answer_database):
+169 |     conn=answer_connection;db=answer_database;case=collected_case(conn,db);analysis=pending(conn,case);finish(conn,analysis);publish(…
+    |                                              ^
+170 |     value=corrections();value["mentions"][0]["subject_id"]=case.input["subjects"][0]["id"]
+171 |     first=review(conn,case,analysis,db.runs.plan.actor,decision="CORRECTED",correction_payload=Jsonb(value),created_at="2000-01-01")
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> backend/tests/integration/test_geo_analysis.py:169:75
+    |
+168 | def test_review_corrected_scope_clock_and_reference_projection(answer_connection,answer_database):
+169 |     conn=answer_connection;db=answer_database;case=collected_case(conn,db);analysis=pending(conn,case);finish(conn,analysis);publish(…
+    |                                                                           ^
+170 |     value=corrections();value["mentions"][0]["subject_id"]=case.input["subjects"][0]["id"]
+171 |     first=review(conn,case,analysis,db.runs.plan.actor,decision="CORRECTED",correction_payload=Jsonb(value),created_at="2000-01-01")
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> backend/tests/integration/test_geo_analysis.py:169:103
+    |
+168 | def test_review_corrected_scope_clock_and_reference_projection(answer_connection,answer_database):
+169 |     conn=answer_connection;db=answer_database;case=collected_case(conn,db);analysis=pending(conn,case);finish(conn,analysis);publish(…
+    |                                                                                                       ^
+170 |     value=corrections();value["mentions"][0]["subject_id"]=case.input["subjects"][0]["id"]
+171 |     first=review(conn,case,analysis,db.runs.plan.actor,decision="CORRECTED",correction_payload=Jsonb(value),created_at="2000-01-01")
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> backend/tests/integration/test_geo_analysis.py:169:125
+    |
+168 | def test_review_corrected_scope_clock_and_reference_projection(answer_connection,answer_database):
+169 |     conn=answer_connection;db=answer_database;case=collected_case(conn,db);analysis=pending(conn,case);finish(conn,analysis);publish(…
+    |                                                                                                                             ^
+170 |     value=corrections();value["mentions"][0]["subject_id"]=case.input["subjects"][0]["id"]
+171 |     first=review(conn,case,analysis,db.runs.plan.actor,decision="CORRECTED",correction_payload=Jsonb(value),created_at="2000-01-01")
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> backend/tests/integration/test_geo_analysis.py:170:24
+    |
+168 | def test_review_corrected_scope_clock_and_reference_projection(answer_connection,answer_database):
+169 |     conn=answer_connection;db=answer_database;case=collected_case(conn,db);analysis=pending(conn,case);finish(conn,analysis);publish(…
+170 |     value=corrections();value["mentions"][0]["subject_id"]=case.input["subjects"][0]["id"]
+    |                        ^
+171 |     first=review(conn,case,analysis,db.runs.plan.actor,decision="CORRECTED",correction_payload=Jsonb(value),created_at="2000-01-01")
+172 |     second=review(conn,case,analysis,db.runs.plan.actor,created_at="1999-01-01")
+    |
+
+E501 Line too long (162 > 100)
+   --> backend/tests/integration/test_geo_analysis.py:173:101
+    |
+171 | …CORRECTED",correction_payload=Jsonb(value),created_at="2000-01-01")
+172 | …t="1999-01-01")
+173 | …lysis_revision_id=%s ORDER BY created_at DESC,id DESC LIMIT 1",(analysis,)).fetchone()[0]==second
+    |                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+174 | …o_run_reviews WHERE id=%s",(first,)).fetchone()[0]
+175 | …
+    |
+
+E501 Line too long (115 > 100)
+   --> backend/tests/integration/test_geo_analysis.py:174:101
+    |
+172 |     second=review(conn,case,analysis,db.runs.plan.actor,created_at="1999-01-01")
+173 |     assert conn.execute("SELECT id FROM geo_run_reviews WHERE analysis_revision_id=%s ORDER BY created_at DESC,id DESC LIMIT 1",(anal…
+174 |     assert conn.execute("SELECT created_at > '2026-01-01' FROM geo_run_reviews WHERE id=%s",(first,)).fetchone()[0]
+    |                                                                                                     ^^^^^^^^^^^^^^^
+175 |     value["mentions"][0]["subject_id"]=str(uuid4())
+176 |     with pytest.raises(psycopg.errors.CheckViolation),conn.transaction():review(conn,case,analysis,db.runs.plan.actor,decision="CORRE…
+    |
+
+E701 Multiple statements on one line (colon)
+   --> backend/tests/integration/test_geo_analysis.py:176:73
+    |
+174 |     assert conn.execute("SELECT created_at > '2026-01-01' FROM geo_run_reviews WHERE id=%s",(first,)).fetchone()[0]
+175 |     value["mentions"][0]["subject_id"]=str(uuid4())
+176 |     with pytest.raises(psycopg.errors.CheckViolation),conn.transaction():review(conn,case,analysis,db.runs.plan.actor,decision="CORRE…
+    |                                                                         ^
+177 |     conn.execute("SET CONSTRAINTS ALL IMMEDIATE")
+178 |     with Session(create_engine(db.url.replace("postgresql://","postgresql+psycopg://"))) as session:
+    |
+
+E501 Line too long (171 > 100)
+   --> backend/tests/integration/test_geo_analysis.py:176:101
+    |
+174 | …_reviews WHERE id=%s",(first,)).fetchone()[0]
+175 | …
+176 | …():review(conn,case,analysis,db.runs.plan.actor,decision="CORRECTED",correction_payload=Jsonb(value))
+    |                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+177 | …
+178 | …sql+psycopg://"))) as session:
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> backend/tests/integration/test_geo_analysis.py:186:48
+    |
+184 |     db=answer_database
+185 |     with psycopg.connect(db.url) as conn:
+186 |         case=collected_case(conn,db,products=1);analysis=pending(conn,case);bind(conn,case,analysis);finish(conn,analysis);publish(co…
+    |                                                ^
+187 |         review(conn,case,analysis,db.runs.plan.actor)
+188 |     engine=create_engine(db.url.replace("postgresql://","postgresql+psycopg://"))
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> backend/tests/integration/test_geo_analysis.py:186:76
+    |
+184 |     db=answer_database
+185 |     with psycopg.connect(db.url) as conn:
+186 |         case=collected_case(conn,db,products=1);analysis=pending(conn,case);bind(conn,case,analysis);finish(conn,analysis);publish(co…
+    |                                                                            ^
+187 |         review(conn,case,analysis,db.runs.plan.actor)
+188 |     engine=create_engine(db.url.replace("postgresql://","postgresql+psycopg://"))
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> backend/tests/integration/test_geo_analysis.py:186:101
+    |
+184 |     db=answer_database
+185 |     with psycopg.connect(db.url) as conn:
+186 |         case=collected_case(conn,db,products=1);analysis=pending(conn,case);bind(conn,case,analysis);finish(conn,analysis);publish(co…
+    |                                                                                                     ^
+187 |         review(conn,case,analysis,db.runs.plan.actor)
+188 |     engine=create_engine(db.url.replace("postgresql://","postgresql+psycopg://"))
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> backend/tests/integration/test_geo_analysis.py:186:123
+    |
+184 |     db=answer_database
+185 |     with psycopg.connect(db.url) as conn:
+186 |         case=collected_case(conn,db,products=1);analysis=pending(conn,case);bind(conn,case,analysis);finish(conn,analysis);publish(co…
+    |                                                                                                                           ^
+187 |         review(conn,case,analysis,db.runs.plan.actor)
+188 |     engine=create_engine(db.url.replace("postgresql://","postgresql+psycopg://"))
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> backend/tests/integration/test_geo_analysis.py:191:59
+    |
+189 |     try:
+190 |         with Session(engine) as session:
+191 |             version=session.get(FactVersion,case.facts[0]);actor=session.get(User,db.runs.plan.actor)
+    |                                                           ^
+192 |             out=fact_version_out(session,version,can_delete=True)
+193 |             assert "DELETE" not in out.available_actions
+    |
+
+E701 Multiple statements on one line (colon)
+   --> backend/tests/integration/test_geo_analysis.py:195:50
+    |
+193 | …     assert "DELETE" not in out.available_actions
+194 | …     assert [(x.type,x.count) for x in out.deletion.blockers]==[("GEO_ANALYSIS",1)]
+195 | …     with pytest.raises(AppError) as error:delete_fact_version(db=session,fact_version_id=version.id,actor=actor,request_id="geo501-…
+    |                                            ^
+196 | …     assert error.value.code=="FACT_VERSION_IN_USE"
+197 | …     assert _user_business_reference_counts(session,[actor.id])[actor.id]>=1
+    |
+
+E501 Line too long (145 > 100)
+   --> backend/tests/integration/test_geo_analysis.py:195:101
+    |
+193 | …
+194 | …n.blockers]==[("GEO_ANALYSIS",1)]
+195 | …fact_version(db=session,fact_version_id=version.id,actor=actor,request_id="geo501-test")
+    |                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+196 | …"
+197 | …n,[actor.id])[actor.id]>=1
+    |
+
+E701 Multiple statements on one line (colon)
+   --> backend/tests/integration/test_geo_analysis.py:198:12
+    |
+196 |             assert error.value.code=="FACT_VERSION_IN_USE"
+197 |             assert _user_business_reference_counts(session,[actor.id])[actor.id]>=1
+198 |     finally:engine.dispose()
+    |            ^
+    |
+
+E501 Line too long (104 > 100)
+  --> backend/tests/unit/test_geo_analysis_contract.py:27:101
+   |
+25 |             "rule_set_version": "fixture-v1", "model_name": None, "model_version": None,
+26 |             "prompt_template_version": None, "prompt_sha256": None,
+27 |             "parameters": {"temperature": None, "top_p": None, "max_output_tokens": None, "seed": None},
+   |                                                                                                     ^^^^
+28 |         },
+29 |     }
+   |
+
+E501 Line too long (103 > 100)
+  --> backend/tests/unit/test_geo_analysis_contract.py:36:101
+   |
+34 |         "id": str(uuid4()), "run_id": str(uuid4()), "answer_snapshot_id": str(uuid4()),
+35 |         "revision": 1, "status": "PENDING", "analyzer_type": "DETERMINISTIC",
+36 |         "analyzer_version": "fixture-v1", "input_snapshot": analysis_input(), "input_sha256": "a" * 64,
+   |                                                                                                     ^^^
+37 |         "confidence_summary": None, "review_required_reasons": [], "error_code": None,
+38 |         "error_summary": None, "created_at": datetime.now(UTC).isoformat(), "finished_at": None,
+   |
+
+E501 Line too long (102 > 100)
+  --> backend/tests/unit/test_geo_analysis_contract.py:51:101
+   |
+50 | @pytest.mark.parametrize("name", [
+51 |     "GeoAnalysisRevisionOut", "GeoAnalysisFactBinding", "GeoEntityMentionOut", "GeoRecommendationOut",
+   |                                                                                                     ^^
+52 |     "GeoClaimAssessmentOut", "GeoRunReviewOut", "GeoAnalysisSelection",
+53 | ])
+   |
+
+E501 Line too long (105 > 100)
+  --> backend/tests/unit/test_geo_analysis_contract.py:55:101
+   |
+53 | ])
+54 | def test_components_match_authority(contract, name):
+55 |     schema = TypeAdapter(getattr(schemas, name)).json_schema(ref_template="#/components/schemas/{model}")
+   |                                                                                                     ^^^^^
+56 |     definitions = schema.pop("$defs", {})
+57 |     assert contract["components"]["schemas"][name] == schema
+   |
+
+E501 Line too long (103 > 100)
+  --> backend/tests/unit/test_geo_analysis_contract.py:70:101
+   |
+68 |         "current_analysis_revision_id": None, "current_review_id": None})
+69 |     for decision, payload in [("CONFIRMED", None), ("CORRECTED", corrections())]:
+70 |         review = schemas.GeoRunReviewOut.model_validate({"id": str(uuid4()), "run_id": value["run_id"],
+   |                                                                                                     ^^^
+71 |             "analysis_revision_id": value["id"], "decision": decision, "correction_payload": payload,
+72 |             "comment": "虚构复核说明", "reviewer_id": str(uuid4()), "created_at": value["created_at"]})
+   |
+
+E501 Line too long (101 > 100)
+  --> backend/tests/unit/test_geo_analysis_contract.py:71:101
+   |
+69 |     for decision, payload in [("CONFIRMED", None), ("CORRECTED", corrections())]:
+70 |         review = schemas.GeoRunReviewOut.model_validate({"id": str(uuid4()), "run_id": value["run_id"],
+71 |             "analysis_revision_id": value["id"], "decision": decision, "correction_payload": payload,
+   |                                                                                                     ^
+72 |             "comment": "虚构复核说明", "reviewer_id": str(uuid4()), "created_at": value["created_at"]})
+73 |         validate(contract, "GeoRunReviewOut", review.model_dump(mode="json"))
+   |
+
+E501 Line too long (103 > 100)
+  --> backend/tests/unit/test_geo_analysis_contract.py:72:95
+   |
+70 |         review = schemas.GeoRunReviewOut.model_validate({"id": str(uuid4()), "run_id": value["run_id"],
+71 |             "analysis_revision_id": value["id"], "decision": decision, "correction_payload": payload,
+72 |             "comment": "虚构复核说明", "reviewer_id": str(uuid4()), "created_at": value["created_at"]})
+   |                                                                                                     ^^^
+73 |         validate(contract, "GeoRunReviewOut", review.model_dump(mode="json"))
+74 |     subject = value["input_snapshot"]["subjects"][0]["id"]
+   |
+
+E501 Line too long (145 > 100)
+  --> backend/tests/unit/test_geo_analysis_contract.py:76:101
+   |
+74 | …"]
+75 | …
+76 | …1, "first_character_offset": None, "matched_aliases": ["虚构品牌"], "confidence": None}),
+   |                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+77 | …: "UNKNOWN", "rank": None, "rationale_excerpt": None, "confidence": None}),
+78 | …d": None, "claim_kind": "IDENTITY", "claim_text": "虚构声明",
+   |
+
+E501 Line too long (131 > 100)
+  --> backend/tests/unit/test_geo_analysis_contract.py:77:101
+   |
+75 | …
+76 | …ount": 1, "first_character_offset": None, "matched_aliases": ["虚构品牌"], "confidence": None}),
+77 | …dation": "UNKNOWN", "rank": None, "rationale_excerpt": None, "confidence": None}),
+   |                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+78 | …rsion_id": None, "claim_kind": "IDENTITY", "claim_text": "虚构声明",
+79 | …"UNJUDGEABLE", "severity": "LOW", "fact_excerpt": None,
+   |
+
+E501 Line too long (117 > 100)
+  --> backend/tests/unit/test_geo_analysis_contract.py:78:101
+   |
+76 | …     (schemas.GeoEntityMentionOut, {"mention_count": 1, "first_character_offset": None, "matched_aliases": ["虚构品牌"], "confidence":   …
+77 | …     (schemas.GeoRecommendationOut, {"recommendation": "UNKNOWN", "rank": None, "rationale_excerpt": None, "confidence": None}),
+78 | …     (schemas.GeoClaimAssessmentOut, {"fact_version_id": None, "claim_kind": "IDENTITY", "claim_text": "虚构声明",
+   |                                                                                                   ^^^^^^^^^^^^^^^^^
+79 | …         "claim_sha256": "a" * 64, "verdict": "UNJUDGEABLE", "severity": "LOW", "fact_excerpt": None,
+80 | …         "explanation": "缺少权威事实", "confidence": None}),
+   |
+
+E501 Line too long (104 > 100)
+  --> backend/tests/unit/test_geo_analysis_contract.py:79:101
+   |
+77 |         (schemas.GeoRecommendationOut, {"recommendation": "UNKNOWN", "rank": None, "rationale_excerpt": None, "confidence": None}),
+78 |         (schemas.GeoClaimAssessmentOut, {"fact_version_id": None, "claim_kind": "IDENTITY", "claim_text": "虚构声明",
+79 |             "claim_sha256": "a" * 64, "verdict": "UNJUDGEABLE", "severity": "LOW", "fact_excerpt": None,
+   |                                                                                                     ^^^^
+80 |             "explanation": "缺少权威事实", "confidence": None}),
+81 |     ]:
+   |
+
+E501 Line too long (129 > 100)
+  --> backend/tests/unit/test_geo_analysis_contract.py:82:101
+   |
+80 |             "explanation": "缺少权威事实", "confidence": None}),
+81 |     ]:
+82 |         parsed = model.model_validate({"id": str(uuid4()), "analysis_revision_id": value["id"], "subject_id": subject, **fields})
+   |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+83 |         validate(contract, model.__name__, parsed.model_dump(mode="json"))
+   |
+
+E501 Line too long (129 > 100)
+  --> backend/tests/unit/test_geo_analysis_contract.py:86:101
+   |
+86 | @pytest.mark.parametrize("path", [[], ["configuration"], ["configuration", "parameters"], ["subjects", 0], ["fact_versions", 0]])
+   |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+87 | def test_secret_fields_rejected_at_each_boundary(contract, path):
+88 |     value = analysis_input()
+   |
+
+E701 Multiple statements on one line (colon)
+  --> backend/tests/unit/test_geo_analysis_contract.py:93:20
+   |
+91 |     value["fact_versions"] = [{"subject_id": subject["id"], "fact_version_id": str(uuid4())}]
+92 |     leaf = value
+93 |     for key in path: leaf = leaf[key]
+   |                    ^
+94 |     leaf["headers"] = {"Authorization": "fixture-only"}
+95 |     with pytest.raises(ValidationError): schemas.GeoAnalysisInputSnapshot.model_validate(value)
+   |
+
+E701 Multiple statements on one line (colon)
+  --> backend/tests/unit/test_geo_analysis_contract.py:95:40
+   |
+93 |     for key in path: leaf = leaf[key]
+94 |     leaf["headers"] = {"Authorization": "fixture-only"}
+95 |     with pytest.raises(ValidationError): schemas.GeoAnalysisInputSnapshot.model_validate(value)
+   |                                        ^
+96 |     with pytest.raises(JsonError): validate(contract, "GeoAnalysisInputSnapshot", value)
+   |
+
+E701 Multiple statements on one line (colon)
+  --> backend/tests/unit/test_geo_analysis_contract.py:96:34
+   |
+94 |     leaf["headers"] = {"Authorization": "fixture-only"}
+95 |     with pytest.raises(ValidationError): schemas.GeoAnalysisInputSnapshot.model_validate(value)
+96 |     with pytest.raises(JsonError): validate(contract, "GeoAnalysisInputSnapshot", value)
+   |                                  ^
+   |
+
+E701 Multiple statements on one line (colon)
+   --> backend/tests/unit/test_geo_analysis_contract.py:105:40
+    |
+103 | def test_invalid_input_shape(contract, patch):
+104 |     value = analysis_input() | patch
+105 |     with pytest.raises(ValidationError): schemas.GeoAnalysisInputSnapshot.model_validate(value)
+    |                                        ^
+106 |     with pytest.raises(JsonError): validate(contract, "GeoAnalysisInputSnapshot", value)
+    |
+
+E701 Multiple statements on one line (colon)
+   --> backend/tests/unit/test_geo_analysis_contract.py:106:34
+    |
+104 |     value = analysis_input() | patch
+105 |     with pytest.raises(ValidationError): schemas.GeoAnalysisInputSnapshot.model_validate(value)
+106 |     with pytest.raises(JsonError): validate(contract, "GeoAnalysisInputSnapshot", value)
+    |                                  ^
+    |
+
+E701 Multiple statements on one line (colon)
+   --> backend/tests/unit/test_geo_analysis_contract.py:112:40
+    |
+110 |     value = analysis_input()
+111 |     value["subjects"].append(deepcopy(value["subjects"][0]))
+112 |     with pytest.raises(ValidationError): schemas.GeoAnalysisInputSnapshot.model_validate(value)
+    |                                        ^
+113 |     value = analysis_input()
+114 |     value["fact_versions"] = [{"subject_id": value["subjects"][0]["id"], "fact_version_id": str(uuid4())}]
+    |
+
+E501 Line too long (106 > 100)
+   --> backend/tests/unit/test_geo_analysis_contract.py:114:101
+    |
+112 |     with pytest.raises(ValidationError): schemas.GeoAnalysisInputSnapshot.model_validate(value)
+113 |     value = analysis_input()
+114 |     value["fact_versions"] = [{"subject_id": value["subjects"][0]["id"], "fact_version_id": str(uuid4())}]
+    |                                                                                                     ^^^^^^
+115 |     with pytest.raises(ValidationError): schemas.GeoAnalysisInputSnapshot.model_validate(value)
+    |
+
+E701 Multiple statements on one line (colon)
+   --> backend/tests/unit/test_geo_analysis_contract.py:115:40
+    |
+113 |     value = analysis_input()
+114 |     value["fact_versions"] = [{"subject_id": value["subjects"][0]["id"], "fact_version_id": str(uuid4())}]
+115 |     with pytest.raises(ValidationError): schemas.GeoAnalysisInputSnapshot.model_validate(value)
+    |                                        ^
+    |
+
+E701 Multiple statements on one line (colon)
+   --> backend/tests/unit/test_geo_analysis_contract.py:124:40
+    |
+122 | def test_invalid_lifecycle(contract, patch):
+123 |     value = revision_payload() | patch
+124 |     with pytest.raises(ValidationError): schemas.GeoAnalysisRevisionOut.model_validate(value)
+    |                                        ^
+125 |     with pytest.raises(JsonError): validate(contract, "GeoAnalysisRevisionOut", value)
+    |
+
+E701 Multiple statements on one line (colon)
+   --> backend/tests/unit/test_geo_analysis_contract.py:125:34
+    |
+123 |     value = revision_payload() | patch
+124 |     with pytest.raises(ValidationError): schemas.GeoAnalysisRevisionOut.model_validate(value)
+125 |     with pytest.raises(JsonError): validate(contract, "GeoAnalysisRevisionOut", value)
+    |                                  ^
+    |
+
+E501 Line too long (163 > 100)
+   --> backend/tests/unit/test_geo_analysis_contract.py:128:101
+    |
+128 | …, {"parameters": {"temperature": True, "top_p": None, "max_output_tokens": None, "seed": None}}])
+    |                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+129 | …
+130 | …
+    |
+
+E701 Multiple statements on one line (colon)
+   --> backend/tests/unit/test_geo_analysis_contract.py:131:40
+    |
+129 | def test_configuration_identity_and_types(contract, patch):
+130 |     value = analysis_input()["configuration"] | patch
+131 |     with pytest.raises(ValidationError): schemas.GeoAnalysisConfiguration.model_validate(value)
+    |                                        ^
+132 |     with pytest.raises(JsonError): validate(contract, "GeoAnalysisConfiguration", value)
+    |
+
+E701 Multiple statements on one line (colon)
+   --> backend/tests/unit/test_geo_analysis_contract.py:132:34
+    |
+130 |     value = analysis_input()["configuration"] | patch
+131 |     with pytest.raises(ValidationError): schemas.GeoAnalysisConfiguration.model_validate(value)
+132 |     with pytest.raises(JsonError): validate(contract, "GeoAnalysisConfiguration", value)
+    |                                  ^
+    |
+
+E701 Multiple statements on one line (colon)
+   --> backend/tests/unit/test_geo_analysis_contract.py:137:40
+    |
+135 | def test_empty_and_absent_mention_corrections_rejected(contract):
+136 |     empty = corrections() | {"mentions": []}
+137 |     with pytest.raises(ValidationError): schemas.GeoReviewCorrectionPayload.model_validate(empty)
+    |                                        ^
+138 |     with pytest.raises(JsonError): validate(contract, "GeoReviewCorrectionPayload", empty)
+139 |     value = corrections(); value["mentions"][0]["matched_aliases"] = ["虚构品牌"]
+    |
+
+E701 Multiple statements on one line (colon)
+   --> backend/tests/unit/test_geo_analysis_contract.py:138:34
+    |
+136 |     empty = corrections() | {"mentions": []}
+137 |     with pytest.raises(ValidationError): schemas.GeoReviewCorrectionPayload.model_validate(empty)
+138 |     with pytest.raises(JsonError): validate(contract, "GeoReviewCorrectionPayload", empty)
+    |                                  ^
+139 |     value = corrections(); value["mentions"][0]["matched_aliases"] = ["虚构品牌"]
+140 |     with pytest.raises(ValidationError): schemas.GeoReviewCorrectionPayload.model_validate(value)
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> backend/tests/unit/test_geo_analysis_contract.py:139:26
+    |
+137 |     with pytest.raises(ValidationError): schemas.GeoReviewCorrectionPayload.model_validate(empty)
+138 |     with pytest.raises(JsonError): validate(contract, "GeoReviewCorrectionPayload", empty)
+139 |     value = corrections(); value["mentions"][0]["matched_aliases"] = ["虚构品牌"]
+    |                          ^
+140 |     with pytest.raises(ValidationError): schemas.GeoReviewCorrectionPayload.model_validate(value)
+141 |     with pytest.raises(JsonError): validate(contract, "GeoReviewCorrectionPayload", value)
+    |
+
+E701 Multiple statements on one line (colon)
+   --> backend/tests/unit/test_geo_analysis_contract.py:140:40
+    |
+138 |     with pytest.raises(JsonError): validate(contract, "GeoReviewCorrectionPayload", empty)
+139 |     value = corrections(); value["mentions"][0]["matched_aliases"] = ["虚构品牌"]
+140 |     with pytest.raises(ValidationError): schemas.GeoReviewCorrectionPayload.model_validate(value)
+    |                                        ^
+141 |     with pytest.raises(JsonError): validate(contract, "GeoReviewCorrectionPayload", value)
+    |
+
+E701 Multiple statements on one line (colon)
+   --> backend/tests/unit/test_geo_analysis_contract.py:141:34
+    |
+139 |     value = corrections(); value["mentions"][0]["matched_aliases"] = ["虚构品牌"]
+140 |     with pytest.raises(ValidationError): schemas.GeoReviewCorrectionPayload.model_validate(value)
+141 |     with pytest.raises(JsonError): validate(contract, "GeoReviewCorrectionPayload", value)
+    |                                  ^
+    |
+
+Found 196 errors (3 fixed, 193 remaining).

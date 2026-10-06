@@ -1,0 +1,1655 @@
+--- a/.trellis/tasks/10-05-geo-804-approved-browser-adapter/implement.md
++++ b/.trellis/tasks/10-05-geo-804-approved-browser-adapter/implement.md
+@@ -1,6 +1,10 @@
+ # GEO-804 Preflight、基线与阻断证据
+ 
+-## 当前结果
++## 当前状态：deferred / post-core
++
++2026-10-05 用户明确将 MANUAL 回答级观测作为核心正式采集方式，真实 Browser 自动化延期。依据[ADR-006](../../../docs/geo-monitoring/05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md)，manifest/Trellis blocked→deferred，release=post-core，未实施或标记完成。原平台批准/staging输入缺失及全部基线日志保留为历史；恢复条件以当前 manifest 和 ADR-006 为准，不因依赖 done 自动执行。范围调整与验证见[治理任务](../10-05-geo-browser-scope-adjustment/implement.md)。
++
++## 原始阻断结果（历史）
+ 
+ 2026-10-05，GEO-804 / R7，分支 geo/GEO-804。依赖 GEO-802、GEO-803 均为 done，人工接受记录已核对；GEO-804 从 planned 进入 blocked，Trellis 从 planning 进入 blocked。未开始 Adapter 实施，不虚构 in_progress、review 或 done。
+ 
+--- a/.trellis/tasks/10-05-geo-804-approved-browser-adapter/prd.md
++++ b/.trellis/tasks/10-05-geo-804-approved-browser-adapter/prd.md
+@@ -5,12 +5,14 @@
+ | 字段 | 内容 |
+ |---|---|
+ | Task ID | GEO-804 |
+-| 发布增量 | R7 |
++| 发布增量 | post-core（phase R7） |
+ | 负责人 | 主代理 |
+ | 当前分支 | geo/GEO-804（进入任务时已经存在，未创建或切换） |
+ | 依赖 | GEO-802、GEO-803；manifest 均为 done，2026-10-05 人工接受记录齐全 |
+-| 状态 | blocked；依赖门禁满足，平台批准及 staging smoke 输入缺失，未开始实施 |
++| 状态 | deferred；按 ADR-006 延期，原 blocked 输入证据保留，未开始实施 |
+ | PR/Commit | 无；未提交、推送、部署或发布 |
++
++当前状态依据[ADR-006](../../../docs/geo-monitoring/05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md)及[范围调整任务](../10-05-geo-browser-scope-adjustment/prd.md)。以下保留原 Adapter 目标、preflight 和阻断历史，不授权执行。恢复须先按 manifest 重新排期、指定责任、取得唯一平台批准及受控 staging 人工授权/入口，并重验依赖。
+ 
+ ## 2. 目标
+ 
+--- a/.trellis/tasks/10-05-geo-804-approved-browser-adapter/task.json
++++ b/.trellis/tasks/10-05-geo-804-approved-browser-adapter/task.json
+@@ -2,8 +2,8 @@
+   "id": "geo-804-approved-browser-adapter",
+   "name": "geo-804-approved-browser-adapter",
+   "title": "GEO-804 第一个合规批准的真实界面 Adapter",
+-  "description": "核对首个批准真实界面Adapter门禁、现有实现差异与本地基线；等待平台批准范围与受控staging授权",
+-  "status": "blocked",
++  "description": "ADR-006 将真实 Browser Adapter 延期到 post-core；原平台批准/staging输入阻断历史保留，未开始实施",
++  "status": "deferred",
+   "dev_type": "infra",
+   "scope": "GEO-804",
+   "package": "browser-collector",
+@@ -25,17 +25,21 @@
+     "browser-collector/tests",
+     "docs/geo-monitoring/04-delivery/task-manifest.yaml"
+   ],
+-  "notes": "2026-10-05：依赖done，必读/preflight/本地基线完成；缺唯一BROWSER平台合规批准范围与受控staging smoke人工授权/入口，按用户指定停止条件blocked。未开始Adapter实施。",
++  "notes": "2026-10-05：依赖done，必读/preflight/本地基线完成；缺唯一BROWSER平台合规批准范围与受控staging smoke人工授权/入口，按用户指定停止条件blocked。未开始Adapter实施。 2026-10-05 用户明确调整为 MANUAL 正式核心版，按 ADR-006 blocked→deferred/post-core；未实施 Adapter，非完成。",
+   "meta": {
+     "geo_task_id": "GEO-804",
+-    "release": "R7",
+-    "manifest_status": "blocked",
+-    "delivery_status": "blocked",
++    "release": "post-core",
++    "manifest_status": "deferred",
++    "delivery_status": "deferred",
+     "delegated": false,
+     "validation_record": ".trellis/tasks/10-05-geo-804-approved-browser-adapter/implement.md",
+-    "blocked_reason": "required_external_input_or_human_authorization_missing",
+-    "blocked_at": "2026-10-05",
+     "implementation_started": false,
+-    "completed": false
++    "completed": false,
++    "deferral_decision": "docs/geo-monitoring/05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md",
++    "deferred_reason": "manual_first_core_browser_post_core",
++    "resume_conditions": "以当前 manifest GEO-804 与 ADR-006 为权威；恢复前重验产品排期/责任/唯一平台合规/staging授权和依赖",
++    "owner": "Browser 后续产品、合规、工程和运维责任待公司指定",
++    "original_blocked_reason": "required_external_input_or_human_authorization_missing",
++    "original_blocked_at": "2026-10-05"
+   }
+ }
+--- a/docs/geo-monitoring/01-product/01-product-vision-and-scope.md
++++ b/docs/geo-monitoring/01-product/01-product-vision-and-scope.md
+@@ -136,8 +136,12 @@
+ | R2 人工运行框架 | 能系统保存回答级人工观测和证据 | 可进行受控人工试用 |
+ | R3 API 自动观测 | 能按计划自动运行受控 API 采集 | 可形成持续监测基础 |
+ | R4 分析与复核 | 能形成可追溯提及、推荐、引用和准确性结果 | 可用于日常运营 |
+-| R5 洞察和机会 | 能发现趋势、异常并转化任务 | 核心版业务闭环成立 |
+-| R6 浏览器试点 | 能对一个批准的真实产品界面进行采集 | 提升代表性，不替代人工核验 |
++| R5 指标与洞察 | 能发现趋势并解释证据 | 可用于日常运营 |
++| R6 机会与复测 | 异常转化行动并按同口径复测 | MANUAL 正式采集支撑核心闭环 |
++| R8 核心生产硬化 | 安全、保留、恢复、性能与上线验收 | R6 后直接进入；Browser false 且无生产会话 |
++| R7 浏览器试点（post-core 可选） | 保留批准真实界面自动化目标与已完成基础设施 | 804～807 延期，不阻断核心发布 |
++
++当前范围依据[ADR-006](../05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md)；人工回答级观测是正式采集方式，见[人工观测 SOP](../02-business/05-manual-geo-observation-sop.md)。
+ 
+ ## 7. 关键产品原则
+ 
+--- a/docs/geo-monitoring/01-product/02-geo-core-prd.md
++++ b/docs/geo-monitoring/01-product/02-geo-core-prd.md
+@@ -204,13 +204,13 @@
+ 
+ ### 6.3 首发采集策略
+ 
+-产品层必须支持三种采集模式：
++依据[ADR-006](../05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md)，MANUAL 回答级观测是核心版正式采集方式；保留三种模式的模型与目标设计，Browser 自动化延期到 post-core。员工在真实平台人工执行精确问题后，登记完整回答、引用、截图和环境，操作见[人工观测 SOP](../02-business/05-manual-geo-observation-sop.md)。
+ 
+ | 模式 | 说明 | 核心版要求 |
+ |---|---|---|
+-| MANUAL | 人工在目标平台提问并登记答案、截图和引用 | 必须支持，作为全部平台的保底方式 |
+-| API | 通过经批准的模型或搜索 API 批量运行 | 必须支持至少两类自动化观测面 |
+-| BROWSER | 通过真实产品界面采集可见答案和引用 | 适配器接口必须具备；首发至少完成一个合规批准的平台试点，或明确处于受控试运行状态 |
++| MANUAL | 人工在目标平台提问并登记完整答案、截图、引用和环境 | 核心版正式采集方式，进入统一分析、复核和复测闭环 |
++| API | 通过经批准的模型或搜索 API 批量运行 | 保留已有能力，按批准与部署范围启用；不以新增两个自动化观测面作为核心上线门禁 |
++| BROWSER | 通过真实产品界面采集可见答案和引用 | post-core 可选扩展；保留目标设计和801～803基础设施，804～807 deferred，不阻断核心发布 |
+ 
+ 任何浏览器自动化必须经过公司合规确认，并只使用已获授权的账号、会话和网络环境。未获批准的平台只能使用人工观测。
+ 
+@@ -999,6 +999,8 @@
+ 
+ ### BROWSER
+ 
++以下为延期后的目标设计，按 ADR-006 恢复条件和平台批准实施，不是核心首发已具备能力。核心生产保持 GEO_BROWSER_COLLECTION_ENABLED=false 且无 Browser 会话。
++
+ - 使用受控浏览器会话；
+ - 记录账号配置 ID、地区、语言、浏览器/适配器版本和是否临时会话；
+ - 保存可见回答、引用和截图；
+@@ -1009,7 +1011,7 @@
+ - 用户选择运行后录入实际答案；
+ - 必须上传截图或其他证据；
+ - 必须记录平台、时间、语言、地区、登录状态和实际问题；
+-- 手工补录同样进入统一分析和复核流程。
++- MANUAL 是正式回答级采集方式，进入统一分析和复核流程；按[人工观测 SOP](../02-business/05-manual-geo-observation-sop.md)保存完整原文、来源顺序及缺失证据，不猜测 URL 或版本。
+ 
+ ## 11.4 分析
+ 
+@@ -1406,9 +1408,9 @@
+ 
+ 核心版只有在以下条件全部满足后才可视为“公司可用的 GEO 监测平台”：
+ 
+-1. 至少两个自动化观测面可稳定运行，且全部目标平台均可使用人工保底；
+-2. 至少一个经合规批准的真实产品界面采集试点可用，或明确标记为受控试运行；
+-3. 定时计划可持续运行并形成完整批次和单次运行历史；
++1. MANUAL 回答级观测在批准的人工访问范围内正式可用，目标平台的完整回答、引用/缺失说明、截图和冻结环境可追溯；已有 API 按实际批准范围验收，不要求先新增两个自动化观测面；
++2. R6 直接进入并完成 R8 核心硬化；R7 延期不阻断上线，GEO_BROWSER_COLLECTION_ENABLED 必须保持 false，Browser 服务/profile 未启用且无生产会话；
++3. 定时计划可持续创建完整批次/Run 待办，由员工按计划领取并完成人工采样；计划生成不代表已向平台提问或已采集成功；
+ 4. 每个汇总指标都能回到原始答案、引用和截图；
+ 5. 公司产品与竞品可以在同一问题和平台下比较；
+ 6. 严重事实错误能够进入人工复核和事实修订闭环；
+--- a/docs/geo-monitoring/02-business/01-business-architecture.md
++++ b/docs/geo-monitoring/02-business/01-business-architecture.md
+@@ -33,6 +33,8 @@
+     O --> R[同口径复测]
+     R --> C
+ ```
++
++当前核心采集策略由[ADR-006](../05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md)批准：MANUAL 回答级观测是正式入口，员工按[人工观测 SOP](./05-manual-geo-observation-sop.md)执行并录入真实证据；已有 API 保留，Browser 为 post-core 自动化扩展。核心在 R6 后直接进入 R8，不等待真实界面 Adapter；以下三模式领域设计保留。
+ 
+ ## 2. 核心能力地图
+ 
+--- a/docs/geo-monitoring/02-business/03-workflows-and-state-machines.md
++++ b/docs/geo-monitoring/02-business/03-workflows-and-state-machines.md
+@@ -179,6 +179,8 @@
+ 
+ ## 5. 人工采集流程
+ 
++MANUAL 回答级观测是[ADR-006](../05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md)确定的核心正式采集方式；从计划分配 Run、精确问题、环境核对、原文/引用/截图和缺失说明到分析复核，按[人工观测 SOP](./05-manual-geo-observation-sop.md)执行。此调整不改变下述 Run/草稿状态机、revision 或提交不变量。
++
+ ```mermaid
+ flowchart TD
+     A[PENDING MANUAL run] --> B[工程师打开录入]
+@@ -229,7 +231,7 @@
+ 
+ ## 7. 浏览器采集流程
+ 
+-浏览器采集只能在 ADR-005 的试点门禁后启用。
++下述 Browser 流程保留为 post-core 目标设计。按[ADR-006](../05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md)延期，不是核心发布前置条件；恢复后仍必须满足 ADR-005 的平台、安全和试点门禁。核心生产保持 Browser false 且无生产会话。
+ 
+ ```mermaid
+ flowchart TD
+--- a/docs/geo-monitoring/02-business/05-manual-geo-observation-sop.md
++++ b/docs/geo-monitoring/02-business/05-manual-geo-observation-sop.md
+@@ -0,0 +1,66 @@
++# 人工 GEO 回答级观测 SOP
++
++| 项目 | 内容 |
++|---|---|
++| 状态 | 已批准操作规范；依据本会话用户产品决策及 ADR-006 |
++| 适用 | 核心版 MANUAL 回答级 Batch/Run；豆包、DeepSeek、元宝等人工观测 |
++| 执行责任 | 计划指定员工执行；管理员维护配置；分析/复核人员按既有权限处理。具体人员由公司指定 |
++| 边界 | 不授权 Browser 自动化；不改变 MANUAL/API 合同、指标或历史 |
++
++决策见 [ADR-006](../05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md)，状态与证据流程见 [业务流程](./03-workflows-and-state-machines.md#5-人工采集流程)。本 SOP 使用当前正式表单，不能把目标设计当已上线能力。
++
++## 1. 从计划领取 Run
++
++1. 管理员准备明确平台的 MANUAL 观测面/Profile，配置语言、地区、登录模式、联网搜索策略、截图要求；每个平台使用独立配置。员工使用批准的人工访问方式，非公开问题仍按公司的数据外发规则处理。
++2. 在 `/geo/plans` 预览计划，由服务端生成 `问题 × Profile × repeat` 矩阵。创建批次后，在 `/geo/runs` 选择 PENDING MANUAL Run，记下 Batch ID、Run ID、repeat_index 与计划窗口。
++3. 计划协调人员明确每个 Run 的执行员工，避免两人同时人工提问。“领取”是工作分配，当前系统没有人工独占 claim/租约按钮；打开录入或保存草稿不授予独占权。出现草稿 revision 冲突时重新读取并协调，禁止覆盖他人内容。
++4. 核对冻结问题及环境。无法按该环境采集时保持草稿/待执行，通过正确配置创建新的合适 Run，不修改旧 Run 的冻结输入。
++
++## 2. 使用精确问题并记录环境
++
++- 从 Run 输入快照复制完整精确问题，不改标点、型号、顺序或点名属性，不额外追加品牌提示或产品事实。只选择本 Run 对应平台。
++- 在平台人工打开新的对话；有临时/无记忆方式时使用该方式。记录实际对话模式，不声称平台没有提供的隔离能力；不要沿用有额外上下文的旧对话作为同口径重复样本。
++- 核对并记录平台/产品名称、语言、地区和登录模式。语言/地区/登录来自冻结 Profile，在录入页只读；现场必须匹配。可见的搜索状态据实选是/否，无法判断保持未知。
++- 在“实际采集时间”填写回答完成时间并显式包含时区；不以录入时间替代历史采集时间。在来源产品/模型/版本字段只填平台实际可见标识，未知保持空，不根据品牌推测模型版本。
++- 不上传账号头像、姓名、手机号、Cookie、密钥、浏览器 storage state、登录/支付/调试页面。截图裁去这些区域，同时保持问题、回答和来源证据可辨认。员工人工登录不导入 PartSignal Browser 会话。
++
++## 3. 保存完整回答原文
++
++等待平台回答自然完成后，复制完整可见原文，包括标题、列表、表格、免责声明及引用标记。不得改写、摘录、润色、补全截断回答或将自己的说明插入回答正文。按实际内容选择 TEXT/MARKDOWN 等表单格式，核对粘贴后完整性。
++
++平台报错、访问挑战、空白或仍在生成时不正式提交成功回答。保留安全截图和草稿，通知计划协调人员；按现有可用取消/补测入口处理，不把失败录成“无提及”。普通页面把缺失/失败说明放在合并截图的独立说明区；表单没有任意附件、备注或新增文本证据关联入口，不将说明塞入回答正文或安全 raw summary。既有人工录入 API 支持关联合法 EVIDENCE 的 text/plain 文件，但不等于页面已提供该功能。
++
++## 4. 登记引用与缺失原因
++
++1. 按回答/来源面板的实际顺序逐条记录来源标题、原始完整 URL、位置（从 1 开始）；重复出现按真实位置保留，由服务端规范化/合并。不得按自有来源优先重排。
++2. 核对服务端从 URL 派生的规范域名；域名不在表单中单独自由填写。平台只显示标题或短域名时不能猜完整 URL，不能用搜索到的相似网页替代该次引用。
++3. URL 不可见时保存来源面板截图，并在独立证据说明中登记 Run ID、实际来源标题/顺序、可见域名（如有）、缺失项及原因，如“平台未展示完整 URL”。普通页面将说明合并到证据图的独立说明区；只有使用既有且有权限的人工录入 API 上传/关联流程时，才可通过 text/plain 原始证据文件保留，页面只显示/保留已有 raw_payload_file_id；不得覆盖或改写回答原文，也不伪造 URL 通过校验。
++4. 当前结构化 Citation 必须有有效 URL，没有 URL 缺失原因专用字段。若只能登记部分来源，必须保留草稿与截图/原因，在补齐该次全部来源 URL 前不得正式提交；也不能把已知来源一并省略以回避完整性要求。当前服务端可能将非空但不完整的引用列表算入引用指标，截图说明和分析复核都不会自动使缺失引用变为 N/A；复核人员不能放行此类部分样本。全部 URL 均不可提取且保留完整截图/原因的样本，可据实不登记结构化引用，但不能宣称“平台没有引用”；当前服务端将无结构化引用的此类样本排除出引用指标，其他指标仍按各自资格裁决。
++5. 无引用、未观察到引用、引用无法提取是不同情况。仅确认整段回答与完整来源面板后才描述“未见来源”；不要把缺失证据变成零覆盖结论。
++
++## 5. 上传回答与来源截图
++
++同时保存回答（包含精确问题）和来源面板截图，覆盖完整回答与来源顺序。当前每个回答只能关联一个 `screenshot_file_id`；多段截图在本地合并为一份 PNG/JPEG/WebP 证据图，明确拼接顺序，并把证据说明放在独立区域，不能遮挡或修改回答内容。
++
++使用现有截图上传入口；文件类别 OPERATION_SCREENSHOT，INTERNAL/RESTRICTED，最大 10 MiB。检查文字清晰、无敏感账号区域，上传完成并验证后才关联。提交者必须关联自己上传的文件。可选原始 text/plain 证据属于 EVIDENCE、最大 50 MiB，仅通过既有有权限的文件/人工录入 API 上传并关联；当前页面没有新增上传/关联该文本的入口，只保留已有引用。常规页面操作将缺失说明并入单截图，不改扩展名绕过格式限制。无法在现有限制内完整保存时先留草稿，与复核/运维人员处理，不宣称已保存完整证据。
++
++## 6. 保存草稿与正式提交
++
++正式提交前逐项核对：Run/平台/冻结环境正确，精确问题一致，回答完整非空，实际带时区时间正确，引用及缺失证据真实，截图已验证且无秘密，模型/版本未知未猜测。草稿保存后可继续编辑，但不要重复向外部平台提问以挑选更好的答案替换本次采样。
++
++正式提交通过既有权限、revision、文件归属与完整性校验，原子冻结 AnswerSnapshot、引用和文件，Run 进入 COLLECTED。提交回执不表示分析已完成。成功后不能编辑、覆盖或补写原始证据；发现错误时保留历史，报告原因，通过新独立采样或既有分析复核处理。响应不明时先刷新确认结果，不盲目重复提交或重新提问。
++
++## 7. 分析与人工复核
++
++查看 Run Detail 的分析/复核状态。分析失败保留原始证据，按既有重新分析动作处理；NEEDS_REVIEW 按权限确认或修正提及、推荐、引用归属、声明及事实判断，复核追加记录。新的分析 revision 需要重新检查有效复核，不能用旧复核替代。
++
++复核人员对照原文和截图，不补造引用或产品事实；不确定结论保持未知。复核只改变分析结论，不编辑原始答案。未通过必要复核的运行不得手工算入业务指标。
++
++## 8. 数据资格与重复采样
++
++- 从计划预先设定 repeat 和窗口，每个 repeat 对应一个独立 Run/回答，所有样本都保留。不得将同一回答/截图复制到多次重复、丢弃低表现样本、以取消失败替代成功零表现或事后挑选最佳答案。
++- 精确问题版本、平台/Profile、MANUAL 模式、语言、地区、登录、搜索策略及规则应一致。环境变化另建正确采样配置/基线；MANUAL 不与 API/BROWSER 静默合并。
++- COMPLETED、当前有效分析、必要人工复核、适用对象/问题和可比维度等资格仍由服务端裁决；缺引用证据或可靠排序时，相应指标可能不可用，空分母为 NULL。不要在表格里补零或维护另一套公式。
++- 样本量和质量等级使用现有规则集与报告提示；样本不足不宣称趋势、不触发趋势型机会。每个结论回到 Run、原文、截图、引用与当前分析/复核。
++- 严格复测按既有预览和基线门禁执行。模型/产品版本未知或环境变化可能阻断复测，不用人工备注或相似问题绕过；需要新基线时明确记录不可比原因。
++- 证据依现有权限和保留规则管理；本 SOP 不新增保留天数、不删除历史。计划负责人分配采样与复核责任并处理缺失证据，具体频率按已批准人工访问范围执行。
+--- a/docs/geo-monitoring/03-technical/01-technical-architecture.md
++++ b/docs/geo-monitoring/03-technical/01-technical-architecture.md
+@@ -29,7 +29,7 @@
+ 4. 原始大对象和截图进入对象存储，元数据和哈希进入 PostgreSQL；
+ 5. 采集、分析、人工复核分离；
+ 6. 现有人工文章观测保留，新回答级观测使用独立运行模型；
+-7. API 采集先实现，浏览器采集通过独立试点和合规门禁后启用；
++7. MANUAL 回答级观测是核心正式采集方式，保留已有 API；Browser 为 post-core 可选扩展，恢复须满足[ADR-006](../05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md)及平台/试点安全门禁；
+ 8. 指标从原始运行与当前有效分析计算，不维护可写的第二份指标事实；
+ 9. 复杂页面由服务端读模型提供，不在浏览器 join；
+ 10. 所有公共接口继续契约优先。
+@@ -72,7 +72,9 @@
+ 
+ ### 4.2 浏览器试点
+ 
+-浏览器采集不得直接塞入普通 API 容器。试点阶段增加受 profile 控制的独立服务：
++Browser 目标设计及已完成 GEO-801～803 保留；804～807 延期，R7 不阻断 R8 核心发布。核心生产保持 GEO_BROWSER_COLLECTION_ENABLED=false，不启用 geo-browser 服务、会话挂载或能力凭据，且无生产会话，由 GEO-904/906 实测。
++
++浏览器采集不得直接塞入普通 API 容器。恢复试点后使用受 profile 控制的独立服务：
+ 
+ ```text
+ browser-collector
+--- a/docs/geo-monitoring/03-technical/07-testing-and-quality.md
++++ b/docs/geo-monitoring/03-technical/07-testing-and-quality.md
+@@ -413,7 +413,7 @@
+ - 数据库备份恢复；
+ - OSS 证据恢复/缺失提示；
+ - 主密钥配对；
+-- Browser session 撤销；
++- 核心版验证 Browser 关闭、服务未启用且无生产会话；仅 R7 部署或存在材料时执行会话恢复/撤销，未部署且无材料记录有依据的 N/A（[ADR-006](../05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md)）；
+ - release rollback 兼容性。
+ 
+ ## 14. 阶段质量门禁
+--- a/docs/geo-monitoring/03-technical/08-deployment-and-operations.md
++++ b/docs/geo-monitoring/03-technical/08-deployment-and-operations.md
+@@ -17,7 +17,7 @@
+ 
+ ## 2. 服务拓扑
+ 
+-### 2.1 R1–R6
++### 2.1 R1–R6 与 R8 核心版
+ 
+ 复用现有服务：
+ 
+@@ -43,7 +43,9 @@
+ 
+ ### 2.2 R7 Browser Pilot
+ 
+-新增 profile 服务：
++按[ADR-006](../05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md)延期为 post-core 可选扩展。核心上线不启用 geo-browser 服务或会话 overlay，GEO_BROWSER_COLLECTION_ENABLED 必须保持 false；GEO-904/906 检查无生产 Browser 会话、会话密钥/能力挂载。现存材料仍须保护、撤销/清理，不能用延期豁免；部署/材料均不存在时 GEO-901 清理与 GEO-903 会话恢复记录 N/A。已完成 801～803 不删除，以下目标拓扑保留供恢复评估。
++
++恢复后使用 profile 服务：
+ 
+ ```text
+ browser-collector
+@@ -339,14 +341,14 @@
+ - 所有 migrations 和 preflight 通过；
+ - 人工运行纵向闭环通过；
+ - fake provider API 纵向闭环通过；
+-- 真实 API smoke 使用专用低权限 Key，通过后不保存 secret；
++- 实际启用 API 时，授权真实 API smoke 使用专用低权限 Key，通过后不保存 secret；未启用时记录批准/部署范围和 N/A，不阻断 MANUAL 核心上线；
+ - 每 attempt 至多一次调用；
+ - 预算门禁有效；
+ - 指标可下钻；
+ - 导出不泄露敏感字段；
+ - 备份恢复演练通过；
+ - 监控和停止流程可用；
+-- Browser 功能默认关闭，除非试点全部门禁通过。
++- R7 延期不阻断核心上线；Browser 开关必须 false、geo-browser 服务未启用且无生产会话，并留目标环境证据。后续启用必须另按 ADR-006 恢复和生产授权门禁执行。
+ 
+ 
+ ## 当前 R3：GEO-405 运维参数
+--- a/docs/geo-monitoring/04-delivery/01-implementation-roadmap.md
++++ b/docs/geo-monitoring/04-delivery/01-implementation-roadmap.md
+@@ -29,9 +29,11 @@
+     R3 --> R4[R4 分析与复核]
+     R4 --> R5[R5 指标与洞察]
+     R5 --> R6[R6 机会与复测]
+-    R6 --> R7[R7 浏览器试点]
+-    R7 --> R8[R8 生产硬化]
++    R6 --> R8[R8 核心生产硬化]
++    R8 -. 产品重新排期及合规门禁 .-> R7[R7 可选后续浏览器扩展]
+ ```
++
++当前范围依据[ADR-006](../05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md)：MANUAL 是正式回答级采集方式，R6 直接进入 R8；R7 不再是核心前置门禁。801～803 保留 done，804～807 deferred/post-core，恢复条件以 manifest 和 ADR 为准。
+ 
+ ## 3. R0：文档、决策和当前基线
+ 
+@@ -208,11 +210,11 @@
+ - 复测不可比时明确阻断；
+ - 机会纵向 E2E 通过。
+ 
+-## 10. R7：浏览器采集试点
+-
+-### 目标
+-
+-在合规批准下，对一个真实 AI 产品界面完成小规模、可停止、可审计的试点。
++## 10. R7：浏览器采集试点（post-core 可选扩展）
++
++### 目标
++
++以下目标设计保留，当前不执行：801～803 已接受 done，804～807 deferred/post-core。产品重新排期并满足 ADR-006 恢复条件后，在合规批准下，对一个真实 AI 产品界面完成小规模、可停止、可审计的试点；不作为核心上线条件。
+ 
+ ### 交付
+ 
+@@ -244,11 +246,12 @@
+ 
+ - retention/cleanup；
+ - 运行、成本、失败和积压监控；
+-- 数据库/OSS/密钥/浏览器会话备份恢复演练；
++- 数据库/OSS/适用密钥备份恢复演练；Browser 会话仅在 R7 部署或实际存在材料时适用，否则记录有依据的 N/A；
+ - 100,000 run 洞察性能验证；
+ - 安全与合规复核；
+ - 运维 runbook；
+-- 文档状态更新为已实现。
++- 仅把实际实现并验收的核心范围标记已实现，804～807 保持延期，不宣称 Browser 已实现；
++- GEO-901 的 Browser 临时数据清理条件适用；GEO-903 未部署且无材料时会话恢复 N/A；GEO-904/906 实测 Browser false、服务未启用且无生产会话。
+ 
+ ## 12. 关键路径
+ 
+@@ -264,7 +267,7 @@
+ → GEO-901/902/903/906
+ ```
+ 
+-Browser 试点不是核心业务闭环的阻断条件，可在 R6 后独立推进。
++核心关键路径为 R6 → R8。R7 是 post-core 可选扩展，deferred 不阻断核心发布；API 能力仍按原依赖和批准范围保留，不更改 MANUAL/API 行为。人工操作见[观测 SOP](../02-business/05-manual-geo-observation-sop.md)。
+ 
+ ## 13. Codex 执行节奏
+ 
+--- a/docs/geo-monitoring/04-delivery/02-work-breakdown-structure.md
++++ b/docs/geo-monitoring/04-delivery/02-work-breakdown-structure.md
+@@ -47,7 +47,7 @@
+ | `GEO-208` | 实现 Plan 命令、查询、状态机和 API | GEO-207 | CRUD、preview、activate/pause/resume/archive/copy/run-now 占位、读模型、审计。 | 状态机、revision、并发、权限、审计。；ACTIVE 修改不改变未来已创建快照；ARCHIVED 只读。 |
+ | `GEO-209` | 实现监测计划列表和向导 | GEO-208 | 分步向导、服务端预览、URL 列表、状态动作、dirty 保护。 | Vitest、路由、409、E2E 创建/启停计划。；前端不计算最终 run_count；所有 blocker 可定位修正。 |
+ 
+-## R2 人工运行框架
++## R2 人工运行框架（核心正式采集方式）
+ 
+ | ID | 任务 | 依赖 | 主要交付 | 测试与验收 |
+ |---|---|---|---|---|
+@@ -110,7 +110,9 @@
+ | `GEO-706` | 实现干预前后比较和机会解决流程 | GEO-705, GEO-605 | baseline/retest metrics、样本说明、恢复规则、显式 resolve/continue。 | 前后窗口、样本不足、未恢复、人工解决。；页面不宣称因果；结果含环境/模型差异。 |
+ | `GEO-707` | 完成机会闭环 E2E、审计和 R6 验收 | GEO-706 | TOPIC_COVERAGE_GAP→ContentTask→RETEST→resolve 纵向流，补齐审计。 | Playwright、make verify、审计脱敏。；核心版“监测→行动→复测”闭环可用。 |
+ 
+-## R7 浏览器试点
++## R7 浏览器试点（post-core 可选扩展）
++
++依据[ADR-006](../05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md)，801～803 已人工接受为 done，基础设施和证据保留；804～807 deferred/post-core，不得执行或标 done。每项延期原因、恢复条件和待定责任见 task-manifest。以下保留恢复后的目标设计；当前核心使用[MANUAL SOP](../02-business/05-manual-geo-observation-sop.md)，R6 直接进入 R8。
+ 
+ | ID | 任务 | 依赖 | 主要交付 | 测试与验收 |
+ |---|---|---|---|---|
+@@ -122,16 +124,16 @@
+ | `GEO-806` | 实现 Browser Profile 健康、频率、kill switch 和管理 UI | GEO-805, GEO-205 | session health、reauth、max concurrency、rate limit、开关、运维状态。 | 会话过期、停用、并发、UI 权限。；管理员可立即停止新浏览器运行并识别需重新登录 profile。 |
+ | `GEO-807` | 执行真实平台小规模试点和人工交叉验收 | GEO-806 | 批准账号、低频计划、人工/API/浏览器结果对比、停止和撤销演练。 | 受控人工验收，不作为普通 CI。；合规清单、数据质量、账号安全和试点报告均批准后才可生产启用。 |
+ 
+-## R8 生产硬化
++## R8 核心生产硬化（R6 直接进入）
+ 
+ | ID | 任务 | 依赖 | 主要交付 | 测试与验收 |
+ |---|---|---|---|---|
+-| `GEO-901` | 实现 GEO 数据保留、归档和清理任务 | GEO-707 | raw payload、临时草稿、无引用文件、浏览器临时数据的限批清理和墓碑。 | 保留边界、引用保护、存储故障重试、dry-run。；不删除指标所需元数据和已引用证据，清理可观察。 |
++| `GEO-901` | 实现 GEO 数据保留、归档和清理任务 | GEO-707 | raw payload、临时草稿、无引用文件的限批清理和墓碑；Browser 临时数据仅在部署 R7 或存在材料时适用，否则记录有依据的 N/A。 | 保留边界、引用保护、存储故障重试、dry-run。；不删除指标所需元数据和已引用证据，清理可观察；Browser 延期不豁免实际存在材料的保护/清理。 |
+ | `GEO-902` | 完善运行、成本、失败和积压可观察性 | GEO-408, GEO-607, GEO-707 | 低敏感指标、dashboard/alerts、稳定日志字段、Scheduler/Worker health。 | 指标模拟、告警阈值、日志 secret scan。；可区分业务低表现与系统故障；可定位 oldest pending/expired lease。 |
+-| `GEO-903` | 完成数据库、OSS、密钥和会话备份恢复演练 | GEO-901, GEO-902 | 备份清单、恢复脚本/步骤、一致性扫描、隔离恢复证据。 | 真实隔离恢复、哈希、凭据解密、调度去重。；任意 Run Detail 和指标可恢复；缺失对象明确报告。 |
+-| `GEO-904` | 执行 GEO 安全与合规专项复核 | GEO-903 | 权限、CSRF、SSRF、secret、XSS、CSV、prompt injection、browser 会话和外部平台批准检查。 | 全部 TEST-GEO-SEC。；无未接受的高风险项；例外有责任人和到期日。 |
++| `GEO-903` | 完成数据库、OSS、密钥和会话备份恢复演练 | GEO-901, GEO-902 | 数据库、OSS、适用密钥的备份清单、恢复步骤、一致性扫描与隔离证据；未部署 R7 且确认无 Browser 材料时，会话恢复 N/A。 | 真实隔离恢复、哈希、凭据解密、调度去重。；任意 Run Detail 和指标可恢复；缺失对象明确报告；N/A 附部署及材料检查依据，存在 Browser 材料仍须保护并验证恢复/撤销。 |
++| `GEO-904` | 执行 GEO 安全与合规专项复核 | GEO-903 | 权限、CSRF、SSRF、secret、XSS、CSV、prompt injection 和实际外部平台批准检查；核心环境验证 Browser false、服务/profile 未启用且无生产会话/会话材料。 | 全部 TEST-GEO-SEC。；无未接受的高风险项；例外有责任人和到期日；Browser 关闭及无生产会话有目标环境证据，不能仅凭默认配置判定。 |
+ | `GEO-905` | 完成大数据量性能和容量硬化 | GEO-607, GEO-902 | 100k+ runs、1000 run batch、流式导出、并发 Worker、必要索引/物化策略。 | 性能门禁和查询计划。；达到目标环境阈值，缓存可重建且不成为权威。 |
+-| `GEO-906` | 执行生产渐进上线、最终验收和文档状态更新 | GEO-903, GEO-904, GEO-905 | expand/deploy/enable、内部试用、监控窗口、回滚演练、文档已实现标记。 | make verify、生产 smoke、恢复/停止演练。；核心版正式可用；未批准 Browser profile 保持关闭；所有任务证据归档。 |
++| `GEO-906` | 执行生产渐进上线、最终验收和文档状态更新 | GEO-903, GEO-904, GEO-905 | 核心范围 expand/deploy/enable、MANUAL 正式闭环、内部试用、监控/回滚和文档验收；R7 延期不阻断核心上线，GEO_BROWSER_COLLECTION_ENABLED 必须保持 false。 | make verify、生产 smoke、恢复/停止演练。；核心版正式可用；GEO_BROWSER_COLLECTION_ENABLED=false、Browser 服务/profile 未启用且无生产会话；R7 deferred 不阻断，延期项不标已实现，核心与延期证据分别保留。 |
+ 
+ ## 3. 任务状态
+ 
+@@ -140,9 +142,10 @@
+ ```text
+ planned → ready → in_progress → review → done
+                     └────────────→ blocked
++planned / ready / in_progress / blocked → deferred（产品延期）
+ ```
+ 
+-状态更新必须写入 `task-manifest.yaml` 或项目采用的 Trellis 任务记录。
++状态更新必须写入 `task-manifest.yaml`，已有 Trellis 记录同步。`deferred` 是产品排期延期，不等于 done、不满足依赖完成条件；须记录 deferred_reason、resume_conditions、release: post-core 和责任人/待定责任。恢复经产品重新排期、授权及依赖重验后重新评估 ready，不能因历史提示词或依赖 done 自动执行。
+ 
+ ## 4. 单任务完成证据
+ 
+--- a/docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md
++++ b/docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md
+@@ -186,8 +186,10 @@
+ | R4 | CAP 07–10 | 能分析并人工复核 |
+ | R5 | CAP 11、15 | 能查看可解释指标、报告和明细 |
+ | R6 | CAP 12–14 | 异常可行动并复测 |
+-| R7 | CAP 16 的 Browser 部分 | 一个真实界面合规试点 |
+-| R8 | 全部 | 生产运维和恢复门禁完成 |
++| R7（post-core 可选） | CAP 16 的 Browser 部分目标保留 | 801～803 done，804～807 deferred；不作为核心门禁 |
++| R8 | 当前核心范围 | R6 后直接进入；MANUAL 正式闭环与运维/恢复/安全完成，Browser false 且无生产会话 |
++
++范围及条件性验收以[ADR-006](../05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md)和当前 manifest 为准；Browser 需求保持追踪，未实现项不标已实现。
+ 
+ ## 4. 追踪维护规则
+ 
+--- a/docs/geo-monitoring/04-delivery/04-codex-execution-guide.md
++++ b/docs/geo-monitoring/04-delivery/04-codex-execution-guide.md
+@@ -13,10 +13,13 @@
+ 
+ - 任务 ID；
+ - 依赖任务均为 done；
++- 当前任务未处于 deferred；延期任务必须先按恢复条件重新排期、核对授权和依赖，不能因前序 done 自动开始；
+ - 明确的需求/能力 ID；
+ - 相关业务和技术文档；
+ - 验收标准；
+ - 当前仓库基线可运行或已记录阻断。
++
++当前核心路径为 R6 → R8；MANUAL 是正式采集方式，R7 为 post-core 扩展，依据[ADR-006](../05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md)。deferred 是交付治理状态，不修改业务状态机，也不满足依赖的 done 条件。
+ 
+ ## 2. 必读顺序
+ 
+--- a/docs/geo-monitoring/04-delivery/05-task-template.md
++++ b/docs/geo-monitoring/04-delivery/05-task-template.md
+@@ -8,11 +8,13 @@
+ |---|---|
+ | Task ID | GEO-NNN |
+ | 标题 |  |
+-| 发布增量 | R0–R8 |
+-| 状态 | planned/ready/in_progress/review/done/blocked |
++| 发布增量 | R0–R8 / post-core |
++| 状态 | planned/ready/in_progress/review/done/blocked/deferred |
+ | 负责人 |  |
+ | 依赖 |  |
+ | 关联 PR/Commit |  |
++
++延期任务必须填写 deferred_reason、resume_conditions、release: post-core 和负责人/待定责任说明；记录产品决策依据，保留原阻断/完成证据。解除延期不等于完成，恢复须重新核对当前依赖及授权。
+ 
+ ## 2. 目标
+ 
+--- a/docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md
++++ b/docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md
+@@ -11,7 +11,7 @@
+ ## 重要规则
+ 
+ 1. 不要把本文件整份粘贴给 Codex；每次只复制一个 `GEO-NNN` 区块。
+-2. 只有依赖任务在当前仓库 `task-manifest.yaml` 中均为 `done`，才执行该任务。
++2. 依赖须均为 done 且当前任务不为 deferred。GEO-804～807 按 ADR-006 为 post-core 延期，恢复前不执行；核心 R6→R8，不因延期阻断。
+ 3. Codex 完成后把任务置为 `review`；由你人工验收后再使用收尾提示词改为 `done`。
+ 4. 若你的当前仓库文档、任务依赖或 ADR 已在 GEO-001/GEO-002 中修订，以仓库当前版本为准。
+ 5. 真实平台、staging、恢复演练和生产上线任务必须保留人工授权门禁，Codex 不得伪造执行结果。
+@@ -20,75 +20,75 @@
+ 
+ | ID | 阶段 | 标题 | 依赖 |
+ |---|---|---|---|
+-| [GEO-003](#geo-003) | R0 | 冻结当前 GEO 实现与契约基线 | GEO-001, GEO-002 |
+-| [GEO-004](#geo-004) | R0 | 增加 GEO 渐进启用配置和安全默认值 | GEO-003 |
+-| [GEO-005](#geo-005) | R0 | 建立 GEO 测试夹具和金标目录 | GEO-003 |
+-| [GEO-101](#geo-101) | R1 | 定义 GEO Catalog 公共契约与数据库合同 | GEO-003, GEO-002 |
+-| [GEO-102](#geo-102) | R1 | 实现 GEO Catalog ORM 与 Alembic | GEO-101 |
+-| [GEO-103](#geo-103) | R1 | 实现 GEO Catalog Schema 与领域策略 | GEO-101, GEO-102 |
+-| [GEO-104](#geo-104) | R1 | 实现 GEO Catalog 应用服务和 API | GEO-103 |
+-| [GEO-105](#geo-105) | R1 | 实现监测对象、竞品、别名和域名管理页面 | GEO-104 |
+-| [GEO-106](#geo-106) | R1 | 完成 Catalog 纵向验收和产品引导 | GEO-105 |
+-| [GEO-201](#geo-201) | R1 | 定义并实现 PromptVariant 契约与数据模型 | GEO-003, GEO-101 |
+-| [GEO-202](#geo-202) | R1 | 实现问题变体服务、API 和前端工作区 | GEO-201 |
+-| [GEO-203](#geo-203) | R1 | 定义并实现 EngineSurface 与 CollectionProfile 数据契约 | GEO-004, GEO-101 |
+-| [GEO-204](#geo-204) | R1 | 建立 Collector Registry 和 Profile 资格策略 | GEO-203 |
+-| [GEO-205](#geo-205) | R1 | 实现观测面/Profile 管理 API 和页面 | GEO-204 |
+-| [GEO-206](#geo-206) | R1 | 定义并实现 MonitoringPlan 数据契约 | GEO-202, GEO-205 |
+-| [GEO-207](#geo-207) | R1 | 实现服务端运行矩阵预览和费用覆盖 | GEO-206, GEO-204 |
+-| [GEO-208](#geo-208) | R1 | 实现 Plan 命令、查询、状态机和 API | GEO-207 |
+-| [GEO-209](#geo-209) | R1 | 实现监测计划列表和向导 | GEO-208 |
+-| [GEO-301](#geo-301) | R2 | 定义 Batch/Run 公共契约与数据库模型 | GEO-208, GEO-002 |
+-| [GEO-302](#geo-302) | R2 | 实现 Batch/Run 状态策略与动作投影 | GEO-301 |
+-| [GEO-303](#geo-303) | R2 | 实现批次工厂、计划快照和创建幂等 | GEO-302, GEO-207 |
+-| [GEO-304](#geo-304) | R2 | 定义并实现 AnswerSnapshot、Citation 与证据关联 | GEO-301 |
+-| [GEO-305](#geo-305) | R2 | 实现 MANUAL 草稿和正式提交 | GEO-303, GEO-304 |
+-| [GEO-306](#geo-306) | R2 | 实现 Batch/Run 列表与详情读模型 | GEO-303, GEO-305 |
+-| [GEO-307](#geo-307) | R2 | 实现运行中心、人工录入和详情页面 | GEO-306 |
+-| [GEO-308](#geo-308) | R2 | 完成 R2 并发、不可变和兼容性验收 | GEO-307 |
+-| [GEO-401](#geo-401) | R3 | 定义 GeoCollector 协议和稳定错误模型 | GEO-204, GEO-301 |
+-| [GEO-402](#geo-402) | R3 | 实现 GEO fake provider 和 Collector 合同套件 | GEO-401, GEO-005 |
+-| [GEO-403](#geo-403) | R3 | 实现 API Profile 连接测试和能力验证 | GEO-402, GEO-205 |
+-| [GEO-404](#geo-404) | R3 | 实现 OpenAI-compatible GEO Collector | GEO-401, GEO-403 |
+-| [GEO-405](#geo-405) | R3 | 实现采集 Worker、lease、dispatch 和补投递 | GEO-303, GEO-404, GEO-004 |
+-| [GEO-406](#geo-406) | R3 | 实现 external_call_state 与 at-most-once 恢复 | GEO-405 |
+-| [GEO-407](#geo-407) | R3 | 实现引用、usage、cost、预算和 profile rate limit | GEO-405, GEO-406 |
+-| [GEO-408](#geo-408) | R3 | 完成 API 自动观测 UI 和纵向验收 | GEO-407, GEO-307 |
+-| [GEO-501](#geo-501) | R4 | 定义 AnalysisRevision、Mention、Recommendation、Claim、Review 契约和表 | GEO-304, GEO-005 |
+-| [GEO-502](#geo-502) | R4 | 实现监测对象别名快照和确定性提及识别 | GEO-501, GEO-106 |
+-| [GEO-503](#geo-503) | R4 | 实现推荐分类和可靠位置识别 | GEO-501, GEO-502 |
+-| [GEO-504](#geo-504) | R4 | 实现引用归属和来源类别分析 | GEO-501, GEO-106, GEO-304 |
+-| [GEO-505](#geo-505) | R4 | 实现声明提取、事实版本装配和准确性评估 | GEO-501, GEO-502 |
+-| [GEO-506](#geo-506) | R4 | 实现 Analysis Worker 和 revision 生命周期 | GEO-502, GEO-503, GEO-504, GEO-505, GEO-405 |
+-| [GEO-507](#geo-507) | R4 | 实现人工复核策略、API 和当前结果选择 | GEO-506 |
+-| [GEO-508](#geo-508) | R4 | 实现分析/复核前端并完成 R4 金标验收 | GEO-507 |
+-| [GEO-601](#geo-601) | R5 | 实现 MetricEligibility、样本等级和公式库 | GEO-507 |
+-| [GEO-602](#geo-602) | R5 | 实现 GEO Overview 读模型和 API | GEO-601 |
+-| [GEO-603](#geo-603) | R5 | 实现趋势、竞品 SOV 和问题/平台覆盖 | GEO-601 |
+-| [GEO-604](#geo-604) | R5 | 实现引用、事实风险和数据质量洞察 | GEO-601, GEO-504, GEO-505 |
+-| [GEO-605](#geo-605) | R5 | 实现总览和分析洞察前端 | GEO-602, GEO-603, GEO-604 |
+-| [GEO-606](#geo-606) | R5 | 实现打印报告和安全 CSV 导出 | GEO-605 |
+-| [GEO-607](#geo-607) | R5 | 完成洞察性能、索引和 R5 验收 | GEO-606 |
+-| [GEO-701](#geo-701) | R6 | 定义 GEO 规则集契约和配置 | GEO-601 |
+-| [GEO-702](#geo-702) | R6 | 实现 Opportunity 数据模型、identity 和评估器 | GEO-701, GEO-603, GEO-604 |
+-| [GEO-703](#geo-703) | R6 | 实现 Opportunity API、读模型和工作台 | GEO-702 |
+-| [GEO-704](#geo-704) | R6 | 集成事实修订、内容任务和发布修复行动 | GEO-703 |
+-| [GEO-705](#geo-705) | R6 | 实现 RetestPlanner、基线冻结和可比性门禁 | GEO-704, GEO-303 |
+-| [GEO-706](#geo-706) | R6 | 实现干预前后比较和机会解决流程 | GEO-705, GEO-605 |
+-| [GEO-707](#geo-707) | R6 | 完成机会闭环 E2E、审计和 R6 验收 | GEO-706 |
+-| [GEO-801](#geo-801) | R7 | 建立独立 Browser Collector 服务骨架和 Compose profile | GEO-408, GEO-002 |
+-| [GEO-802](#geo-802) | R7 | 实现浏览器会话加密引用和撤销流程 | GEO-801 |
+-| [GEO-803](#geo-803) | R7 | 建设本地模拟 AI 产品和 Browser Adapter 合同套件 | GEO-801, GEO-402 |
+-| [GEO-804](#geo-804) | R7 | 实现第一个合规批准的真实界面 Adapter | GEO-802, GEO-803 |
+-| [GEO-805](#geo-805) | R7 | 实现浏览器证据捕获、敏感裁剪和对象存储提交 | GEO-804, GEO-304 |
+-| [GEO-806](#geo-806) | R7 | 实现 Browser Profile 健康、频率、kill switch 和管理 UI | GEO-805, GEO-205 |
+-| [GEO-807](#geo-807) | R7 | 执行真实平台小规模试点和人工交叉验收 | GEO-806 |
+-| [GEO-901](#geo-901) | R8 | 实现 GEO 数据保留、归档和清理任务 | GEO-707 |
+-| [GEO-902](#geo-902) | R8 | 完善运行、成本、失败和积压可观察性 | GEO-408, GEO-607, GEO-707 |
+-| [GEO-903](#geo-903) | R8 | 完成数据库、OSS、密钥和会话备份恢复演练 | GEO-901, GEO-902 |
+-| [GEO-904](#geo-904) | R8 | 执行 GEO 安全与合规专项复核 | GEO-903 |
+-| [GEO-905](#geo-905) | R8 | 完成大数据量性能和容量硬化 | GEO-607, GEO-902 |
+-| [GEO-906](#geo-906) | R8 | 执行生产渐进上线、最终验收和文档状态更新 | GEO-903, GEO-904, GEO-905 |
++| [GEO-003](#geo-003-codex-提示词) | R0 | 冻结当前 GEO 实现与契约基线 | GEO-001, GEO-002 |
++| [GEO-004](#geo-004-codex-提示词) | R0 | 增加 GEO 渐进启用配置和安全默认值 | GEO-003 |
++| [GEO-005](#geo-005-codex-提示词) | R0 | 建立 GEO 测试夹具和金标目录 | GEO-003 |
++| [GEO-101](#geo-101-codex-提示词) | R1 | 定义 GEO Catalog 公共契约与数据库合同 | GEO-003, GEO-002 |
++| [GEO-102](#geo-102-codex-提示词) | R1 | 实现 GEO Catalog ORM 与 Alembic | GEO-101 |
++| [GEO-103](#geo-103-codex-提示词) | R1 | 实现 GEO Catalog Schema 与领域策略 | GEO-101, GEO-102 |
++| [GEO-104](#geo-104-codex-提示词) | R1 | 实现 GEO Catalog 应用服务和 API | GEO-103 |
++| [GEO-105](#geo-105-codex-提示词) | R1 | 实现监测对象、竞品、别名和域名管理页面 | GEO-104 |
++| [GEO-106](#geo-106-codex-提示词) | R1 | 完成 Catalog 纵向验收和产品引导 | GEO-105 |
++| [GEO-201](#geo-201-codex-提示词) | R1 | 定义并实现 PromptVariant 契约与数据模型 | GEO-003, GEO-101 |
++| [GEO-202](#geo-202-codex-提示词) | R1 | 实现问题变体服务、API 和前端工作区 | GEO-201 |
++| [GEO-203](#geo-203-codex-提示词) | R1 | 定义并实现 EngineSurface 与 CollectionProfile 数据契约 | GEO-004, GEO-101 |
++| [GEO-204](#geo-204-codex-提示词) | R1 | 建立 Collector Registry 和 Profile 资格策略 | GEO-203 |
++| [GEO-205](#geo-205-codex-提示词) | R1 | 实现观测面/Profile 管理 API 和页面 | GEO-204 |
++| [GEO-206](#geo-206-codex-提示词) | R1 | 定义并实现 MonitoringPlan 数据契约 | GEO-202, GEO-205 |
++| [GEO-207](#geo-207-codex-提示词) | R1 | 实现服务端运行矩阵预览和费用覆盖 | GEO-206, GEO-204 |
++| [GEO-208](#geo-208-codex-提示词) | R1 | 实现 Plan 命令、查询、状态机和 API | GEO-207 |
++| [GEO-209](#geo-209-codex-提示词) | R1 | 实现监测计划列表和向导 | GEO-208 |
++| [GEO-301](#geo-301-codex-提示词) | R2 | 定义 Batch/Run 公共契约与数据库模型 | GEO-208, GEO-002 |
++| [GEO-302](#geo-302-codex-提示词) | R2 | 实现 Batch/Run 状态策略与动作投影 | GEO-301 |
++| [GEO-303](#geo-303-codex-提示词) | R2 | 实现批次工厂、计划快照和创建幂等 | GEO-302, GEO-207 |
++| [GEO-304](#geo-304-codex-提示词) | R2 | 定义并实现 AnswerSnapshot、Citation 与证据关联 | GEO-301 |
++| [GEO-305](#geo-305-codex-提示词) | R2 | 实现 MANUAL 草稿和正式提交 | GEO-303, GEO-304 |
++| [GEO-306](#geo-306-codex-提示词) | R2 | 实现 Batch/Run 列表与详情读模型 | GEO-303, GEO-305 |
++| [GEO-307](#geo-307-codex-提示词) | R2 | 实现运行中心、人工录入和详情页面 | GEO-306 |
++| [GEO-308](#geo-308-codex-提示词) | R2 | 完成 R2 并发、不可变和兼容性验收 | GEO-307 |
++| [GEO-401](#geo-401-codex-提示词) | R3 | 定义 GeoCollector 协议和稳定错误模型 | GEO-204, GEO-301 |
++| [GEO-402](#geo-402-codex-提示词) | R3 | 实现 GEO fake provider 和 Collector 合同套件 | GEO-401, GEO-005 |
++| [GEO-403](#geo-403-codex-提示词) | R3 | 实现 API Profile 连接测试和能力验证 | GEO-402, GEO-205 |
++| [GEO-404](#geo-404-codex-提示词) | R3 | 实现 OpenAI-compatible GEO Collector | GEO-401, GEO-403 |
++| [GEO-405](#geo-405-codex-提示词) | R3 | 实现采集 Worker、lease、dispatch 和补投递 | GEO-303, GEO-404, GEO-004 |
++| [GEO-406](#geo-406-codex-提示词) | R3 | 实现 external_call_state 与 at-most-once 恢复 | GEO-405 |
++| [GEO-407](#geo-407-codex-提示词) | R3 | 实现引用、usage、cost、预算和 profile rate limit | GEO-405, GEO-406 |
++| [GEO-408](#geo-408-codex-提示词) | R3 | 完成 API 自动观测 UI 和纵向验收 | GEO-407, GEO-307 |
++| [GEO-501](#geo-501-codex-提示词) | R4 | 定义 AnalysisRevision、Mention、Recommendation、Claim、Review 契约和表 | GEO-304, GEO-005 |
++| [GEO-502](#geo-502-codex-提示词) | R4 | 实现监测对象别名快照和确定性提及识别 | GEO-501, GEO-106 |
++| [GEO-503](#geo-503-codex-提示词) | R4 | 实现推荐分类和可靠位置识别 | GEO-501, GEO-502 |
++| [GEO-504](#geo-504-codex-提示词) | R4 | 实现引用归属和来源类别分析 | GEO-501, GEO-106, GEO-304 |
++| [GEO-505](#geo-505-codex-提示词) | R4 | 实现声明提取、事实版本装配和准确性评估 | GEO-501, GEO-502 |
++| [GEO-506](#geo-506-codex-提示词) | R4 | 实现 Analysis Worker 和 revision 生命周期 | GEO-502, GEO-503, GEO-504, GEO-505, GEO-405 |
++| [GEO-507](#geo-507-codex-提示词) | R4 | 实现人工复核策略、API 和当前结果选择 | GEO-506 |
++| [GEO-508](#geo-508-codex-提示词) | R4 | 实现分析/复核前端并完成 R4 金标验收 | GEO-507 |
++| [GEO-601](#geo-601-codex-提示词) | R5 | 实现 MetricEligibility、样本等级和公式库 | GEO-507 |
++| [GEO-602](#geo-602-codex-提示词) | R5 | 实现 GEO Overview 读模型和 API | GEO-601 |
++| [GEO-603](#geo-603-codex-提示词) | R5 | 实现趋势、竞品 SOV 和问题/平台覆盖 | GEO-601 |
++| [GEO-604](#geo-604-codex-提示词) | R5 | 实现引用、事实风险和数据质量洞察 | GEO-601, GEO-504, GEO-505 |
++| [GEO-605](#geo-605-codex-提示词) | R5 | 实现总览和分析洞察前端 | GEO-602, GEO-603, GEO-604 |
++| [GEO-606](#geo-606-codex-提示词) | R5 | 实现打印报告和安全 CSV 导出 | GEO-605 |
++| [GEO-607](#geo-607-codex-提示词) | R5 | 完成洞察性能、索引和 R5 验收 | GEO-606 |
++| [GEO-701](#geo-701-codex-提示词) | R6 | 定义 GEO 规则集契约和配置 | GEO-601 |
++| [GEO-702](#geo-702-codex-提示词) | R6 | 实现 Opportunity 数据模型、identity 和评估器 | GEO-701, GEO-603, GEO-604 |
++| [GEO-703](#geo-703-codex-提示词) | R6 | 实现 Opportunity API、读模型和工作台 | GEO-702 |
++| [GEO-704](#geo-704-codex-提示词) | R6 | 集成事实修订、内容任务和发布修复行动 | GEO-703 |
++| [GEO-705](#geo-705-codex-提示词) | R6 | 实现 RetestPlanner、基线冻结和可比性门禁 | GEO-704, GEO-303 |
++| [GEO-706](#geo-706-codex-提示词) | R6 | 实现干预前后比较和机会解决流程 | GEO-705, GEO-605 |
++| [GEO-707](#geo-707-codex-提示词) | R6 | 完成机会闭环 E2E、审计和 R6 验收 | GEO-706 |
++| [GEO-801](#geo-801-codex-提示词) | R7 | 建立独立 Browser Collector 服务骨架和 Compose profile | GEO-408, GEO-002 |
++| [GEO-802](#geo-802-codex-提示词) | R7 | 实现浏览器会话加密引用和撤销流程 | GEO-801 |
++| [GEO-803](#geo-803-codex-提示词) | R7 | 建设本地模拟 AI 产品和 Browser Adapter 合同套件 | GEO-801, GEO-402 |
++| [GEO-804](#geo-804-codex-提示词) | R7 | 实现第一个合规批准的真实界面 Adapter | GEO-802, GEO-803 |
++| [GEO-805](#geo-805-codex-提示词) | R7 | 实现浏览器证据捕获、敏感裁剪和对象存储提交 | GEO-804, GEO-304 |
++| [GEO-806](#geo-806-codex-提示词) | R7 | 实现 Browser Profile 健康、频率、kill switch 和管理 UI | GEO-805, GEO-205 |
++| [GEO-807](#geo-807-codex-提示词) | R7 | 执行真实平台小规模试点和人工交叉验收 | GEO-806 |
++| [GEO-901](#geo-901-codex-提示词) | R8 | 实现 GEO 数据保留、归档和清理任务 | GEO-707 |
++| [GEO-902](#geo-902-codex-提示词) | R8 | 完善运行、成本、失败和积压可观察性 | GEO-408, GEO-607, GEO-707 |
++| [GEO-903](#geo-903-codex-提示词) | R8 | 完成数据库、OSS、密钥和会话备份恢复演练 | GEO-901, GEO-902 |
++| [GEO-904](#geo-904-codex-提示词) | R8 | 执行 GEO 安全与合规专项复核 | GEO-903 |
++| [GEO-905](#geo-905-codex-提示词) | R8 | 完成大数据量性能和容量硬化 | GEO-607, GEO-902 |
++| [GEO-906](#geo-906-codex-提示词) | R8 | 执行生产渐进上线、最终验收和文档状态更新 | GEO-903, GEO-904, GEO-905 |
+ 
+ # R0
+ 
+@@ -9999,10 +9999,12 @@
+ | 字段 | 内容 |
+ |---|---|
+ | 标题 | 实现第一个合规批准的真实界面 Adapter |
+-| 阶段 | R7 |
++| 阶段 | R7（post-core，deferred） |
+ | 依赖 | GEO-802, GEO-803 |
+ | 建议分支 | `geo/GEO-804` |
+ | 任务状态结束值 | `review`，人工验收后再改 `done` |
++
++> 当前状态：deferred，release: post-core。依据 ADR-006，本提示词仅保留恢复后的目标设计；未完成产品重新排期、责任指定、平台批准、staging 人工授权及依赖重验前，不执行本任务，不把延期标 done。
+ 
+ ## 使用前
+ 
+@@ -10024,12 +10026,17 @@
+ 
+ 仓库根目录：`/Users/sc/PycharmProjects/partsignal`
+ 建议分支：`geo/GEO-804`
+-发布阶段：`R7`
++发布阶段：`post-core`（phase R7，deferred；解除延期前不执行）
+ 依赖任务：GEO-802、GEO-803
+ 
+ ## 本任务目标
+ 
+ temporary chat、submit、stable wait、answer/citation extraction、version metadata。
++
++## 延期恢复门禁
++
++当前状态：deferred，release: post-core。依据 ADR-006，本提示词仅保留恢复后的目标设计；未完成产品重新排期、责任指定、平台批准、staging 人工授权及依赖重验前，不执行本任务，不把延期标 done。
++读取 `docs/geo-monitoring/05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md` 和 manifest 中的 deferred_reason/resume_conditions/owner；未解除延期即停止，不进入 in_progress。
+ 
+ ## 开始前必须执行
+ 
+@@ -10161,10 +10168,12 @@
+ | 字段 | 内容 |
+ |---|---|
+ | 标题 | 实现浏览器证据捕获、敏感裁剪和对象存储提交 |
+-| 阶段 | R7 |
++| 阶段 | R7（post-core，deferred） |
+ | 依赖 | GEO-804, GEO-304 |
+ | 建议分支 | `geo/GEO-805` |
+ | 任务状态结束值 | `review`，人工验收后再改 `done` |
++
++> 当前状态：deferred，release: post-core。依据 ADR-006，本提示词仅保留恢复后的目标设计；未完成产品重新排期、责任指定、平台批准、staging 人工授权及依赖重验前，不执行本任务，不把延期标 done。
+ 
+ ## 使用前
+ 
+@@ -10186,12 +10195,17 @@
+ 
+ 仓库根目录：`/Users/sc/PycharmProjects/partsignal`
+ 建议分支：`geo/GEO-805`
+-发布阶段：`R7`
++发布阶段：`post-core`（phase R7，deferred；解除延期前不执行）
+ 依赖任务：GEO-804、GEO-304
+ 
+ ## 本任务目标
+ 
+ 截图、可选安全 DOM 摘要、哈希、敏感区域规则和 AnswerSnapshot 提交。
++
++## 延期恢复门禁
++
++当前状态：deferred，release: post-core。依据 ADR-006，本提示词仅保留恢复后的目标设计；未完成产品重新排期、责任指定、平台批准、staging 人工授权及依赖重验前，不执行本任务，不把延期标 done。
++读取 `docs/geo-monitoring/05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md` 和 manifest 中的 deferred_reason/resume_conditions/owner；未解除延期即停止，不进入 in_progress。
+ 
+ ## 开始前必须执行
+ 
+@@ -10326,10 +10340,12 @@
+ | 字段 | 内容 |
+ |---|---|
+ | 标题 | 实现 Browser Profile 健康、频率、kill switch 和管理 UI |
+-| 阶段 | R7 |
++| 阶段 | R7（post-core，deferred） |
+ | 依赖 | GEO-805, GEO-205 |
+ | 建议分支 | `geo/GEO-806` |
+ | 任务状态结束值 | `review`，人工验收后再改 `done` |
++
++> 当前状态：deferred，release: post-core。依据 ADR-006，本提示词仅保留恢复后的目标设计；未完成产品重新排期、责任指定、平台批准、staging 人工授权及依赖重验前，不执行本任务，不把延期标 done。
+ 
+ ## 使用前
+ 
+@@ -10351,12 +10367,17 @@
+ 
+ 仓库根目录：`/Users/sc/PycharmProjects/partsignal`
+ 建议分支：`geo/GEO-806`
+-发布阶段：`R7`
++发布阶段：`post-core`（phase R7，deferred；解除延期前不执行）
+ 依赖任务：GEO-805、GEO-205
+ 
+ ## 本任务目标
+ 
+ session health、reauth、max concurrency、rate limit、开关、运维状态。
++
++## 延期恢复门禁
++
++当前状态：deferred，release: post-core。依据 ADR-006，本提示词仅保留恢复后的目标设计；未完成产品重新排期、责任指定、平台批准、staging 人工授权及依赖重验前，不执行本任务，不把延期标 done。
++读取 `docs/geo-monitoring/05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md` 和 manifest 中的 deferred_reason/resume_conditions/owner；未解除延期即停止，不进入 in_progress。
+ 
+ ## 开始前必须执行
+ 
+@@ -10495,10 +10516,12 @@
+ | 字段 | 内容 |
+ |---|---|
+ | 标题 | 执行真实平台小规模试点和人工交叉验收 |
+-| 阶段 | R7 |
++| 阶段 | R7（post-core，deferred） |
+ | 依赖 | GEO-806 |
+ | 建议分支 | `geo/GEO-807` |
+ | 任务状态结束值 | `review`，人工验收后再改 `done` |
++
++> 当前状态：deferred，release: post-core。依据 ADR-006，本提示词仅保留恢复后的目标设计；未完成产品重新排期、责任指定、平台批准、staging 人工授权及依赖重验前，不执行本任务，不把延期标 done。
+ 
+ ## 使用前
+ 
+@@ -10520,12 +10543,17 @@
+ 
+ 仓库根目录：`/Users/sc/PycharmProjects/partsignal`
+ 建议分支：`geo/GEO-807`
+-发布阶段：`R7`
++发布阶段：`post-core`（phase R7，deferred；解除延期前不执行）
+ 依赖任务：GEO-806
+ 
+ ## 本任务目标
+ 
+ 批准账号、低频计划、人工/API/浏览器结果对比、停止和撤销演练。
++
++## 延期恢复门禁
++
++当前状态：deferred，release: post-core。依据 ADR-006，本提示词仅保留恢复后的目标设计；未完成产品重新排期、责任指定、平台批准、staging 人工授权及依赖重验前，不执行本任务，不把延期标 done。
++读取 `docs/geo-monitoring/05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md` 和 manifest 中的 deferred_reason/resume_conditions/owner；未解除延期即停止，不进入 in_progress。
+ 
+ ## 开始前必须执行
+ 
+@@ -10690,7 +10718,11 @@
+ 
+ ## 本任务目标
+ 
+-raw payload、临时草稿、无引用文件、浏览器临时数据的限批清理和墓碑。
++raw payload、临时草稿、无引用文件的限批清理和墓碑；Browser 临时数据仅在部署 R7 或存在材料时适用，否则记录有依据的 N/A。
++
++## 当前核心范围
++
++读取 `docs/geo-monitoring/05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md`；核心按 R6→R8 执行，R7 deferred 不作为前置。Browser 清理/会话恢复仅在部署或存在材料时适用，否则附检查依据标 N/A；GEO-904/906 核实开关 false 且无生产会话。不修改已有 MANUAL/API 指标、历史或安全边界。
+ 
+ ## 开始前必须执行
+ 
+@@ -10731,7 +10763,7 @@
+    - `contracts/database.md`
+ 
+ 必须交付：
+-- raw payload、临时草稿、无引用文件、浏览器临时数据的限批清理和墓碑。
++- raw payload、临时草稿、无引用文件的限批清理和墓碑；Browser 临时数据仅在部署 R7 或存在材料时适用，否则记录有依据的 N/A。
+ - 相关契约、数据库合同、迁移、测试和文档必须保持一致；只更新本任务实际涉及的层。
+ - 开始实施时把 GEO-901 状态更新为 `in_progress`；实现及本地验证完成后更新为 `review`，不得自行标记为 `done`。
+ 
+@@ -10748,7 +10780,7 @@
+ - 存储失败保留可重试墓碑，不得静默丢失记录。
+ 
+ 验收条件：
+-- 不删除指标所需元数据和已引用证据，清理可观察。
++- 不删除指标所需元数据和已引用证据，清理可观察；Browser 延期不豁免实际存在材料的保护/清理。
+ 
+ ## 明确范围外
+ 
+@@ -11028,7 +11060,11 @@
+ 
+ ## 本任务目标
+ 
+-备份清单、恢复脚本/步骤、一致性扫描、隔离恢复证据。
++数据库、OSS、适用密钥的备份清单、恢复步骤、一致性扫描与隔离证据；未部署 R7 且确认无 Browser 材料时，会话恢复 N/A。
++
++## 当前核心范围
++
++读取 `docs/geo-monitoring/05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md`；核心按 R6→R8 执行，R7 deferred 不作为前置。Browser 清理/会话恢复仅在部署或存在材料时适用，否则附检查依据标 N/A；GEO-904/906 核实开关 false 且无生产会话。不修改已有 MANUAL/API 指标、历史或安全边界。
+ 
+ ## 开始前必须执行
+ 
+@@ -11069,7 +11105,7 @@
+    - `test environment`
+ 
+ 必须交付：
+-- 备份清单、恢复脚本/步骤、一致性扫描、隔离恢复证据。
++- 数据库、OSS、适用密钥的备份清单、恢复步骤、一致性扫描与隔离证据；未部署 R7 且确认无 Browser 材料时，会话恢复 N/A。
+ - 相关契约、数据库合同、迁移、测试和文档必须保持一致；只更新本任务实际涉及的层。
+ - 开始实施时把 GEO-903 状态更新为 `in_progress`；实现及本地验证完成后更新为 `review`，不得自行标记为 `done`。
+ 
+@@ -11083,11 +11119,11 @@
+ - 不为通过测试放宽权限、CSRF、SSRF、TLS、凭据、不可变或审计边界。
+ - 不得改变已验收业务公式或借生产硬化名义扩展新产品功能。
+ - 恢复演练只能在隔离环境执行，绝不能以生产主库为恢复目标。
+-- 数据库、OSS、AI 加密主密钥和 Browser 会话引用必须按一致性集合验证。
++- 数据库、OSS、适用主密钥按一致性集合验证；Browser 会话仅在部署 R7 或存在材料时纳入，未部署且无材料记录有依据的 N/A。
+ - 缺失对象必须明确报告，不得伪造完整恢复。
+ 
+ 验收条件：
+-- 任意 Run Detail 和指标可恢复；缺失对象明确报告。
++- 任意 Run Detail 和指标可恢复；缺失对象明确报告；N/A 附部署及材料检查依据，存在 Browser 材料仍须保护并验证恢复/撤销。
+ 
+ ## 明确范围外
+ 
+@@ -11197,7 +11233,11 @@
+ 
+ ## 本任务目标
+ 
+-权限、CSRF、SSRF、secret、XSS、CSV、prompt injection、browser 会话和外部平台批准检查。
++权限、CSRF、SSRF、secret、XSS、CSV、prompt injection 和实际外部平台批准检查；核心环境验证 Browser false、服务/profile 未启用且无生产会话/会话材料。
++
++## 当前核心范围
++
++读取 `docs/geo-monitoring/05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md`；核心按 R6→R8 执行，R7 deferred 不作为前置。Browser 清理/会话恢复仅在部署或存在材料时适用，否则附检查依据标 N/A；GEO-904/906 核实开关 false 且无生产会话。不修改已有 MANUAL/API 指标、历史或安全边界。
+ 
+ ## 开始前必须执行
+ 
+@@ -11238,7 +11278,7 @@
+    - `configuration`
+ 
+ 必须交付：
+-- 权限、CSRF、SSRF、secret、XSS、CSV、prompt injection、browser 会话和外部平台批准检查。
++- 权限、CSRF、SSRF、secret、XSS、CSV、prompt injection 和实际外部平台批准检查；核心环境验证 Browser false、服务/profile 未启用且无生产会话/会话材料。
+ - 相关契约、数据库合同、迁移、测试和文档必须保持一致；只更新本任务实际涉及的层。
+ - 开始实施时把 GEO-904 状态更新为 `in_progress`；实现及本地验证完成后更新为 `review`，不得自行标记为 `done`。
+ 
+@@ -11255,7 +11295,7 @@
+ - 未接受的高风险项必须阻断；例外必须有责任人和到期日。
+ 
+ 验收条件：
+-- 无未接受的高风险项；例外有责任人和到期日。
++- 无未接受的高风险项；例外有责任人和到期日；Browser 关闭及无生产会话有目标环境证据，不能仅凭默认配置判定。
+ 
+ ## 明确范围外
+ 
+@@ -11535,7 +11575,11 @@
+ 
+ ## 本任务目标
+ 
+-expand/deploy/enable、内部试用、监控窗口、回滚演练、文档已实现标记。
++核心范围 expand/deploy/enable、MANUAL 正式闭环、内部试用、监控/回滚和文档验收；R7 延期不阻断核心上线，GEO_BROWSER_COLLECTION_ENABLED 必须保持 false。
++
++## 当前核心范围
++
++读取 `docs/geo-monitoring/05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md`；核心按 R6→R8 执行，R7 deferred 不作为前置。Browser 清理/会话恢复仅在部署或存在材料时适用，否则附检查依据标 N/A；GEO-904/906 核实开关 false 且无生产会话。不修改已有 MANUAL/API 指标、历史或安全边界。
+ 
+ ## 开始前必须执行
+ 
+@@ -11577,7 +11621,7 @@
+    - `acceptance`
+ 
+ 必须交付：
+-- expand/deploy/enable、内部试用、监控窗口、回滚演练、文档已实现标记。
++- 核心范围 expand/deploy/enable、MANUAL 正式闭环、内部试用、监控/回滚和文档验收；R7 延期不阻断核心上线，GEO_BROWSER_COLLECTION_ENABLED 必须保持 false。
+ - 相关契约、数据库合同、迁移、测试和文档必须保持一致；只更新本任务实际涉及的层。
+ - 开始实施时把 GEO-906 状态更新为 `in_progress`；实现及本地验证完成后更新为 `review`，不得自行标记为 `done`。
+ 
+@@ -11595,7 +11639,7 @@
+ - 无法访问生产环境或缺少授权时只完成发布准备、runbook 和阻断清单，不得宣称已上线。
+ 
+ 验收条件：
+-- 核心版正式可用；未批准 Browser profile 保持关闭；所有任务证据归档。
++- 核心版正式可用；GEO_BROWSER_COLLECTION_ENABLED=false、Browser 服务/profile 未启用且无生产会话；R7 deferred 不阻断，延期项不标已实现，核心与延期证据分别保留。
+ 
+ ## 明确范围外
+ 
+--- a/docs/geo-monitoring/04-delivery/codex-prompts/R7/GEO-804.md
++++ b/docs/geo-monitoring/04-delivery/codex-prompts/R7/GEO-804.md
+@@ -3,10 +3,12 @@
+ | 字段 | 内容 |
+ |---|---|
+ | 标题 | 实现第一个合规批准的真实界面 Adapter |
+-| 阶段 | R7 |
++| 阶段 | R7（post-core，deferred） |
+ | 依赖 | GEO-802, GEO-803 |
+ | 建议分支 | `geo/GEO-804` |
+ | 任务状态结束值 | `review`，人工验收后再改 `done` |
++
++> 当前状态：deferred，release: post-core。依据 ADR-006，本提示词仅保留恢复后的目标设计；未完成产品重新排期、责任指定、平台批准、staging 人工授权及依赖重验前，不执行本任务，不把延期标 done。
+ 
+ ## 使用前
+ 
+@@ -28,12 +30,17 @@
+ 
+ 仓库根目录：`/Users/sc/PycharmProjects/partsignal`
+ 建议分支：`geo/GEO-804`
+-发布阶段：`R7`
++发布阶段：`post-core`（phase R7，deferred；解除延期前不执行）
+ 依赖任务：GEO-802、GEO-803
+ 
+ ## 本任务目标
+ 
+ temporary chat、submit、stable wait、answer/citation extraction、version metadata。
++
++## 延期恢复门禁
++
++当前状态：deferred，release: post-core。依据 ADR-006，本提示词仅保留恢复后的目标设计；未完成产品重新排期、责任指定、平台批准、staging 人工授权及依赖重验前，不执行本任务，不把延期标 done。
++读取 `docs/geo-monitoring/05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md` 和 manifest 中的 deferred_reason/resume_conditions/owner；未解除延期即停止，不进入 in_progress。
+ 
+ ## 开始前必须执行
+ 
+--- a/docs/geo-monitoring/04-delivery/codex-prompts/R7/GEO-805.md
++++ b/docs/geo-monitoring/04-delivery/codex-prompts/R7/GEO-805.md
+@@ -3,10 +3,12 @@
+ | 字段 | 内容 |
+ |---|---|
+ | 标题 | 实现浏览器证据捕获、敏感裁剪和对象存储提交 |
+-| 阶段 | R7 |
++| 阶段 | R7（post-core，deferred） |
+ | 依赖 | GEO-804, GEO-304 |
+ | 建议分支 | `geo/GEO-805` |
+ | 任务状态结束值 | `review`，人工验收后再改 `done` |
++
++> 当前状态：deferred，release: post-core。依据 ADR-006，本提示词仅保留恢复后的目标设计；未完成产品重新排期、责任指定、平台批准、staging 人工授权及依赖重验前，不执行本任务，不把延期标 done。
+ 
+ ## 使用前
+ 
+@@ -28,12 +30,17 @@
+ 
+ 仓库根目录：`/Users/sc/PycharmProjects/partsignal`
+ 建议分支：`geo/GEO-805`
+-发布阶段：`R7`
++发布阶段：`post-core`（phase R7，deferred；解除延期前不执行）
+ 依赖任务：GEO-804、GEO-304
+ 
+ ## 本任务目标
+ 
+ 截图、可选安全 DOM 摘要、哈希、敏感区域规则和 AnswerSnapshot 提交。
++
++## 延期恢复门禁
++
++当前状态：deferred，release: post-core。依据 ADR-006，本提示词仅保留恢复后的目标设计；未完成产品重新排期、责任指定、平台批准、staging 人工授权及依赖重验前，不执行本任务，不把延期标 done。
++读取 `docs/geo-monitoring/05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md` 和 manifest 中的 deferred_reason/resume_conditions/owner；未解除延期即停止，不进入 in_progress。
+ 
+ ## 开始前必须执行
+ 
+--- a/docs/geo-monitoring/04-delivery/codex-prompts/R7/GEO-806.md
++++ b/docs/geo-monitoring/04-delivery/codex-prompts/R7/GEO-806.md
+@@ -3,10 +3,12 @@
+ | 字段 | 内容 |
+ |---|---|
+ | 标题 | 实现 Browser Profile 健康、频率、kill switch 和管理 UI |
+-| 阶段 | R7 |
++| 阶段 | R7（post-core，deferred） |
+ | 依赖 | GEO-805, GEO-205 |
+ | 建议分支 | `geo/GEO-806` |
+ | 任务状态结束值 | `review`，人工验收后再改 `done` |
++
++> 当前状态：deferred，release: post-core。依据 ADR-006，本提示词仅保留恢复后的目标设计；未完成产品重新排期、责任指定、平台批准、staging 人工授权及依赖重验前，不执行本任务，不把延期标 done。
+ 
+ ## 使用前
+ 
+@@ -28,12 +30,17 @@
+ 
+ 仓库根目录：`/Users/sc/PycharmProjects/partsignal`
+ 建议分支：`geo/GEO-806`
+-发布阶段：`R7`
++发布阶段：`post-core`（phase R7，deferred；解除延期前不执行）
+ 依赖任务：GEO-805、GEO-205
+ 
+ ## 本任务目标
+ 
+ session health、reauth、max concurrency、rate limit、开关、运维状态。
++
++## 延期恢复门禁
++
++当前状态：deferred，release: post-core。依据 ADR-006，本提示词仅保留恢复后的目标设计；未完成产品重新排期、责任指定、平台批准、staging 人工授权及依赖重验前，不执行本任务，不把延期标 done。
++读取 `docs/geo-monitoring/05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md` 和 manifest 中的 deferred_reason/resume_conditions/owner；未解除延期即停止，不进入 in_progress。
+ 
+ ## 开始前必须执行
+ 
+--- a/docs/geo-monitoring/04-delivery/codex-prompts/R7/GEO-807.md
++++ b/docs/geo-monitoring/04-delivery/codex-prompts/R7/GEO-807.md
+@@ -3,10 +3,12 @@
+ | 字段 | 内容 |
+ |---|---|
+ | 标题 | 执行真实平台小规模试点和人工交叉验收 |
+-| 阶段 | R7 |
++| 阶段 | R7（post-core，deferred） |
+ | 依赖 | GEO-806 |
+ | 建议分支 | `geo/GEO-807` |
+ | 任务状态结束值 | `review`，人工验收后再改 `done` |
++
++> 当前状态：deferred，release: post-core。依据 ADR-006，本提示词仅保留恢复后的目标设计；未完成产品重新排期、责任指定、平台批准、staging 人工授权及依赖重验前，不执行本任务，不把延期标 done。
+ 
+ ## 使用前
+ 
+@@ -28,12 +30,17 @@
+ 
+ 仓库根目录：`/Users/sc/PycharmProjects/partsignal`
+ 建议分支：`geo/GEO-807`
+-发布阶段：`R7`
++发布阶段：`post-core`（phase R7，deferred；解除延期前不执行）
+ 依赖任务：GEO-806
+ 
+ ## 本任务目标
+ 
+ 批准账号、低频计划、人工/API/浏览器结果对比、停止和撤销演练。
++
++## 延期恢复门禁
++
++当前状态：deferred，release: post-core。依据 ADR-006，本提示词仅保留恢复后的目标设计；未完成产品重新排期、责任指定、平台批准、staging 人工授权及依赖重验前，不执行本任务，不把延期标 done。
++读取 `docs/geo-monitoring/05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md` 和 manifest 中的 deferred_reason/resume_conditions/owner；未解除延期即停止，不进入 in_progress。
+ 
+ ## 开始前必须执行
+ 
+--- a/docs/geo-monitoring/04-delivery/codex-prompts/R8/GEO-901.md
++++ b/docs/geo-monitoring/04-delivery/codex-prompts/R8/GEO-901.md
+@@ -33,7 +33,11 @@
+ 
+ ## 本任务目标
+ 
+-raw payload、临时草稿、无引用文件、浏览器临时数据的限批清理和墓碑。
++raw payload、临时草稿、无引用文件的限批清理和墓碑；Browser 临时数据仅在部署 R7 或存在材料时适用，否则记录有依据的 N/A。
++
++## 当前核心范围
++
++读取 `docs/geo-monitoring/05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md`；核心按 R6→R8 执行，R7 deferred 不作为前置。Browser 清理/会话恢复仅在部署或存在材料时适用，否则附检查依据标 N/A；GEO-904/906 核实开关 false 且无生产会话。不修改已有 MANUAL/API 指标、历史或安全边界。
+ 
+ ## 开始前必须执行
+ 
+@@ -74,7 +78,7 @@
+    - `contracts/database.md`
+ 
+ 必须交付：
+-- raw payload、临时草稿、无引用文件、浏览器临时数据的限批清理和墓碑。
++- raw payload、临时草稿、无引用文件的限批清理和墓碑；Browser 临时数据仅在部署 R7 或存在材料时适用，否则记录有依据的 N/A。
+ - 相关契约、数据库合同、迁移、测试和文档必须保持一致；只更新本任务实际涉及的层。
+ - 开始实施时把 GEO-901 状态更新为 `in_progress`；实现及本地验证完成后更新为 `review`，不得自行标记为 `done`。
+ 
+@@ -91,7 +95,7 @@
+ - 存储失败保留可重试墓碑，不得静默丢失记录。
+ 
+ 验收条件：
+-- 不删除指标所需元数据和已引用证据，清理可观察。
++- 不删除指标所需元数据和已引用证据，清理可观察；Browser 延期不豁免实际存在材料的保护/清理。
+ 
+ ## 明确范围外
+ 
+--- a/docs/geo-monitoring/04-delivery/codex-prompts/R8/GEO-903.md
++++ b/docs/geo-monitoring/04-delivery/codex-prompts/R8/GEO-903.md
+@@ -33,7 +33,11 @@
+ 
+ ## 本任务目标
+ 
+-备份清单、恢复脚本/步骤、一致性扫描、隔离恢复证据。
++数据库、OSS、适用密钥的备份清单、恢复步骤、一致性扫描与隔离证据；未部署 R7 且确认无 Browser 材料时，会话恢复 N/A。
++
++## 当前核心范围
++
++读取 `docs/geo-monitoring/05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md`；核心按 R6→R8 执行，R7 deferred 不作为前置。Browser 清理/会话恢复仅在部署或存在材料时适用，否则附检查依据标 N/A；GEO-904/906 核实开关 false 且无生产会话。不修改已有 MANUAL/API 指标、历史或安全边界。
+ 
+ ## 开始前必须执行
+ 
+@@ -74,7 +78,7 @@
+    - `test environment`
+ 
+ 必须交付：
+-- 备份清单、恢复脚本/步骤、一致性扫描、隔离恢复证据。
++- 数据库、OSS、适用密钥的备份清单、恢复步骤、一致性扫描与隔离证据；未部署 R7 且确认无 Browser 材料时，会话恢复 N/A。
+ - 相关契约、数据库合同、迁移、测试和文档必须保持一致；只更新本任务实际涉及的层。
+ - 开始实施时把 GEO-903 状态更新为 `in_progress`；实现及本地验证完成后更新为 `review`，不得自行标记为 `done`。
+ 
+@@ -88,11 +92,11 @@
+ - 不为通过测试放宽权限、CSRF、SSRF、TLS、凭据、不可变或审计边界。
+ - 不得改变已验收业务公式或借生产硬化名义扩展新产品功能。
+ - 恢复演练只能在隔离环境执行，绝不能以生产主库为恢复目标。
+-- 数据库、OSS、AI 加密主密钥和 Browser 会话引用必须按一致性集合验证。
++- 数据库、OSS、适用主密钥按一致性集合验证；Browser 会话仅在部署 R7 或存在材料时纳入，未部署且无材料记录有依据的 N/A。
+ - 缺失对象必须明确报告，不得伪造完整恢复。
+ 
+ 验收条件：
+-- 任意 Run Detail 和指标可恢复；缺失对象明确报告。
++- 任意 Run Detail 和指标可恢复；缺失对象明确报告；N/A 附部署及材料检查依据，存在 Browser 材料仍须保护并验证恢复/撤销。
+ 
+ ## 明确范围外
+ 
+--- a/docs/geo-monitoring/04-delivery/codex-prompts/R8/GEO-904.md
++++ b/docs/geo-monitoring/04-delivery/codex-prompts/R8/GEO-904.md
+@@ -33,7 +33,11 @@
+ 
+ ## 本任务目标
+ 
+-权限、CSRF、SSRF、secret、XSS、CSV、prompt injection、browser 会话和外部平台批准检查。
++权限、CSRF、SSRF、secret、XSS、CSV、prompt injection 和实际外部平台批准检查；核心环境验证 Browser false、服务/profile 未启用且无生产会话/会话材料。
++
++## 当前核心范围
++
++读取 `docs/geo-monitoring/05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md`；核心按 R6→R8 执行，R7 deferred 不作为前置。Browser 清理/会话恢复仅在部署或存在材料时适用，否则附检查依据标 N/A；GEO-904/906 核实开关 false 且无生产会话。不修改已有 MANUAL/API 指标、历史或安全边界。
+ 
+ ## 开始前必须执行
+ 
+@@ -74,7 +78,7 @@
+    - `configuration`
+ 
+ 必须交付：
+-- 权限、CSRF、SSRF、secret、XSS、CSV、prompt injection、browser 会话和外部平台批准检查。
++- 权限、CSRF、SSRF、secret、XSS、CSV、prompt injection 和实际外部平台批准检查；核心环境验证 Browser false、服务/profile 未启用且无生产会话/会话材料。
+ - 相关契约、数据库合同、迁移、测试和文档必须保持一致；只更新本任务实际涉及的层。
+ - 开始实施时把 GEO-904 状态更新为 `in_progress`；实现及本地验证完成后更新为 `review`，不得自行标记为 `done`。
+ 
+@@ -91,7 +95,7 @@
+ - 未接受的高风险项必须阻断；例外必须有责任人和到期日。
+ 
+ 验收条件：
+-- 无未接受的高风险项；例外有责任人和到期日。
++- 无未接受的高风险项；例外有责任人和到期日；Browser 关闭及无生产会话有目标环境证据，不能仅凭默认配置判定。
+ 
+ ## 明确范围外
+ 
+--- a/docs/geo-monitoring/04-delivery/codex-prompts/R8/GEO-906.md
++++ b/docs/geo-monitoring/04-delivery/codex-prompts/R8/GEO-906.md
+@@ -33,7 +33,11 @@
+ 
+ ## 本任务目标
+ 
+-expand/deploy/enable、内部试用、监控窗口、回滚演练、文档已实现标记。
++核心范围 expand/deploy/enable、MANUAL 正式闭环、内部试用、监控/回滚和文档验收；R7 延期不阻断核心上线，GEO_BROWSER_COLLECTION_ENABLED 必须保持 false。
++
++## 当前核心范围
++
++读取 `docs/geo-monitoring/05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md`；核心按 R6→R8 执行，R7 deferred 不作为前置。Browser 清理/会话恢复仅在部署或存在材料时适用，否则附检查依据标 N/A；GEO-904/906 核实开关 false 且无生产会话。不修改已有 MANUAL/API 指标、历史或安全边界。
+ 
+ ## 开始前必须执行
+ 
+@@ -75,7 +79,7 @@
+    - `acceptance`
+ 
+ 必须交付：
+-- expand/deploy/enable、内部试用、监控窗口、回滚演练、文档已实现标记。
++- 核心范围 expand/deploy/enable、MANUAL 正式闭环、内部试用、监控/回滚和文档验收；R7 延期不阻断核心上线，GEO_BROWSER_COLLECTION_ENABLED 必须保持 false。
+ - 相关契约、数据库合同、迁移、测试和文档必须保持一致；只更新本任务实际涉及的层。
+ - 开始实施时把 GEO-906 状态更新为 `in_progress`；实现及本地验证完成后更新为 `review`，不得自行标记为 `done`。
+ 
+@@ -93,7 +97,7 @@
+ - 无法访问生产环境或缺少授权时只完成发布准备、runbook 和阻断清单，不得宣称已上线。
+ 
+ 验收条件：
+-- 核心版正式可用；未批准 Browser profile 保持关闭；所有任务证据归档。
++- 核心版正式可用；GEO_BROWSER_COLLECTION_ENABLED=false、Browser 服务/profile 未启用且无生产会话；R7 deferred 不阻断，延期项不标已实现，核心与延期证据分别保留。
+ 
+ ## 明确范围外
+ 
+--- a/docs/geo-monitoring/04-delivery/codex-prompts/README.md
++++ b/docs/geo-monitoring/04-delivery/codex-prompts/README.md
+@@ -10,7 +10,7 @@
+ 
+ ## 使用方式
+ 
+-1. 确认当前任务的依赖均为 `done`；
++1. 确认当前任务未处于 `deferred`，依赖均为 `done`；804～807 当前 post-core 延期，恢复须满足 manifest/ADR-006，不执行历史提示词；
+ 2. 为当前任务创建独立分支；
+ 3. 打开对应 `GEO-NNN.md`；
+ 4. 复制“复制给 Codex”代码块；
+@@ -18,3 +18,5 @@
+ 6. 人工接受后复制文件底部的收尾提示词，把任务置为 `done`。
+ 
+ 这些提示词基于文档包 V1.0 生成。若 GEO-001/GEO-002 已修改任务或 ADR，以本地仓库当前文件为权威。
++
++当前核心按 R6 → R8 交付，MANUAL 为正式回答级采集方式；R8 的 Browser 条目按[ADR-006](../../05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md)条件验收。单文件与 ALL_PROMPTS 对应段同步维护，原 Browser 目标保留。
+--- a/docs/geo-monitoring/04-delivery/codex-prompts/SHA256SUMS
++++ b/docs/geo-monitoring/04-delivery/codex-prompts/SHA256SUMS
+@@ -1,4 +1,4 @@
+-3f4521d85e15fdbc45e7c29705e906e9415216f334232ec97ab7515ecd692cb4  ./ALL_PROMPTS.md
++448418c5f27b85d1256941e9e7d63a22d9e8c048474af22a4f7507488b6911e9  ./ALL_PROMPTS.md
+ a7878ed45c976a5dfd81ddb04f7bdbd829e972019cd996d018a876f4dd4ca815  ./EXECUTION_ORDER.md
+ 309a28ec2c3d1a2d0964aab459c55fa263241fb4768705530eb6c3cc84b3f8db  ./R0/GEO-003.md
+ 3145395361e8db816e2e1dfc46a08d2499b2f3b79f96c531d6be5cb53b640ebd  ./R0/GEO-004.md
+@@ -59,15 +59,15 @@
+ da0aac6864477e358700408604d14f98c71621770b4b8794f182622899c20fad  ./R7/GEO-801.md
+ 08557f4cf022395568dc618a6ed7883081234c526482c1fe3fea80347fa852de  ./R7/GEO-802.md
+ b2c486dca40af59fc83c46db20d9e0345f1be62d4fe3c285032236b3592b083d  ./R7/GEO-803.md
+-5cea808219f2db28b84a0c6985b51822f22bfdc8a91cc527a037f72e06b4d7e9  ./R7/GEO-804.md
+-ac1ef97eda7928342eba6bfee5b8098d23a39b677c7e75bd30c553eda6aecaa9  ./R7/GEO-805.md
+-ffc1de5c8d5de7bde4294200c5232c54fafe8ce7095df7939eea2a615303c7f6  ./R7/GEO-806.md
+-b8c8db44028105cef066d43ae6694de20aedcbd4b18746e2c63dca32fc53a434  ./R7/GEO-807.md
+-408844b6302563b121c6720e69fb3b3fcf0691a051329ed1d1464818d37d9988  ./R8/GEO-901.md
++d6d2c449629df016740e40676a2934bb48473e7090d66b6b268928e49ad702ca  ./R7/GEO-804.md
++6a20f363d3d8c40fa72ba99816aab64e404e3d50db55c96d2fa5e0beb91d7bcb  ./R7/GEO-805.md
++80e7acd68f08d8343282d01067956a54631c90df40c05f974ee12d90bbec6de6  ./R7/GEO-806.md
++26b484479e084fe9f64eb608163808691ecfbb391ab903a9a15e315039fd1f69  ./R7/GEO-807.md
++d412b36ee034536c129eae3ce8a743182eed1bd1176955e96820595ae15521a8  ./R8/GEO-901.md
+ b3f07f590fa1d9b8b1e756d96369bb8b8c9ce358df20e5327f6b706973ed81cb  ./R8/GEO-902.md
+-0120a8a43a92e073a27206664b7ab05fcb76c66ae1068e2323d973cdd9aaf437  ./R8/GEO-903.md
+-02170b5782db154bf7f463bc10bcdbe51b3c017b3e317f4681a515fddfc3547c  ./R8/GEO-904.md
++45bc216adbb41aa39eb8aa3493e34b0f56f5e05d24cef10b2c62375d2d254dc6  ./R8/GEO-903.md
++726ec9997566f5d80a2a0a7db6b739dbbde78dee286132e334b892eadc90af88  ./R8/GEO-904.md
+ d0b186c6a54563ed88861a227d0b561a6cf6806afe3a2ca39109a61875f7f9e8  ./R8/GEO-905.md
+-360e7e15668b254821a9d97f382eb8f01adbf73e0d7524243a8d3c5322f058a5  ./R8/GEO-906.md
+-2703705554f330a4a7feb63217bce9b864c0721814d2562a94b708d2915a3e0f  ./README.md
++37dc7798806968c2b48d512dae1dbb5c0158d7883c6172e7712de9cea4ba8bcf  ./R8/GEO-906.md
++e4e9bfe0fa2b9e8aea25923b09082faa67798333e64c348f37ef6fd133c79662  ./README.md
+ 67c5dbafec435bf273cfc1120b66794acda0546474bdaabbdb4a11d59693cccf  ./REVIEW_CHECKLIST.md
+--- a/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ b/docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -9,6 +9,7 @@
+ - review
+ - done
+ - blocked
++- deferred
+ tasks:
+ - id: GEO-001
+   phase: R0
+@@ -1382,9 +1383,16 @@
+   review_note: "2026-10-05：完全本地模拟站、可复用Adapter合同及违规驱动自测完成；本机与network none非root Linux Chromium各27通过，18份结果复用后端权威类型且敏感扫描通过。contract-check/lint/typecheck/unit/e2e通过；E2E跳过节点及初次导航竞争修复如实记录。无OpenAPI/数据库/Alembic/前端业务变化；不实施804/805，未启用真实平台。Task Brief、文件增量、命令与限制见Trellis implement/evidence；仅review待人工接受，不标done、不提交或发布。 2026-10-05 本会话用户已人工审查并接受GEO-803的实现与测试证据；本次仅记录验收，manifest=done、Trellis=completed，不修改其他任务状态、不实施后续任务，不提交、推送或归档。"
+ - id: GEO-804
+   phase: R7
+-  release: R7
++  release: post-core
+   title: 实现第一个合规批准的真实界面 Adapter
+-  status: blocked
++  status: deferred
++  deferred_reason: "ADR-006：MANUAL 回答级观测作为核心正式采集方式，Browser 自动化延期，不作为核心发布门禁；本任务尚未实现。"
++  resume_conditions:
++  - 产品重新排期并指定产品、合规、工程和运维责任人。
++  - 补齐唯一平台/域名及账号、用途、环境/地区、频率/并发、保留与停止规则的可定位合规批准。
++  - 获得受控 staging smoke 人工授权、入口及验收负责人；重验 GEO-802/803 done 和当前合同。
++  owner: "待定；恢复排期前由公司指定上述产品、合规、工程/证据安全及运维责任，不沿用开发账号作为业务审批人。"
++  deferral_decision: 05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md
+   dependencies:
+   - GEO-802
+   - GEO-803
+@@ -1395,6 +1403,7 @@
+   acceptance: DOM 不确定时失败，不保存空成功；频率限制生效。
+   trellis_task: .trellis/tasks/10-05-geo-804-approved-browser-adapter
+   validation_record: .trellis/tasks/10-05-geo-804-approved-browser-adapter/implement.md
++  deferred_note: "2026-10-05：用户变更产品范围，blocked→deferred；原始批准/staging输入缺失证据保留，未实施真实Adapter。"
+   blocked_note: "2026-10-05：GEO-802/GEO-803 done及人工接受已核对；完成Task Brief、十二项preflight和本地基线（Browser合同27/Node13/backend定向233及contract-check通过）。按用户授权检查.env相关配置，仅见DeepSeek API配置，未找到可确定唯一BROWSER平台及账号、用途、环境/地区、频率/并发、保留规则的合规批准输入，也未获受控staging smoke授权与入口；命中必需外部输入/人工授权缺失停止条件。未开始Adapter实施，planned→blocked，不进入review/done，不改变安全门禁、合同、迁移、前端或其他任务状态。"
+   required_docs:
+   - 01-product/02-geo-core-prd.md
+@@ -1402,11 +1411,19 @@
+   - 02-business/03-workflows-and-state-machines.md
+   - 03-technical/01-technical-architecture.md
+   - 04-delivery/04-codex-execution-guide.md
++  - 05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md
+ - id: GEO-805
+   phase: R7
+-  release: R7
++  release: post-core
+   title: 实现浏览器证据捕获、敏感裁剪和对象存储提交
+-  status: planned
++  status: deferred
++  deferred_reason: "ADR-006：MANUAL 回答级观测作为核心正式采集方式，Browser 自动化延期，不作为核心发布门禁；本任务尚未实现。"
++  resume_conditions:
++  - 产品重新排期并指定证据安全和工程责任人。
++  - GEO-804 人工接受为 done，GEO-304 保持 done；平台批准覆盖截图、敏感区域、保留及对象存储用途。
++  - 取得该唯一平台证据捕获/裁剪/完整性与失败路径的受控 staging 人工验收授权和入口。
++  owner: "待定；恢复排期前由公司指定上述产品、合规、工程/证据安全及运维责任，不沿用开发账号作为业务审批人。"
++  deferral_decision: 05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md
+   dependencies:
+   - GEO-804
+   - GEO-304
+@@ -1422,11 +1439,19 @@
+   - 02-business/03-workflows-and-state-machines.md
+   - 03-technical/01-technical-architecture.md
+   - 04-delivery/04-codex-execution-guide.md
++  - 05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md
+ - id: GEO-806
+   phase: R7
+-  release: R7
++  release: post-core
+   title: 实现 Browser Profile 健康、频率、kill switch 和管理 UI
+-  status: planned
++  status: deferred
++  deferred_reason: "ADR-006：MANUAL 回答级观测作为核心正式采集方式，Browser 自动化延期，不作为核心发布门禁；本任务尚未实现。"
++  resume_conditions:
++  - 产品重新排期并指定工程、合规和运维责任人。
++  - GEO-805 与 GEO-205 均人工接受为 done；平台批准中频率/并发、会话健康、停用和撤销责任明确。
++  - 受控 staging 的治理验收获得授权，确认当前开关、权限及配额设计。
++  owner: "待定；恢复排期前由公司指定上述产品、合规、工程/证据安全及运维责任，不沿用开发账号作为业务审批人。"
++  deferral_decision: 05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md
+   dependencies:
+   - GEO-805
+   - GEO-205
+@@ -1443,11 +1468,19 @@
+   - 02-business/03-workflows-and-state-machines.md
+   - 03-technical/01-technical-architecture.md
+   - 04-delivery/04-codex-execution-guide.md
++  - 05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md
+ - id: GEO-807
+   phase: R7
+-  release: R7
++  release: post-core
+   title: 执行真实平台小规模试点和人工交叉验收
+-  status: planned
++  status: deferred
++  deferred_reason: "ADR-006：MANUAL 回答级观测作为核心正式采集方式，Browser 自动化延期，不作为核心发布门禁；本任务尚未实现。"
++  resume_conditions:
++  - 产品重新排期并指定合规、业务验收和运维负责人。
++  - GEO-806 人工接受为 done；唯一平台专用账号、低频计划、环境和保留/停止范围获得可定位批准。
++  - 取得受控 staging 试点及人工交叉验收授权；生产启用须另行批准，不因延期解除自动开启。
++  owner: "待定；恢复排期前由公司指定上述产品、合规、工程/证据安全及运维责任，不沿用开发账号作为业务审批人。"
++  deferral_decision: 05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md
+   dependencies:
+   - GEO-806
+   areas:
+@@ -1463,6 +1496,7 @@
+   - 02-business/03-workflows-and-state-machines.md
+   - 03-technical/01-technical-architecture.md
+   - 04-delivery/04-codex-execution-guide.md
++  - 05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md
+ - id: GEO-901
+   phase: R8
+   release: R8
+@@ -1474,15 +1508,16 @@
+   - backend/app/services
+   - backend/app/worker.py
+   - contracts/database.md
+-  deliverables: raw payload、临时草稿、无引用文件、浏览器临时数据的限批清理和墓碑。
++  deliverables: raw payload、临时草稿、无引用文件的限批清理和墓碑；Browser 临时数据仅在部署 R7 或存在材料时适用，否则记录有依据的 N/A。
+   tests: 保留边界、引用保护、存储故障重试、dry-run。
+-  acceptance: 不删除指标所需元数据和已引用证据，清理可观察。
+-  required_docs:
+-  - 01-product/02-geo-core-prd.md
+-  - 02-business/02-domain-model.md
+-  - 02-business/03-workflows-and-state-machines.md
+-  - 03-technical/01-technical-architecture.md
+-  - 04-delivery/04-codex-execution-guide.md
++  acceptance: 不删除指标所需元数据和已引用证据，清理可观察；Browser 延期不豁免实际存在材料的保护/清理。
++  required_docs:
++  - 01-product/02-geo-core-prd.md
++  - 02-business/02-domain-model.md
++  - 02-business/03-workflows-and-state-machines.md
++  - 03-technical/01-technical-architecture.md
++  - 04-delivery/04-codex-execution-guide.md
++  - 05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md
+ - id: GEO-902
+   phase: R8
+   release: R8
+@@ -1517,15 +1552,16 @@
+   - deploy/scripts
+   - operations docs
+   - test environment
+-  deliverables: 备份清单、恢复脚本/步骤、一致性扫描、隔离恢复证据。
++  deliverables: 数据库、OSS、适用密钥的备份清单、恢复步骤、一致性扫描与隔离证据；未部署 R7 且确认无 Browser 材料时，会话恢复 N/A。
+   tests: 真实隔离恢复、哈希、凭据解密、调度去重。
+-  acceptance: 任意 Run Detail 和指标可恢复；缺失对象明确报告。
+-  required_docs:
+-  - 01-product/02-geo-core-prd.md
+-  - 02-business/02-domain-model.md
+-  - 02-business/03-workflows-and-state-machines.md
+-  - 03-technical/01-technical-architecture.md
+-  - 04-delivery/04-codex-execution-guide.md
++  acceptance: 任意 Run Detail 和指标可恢复；缺失对象明确报告；N/A 附部署及材料检查依据，存在 Browser 材料仍须保护并验证恢复/撤销。
++  required_docs:
++  - 01-product/02-geo-core-prd.md
++  - 02-business/02-domain-model.md
++  - 02-business/03-workflows-and-state-machines.md
++  - 03-technical/01-technical-architecture.md
++  - 04-delivery/04-codex-execution-guide.md
++  - 05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md
+ - id: GEO-904
+   phase: R8
+   release: R8
+@@ -1537,15 +1573,16 @@
+   - security tests
+   - docs
+   - configuration
+-  deliverables: 权限、CSRF、SSRF、secret、XSS、CSV、prompt injection、browser 会话和外部平台批准检查。
++  deliverables: 权限、CSRF、SSRF、secret、XSS、CSV、prompt injection 和实际外部平台批准检查；核心环境验证 Browser false、服务/profile 未启用且无生产会话/会话材料。
+   tests: 全部 TEST-GEO-SEC。
+-  acceptance: 无未接受的高风险项；例外有责任人和到期日。
+-  required_docs:
+-  - 01-product/02-geo-core-prd.md
+-  - 02-business/02-domain-model.md
+-  - 02-business/03-workflows-and-state-machines.md
+-  - 03-technical/01-technical-architecture.md
+-  - 04-delivery/04-codex-execution-guide.md
++  acceptance: 无未接受的高风险项；例外有责任人和到期日；Browser 关闭及无生产会话有目标环境证据，不能仅凭默认配置判定。
++  required_docs:
++  - 01-product/02-geo-core-prd.md
++  - 02-business/02-domain-model.md
++  - 02-business/03-workflows-and-state-machines.md
++  - 03-technical/01-technical-architecture.md
++  - 04-delivery/04-codex-execution-guide.md
++  - 05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md
+ - id: GEO-905
+   phase: R8
+   release: R8
+@@ -1582,12 +1619,13 @@
+   - docs
+   - release manifest
+   - acceptance
+-  deliverables: expand/deploy/enable、内部试用、监控窗口、回滚演练、文档已实现标记。
++  deliverables: 核心范围 expand/deploy/enable、MANUAL 正式闭环、内部试用、监控/回滚和文档验收；R7 延期不阻断核心上线，GEO_BROWSER_COLLECTION_ENABLED 必须保持 false。
+   tests: make verify、生产 smoke、恢复/停止演练。
+-  acceptance: 核心版正式可用；未批准 Browser profile 保持关闭；所有任务证据归档。
+-  required_docs:
+-  - 01-product/02-geo-core-prd.md
+-  - 02-business/02-domain-model.md
+-  - 02-business/03-workflows-and-state-machines.md
+-  - 03-technical/01-technical-architecture.md
+-  - 04-delivery/04-codex-execution-guide.md
++  acceptance: 核心版正式可用；GEO_BROWSER_COLLECTION_ENABLED=false、Browser 服务/profile 未启用且无生产会话；R7 deferred 不阻断，延期项不标已实现，核心与延期证据分别保留。
++  required_docs:
++  - 01-product/02-geo-core-prd.md
++  - 02-business/02-domain-model.md
++  - 02-business/03-workflows-and-state-machines.md
++  - 03-technical/01-technical-architecture.md
++  - 04-delivery/04-codex-execution-guide.md
++  - 05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md
+--- a/docs/geo-monitoring/05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md
++++ b/docs/geo-monitoring/05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md
+@@ -0,0 +1,48 @@
++# ADR-006：人工优先核心版与浏览器采集延期
++
++- 状态：Accepted
++- 日期：2026-10-05
++- 接受依据：本会话用户明确变更产品决策，要求新增并接受本 ADR；未提供具名审批人，不补造审批身份。
++- 适用范围：核心版采集方式、R7 剩余任务排期、R8 发布门禁；不改变 MANUAL/API 业务行为、指标或历史数据。
++- 替代范围：替代 [ADR-005](./ADR-005-staged-collector-rollout.md) 及其 GEO-002 修订中“完整核心版首发必须具备至少两个自动化观测面及一个真实界面试点/受控试运行”的要求。其平台批准、外发、发送隔离、凭据、不可变和测试安全边界继续有效；保留原 ADR 与评审历史。
++
++## 背景
++
++公司当前先由员工在豆包、DeepSeek、元宝等真实平台人工执行精确问题，再向 PartSignal 登记完整回答、引用来源、截图和环境信息。这些平台名称描述人工观测场景，不代表批准任何 Browser Adapter、账号自动化或网络访问。
++
++GEO-801、802、803 已真实完成并人工接受，分别提供独立隔离骨架、加密会话治理和本地合同套件。GEO-804 尚未实施真实 Adapter，原先因唯一平台批准范围及受控 staging smoke 授权/入口缺失而 blocked。GEO-805～807 尚未实施。R8 的依赖图没有指向 R7，但旧路线图、产品首发和无条件会话恢复要求形成了隐式门禁。
++
++## 决策
++
++1. MANUAL 回答级观测是核心版正式采集方式，按 [人工观测 SOP](../02-business/05-manual-geo-observation-sop.md) 执行，进入已有 Batch/Run、证据、分析、人工复核、指标、行动和复测闭环。它与旧文章关系级观测保持不同模型和分母。
++2. 保留已有 API 能力；API 仅按实际批准与部署范围启用。核心上线不要求先增加两个自动化观测面，不因 MANUAL 优先删除或改变已有 API。
++3. Browser Collection 是核心版之后的可选自动化扩展，保留目标设计及 GEO-801～803 的 done 状态、代码、测试和验收历史。
++4. GEO-804、805、806、807 进入 `deferred`，`phase: R7` 保留原阶段归属，`release: post-core` 表示延期发布。deferred 不等于 done，也不等于实现失败；原 blocked 原因作为历史和恢复输入保留。
++5. 核心发布顺序为 R6 → R8。R7 不再是核心发布前置门禁，不作为 R8 的直接或隐式依赖；R8 原有核心安全、恢复、性能与生产验收仍须完成。
++6. 核心生产必须保持 `GEO_BROWSER_COLLECTION_ENABLED=false`，不启用 `geo-browser` 服务或会话挂载/能力凭据，不存在生产 Browser 会话。GEO-904/906 必须在目标环境核实，不能从仓库默认值推断生产事实。本次仅文档调整，未执行生产检查。
++7. Browser 临时数据清理与会话恢复仅在 R7 已部署或实际存在相关材料时适用。未部署且确认无材料时标记有依据的 N/A；已有密文、密钥、会话引用或临时数据不能因延期而绕过保护、撤销、清理或恢复责任。
++
++## R8 条件性验收
++
++| 任务 | 核心版验收 |
++|---|---|
++| GEO-901 | raw payload、草稿、无引用文件的保留/清理仍必需；Browser 临时数据仅在部署或存在材料时适用，否则记录 N/A 及检查依据 |
++| GEO-903 | 数据库、OSS 和适用密钥恢复仍必需；未部署 R7 且无 Browser 材料时，会话恢复 N/A；存在材料时仍须保护并验证恢复/撤销，不将历史证据一并豁免 |
++| GEO-904 | 验证 Browser 开关 false、服务/profile 未启用、无生产会话/会话材料；MANUAL/API 的权限、CSRF、SSRF、secret 等检查不放宽 |
++| GEO-906 | R7 deferred 不阻断核心上线；MANUAL 正式闭环及 R8 依赖完成，目标环境 Browser false、无生产会话，并记录试用、停止/恢复和监控证据 |
++
++## 影响与约束
++
++- 人工工作量和平台可变性需要明确责任、重复采样和数据质量检查；计划创建 Run 不代表平台已经返回回答。
++- URL、模型版本或环境未知时记录证据和限制，不猜测、不把失败记成零表现；当前表单无法表达的完整样本先留草稿补证。引用缺失不改变既有服务端资格公式。
++- MANUAL/API/BROWSER 默认分开，语言、地区、登录、问题版本与采样口径不静默混合；未知版本可能继续阻断严格复测。
++- 不新增公共 API、数据库状态、Alembic revision、公式或生产部署动作；deferred 仅为交付治理状态。
++- 不实现、模拟或访问真实平台 Adapter，不使用第三方账号/Cookie，不删除完成基础设施。CI 继续只用 fake provider/本地模拟站。
++
++## R7 恢复条件
++
++1. 产品明确重新排期，并指定产品、合规、工程与运维责任；当前这些后续责任尚待指定，不伪造姓名或承诺日期。
++2. 明确唯一平台/真实域名及可定位批准记录，覆盖专用账号非敏感标识、用途、环境/地区、频率/并发、数据保留、停止和撤销规则；秘密只通过已有受保护通道提供。
++3. 提供受控 staging smoke 的人工授权、入口和验收负责人。获准人工观测或已有 API 配置不等于获准浏览器自动化。
++4. 重验 801～803 与每项前序依赖、当前 DOM/安全/网络/发送隔离及配额设计；按 task-manifest 和 Task Brief 逐项解除延期，重新评估 ready，不自动执行历史提示词。
++5. 804～807 依序实现、本地合同与授权 staging 验证后进入 review，人工接受后才 done；全部试点门禁满足并取得独立生产启用授权后，方可评估 Browser 开关。不得绕过验证码、访问控制或反自动化保护，也不得批量扩展平台。
+--- a/docs/geo-monitoring/CHANGELOG.md
++++ b/docs/geo-monitoring/CHANGELOG.md
+@@ -1,4 +1,13 @@
+ # 文档包变更记录
++
++## 人工优先与 Browser 延期范围调整 — 2026-10-05（决策 Accepted，治理交付 review）
++
++- 用户明确接受[ADR-006](./05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md)：MANUAL 回答级观测为核心正式采集方式，R6 直接进入 R8，R7 为 post-core 可选扩展。原 ADR-005 首发条件被显式替代，安全和平台批准门禁保留。
++- GEO-801～803 保持 done，代码/测试/验收证据不回退；804 blocked→deferred，805～807 planned→deferred，release=post-core，补原因、恢复条件和待定责任。保留804原阻断与基线历史，不伪造完成。
++- R8 的 Browser 临时清理/会话恢复条件适用，未部署且无材料时有依据地记录 N/A；904/906 必须验证 Browser false、服务未启用且无生产会话。延期不阻断核心，也不豁免实际材料保护/清理。
++- 新增[人工观测 SOP](./02-business/05-manual-geo-observation-sop.md)，覆盖计划Run、精确问题、环境、完整回答/引用/截图、缺URL、冻结、分析复核和重复采样；部分引用不完整必须留草稿补证，复核不放行缺失样本。
++- 产品/业务/技术、路线图/WBS/manifest、任务模板、执行指南、单任务与合并提示词同步；修正合并提示词69个旧索引锚点。OpenAPI、数据库、迁移、运行配置与MANUAL/API行为、指标、历史无变化，没有实现真实Browser Adapter或访问第三方平台。
++- 实际本轮验证、独立只读复核与限制见[治理实施记录](../../.trellis/tasks/10-05-geo-browser-scope-adjustment/implement.md)；不宣称生产开关/会话或R8上线已实测，不提交、发布或归档。
+ 
+ ## GEO-803 / R7 本地模拟AI产品与Browser合同 — 2026-10-05（review）
+ 
+--- a/docs/geo-monitoring/README.md
++++ b/docs/geo-monitoring/README.md
+@@ -73,6 +73,12 @@
+ GEO-507 / R4 已实现追加人工复核API、stale revision裁决、机器/复核历史和当前reviewed投影；未完成必要复核明确阻断业务指标使用。0056仅扩展受控Run发布守卫，无历史回填。Task Brief与实际验证见[任务记录](../../.trellis/tasks/10-03-geo-507-run-review/prd.md)和[实施证据](../../.trellis/tasks/10-03-geo-507-run-review/implement.md)，本地交付后状态为review，待人工接受。GEO-508页面和GEO-601指标未实施，未迁移生产数据库。
+ 
+ GEO-705 / R6 已新增严格复测预览和创建 API、不可变基线及幂等回执。显式选中首次触发来源批次，完整复制原矩阵/输入/规则，Profile、Variant 或已观测模型版本不可比（含版本未知）时给出差异并阻断。本地实现与验证完成，状态review，等待人工接受；实际门禁见 [Task Brief](../../.trellis/tasks/10-04-geo-705-retest-planner/prd.md) 和 [实施证据](../../.trellis/tasks/10-04-geo-705-retest-planner/implement.md)。0061 为加法迁移，无历史回填；未迁移生产。GEO-706 的结果比较、恢复裁决、解决机会及页面继续由后续任务实施。
++
++## 当前核心发布范围（ADR-006）
++
++2026-10-05 用户接受[人工优先、浏览器延期决策](./05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md)：MANUAL 回答级观测是核心版正式采集方式，操作见[人工观测 SOP](./02-business/05-manual-geo-observation-sop.md)。核心路径为 R6 → R8，R7 是 post-core 可选扩展；旧 ADR-005/GEO-002 的自动化及真实界面首发门禁由 ADR-006 显式替代，安全与平台批准条件保留。
++
++GEO-801、802、803 已人工接受为 done，代码和证据保留。GEO-804～807 为 deferred，release 为 post-core；真实 Adapter 未实施。核心生产必须保持 GEO_BROWSER_COLLECTION_ENABLED=false 且无生产 Browser 会话，实际环境检查留 GEO-904/906，不从默认配置推断已验收上线。
+ 
+ ## 1. 文档包用途
+ 
+@@ -105,7 +111,8 @@
+ │  ├─ 01-business-architecture.md
+ │  ├─ 02-domain-model.md
+ │  ├─ 03-workflows-and-state-machines.md
+-│  └─ 04-monitoring-methodology-and-metrics.md
++│  ├─ 04-monitoring-methodology-and-metrics.md
++│  └─ 05-manual-geo-observation-sop.md
+ ├─ 03-technical/
+ │  ├─ 01-technical-architecture.md
+ │  ├─ 02-data-architecture.md
+@@ -130,6 +137,7 @@
+    ├─ ADR-003-separate-collection-analysis-review.md
+    ├─ ADR-004-no-unified-geo-score.md
+    ├─ ADR-005-staged-collector-rollout.md
++   ├─ ADR-006-defer-browser-collection-and-adopt-manual-first-core.md
+    └─ GEO-002-architecture-review.md
+ ```
+ 
+@@ -147,6 +155,7 @@
+ | 产品 | [Catalog 使用指南（当前 R1）](./01-product/04-catalog-user-guide.md) |
+ | 业务 | [业务架构](./02-business/01-business-architecture.md) |
+ | 业务 | [领域模型](./02-business/02-domain-model.md) |
++| 业务 | [人工 GEO 观测 SOP](./02-business/05-manual-geo-observation-sop.md) |
+ | 业务 | [业务流程与状态机](./02-business/03-workflows-and-state-machines.md) |
+ | 业务 | [监测方法与指标口径](./02-business/04-monitoring-methodology-and-metrics.md) |
+ | 技术 | [技术架构](./03-technical/01-technical-architecture.md) |
+@@ -171,6 +180,7 @@
+ | 决策 | [ADR-003：采集、分析、复核分离](./05-decisions/ADR-003-separate-collection-analysis-review.md) |
+ | 决策 | [ADR-004：不提供统一 GEO 总分](./05-decisions/ADR-004-no-unified-geo-score.md) |
+ | 决策 | [ADR-005：分阶段启用采集](./05-decisions/ADR-005-staged-collector-rollout.md) |
++| 决策 | [ADR-006：人工优先、浏览器延期](./05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md) |
+ | 决策 | [GEO-002：架构评审记录](./05-decisions/GEO-002-architecture-review.md) |
+ 
+ 校验命令从本目录执行：`shasum -a 256 -c SHA256SUMS`。清单覆盖本目录其余全部文件，不包含 `SHA256SUMS` 自身；修改文件后应同步更新对应哈希。
+@@ -237,7 +247,8 @@
+ | R4 分析与人工复核 | 能识别提及、推荐、竞品、引用和事实准确性，并人工修正 |
+ | R5 指标与洞察 | 能按产品、问题、平台、采集方式和周期查看可解释指标与趋势 |
+ | R6 机会与复测闭环 | 异常可转化为任务，任务完成后可发起严格同口径复测 |
+-| R7 浏览器试点与生产硬化 | 在合规批准下完成一个真实界面采集试点及完整运维门禁 |
++| R7 浏览器试点（post-core 可选） | 保留已完成基础设施，804～807 延期；恢复须满足 ADR-006 与合规门禁 |
++| R8 核心生产硬化 | 从 R6 直接进入，MANUAL 正式闭环、安全/恢复/性能验收；Browser 关闭且无生产会话 |
+ 
+ GEO-207 / R1 已实现服务端 RunMatrixBuilder、当前资源与共享 Profile 资格定位、三模式数量及 known/unknown 费用覆盖，当前交付状态见 [任务清单](./04-delivery/task-manifest.yaml)。10×3×3 准确返回90，未知费用保持 null；默认没有生产估价实现。预览组件与 generated 类型以根 OpenAPI 为权威，GEO-208已接入Plan API；仍无Batch/Run或外部采集。范围和逐项验证见 [Task Brief](../../.trellis/tasks/10-02-geo-207-run-matrix/prd.md) 与 [实施证据](../../.trellis/tasks/10-02-geo-207-run-matrix/implement.md)，具体估价与预算语义见 [API设计](./03-technical/03-api-contract-design.md#62-geomonitoringplanpreview)。
+ 
+@@ -392,4 +403,4 @@
+ 协议、运行与接入方法见[模拟站说明](../../tests/browser-fixture/README.md)，
+ 实际验证及限制见[Task Brief](../../.trellis/tasks/10-05-geo-803-browser-contract/prd.md)与
+ [实施证据](../../.trellis/tasks/10-05-geo-803-browser-contract/implement.md)。
+-状态以manifest为准；只交付review，未实施GEO-804真实平台或GEO-805生产证据捕获。
++状态以 manifest 为准；GEO-803 已人工接受为 done，未实施 GEO-804 真实平台或 GEO-805 生产证据捕获。804～807 按 ADR-006 延期。
+--- a/docs/geo-monitoring/SHA256SUMS
++++ b/docs/geo-monitoring/SHA256SUMS
+@@ -1,31 +1,31 @@
+ 0ec5e67515fa5c383612130415bfc70185a607ac65006fcc932dd750c137bbde  ./00-governance/01-document-governance.md
+ b5906690eb04c8d27911a09722761e7cf4c244ecab2fbe39a55d94c794ee8728  ./00-governance/02-glossary.md
+-670367ab19f32e811ec651a5be24a9ca062699f1fec60571c97b055ac7f1fb15  ./01-product/01-product-vision-and-scope.md
+-44d54c96622be90ace3165fad8cd99208c3e56be8b38ae954196518ab3b47131  ./01-product/02-geo-core-prd.md
++c2712f08697489a04597c9c8da1bc87b0316a6dad321b36bbc2d850377ca63c8  ./01-product/01-product-vision-and-scope.md
++17aa0ad790030a427124eb011be6893b3c63563481a44d219cfcbfc6dc6b6eef  ./01-product/02-geo-core-prd.md
+ 95637e55031a56bf3e70073207439e2d7cd6f879be9ddaefa1b7edc3192d7751  ./01-product/03-information-architecture-and-page-spec.md
+ 36be92c676c3150e5953f01498418900d3e2bcc1f37a0bda31b9892e57b8a2d0  ./01-product/04-catalog-user-guide.md
+-2fcb35ffffe8cefb59c28d860796eac93be7e32ef128eb320348ef91a044b1ab  ./02-business/01-business-architecture.md
++5bf57905d842c611ca8a7f3fb5997a8756f5c77c20830c5f4296d2f0e56b0ec8  ./02-business/01-business-architecture.md
+ ecf9472b259ebe572775405e0fcd5d3dddf35a13d68be130a44baec5a3db9f98  ./02-business/02-domain-model.md
+-f3aeee99fa15b2c6b28c33ef869aed12283334a2b17116b8dd0ddda6272ae0cd  ./02-business/03-workflows-and-state-machines.md
++4793e30ed3f34f0b39538f7be0b656e72ed5ce3f9f10e0e16d3d0344e3eb0ef4  ./02-business/03-workflows-and-state-machines.md
+ aeec9d65d22cc1f2640c46968e1923d328ed842bbc086f18e5dc4bd376a4bb02  ./02-business/04-monitoring-methodology-and-metrics.md
+-90c2a635615b591f0d1a282fb62f289de0fbad030ea2dcb19ce7dd10983b85b2  ./03-technical/01-technical-architecture.md
++8d89a0c8e2f1b4051595c5b303a2bfb16bc45d6cffb912ada4a34ad69293d3a5  ./03-technical/01-technical-architecture.md
+ 47c19614dc6ccc3a06738a8d7fc350915801f6ccd1f92d8de9dd3c827df5b899  ./03-technical/02-data-architecture.md
+ 22f8976a569a88800331d5f8ad54a83d753450f469bd30b70e4ac79a8f18c2e9  ./03-technical/03-api-contract-design.md
+ a0291d4a77609a1db741e3adc84d19ab712ac3ffff8c49f8572ac09b1c5327eb  ./03-technical/04-frontend-architecture.md
+ daf8f8cec2dfb8996c316ca259ae6eea161d944337f340ce9c6180bc9c87c0f5  ./03-technical/05-worker-and-collector-architecture.md
+ 31002b145b98594c58b1718179b63f52e6c08997dfd7dba871176b366a0193ec  ./03-technical/06-security-and-compliance.md
+-c72c2cf000954befa7288891843daa24e25a1b7f131bba420c589dea05cb2906  ./03-technical/07-testing-and-quality.md
+-ad8e3cdabaef621d76d687caf1f79820733f5e7e4d6502e0677fe81e5e7207e7  ./03-technical/08-deployment-and-operations.md
+-f8c643e46c1159c51bd2e271e87de1d0e5a0448e2845af01f33bef5e4e1d411b  ./04-delivery/01-implementation-roadmap.md
+-acf0bde87ddfc34ebbc09543c1f2c2c1f496d48f330727b5e943807267eed41c  ./04-delivery/02-work-breakdown-structure.md
+-fd85f9d3dbbc6246f31af69e20d1d72ecd69ae3ca3bf3cc8d0bbe10fc3f21627  ./04-delivery/03-requirement-traceability-matrix.md
+-8991d4c1ec5cc872904aa3b10ffbb2f77ca46a4bfda88589d290f7fd92c2f1fb  ./04-delivery/04-codex-execution-guide.md
+-f600bcdfc2788659654825a020fb2aa0fcbe7acf9827b97eab25aadd7a20ff51  ./04-delivery/05-task-template.md
++49c7a663cc0e555259a11b709bfa72404667cc3940751f3db402b5ae02d71234  ./03-technical/07-testing-and-quality.md
++2bc009718116d8c085b9320a93733e6ef69ab9b392e5b90eae6a64174eaf73ab  ./03-technical/08-deployment-and-operations.md
++46f6d9585856b518af06b01863b0e25b3b00906ffde987d7453fcf810a85db93  ./04-delivery/01-implementation-roadmap.md
++eee6ed49f55846ab63c464b2696112b270572e050b43195bdb2a9fddb8122613  ./04-delivery/02-work-breakdown-structure.md
++fe8eb7c838c0616c6330ba9c9cc0b4c2c1d51a07d682e325764a74bff3283afd  ./04-delivery/03-requirement-traceability-matrix.md
++1224ffc2606ab412e8c2f886b10b6cd57e520006b7229c754f866c674bcf4a26  ./04-delivery/04-codex-execution-guide.md
++63659ee9c39988256052cd75d8fe0e15213daea802f76b2a1481520ee0aac45e  ./04-delivery/05-task-template.md
+ 0ec18f9ce8589f4c8e222fddc6d15853c949ad2b227381b584e2c81c4c4e47b0  ./04-delivery/06-current-geo-baseline.md
+ 04c45f4f7f95f5fc4efd7b288b06921bb58d6fcede6e5682e7c9434aac0b7c9a  ./04-delivery/06-r5-insight-performance-acceptance.md
+ a80ebe00c833b45a53bf82b140a84b9bb1a20a49bb37688cb233ef6d5e818782  ./04-delivery/07-r2-acceptance.md
+ c2bb63a4bde8702dc9e2c8dc62867cc2ad99a56c7a9253b7159778a92c29aec3  ./04-delivery/08-r3-api-acceptance.md
+-3f4521d85e15fdbc45e7c29705e906e9415216f334232ec97ab7515ecd692cb4  ./04-delivery/codex-prompts/ALL_PROMPTS.md
++448418c5f27b85d1256941e9e7d63a22d9e8c048474af22a4f7507488b6911e9  ./04-delivery/codex-prompts/ALL_PROMPTS.md
+ a7878ed45c976a5dfd81ddb04f7bdbd829e972019cd996d018a876f4dd4ca815  ./04-delivery/codex-prompts/EXECUTION_ORDER.md
+ 309a28ec2c3d1a2d0964aab459c55fa263241fb4768705530eb6c3cc84b3f8db  ./04-delivery/codex-prompts/R0/GEO-003.md
+ 3145395361e8db816e2e1dfc46a08d2499b2f3b79f96c531d6be5cb53b640ebd  ./04-delivery/codex-prompts/R0/GEO-004.md
+@@ -86,17 +86,17 @@
+ da0aac6864477e358700408604d14f98c71621770b4b8794f182622899c20fad  ./04-delivery/codex-prompts/R7/GEO-801.md
+ 08557f4cf022395568dc618a6ed7883081234c526482c1fe3fea80347fa852de  ./04-delivery/codex-prompts/R7/GEO-802.md
+ b2c486dca40af59fc83c46db20d9e0345f1be62d4fe3c285032236b3592b083d  ./04-delivery/codex-prompts/R7/GEO-803.md
+-5cea808219f2db28b84a0c6985b51822f22bfdc8a91cc527a037f72e06b4d7e9  ./04-delivery/codex-prompts/R7/GEO-804.md
+-ac1ef97eda7928342eba6bfee5b8098d23a39b677c7e75bd30c553eda6aecaa9  ./04-delivery/codex-prompts/R7/GEO-805.md
+-ffc1de5c8d5de7bde4294200c5232c54fafe8ce7095df7939eea2a615303c7f6  ./04-delivery/codex-prompts/R7/GEO-806.md
+-b8c8db44028105cef066d43ae6694de20aedcbd4b18746e2c63dca32fc53a434  ./04-delivery/codex-prompts/R7/GEO-807.md
+-408844b6302563b121c6720e69fb3b3fcf0691a051329ed1d1464818d37d9988  ./04-delivery/codex-prompts/R8/GEO-901.md
++d6d2c449629df016740e40676a2934bb48473e7090d66b6b268928e49ad702ca  ./04-delivery/codex-prompts/R7/GEO-804.md
++6a20f363d3d8c40fa72ba99816aab64e404e3d50db55c96d2fa5e0beb91d7bcb  ./04-delivery/codex-prompts/R7/GEO-805.md
++80e7acd68f08d8343282d01067956a54631c90df40c05f974ee12d90bbec6de6  ./04-delivery/codex-prompts/R7/GEO-806.md
++26b484479e084fe9f64eb608163808691ecfbb391ab903a9a15e315039fd1f69  ./04-delivery/codex-prompts/R7/GEO-807.md
++d412b36ee034536c129eae3ce8a743182eed1bd1176955e96820595ae15521a8  ./04-delivery/codex-prompts/R8/GEO-901.md
+ b3f07f590fa1d9b8b1e756d96369bb8b8c9ce358df20e5327f6b706973ed81cb  ./04-delivery/codex-prompts/R8/GEO-902.md
+-0120a8a43a92e073a27206664b7ab05fcb76c66ae1068e2323d973cdd9aaf437  ./04-delivery/codex-prompts/R8/GEO-903.md
+-02170b5782db154bf7f463bc10bcdbe51b3c017b3e317f4681a515fddfc3547c  ./04-delivery/codex-prompts/R8/GEO-904.md
++45bc216adbb41aa39eb8aa3493e34b0f56f5e05d24cef10b2c62375d2d254dc6  ./04-delivery/codex-prompts/R8/GEO-903.md
++726ec9997566f5d80a2a0a7db6b739dbbde78dee286132e334b892eadc90af88  ./04-delivery/codex-prompts/R8/GEO-904.md
+ d0b186c6a54563ed88861a227d0b561a6cf6806afe3a2ca39109a61875f7f9e8  ./04-delivery/codex-prompts/R8/GEO-905.md
+-360e7e15668b254821a9d97f382eb8f01adbf73e0d7524243a8d3c5322f058a5  ./04-delivery/codex-prompts/R8/GEO-906.md
+-2703705554f330a4a7feb63217bce9b864c0721814d2562a94b708d2915a3e0f  ./04-delivery/codex-prompts/README.md
++37dc7798806968c2b48d512dae1dbb5c0158d7883c6172e7712de9cea4ba8bcf  ./04-delivery/codex-prompts/R8/GEO-906.md
++e4e9bfe0fa2b9e8aea25923b09082faa67798333e64c348f37ef6fd133c79662  ./04-delivery/codex-prompts/README.md
+ 67c5dbafec435bf273cfc1120b66794acda0546474bdaabbdb4a11d59693cccf  ./04-delivery/codex-prompts/REVIEW_CHECKLIST.md
+ 8368cd3eb300c09ca6777f3f45f92965582e16c02c0a0d40a4debfa0aeeabe0b  ./04-delivery/geo-003-baseline/database.json
+ 2827163319c486c46eb08491c739e9cc0361e2e6c3ee1733d4eed11bd9ed5a89  ./04-delivery/geo-003-baseline/migrations.json
+@@ -106,13 +106,16 @@
+ 7106b3f1df66de6ba41a4d7ca85e291b8b181f78e2b7c0ef91f4fa696d1f9e8b  ./04-delivery/geo-003-baseline/sources.json
+ 316ab24c5f645e18d39c529c7fcbca2260b14a5375cc5ebd799a5b7c6cfc8f40  ./04-delivery/geo-003-baseline/tests.json
+ 9dae298eb77cc0063394bfacea27b02ece69bf2a7dceba637ef1320565810ec7  ./04-delivery/geo-003-baseline/validation.md
+-0db272723c9ff60264c44c640658fb6d04cabd548d4ccf453bf6d37f70c60636  ./04-delivery/task-manifest.yaml
++a4f4810ba778c3c326fb141aeef0c6136b3c3dbdb0a192a35b87c5feb7fdf692  ./04-delivery/task-manifest.yaml
+ 2c0f8d8ba314039b44e48614481c28e615e996c2e4ed444c8f07362b5cd75de9  ./05-decisions/ADR-001-extend-modular-monolith.md
+ 4e0ec1be59e33c2f3e83ee50abc55ffe35d2d0bf471c19cc2c713b391fc12cee  ./05-decisions/ADR-002-unified-observation-run-model.md
+ 00baab5f8fe68fbaf75e3aa7b07a0cfbd7c510e39b6a70ea462d9ab941330dc7  ./05-decisions/ADR-003-separate-collection-analysis-review.md
+ 8f4f24331d4ea91574e5a4a56c3eacd9d89e193011c48f8d9f5e413198793909  ./05-decisions/ADR-004-no-unified-geo-score.md
+ 6197eb3379ad5c5f99c499ab8b74eac5cf18e6df26a3f5c34c4e9bf83845593b  ./05-decisions/ADR-005-staged-collector-rollout.md
+ c3e9f23a90bd7fc9b47760d53c56fd6f09f73065dff5b19c1040ee5fd608a560  ./05-decisions/GEO-002-architecture-review.md
+-886554a178d6ec73815ffbff3da39f86c043f0139e635231a74b3fd5eaea5966  ./CHANGELOG.md
+-d3e47d23b3fef814a4f3b2f33576758b843c07cbc0037678761e9722158d7669  ./README.md
++457123decbdbcf6e1ffb131b8f1743ad8315057e602c4b26a0bc3d50e7277452  ./CHANGELOG.md
++080c6428afb8bbb5120dbdb36ad857f4ae94491ccf74e53cf37631a43f8ebed7  ./README.md
+ 670f9d9e94e3a36b849691f8531a30433ea0253f234b855d08331b6d2b1905cd  ./04-delivery/10-r6-opportunity-acceptance.md
++2ecb8425899de5f1ae4f6a1f0b130f93aba201fbc9c084856d6893835d0484e9  ./02-business/05-manual-geo-observation-sop.md
++063efdbae17e86fc90ff7e6cff80ecdfdb6eee1e37416e5e3179531c7260a7cd  ./04-delivery/09-r4-analysis-acceptance.md
++2fbec827c69bc5ed179ee8752b252ef1419f97392c38b6770c9184fa9ba641ba  ./05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md

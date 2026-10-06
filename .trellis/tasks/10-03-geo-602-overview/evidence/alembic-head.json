@@ -1,0 +1,16 @@
+{
+  "argv": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "alembic",
+    "-c",
+    "backend/alembic.ini",
+    "heads"
+  ],
+  "cwd": "/Users/sc/PycharmProjects/partsignal",
+  "exit_code": 0,
+  "started_at": "2026-10-04T06:51:50.944699+00:00",
+  "finished_at": "2026-10-04T06:51:51.246283+00:00"
+}

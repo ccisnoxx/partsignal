@@ -1,0 +1,93 @@
+{
+  "version": 5,
+  "planner_version": "1.5.1",
+  "plan_id": "geo206-contract-fix-review",
+  "max_concurrent_workers": 1,
+  "effective_capacity": 1,
+  "open_workers": 0,
+  "available_slots": 1,
+  "role_profiles": {
+    "critical_reviewer": {
+      "name": "critical_reviewer",
+      "model": "gpt-6.1-sol",
+      "model_reasoning_effort": "xhigh",
+      "sandbox_mode": "read-only",
+      "profile_source": "agent_toml",
+      "config_file": "critical_reviewer.toml",
+      "config_sha256": "30f4b4654e23415c7723b0d6ec7625b2020f13c51c5714a37c80feb53c7e4118"
+    }
+  },
+  "codex_config_evidence": {
+    "config_file": "config.toml",
+    "config_sha256": "737475b17442296a06cc9e036b73f670613ef52c5e408c868cb568785f223924",
+    "configured_max_concurrent_threads_per_session": 4,
+    "capacity_source": "codex_config"
+  },
+  "runtime_workers": [],
+  "prior_tasks": [
+    {
+      "task_id": "geo206-contract-fix-candidate",
+      "attempt": 1,
+      "status": "accepted",
+      "worker_id": null
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": "geo206-review-fixes",
+      "task_name": "geo206_contract_fix_review",
+      "agent_type": "critical_reviewer",
+      "attempt": 1,
+      "replaces_task_id": null,
+      "depends_on": [],
+      "read_paths": [
+        "backend/app/schemas/geo_monitoring_plans.py",
+        "contracts/openapi.yaml",
+        "contracts/database.md",
+        "backend/tests/unit/test_geo_monitoring_plan_contract.py",
+        "backend/tests/integration/test_geo_plan_reference_api.py",
+        "backend/tests/integration/test_geo_questions_api.py",
+        "backend/tests/integration/test_migrations.py",
+        "frontend/src/shared/api/generated/schema.d.ts",
+        "AGENTS.md",
+        "backend/AGENTS.md",
+        ".trellis/spec",
+        ".trellis/tasks/10-02-geo-206-monitoring-plan",
+        "docs/geo-monitoring"
+      ],
+      "write_paths": [],
+      "independent_review": true,
+      "review_of_task_ids": [
+        "geo206-contract-fix-candidate"
+      ],
+      "reuse_worker_id": null,
+      "accounting_scope": "not_available",
+      "dispatch_method": "spawn_agent",
+      "fork_turns": "none",
+      "delivery_mode": "complete_task",
+      "progress_policy": "blocker_or_final",
+      "deliverable": "独立只读复核已确认 Cron/预算契约修复及新增真实 FK fallback 验证，中文报告可确认问题或无确认问题及覆盖边界。",
+      "acceptance_criteria": [
+        "具体反例和file:line支撑问题；区分运行时和JSON wire类型",
+        "不修改文件/Git/环境，不重复已验证DB迁移与普通门禁",
+        "确认两个已复现契约问题得到修正且没有引入不一致"
+      ],
+      "assigned_wave": 1
+    }
+  ],
+  "waves": [
+    {
+      "wave": 1,
+      "task_ids": [
+        "geo206-review-fixes"
+      ]
+    }
+  ],
+  "ready_task_ids": [
+    "geo206-review-fixes"
+  ],
+  "deferred_task_ids": [],
+  "blocked_task_ids": [],
+  "blocked_reasons": {},
+  "superseded_worker_ids": []
+}

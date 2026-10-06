@@ -1,0 +1,3 @@
+{"file": ".trellis/tasks/10-01-geo-003-current-baseline/prd.md", "reason": "只读业务边界与八项最低验证要求"}
+{"file": "docs/geo-monitoring/04-delivery/geo-003-baseline/validation.md", "reason": "本轮实际成绩、精确环境阻断与未验证区域"}
+{"file": ".trellis/tasks/10-01-geo-003-current-baseline/implement.md", "reason": "变更与状态历史、保护现有工作"}

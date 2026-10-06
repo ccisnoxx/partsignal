@@ -1,0 +1,12 @@
+{
+  "command": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "pytest",
+    "backend/tests/unit/test_contract.py"
+  ],
+  "exit_code": 0,
+  "seconds": 11.116353542020079
+}

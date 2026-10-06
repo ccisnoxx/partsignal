@@ -1,0 +1,73 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend ruff check backend
+I001 [*] Import block is un-sorted or un-formatted
+  --> backend/app/schemas/geo_answer_insights.py:3:1
+   |
+ 1 |   """GEO-603回答级洞察公共合同；文章关系级GeoInsights保持独立。"""
+ 2 |
+ 3 | / from typing import Annotated, Literal, Self
+ 4 | | from uuid import UUID
+ 5 | |
+ 6 | | from pydantic import AwareDatetime, BeforeValidator, Field, model_validator
+ 7 | |
+ 8 | | from app.schemas.base import ContractModel
+ 9 | | from app.schemas.geo_insight_details import (
+10 | |     GeoInsightCitationSummary,
+11 | |     GeoAnswerInsightDataQuality,
+12 | |     GeoInsightFactRiskSummary,
+13 | | )
+14 | | from app.schemas.geo_insights import (
+15 | |     Cohort,
+16 | |     GeoOverviewDimensions,
+17 | |     GeoOverviewExclusion,
+18 | |     GeoOverviewFilters,
+19 | |     GeoOverviewRunSample,
+20 | | )
+21 | | from app.schemas.geo_metric_values import SampleLevel
+   | |_____________________________________________________^
+22 |
+23 |   InsightMetric = Literal[
+   |
+help: Organize imports
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> backend/app/services/geo_insight_quality.py:3:1
+   |
+ 1 |   """质量洞察消费602唯一质量口径；费用分币、版本/共享域名保留真实缺口。"""
+ 2 |
+ 3 | / import json
+ 4 | | from collections import Counter, defaultdict
+ 5 | | from decimal import Decimal
+ 6 | | from hashlib import sha256
+ 7 | | from typing import cast
+ 8 | |
+ 9 | | from sqlalchemy.orm import Session
+10 | |
+11 | | from app.schemas.geo_insight_details import (
+12 | |     GeoInsightCostSummary,
+13 | |     GeoAnswerInsightDataQuality,
+14 | |     GeoInsightQualityDrilldown,
+15 | |     GeoInsightQualityFilters,
+16 | |     GeoInsightQualityPage,
+17 | |     GeoInsightQualitySample,
+18 | |     GeoInsightVersionSummary,
+19 | |     QualityCode,
+20 | | )
+21 | | from app.schemas.geo_insights import GeoOverviewDataQuality, GeoOverviewFilters, OverviewMetric
+22 | | from app.services.geo_overview import QUALITY_CODES, _generic_reasons, _quality, _quality_card
+23 | | from app.services.geo_overview_queries import OverviewInput, load_inputs
+   | |________________________________________________________________________^
+   |
+help: Organize imports
+
+E501 Line too long (106 > 100)
+  --> backend/app/services/geo_insight_quality.py:66:101
+   |
+66 | def data_quality(inputs: list[OverviewInput], filters: GeoOverviewFilters) -> GeoAnswerInsightDataQuality:
+   |                                                                                                     ^^^^^^
+67 |     parts = _quality(inputs, filters)
+68 |     cards = [_quality_card(code, parts[code], filters) for code in QUALITY_CODES]
+   |
+
+Found 3 errors.
+[*] 2 fixable with the `--fix` option.
+make: *** [lint] Error 1

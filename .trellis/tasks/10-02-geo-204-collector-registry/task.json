@@ -1,0 +1,42 @@
+{
+  "id": "geo-204-collector-registry",
+  "name": "geo-204-collector-registry",
+  "title": "GEO-204 Collector Registry 与 Profile 资格策略",
+  "description": "GEO-204 Registry/纯Profile资格，不执行provider请求",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-10-02",
+  "completedAt": "2026-10-02",
+  "branch": "geo/GEO-204",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "backend/app/collectors/registry.py",
+    "backend/app/services/geo_collector_eligibility.py",
+    "backend/app/services/geo_collection_profiles.py",
+    "backend/tests/unit/test_geo_collector_registry.py",
+    "backend/tests/integration/test_geo_profile_eligibility.py"
+  ],
+  "notes": "GEO-204 实现与本地验证完成，独立只读复核无阻断。2026-10-02 本会话用户人工审查并接受 GEO-204 的实现与测试证据；manifest=done，Trellis=completed。本次只记录验收，不提交、归档或实施后续任务。",
+  "meta": {
+    "geo_task_id": "GEO-204",
+    "release": "R1",
+    "manifest_status": "done",
+    "validation": "passed",
+    "accepted_at": "2026-10-02",
+    "accepted_by": "本会话用户",
+    "accepted_scope": "GEO-204 Collector Registry、capabilities、validate_profile、未知adapter与共享Profile资格/开关门禁及已记录的实现与测试证据；不包含GEO-205/207/401、Plan/Worker接线或provider请求。",
+    "acceptance_basis": "用户明确表示：我已经人工审查并接受 GEO-204 的实现与测试证据。",
+    "validation_record": ".trellis/tasks/10-02-geo-204-collector-registry/implement.md"
+  }
+}

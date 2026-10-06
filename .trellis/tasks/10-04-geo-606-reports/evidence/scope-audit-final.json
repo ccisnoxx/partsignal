@@ -1,0 +1,12 @@
+{
+  "command": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "python",
+    ".trellis/tasks/10-04-geo-606-reports/evidence/verify_scope.py"
+  ],
+  "exit_code": 0,
+  "duration_seconds": 1.14
+}

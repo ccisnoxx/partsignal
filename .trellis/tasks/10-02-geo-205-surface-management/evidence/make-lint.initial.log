@@ -1,0 +1,19 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend ruff check backend
+I001 [*] Import block is un-sorted or un-formatted
+ --> backend/.geo205-validation/run_checks.py:1:1
+  |
+1 | / from concurrent.futures import ThreadPoolExecutor
+2 | | from pathlib import Path
+3 | | import json
+4 | | import os
+5 | | import subprocess
+6 | | import time
+  | |___________^
+7 |
+8 |   root = Path.cwd()
+  |
+help: Organize imports
+
+Found 1 error.
+[*] 1 fixable with the `--fix` option.
+make: *** [lint] Error 1

@@ -1,0 +1,97 @@
+{
+  "task_id": "GEO-1007",
+  "delivery_scope_id": "GEO-1008",
+  "environment": "local-owned-compose-pg16",
+  "production_status": "NOT_STARTED",
+  "state_owner": "deploy/scripts/prepare-production-data.py",
+  "scheme": "controlled_forward_repair_same_schema_identical_migrations",
+  "verification": {
+    "state_and_identity_unit_tests": {
+      "count": 19,
+      "result": "PASS",
+      "evidence": "unit-registry-final.log"
+    },
+    "migration_failure": {
+      "exit": 23,
+      "phase": "UPGRADE_DEPLOYING"
+    },
+    "startup_failure": {
+      "exit": 24,
+      "phase": "UPGRADE_DEPLOYING"
+    },
+    "fixed_deploy_activate": {
+      "result": "PASS",
+      "final_phase": "PRODUCTION_INITIALIZED",
+      "evidence": "compose-registry-final.log"
+    },
+    "business_tables_full_row_digest": {
+      "count": 69,
+      "result": "UNCHANGED",
+      "excluded": [
+        "alembic_version",
+        "geo_operation_health"
+      ]
+    },
+    "cached_migration_image": {
+      "result": "REJECTED",
+      "evidence": "image-cache-historical-counterexample.log",
+      "cases": [
+        "default_tree_unchecked_hash_cache",
+        "external_prefix_unchecked_hash_cache",
+        "runtime_and_host_prefix",
+        "historical_runtime_prefix_removed"
+      ]
+    },
+    "canonical_image_cache": {
+      "targets": [
+        "test",
+        "production"
+      ],
+      "count": 0
+    },
+    "sigterm_compose": {
+      "exit": 143,
+      "cleanup": "containers_networks_images_temp_zero",
+      "evidence": "compose-sigterm.log"
+    },
+    "sigterm_process_group": {
+      "graceful": "PASS",
+      "forced_after_seconds": 10,
+      "lock_until_exit": "PASS",
+      "evidence": "sigterm-forced-group.log"
+    },
+    "cleanup": {
+      "shared_resources": "NOT_ACCESSED",
+      "owned_resources": "ZERO"
+    },
+    "deployment_regression": {
+      "result": "PASS",
+      "evidence": "production-registry-serial.log"
+    },
+    "failed_execution_cache_policy": {
+      "count": 6,
+      "result": "PASS",
+      "evidence": "cache-policy-registry-final.log"
+    },
+    "registry_uncached_delivery_and_bad_manifest": {
+      "count": 2,
+      "result": "PASS",
+      "evidence": "registry-order-final.log",
+      "red_evidence": "registry-order-red.log",
+      "boundary": "real_shell_and_state_owner_with_isolated_docker_delivery_stub"
+    },
+    "python_lint": {
+      "result": "PASS",
+      "evidence": "ruff-registry-final.log"
+    }
+  },
+  "limits": [
+    "本地合成凭据与MET夹具不是生产外部服务批准",
+    "跨schema/迁移变化/旧镜像缺失或缓存不接受前向修复",
+    "目标服务器、公网维护、备份/外发对账及最终候选未验证",
+    "未执行无关全仓make verify",
+    "隔离PG夹具显式创建账号；69表摘要不代表已覆盖有内容的Publishing/GEO不可变历史",
+    "Compose SIGTERM在迁移失败命令退出后注入，未覆盖进行中的Engine操作",
+    "历史状态无绑定失败执行的缓存策略证明不能前向接管，不在重入时补造；另行备份abort/recover"
+  ]
+}

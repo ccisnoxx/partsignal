@@ -1,0 +1,32 @@
+{
+  "branch": "geo/GEO-209",
+  "candidate_files": 32,
+  "new_files": 21,
+  "unrelated_starting_status_paths_missing": [],
+  "new_status_paths": [
+    "frontend/src/domains/geo-plans/",
+    "frontend/src/routes/_app/geo/plans.tsx",
+    "frontend/tests/e2e/plans-real-stack.spec.ts"
+  ],
+  "manifest_status_changes": {
+    "GEO-209": [
+      "planned",
+      "review"
+    ]
+  },
+  "dependency": {
+    "GEO-208": "done"
+  },
+  "checksums_updated_and_valid": [
+    "03-technical/04-frontend-architecture.md",
+    "04-delivery/03-requirement-traceability-matrix.md",
+    "04-delivery/task-manifest.yaml",
+    "CHANGELOG.md",
+    "README.md"
+  ],
+  "no_task_backend_or_contract_patch": true,
+  "task_status": "review",
+  "completedAt": null,
+  "scoped_diff_whitespace": [],
+  "inspection": "相对任务起点检查候选diff，保留前序dirty/untracked；新路由generated注册由Vite产生。权限/CSRF/CAS/preview与dirty由定向测试、真实栈及独立复核验证。"
+}

@@ -1,0 +1,10 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend mypy --config-file backend/pyproject.toml backend/app
+Success: no issues found in 158 source files
+npm --prefix frontend run typecheck
+
+> partsignal-frontend-v2@0.1.0 typecheck
+> tsc -b --pretty false
+
+src/domains/geo-catalog/surfaces-form.model.ts(73,94): error TS2322: Type '{ temperature: number | null; max_output_tokens: number | null; }' is not assignable to type '{ require_screenshot: boolean; } | { require_screenshot: boolean; answer_timeout_seconds: number; } | { temperature: number | null; max_output_tokens: number | null; max_concurrency: number; requests_per_minute: number; }'.
+  Type '{ temperature: number | null; max_output_tokens: number | null; }' is missing the following properties from type '{ temperature: number | null; max_output_tokens: number | null; max_concurrency: number; requests_per_minute: number; }': max_concurrency, requests_per_minute
+make: *** [typecheck] Error 1

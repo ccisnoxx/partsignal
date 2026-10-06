@@ -1,0 +1,14 @@
+{
+  "backend/app/services/geo_claims.py": "6cb0e784d3590471213e021309aab7eb89321f73b435daad070459471b0bfef0",
+  "backend/app/services/geo_claim_rules.py": "d763f4101a095409e41c3215dea73b3e615d9f589d668d55ffb9f5dff30c9ff5",
+  "backend/app/services/geo_fact_versions.py": "7832cb502cbfd859b4c7857d11bfefa2fc4baf15aa6217c4e0cda9c016d05de6",
+  "backend/tests/unit/test_geo_claims.py": "504d97480d4111b63c5b8de1f5bcc99549aa1fbaa3b41dbbe00e53dc2d4eaeac",
+  "backend/tests/integration/test_geo_claims.py": "f6c280b6d2d556b7f3e5328e038be7488f42a00912a9902b38cd795a6f2fa6ea",
+  "contracts/database.md": "862e1de822c92e2176b5c23624e3e0408b109f0dddd4d9aa0d1a7fb5cb69918a",
+  "backend/app/schemas/geo_analysis.py": "d32feeda151e22840edcde6d9e404c409d5022e38122817ff9c663e4bf9604b6",
+  "docs/geo-monitoring/02-business/04-monitoring-methodology-and-metrics.md": "30e1976c61c18150724cf4b89ead9e2d960b0cea729ba377b06c7c384c264899",
+  ".trellis/tasks/10-03-geo-505-claim-assessment/prd.md": "3ed199337c5c314ce8399a4aacee372bb9b3c1c1bf6ea2170366146f412a529b",
+  ".trellis/tasks/10-03-geo-505-claim-assessment/design.md": "06157cca26b22fc13174a38ca5e678cd776dc7642f7c0c5b4166b7c6560b1e26",
+  "AGENTS.md": "dc12b4adb341c38c80aedc0a797940f4dc2a86b6af4d45c9220c7ff16cd382cd",
+  "backend/AGENTS.md": "84e10d6b995d92d5b248f0c272ba623533b91305eef38907550e0048dfc17ec8"
+}

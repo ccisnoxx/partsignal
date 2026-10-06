@@ -1,0 +1,10 @@
+ Container partsignal-geo406-postgres-1 Running 
+ Container partsignal-geo406-redis-1 Running 
+ Container partsignal-geo406-fake-oss-1 Running 
+ Container partsignal-geo406-postgres-1 Waiting 
+ Container partsignal-geo406-postgres-1 Healthy 
+ Container partsignal-geo406-backend-test-run-27189d9b415b Creating 
+ Container partsignal-geo406-backend-test-run-27189d9b415b Created 
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+0052_geo_profile_tests (head)

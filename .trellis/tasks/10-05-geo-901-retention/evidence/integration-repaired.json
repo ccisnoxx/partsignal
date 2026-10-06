@@ -1,0 +1,23 @@
+{
+  "argv": [
+    "docker",
+    "compose",
+    "-f",
+    ".trellis/tasks/10-05-geo-901-retention/evidence/compose.yaml",
+    "run",
+    "--rm",
+    "backend-test",
+    "pytest",
+    "tests/integration/test_geo_retention.py",
+    "tests/integration/test_geo_answer_files.py",
+    "tests/integration/test_geo_manual_collection.py",
+    "tests/integration/test_geo_answer_migration.py",
+    "tests/integration/test_geo_admission_migration.py",
+    "tests/integration/test_geo_decision_migration.py",
+    "tests/integration/test_geo_browser_session_migration.py",
+    "tests/integration/test_geo_manual_migration.py",
+    "tests/integration/test_migrations.py::test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 33.599
+}

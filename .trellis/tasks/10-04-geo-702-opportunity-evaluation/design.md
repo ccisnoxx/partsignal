@@ -1,0 +1,17 @@
+# GEO-702 设计
+
+规则/公式由既有601及701拥有，本任务纯规则消费OverviewInput冻结值，不重建事实或调用第三方。应用服务在独立RR读取中捕获一次完整current规则及有效观测；写入采用RC和稳定排序的identity事务advisory锁，再锁Opportunity。规则更新影响未来捕获，旧trigger不变。数据库开放partial unique作为绕过应用锁时的最终防线；只对明确该index的ON CONFLICT执行幂等插入，未知故障不吞错。
+
+identity采用规范UTC半开周期、rule、subject/topic/prompt/profile/surface及观测环境，不包含阈值、评估时间或随机UUID。异质cell不聚合；同窗口新增证据追加，新的周期是新identity。关闭的同identity在当前规则dedup窗口内抑制，过期可创建新周期记录；开放身份无论年龄都复用。
+
+来源保存run、analysis及review身份和TRIGGER/BASELINE角色，NULLS NOT DISTINCT去重；同一Run追加新有效分析/Review形成新来源，历史不覆盖。评估记录保存包括不可用原因的完整实际规则结果，内容SHA唯一支持相同输入重放。首次snapshot冻结，后续评估通过追加记录追溯。
+
+状态政策仅允许OPEN→ACKNOWLEDGED/DISMISSED、ACKNOWLEDGED→IN_PROGRESS/DISMISSED、IN_PROGRESS→RESOLVED/DISMISSED；关闭原因非空。702不提供状态命令、行动写入或复测服务。sources/actions/evaluations禁止UPDATE/DELETE/TRUNCATE，Opportunity禁止DELETE/TRUNCATE和改identity/trigger；实际update revision+1。
+
+新关联采用RESTRICT以保留稳定历史；所有source必须绑定正确run/analysis/review并有真实运行。Batch新增真实Opportunity来源FK，旧悬空引用预检失败而不猜测迁移。四表均加法，无回填。代码单元按纯规则/身份状态政策、存储服务、ORM与冻结SQL职责拆分。
+
+身份细化采用完整冻结业务cell，包含观测的profile配置、分析/字典/事实/模型版本与竞品集合，排除本次评估规则revision/阈值；改变阈值或同analysis的新Review复用开放机会，不混合异质环境。重复错误按subject、claim_kind及NFKC→casefold→空白折叠的文本SHA分组；不引入语义相似度或保留原始声明文本。多项错误可给同cell机会追加不同评估及来源。
+
+连续失败采用当前窗口同profile latest逻辑尝试的created_at/id末尾FAILED序列；非FAILED或采集环境改变打断，跨Batch可连续。该算法具体化文档未定义的序列细节，没有新增状态或改变指标公式。业务筛选只决定批次/profile评估目标，同一RR另取当前窗口完整治理输入，避免隐藏成功打断项或完整分母。权限重验在读取和写入前执行，User锁在捕获期间保留。
+
+优先级为702明确的初始建议：严重错误按HIGH/CRITICAL声明，重复错误/竞品突增/连续失败HIGH，其余MEDIUM。actions只是追加结构，704必须验证多态目标并接其删除所有者，不声称已完成跨域行动。

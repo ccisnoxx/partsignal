@@ -1,0 +1,10 @@
+
+> partsignal-frontend-v2@0.1.0 typecheck
+> tsc -b --pretty false
+
+src/domains/geo-insights/insights-page.test.tsx(55,42): error TS2488: Type 'never' must have a '[Symbol.iterator]()' method that returns an iterator.
+src/domains/geo-insights/insights-page.test.tsx(56,21): error TS2339: Property 'params' does not exist on type 'never'.
+src/domains/geo-insights/insights-page.test.tsx(65,55): error TS2339: Property 'params' does not exist on type 'never'.
+src/domains/geo-insights/insights-page.test.tsx(65,97): error TS2339: Property 'params' does not exist on type 'never'.
+src/domains/geo-insights/insights-page.test.tsx(65,121): error TS2339: Property 'params' does not exist on type 'never'.
+src/domains/geo-insights/insights-page.test.tsx(66,26): error TS2339: Property 'signal' does not exist on type 'never'.

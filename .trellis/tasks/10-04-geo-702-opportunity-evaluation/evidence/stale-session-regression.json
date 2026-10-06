@@ -1,0 +1,20 @@
+{
+  "argv": [
+    "docker",
+    "compose",
+    "-f",
+    ".trellis/tasks/10-04-geo-702-opportunity-evaluation/evidence/compose.yaml",
+    "run",
+    "--rm",
+    "backend-test",
+    "pytest",
+    "tests/integration/test_geo_opportunities.py::test_lock_refreshes_preloaded_opportunity_after_other_session_appends_evidence",
+    "tests/integration/test_geo_run_migration.py::test_forward_preserves_nonempty_old_geo_and_matches_metadata",
+    "tests/integration/test_geo_admission_migration.py",
+    "tests/integration/test_geo_answer_migration.py",
+    "tests/integration/test_migrations.py::test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent",
+    "-q"
+  ],
+  "exit_code": 0,
+  "seconds": 19.84
+}

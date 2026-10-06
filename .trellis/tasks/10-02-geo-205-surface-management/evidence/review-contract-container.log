@@ -1,0 +1,8 @@
+ Container partsignal-geo205-validation-fake-oss-1 Running 
+ Container partsignal-geo205-validation-postgres-1 Running 
+ Container partsignal-geo205-validation-redis-1 Running 
+ Container partsignal-geo205-validation-postgres-1 Waiting 
+ Container partsignal-geo205-validation-postgres-1 Healthy 
+ Container partsignal-geo205-validation-backend-test-run-a5dd9895255d Creating 
+ Container partsignal-geo205-validation-backend-test-run-a5dd9895255d Created 
+.                                                                        [100%]

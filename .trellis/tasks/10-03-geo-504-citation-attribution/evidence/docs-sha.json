@@ -1,0 +1,8 @@
+{
+  "command": [
+    "sh",
+    "-c",
+    "cd docs/geo-monitoring && shasum -a 256 -c SHA256SUMS"
+  ],
+  "exit_code": 0
+}

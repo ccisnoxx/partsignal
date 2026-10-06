@@ -1,0 +1,17 @@
+--- baseline/docs/geo-monitoring/03-technical/07-testing-and-quality.md
++++ docs/geo-monitoring/03-technical/07-testing-and-quality.md
+@@ -467,3 +467,14 @@
+ 新增 `test_geo_manual_races.py` 使用真实 PostgreSQL 锁等待，确定取消存储 writer / manual-submit、草稿 revision / submit 的两个先后顺序。`test_geo_r2_immutability.py` 在正式提交之后，用新事务攻击冻结聚合并验证整笔 rollback、精确 SQLSTATE/constraint、全行事实相等和原幂等回执。取消 writer 仅测试已有策略及存储，不代表 HTTP/UI 取消已实现。
+ 
+ 既有 `runs-real-stack.spec.ts` 继续证明三次人工采样，并使用 Router 解析后的 URL 状态验收数字形式搜索词，`geo-real-stack.spec.ts` 补充新旧导航、旧筛选书签/历史详情刷新及实际上传对象字节/hash，保留文章更正、工作台指标和优化任务来源验收。`surfaces-real-stack.spec.ts` 使用自己的工程师账号，消除共享 seed 改密污染，保持真实首次改密、CSRF 和只读权限。`questions-real-stack.spec.ts` 的手工导航使用 Router 序列化，固定数值搜索词，避免科学计数法字符串被解析为number后丢失筛选。完整 R2 边界及门禁结果见 [R2 验收](../04-delivery/07-r2-acceptance.md) 与 [实施记录](../../../.trellis/tasks/10-02-geo-308-r2-acceptance/implement.md)；不把 COLLECTED 宣称为分析/复核完成。
++
++## GEO-401 / R3 抽象合同验证边界
++
++`backend/tests/unit/test_geo_collector_contract.py` 离线验证冻结 DTO 到独立不可变值对象的
++转换、三模式闭合配置、原文/unknown/partial usage、金额精度、引用安全及实际位置、闭合
++摘要、错误必填发送状态/阶段组合、发送后禁止 SAFE_BEFORE_SEND、429 仅新 attempt 元数据，
++以及 Protocol 的必填发送回调和 Collector 无 ORM/事务依赖。复用 Registry/Run/Answer 基线。
++这是抽象协议和值对象单元验证，不证明真实 provider 的字节发送次数、网络防线、Worker
++发送隔离、截图裁剪或 raw bytes 脱敏；这些分别由 GEO-402/404/405/406 与 Browser 任务验证。
++没有新增 HTTP、持久化写入或页面旅程，因此不增加数据库迁移或 E2E 用例。指定门禁与
++实际独立复核证据见 [实施记录](../../../.trellis/tasks/10-03-geo-401-collector-contract/implement.md)。

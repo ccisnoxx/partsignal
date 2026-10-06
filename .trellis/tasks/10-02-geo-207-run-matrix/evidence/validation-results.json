@@ -1,0 +1,81 @@
+[
+  {
+    "command": "env UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/unit/test_geo_monitoring_plan_contract.py backend/tests/unit/test_geo_collector_registry.py backend/tests/unit/test_geo_surface_contract.py",
+    "exit_code": 0,
+    "result": "180 passed",
+    "log": "baseline-unit.log"
+  },
+  {
+    "command": "env APP_ENV=test PARTSIGNAL_TEST_DATABASE_URL=postgresql+psycopg://partsignal:partsignal_dev@127.0.0.1:55447/partsignal UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/integration/test_geo_profile_eligibility.py backend/tests/integration/test_geo_monitoring_plans.py",
+    "exit_code": 0,
+    "result": "32 passed, 2 prior warnings",
+    "log": "baseline-postgresql.log"
+  },
+  {
+    "command": "env UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/unit/test_geo_run_matrix.py backend/tests/unit/test_geo_plan_preview_contract.py",
+    "exit_code": 0,
+    "result": "37 passed",
+    "log": "targeted-unit.log"
+  },
+  {
+    "command": "env APP_ENV=test PARTSIGNAL_TEST_DATABASE_URL=postgresql+psycopg://partsignal:partsignal_dev@127.0.0.1:55447/partsignal UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/integration/test_geo_plan_preview.py",
+    "exit_code": 0,
+    "result": "5 passed",
+    "log": "targeted-postgresql.log"
+  },
+  {
+    "command": "make contract-generate",
+    "exit_code": 0,
+    "result": "generated updated",
+    "log": "contract-generate.log"
+  },
+  {
+    "command": "make contract-check",
+    "exit_code": 0,
+    "result": "runtime and generated consistent",
+    "log": "make-contract-check.log"
+  },
+  {
+    "command": "make lint",
+    "exit_code": 0,
+    "result": "ruff and eslint passed",
+    "log": "make-lint.log"
+  },
+  {
+    "command": "make typecheck",
+    "exit_code": 0,
+    "result": "mypy 111 sources and tsc passed",
+    "log": "make-typecheck.log"
+  },
+  {
+    "command": "make test-unit",
+    "exit_code": 0,
+    "result": "1222 backend, 993 frontend passed",
+    "log": "make-test-unit.log"
+  },
+  {
+    "command": "make test-integration COMPOSE='/opt/homebrew/bin/docker compose -p partsignal-geo207-validation -f .trellis/tasks/10-02-geo-207-run-matrix/evidence/validation-compose.yaml'",
+    "exit_code": 0,
+    "result": "605 passed, 8 prior metadata warnings",
+    "log": "make-test-integration.log"
+  },
+  {
+    "command": "git diff --check",
+    "exit_code": 0,
+    "result": "passed",
+    "log": "git-diff-check.log"
+  },
+  {
+    "command": "shasum -a 256 -c SHA256SUMS",
+    "cwd": "docs/geo-monitoring",
+    "exit_code": 0,
+    "result": "all entries passed",
+    "log": "final-validation.log"
+  },
+  {
+    "command": "python3 .trellis/scripts/task.py validate .trellis/tasks/10-02-geo-207-run-matrix",
+    "exit_code": 0,
+    "result": "passed; OpenAPI injection size warning, authoritative component reading and schema checks performed",
+    "log": "final-validation.log"
+  }
+]

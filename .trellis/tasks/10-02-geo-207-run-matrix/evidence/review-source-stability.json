@@ -1,0 +1,15 @@
+{
+  "backend/AGENTS.md": true,
+  "backend/app/services/geo_plans.py": true,
+  "backend/app/schemas/geo_plan_preview.py": true,
+  "backend/app/services/geo_collection_profiles.py": true,
+  "backend/app/services/geo_collector_eligibility.py": true,
+  "backend/app/collectors/registry.py": true,
+  "backend/app/schemas/geo_monitoring_plans.py": true,
+  "backend/tests/unit/test_geo_run_matrix.py": true,
+  "backend/tests/unit/test_geo_plan_preview_contract.py": true,
+  "backend/tests/integration/test_geo_plan_preview.py": true,
+  "contracts/openapi.yaml": true,
+  "contracts/database.md": true,
+  "frontend/src/shared/api/generated/schema.d.ts": true
+}

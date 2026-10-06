@@ -11,6 +11,7 @@ dependencies = [
   "cryptography>=45,<47",
   "fastapi>=0.115,<1",
   "httpx>=0.27,<1",
+  "idna>=3.10,<4",
   "markdown>=3.7,<4",
   "oss2>=2.19,<3",
   "pillow>=11,<13",
@@ -70,4 +71,5 @@ addopts = "-q --strict-markers"
 testpaths = ["tests"]
 markers = [
   "integration: 需要 PostgreSQL、Redis 或开发对象存储的集成测试",
+  "performance: 100k Run PostgreSQL / P95 / 查询计划验收（独立执行）",
 ]

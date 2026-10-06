@@ -1,0 +1,6 @@
+{
+  "tests.unit.test_geo_analysis": 49,
+  "tests.unit.test_geo_recommendations": 83,
+  "tests.unit.test_geo_citations": 66,
+  "tests.unit.test_geo_claims": 72
+}

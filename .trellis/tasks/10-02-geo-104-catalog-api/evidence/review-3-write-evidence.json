@@ -1,0 +1,15 @@
+{
+  "fingerprint_file_count": 825,
+  "changed_paths_since_start": [],
+  "added_paths_in_review_scope": [],
+  "review_scope_prefixes": [
+    "backend/",
+    "frontend/",
+    "contracts/",
+    "deploy/",
+    "docs/geo-monitoring/"
+  ],
+  "observed_reviewer_write_paths": [],
+  "all_workers_completed": true,
+  "final_status_source": "agents.list_agents completed responses and FINAL_ANSWER notification"
+}

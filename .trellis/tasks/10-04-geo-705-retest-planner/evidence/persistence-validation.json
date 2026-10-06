@@ -1,0 +1,59 @@
+{
+  "subtask": "persistence-a1",
+  "command_evidence": [
+    {
+      "argv": [
+        "docker",
+        "compose",
+        "-f",
+        ".trellis/tasks/10-04-geo-705-retest-planner/evidence/compose.yaml",
+        "run",
+        "--rm",
+        "backend-test",
+        "pytest",
+        "tests/integration/test_geo_retest_migration.py"
+      ],
+      "tool_session_id": 28241,
+      "completion_chunk_id": "f4776c",
+      "exit_code": 0,
+      "result": "22 passed, 2 warnings in 6.10s"
+    },
+    {
+      "argv": [
+        "docker",
+        "compose",
+        "-f",
+        ".trellis/tasks/10-04-geo-705-retest-planner/evidence/compose.yaml",
+        "run",
+        "--rm",
+        "backend-test",
+        "ruff",
+        "check",
+        "app/models/geo_retests.py",
+        "alembic/versions/0061_geo_retests.py",
+        "tests/integration/test_geo_retest_migration.py"
+      ],
+      "tool_chunk_id": "4386fe",
+      "exit_code": 0,
+      "result": "All checks passed!"
+    },
+    {
+      "argv": [
+        "docker",
+        "compose",
+        "-f",
+        ".trellis/tasks/10-04-geo-705-retest-planner/evidence/compose.yaml",
+        "run",
+        "--rm",
+        "backend-test",
+        "mypy",
+        "app/models/geo_retests.py"
+      ],
+      "tool_session_id": 43814,
+      "completion_chunk_id": "06176e",
+      "exit_code": 0,
+      "result": "Success: no issues found in 1 source file"
+    }
+  ],
+  "provenance": "实现子代理直接工具回传；主代理核对四个实际写入路径与SHA256，未把普通状态自报当作验收。"
+}

@@ -1,0 +1,9 @@
+[0;34m=== Validating Context Files ===[0m
+Target dir: /Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-04-geo-606-reports
+
+  [1;33mimplement.jsonl:3: Warning: docs/geo-monitoring/03-technical/03-api-contract-design.md is 47414 bytes, exceeds context_injection.max_file_bytes (32768); injection will truncate it[0m
+  [1;33mimplement.jsonl:5: Warning: contracts/database.md is 199557 bytes, exceeds context_injection.max_file_bytes (32768); injection will truncate it[0m
+  [0;32mimplement.jsonl: ✓ (6 entries)[0m
+  [0;32mcheck.jsonl: ✓ (5 entries)[0m
+
+[0;32m✓ All validations passed[0m

@@ -10,16 +10,20 @@ import hashlib
 import json
 import os
 import re
+import signal
 import stat
 import subprocess
 import sys
 import tempfile
+import time
 import uuid
 import warnings
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path, PurePosixPath
 from typing import Any
+
+from production_upgrade_recovery import verify_archives
 
 STANDARD_DATA_ROOT = Path("/root/partsignal-data")
 STANDARD_QUARANTINE_ROOT = Path("/root/partsignal-data-quarantine")
@@ -54,8 +58,10 @@ REQUIRED_TRACKED_FILES = {
     "deploy/nginx/partsignal-security-headers.conf",
     "deploy/nginx/partsignal.conf.template",
     "deploy/scripts/activate-production.sh",
+    "deploy/scripts/check-production-inputs.py",
     "deploy/scripts/deploy.sh",
     "deploy/scripts/prepare-production-data.py",
+    "deploy/scripts/production_upgrade_recovery.py",
     "deploy/scripts/rollback-production-frontend.sh",
 }
 rename_count = 0
@@ -415,16 +421,49 @@ def run_locked(child_command: list[str]) -> int:
         os.set_inheritable(descriptor, True)
         environment = os.environ.copy()
         environment["PARTSIGNAL_MAINTENANCE_LOCK_FD"] = str(descriptor)
+        child = None
+        interrupted = 0
+        deadline = 0.0
+
+        def forward(signum: int, _frame: Any) -> None:
+            nonlocal interrupted, deadline
+            if not interrupted:
+                interrupted = signum
+                deadline = time.monotonic() + 10
+            if child is not None:
+                try:
+                    os.killpg(child.pid, signum)
+                except ProcessLookupError:
+                    pass
+
+        handlers = {s: signal.signal(s, forward) for s in (signal.SIGINT, signal.SIGTERM)}
         try:
-            result = subprocess.run(
-                child_command,
-                env=environment,
-                pass_fds=(descriptor,),
-                check=False,
+            child = subprocess.Popen(
+                child_command, env=environment, pass_fds=(descriptor,),
+                start_new_session=True,
             )
+            if interrupted:
+                forward(interrupted, None)
+            while True:
+                try:
+                    status = child.wait(timeout=0.2)
+                    break
+                except subprocess.TimeoutExpired:
+                    if interrupted and time.monotonic() >= deadline:
+                        os.killpg(child.pid, signal.SIGKILL)
+                        status = child.wait()
+                        break
+            if interrupted:
+                # 父脚本退出不证明子孙已退出；锁释放前结束整个维护进程组。
+                try:
+                    os.killpg(child.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
         finally:
+            for signum, handler in handlers.items():
+                signal.signal(signum, handler)
             os.set_inheritable(descriptor, False)
-    return result.returncode
+    return 128 + interrupted if interrupted else status
 
 
 def read_bootstrap_credential(
@@ -1014,28 +1053,58 @@ def transition_candidate(
     print(f"Production 数据阶段已更新为 {destination}。")
 
 
-def begin_upgrade(candidate: dict[str, str]) -> None:
-    """从已初始化版本开始或续跑同一候选的 Production upgrade。"""
+def upgrade_entry_state(candidate: dict[str, Any]) -> dict[str, Any]:
+    """交付镜像前只读裁决升级资格，不修改阶段或伪造历史策略。"""
     data_root, _ = configured_roots()
     state = read_state(data_root)
     phase = state.get("phase")
     if phase == "PRODUCTION_INITIALIZED":
         if state.get("candidate") == candidate:
             raise DataStateError("当前候选已经初始化，拒绝重复创建 upgrade")
+    elif phase in {"UPGRADE_DEPLOYING", "UPGRADE_PREPARED"}:
+        require_candidate(state, candidate)
+    else:
+        raise DataStateError(f"当前数据阶段不允许 Production upgrade：{phase}")
+    return state
+
+
+def begin_upgrade(candidate: dict[str, str]) -> None:
+    """从已初始化版本开始或续跑同一候选的 Production upgrade。"""
+    data_root, _ = configured_roots()
+    state = upgrade_entry_state(candidate)
+    phase = state["phase"]
+    if phase == "PRODUCTION_INITIALIZED":
+        # 在第一次迁移前记录执行条件；恢复不能把当前检查伪造为历史证明。
+        cache_policy = prove_upgrade_cache_policy(candidate)
         state["previous_candidate"] = state.get("candidate")
         state["candidate"] = candidate
+        state["upgrade_migration_cache_policy"] = cache_policy
         state["phase"] = "UPGRADE_DEPLOYING"
         atomic_write_state(data_root, state)
     elif phase in {"UPGRADE_DEPLOYING", "UPGRADE_PREPARED"}:
-        require_candidate(state, candidate)
         if phase == "UPGRADE_PREPARED":
             state["phase"] = "UPGRADE_DEPLOYING"
             atomic_write_state(data_root, state)
-    else:
-        raise DataStateError(f"当前数据阶段不允许 Production upgrade：{phase}")
     for leaf in RUNTIME_LEAVES:
         ensure_plain_directory(data_root / leaf, label=f"Production {leaf}")
     print("Production upgrade 数据所有权与候选绑定校验通过。")
+
+
+def prove_upgrade_cache_policy(candidate: dict[str, Any]) -> dict[str, Any]:
+    """首次 upgrade 入场证明 runtime/host/冻结镜像不改迁移缓存位置。"""
+    validate_recovery_boundary()
+    image = json.loads(subprocess.run(
+        ["docker", "image", "inspect", candidate["backend_image_id"]],
+        check=True, capture_output=True, text=True,
+    ).stdout)
+    if not isinstance(image, list) or len(image) != 1 or image[0].get("Id") != candidate["backend_image_id"]:
+        raise DataStateError("upgrade 迁移缓存策略的冻结镜像身份无效")
+    config = image[0].get("Config")
+    if not isinstance(config, dict) or not isinstance(config.get("Env"), list) or not all(isinstance(value, str) for value in config["Env"]):
+        raise DataStateError("upgrade 迁移缓存策略的镜像环境无法证明")
+    if any(value.partition("=")[0] == "PYTHONPYCACHEPREFIX" and value.partition("=")[2] for value in config["Env"]):
+        raise DataStateError("upgrade 镜像指定树外迁移编译缓存目录")
+    return {"policy": "DEFAULT_PYTHON_CACHE_V1", "candidate": candidate}
 
 
 def transition_upgrade(
@@ -1047,6 +1116,11 @@ def transition_upgrade(
     if state.get("phase") != source:
         raise DataStateError(f"当前数据阶段不允许该 upgrade 操作：{state.get('phase')}")
     require_candidate(state, candidate)
+    if state.get("upgrade_recoveries") and state["upgrade_recoveries"][-1]["candidate"] == candidate:
+        if "ai_bootstrap_attempt" in state:
+            require_activation_safe_bootstrap_attempt(state)
+        if destination == "UPGRADE_PREPARED":
+            verify_recovery_database(candidate)
     state["phase"] = destination
     atomic_write_state(data_root, state)
     print(f"Production 数据阶段已更新为 {destination}。")
@@ -1059,7 +1133,146 @@ def verify_upgrade_prepared(candidate: dict[str, str]) -> None:
     if state.get("phase") != "UPGRADE_PREPARED":
         raise DataStateError("Production upgrade 尚未准备完成")
     require_candidate(state, candidate)
+    if state.get("upgrade_recoveries") and state["upgrade_recoveries"][-1]["candidate"] == candidate:
+        if "ai_bootstrap_attempt" in state:
+            require_activation_safe_bootstrap_attempt(state)
     print("Production upgrade 候选准备阶段校验通过。")
+
+
+def recover_upgrade(args: argparse.Namespace) -> None:
+    """显式 CAS 前向接管；完整证明后仅原子写状态，不换镜像或触碰数据。"""
+    validate_recovery_boundary()
+    data_root, _ = configured_roots()
+    ensure_plain_directory(data_root, label="活动数据根")
+    state = read_state(data_root)
+    if state.get("phase") not in {"UPGRADE_DEPLOYING", "UPGRADE_PREPARED"}:
+        raise DataStateError("恢复要求未初始化的 UPGRADE_DEPLOYING/UPGRADE_PREPARED")
+    if not re.fullmatch(r"upr_[0-9]{8}_[0-9]{6}", args.recovery_id):
+        raise DataStateError("升级恢复 ID 格式无效")
+    if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9._/-]{0,127}", args.approval_ref):
+        raise DataStateError("升级恢复必须提供低敏精确批准引用")
+    fixed = candidate_from_manifest(args.manifest)
+    history = state.get("upgrade_recoveries", [])
+    repeated = next((r for r in history if r["recovery_id"] == args.recovery_id), None)
+    failed = repeated["failed_candidate"] if repeated else state.get("candidate")
+    if (
+        not isinstance(failed, dict)
+        or failed.get("release_id") != args.failed_release_id
+        or failed.get("manifest_sha256") != args.failed_manifest_sha256
+    ):
+        raise DataStateError("升级恢复失败候选身份与状态不一致")
+    failed_cache_policy = repeated.get("failed_cache_policy") if repeated else state.get("upgrade_migration_cache_policy")
+    if failed_cache_policy != {"policy": "DEFAULT_PYTHON_CACHE_V1", "candidate": failed}:
+        raise DataStateError("失败执行缺少绑定候选的迁移缓存策略证明，拒绝历史推断")
+    if fixed["schema_head"] != failed.get("schema_head"):
+        raise DataStateError("升级恢复只允许相同 schema head")
+    if fixed["release_id"] == failed["release_id"] or fixed == state.get("previous_candidate"):
+        raise DataStateError("升级恢复必须是新的前向修复候选")
+    if all(fixed[f"{role}_image_id"] == failed.get(f"{role}_image_id") for role in ("backend", "frontend")):
+        raise DataStateError("升级恢复要求实际修正 artifact 镜像身份")
+    predecessors = [state.get("previous_candidate"), *(r["failed_candidate"] for r in history)]
+    if any(
+        isinstance(previous, dict) and (
+            fixed["release_id"] == previous.get("release_id")
+            or all(fixed[f"{role}_image_id"] == previous.get(f"{role}_image_id") for role in ("backend", "frontend"))
+        )
+        for previous in predecessors
+    ):
+        raise DataStateError("升级恢复不允许重新启用旧候选或已失败镜像")
+    if "ai_bootstrap_attempt" in state:
+        require_activation_safe_bootstrap_attempt(state)
+    for leaf in RUNTIME_LEAVES:
+        ensure_plain_directory(data_root / leaf, label=f"Production {leaf}")
+    ensure_services_stopped(data_root)
+    verify_candidate_images(fixed)
+    migrations = verify_archives(
+        failed, fixed, failed_manifest=args.failed_manifest, manifest=args.manifest,
+        failed_archive=args.failed_source_archive, archive=args.source_archive,
+        repository=REPOSITORY_ROOT,
+    )
+    # 同名 revision 不证明旧镜像实际提交的 DDL 正确；两端都必须匹配。
+    verify_migration_image(failed, migrations)
+    verify_migration_image(fixed, migrations)
+    receipt = {
+        "recovery_id": args.recovery_id, "approval_ref": args.approval_ref,
+        "failed_candidate": failed, "candidate": fixed,
+        "migration_tree_sha256": migrations,
+        "failed_cache_policy": failed_cache_policy,
+    }
+    if repeated:
+        if repeated != receipt or state.get("candidate") != fixed or state["phase"] != "UPGRADE_DEPLOYING":
+            raise DataStateError("升级恢复重复请求与持久回执或当前阶段冲突")
+        print("升级恢复已记录；重放同一回执，不重新切换候选。")
+        return
+    state["candidate"] = fixed
+    state["upgrade_migration_cache_policy"] = {"policy": "DEFAULT_PYTHON_CACHE_V1", "candidate": fixed}
+    state["phase"] = "UPGRADE_DEPLOYING"
+    state["upgrade_recoveries"] = [*history, receipt]
+    atomic_write_state(data_root, state)
+    print("升级前向恢复候选已显式绑定；仍未初始化，必须重新 deploy 和验收。")
+
+
+def verify_migration_image(candidate: dict[str, Any], expected: str) -> None:
+    """无网络/挂载探针，证明真正执行的镜像迁移内容也与归档一致。"""
+    probe = """import hashlib, json, os
+from pathlib import Path
+root = Path('/app')
+paths = [root/'alembic', root/'alembic.ini', *(root/'alembic').rglob('*')]
+assert not any(p.is_symlink() for p in paths)
+if os.environ.get('PYTHONPYCACHEPREFIX'):
+    print('MIGRATION_CACHE_PREFIX_FORBIDDEN')
+elif any(p.suffix in {'.pyc', '.pyo'} for p in paths):
+    print('MIGRATION_CACHE_FORBIDDEN')
+else:
+    files = {'backend/'+p.relative_to(root).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
+             for p in paths if p.is_file()}
+    print(hashlib.sha256(json.dumps(files, sort_keys=True).encode()).hexdigest())
+"""
+    result = subprocess.run(
+        ["docker", "run", "--rm", "--pull", "never", "--network", "none",
+         "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
+         "--entrypoint", "python", candidate["backend_image_id"], "-I", "-c", probe],
+        check=True, capture_output=True, text=True,
+    )
+    if result.stdout.strip() == "MIGRATION_CACHE_PREFIX_FORBIDDEN":
+        raise DataStateError("恢复镜像指定树外迁移编译缓存目录，拒绝恢复")
+    if result.stdout.strip() == "MIGRATION_CACHE_FORBIDDEN":
+        raise DataStateError("恢复镜像包含迁移编译缓存，拒绝恢复")
+    if result.stdout.strip() != expected:
+        raise DataStateError("恢复镜像内迁移树与 source archive 不一致")
+
+
+def validate_recovery_boundary() -> str:
+    """恢复同样受生产配置/Compose/Browser 边界约束，不另设旁路。"""
+    runtime = os.environ.get("PARTSIGNAL_RUNTIME_ENV_FILE", "")
+    if not runtime or not Path(runtime).is_file():
+        raise DataStateError("升级恢复缺少 Production runtime env")
+    subprocess.run(
+        [sys.executable, str(REPOSITORY_ROOT / "deploy/scripts/check-production-inputs.py"),
+         "--deployment-boundary", runtime], check=True,
+    )
+    return runtime
+
+
+def verify_recovery_database(candidate: dict[str, Any]) -> None:
+    """恢复候选 prepared 前，以固定 Compose/镜像验证真实完整性和 schema。"""
+    verify_candidate_images(candidate)
+    runtime = validate_recovery_boundary()
+    command = [
+        "docker", "compose", "--project-name", PRODUCTION_COMPOSE_PROJECT,
+        "--env-file", runtime, "-f", str(REPOSITORY_ROOT / "deploy/compose.prod.yaml"),
+        "run", "--rm", "--pull", "never", "--no-deps", "api",
+    ]
+    subprocess.run([*command, "python", "-m", "app.cli", "preflight-integrity"], check=True)
+    probe = (
+        "import json; from sqlalchemy import text; from app.db import engine; "
+        "connection=engine.connect(); "
+        "print(json.dumps(list(connection.execute(text('SELECT version_num FROM alembic_version')).scalars()))); "
+        "connection.close(); engine.dispose()"
+    )
+    result = subprocess.run([*command, "python", "-c", probe], check=True, capture_output=True, text=True)
+    if json.loads(result.stdout) != [candidate["schema_head"]]:
+        raise DataStateError("恢复数据库 schema head 与候选 manifest 不一致")
 
 
 def restore(run_id: str) -> None:
@@ -1183,6 +1396,7 @@ def parse_args() -> argparse.Namespace:
         command_parser.add_argument("manifest")
     for command in (
         "begin-upgrade",
+        "verify-upgrade-entry",
         "verify-candidate-images",
         "mark-upgrade-prepared",
         "verify-upgrade-prepared",
@@ -1192,6 +1406,13 @@ def parse_args() -> argparse.Namespace:
     ):
         command_parser = subparsers.add_parser(command)
         command_parser.add_argument("manifest")
+    recovery_parser = subparsers.add_parser("recover-upgrade")
+    recovery_parser.add_argument("manifest")
+    for field in (
+        "failed-manifest", "failed-source-archive", "source-archive",
+        "failed-release-id", "failed-manifest-sha256", "recovery-id", "approval-ref",
+    ):
+        recovery_parser.add_argument(f"--{field}", required=True)
     bootstrap_parser = subparsers.add_parser("bootstrap-ai")
     bootstrap_parser.add_argument("run_id")
     bootstrap_parser.add_argument("manifest")
@@ -1263,6 +1484,11 @@ def main() -> None:
                 )
             elif args.command == "begin-upgrade":
                 begin_upgrade(candidate_from_manifest(args.manifest))
+            elif args.command == "verify-upgrade-entry":
+                upgrade_entry_state(candidate_from_manifest(args.manifest))
+                print("Production upgrade 只读入场资格校验通过。")
+            elif args.command == "recover-upgrade":
+                recover_upgrade(args)
             elif args.command == "verify-candidate-images":
                 verify_candidate_images(candidate_from_manifest(args.manifest))
             elif args.command == "mark-upgrade-prepared":

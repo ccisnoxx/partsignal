@@ -1,0 +1,5 @@
+{"file": ".trellis/tasks/10-04-geo-606-reports/prd.md", "reason": "授权范围与验收"}
+{"file": ".trellis/tasks/10-04-geo-606-reports/design.md", "reason": "一致性/CSV安全与生命周期"}
+{"file": ".trellis/spec/infra/e2e-isolation.md", "reason": "本地fake与精确清理"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "运行时合同和工具版本"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "generated/可访问状态与验证"}

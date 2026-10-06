@@ -1,0 +1,5410 @@
+--- a/backend/app/routers/geo_answer_insights.py
++++ b/backend/app/routers/geo_answer_insights.py
+@@ -12,7 +12,16 @@
+     GeoAnswerInsights,
+     GeoAnswerInsightSampleFilters,
+ )
++from app.schemas.geo_insight_details import (
++    GeoInsightCitationFilters,
++    GeoInsightCitationPage,
++    GeoInsightClaimFilters,
++    GeoInsightClaimPage,
++    GeoInsightQualityFilters,
++    GeoInsightQualityPage,
++)
+ from app.services import geo_answer_insights as service
++from app.services import geo_insight_details, geo_insight_quality
+ from app.services.geo_plan_queries import read_snapshot
+ 
+ router = APIRouter(
+@@ -52,3 +61,51 @@
+ ) -> GeoAnswerInsightRunPage:
+     response.headers["Cache-Control"] = "no-store"
+     return service.list_insight_runs(db, filters)
++
++
++@router.get(
++    "/citations",
++    response_model=GeoInsightCitationPage,
++    operation_id="listGeoInsightCitations",
++    responses=error_responses(401, 403, 404, 409, 422),
++)
++def citations(
++    db: DbSession,
++    user: EngineerUser,
++    response: Response,
++    filters: Annotated[GeoInsightCitationFilters, Query()],
++) -> GeoInsightCitationPage:
++    response.headers["Cache-Control"] = "no-store"
++    return geo_insight_details.list_citations(db, filters)
++
++
++@router.get(
++    "/claims",
++    response_model=GeoInsightClaimPage,
++    operation_id="listGeoInsightClaims",
++    responses=error_responses(401, 403, 404, 409, 422),
++)
++def claims(
++    db: DbSession,
++    user: EngineerUser,
++    response: Response,
++    filters: Annotated[GeoInsightClaimFilters, Query()],
++) -> GeoInsightClaimPage:
++    response.headers["Cache-Control"] = "no-store"
++    return geo_insight_details.list_claims(db, filters)
++
++
++@router.get(
++    "/quality/runs",
++    response_model=GeoInsightQualityPage,
++    operation_id="listGeoInsightQualityRuns",
++    responses=error_responses(401, 403, 409, 422),
++)
++def quality_runs(
++    db: DbSession,
++    user: EngineerUser,
++    response: Response,
++    filters: Annotated[GeoInsightQualityFilters, Query()],
++) -> GeoInsightQualityPage:
++    response.headers["Cache-Control"] = "no-store"
++    return geo_insight_quality.list_quality_runs(db, filters)
+--- a/backend/app/schemas/geo_answer_insights.py
++++ b/backend/app/schemas/geo_answer_insights.py
+@@ -6,6 +6,11 @@
+ from pydantic import AwareDatetime, BeforeValidator, Field, model_validator
+ 
+ from app.schemas.base import ContractModel
++from app.schemas.geo_insight_details import (
++    GeoAnswerInsightDataQuality,
++    GeoInsightCitationSummary,
++    GeoInsightFactRiskSummary,
++)
+ from app.schemas.geo_insights import (
+     Cohort,
+     GeoOverviewDimensions,
+@@ -21,6 +26,11 @@
+     "accurate_claim_rate",
+     "mention_sov",
+     "recommendation_sov",
++    "owned_source_coverage",
++    "owned_citation_share",
++    "partial_claim_rate",
++    "incorrect_claim_rate",
++    "severe_error_run_rate",
+ ]
+ Period = Literal["CURRENT", "PREVIOUS"]
+ 
+@@ -158,6 +168,9 @@
+     question_coverage: list[GeoQuestionCoverage]
+     platform_performance: list[GeoPlatformPerformance]
+     competitor_sov_cell_keys: list[str]
++    citation_insights: list[GeoInsightCitationSummary]
++    fact_risks: list[GeoInsightFactRiskSummary]
++    data_quality: GeoAnswerInsightDataQuality
+     unavailable_sections: list[
+         Literal["CITATION_INSIGHTS", "FACT_RISKS", "DATA_QUALITY", "OPPORTUNITIES"]
+     ]
+--- a/backend/app/services/geo_answer_insights.py
++++ b/backend/app/services/geo_answer_insights.py
+@@ -48,8 +48,19 @@
+     MetricCode.NATURAL_VISIBILITY,
+     MetricCode.RECOMMENDATION_RATE,
+     MetricCode.ACCURATE_CLAIM_RATE,
++    MetricCode.OWNED_SOURCE_COVERAGE,
++    MetricCode.OWNED_CITATION_SHARE,
++    MetricCode.PARTIAL_CLAIM_RATE,
++    MetricCode.INCORRECT_CLAIM_RATE,
++    MetricCode.SEVERE_ERROR_RUN_RATE,
+ )
+ SOV_METRICS = (MetricCode.MENTION_SOV, MetricCode.RECOMMENDATION_SOV)
++TREND_METRICS = (
++    MetricCode.NATURAL_VISIBILITY,
++    MetricCode.RECOMMENDATION_RATE,
++    MetricCode.ACCURATE_CLAIM_RATE,
++    *SOV_METRICS,
++)
+ COVERAGE_POLICY = CoveragePolicy()
+ 
+ 
+@@ -186,6 +197,8 @@
+         for cell in cells.values():
+             d = cell.public.dimensions
+             for code in cell.results:
++                if code not in TREND_METRICS:
++                    continue
+                 key = cell.scope.subject_id, d.prompt_variant_id, d.collection_profile_id, code
+                 groups.setdefault(key, ([], []))[period].append(cell)
+     values = []
+@@ -282,7 +295,12 @@
+ 
+ 
+ def get_insights(db: Session, filters: GeoOverviewFilters) -> GeoAnswerInsights:
++    from app.services.geo_insight_details import summaries
++    from app.services.geo_insight_quality import data_quality
++
+     window, previous_window, as_of, current, previous = _windows(db, filters)
++    citations, risks = summaries(current, filters)
++    inputs = list({s.metric.run_id: s for c in current.values() for s in c.sources}.values())
+     platforms: dict[UUID, list[str]] = defaultdict(list)
+     for key, cell in current.items():
+         if cell.public.selected_subject:
+@@ -306,7 +324,10 @@
+         competitor_sov_cell_keys=[
+             key for key, c in current.items() if MetricCode.MENTION_SOV in c.results
+         ],
+-        unavailable_sections=["CITATION_INSIGHTS", "FACT_RISKS", "DATA_QUALITY", "OPPORTUNITIES"],
++        citation_insights=citations,
++        fact_risks=risks,
++        data_quality=data_quality(inputs, filters),
++        unavailable_sections=["OPPORTUNITIES"],
+     )
+ 
+ 
+--- a/backend/app/services/geo_overview_queries.py
++++ b/backend/app/services/geo_overview_queries.py
+@@ -40,6 +40,7 @@
+     GeoRunAnalysisDetail,
+ )
+ from app.schemas.geo_runs import GeoRunInputSnapshot, GeoRunStatus
++from app.services.geo_insight_evidence import InsightEvidence, freeze_insight_evidence
+ from app.services.geo_metric_inputs import metric_run_from_snapshot
+ from app.services.geo_metric_types import MetricRun
+ from app.services.geo_read_projections import incomplete
+@@ -57,6 +58,7 @@
+     cost_currency: str | None
+     version_known: bool
+     evidence_complete: bool
++    evidence: InsightEvidence = InsightEvidence()
+ 
+ 
+ def candidate_query(filters: GeoOverviewFilters) -> Select[Any]:
+@@ -301,4 +303,12 @@
+         cost_currency=row["cost_currency"],
+         version_known=bool(answer and answer.source_model and answer.source_version),
+         evidence_complete=evidence,
+-    )
++        evidence=freeze_insight_evidence(
++            snapshot,
++            answer,
++            citations,
++            current,
++            review,
++            available=metric.current_analysis_available,
++        ),
++    )
+--- a/backend/tests/unit/test_contract.py
++++ b/backend/tests/unit/test_contract.py
+@@ -53,9 +53,9 @@
+     contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+     document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+     operations = operation_map(document)
+-    assert len(operations) == 225
+-    assert len({operation["operationId"] for operation in operations.values()}) == 225
+-    assert sum(len(operation["responses"]) for operation in operations.values()) == 1449
++    assert len(operations) == 228
++    assert len({operation["operationId"] for operation in operations.values()}) == 228
++    assert sum(len(operation["responses"]) for operation in operations.values()) == 1469
+ 
+     expected_parameter = {
+         "name": "X-Request-ID",
+@@ -197,6 +197,7 @@
+             "listGeoObservationItems",
+             "getGeoOverview",
+             "getGeoAnswerInsights",
++            "listGeoInsightQualityRuns",
+         ),
+         ("201", "401", "403", "409", "422"): (
+             "createUser",
+@@ -208,6 +209,8 @@
+         ("200", "401", "403", "404", "409", "422"): (
+             "listGeoOverviewRuns",
+             "listGeoAnswerInsightRuns",
++            "listGeoInsightCitations",
++            "listGeoInsightClaims",
+             "updateUser",
+             "resetUserPassword",
+             "getAuditLog",
+@@ -378,7 +381,7 @@
+         if isinstance(operation, dict) and "operationId" in operation
+     }
+ 
+-    assert len(expected) == 225
++    assert len(expected) == 228
+     assert set(operations) == set(expected)
+     for operation_id, operation in operations.items():
+         responses = operation["responses"]
+@@ -406,7 +409,7 @@
+         "getWorkbench",
+     }
+     assert len(validation_free) == 14
+-    assert sum("422" in statuses for statuses in expected.values()) == 211
++    assert sum("422" in statuses for statuses in expected.values()) == 214
+     assert {
+         operation_id for operation_id, statuses in expected.items() if "422" not in statuses
+     } == validation_free
+--- a/backend/tests/unit/test_runtime_response_metadata.py
++++ b/backend/tests/unit/test_runtime_response_metadata.py
+@@ -647,9 +647,9 @@
+     runtime = app.openapi()
+     operations = _operation_map(runtime)
+ 
+-    assert len(operations) == 225
+-    assert len(set(operations)) == 225
+-    assert sum(len(operation["responses"]) for operation in operations.values()) == 1449
++    assert len(operations) == 228
++    assert len(set(operations)) == 228
++    assert sum(len(operation["responses"]) for operation in operations.values()) == 1469
+     parameter_ref = {"$ref": "#/components/parameters/RequestIdHeader"}
+     header_ref = {"$ref": "#/components/headers/RequestIdResponseHeader"}
+     parameter_schema = {
+@@ -694,10 +694,10 @@
+     augmented = app.openapi()
+     stripped = _strip_request_context_metadata(augmented)
+ 
+-    assert sum(len(operation["responses"]) for operation in _operation_map(raw).values()) == 1224
++    assert sum(len(operation["responses"]) for operation in _operation_map(raw).values()) == 1241
+     assert sum(
+         len(operation["responses"]) for operation in _operation_map(stripped).values()
+-    ) == 1224
++    ) == 1241
+     # 安装版本的 FastAPI 省略 None 默认；这里只移除已声明且显式恢复的 nullable annotation。
+     raw_settings = raw["components"]["schemas"]["GeoApiSettings"]["properties"]
+     stripped_settings = stripped["components"]["schemas"]["GeoApiSettings"]["properties"]
+--- a/contracts/database.md
++++ b/contracts/database.md
+@@ -1172,3 +1172,13 @@
+ 固定12次应用SELECT（含身份当前共13次），一次加载合并两窗口范围后按原创建时间分期。窗口key在显式转换中重建，数据库输入/证据/analysis/review不修改。不同问题、profile、模式、环境、规则/分析配置、对象字典、事实版本或竞品集合不静默聚合；唯一cell之间允许采集模型/产品版本变化但返回标记，任一窗口存在多个cell时显式不可比。
+ 
+ 无表、列、索引、约束、Alembic revision或历史数据迁移；0056仍head。无DML、commit、锁、revision、状态转换、队列、审计写入或外部I/O。组成样本按同筛选/period/cell/公式实时重算，返回每run事件贡献和current analysis/review身份；cell消失404，损坏历史沿用409 GEO_READ_MODEL_INCOMPLETE。任一窗口样本不足相应门槛或无分母时变化null并保留原因，不伪造0。
++
++## GEO-604 引用、事实风险与质量只读合同（R5）
++
++只扩展既有回答级洞察及三个明细GET，不增加表/列/索引/约束或Alembic revision；head仍0056，无存量数据迁移、回填或历史重写。指标和质量仍由服务端实时投影，不保存第二套权威状态。
++
++复用602同一RR批量输入、latest attempt资格、current成功分析和其中latest Review整体投影。固定12次应用SELECT（含身份13），禁autoflush、退出回滚；无DML、commit、行锁、revision或状态推进、幂等写入、审计和队列行为。共享域名字典来自当前分析冻结输入，缺当前分析仅为质量说明使用Run快照，不重读可变Catalog。原始引用、分析子结果、Review与批准事实仍由既有不可变和归属约束保护。
++
++引用按每Answer的规范URL身份计事件，occurrences不扩大事件分母；域名覆盖复用601精确hostname公式。声明保留分析及事实版本强引用，UNJUDGEABLE独立展示、不进入正确或错误分母；严重错误仅INCORRECT HIGH/CRITICAL。摘要与事件分页共用同资格筛选及转换。质量对同筛选候选去重Run统计共享/backlog/排除，费用仅汇总已报告值且按币种分组，未知费用和版本保留null。明细只读已保存证据，不触发URL访问、文件HEAD或外部AI。
++
++不同HTTP请求各自重新取得RR快照，as_of可变化；cell消失404，损坏历史沿用409 GEO_READ_MODEL_INCOMPLETE。部署只需API及generated类型，不执行新增数据库前滚；既有0056空库/旧head前滚在隔离集成夹具验证，不操作生产数据库。
+--- a/contracts/openapi.yaml
++++ b/contracts/openapi.yaml
+@@ -8594,8 +8594,13 @@
+           - accurate_claim_rate
+           - mention_sov
+           - recommendation_sov
++          - owned_source_coverage
++          - owned_citation_share
++          - partial_claim_rate
++          - incorrect_claim_rate
++          - severe_error_run_rate
++          type: string
+           title: Metric Code
+-          type: string
+       - name: period
+         in: query
+         required: false
+@@ -8659,6 +8664,706 @@
+         '409':
+           $ref: '#/components/responses/ErrorResponse'
+         '422':
++          $ref: '#/components/responses/ErrorResponse'
++  /api/v1/geo/insights/citations:
++    get:
++      tags:
++      - geo-answer-insights
++      summary: Citations
++      operationId: listGeoInsightCitations
++      security:
++      - sessionCookie: []
++      parameters:
++      - name: date_from
++        in: query
++        required: true
++        schema:
++          type: string
++          format: date-time
++          title: Date From
++      - name: date_to
++        in: query
++        required: true
++        schema:
++          type: string
++          format: date-time
++          title: Date To
++      - name: subject_ids
++        in: query
++        required: false
++        schema:
++          type: array
++          items:
++            type: string
++            format: uuid
++          maxItems: 50
++          title: Subject Ids
++      - name: product_ids
++        in: query
++        required: false
++        schema:
++          type: array
++          items:
++            type: string
++            format: uuid
++          maxItems: 50
++          title: Product Ids
++      - name: query_topic_ids
++        in: query
++        required: false
++        schema:
++          type: array
++          items:
++            type: string
++            format: uuid
++          maxItems: 50
++          title: Query Topic Ids
++      - name: prompt_variant_ids
++        in: query
++        required: false
++        schema:
++          type: array
++          items:
++            type: string
++            format: uuid
++          maxItems: 50
++          title: Prompt Variant Ids
++      - name: engine_surface_ids
++        in: query
++        required: false
++        schema:
++          type: array
++          items:
++            type: string
++            format: uuid
++          maxItems: 50
++          title: Engine Surface Ids
++      - name: collection_profile_ids
++        in: query
++        required: false
++        schema:
++          type: array
++          items:
++            type: string
++            format: uuid
++          maxItems: 50
++          title: Collection Profile Ids
++      - name: collection_modes
++        in: query
++        required: false
++        schema:
++          type: array
++          items:
++            $ref: '#/components/schemas/GeoCollectionMode'
++          maxItems: 3
++          title: Collection Modes
++      - name: language_codes
++        in: query
++        required: false
++        schema:
++          type: array
++          items:
++            type: string
++            minLength: 2
++            maxLength: 16
++            pattern: ^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$
++          maxItems: 50
++          title: Language Codes
++      - name: region_codes
++        in: query
++        required: false
++        schema:
++          type: array
++          items:
++            type: string
++            minLength: 2
++            maxLength: 2
++            pattern: ^[A-Za-z]{2}$
++          maxItems: 50
++          title: Region Codes
++      - name: login_states
++        in: query
++        required: false
++        schema:
++          type: array
++          items:
++            $ref: '#/components/schemas/GeoProfileLoginState'
++          maxItems: 3
++          title: Login States
++      - name: intent_types
++        in: query
++        required: false
++        schema:
++          type: array
++          items:
++            $ref: '#/components/schemas/IntentType'
++          maxItems: 10
++          title: Intent Types
++      - name: mention_mode
++        in: query
++        required: false
++        schema:
++          anyOf:
++          - $ref: '#/components/schemas/GeoPromptMentionMode'
++          - type: 'null'
++          title: Mention Mode
++      - name: review_policy
++        in: query
++        required: false
++        schema:
++          enum:
++          - EFFECTIVE
++          - REVIEWED_ONLY
++          type: string
++          default: EFFECTIVE
++          title: Review Policy
++      - name: cell_key
++        in: query
++        required: true
++        schema:
++          type: string
++          pattern: ^[0-9a-f]{64}$
++          title: Cell Key
++      - name: hostname
++        in: query
++        required: false
++        schema:
++          anyOf:
++          - type: string
++            maxLength: 253
++          - type: 'null'
++          title: Hostname
++      - name: normalized_url
++        in: query
++        required: false
++        schema:
++          anyOf:
++          - type: string
++            maxLength: 4000
++          - type: 'null'
++          title: Normalized Url
++      - name: source_category
++        in: query
++        required: false
++        schema:
++          anyOf:
++          - $ref: '#/components/schemas/GeoSourceCategory'
++          - type: 'null'
++          title: Source Category
++      - name: page
++        in: query
++        required: false
++        schema:
++          type: integer
++          minimum: 1
++          default: 1
++          title: Page
++      - name: page_size
++        in: query
++        required: false
++        schema:
++          enum:
++          - 10
++          - 20
++          - 50
++          type: integer
++          default: 20
++          title: Page Size
++      - $ref: '#/components/parameters/RequestIdHeader'
++      responses:
++        '200':
++          description: Successful Response
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoInsightCitationPage'
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++  /api/v1/geo/insights/claims:
++    get:
++      tags:
++      - geo-answer-insights
++      summary: Claims
++      operationId: listGeoInsightClaims
++      security:
++      - sessionCookie: []
++      parameters:
++      - name: date_from
++        in: query
++        required: true
++        schema:
++          type: string
++          format: date-time
++          title: Date From
++      - name: date_to
++        in: query
++        required: true
++        schema:
++          type: string
++          format: date-time
++          title: Date To
++      - name: subject_ids
++        in: query
++        required: false
++        schema:
++          type: array
++          items:
++            type: string
++            format: uuid
++          maxItems: 50
++          title: Subject Ids
++      - name: product_ids
++        in: query
++        required: false
++        schema:
++          type: array
++          items:
++            type: string
++            format: uuid
++          maxItems: 50
++          title: Product Ids
++      - name: query_topic_ids
++        in: query
++        required: false
++        schema:
++          type: array
++          items:
++            type: string
++            format: uuid
++          maxItems: 50
++          title: Query Topic Ids
++      - name: prompt_variant_ids
++        in: query
++        required: false
++        schema:
++          type: array
++          items:
++            type: string
++            format: uuid
++          maxItems: 50
++          title: Prompt Variant Ids
++      - name: engine_surface_ids
++        in: query
++        required: false
++        schema:
++          type: array
++          items:
++            type: string
++            format: uuid
++          maxItems: 50
++          title: Engine Surface Ids
++      - name: collection_profile_ids
++        in: query
++        required: false
++        schema:
++          type: array
++          items:
++            type: string
++            format: uuid
++          maxItems: 50
++          title: Collection Profile Ids
++      - name: collection_modes
++        in: query
++        required: false
++        schema:
++          type: array
++          items:
++            $ref: '#/components/schemas/GeoCollectionMode'
++          maxItems: 3
++          title: Collection Modes
++      - name: language_codes
++        in: query
++        required: false
++        schema:
++          type: array
++          items:
++            type: string
++            minLength: 2
++            maxLength: 16
++            pattern: ^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$
++          maxItems: 50
++          title: Language Codes
++      - name: region_codes
++        in: query
++        required: false
++        schema:
++          type: array
++          items:
++            type: string
++            minLength: 2
++            maxLength: 2
++            pattern: ^[A-Za-z]{2}$
++          maxItems: 50
++          title: Region Codes
++      - name: login_states
++        in: query
++        required: false
++        schema:
++          type: array
++          items:
++            $ref: '#/components/schemas/GeoProfileLoginState'
++          maxItems: 3
++          title: Login States
++      - name: intent_types
++        in: query
++        required: false
++        schema:
++          type: array
++          items:
++            $ref: '#/components/schemas/IntentType'
++          maxItems: 10
++          title: Intent Types
++      - name: mention_mode
++        in: query
++        required: false
++        schema:
++          anyOf:
++          - $ref: '#/components/schemas/GeoPromptMentionMode'
++          - type: 'null'
++          title: Mention Mode
++      - name: review_policy
++        in: query
++        required: false
++        schema:
++          enum:
++          - EFFECTIVE
++          - REVIEWED_ONLY
++          type: string
++          default: EFFECTIVE
++          title: Review Policy
++      - name: cell_key
++        in: query
++        required: true
++        schema:
++          type: string
++          pattern: ^[0-9a-f]{64}$
++          title: Cell Key
++      - name: verdict
++        in: query
++        required: false
++        schema:
++          anyOf:
++          - $ref: '#/components/schemas/GeoClaimVerdict'
++          - type: 'null'
++          title: Verdict
++      - name: severity
++        in: query
++        required: false
++        schema:
++          anyOf:
++          - $ref: '#/components/schemas/GeoClaimSeverity'
++          - type: 'null'
++          title: Severity
++      - name: claim_kind
++        in: query
++        required: false
++        schema:
++          anyOf:
++          - $ref: '#/components/schemas/GeoClaimKind'
++          - type: 'null'
++          title: Claim Kind
++      - name: page
++        in: query
++        required: false
++        schema:
++          type: integer
++          minimum: 1
++          default: 1
++          title: Page
++      - name: page_size
++        in: query
++        required: false
++        schema:
++          enum:
++          - 10
++          - 20
++          - 50
++          type: integer
++          default: 20
++          title: Page Size
++      - $ref: '#/components/parameters/RequestIdHeader'
++      responses:
++        '200':
++          description: Successful Response
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoInsightClaimPage'
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++  /api/v1/geo/insights/quality/runs:
++    get:
++      tags:
++      - geo-answer-insights
++      summary: Quality Runs
++      operationId: listGeoInsightQualityRuns
++      security:
++      - sessionCookie: []
++      parameters:
++      - name: date_from
++        in: query
++        required: true
++        schema:
++          type: string
++          format: date-time
++          title: Date From
++      - name: date_to
++        in: query
++        required: true
++        schema:
++          type: string
++          format: date-time
++          title: Date To
++      - name: subject_ids
++        in: query
++        required: false
++        schema:
++          type: array
++          items:
++            type: string
++            format: uuid
++          maxItems: 50
++          title: Subject Ids
++      - name: product_ids
++        in: query
++        required: false
++        schema:
++          type: array
++          items:
++            type: string
++            format: uuid
++          maxItems: 50
++          title: Product Ids
++      - name: query_topic_ids
++        in: query
++        required: false
++        schema:
++          type: array
++          items:
++            type: string
++            format: uuid
++          maxItems: 50
++          title: Query Topic Ids
++      - name: prompt_variant_ids
++        in: query
++        required: false
++        schema:
++          type: array
++          items:
++            type: string
++            format: uuid
++          maxItems: 50
++          title: Prompt Variant Ids
++      - name: engine_surface_ids
++        in: query
++        required: false
++        schema:
++          type: array
++          items:
++            type: string
++            format: uuid
++          maxItems: 50
++          title: Engine Surface Ids
++      - name: collection_profile_ids
++        in: query
++        required: false
++        schema:
++          type: array
++          items:
++            type: string
++            format: uuid
++          maxItems: 50
++          title: Collection Profile Ids
++      - name: collection_modes
++        in: query
++        required: false
++        schema:
++          type: array
++          items:
++            $ref: '#/components/schemas/GeoCollectionMode'
++          maxItems: 3
++          title: Collection Modes
++      - name: language_codes
++        in: query
++        required: false
++        schema:
++          type: array
++          items:
++            type: string
++            minLength: 2
++            maxLength: 16
++            pattern: ^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$
++          maxItems: 50
++          title: Language Codes
++      - name: region_codes
++        in: query
++        required: false
++        schema:
++          type: array
++          items:
++            type: string
++            minLength: 2
++            maxLength: 2
++            pattern: ^[A-Za-z]{2}$
++          maxItems: 50
++          title: Region Codes
++      - name: login_states
++        in: query
++        required: false
++        schema:
++          type: array
++          items:
++            $ref: '#/components/schemas/GeoProfileLoginState'
++          maxItems: 3
++          title: Login States
++      - name: intent_types
++        in: query
++        required: false
++        schema:
++          type: array
++          items:
++            $ref: '#/components/schemas/IntentType'
++          maxItems: 10
++          title: Intent Types
++      - name: mention_mode
++        in: query
++        required: false
++        schema:
++          anyOf:
++          - $ref: '#/components/schemas/GeoPromptMentionMode'
++          - type: 'null'
++          title: Mention Mode
++      - name: review_policy
++        in: query
++        required: false
++        schema:
++          enum:
++          - EFFECTIVE
++          - REVIEWED_ONLY
++          type: string
++          default: EFFECTIVE
++          title: Review Policy
++      - name: quality_code
++        in: query
++        required: false
++        schema:
++          enum:
++          - eligible_runs
++          - run_success_rate
++          - analysis_run_coverage
++          - review_backlog
++          - evidence_completeness
++          - cost_coverage
++          - model_version_coverage
++          - shared_domain
++          - collection_version
++          - analysis_version
++          type: string
++          default: eligible_runs
++          title: Quality Code
++      - name: cohort
++        in: query
++        required: false
++        schema:
++          enum:
++          - CANDIDATE
++          - DENOMINATOR
++          - NUMERATOR
++          - EXCLUDED
++          type: string
++          default: CANDIDATE
++          title: Cohort
++      - name: exclusion_reason
++        in: query
++        required: false
++        schema:
++          anyOf:
++          - $ref: '#/components/schemas/MetricExclusion'
++          - type: 'null'
++          title: Exclusion Reason
++      - name: version_key
++        in: query
++        required: false
++        schema:
++          anyOf:
++          - type: string
++            pattern: ^[0-9a-f]{64}$
++          - type: 'null'
++          title: Version Key
++      - name: currency
++        in: query
++        required: false
++        schema:
++          anyOf:
++          - type: string
++            pattern: ^[A-Z]{3}$
++          - type: 'null'
++          title: Currency
++      - name: page
++        in: query
++        required: false
++        schema:
++          type: integer
++          minimum: 1
++          default: 1
++          title: Page
++      - name: page_size
++        in: query
++        required: false
++        schema:
++          enum:
++          - 10
++          - 20
++          - 50
++          type: integer
++          default: 20
++          title: Page Size
++      - $ref: '#/components/parameters/RequestIdHeader'
++      responses:
++        '200':
++          description: Successful Response
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoInsightQualityPage'
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++        '400':
+           $ref: '#/components/responses/ErrorResponse'
+ components:
+   securitySchemes:
+@@ -21731,41 +22436,47 @@
+       title: GeoAnswerInsightCell
+       type: object
+     GeoAnswerInsightDrilldown:
+-      additionalProperties: false
+       properties:
+         operation_id:
++          type: string
+           const: listGeoAnswerInsightRuns
++          title: Operation Id
+           default: listGeoAnswerInsightRuns
+-          title: Operation Id
+-          type: string
+         filters:
+           $ref: '#/components/schemas/GeoOverviewFilters'
+         cell_key:
++          type: string
+           title: Cell Key
+-          type: string
+         metric_code:
++          type: string
+           enum:
+           - natural_visibility
+           - recommendation_rate
+           - accurate_claim_rate
+           - mention_sov
+           - recommendation_sov
++          - owned_source_coverage
++          - owned_citation_share
++          - partial_claim_rate
++          - incorrect_claim_rate
++          - severe_error_run_rate
+           title: Metric Code
+-          type: string
+         period:
++          type: string
+           enum:
+           - CURRENT
+           - PREVIOUS
+           title: Period
+-          type: string
+         cohort:
++          type: string
+           enum:
+           - CANDIDATE
+           - DENOMINATOR
+           - NUMERATOR
+           - EXCLUDED
+           title: Cohort
+-          type: string
++      additionalProperties: false
++      type: object
+       required:
+       - filters
+       - cell_key
+@@ -21773,62 +22484,67 @@
+       - period
+       - cohort
+       title: GeoAnswerInsightDrilldown
+-      type: object
+     GeoAnswerInsightMetric:
+-      additionalProperties: false
+       properties:
+         metric_code:
++          type: string
+           enum:
+           - natural_visibility
+           - recommendation_rate
+           - accurate_claim_rate
+           - mention_sov
+           - recommendation_sov
++          - owned_source_coverage
++          - owned_citation_share
++          - partial_claim_rate
++          - incorrect_claim_rate
++          - severe_error_run_rate
+           title: Metric Code
+-          type: string
+         formula_version:
++          type: string
+           title: Formula Version
+-          type: string
+         value:
+           anyOf:
+           - type: number
+           - type: 'null'
+           title: Value
+         numerator:
+-          minimum: 0
++          type: integer
++          minimum: 0.0
+           title: Numerator
+-          type: integer
+         denominator:
+-          minimum: 0
++          type: integer
++          minimum: 0.0
+           title: Denominator
+-          type: integer
+         sample_level:
+           $ref: '#/components/schemas/SampleLevel'
+         eligible_run_count:
+-          minimum: 0
++          type: integer
++          minimum: 0.0
+           title: Eligible Run Count
+-          type: integer
+         excluded_run_count:
+-          minimum: 0
++          type: integer
++          minimum: 0.0
+           title: Excluded Run Count
+-          type: integer
+         exclusion_reason_counts:
+           items:
+             $ref: '#/components/schemas/GeoOverviewExclusion'
++          type: array
+           title: Exclusion Reason Counts
+-          type: array
+         unjudgeable_claim_count:
+-          minimum: 0
++          type: integer
++          minimum: 0.0
+           title: Unjudgeable Claim Count
+-          type: integer
+         unavailable_reason:
+           anyOf:
+-          - const: NO_DENOMINATOR
+-            type: string
++          - type: string
++            const: NO_DENOMINATOR
+           - type: 'null'
+           title: Unavailable Reason
+         drilldown:
+           $ref: '#/components/schemas/GeoAnswerInsightDrilldown'
++      additionalProperties: false
++      type: object
+       required:
+       - metric_code
+       - formula_version
+@@ -21843,41 +22559,44 @@
+       - unavailable_reason
+       - drilldown
+       title: GeoAnswerInsightMetric
+-      type: object
+     GeoAnswerInsightTrend:
+-      additionalProperties: false
+       properties:
+         subject_id:
++          type: string
+           format: uuid
+           title: Subject Id
+-          type: string
+         prompt_variant_id:
++          type: string
+           format: uuid
+           title: Prompt Variant Id
+-          type: string
+         collection_profile_id:
++          type: string
+           format: uuid
+           title: Collection Profile Id
+-          type: string
+         metric_code:
++          type: string
+           enum:
+           - natural_visibility
+           - recommendation_rate
+           - accurate_claim_rate
+           - mention_sov
+           - recommendation_sov
++          - owned_source_coverage
++          - owned_citation_share
++          - partial_claim_rate
++          - incorrect_claim_rate
++          - severe_error_run_rate
+           title: Metric Code
+-          type: string
+         current_cell_keys:
+           items:
+             type: string
++          type: array
+           title: Current Cell Keys
+-          type: array
+         previous_cell_keys:
+           items:
+             type: string
++          type: array
+           title: Previous Cell Keys
+-          type: array
+         change_points:
+           anyOf:
+           - type: number
+@@ -21889,10 +22608,11 @@
+           - type: 'null'
+           title: Relative Change
+         minimum_run_count:
++          type: integer
+           title: Minimum Run Count
+-          type: integer
+         unavailable_reasons:
+           items:
++            type: string
+             enum:
+             - MISSING_WINDOW
+             - MIXED_DIMENSIONS
+@@ -21901,24 +22621,25 @@
+             - FORMULA_CHANGED
+             - NO_DENOMINATOR
+             - INSUFFICIENT_SAMPLE
+-            type: string
++          type: array
+           title: Unavailable Reasons
+-          type: array
+         changed_dimensions:
+           items:
+             type: string
++          type: array
+           title: Changed Dimensions
+-          type: array
+         version_warnings:
+           items:
++            type: string
+             enum:
+             - MODEL_VERSION_CHANGED
+             - MODEL_VERSION_UNKNOWN
+             - PRODUCT_VERSION_CHANGED
+             - PRODUCT_VERSION_UNKNOWN
+-            type: string
++          type: array
+           title: Version Warnings
+-          type: array
++      additionalProperties: false
++      type: object
+       required:
+       - subject_id
+       - prompt_variant_id
+@@ -21933,7 +22654,6 @@
+       - changed_dimensions
+       - version_warnings
+       title: GeoAnswerInsightTrend
+-      type: object
+     GeoInsightWindow:
+       additionalProperties: false
+       properties:
+@@ -22083,12 +22803,11 @@
+       title: GeoQuestionVariantCoverage
+       type: object
+     GeoAnswerInsights:
+-      additionalProperties: false
+       properties:
+         as_of:
++          type: string
+           format: date-time
+           title: As Of
+-          type: string
+         filters:
+           $ref: '#/components/schemas/GeoOverviewFilters'
+         current_window:
+@@ -22098,48 +22817,62 @@
+         current_cells:
+           items:
+             $ref: '#/components/schemas/GeoAnswerInsightCell'
++          type: array
+           title: Current Cells
+-          type: array
+         previous_cells:
+           items:
+             $ref: '#/components/schemas/GeoAnswerInsightCell'
++          type: array
+           title: Previous Cells
+-          type: array
+         trends:
+           items:
+             $ref: '#/components/schemas/GeoAnswerInsightTrend'
++          type: array
+           title: Trends
+-          type: array
+         product_matrix_cell_keys:
+           items:
+             type: string
++          type: array
+           title: Product Matrix Cell Keys
+-          type: array
+         question_coverage:
+           items:
+             $ref: '#/components/schemas/GeoQuestionCoverage'
++          type: array
+           title: Question Coverage
+-          type: array
+         platform_performance:
+           items:
+             $ref: '#/components/schemas/GeoPlatformPerformance'
++          type: array
+           title: Platform Performance
+-          type: array
+         competitor_sov_cell_keys:
+           items:
+             type: string
++          type: array
+           title: Competitor Sov Cell Keys
+-          type: array
++        citation_insights:
++          items:
++            $ref: '#/components/schemas/GeoInsightCitationSummary'
++          type: array
++          title: Citation Insights
++        fact_risks:
++          items:
++            $ref: '#/components/schemas/GeoInsightFactRiskSummary'
++          type: array
++          title: Fact Risks
++        data_quality:
++          $ref: '#/components/schemas/GeoAnswerInsightDataQuality'
+         unavailable_sections:
+           items:
++            type: string
+             enum:
+             - CITATION_INSIGHTS
+             - FACT_RISKS
+             - DATA_QUALITY
+             - OPPORTUNITIES
+-            type: string
++          type: array
+           title: Unavailable Sections
+-          type: array
++      additionalProperties: false
++      type: object
+       required:
+       - as_of
+       - filters
+@@ -22152,158 +22885,165 @@
+       - question_coverage
+       - platform_performance
+       - competitor_sov_cell_keys
++      - citation_insights
++      - fact_risks
++      - data_quality
+       - unavailable_sections
+       title: GeoAnswerInsights
+-      type: object
+     GeoAnswerInsightSampleFilters:
+-      additionalProperties: false
+       properties:
+         date_from:
++          type: string
+           format: date-time
+           title: Date From
+-          type: string
+         date_to:
++          type: string
+           format: date-time
+           title: Date To
+-          type: string
+         subject_ids:
+           items:
++            type: string
+             format: uuid
+-            type: string
++          type: array
+           maxItems: 50
+           title: Subject Ids
+-          type: array
+         product_ids:
+           items:
++            type: string
+             format: uuid
+-            type: string
++          type: array
+           maxItems: 50
+           title: Product Ids
+-          type: array
+         query_topic_ids:
+           items:
++            type: string
+             format: uuid
+-            type: string
++          type: array
+           maxItems: 50
+           title: Query Topic Ids
+-          type: array
+         prompt_variant_ids:
+           items:
++            type: string
+             format: uuid
+-            type: string
++          type: array
+           maxItems: 50
+           title: Prompt Variant Ids
+-          type: array
+         engine_surface_ids:
+           items:
++            type: string
+             format: uuid
+-            type: string
++          type: array
+           maxItems: 50
+           title: Engine Surface Ids
+-          type: array
+         collection_profile_ids:
+           items:
++            type: string
+             format: uuid
+-            type: string
++          type: array
+           maxItems: 50
+           title: Collection Profile Ids
+-          type: array
+         collection_modes:
+           items:
+             $ref: '#/components/schemas/GeoCollectionMode'
++          type: array
+           maxItems: 3
+           title: Collection Modes
+-          type: array
+         language_codes:
+           items:
++            type: string
+             maxLength: 16
+             minLength: 2
+             pattern: ^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$
+-            type: string
++          type: array
+           maxItems: 50
+           title: Language Codes
+-          type: array
+         region_codes:
+           items:
++            type: string
+             maxLength: 2
+             minLength: 2
+             pattern: ^[A-Za-z]{2}$
+-            type: string
++          type: array
+           maxItems: 50
+           title: Region Codes
+-          type: array
+         login_states:
+           items:
+             $ref: '#/components/schemas/GeoProfileLoginState'
++          type: array
+           maxItems: 3
+           title: Login States
+-          type: array
+         intent_types:
+           items:
+             $ref: '#/components/schemas/IntentType'
++          type: array
+           maxItems: 10
+           title: Intent Types
+-          type: array
+         mention_mode:
+           anyOf:
+           - $ref: '#/components/schemas/GeoPromptMentionMode'
+           - type: 'null'
+         review_policy:
+-          default: EFFECTIVE
++          type: string
+           enum:
+           - EFFECTIVE
+           - REVIEWED_ONLY
+           title: Review Policy
+-          type: string
++          default: EFFECTIVE
+         cell_key:
++          type: string
+           pattern: ^[0-9a-f]{64}$
+           title: Cell Key
+-          type: string
+         metric_code:
++          type: string
+           enum:
+           - natural_visibility
+           - recommendation_rate
+           - accurate_claim_rate
+           - mention_sov
+           - recommendation_sov
++          - owned_source_coverage
++          - owned_citation_share
++          - partial_claim_rate
++          - incorrect_claim_rate
++          - severe_error_run_rate
+           title: Metric Code
+-          type: string
+         period:
+-          default: CURRENT
++          type: string
+           enum:
+           - CURRENT
+           - PREVIOUS
+           title: Period
+-          type: string
++          default: CURRENT
+         cohort:
+-          default: DENOMINATOR
++          type: string
+           enum:
+           - CANDIDATE
+           - DENOMINATOR
+           - NUMERATOR
+           - EXCLUDED
+           title: Cohort
+-          type: string
++          default: DENOMINATOR
+         page:
++          type: integer
++          minimum: 1.0
++          title: Page
+           default: 1
+-          minimum: 1
+-          title: Page
+-          type: integer
+         page_size:
+-          default: 20
++          type: integer
+           enum:
+           - 10
+           - 20
+           - 50
+           title: Page Size
+-          type: integer
++          default: 20
++      additionalProperties: false
++      type: object
+       required:
+       - date_from
+       - date_to
+       - cell_key
+       - metric_code
+       title: GeoAnswerInsightSampleFilters
+-      type: object
+     GeoAnswerInsightRunPage:
+       additionalProperties: false
+       properties:
+@@ -22337,3 +23077,1252 @@
+       - page_size
+       title: GeoAnswerInsightRunPage
+       type: object
++    GeoAnswerInsightDataQuality:
++      properties:
++        overview:
++          $ref: '#/components/schemas/GeoOverviewDataQuality'
++        shared_domain_run_count:
++          type: integer
++          minimum: 0.0
++          title: Shared Domain Run Count
++        shared_domain_citation_count:
++          type: integer
++          minimum: 0.0
++          title: Shared Domain Citation Count
++        shared_domain_drilldown:
++          $ref: '#/components/schemas/GeoInsightQualityDrilldown'
++        excluded_drilldown:
++          $ref: '#/components/schemas/GeoInsightQualityDrilldown'
++        known_costs:
++          items:
++            $ref: '#/components/schemas/GeoInsightCostSummary'
++          type: array
++          title: Known Costs
++        collection_versions:
++          items:
++            $ref: '#/components/schemas/GeoInsightVersionSummary'
++          type: array
++          title: Collection Versions
++        analysis_versions:
++          items:
++            $ref: '#/components/schemas/GeoInsightVersionSummary'
++          type: array
++          title: Analysis Versions
++        notes:
++          items:
++            type: string
++            enum:
++            - SHARED_DOMAIN
++            - REVIEW_BACKLOG
++            - COST_UNKNOWN
++            - MODEL_VERSION_UNKNOWN
++            - MIXED_COLLECTION_VERSIONS
++            - MIXED_ANALYSIS_VERSIONS
++            - MULTIPLE_DIMENSIONS
++          type: array
++          title: Notes
++      additionalProperties: false
++      type: object
++      required:
++      - overview
++      - shared_domain_run_count
++      - shared_domain_citation_count
++      - shared_domain_drilldown
++      - excluded_drilldown
++      - known_costs
++      - collection_versions
++      - analysis_versions
++      - notes
++      title: GeoAnswerInsightDataQuality
++    GeoInsightCitationBucket:
++      properties:
++        key:
++          type: string
++          title: Key
++        citation_count:
++          type: integer
++          minimum: 0.0
++          title: Citation Count
++        run_count:
++          type: integer
++          minimum: 0.0
++          title: Run Count
++        coverage_value:
++          anyOf:
++          - type: number
++          - type: 'null'
++          title: Coverage Value
++        coverage_denominator:
++          type: integer
++          minimum: 0.0
++          title: Coverage Denominator
++        share_value:
++          anyOf:
++          - type: number
++          - type: 'null'
++          title: Share Value
++        share_denominator:
++          type: integer
++          minimum: 0.0
++          title: Share Denominator
++        query_topic_ids:
++          items:
++            type: string
++            format: uuid
++          type: array
++          title: Query Topic Ids
++        engine_surface_ids:
++          items:
++            type: string
++            format: uuid
++          type: array
++          title: Engine Surface Ids
++        drilldown:
++          $ref: '#/components/schemas/GeoInsightCitationDrilldown'
++      additionalProperties: false
++      type: object
++      required:
++      - key
++      - citation_count
++      - run_count
++      - coverage_value
++      - coverage_denominator
++      - share_value
++      - share_denominator
++      - query_topic_ids
++      - engine_surface_ids
++      - drilldown
++      title: GeoInsightCitationBucket
++    GeoInsightCitationDrilldown:
++      properties:
++        operation_id:
++          type: string
++          const: listGeoInsightCitations
++          title: Operation Id
++          default: listGeoInsightCitations
++        filters:
++          $ref: '#/components/schemas/GeoOverviewFilters'
++        cell_key:
++          type: string
++          pattern: ^[0-9a-f]{64}$
++          title: Cell Key
++        hostname:
++          anyOf:
++          - type: string
++          - type: 'null'
++          title: Hostname
++        normalized_url:
++          anyOf:
++          - type: string
++          - type: 'null'
++          title: Normalized Url
++        source_category:
++          anyOf:
++          - $ref: '#/components/schemas/GeoSourceCategory'
++          - type: 'null'
++      additionalProperties: false
++      type: object
++      required:
++      - filters
++      - cell_key
++      title: GeoInsightCitationDrilldown
++    GeoInsightCitationFilters:
++      properties:
++        date_from:
++          type: string
++          format: date-time
++          title: Date From
++        date_to:
++          type: string
++          format: date-time
++          title: Date To
++        subject_ids:
++          items:
++            type: string
++            format: uuid
++          type: array
++          maxItems: 50
++          title: Subject Ids
++        product_ids:
++          items:
++            type: string
++            format: uuid
++          type: array
++          maxItems: 50
++          title: Product Ids
++        query_topic_ids:
++          items:
++            type: string
++            format: uuid
++          type: array
++          maxItems: 50
++          title: Query Topic Ids
++        prompt_variant_ids:
++          items:
++            type: string
++            format: uuid
++          type: array
++          maxItems: 50
++          title: Prompt Variant Ids
++        engine_surface_ids:
++          items:
++            type: string
++            format: uuid
++          type: array
++          maxItems: 50
++          title: Engine Surface Ids
++        collection_profile_ids:
++          items:
++            type: string
++            format: uuid
++          type: array
++          maxItems: 50
++          title: Collection Profile Ids
++        collection_modes:
++          items:
++            $ref: '#/components/schemas/GeoCollectionMode'
++          type: array
++          maxItems: 3
++          title: Collection Modes
++        language_codes:
++          items:
++            type: string
++            maxLength: 16
++            minLength: 2
++            pattern: ^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$
++          type: array
++          maxItems: 50
++          title: Language Codes
++        region_codes:
++          items:
++            type: string
++            maxLength: 2
++            minLength: 2
++            pattern: ^[A-Za-z]{2}$
++          type: array
++          maxItems: 50
++          title: Region Codes
++        login_states:
++          items:
++            $ref: '#/components/schemas/GeoProfileLoginState'
++          type: array
++          maxItems: 3
++          title: Login States
++        intent_types:
++          items:
++            $ref: '#/components/schemas/IntentType'
++          type: array
++          maxItems: 10
++          title: Intent Types
++        mention_mode:
++          anyOf:
++          - $ref: '#/components/schemas/GeoPromptMentionMode'
++          - type: 'null'
++        review_policy:
++          type: string
++          enum:
++          - EFFECTIVE
++          - REVIEWED_ONLY
++          title: Review Policy
++          default: EFFECTIVE
++        cell_key:
++          type: string
++          pattern: ^[0-9a-f]{64}$
++          title: Cell Key
++        hostname:
++          anyOf:
++          - type: string
++            maxLength: 253
++          - type: 'null'
++          title: Hostname
++        normalized_url:
++          anyOf:
++          - type: string
++            maxLength: 4000
++          - type: 'null'
++          title: Normalized Url
++        source_category:
++          anyOf:
++          - $ref: '#/components/schemas/GeoSourceCategory'
++          - type: 'null'
++        page:
++          type: integer
++          minimum: 1.0
++          title: Page
++          default: 1
++        page_size:
++          type: integer
++          enum:
++          - 10
++          - 20
++          - 50
++          title: Page Size
++          default: 20
++      additionalProperties: false
++      type: object
++      required:
++      - date_from
++      - date_to
++      - cell_key
++      title: GeoInsightCitationFilters
++    GeoInsightCitationPage:
++      properties:
++        as_of:
++          type: string
++          format: date-time
++          title: As Of
++        filters:
++          $ref: '#/components/schemas/GeoInsightCitationFilters'
++        items:
++          items:
++            $ref: '#/components/schemas/GeoInsightCitationSample'
++          type: array
++          title: Items
++        total:
++          type: integer
++          minimum: 0.0
++          title: Total
++        run_count:
++          type: integer
++          minimum: 0.0
++          title: Run Count
++        page:
++          type: integer
++          title: Page
++        page_size:
++          type: integer
++          title: Page Size
++      additionalProperties: false
++      type: object
++      required:
++      - as_of
++      - filters
++      - items
++      - total
++      - run_count
++      - page
++      - page_size
++      title: GeoInsightCitationPage
++    GeoInsightCitationSample:
++      properties:
++        run_id:
++          type: string
++          format: uuid
++          title: Run Id
++        batch_id:
++          type: string
++          format: uuid
++          title: Batch Id
++        created_at:
++          type: string
++          format: date-time
++          title: Created At
++        analysis_revision_id:
++          type: string
++          format: uuid
++          title: Analysis Revision Id
++        review_id:
++          anyOf:
++          - type: string
++            format: uuid
++          - type: 'null'
++          title: Review Id
++        citation_id:
++          type: string
++          format: uuid
++          title: Citation Id
++        normalized_url:
++          type: string
++          title: Normalized Url
++        hostname:
++          type: string
++          title: Hostname
++        title:
++          anyOf:
++          - type: string
++          - type: 'null'
++          title: Title
++        occurrences:
++          items:
++            type: integer
++          type: array
++          title: Occurrences
++        source_category:
++          $ref: '#/components/schemas/GeoSourceCategory'
++        attributed_subject_id:
++          anyOf:
++          - type: string
++            format: uuid
++          - type: 'null'
++          title: Attributed Subject Id
++        candidate_subject_ids:
++          items:
++            type: string
++            format: uuid
++          type: array
++          title: Candidate Subject Ids
++        shared_domain:
++          type: boolean
++          title: Shared Domain
++      additionalProperties: false
++      type: object
++      required:
++      - run_id
++      - batch_id
++      - created_at
++      - analysis_revision_id
++      - review_id
++      - citation_id
++      - normalized_url
++      - hostname
++      - title
++      - occurrences
++      - source_category
++      - attributed_subject_id
++      - candidate_subject_ids
++      - shared_domain
++      title: GeoInsightCitationSample
++    GeoInsightCitationSummary:
++      properties:
++        cell_key:
++          type: string
++          pattern: ^[0-9a-f]{64}$
++          title: Cell Key
++        subject_id:
++          type: string
++          format: uuid
++          title: Subject Id
++        citation_count:
++          type: integer
++          minimum: 0.0
++          title: Citation Count
++        domains:
++          items:
++            $ref: '#/components/schemas/GeoInsightCitationBucket'
++          type: array
++          title: Domains
++        urls:
++          items:
++            $ref: '#/components/schemas/GeoInsightCitationBucket'
++          type: array
++          title: Urls
++        source_categories:
++          items:
++            $ref: '#/components/schemas/GeoInsightCitationBucket'
++          type: array
++          title: Source Categories
++        drilldown:
++          $ref: '#/components/schemas/GeoInsightCitationDrilldown'
++      additionalProperties: false
++      type: object
++      required:
++      - cell_key
++      - subject_id
++      - citation_count
++      - domains
++      - urls
++      - source_categories
++      - drilldown
++      title: GeoInsightCitationSummary
++    GeoInsightClaimDrilldown:
++      properties:
++        operation_id:
++          type: string
++          const: listGeoInsightClaims
++          title: Operation Id
++          default: listGeoInsightClaims
++        filters:
++          $ref: '#/components/schemas/GeoOverviewFilters'
++        cell_key:
++          type: string
++          pattern: ^[0-9a-f]{64}$
++          title: Cell Key
++        verdict:
++          anyOf:
++          - $ref: '#/components/schemas/GeoClaimVerdict'
++          - type: 'null'
++        severity:
++          anyOf:
++          - $ref: '#/components/schemas/GeoClaimSeverity'
++          - type: 'null'
++        claim_kind:
++          anyOf:
++          - $ref: '#/components/schemas/GeoClaimKind'
++          - type: 'null'
++      additionalProperties: false
++      type: object
++      required:
++      - filters
++      - cell_key
++      title: GeoInsightClaimDrilldown
++    GeoInsightClaimFilters:
++      properties:
++        date_from:
++          type: string
++          format: date-time
++          title: Date From
++        date_to:
++          type: string
++          format: date-time
++          title: Date To
++        subject_ids:
++          items:
++            type: string
++            format: uuid
++          type: array
++          maxItems: 50
++          title: Subject Ids
++        product_ids:
++          items:
++            type: string
++            format: uuid
++          type: array
++          maxItems: 50
++          title: Product Ids
++        query_topic_ids:
++          items:
++            type: string
++            format: uuid
++          type: array
++          maxItems: 50
++          title: Query Topic Ids
++        prompt_variant_ids:
++          items:
++            type: string
++            format: uuid
++          type: array
++          maxItems: 50
++          title: Prompt Variant Ids
++        engine_surface_ids:
++          items:
++            type: string
++            format: uuid
++          type: array
++          maxItems: 50
++          title: Engine Surface Ids
++        collection_profile_ids:
++          items:
++            type: string
++            format: uuid
++          type: array
++          maxItems: 50
++          title: Collection Profile Ids
++        collection_modes:
++          items:
++            $ref: '#/components/schemas/GeoCollectionMode'
++          type: array
++          maxItems: 3
++          title: Collection Modes
++        language_codes:
++          items:
++            type: string
++            maxLength: 16
++            minLength: 2
++            pattern: ^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$
++          type: array
++          maxItems: 50
++          title: Language Codes
++        region_codes:
++          items:
++            type: string
++            maxLength: 2
++            minLength: 2
++            pattern: ^[A-Za-z]{2}$
++          type: array
++          maxItems: 50
++          title: Region Codes
++        login_states:
++          items:
++            $ref: '#/components/schemas/GeoProfileLoginState'
++          type: array
++          maxItems: 3
++          title: Login States
++        intent_types:
++          items:
++            $ref: '#/components/schemas/IntentType'
++          type: array
++          maxItems: 10
++          title: Intent Types
++        mention_mode:
++          anyOf:
++          - $ref: '#/components/schemas/GeoPromptMentionMode'
++          - type: 'null'
++        review_policy:
++          type: string
++          enum:
++          - EFFECTIVE
++          - REVIEWED_ONLY
++          title: Review Policy
++          default: EFFECTIVE
++        cell_key:
++          type: string
++          pattern: ^[0-9a-f]{64}$
++          title: Cell Key
++        verdict:
++          anyOf:
++          - $ref: '#/components/schemas/GeoClaimVerdict'
++          - type: 'null'
++        severity:
++          anyOf:
++          - $ref: '#/components/schemas/GeoClaimSeverity'
++          - type: 'null'
++        claim_kind:
++          anyOf:
++          - $ref: '#/components/schemas/GeoClaimKind'
++          - type: 'null'
++        page:
++          type: integer
++          minimum: 1.0
++          title: Page
++          default: 1
++        page_size:
++          type: integer
++          enum:
++          - 10
++          - 20
++          - 50
++          title: Page Size
++          default: 20
++      additionalProperties: false
++      type: object
++      required:
++      - date_from
++      - date_to
++      - cell_key
++      title: GeoInsightClaimFilters
++    GeoInsightClaimGroup:
++      properties:
++        claim_kind:
++          $ref: '#/components/schemas/GeoClaimKind'
++        verdict:
++          $ref: '#/components/schemas/GeoClaimVerdict'
++        severity:
++          $ref: '#/components/schemas/GeoClaimSeverity'
++        claim_count:
++          type: integer
++          minimum: 0.0
++          title: Claim Count
++        run_count:
++          type: integer
++          minimum: 0.0
++          title: Run Count
++        drilldown:
++          $ref: '#/components/schemas/GeoInsightClaimDrilldown'
++      additionalProperties: false
++      type: object
++      required:
++      - claim_kind
++      - verdict
++      - severity
++      - claim_count
++      - run_count
++      - drilldown
++      title: GeoInsightClaimGroup
++    GeoInsightClaimPage:
++      properties:
++        as_of:
++          type: string
++          format: date-time
++          title: As Of
++        filters:
++          $ref: '#/components/schemas/GeoInsightClaimFilters'
++        items:
++          items:
++            $ref: '#/components/schemas/GeoInsightClaimSample'
++          type: array
++          title: Items
++        total:
++          type: integer
++          minimum: 0.0
++          title: Total
++        run_count:
++          type: integer
++          minimum: 0.0
++          title: Run Count
++        page:
++          type: integer
++          title: Page
++        page_size:
++          type: integer
++          title: Page Size
++      additionalProperties: false
++      type: object
++      required:
++      - as_of
++      - filters
++      - items
++      - total
++      - run_count
++      - page
++      - page_size
++      title: GeoInsightClaimPage
++    GeoInsightClaimSample:
++      properties:
++        run_id:
++          type: string
++          format: uuid
++          title: Run Id
++        batch_id:
++          type: string
++          format: uuid
++          title: Batch Id
++        created_at:
++          type: string
++          format: date-time
++          title: Created At
++        analysis_revision_id:
++          type: string
++          format: uuid
++          title: Analysis Revision Id
++        review_id:
++          anyOf:
++          - type: string
++            format: uuid
++          - type: 'null'
++          title: Review Id
++        claim_assessment_id:
++          type: string
++          format: uuid
++          title: Claim Assessment Id
++        subject_id:
++          type: string
++          format: uuid
++          title: Subject Id
++        fact_version_id:
++          anyOf:
++          - type: string
++            format: uuid
++          - type: 'null'
++          title: Fact Version Id
++        claim_kind:
++          $ref: '#/components/schemas/GeoClaimKind'
++        claim_text:
++          type: string
++          title: Claim Text
++        verdict:
++          $ref: '#/components/schemas/GeoClaimVerdict'
++        severity:
++          $ref: '#/components/schemas/GeoClaimSeverity'
++        fact_excerpt:
++          anyOf:
++          - type: string
++          - type: 'null'
++          title: Fact Excerpt
++        explanation:
++          type: string
++          title: Explanation
++      additionalProperties: false
++      type: object
++      required:
++      - run_id
++      - batch_id
++      - created_at
++      - analysis_revision_id
++      - review_id
++      - claim_assessment_id
++      - subject_id
++      - fact_version_id
++      - claim_kind
++      - claim_text
++      - verdict
++      - severity
++      - fact_excerpt
++      - explanation
++      title: GeoInsightClaimSample
++    GeoInsightCostSummary:
++      properties:
++        currency:
++          type: string
++          title: Currency
++        known_run_count:
++          type: integer
++          minimum: 1.0
++          title: Known Run Count
++        total_amount:
++          type: string
++          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
++          title: Total Amount
++        average_amount:
++          type: string
++          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
++          title: Average Amount
++        drilldown:
++          $ref: '#/components/schemas/GeoInsightQualityDrilldown'
++      additionalProperties: false
++      type: object
++      required:
++      - currency
++      - known_run_count
++      - total_amount
++      - average_amount
++      - drilldown
++      title: GeoInsightCostSummary
++    GeoInsightFactRiskSummary:
++      properties:
++        cell_key:
++          type: string
++          pattern: ^[0-9a-f]{64}$
++          title: Cell Key
++        subject_id:
++          type: string
++          format: uuid
++          title: Subject Id
++        claim_count:
++          type: integer
++          minimum: 0.0
++          title: Claim Count
++        verdict_counts:
++          additionalProperties:
++            type: integer
++          propertyNames:
++            $ref: '#/components/schemas/GeoClaimVerdict'
++          type: object
++          title: Verdict Counts
++        incorrect_severity_counts:
++          additionalProperties:
++            type: integer
++          propertyNames:
++            $ref: '#/components/schemas/GeoClaimSeverity'
++          type: object
++          title: Incorrect Severity Counts
++        groups:
++          items:
++            $ref: '#/components/schemas/GeoInsightClaimGroup'
++          type: array
++          title: Groups
++        drilldown:
++          $ref: '#/components/schemas/GeoInsightClaimDrilldown'
++      additionalProperties: false
++      type: object
++      required:
++      - cell_key
++      - subject_id
++      - claim_count
++      - verdict_counts
++      - incorrect_severity_counts
++      - groups
++      - drilldown
++      title: GeoInsightFactRiskSummary
++    GeoInsightQualityDrilldown:
++      properties:
++        operation_id:
++          type: string
++          const: listGeoInsightQualityRuns
++          title: Operation Id
++          default: listGeoInsightQualityRuns
++        filters:
++          $ref: '#/components/schemas/GeoOverviewFilters'
++        quality_code:
++          type: string
++          enum:
++          - eligible_runs
++          - run_success_rate
++          - analysis_run_coverage
++          - review_backlog
++          - evidence_completeness
++          - cost_coverage
++          - model_version_coverage
++          - shared_domain
++          - collection_version
++          - analysis_version
++          title: Quality Code
++        cohort:
++          type: string
++          enum:
++          - CANDIDATE
++          - DENOMINATOR
++          - NUMERATOR
++          - EXCLUDED
++          title: Cohort
++          default: CANDIDATE
++        exclusion_reason:
++          anyOf:
++          - $ref: '#/components/schemas/MetricExclusion'
++          - type: 'null'
++        version_key:
++          anyOf:
++          - type: string
++            pattern: ^[0-9a-f]{64}$
++          - type: 'null'
++          title: Version Key
++        currency:
++          anyOf:
++          - type: string
++          - type: 'null'
++          title: Currency
++      additionalProperties: false
++      type: object
++      required:
++      - filters
++      - quality_code
++      title: GeoInsightQualityDrilldown
++    GeoInsightQualityFilters:
++      properties:
++        date_from:
++          type: string
++          format: date-time
++          title: Date From
++        date_to:
++          type: string
++          format: date-time
++          title: Date To
++        subject_ids:
++          items:
++            type: string
++            format: uuid
++          type: array
++          maxItems: 50
++          title: Subject Ids
++        product_ids:
++          items:
++            type: string
++            format: uuid
++          type: array
++          maxItems: 50
++          title: Product Ids
++        query_topic_ids:
++          items:
++            type: string
++            format: uuid
++          type: array
++          maxItems: 50
++          title: Query Topic Ids
++        prompt_variant_ids:
++          items:
++            type: string
++            format: uuid
++          type: array
++          maxItems: 50
++          title: Prompt Variant Ids
++        engine_surface_ids:
++          items:
++            type: string
++            format: uuid
++          type: array
++          maxItems: 50
++          title: Engine Surface Ids
++        collection_profile_ids:
++          items:
++            type: string
++            format: uuid
++          type: array
++          maxItems: 50
++          title: Collection Profile Ids
++        collection_modes:
++          items:
++            $ref: '#/components/schemas/GeoCollectionMode'
++          type: array
++          maxItems: 3
++          title: Collection Modes
++        language_codes:
++          items:
++            type: string
++            maxLength: 16
++            minLength: 2
++            pattern: ^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$
++          type: array
++          maxItems: 50
++          title: Language Codes
++        region_codes:
++          items:
++            type: string
++            maxLength: 2
++            minLength: 2
++            pattern: ^[A-Za-z]{2}$
++          type: array
++          maxItems: 50
++          title: Region Codes
++        login_states:
++          items:
++            $ref: '#/components/schemas/GeoProfileLoginState'
++          type: array
++          maxItems: 3
++          title: Login States
++        intent_types:
++          items:
++            $ref: '#/components/schemas/IntentType'
++          type: array
++          maxItems: 10
++          title: Intent Types
++        mention_mode:
++          anyOf:
++          - $ref: '#/components/schemas/GeoPromptMentionMode'
++          - type: 'null'
++        review_policy:
++          type: string
++          enum:
++          - EFFECTIVE
++          - REVIEWED_ONLY
++          title: Review Policy
++          default: EFFECTIVE
++        quality_code:
++          type: string
++          enum:
++          - eligible_runs
++          - run_success_rate
++          - analysis_run_coverage
++          - review_backlog
++          - evidence_completeness
++          - cost_coverage
++          - model_version_coverage
++          - shared_domain
++          - collection_version
++          - analysis_version
++          title: Quality Code
++          default: eligible_runs
++        cohort:
++          type: string
++          enum:
++          - CANDIDATE
++          - DENOMINATOR
++          - NUMERATOR
++          - EXCLUDED
++          title: Cohort
++          default: CANDIDATE
++        exclusion_reason:
++          anyOf:
++          - $ref: '#/components/schemas/MetricExclusion'
++          - type: 'null'
++        version_key:
++          anyOf:
++          - type: string
++            pattern: ^[0-9a-f]{64}$
++          - type: 'null'
++          title: Version Key
++        currency:
++          anyOf:
++          - type: string
++            pattern: ^[A-Z]{3}$
++          - type: 'null'
++          title: Currency
++        page:
++          type: integer
++          minimum: 1.0
++          title: Page
++          default: 1
++        page_size:
++          type: integer
++          enum:
++          - 10
++          - 20
++          - 50
++          title: Page Size
++          default: 20
++      additionalProperties: false
++      type: object
++      required:
++      - date_from
++      - date_to
++      title: GeoInsightQualityFilters
++    GeoInsightQualityPage:
++      properties:
++        as_of:
++          type: string
++          format: date-time
++          title: As Of
++        filters:
++          $ref: '#/components/schemas/GeoInsightQualityFilters'
++        items:
++          items:
++            $ref: '#/components/schemas/GeoInsightQualitySample'
++          type: array
++          title: Items
++        total:
++          type: integer
++          minimum: 0.0
++          title: Total
++        page:
++          type: integer
++          title: Page
++        page_size:
++          type: integer
++          title: Page Size
++      additionalProperties: false
++      type: object
++      required:
++      - as_of
++      - filters
++      - items
++      - total
++      - page
++      - page_size
++      title: GeoInsightQualityPage
++    GeoInsightQualitySample:
++      properties:
++        run_id:
++          type: string
++          format: uuid
++          title: Run Id
++        batch_id:
++          type: string
++          format: uuid
++          title: Batch Id
++        created_at:
++          type: string
++          format: date-time
++          title: Created At
++        status:
++          $ref: '#/components/schemas/GeoRunStatus'
++        analysis_revision_id:
++          anyOf:
++          - type: string
++            format: uuid
++          - type: 'null'
++          title: Analysis Revision Id
++        review_id:
++          anyOf:
++          - type: string
++            format: uuid
++          - type: 'null'
++          title: Review Id
++        numerator:
++          type: integer
++          minimum: 0.0
++          title: Numerator
++        denominator:
++          type: integer
++          minimum: 0.0
++          title: Denominator
++        exclusion_reasons:
++          items:
++            $ref: '#/components/schemas/MetricExclusion'
++          type: array
++          title: Exclusion Reasons
++        cost_amount:
++          anyOf:
++          - type: string
++            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
++          - type: 'null'
++          title: Cost Amount
++        cost_currency:
++          anyOf:
++          - type: string
++          - type: 'null'
++          title: Cost Currency
++        source_model:
++          anyOf:
++          - type: string
++          - type: 'null'
++          title: Source Model
++        source_product:
++          anyOf:
++          - type: string
++          - type: 'null'
++          title: Source Product
++        source_version:
++          anyOf:
++          - type: string
++          - type: 'null'
++          title: Source Version
++        analyzer_version:
++          anyOf:
++          - type: string
++          - type: 'null'
++          title: Analyzer Version
++        rule_set_version:
++          anyOf:
++          - type: string
++          - type: 'null'
++          title: Rule Set Version
++        analysis_configuration_key:
++          anyOf:
++          - type: string
++          - type: 'null'
++          title: Analysis Configuration Key
++        review_required:
++          type: boolean
++          title: Review Required
++        current_review_valid:
++          type: boolean
++          title: Current Review Valid
++        shared_domain_citation_ids:
++          items:
++            type: string
++            format: uuid
++          type: array
++          title: Shared Domain Citation Ids
++        review_required_reasons:
++          items:
++            type: string
++          type: array
++          title: Review Required Reasons
++      additionalProperties: false
++      type: object
++      required:
++      - run_id
++      - batch_id
++      - created_at
++      - status
++      - analysis_revision_id
++      - review_id
++      - numerator
++      - denominator
++      - exclusion_reasons
++      - cost_amount
++      - cost_currency
++      - source_model
++      - source_product
++      - source_version
++      - analyzer_version
++      - rule_set_version
++      - analysis_configuration_key
++      - review_required
++      - current_review_valid
++      - shared_domain_citation_ids
++      - review_required_reasons
++      title: GeoInsightQualitySample
++    GeoInsightVersionSummary:
++      properties:
++        version_key:
++          type: string
++          pattern: ^[0-9a-f]{64}$
++          title: Version Key
++        source_model:
++          anyOf:
++          - type: string
++          - type: 'null'
++          title: Source Model
++        source_product:
++          anyOf:
++          - type: string
++          - type: 'null'
++          title: Source Product
++        source_version:
++          anyOf:
++          - type: string
++          - type: 'null'
++          title: Source Version
++        analyzer_version:
++          anyOf:
++          - type: string
++          - type: 'null'
++          title: Analyzer Version
++        rule_set_version:
++          anyOf:
++          - type: string
++          - type: 'null'
++          title: Rule Set Version
++        analysis_configuration_key:
++          anyOf:
++          - type: string
++          - type: 'null'
++          title: Analysis Configuration Key
++        run_count:
++          type: integer
++          minimum: 1.0
++          title: Run Count
++        drilldown:
++          $ref: '#/components/schemas/GeoInsightQualityDrilldown'
++      additionalProperties: false
++      type: object
++      required:
++      - version_key
++      - source_model
++      - source_product
++      - source_version
++      - analyzer_version
++      - rule_set_version
++      - analysis_configuration_key
++      - run_count
++      - drilldown
++      title: GeoInsightVersionSummary
+--- a/docs/geo-monitoring/01-product/02-geo-core-prd.md
++++ b/docs/geo-monitoring/01-product/02-geo-core-prd.md
+@@ -630,7 +630,7 @@
+ - 原文声明；
+ - 声明类型；
+ - 对应产品和事实版本；
+-- 判断：ACCURATE、PARTIAL、INCORRECT、UNVERIFIABLE、NOT_APPLICABLE；
++- 判断：ACCURATE、PARTIAL、INCORRECT、UNJUDGEABLE（沿用已批准的 GEO-501/505 公共枚举；不可判断独立计数，不进入正确或错误分母）；
+ - 严重程度；
+ - 依据事实片段；
+ - 机器置信度；
+--- a/docs/geo-monitoring/02-business/04-monitoring-methodology-and-metrics.md
++++ b/docs/geo-monitoring/02-business/04-monitoring-methodology-and-metrics.md
+@@ -594,4 +594,18 @@
+ 
+ 分类沿用 §11：<3为DATA_INSUFFICIENT；达到可报告门槛且比例为零为NOT_VISIBLE；低于0.6为OCCASIONAL；达到0.6且至少5个合格运行为STABLE。已批准文档未定义高比例3–4样本的分类，分类为null并说明INSUFFICIENT_STABLE_SAMPLE；达标标记仍按可报告门槛判断。
+ 
+-组成运行接口携带 period、cell_key、metric_code、cohort和同一筛选，逐运行公开分子分母/current analysis/review ID；实时重读as_of可变化，失效cell返回404。GEO-604引用/风险/质量明细及Opportunity显式未实施，GEO-605负责前端页面。
++组成运行接口携带 period、cell_key、metric_code、cohort和同一筛选，逐运行公开分子分母/current analysis/review ID；实时重读as_of可变化，失效cell返回404。引用/风险/质量明细现由下节GEO-604合同提供；Opportunity未实施，GEO-605负责前端页面。
++
++## 21. GEO-604 当前引用、事实风险与质量合同
++
++回答级洞察增加当前窗口的 citation_insights、fact_risks 和 data_quality。引用与事实摘要按选中对象的完整cell分栏，使用§18的业务资格；质量使用§19同筛选候选Run的操作统计。不跨维度混算业务比例，不从回答表现倒推适用对象。当前及前期指标增加自有信源覆盖/份额、部分正确/错误声明率与严重错误运行率；这五项消费601公式，不新增趋势算法。
++
++引用事件以每个回答的 normalized_url 去重，保留首次标题及全部 occurrences；URL查询参数沿既有规范化合同保留，不将参数不同的URL合并。域名采用精确hostname，不折叠到注册域名；域名覆盖直接消费601 domain_coverage。域名、URL和source category分组分别返回引用事件条数、不同Run数、覆盖的合格运行分母、事件份额分母及主题/观测面ID。无分母null，事件条数不提升运行样本等级。来源类别及归属消费current analysis内最新有效Review投影，不用当前Catalog或URL标题重新分类。
++
++声明摘要返回目标对象的四类verdict计数、仅INCORRECT的severity计数，以及claim_kind/verdict/severity联合分组。通用合格的UNJUDGEABLE可以下钻，但不进入ACCURATE/PARTIAL/INCORRECT比例或严重错误分母；HIGH/CRITICAL PARTIAL不算严重错误。声明明细保留原claim ID、绑定fact version ID、事实片段、解释和有效analysis/review ID，不重新调用核验或改变历史。
++
++共享域名由实际current analysis的冻结域名字典保留全部候选；尚无current analysis时仅为质量说明使用Run冻结字典。共享事实不因人工已消歧而消失。质量返回共享引用数/不同Run数及review backlog说明，即使这些Run因缺必要复核被排除业务统计。排除原因允许重叠，排除Run总数始终去重。REVIEWED_ONLY等基础筛选同时作用于所有摘要和下钻。
++
++费用覆盖仍是已报告amount及currency的Run/候选Run。只有已知费用进入按币种的总额和均价，已报告零为真实零，未知不补零、不换币、不合并币种。采集版本按source_model/source_product/source_version组合分组；分析版本按current analyzer/rule_set/analysis配置指纹分组，已采集但未分析或版本未知的分组显式null。model_version_coverage仍要求source_model和source_version，版本列表不替代覆盖率。质量notes闭合列明共享、backlog、费用/版本未知、多版本和多维度。
++
++引用/声明下钻携带基础filters及完整cell_key和可选事件选择器；质量下钻携带quality_code、CANDIDATE/DENOMINATOR/NUMERATOR/EXCLUDED及可选reason/version_key/currency。reason仅适用于eligible_runs的EXCLUDED；版本key仅用于对应版本code；币种仅用于cost_coverage。所有接口按created_at、Run ID和事件ID稳定排序分页，total及run_count可复现摘要的相应计数。每次请求在RR快照实时重算，as_of可变化；跨请求不冻结，已消失cell明确404。机会和页面继续由后续任务交付。
+--- a/docs/geo-monitoring/03-technical/03-api-contract-design.md
++++ b/docs/geo-monitoring/03-technical/03-api-contract-design.md
+@@ -631,4 +631,22 @@
+ 
+ 两窗口复用一次 REPEATABLE READ 批量装配，固定12次应用SELECT（含身份13）；无 ORM 写入、commit、锁、revision变更或外部调用。ADMIN/ENGINEER、session和强制改密保持；响应no-store，不回显凭据、回答原文或受限事实。组成样本实时重读，as_of变化不承诺跨请求快照。
+ 
+-数据库仅追加只读文档，无Alembic/回填。前端仅重生成OpenAPI类型，无路由、query key或URL变化。604细节、605页面、702机会与Browser/生产启用均未实施。
++数据库仅追加只读文档，无Alembic/回填。前端仅重生成OpenAPI类型，无路由、query key或URL变化。604细节见下节，605页面、702机会与Browser/生产启用均未实施。
++
++## GEO-604 / R5 当前引用、风险与质量 API
++
++getGeoAnswerInsights增加citation_insights、fact_risks和data_quality；listGeoAnswerInsightRuns增加owned_source_coverage、owned_citation_share、partial_claim_rate、incorrect_claim_rate和severe_error_run_rate指标码。新指标沿601透明公式及样本等级，趋势仍为603的五项。
++
++新增三个只读GET：
++
++| 路径 | operationId | 选择器 |
++|---|---|---|
++| /api/v1/geo/insights/citations | listGeoInsightCitations | filters、cell_key、hostname/normalized_url/source_category |
++| /api/v1/geo/insights/claims | listGeoInsightClaims | filters、cell_key、verdict/severity/claim_kind |
++| /api/v1/geo/insights/quality/runs | listGeoInsightQualityRuns | filters、quality_code、cohort、reason/version_key/currency |
++
++精确字段及互斥组合以根OpenAPI、闭合DTO和方法§21为权威。page_size为10/20/50；稳定分页、服务端total，引用/声明另返不同run_count。无效输入422；引用/声明失效cell404；不完整一致读409 GEO_READ_MODEL_INCOMPLETE。所有响应声明X-Request-ID及闭合错误信封。旧文章级getGeoInsights保持独立。
++
++摘要和明细共用事件资格与有效结果投影，质量复用602同一质量字典。引用明细返回规范URL、原始位置、有效来源及共享候选；声明明细返回已保存声明和批准事实依据。共享/backlog统计保留被排除的候选Run，费用分币、未知不补零，版本未知null。current成功pointer内latest Review整体替换旧修正，新pointer不复用旧review。
++
++沿用ADMIN/ENGINEER、当前session和强制改密门禁，响应no-store。每请求固定12次应用SELECT（含身份13），在同一禁autoflush的REPEATABLE READ中装配；Router不写ORM、不锁行、不commit。无外部URL访问、AI请求、审计写入、状态转换或revision变化；不返回凭据、lease、raw payload、完整答案或review comment。无DDL/Alembic/历史回填，前端仅生成类型，605页面/query key/URL状态未实施。
+--- a/docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md
++++ b/docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md
+@@ -212,3 +212,9 @@
+ CAP-GEO-11、REQ-GEO-METRIC-001～009及AC-METRIC-01～07的603切片以完整冻结cell提供等长前期、产品矩阵、问题覆盖、平台表现与两类SOV。竞争集合改变、多cell、无分母和低样本均明确不可比；自然可见/SOV排除点名。所有变体及事件/运行分母分别保留，不用统一分数或客户端公式。
+ 
+ `test_geo_metric_trends.py`覆盖competitor set变化、样本不足、点名及可比维度；单元`test_geo_answer_insights.py`保护全部变体、冻结集合、不可判断声明数；同名集成测试保护等长窗口、真实PG筛选贡献、当前复核、RR/固定查询数、认证和422日期边界。合同与生成类型校验见[实施证据](../../../.trellis/tasks/10-04-geo-603-trends-coverage/implement.md)。本切片仅review，604/605/702及其余任务继续独立验收。
++
++### GEO-604 / R5 引用、风险与质量切片
++
++CAP-GEO-11与REQ-GEO-METRIC-010/011的引用/风险/质量切片提供域名、URL、来源类别、声明/严重程度、排除、费用/版本覆盖和三个同筛选明细GET。引用/声明按完整业务cell，质量按同筛选候选去重Run；共享域名与必要复核backlog显式说明。UNJUDGEABLE不计正确/错误，严重错误只计INCORRECT HIGH/CRITICAL，未知费用不补零。
++
++新增单元`test_geo_insight_details.py`保护独立人工复算事件/运行分母、共享/backlog、币种及未知/混合版本；同名真实PG/HTTP测试保护规范URL去重和occurrences、人工修正与新pointer隔离、不可判断明细、稳定分页、摘要/下钻计数、RR及固定SELECT、认证/闭合422和静态/运行时响应校验。既有精确operation/response metadata门禁同步三个新GET；完整实际结果见[实施证据](../../../.trellis/tasks/10-04-geo-604-citation-risk-quality/implement.md)。无DDL/回填或新页面，仍需GEO-605和独立R5验收；不宣布整个CAP完成，状态以manifest为准。
+--- a/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ b/docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -1064,7 +1064,7 @@
+   phase: R5
+   release: R5
+   title: 实现引用、事实风险和数据质量洞察
+-  status: planned
++  status: review
+   dependencies:
+   - GEO-601
+   - GEO-504
+@@ -1081,6 +1081,9 @@
+   - 02-business/03-workflows-and-state-machines.md
+   - 03-technical/01-technical-architecture.md
+   - 04-delivery/04-codex-execution-guide.md
++  trellis_task: .trellis/tasks/10-04-geo-604-citation-risk-quality
++  execution_note: "2026-10-04：依赖601/504/505均done；文档/合同/preflight完成，279unit和23PG基线通过，开始引用、风险及质量只读洞察。"
++  review_note: "2026-10-04：引用域名/URL/类别、声明/severity与共享/backlog/排除/费用/版本洞察及三个同筛选GET完成；当前有效Review和601分母共用，无UNJUDGEABLE对错计数。3518后端/1170前端完整单元、994完整集成通过，补充7项真实PG/HTTP覆盖零费用/混币及后续Review整体替换；lint/typecheck/contract/diff通过，fresh独立只读复核无确认缺陷。无DDL、Alembic、回填、页面或生产启用，仅review等待人工接受。"
+ - id: GEO-605
+   phase: R5
+   release: R5
+--- a/docs/geo-monitoring/CHANGELOG.md
++++ b/docs/geo-monitoring/CHANGELOG.md
+@@ -1,4 +1,11 @@
+ # 文档包变更记录
++
++## GEO-604 / R5 引用、事实风险与质量洞察 — 2026-10-04
++
++- 扩展回答级insights及运行贡献指标，新增引用、声明和质量运行三个只读GET；公开摘要/下钻、域名覆盖、事件分母及有效current review身份。
++- 共享域名、review backlog与去重排除计数进入质量说明；费用按币种、未知不补零，采集及分析版本保留真实null与覆盖分母。
++- 对齐PRD旧判断标签到已批准UNJUDGEABLE枚举，补方法§21、API、只读数据库合同和追踪证据；不改变601公式、ADR、状态机或安全边界。
++- 无DDL/Alembic/回填，前端只重生成OpenAPI类型；605、702、Browser和生产启用均范围外。最低门禁及独立只读复核的实际结果见[实施证据](../../.trellis/tasks/10-04-geo-604-citation-risk-quality/implement.md)。状态由manifest记录，本地完成后仅review。
+ 
+ ## GEO-507 / R4 人工复核与当前结果 — 2026-10-03（review）
+ 
+--- a/docs/geo-monitoring/README.md
++++ b/docs/geo-monitoring/README.md
+@@ -333,7 +333,7 @@
+ 规则范围见 [Worker 架构](./03-technical/05-worker-and-collector-architecture.md#当前-r4geo-505-声明和事实阶段)，
+ 验证与限制见 [Task Brief](../../.trellis/tasks/10-03-geo-505-claim-assessment/prd.md) 和
+ [实施证据](../../.trellis/tasks/10-03-geo-505-claim-assessment/implement.md)。
+-状态以任务清单为准；GEO-506 Worker/revision/落库见下文，GEO-604 洞察仍未实施。
++状态以任务清单为准；GEO-506 Worker/revision/落库及GEO-604洞察见下文。
+ 
+ GEO-506 / R4 接入确定性 Analysis Worker：COLLECTED claim、冻结输入hash幂等、追加revision、
+ 四阶段结果/current pointer/首次Run状态原子提交、失败保留原始回答、旧token与迟到结果拒绝，
+@@ -352,9 +352,11 @@
+ 
+ ## GEO-601 / R5 指标资格与公式库
+ 
+-GEO-601 已实现内部 MetricEligibility、可比维度、样本等级和18项透明公式，完整本地验证已完成，交付review等待人工接受，状态以manifest为准。两个争议分母已由用户裁决采用指标方法口径；唯一字典见 [指标方法 §18](./02-business/04-monitoring-methodology-and-metrics.md#18-geo-601-回答级公式字典当前内部计算合同)。快照转换复用GEO-507 current有效结果，失败/旧attempt不进入业务分母，模式和点名默认分离。Task Brief及逐项证据见 [任务记录](../../.trellis/tasks/10-03-geo-601-metric-formulas/prd.md) 与 [实施记录](../../.trellis/tasks/10-03-geo-601-metric-formulas/implement.md)。本任务没有新API、数据库/Alembic、前端页面或生产启用；GEO-602/603/604/701尚未实施，当前公开资格占位尚未接线此库。
++GEO-601 已实现内部 MetricEligibility、可比维度、样本等级和18项透明公式，完整本地验证已完成，交付review等待人工接受，状态以manifest为准。两个争议分母已由用户裁决采用指标方法口径；唯一字典见 [指标方法 §18](./02-business/04-monitoring-methodology-and-metrics.md#18-geo-601-回答级公式字典当前内部计算合同)。快照转换复用GEO-507 current有效结果，失败/旧attempt不进入业务分母，模式和点名默认分离。Task Brief及逐项证据见 [任务记录](../../.trellis/tasks/10-03-geo-601-metric-formulas/prd.md) 与 [实施记录](../../.trellis/tasks/10-03-geo-601-metric-formulas/implement.md)。本任务没有新API、数据库/Alembic、前端页面或生产启用；GEO-602/603/604当前读合同见下文，GEO-701仍独立验收；旧资格投影是否接线以相应API为准。
+ 
+ 
+ GEO-602 / R5 已实现回答级Overview与组成样本API，本地验证完成后交付review：透明卡片、按冻结cell分栏、重点产品、风险、最近批次、机会占位和质量。运行/分析质量两项分母已获本会话用户裁决，详见[方法字典§19](./02-business/04-monitoring-methodology-and-metrics.md)与ADR-004；范围和实际验证见[Task Brief](../../.trellis/tasks/10-03-geo-602-overview/prd.md)与[实施证据](../../.trellis/tasks/10-03-geo-602-overview/implement.md)。不实施603/604洞察明细、605前端、Opportunity、Browser或生产启用；最终状态以manifest为准。
+ 
+ GEO-603 / R5 提供回答级趋势、产品矩阵、问题变体/主题覆盖、平台表现和 Mention/Recommendation SOV，另有同筛选组成运行 GET。不可比窗口显式不可用，实际竞争集合改变不聚合，点名不进入自然可见/SOV；完整 cell 和全部变体可追溯。语义见[方法字典§20](./02-business/04-monitoring-methodology-and-metrics.md)，范围及逐项验证见[Task Brief](../../.trellis/tasks/10-04-geo-603-trends-coverage/prd.md)、[设计](../../.trellis/tasks/10-04-geo-603-trends-coverage/design.md)和[实施证据](../../.trellis/tasks/10-04-geo-603-trends-coverage/implement.md)。无DDL/Alembic、前端页面或生产启用；状态以manifest为准，完成本地验证仅进入review，等待人工接受。
++
++GEO-604 / R5 扩展回答级洞察，提供域名/URL/来源类别、声明与错误severity、共享域名、review backlog、去重排除计数及费用/版本覆盖，并新增三个同筛选明细GET。摘要和下钻共用601资格与current有效结果；UNJUDGEABLE独立可见，费用未知不补零、币种分开。当前合同见[方法§21](./02-business/04-monitoring-methodology-and-metrics.md)，实施及逐项实际验证见[Task Brief](../../.trellis/tasks/10-04-geo-604-citation-risk-quality/prd.md)、[设计](../../.trellis/tasks/10-04-geo-604-citation-risk-quality/design.md)和[实施证据](../../.trellis/tasks/10-04-geo-604-citation-risk-quality/implement.md)。无DDL/Alembic/回填，前端仅生成类型；605页面、702行动闭环、Browser和生产启用仍由各自任务交付。状态以manifest为准，本地验证后仅review等待人工接受。
+--- a/docs/geo-monitoring/SHA256SUMS
++++ b/docs/geo-monitoring/SHA256SUMS
+@@ -1,16 +1,16 @@
+ 0ec5e67515fa5c383612130415bfc70185a607ac65006fcc932dd750c137bbde  ./00-governance/01-document-governance.md
+ b5906690eb04c8d27911a09722761e7cf4c244ecab2fbe39a55d94c794ee8728  ./00-governance/02-glossary.md
+ 670367ab19f32e811ec651a5be24a9ca062699f1fec60571c97b055ac7f1fb15  ./01-product/01-product-vision-and-scope.md
+-90faf7dcb07bf1db2c0227cfedb8a1bc8b3260ab996f74e3d566855a29ffbb41  ./01-product/02-geo-core-prd.md
++7b80c367847b6e3832707ee281208d819f1a6568a9b51ac7810eddfcba8f9a17  ./01-product/02-geo-core-prd.md
+ 7ea6985cdc63749a10c73b801f69349dc2f0ac797b9aa87622723f26b988bcbe  ./01-product/03-information-architecture-and-page-spec.md
+ 36be92c676c3150e5953f01498418900d3e2bcc1f37a0bda31b9892e57b8a2d0  ./01-product/04-catalog-user-guide.md
+ 3892c8f83318ee460de04960a5162b4d777db06eb731a5999cdee946cd8042e3  ./02-business/01-business-architecture.md
+ ecf9472b259ebe572775405e0fcd5d3dddf35a13d68be130a44baec5a3db9f98  ./02-business/02-domain-model.md
+ f3aeee99fa15b2c6b28c33ef869aed12283334a2b17116b8dd0ddda6272ae0cd  ./02-business/03-workflows-and-state-machines.md
+-cfa3c57ef855723a49e2f68599bd9c16eafdc24cab77e70a7c42869a8a9ad1cd  ./02-business/04-monitoring-methodology-and-metrics.md
++de93d0a1a87298cc922177d7fe45e29a97f4d9743cabb3fbf96aefa2f3a64401  ./02-business/04-monitoring-methodology-and-metrics.md
+ 90c2a635615b591f0d1a282fb62f289de0fbad030ea2dcb19ce7dd10983b85b2  ./03-technical/01-technical-architecture.md
+ 005d3d0bbf76fd04de5c7ab74ec6ea1b021647e88500da98870e5bfe1899a4e9  ./03-technical/02-data-architecture.md
+-a7e2fee96959f005b841ccaeb51999c2ba6ca9396681d156395648a0e5337abc  ./03-technical/03-api-contract-design.md
++977a0b91c49591282cc773210b7ceb77e1fa267cb4621d7740e317db79ed4fe1  ./03-technical/03-api-contract-design.md
+ 76b36ff4bdc28ae906dcd07eafdf91cfae1b016f858d94c6fd6a2d54ae70fb09  ./03-technical/04-frontend-architecture.md
+ daf8f8cec2dfb8996c316ca259ae6eea161d944337f340ce9c6180bc9c87c0f5  ./03-technical/05-worker-and-collector-architecture.md
+ 2698d3095cfaeb5857d6bafd3efd633d9d50b813257054e7568d779be35d7dd7  ./03-technical/06-security-and-compliance.md
+@@ -18,7 +18,7 @@
+ 803f4e35ce311156cb74a7d728732dc4b315c49d41cc3b2825aff669684468a9  ./03-technical/08-deployment-and-operations.md
+ f8c643e46c1159c51bd2e271e87de1d0e5a0448e2845af01f33bef5e4e1d411b  ./04-delivery/01-implementation-roadmap.md
+ acf0bde87ddfc34ebbc09543c1f2c2c1f496d48f330727b5e943807267eed41c  ./04-delivery/02-work-breakdown-structure.md
+-7145623c152476b0d21db32ac18fe1581935ae3e96242ae78c73d885df3dc0c8  ./04-delivery/03-requirement-traceability-matrix.md
++9a1fbb76f9d83e5bfbd60573d1f2d5f04f4c6fc6b30cf4ccba1cbb1030ac9b95  ./04-delivery/03-requirement-traceability-matrix.md
+ 8991d4c1ec5cc872904aa3b10ffbb2f77ca46a4bfda88589d290f7fd92c2f1fb  ./04-delivery/04-codex-execution-guide.md
+ f600bcdfc2788659654825a020fb2aa0fcbe7acf9827b97eab25aadd7a20ff51  ./04-delivery/05-task-template.md
+ 0ec18f9ce8589f4c8e222fddc6d15853c949ad2b227381b584e2c81c4c4e47b0  ./04-delivery/06-current-geo-baseline.md
+@@ -105,12 +105,12 @@
+ 7106b3f1df66de6ba41a4d7ca85e291b8b181f78e2b7c0ef91f4fa696d1f9e8b  ./04-delivery/geo-003-baseline/sources.json
+ 316ab24c5f645e18d39c529c7fcbca2260b14a5375cc5ebd799a5b7c6cfc8f40  ./04-delivery/geo-003-baseline/tests.json
+ 9dae298eb77cc0063394bfacea27b02ece69bf2a7dceba637ef1320565810ec7  ./04-delivery/geo-003-baseline/validation.md
+-8539eb0595b0324b738fd4aab37ba08767963da27d890062cbcb1e42f49660ad  ./04-delivery/task-manifest.yaml
++f1061d6468fe0f6ae0fae22add7aba4a660982c88cc8f77de33ac12818f05222  ./04-delivery/task-manifest.yaml
+ 2c0f8d8ba314039b44e48614481c28e615e996c2e4ed444c8f07362b5cd75de9  ./05-decisions/ADR-001-extend-modular-monolith.md
+ 4e0ec1be59e33c2f3e83ee50abc55ffe35d2d0bf471c19cc2c713b391fc12cee  ./05-decisions/ADR-002-unified-observation-run-model.md
+ 00baab5f8fe68fbaf75e3aa7b07a0cfbd7c510e39b6a70ea462d9ab941330dc7  ./05-decisions/ADR-003-separate-collection-analysis-review.md
+ 8f4f24331d4ea91574e5a4a56c3eacd9d89e193011c48f8d9f5e413198793909  ./05-decisions/ADR-004-no-unified-geo-score.md
+ 6197eb3379ad5c5f99c499ab8b74eac5cf18e6df26a3f5c34c4e9bf83845593b  ./05-decisions/ADR-005-staged-collector-rollout.md
+ c3e9f23a90bd7fc9b47760d53c56fd6f09f73065dff5b19c1040ee5fd608a560  ./05-decisions/GEO-002-architecture-review.md
+-d7a354e0c2ee450fb3fdeec73c2194fb54d76d9f1566608cfe8b3da8bc711b1c  ./CHANGELOG.md
+-d6c0c2f1ab9b7a04188d5fdd1dcc32256beecf87922753fd559db9c87c9d06b2  ./README.md
++d63232650414cb51e21ea8e822886de9b25a73e795eff21f6c63f248f31b5140  ./CHANGELOG.md
++5d3683a64230eb5414b15c79e0a1a99e49bb8ea48c5056d35f9601ef5e652b39  ./README.md
+--- a/frontend/src/shared/api/generated/schema.d.ts
++++ b/frontend/src/shared/api/generated/schema.d.ts
+@@ -2879,6 +2879,57 @@
+             cookie?: never;
+         };
+         get: operations["listGeoAnswerInsightRuns"];
++        put?: never;
++        post?: never;
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++    "/api/v1/geo/insights/citations": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        /** Citations */
++        get: operations["listGeoInsightCitations"];
++        put?: never;
++        post?: never;
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++    "/api/v1/geo/insights/claims": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        /** Claims */
++        get: operations["listGeoInsightClaims"];
++        put?: never;
++        post?: never;
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++    "/api/v1/geo/insights/quality/runs": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        /** Quality Runs */
++        get: operations["listGeoInsightQualityRuns"];
+         put?: never;
+         post?: never;
+         delete?: never;
+@@ -9920,7 +9971,7 @@
+              * Metric Code
+              * @enum {string}
+              */
+-            metric_code: "natural_visibility" | "recommendation_rate" | "accurate_claim_rate" | "mention_sov" | "recommendation_sov";
++            metric_code: "natural_visibility" | "recommendation_rate" | "accurate_claim_rate" | "mention_sov" | "recommendation_sov" | "owned_source_coverage" | "owned_citation_share" | "partial_claim_rate" | "incorrect_claim_rate" | "severe_error_run_rate";
+             /**
+              * Period
+              * @enum {string}
+@@ -9938,7 +9989,7 @@
+              * Metric Code
+              * @enum {string}
+              */
+-            metric_code: "natural_visibility" | "recommendation_rate" | "accurate_claim_rate" | "mention_sov" | "recommendation_sov";
++            metric_code: "natural_visibility" | "recommendation_rate" | "accurate_claim_rate" | "mention_sov" | "recommendation_sov" | "owned_source_coverage" | "owned_citation_share" | "partial_claim_rate" | "incorrect_claim_rate" | "severe_error_run_rate";
+             /** Formula Version */
+             formula_version: string;
+             /** Value */
+@@ -9981,7 +10032,7 @@
+              * Metric Code
+              * @enum {string}
+              */
+-            metric_code: "natural_visibility" | "recommendation_rate" | "accurate_claim_rate" | "mention_sov" | "recommendation_sov";
++            metric_code: "natural_visibility" | "recommendation_rate" | "accurate_claim_rate" | "mention_sov" | "recommendation_sov" | "owned_source_coverage" | "owned_citation_share" | "partial_claim_rate" | "incorrect_claim_rate" | "severe_error_run_rate";
+             /** Current Cell Keys */
+             current_cell_keys: string[];
+             /** Previous Cell Keys */
+@@ -10091,6 +10142,11 @@
+             platform_performance: components["schemas"]["GeoPlatformPerformance"][];
+             /** Competitor Sov Cell Keys */
+             competitor_sov_cell_keys: string[];
++            /** Citation Insights */
++            citation_insights: components["schemas"]["GeoInsightCitationSummary"][];
++            /** Fact Risks */
++            fact_risks: components["schemas"]["GeoInsightFactRiskSummary"][];
++            data_quality: components["schemas"]["GeoAnswerInsightDataQuality"];
+             /** Unavailable Sections */
+             unavailable_sections: ("CITATION_INSIGHTS" | "FACT_RISKS" | "DATA_QUALITY" | "OPPORTUNITIES")[];
+         };
+@@ -10141,7 +10197,7 @@
+              * Metric Code
+              * @enum {string}
+              */
+-            metric_code: "natural_visibility" | "recommendation_rate" | "accurate_claim_rate" | "mention_sov" | "recommendation_sov";
++            metric_code: "natural_visibility" | "recommendation_rate" | "accurate_claim_rate" | "mention_sov" | "recommendation_sov" | "owned_source_coverage" | "owned_citation_share" | "partial_claim_rate" | "incorrect_claim_rate" | "severe_error_run_rate";
+             /**
+              * Period
+              * @default CURRENT
+@@ -10182,6 +10238,576 @@
+             page: number;
+             /** Page Size */
+             page_size: number;
++        };
++        /** GeoAnswerInsightDataQuality */
++        GeoAnswerInsightDataQuality: {
++            overview: components["schemas"]["GeoOverviewDataQuality"];
++            /** Shared Domain Run Count */
++            shared_domain_run_count: number;
++            /** Shared Domain Citation Count */
++            shared_domain_citation_count: number;
++            shared_domain_drilldown: components["schemas"]["GeoInsightQualityDrilldown"];
++            excluded_drilldown: components["schemas"]["GeoInsightQualityDrilldown"];
++            /** Known Costs */
++            known_costs: components["schemas"]["GeoInsightCostSummary"][];
++            /** Collection Versions */
++            collection_versions: components["schemas"]["GeoInsightVersionSummary"][];
++            /** Analysis Versions */
++            analysis_versions: components["schemas"]["GeoInsightVersionSummary"][];
++            /** Notes */
++            notes: ("SHARED_DOMAIN" | "REVIEW_BACKLOG" | "COST_UNKNOWN" | "MODEL_VERSION_UNKNOWN" | "MIXED_COLLECTION_VERSIONS" | "MIXED_ANALYSIS_VERSIONS" | "MULTIPLE_DIMENSIONS")[];
++        };
++        /** GeoInsightCitationBucket */
++        GeoInsightCitationBucket: {
++            /** Key */
++            key: string;
++            /** Citation Count */
++            citation_count: number;
++            /** Run Count */
++            run_count: number;
++            /** Coverage Value */
++            coverage_value: number | null;
++            /** Coverage Denominator */
++            coverage_denominator: number;
++            /** Share Value */
++            share_value: number | null;
++            /** Share Denominator */
++            share_denominator: number;
++            /** Query Topic Ids */
++            query_topic_ids: string[];
++            /** Engine Surface Ids */
++            engine_surface_ids: string[];
++            drilldown: components["schemas"]["GeoInsightCitationDrilldown"];
++        };
++        /** GeoInsightCitationDrilldown */
++        GeoInsightCitationDrilldown: {
++            /**
++             * Operation Id
++             * @default listGeoInsightCitations
++             * @constant
++             */
++            operation_id: "listGeoInsightCitations";
++            filters: components["schemas"]["GeoOverviewFilters"];
++            /** Cell Key */
++            cell_key: string;
++            /** Hostname */
++            hostname?: string | null;
++            /** Normalized Url */
++            normalized_url?: string | null;
++            source_category?: components["schemas"]["GeoSourceCategory"] | null;
++        };
++        /** GeoInsightCitationFilters */
++        GeoInsightCitationFilters: {
++            /**
++             * Date From
++             * Format: date-time
++             */
++            date_from: string;
++            /**
++             * Date To
++             * Format: date-time
++             */
++            date_to: string;
++            /** Subject Ids */
++            subject_ids?: string[];
++            /** Product Ids */
++            product_ids?: string[];
++            /** Query Topic Ids */
++            query_topic_ids?: string[];
++            /** Prompt Variant Ids */
++            prompt_variant_ids?: string[];
++            /** Engine Surface Ids */
++            engine_surface_ids?: string[];
++            /** Collection Profile Ids */
++            collection_profile_ids?: string[];
++            /** Collection Modes */
++            collection_modes?: components["schemas"]["GeoCollectionMode"][];
++            /** Language Codes */
++            language_codes?: string[];
++            /** Region Codes */
++            region_codes?: string[];
++            /** Login States */
++            login_states?: components["schemas"]["GeoProfileLoginState"][];
++            /** Intent Types */
++            intent_types?: components["schemas"]["IntentType"][];
++            mention_mode?: components["schemas"]["GeoPromptMentionMode"] | null;
++            /**
++             * Review Policy
++             * @default EFFECTIVE
++             * @enum {string}
++             */
++            review_policy: "EFFECTIVE" | "REVIEWED_ONLY";
++            /** Cell Key */
++            cell_key: string;
++            /** Hostname */
++            hostname?: string | null;
++            /** Normalized Url */
++            normalized_url?: string | null;
++            source_category?: components["schemas"]["GeoSourceCategory"] | null;
++            /**
++             * Page
++             * @default 1
++             */
++            page: number;
++            /**
++             * Page Size
++             * @default 20
++             * @enum {integer}
++             */
++            page_size: 10 | 20 | 50;
++        };
++        /** GeoInsightCitationPage */
++        GeoInsightCitationPage: {
++            /**
++             * As Of
++             * Format: date-time
++             */
++            as_of: string;
++            filters: components["schemas"]["GeoInsightCitationFilters"];
++            /** Items */
++            items: components["schemas"]["GeoInsightCitationSample"][];
++            /** Total */
++            total: number;
++            /** Run Count */
++            run_count: number;
++            /** Page */
++            page: number;
++            /** Page Size */
++            page_size: number;
++        };
++        /** GeoInsightCitationSample */
++        GeoInsightCitationSample: {
++            /**
++             * Run Id
++             * Format: uuid
++             */
++            run_id: string;
++            /**
++             * Batch Id
++             * Format: uuid
++             */
++            batch_id: string;
++            /**
++             * Created At
++             * Format: date-time
++             */
++            created_at: string;
++            /**
++             * Analysis Revision Id
++             * Format: uuid
++             */
++            analysis_revision_id: string;
++            /** Review Id */
++            review_id: string | null;
++            /**
++             * Citation Id
++             * Format: uuid
++             */
++            citation_id: string;
++            /** Normalized Url */
++            normalized_url: string;
++            /** Hostname */
++            hostname: string;
++            /** Title */
++            title: string | null;
++            /** Occurrences */
++            occurrences: number[];
++            source_category: components["schemas"]["GeoSourceCategory"];
++            /** Attributed Subject Id */
++            attributed_subject_id: string | null;
++            /** Candidate Subject Ids */
++            candidate_subject_ids: string[];
++            /** Shared Domain */
++            shared_domain: boolean;
++        };
++        /** GeoInsightCitationSummary */
++        GeoInsightCitationSummary: {
++            /** Cell Key */
++            cell_key: string;
++            /**
++             * Subject Id
++             * Format: uuid
++             */
++            subject_id: string;
++            /** Citation Count */
++            citation_count: number;
++            /** Domains */
++            domains: components["schemas"]["GeoInsightCitationBucket"][];
++            /** Urls */
++            urls: components["schemas"]["GeoInsightCitationBucket"][];
++            /** Source Categories */
++            source_categories: components["schemas"]["GeoInsightCitationBucket"][];
++            drilldown: components["schemas"]["GeoInsightCitationDrilldown"];
++        };
++        /** GeoInsightClaimDrilldown */
++        GeoInsightClaimDrilldown: {
++            /**
++             * Operation Id
++             * @default listGeoInsightClaims
++             * @constant
++             */
++            operation_id: "listGeoInsightClaims";
++            filters: components["schemas"]["GeoOverviewFilters"];
++            /** Cell Key */
++            cell_key: string;
++            verdict?: components["schemas"]["GeoClaimVerdict"] | null;
++            severity?: components["schemas"]["GeoClaimSeverity"] | null;
++            claim_kind?: components["schemas"]["GeoClaimKind"] | null;
++        };
++        /** GeoInsightClaimFilters */
++        GeoInsightClaimFilters: {
++            /**
++             * Date From
++             * Format: date-time
++             */
++            date_from: string;
++            /**
++             * Date To
++             * Format: date-time
++             */
++            date_to: string;
++            /** Subject Ids */
++            subject_ids?: string[];
++            /** Product Ids */
++            product_ids?: string[];
++            /** Query Topic Ids */
++            query_topic_ids?: string[];
++            /** Prompt Variant Ids */
++            prompt_variant_ids?: string[];
++            /** Engine Surface Ids */
++            engine_surface_ids?: string[];
++            /** Collection Profile Ids */
++            collection_profile_ids?: string[];
++            /** Collection Modes */
++            collection_modes?: components["schemas"]["GeoCollectionMode"][];
++            /** Language Codes */
++            language_codes?: string[];
++            /** Region Codes */
++            region_codes?: string[];
++            /** Login States */
++            login_states?: components["schemas"]["GeoProfileLoginState"][];
++            /** Intent Types */
++            intent_types?: components["schemas"]["IntentType"][];
++            mention_mode?: components["schemas"]["GeoPromptMentionMode"] | null;
++            /**
++             * Review Policy
++             * @default EFFECTIVE
++             * @enum {string}
++             */
++            review_policy: "EFFECTIVE" | "REVIEWED_ONLY";
++            /** Cell Key */
++            cell_key: string;
++            verdict?: components["schemas"]["GeoClaimVerdict"] | null;
++            severity?: components["schemas"]["GeoClaimSeverity"] | null;
++            claim_kind?: components["schemas"]["GeoClaimKind"] | null;
++            /**
++             * Page
++             * @default 1
++             */
++            page: number;
++            /**
++             * Page Size
++             * @default 20
++             * @enum {integer}
++             */
++            page_size: 10 | 20 | 50;
++        };
++        /** GeoInsightClaimGroup */
++        GeoInsightClaimGroup: {
++            claim_kind: components["schemas"]["GeoClaimKind"];
++            verdict: components["schemas"]["GeoClaimVerdict"];
++            severity: components["schemas"]["GeoClaimSeverity"];
++            /** Claim Count */
++            claim_count: number;
++            /** Run Count */
++            run_count: number;
++            drilldown: components["schemas"]["GeoInsightClaimDrilldown"];
++        };
++        /** GeoInsightClaimPage */
++        GeoInsightClaimPage: {
++            /**
++             * As Of
++             * Format: date-time
++             */
++            as_of: string;
++            filters: components["schemas"]["GeoInsightClaimFilters"];
++            /** Items */
++            items: components["schemas"]["GeoInsightClaimSample"][];
++            /** Total */
++            total: number;
++            /** Run Count */
++            run_count: number;
++            /** Page */
++            page: number;
++            /** Page Size */
++            page_size: number;
++        };
++        /** GeoInsightClaimSample */
++        GeoInsightClaimSample: {
++            /**
++             * Run Id
++             * Format: uuid
++             */
++            run_id: string;
++            /**
++             * Batch Id
++             * Format: uuid
++             */
++            batch_id: string;
++            /**
++             * Created At
++             * Format: date-time
++             */
++            created_at: string;
++            /**
++             * Analysis Revision Id
++             * Format: uuid
++             */
++            analysis_revision_id: string;
++            /** Review Id */
++            review_id: string | null;
++            /**
++             * Claim Assessment Id
++             * Format: uuid
++             */
++            claim_assessment_id: string;
++            /**
++             * Subject Id
++             * Format: uuid
++             */
++            subject_id: string;
++            /** Fact Version Id */
++            fact_version_id: string | null;
++            claim_kind: components["schemas"]["GeoClaimKind"];
++            /** Claim Text */
++            claim_text: string;
++            verdict: components["schemas"]["GeoClaimVerdict"];
++            severity: components["schemas"]["GeoClaimSeverity"];
++            /** Fact Excerpt */
++            fact_excerpt: string | null;
++            /** Explanation */
++            explanation: string;
++        };
++        /** GeoInsightCostSummary */
++        GeoInsightCostSummary: {
++            /** Currency */
++            currency: string;
++            /** Known Run Count */
++            known_run_count: number;
++            /** Total Amount */
++            total_amount: string;
++            /** Average Amount */
++            average_amount: string;
++            drilldown: components["schemas"]["GeoInsightQualityDrilldown"];
++        };
++        /** GeoInsightFactRiskSummary */
++        GeoInsightFactRiskSummary: {
++            /** Cell Key */
++            cell_key: string;
++            /**
++             * Subject Id
++             * Format: uuid
++             */
++            subject_id: string;
++            /** Claim Count */
++            claim_count: number;
++            /** Verdict Counts */
++            verdict_counts: {
++                [key: string]: number;
++            };
++            /** Incorrect Severity Counts */
++            incorrect_severity_counts: {
++                [key: string]: number;
++            };
++            /** Groups */
++            groups: components["schemas"]["GeoInsightClaimGroup"][];
++            drilldown: components["schemas"]["GeoInsightClaimDrilldown"];
++        };
++        /** GeoInsightQualityDrilldown */
++        GeoInsightQualityDrilldown: {
++            /**
++             * Operation Id
++             * @default listGeoInsightQualityRuns
++             * @constant
++             */
++            operation_id: "listGeoInsightQualityRuns";
++            filters: components["schemas"]["GeoOverviewFilters"];
++            /**
++             * Quality Code
++             * @enum {string}
++             */
++            quality_code: "eligible_runs" | "run_success_rate" | "analysis_run_coverage" | "review_backlog" | "evidence_completeness" | "cost_coverage" | "model_version_coverage" | "shared_domain" | "collection_version" | "analysis_version";
++            /**
++             * Cohort
++             * @default CANDIDATE
++             * @enum {string}
++             */
++            cohort: "CANDIDATE" | "DENOMINATOR" | "NUMERATOR" | "EXCLUDED";
++            exclusion_reason?: components["schemas"]["MetricExclusion"] | null;
++            /** Version Key */
++            version_key?: string | null;
++            /** Currency */
++            currency?: string | null;
++        };
++        /** GeoInsightQualityFilters */
++        GeoInsightQualityFilters: {
++            /**
++             * Date From
++             * Format: date-time
++             */
++            date_from: string;
++            /**
++             * Date To
++             * Format: date-time
++             */
++            date_to: string;
++            /** Subject Ids */
++            subject_ids?: string[];
++            /** Product Ids */
++            product_ids?: string[];
++            /** Query Topic Ids */
++            query_topic_ids?: string[];
++            /** Prompt Variant Ids */
++            prompt_variant_ids?: string[];
++            /** Engine Surface Ids */
++            engine_surface_ids?: string[];
++            /** Collection Profile Ids */
++            collection_profile_ids?: string[];
++            /** Collection Modes */
++            collection_modes?: components["schemas"]["GeoCollectionMode"][];
++            /** Language Codes */
++            language_codes?: string[];
++            /** Region Codes */
++            region_codes?: string[];
++            /** Login States */
++            login_states?: components["schemas"]["GeoProfileLoginState"][];
++            /** Intent Types */
++            intent_types?: components["schemas"]["IntentType"][];
++            mention_mode?: components["schemas"]["GeoPromptMentionMode"] | null;
++            /**
++             * Review Policy
++             * @default EFFECTIVE
++             * @enum {string}
++             */
++            review_policy: "EFFECTIVE" | "REVIEWED_ONLY";
++            /**
++             * Quality Code
++             * @default eligible_runs
++             * @enum {string}
++             */
++            quality_code: "eligible_runs" | "run_success_rate" | "analysis_run_coverage" | "review_backlog" | "evidence_completeness" | "cost_coverage" | "model_version_coverage" | "shared_domain" | "collection_version" | "analysis_version";
++            /**
++             * Cohort
++             * @default CANDIDATE
++             * @enum {string}
++             */
++            cohort: "CANDIDATE" | "DENOMINATOR" | "NUMERATOR" | "EXCLUDED";
++            exclusion_reason?: components["schemas"]["MetricExclusion"] | null;
++            /** Version Key */
++            version_key?: string | null;
++            /** Currency */
++            currency?: string | null;
++            /**
++             * Page
++             * @default 1
++             */
++            page: number;
++            /**
++             * Page Size
++             * @default 20
++             * @enum {integer}
++             */
++            page_size: 10 | 20 | 50;
++        };
++        /** GeoInsightQualityPage */
++        GeoInsightQualityPage: {
++            /**
++             * As Of
++             * Format: date-time
++             */
++            as_of: string;
++            filters: components["schemas"]["GeoInsightQualityFilters"];
++            /** Items */
++            items: components["schemas"]["GeoInsightQualitySample"][];
++            /** Total */
++            total: number;
++            /** Page */
++            page: number;
++            /** Page Size */
++            page_size: number;
++        };
++        /** GeoInsightQualitySample */
++        GeoInsightQualitySample: {
++            /**
++             * Run Id
++             * Format: uuid
++             */
++            run_id: string;
++            /**
++             * Batch Id
++             * Format: uuid
++             */
++            batch_id: string;
++            /**
++             * Created At
++             * Format: date-time
++             */
++            created_at: string;
++            status: components["schemas"]["GeoRunStatus"];
++            /** Analysis Revision Id */
++            analysis_revision_id: string | null;
++            /** Review Id */
++            review_id: string | null;
++            /** Numerator */
++            numerator: number;
++            /** Denominator */
++            denominator: number;
++            /** Exclusion Reasons */
++            exclusion_reasons: components["schemas"]["MetricExclusion"][];
++            /** Cost Amount */
++            cost_amount: string | null;
++            /** Cost Currency */
++            cost_currency: string | null;
++            /** Source Model */
++            source_model: string | null;
++            /** Source Product */
++            source_product: string | null;
++            /** Source Version */
++            source_version: string | null;
++            /** Analyzer Version */
++            analyzer_version: string | null;
++            /** Rule Set Version */
++            rule_set_version: string | null;
++            /** Analysis Configuration Key */
++            analysis_configuration_key: string | null;
++            /** Review Required */
++            review_required: boolean;
++            /** Current Review Valid */
++            current_review_valid: boolean;
++            /** Shared Domain Citation Ids */
++            shared_domain_citation_ids: string[];
++            /** Review Required Reasons */
++            review_required_reasons: string[];
++        };
++        /** GeoInsightVersionSummary */
++        GeoInsightVersionSummary: {
++            /** Version Key */
++            version_key: string;
++            /** Source Model */
++            source_model: string | null;
++            /** Source Product */
++            source_product: string | null;
++            /** Source Version */
++            source_version: string | null;
++            /** Analyzer Version */
++            analyzer_version: string | null;
++            /** Rule Set Version */
++            rule_set_version: string | null;
++            /** Analysis Configuration Key */
++            analysis_configuration_key: string | null;
++            /** Run Count */
++            run_count: number;
++            drilldown: components["schemas"]["GeoInsightQualityDrilldown"];
+         };
+     };
+     responses: {
+@@ -17705,7 +18331,7 @@
+                 mention_mode?: components["schemas"]["GeoPromptMentionMode"] | null;
+                 review_policy?: "EFFECTIVE" | "REVIEWED_ONLY";
+                 cell_key: string;
+-                metric_code: "natural_visibility" | "recommendation_rate" | "accurate_claim_rate" | "mention_sov" | "recommendation_sov";
++                metric_code: "natural_visibility" | "recommendation_rate" | "accurate_claim_rate" | "mention_sov" | "recommendation_sov" | "owned_source_coverage" | "owned_citation_share" | "partial_claim_rate" | "incorrect_claim_rate" | "severe_error_run_rate";
+                 period?: "CURRENT" | "PREVIOUS";
+                 cohort?: "CANDIDATE" | "DENOMINATOR" | "NUMERATOR" | "EXCLUDED";
+                 page?: number;
+@@ -17737,4 +18363,157 @@
+             422: components["responses"]["ErrorResponse"];
+         };
+     };
++    listGeoInsightCitations: {
++        parameters: {
++            query: {
++                date_from: string;
++                date_to: string;
++                subject_ids?: string[];
++                product_ids?: string[];
++                query_topic_ids?: string[];
++                prompt_variant_ids?: string[];
++                engine_surface_ids?: string[];
++                collection_profile_ids?: string[];
++                collection_modes?: components["schemas"]["GeoCollectionMode"][];
++                language_codes?: string[];
++                region_codes?: string[];
++                login_states?: components["schemas"]["GeoProfileLoginState"][];
++                intent_types?: components["schemas"]["IntentType"][];
++                mention_mode?: components["schemas"]["GeoPromptMentionMode"] | null;
++                review_policy?: "EFFECTIVE" | "REVIEWED_ONLY";
++                cell_key: string;
++                hostname?: string | null;
++                normalized_url?: string | null;
++                source_category?: components["schemas"]["GeoSourceCategory"] | null;
++                page?: number;
++                page_size?: 10 | 20 | 50;
++            };
++            header?: {
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path?: never;
++            cookie?: never;
++        };
++        requestBody?: never;
++        responses: {
++            /** @description Successful Response */
++            200: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoInsightCitationPage"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
++    listGeoInsightClaims: {
++        parameters: {
++            query: {
++                date_from: string;
++                date_to: string;
++                subject_ids?: string[];
++                product_ids?: string[];
++                query_topic_ids?: string[];
++                prompt_variant_ids?: string[];
++                engine_surface_ids?: string[];
++                collection_profile_ids?: string[];
++                collection_modes?: components["schemas"]["GeoCollectionMode"][];
++                language_codes?: string[];
++                region_codes?: string[];
++                login_states?: components["schemas"]["GeoProfileLoginState"][];
++                intent_types?: components["schemas"]["IntentType"][];
++                mention_mode?: components["schemas"]["GeoPromptMentionMode"] | null;
++                review_policy?: "EFFECTIVE" | "REVIEWED_ONLY";
++                cell_key: string;
++                verdict?: components["schemas"]["GeoClaimVerdict"] | null;
++                severity?: components["schemas"]["GeoClaimSeverity"] | null;
++                claim_kind?: components["schemas"]["GeoClaimKind"] | null;
++                page?: number;
++                page_size?: 10 | 20 | 50;
++            };
++            header?: {
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path?: never;
++            cookie?: never;
++        };
++        requestBody?: never;
++        responses: {
++            /** @description Successful Response */
++            200: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoInsightClaimPage"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
++    listGeoInsightQualityRuns: {
++        parameters: {
++            query: {
++                date_from: string;
++                date_to: string;
++                subject_ids?: string[];
++                product_ids?: string[];
++                query_topic_ids?: string[];
++                prompt_variant_ids?: string[];
++                engine_surface_ids?: string[];
++                collection_profile_ids?: string[];
++                collection_modes?: components["schemas"]["GeoCollectionMode"][];
++                language_codes?: string[];
++                region_codes?: string[];
++                login_states?: components["schemas"]["GeoProfileLoginState"][];
++                intent_types?: components["schemas"]["IntentType"][];
++                mention_mode?: components["schemas"]["GeoPromptMentionMode"] | null;
++                review_policy?: "EFFECTIVE" | "REVIEWED_ONLY";
++                quality_code?: "eligible_runs" | "run_success_rate" | "analysis_run_coverage" | "review_backlog" | "evidence_completeness" | "cost_coverage" | "model_version_coverage" | "shared_domain" | "collection_version" | "analysis_version";
++                cohort?: "CANDIDATE" | "DENOMINATOR" | "NUMERATOR" | "EXCLUDED";
++                exclusion_reason?: components["schemas"]["MetricExclusion"] | null;
++                version_key?: string | null;
++                currency?: string | null;
++                page?: number;
++                page_size?: 10 | 20 | 50;
++            };
++            header?: {
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path?: never;
++            cookie?: never;
++        };
++        requestBody?: never;
++        responses: {
++            /** @description Successful Response */
++            200: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoInsightQualityPage"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
+ }
+--- a/backend/app/schemas/geo_insight_details.py
++++ b/backend/app/schemas/geo_insight_details.py
+@@ -0,0 +1,272 @@
++"""引用、声明与质量明细的闭合公共合同；筛选继承既有洞察窗口。"""
++
++from decimal import Decimal
++from typing import Annotated, Literal, Self
++from uuid import UUID
++
++from pydantic import AwareDatetime, BeforeValidator, Field, model_validator
++
++from app.schemas.base import ContractModel
++from app.schemas.geo_analysis import (
++    GeoClaimKind,
++    GeoClaimSeverity,
++    GeoClaimVerdict,
++    GeoSourceCategory,
++)
++from app.schemas.geo_insights import (
++    Cohort,
++    GeoOverviewDataQuality,
++    GeoOverviewFilters,
++    GeoOverviewRunSample,
++)
++from app.schemas.geo_metric_values import MetricExclusion
++
++CellKey = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
++PageSize = Annotated[Literal[10, 20, 50], BeforeValidator(int)]
++
++
++class GeoInsightCitationFilters(GeoOverviewFilters):
++    cell_key: CellKey
++    hostname: str | None = Field(default=None, max_length=253)
++    normalized_url: str | None = Field(default=None, max_length=4000)
++    source_category: GeoSourceCategory | None = None
++    page: int = Field(default=1, ge=1)
++    page_size: PageSize = 20
++
++
++class GeoInsightClaimFilters(GeoOverviewFilters):
++    cell_key: CellKey
++    verdict: GeoClaimVerdict | None = None
++    severity: GeoClaimSeverity | None = None
++    claim_kind: GeoClaimKind | None = None
++    page: int = Field(default=1, ge=1)
++    page_size: PageSize = 20
++
++
++class GeoInsightCitationDrilldown(ContractModel):
++    operation_id: Literal["listGeoInsightCitations"] = "listGeoInsightCitations"
++    filters: GeoOverviewFilters
++    cell_key: CellKey
++    hostname: str | None = None
++    normalized_url: str | None = None
++    source_category: GeoSourceCategory | None = None
++
++
++class GeoInsightClaimDrilldown(ContractModel):
++    operation_id: Literal["listGeoInsightClaims"] = "listGeoInsightClaims"
++    filters: GeoOverviewFilters
++    cell_key: CellKey
++    verdict: GeoClaimVerdict | None = None
++    severity: GeoClaimSeverity | None = None
++    claim_kind: GeoClaimKind | None = None
++
++
++class GeoInsightCitationBucket(ContractModel):
++    key: str
++    citation_count: int = Field(ge=0)
++    run_count: int = Field(ge=0)
++    coverage_value: float | None
++    coverage_denominator: int = Field(ge=0)
++    share_value: float | None
++    share_denominator: int = Field(ge=0)
++    query_topic_ids: list[UUID]
++    engine_surface_ids: list[UUID]
++    drilldown: GeoInsightCitationDrilldown
++
++
++class GeoInsightCitationSummary(ContractModel):
++    cell_key: CellKey
++    subject_id: UUID
++    citation_count: int = Field(ge=0)
++    domains: list[GeoInsightCitationBucket]
++    urls: list[GeoInsightCitationBucket]
++    source_categories: list[GeoInsightCitationBucket]
++    drilldown: GeoInsightCitationDrilldown
++
++
++class GeoInsightClaimGroup(ContractModel):
++    claim_kind: GeoClaimKind
++    verdict: GeoClaimVerdict
++    severity: GeoClaimSeverity
++    claim_count: int = Field(ge=0)
++    run_count: int = Field(ge=0)
++    drilldown: GeoInsightClaimDrilldown
++
++
++class GeoInsightFactRiskSummary(ContractModel):
++    cell_key: CellKey
++    subject_id: UUID
++    claim_count: int = Field(ge=0)
++    verdict_counts: dict[GeoClaimVerdict, int]
++    incorrect_severity_counts: dict[GeoClaimSeverity, int]
++    groups: list[GeoInsightClaimGroup]
++    drilldown: GeoInsightClaimDrilldown
++
++
++class GeoInsightCitationSample(ContractModel):
++    run_id: UUID
++    batch_id: UUID
++    created_at: AwareDatetime
++    analysis_revision_id: UUID
++    review_id: UUID | None
++    citation_id: UUID
++    normalized_url: str
++    hostname: str
++    title: str | None
++    occurrences: list[int]
++    source_category: GeoSourceCategory
++    attributed_subject_id: UUID | None
++    candidate_subject_ids: list[UUID]
++    shared_domain: bool
++
++
++class GeoInsightClaimSample(ContractModel):
++    run_id: UUID
++    batch_id: UUID
++    created_at: AwareDatetime
++    analysis_revision_id: UUID
++    review_id: UUID | None
++    claim_assessment_id: UUID
++    subject_id: UUID
++    fact_version_id: UUID | None
++    claim_kind: GeoClaimKind
++    claim_text: str
++    verdict: GeoClaimVerdict
++    severity: GeoClaimSeverity
++    fact_excerpt: str | None
++    explanation: str
++
++
++class GeoInsightCitationPage(ContractModel):
++    as_of: AwareDatetime
++    filters: GeoInsightCitationFilters
++    items: list[GeoInsightCitationSample]
++    total: int = Field(ge=0)
++    run_count: int = Field(ge=0)
++    page: int
++    page_size: int
++
++
++class GeoInsightClaimPage(ContractModel):
++    as_of: AwareDatetime
++    filters: GeoInsightClaimFilters
++    items: list[GeoInsightClaimSample]
++    total: int = Field(ge=0)
++    run_count: int = Field(ge=0)
++    page: int
++    page_size: int
++
++
++QualityCode = Literal[
++    "eligible_runs",
++    "run_success_rate",
++    "analysis_run_coverage",
++    "review_backlog",
++    "evidence_completeness",
++    "cost_coverage",
++    "model_version_coverage",
++    "shared_domain",
++    "collection_version",
++    "analysis_version",
++]
++
++
++class GeoInsightQualityFilters(GeoOverviewFilters):
++    quality_code: QualityCode = "eligible_runs"
++    cohort: Cohort = "CANDIDATE"
++    exclusion_reason: MetricExclusion | None = None
++    version_key: CellKey | None = None
++    currency: str | None = Field(default=None, pattern=r"^[A-Z]{3}$")
++    page: int = Field(default=1, ge=1)
++    page_size: PageSize = 20
++
++    @model_validator(mode="after")
++    def selector_scope(self) -> Self:
++        if self.version_key is not None and self.quality_code not in {
++            "collection_version",
++            "analysis_version",
++        }:
++            raise ValueError("版本筛选仅用于版本分布下钻")
++        if self.currency is not None and self.quality_code != "cost_coverage":
++            raise ValueError("币种筛选仅用于费用覆盖下钻")
++        if self.exclusion_reason is not None and (
++            self.quality_code != "eligible_runs" or self.cohort != "EXCLUDED"
++        ):
++            raise ValueError("排除原因筛选须选择合格运行的排除集")
++        return self
++
++
++class GeoInsightQualityDrilldown(ContractModel):
++    operation_id: Literal["listGeoInsightQualityRuns"] = "listGeoInsightQualityRuns"
++    filters: GeoOverviewFilters
++    quality_code: QualityCode
++    cohort: Cohort = "CANDIDATE"
++    exclusion_reason: MetricExclusion | None = None
++    version_key: CellKey | None = None
++    currency: str | None = None
++
++
++class GeoInsightCostSummary(ContractModel):
++    currency: str
++    known_run_count: int = Field(ge=1)
++    total_amount: Decimal
++    average_amount: Decimal
++    drilldown: GeoInsightQualityDrilldown
++
++
++class GeoInsightVersionSummary(ContractModel):
++    version_key: CellKey
++    source_model: str | None
++    source_product: str | None
++    source_version: str | None
++    analyzer_version: str | None
++    rule_set_version: str | None
++    analysis_configuration_key: str | None
++    run_count: int = Field(ge=1)
++    drilldown: GeoInsightQualityDrilldown
++
++
++class GeoAnswerInsightDataQuality(ContractModel):
++    overview: GeoOverviewDataQuality
++    shared_domain_run_count: int = Field(ge=0)
++    shared_domain_citation_count: int = Field(ge=0)
++    shared_domain_drilldown: GeoInsightQualityDrilldown
++    excluded_drilldown: GeoInsightQualityDrilldown
++    known_costs: list[GeoInsightCostSummary]
++    collection_versions: list[GeoInsightVersionSummary]
++    analysis_versions: list[GeoInsightVersionSummary]
++    notes: list[
++        Literal[
++            "SHARED_DOMAIN",
++            "REVIEW_BACKLOG",
++            "COST_UNKNOWN",
++            "MODEL_VERSION_UNKNOWN",
++            "MIXED_COLLECTION_VERSIONS",
++            "MIXED_ANALYSIS_VERSIONS",
++            "MULTIPLE_DIMENSIONS",
++        ]
++    ]
++
++
++class GeoInsightQualitySample(GeoOverviewRunSample):
++    cost_amount: Decimal | None
++    cost_currency: str | None
++    source_model: str | None
++    source_product: str | None
++    source_version: str | None
++    analyzer_version: str | None
++    rule_set_version: str | None
++    analysis_configuration_key: str | None
++    review_required: bool
++    current_review_valid: bool
++    shared_domain_citation_ids: list[UUID]
++    review_required_reasons: list[str]
++
++
++class GeoInsightQualityPage(ContractModel):
++    as_of: AwareDatetime
++    filters: GeoInsightQualityFilters
++    items: list[GeoInsightQualitySample]
++    total: int = Field(ge=0)
++    page: int
++    page_size: int
+--- a/backend/app/services/geo_insight_details.py
++++ b/backend/app/services/geo_insight_details.py
+@@ -0,0 +1,284 @@
++"""引用和声明摘要/下钻共用事件选择；不把事件条数当运行分母。"""
++
++from collections import Counter, defaultdict
++from collections.abc import Sequence
++from dataclasses import replace
++from datetime import datetime
++
++from sqlalchemy.orm import Session
++
++from app.errors import not_found
++from app.schemas.geo_analysis import GeoClaimKind, GeoClaimSeverity, GeoClaimVerdict
++from app.schemas.geo_insight_details import (
++    GeoInsightCitationBucket,
++    GeoInsightCitationDrilldown,
++    GeoInsightCitationFilters,
++    GeoInsightCitationPage,
++    GeoInsightCitationSample,
++    GeoInsightCitationSummary,
++    GeoInsightClaimDrilldown,
++    GeoInsightClaimFilters,
++    GeoInsightClaimGroup,
++    GeoInsightClaimPage,
++    GeoInsightClaimSample,
++    GeoInsightFactRiskSummary,
++)
++from app.schemas.geo_insights import GeoOverviewFilters
++from app.services.geo_answer_insights import InsightCell, _cells
++from app.services.geo_insight_evidence import InsightCitation, InsightClaim
++from app.services.geo_metric_types import MetricCode
++from app.services.geo_metrics import calculate_metric, metric_eligibility
++from app.services.geo_overview_queries import OverviewInput, load_inputs
++
++
++def citation_events(cell: InsightCell) -> list[tuple[OverviewInput, InsightCitation]]:
++    events: list[tuple[OverviewInput, InsightCitation]] = []
++    for source in cell.sources:
++        if not metric_eligibility(
++            source.metric,
++            metric=MetricCode.OWNED_CITATION_SHARE,
++            scope=cell.scope,
++            dimensions=source.metric.dimensions,
++        ).eligible:
++            continue
++        urls: dict[str, InsightCitation] = {}
++        for row in source.evidence.citations:
++            if row.source_category is None:
++                raise ValueError("合格引用必须有有效来源分类")
++            previous = urls.setdefault(row.normalized_url, row)
++            if previous != row:
++                raise ValueError("同一规范URL的引用证据冲突")
++        events.extend((source, row) for row in urls.values())
++    return events
++
++
++def claim_events(cell: InsightCell) -> list[tuple[OverviewInput, InsightClaim]]:
++    # UNKNOWN-only仍是可展示的通用合格声明；准确性公式另排除不可判断分母。
++    return [
++        (source, row)
++        for source in cell.sources
++        if metric_eligibility(
++            source.metric,
++            metric=MetricCode.ANSWER_COVERAGE,
++            scope=cell.scope,
++            dimensions=source.metric.dimensions,
++        ).eligible
++        for row in source.evidence.claims
++        if row.subject_id == cell.scope.subject_id
++    ]
++
++
++def _buckets(
++    cell: InsightCell,
++    filters: GeoOverviewFilters,
++    events: Sequence[tuple[OverviewInput, InsightCitation]],
++    field: str,
++) -> list[GeoInsightCitationBucket]:
++    groups: dict[str, list[tuple[OverviewInput, InsightCitation]]] = defaultdict(list)
++    for source, row in events:
++        groups[str(getattr(row, field))].append((source, row))
++    denominator = cell.results[MetricCode.OWNED_CITATION_SHARE].eligible_run_count
++    selector = {
++        "hostname": "hostname",
++        "normalized_url": "normalized_url",
++        "source_category": "source_category",
++    }[field]
++    buckets = []
++    for key, parts in sorted(groups.items(), key=lambda pair: (-len(pair[1]), pair[0])):
++        coverage_value = (
++            len({s.metric.run_id for s, _ in parts}) / denominator if denominator else None
++        )
++        if field == "hostname":
++            # 域名覆盖已有601权威公式；URL和来源分类仅做同资格事件分组。
++            coverage = calculate_metric(
++                [s.metric for s in cell.sources],
++                metric=MetricCode.DOMAIN_COVERAGE,
++                scope=replace(cell.scope, domain=key),
++                dimensions=cell.sources[0].metric.dimensions,
++            )
++            coverage_value = coverage.value
++            denominator = coverage.denominator
++        buckets.append(
++            GeoInsightCitationBucket(
++                key=key,
++                citation_count=len(parts),
++                run_count=len({s.metric.run_id for s, _ in parts}),
++                coverage_value=coverage_value,
++                coverage_denominator=denominator,
++                share_value=len(parts) / len(events) if events else None,
++                share_denominator=len(events),
++                query_topic_ids=sorted({s.metric.dimensions.query_topic_id for s, _ in parts}),
++                engine_surface_ids=sorted(
++                    {s.metric.dimensions.engine_surface_id for s, _ in parts}
++                ),
++                drilldown=GeoInsightCitationDrilldown.model_validate(
++                    dict(filters=filters, cell_key=cell.public.cell_key, **{selector: key})
++                ),
++            )
++        )
++    return buckets
++
++
++def summaries(
++    cells: dict[str, InsightCell],
++    filters: GeoOverviewFilters,
++) -> tuple[list[GeoInsightCitationSummary], list[GeoInsightFactRiskSummary]]:
++    citations, risks = [], []
++    for key, cell in cells.items():
++        if not cell.public.selected_subject:
++            continue
++        events = citation_events(cell)
++        citations.append(
++            GeoInsightCitationSummary(
++                cell_key=key,
++                subject_id=cell.scope.subject_id,
++                citation_count=len(events),
++                domains=_buckets(cell, filters, events, "hostname"),
++                urls=_buckets(cell, filters, events, "normalized_url"),
++                source_categories=_buckets(cell, filters, events, "source_category"),
++                drilldown=GeoInsightCitationDrilldown(filters=filters, cell_key=key),
++            )
++        )
++        claims = claim_events(cell)
++        groups: dict[
++            tuple[GeoClaimKind, GeoClaimVerdict, GeoClaimSeverity],
++            list[tuple[OverviewInput, InsightClaim]],
++        ] = defaultdict(list)
++        for source, claim in claims:
++            groups[claim.claim_kind, claim.verdict, claim.severity].append((source, claim))
++        verdicts = Counter(c.verdict for _, c in claims)
++        severities = Counter(c.severity for _, c in claims if c.verdict == "INCORRECT")
++        risks.append(
++            GeoInsightFactRiskSummary(
++                cell_key=key,
++                subject_id=cell.scope.subject_id,
++                claim_count=len(claims),
++                verdict_counts={v: verdicts[v] for v in GeoClaimVerdict},
++                incorrect_severity_counts={v: severities[v] for v in GeoClaimSeverity},
++                groups=[
++                    GeoInsightClaimGroup(
++                        claim_kind=kind,
++                        verdict=verdict,
++                        severity=severity,
++                        claim_count=len(parts),
++                        run_count=len({s.metric.run_id for s, _ in parts}),
++                        drilldown=GeoInsightClaimDrilldown(
++                            filters=filters,
++                            cell_key=key,
++                            claim_kind=kind,
++                            verdict=verdict,
++                            severity=severity,
++                        ),
++                    )
++                    for (kind, verdict, severity), parts in sorted(groups.items())
++                ],
++                drilldown=GeoInsightClaimDrilldown(filters=filters, cell_key=key),
++            )
++        )
++    return citations, risks
++
++
++def _load_cell(
++    db: Session, request: GeoInsightCitationFilters | GeoInsightClaimFilters
++) -> tuple[datetime, InsightCell]:
++    filters = GeoOverviewFilters.model_validate(
++        request.model_dump(include=set(GeoOverviewFilters.model_fields))
++    )
++    as_of, inputs = load_inputs(db, filters)
++    cell = _cells(inputs, filters, "CURRENT").get(request.cell_key)
++    if cell is None or not cell.public.selected_subject:
++        raise not_found("引用/声明洞察单元")
++    return as_of, cell
++
++
++def list_citations(db: Session, request: GeoInsightCitationFilters) -> GeoInsightCitationPage:
++    as_of, cell = _load_cell(db, request)
++    events = [
++        (source, row)
++        for source, row in citation_events(cell)
++        if (request.hostname is None or row.hostname == request.hostname)
++        and (request.normalized_url is None or row.normalized_url == request.normalized_url)
++        and (request.source_category is None or row.source_category == request.source_category)
++    ]
++    events.sort(
++        key=lambda pair: (pair[0].created_at, pair[0].metric.run_id, pair[1].citation_id),
++        reverse=True,
++    )
++    page = events[(request.page - 1) * request.page_size : request.page * request.page_size]
++    items = []
++    for source, row in page:
++        assert source.analysis_id is not None and row.source_category is not None
++        items.append(
++            GeoInsightCitationSample(
++                run_id=source.metric.run_id,
++                batch_id=source.metric.batch_id,
++                created_at=source.created_at,
++                analysis_revision_id=source.analysis_id,
++                review_id=source.review_id,
++                citation_id=row.citation_id,
++                normalized_url=row.normalized_url,
++                hostname=row.hostname,
++                title=row.title,
++                occurrences=list(row.occurrences),
++                source_category=row.source_category,
++                attributed_subject_id=row.attributed_subject_id,
++                candidate_subject_ids=list(row.candidate_subject_ids),
++                shared_domain=row.shared_domain,
++            )
++        )
++    return GeoInsightCitationPage(
++        as_of=as_of,
++        filters=request,
++        total=len(events),
++        run_count=len({s.metric.run_id for s, _ in events}),
++        page=request.page,
++        page_size=request.page_size,
++        items=items,
++    )
++
++
++def list_claims(db: Session, request: GeoInsightClaimFilters) -> GeoInsightClaimPage:
++    as_of, cell = _load_cell(db, request)
++    events = [
++        (source, row)
++        for source, row in claim_events(cell)
++        if (request.verdict is None or row.verdict == request.verdict)
++        and (request.severity is None or row.severity == request.severity)
++        and (request.claim_kind is None or row.claim_kind == request.claim_kind)
++    ]
++    events.sort(
++        key=lambda pair: (pair[0].created_at, pair[0].metric.run_id, pair[1].claim_assessment_id),
++        reverse=True,
++    )
++    items = []
++    for source, row in events[
++        (request.page - 1) * request.page_size : request.page * request.page_size
++    ]:
++        assert source.analysis_id is not None
++        items.append(
++            GeoInsightClaimSample(
++                run_id=source.metric.run_id,
++                batch_id=source.metric.batch_id,
++                created_at=source.created_at,
++                analysis_revision_id=source.analysis_id,
++                review_id=source.review_id,
++                claim_assessment_id=row.claim_assessment_id,
++                subject_id=row.subject_id,
++                fact_version_id=row.fact_version_id,
++                claim_kind=row.claim_kind,
++                claim_text=row.claim_text,
++                verdict=row.verdict,
++                severity=row.severity,
++                fact_excerpt=row.fact_excerpt,
++                explanation=row.explanation,
++            )
++        )
++    return GeoInsightClaimPage(
++        as_of=as_of,
++        filters=request,
++        total=len(events),
++        run_count=len({s.metric.run_id for s, _ in events}),
++        page=request.page,
++        page_size=request.page_size,
++        items=items,
++    )
+--- a/backend/app/services/geo_insight_evidence.py
++++ b/backend/app/services/geo_insight_evidence.py
+@@ -0,0 +1,127 @@
++"""把一致快照中的协议值转换为冻结洞察证据；不查询、不重判声明、不访问URL。"""
++
++from dataclasses import dataclass, field
++from uuid import UUID
++
++from app.schemas.geo_analysis import (
++    GeoClaimKind,
++    GeoClaimSeverity,
++    GeoClaimVerdict,
++    GeoRunReviewOut,
++    GeoSourceCategory,
++)
++from app.schemas.geo_answers import GeoAnswerCitationOut, GeoAnswerSnapshotOut
++from app.schemas.geo_reviews import GeoAnalysisResult
++from app.schemas.geo_runs import GeoRunInputSnapshot
++from app.services.geo_citation_rules import freeze_subject_domains, match_citation_hostname
++from app.services.geo_review_projection import reviewed_results
++
++
++@dataclass(frozen=True)
++class InsightCitation:
++    citation_id: UUID
++    normalized_url: str = field(repr=False)
++    hostname: str = field(repr=False)
++    title: str | None = field(repr=False)
++    occurrences: tuple[int, ...]
++    source_category: GeoSourceCategory | None
++    attributed_subject_id: UUID | None
++    candidate_subject_ids: tuple[UUID, ...]
++
++    @property
++    def shared_domain(self) -> bool:
++        return len(self.candidate_subject_ids) > 1
++
++
++@dataclass(frozen=True)
++class InsightClaim:
++    claim_assessment_id: UUID
++    subject_id: UUID
++    fact_version_id: UUID | None
++    claim_kind: GeoClaimKind
++    claim_text: str = field(repr=False)
++    verdict: GeoClaimVerdict
++    severity: GeoClaimSeverity
++    fact_excerpt: str | None = field(repr=False)
++    explanation: str = field(repr=False)
++
++
++@dataclass(frozen=True)
++class InsightEvidence:
++    citations: tuple[InsightCitation, ...] = ()
++    claims: tuple[InsightClaim, ...] = ()
++    source_model: str | None = None
++    source_product: str | None = None
++    source_version: str | None = None
++    analyzer_version: str | None = None
++    rule_set_version: str | None = None
++    review_required_reasons: tuple[str, ...] = ()
++
++
++def freeze_insight_evidence(
++    snapshot: GeoRunInputSnapshot,
++    answer: GeoAnswerSnapshotOut | None,
++    citations: list[GeoAnswerCitationOut],
++    current: GeoAnalysisResult | None,
++    review: GeoRunReviewOut | None,
++    *,
++    available: bool,
++) -> InsightEvidence:
++    effective = (
++        reviewed_results(current, review, citation_count=len(citations))
++        if current and available
++        else None
++    )
++    categories = {c.citation_id: c for c in effective.citations} if effective else {}
++    domains = freeze_subject_domains(
++        current.analysis.input_snapshot.subjects if current and available else snapshot.subjects
++    )
++    return InsightEvidence(
++        citations=tuple(
++            InsightCitation(
++                row.id,
++                row.normalized_url,
++                row.hostname,
++                row.title,
++                tuple(row.occurrences),
++                categories[row.id].source_category if row.id in categories else None,
++                categories[row.id].subject_id if row.id in categories else None,
++                tuple(
++                    sorted(
++                        {
++                            m.subject_id
++                            for m in match_citation_hostname(row.hostname, domains)
++                            if m.subject_id is not None
++                        }
++                    )
++                ),
++            )
++            for row in sorted(citations, key=lambda c: c.id)
++        ),
++        claims=tuple(
++            InsightClaim(
++                row.id,
++                row.subject_id,
++                row.fact_version_id,
++                row.claim_kind,
++                row.claim_text,
++                row.verdict,
++                row.severity,
++                row.fact_excerpt,
++                row.explanation,
++            )
++            for row in effective.claims
++        )
++        if effective
++        else (),
++        source_model=answer.source_model if answer else None,
++        source_product=answer.source_product if answer else None,
++        source_version=answer.source_version if answer else None,
++        analyzer_version=current.analysis.analyzer_version if current and available else None,
++        rule_set_version=current.analysis.input_snapshot.configuration.rule_set_version
++        if current and available
++        else None,
++        review_required_reasons=tuple(current.analysis.review_required_reasons)
++        if current and available
++        else (),
++    )
+--- a/backend/app/services/geo_insight_quality.py
++++ b/backend/app/services/geo_insight_quality.py
+@@ -0,0 +1,227 @@
++"""质量洞察消费602唯一质量口径；费用分币、版本/共享域名保留真实缺口。"""
++
++import json
++from collections import Counter, defaultdict
++from decimal import Decimal
++from hashlib import sha256
++from typing import cast
++
++from sqlalchemy.orm import Session
++
++from app.schemas.geo_insight_details import (
++    GeoAnswerInsightDataQuality,
++    GeoInsightCostSummary,
++    GeoInsightQualityDrilldown,
++    GeoInsightQualityFilters,
++    GeoInsightQualityPage,
++    GeoInsightQualitySample,
++    GeoInsightVersionSummary,
++    QualityCode,
++)
++from app.schemas.geo_insights import GeoOverviewDataQuality, GeoOverviewFilters, OverviewMetric
++from app.services.geo_overview import QUALITY_CODES, _generic_reasons, _quality, _quality_card
++from app.services.geo_overview_queries import OverviewInput, load_inputs
++
++
++def _version(source: OverviewInput, kind: str) -> dict[str, str | None]:
++    value = source.evidence
++    return dict(
++        source_model=value.source_model if kind == "collection_version" else None,
++        source_product=value.source_product if kind == "collection_version" else None,
++        source_version=value.source_version if kind == "collection_version" else None,
++        analyzer_version=value.analyzer_version if kind == "analysis_version" else None,
++        rule_set_version=value.rule_set_version if kind == "analysis_version" else None,
++        analysis_configuration_key=(
++            source.metric.dimensions.analysis_configuration_key
++            if kind == "analysis_version" and source.metric.current_analysis_available
++            else None
++        ),
++    )
++
++
++def version_key(source: OverviewInput, kind: str) -> str:
++    return sha256(json.dumps([kind, _version(source, kind)], sort_keys=True).encode()).hexdigest()
++
++
++def _versions(
++    inputs: list[OverviewInput], filters: GeoOverviewFilters, kind: str
++) -> list[GeoInsightVersionSummary]:
++    groups: dict[str, list[OverviewInput]] = defaultdict(list)
++    for source in inputs:
++        if source.metric.answer_present:
++            groups[version_key(source, kind)].append(source)
++    return [
++        GeoInsightVersionSummary(
++            version_key=key,
++            **_version(parts[0], kind),
++            run_count=len(parts),
++            drilldown=GeoInsightQualityDrilldown(
++                filters=filters, quality_code=cast(QualityCode, kind), version_key=key
++            ),
++        )
++        for key, parts in sorted(groups.items())
++    ]
++
++
++def data_quality(
++    inputs: list[OverviewInput], filters: GeoOverviewFilters
++) -> GeoAnswerInsightDataQuality:
++    parts = _quality(inputs, filters)
++    cards = [_quality_card(code, parts[code], filters) for code in QUALITY_CODES]
++    generic = cards[0]
++    shared = [s for s in inputs if any(c.shared_domain for c in s.evidence.citations)]
++    costs: dict[str, list[OverviewInput]] = defaultdict(list)
++    for source in inputs:
++        if source.cost_amount is not None and source.cost_currency is not None:
++            costs[source.cost_currency].append(source)
++    known_costs = []
++    for currency, sources in sorted(costs.items()):
++        amount = sum((s.cost_amount for s in sources if s.cost_amount is not None), Decimal(0))
++        known_costs.append(
++            GeoInsightCostSummary(
++                currency=currency,
++                known_run_count=len(sources),
++                total_amount=amount,
++                average_amount=amount / len(sources),
++                drilldown=GeoInsightQualityDrilldown(
++                    filters=filters,
++                    quality_code="cost_coverage",
++                    cohort="NUMERATOR",
++                    currency=currency,
++                ),
++            )
++        )
++    collection = _versions(inputs, filters, "collection_version")
++    analysis = _versions(inputs, filters, "analysis_version")
++    dimension_count = len({s.metric.dimensions for s in inputs})
++    notes: list[str] = []
++    conditions = (
++        (bool(shared), "SHARED_DOMAIN"),
++        (
++            any(s.metric.review_required and not s.metric.current_review_valid for s in inputs),
++            "REVIEW_BACKLOG",
++        ),
++        (sum(len(s) for s in costs.values()) < len(inputs), "COST_UNKNOWN"),
++        (
++            any(s.metric.answer_present and not s.version_known for s in inputs),
++            "MODEL_VERSION_UNKNOWN",
++        ),
++        (len(collection) > 1, "MIXED_COLLECTION_VERSIONS"),
++        (len(analysis) > 1, "MIXED_ANALYSIS_VERSIONS"),
++        (dimension_count > 1, "MULTIPLE_DIMENSIONS"),
++    )
++    notes.extend(code for condition, code in conditions if condition)
++    return GeoAnswerInsightDataQuality.model_validate(
++        dict(
++            overview=GeoOverviewDataQuality(
++                candidate_run_count=len(inputs),
++                eligible_run_count=generic.numerator,
++                excluded_run_count=len(inputs) - generic.numerator,
++                exclusion_reason_counts=generic.exclusion_reason_counts,
++                status_counts=dict(Counter(s.metric.status for s in inputs)),
++                dimension_count=dimension_count,
++                cards=cards,
++            ),
++            shared_domain_run_count=len(shared),
++            shared_domain_citation_count=sum(
++                c.shared_domain for s in inputs for c in s.evidence.citations
++            ),
++            shared_domain_drilldown=GeoInsightQualityDrilldown(
++                filters=filters, quality_code="shared_domain", cohort="NUMERATOR"
++            ),
++            excluded_drilldown=GeoInsightQualityDrilldown(
++                filters=filters, quality_code="eligible_runs", cohort="EXCLUDED"
++            ),
++            known_costs=known_costs,
++            collection_versions=collection,
++            analysis_versions=analysis,
++            notes=notes,
++        )
++    )
++
++
++def list_quality_runs(db: Session, request: GeoInsightQualityFilters) -> GeoInsightQualityPage:
++    filters = GeoOverviewFilters.model_validate(
++        request.model_dump(include=set(GeoOverviewFilters.model_fields))
++    )
++    as_of, inputs = load_inputs(db, filters)
++    quality = {
++        code: {part.source.metric.run_id: part for part in parts}
++        for code, parts in _quality(inputs, filters).items()
++    }
++    values = []
++    for source in inputs:
++        run = source.metric
++        reasons = _generic_reasons(source, filters)
++        if request.quality_code in QUALITY_CODES:
++            part = quality[cast(OverviewMetric, request.quality_code)][run.run_id]
++            numerator, denominator = part.numerator, part.denominator
++            excluded = (
++                bool(reasons) if request.quality_code == "eligible_runs" else denominator == 0
++            )
++        else:
++            denominator = 1 if request.quality_code == "shared_domain" else int(run.answer_present)
++            numerator = (
++                int(any(c.shared_domain for c in source.evidence.citations))
++                if request.quality_code == "shared_domain"
++                else denominator
++            )
++            excluded = denominator == 0
++        if not (
++            request.cohort == "CANDIDATE"
++            or request.cohort == "DENOMINATOR"
++            and denominator > 0
++            or request.cohort == "NUMERATOR"
++            and numerator > 0
++            or request.cohort == "EXCLUDED"
++            and excluded
++        ):
++            continue
++        if request.exclusion_reason is not None and request.exclusion_reason not in reasons:
++            continue
++        if request.version_key is not None and (
++            not run.answer_present
++            or version_key(source, request.quality_code) != request.version_key
++        ):
++            continue
++        if request.currency is not None and source.cost_currency != request.currency:
++            continue
++        value = source.evidence
++        values.append(
++            GeoInsightQualitySample(
++                run_id=run.run_id,
++                batch_id=run.batch_id,
++                created_at=source.created_at,
++                status=run.status,
++                analysis_revision_id=source.analysis_id,
++                review_id=source.review_id,
++                numerator=numerator,
++                denominator=denominator,
++                exclusion_reasons=list(reasons),
++                cost_amount=source.cost_amount,
++                cost_currency=source.cost_currency,
++                source_model=value.source_model,
++                source_product=value.source_product,
++                source_version=value.source_version,
++                analyzer_version=value.analyzer_version,
++                rule_set_version=value.rule_set_version,
++                analysis_configuration_key=run.dimensions.analysis_configuration_key
++                if run.current_analysis_available
++                else None,
++                review_required=run.review_required,
++                current_review_valid=run.current_review_valid,
++                shared_domain_citation_ids=[
++                    c.citation_id for c in value.citations if c.shared_domain
++                ],
++                review_required_reasons=list(value.review_required_reasons),
++            )
++        )
++    values.sort(key=lambda s: (s.created_at, s.run_id), reverse=True)
++    return GeoInsightQualityPage(
++        as_of=as_of,
++        filters=request,
++        total=len(values),
++        page=request.page,
++        page_size=request.page_size,
++        items=values[(request.page - 1) * request.page_size : request.page * request.page_size],
++    )
+--- a/backend/tests/integration/test_geo_insight_details.py
++++ b/backend/tests/integration/test_geo_insight_details.py
+@@ -0,0 +1,432 @@
++"""604真实PG/HTTP：共享域名、有效复核、事件下钻、RR与固定查询数。"""
++
++from datetime import UTC, datetime
++from decimal import Decimal
++from pathlib import Path
++from uuid import uuid4
++
++import pytest
++import yaml
++from sqlalchemy import event
++
++from app.main import app
++from app.services import geo_analysis_runs
++from tests.integration import geo_analysis_support
++from tests.integration.geo_reviews_support import (
++    analysis_engine,
++    answer_database,
++    harness,
++    plan_database,
++    review_api,
++    run_database,
++)
++from tests.integration.test_geo_answer_insights import insights, samples
++from tests.integration.test_geo_overview import overview_api, params
++from tests.integration.test_geo_reviews import empty_correction
++from tests.unit.test_geo_run_contract import validate
++
++pytestmark = pytest.mark.integration
++__all__ = [
++    "analysis_engine",
++    "answer_database",
++    "harness",
++    "plan_database",
++    "review_api",
++    "run_database",
++    "overview_api",
++]
++PATH = "/api/v1/geo/insights"
++
++
++def detail(api, drill, **patch):
++    endpoints = {
++        "listGeoInsightCitations": "/citations",
++        "listGeoInsightClaims": "/claims",
++        "listGeoInsightQualityRuns": "/quality/runs",
++    }
++    query = {k: v for k, v in drill["filters"].items() if v is not None and v != []}
++    query.update(
++        {k: v for k, v in drill.items() if k not in {"filters", "operation_id"} and v is not None}
++    )
++    response = api.engineer.get(PATH + endpoints[drill["operation_id"]], params=query | patch)
++    assert response.status_code == 200, response.text
++    assert response.headers["Cache-Control"] == "no-store"
++    return response.json()
++
++
++def test_citation_deduplication_shared_domains_and_summary_bucket_drilldowns(
++    overview_api,
++    monkeypatch,
++):
++    api = overview_api
++    monkeypatch.setitem(
++        api.harness.database.runs.input["subjects"][0],
++        "domains",
++        [
++            {"hostname": "example.com", "relation_type": "OFFICIAL"},
++        ],
++    )
++    original = geo_analysis_support.snapshot
++
++    def canonical_count(conn, db, run_id, **patch):
++        # citation_count保存去重条数；occurrences保留三个原始位置。
++        return original(conn, db, run_id, **(patch | {"citation_count": 2}))
++
++    monkeypatch.setattr(geo_analysis_support, "snapshot", canonical_count)
++    case = api.harness.create(
++        products=1,
++        answer_text="虚构资料。",
++        citation_urls=(
++            "https://example.com/a?utm_source=first#part",
++            "https://EXAMPLE.com:443/a?utm_source=first",
++            "https://example.com/b",
++        ),
++    )
++    geo_analysis_runs.process_analysis_run(case.run_id)
++    assert api.submit(case).status_code == 201
++    product = next(s["product_id"] for s in case.input["subjects"] if s["product_id"])
++    value = insights(api, product_ids=product)
++    summary = value["citation_insights"][0]
++    page = detail(api, summary["drilldown"])
++    assert summary["citation_count"] == page["total"] == 2
++    assert page["run_count"] == 1
++    assert sorted(c["occurrences"] for c in page["items"]) == [[1, 2], [3]]
++    assert all(c["shared_domain"] and len(c["candidate_subject_ids"]) == 2 for c in page["items"])
++    for group in (summary["domains"], summary["urls"], summary["source_categories"]):
++        for bucket in group:
++            rows = detail(api, bucket["drilldown"])
++            assert rows["total"] == bucket["citation_count"]
++            assert rows["run_count"] == bucket["run_count"]
++    quality = value["data_quality"]
++    assert quality["shared_domain_citation_count"] == 2 and quality["shared_domain_run_count"] == 1
++    assert detail(api, quality["shared_domain_drilldown"])["total"] == 1
++    card = next(
++        c
++        for cell in value["current_cells"]
++        if cell["selected_subject"]
++        for c in cell["metrics"]
++        if c["metric_code"] == "owned_citation_share"
++    )
++    assert card["denominator"] == 2 and samples(api, card)["items"][0]["denominator"] == 2
++
++
++def test_claim_and_category_corrections_are_effective_and_old_review_is_not_reused(overview_api):
++    api = overview_api
++    case = api.create()
++    machine = api.detail(case)["analysis"]["revisions"][0]
++    claim = machine["claims"][0]
++    citation = machine["citations"][0]
++    correction = empty_correction(
++        claims=[
++            {
++                "claim_assessment_id": claim["id"],
++                "verdict": "INCORRECT",
++                "severity": "HIGH",
++                "explanation": "虚构人工错误核验",
++            }
++        ],
++        citations=[
++            {
++                "citation_id": citation["citation_id"],
++                "source_category": "COMMUNITY",
++                "subject_id": None,
++            }
++        ],
++    )
++    assert (
++        api.submit(
++            case, decision="CORRECTED", correction_payload=correction, comment="虚构复核修正"
++        ).status_code
++        == 201
++    )
++    product = next(s["product_id"] for s in case.input["subjects"] if s["product_id"])
++    value = insights(api, product_ids=product)
++    risk = value["fact_risks"][0]
++    assert risk["verdict_counts"]["INCORRECT"] == risk["incorrect_severity_counts"]["HIGH"] == 1
++    rows = detail(api, risk["groups"][0]["drilldown"])
++    assert rows["total"] == risk["groups"][0]["claim_count"] == 1
++    assert rows["items"][0]["verdict"] == "INCORRECT" and rows["items"][0]["review_id"] is not None
++    assert rows["items"][0]["fact_version_id"] == str(case.facts[0])
++    bucket = value["citation_insights"][0]["source_categories"][0]
++    assert bucket["key"] == "COMMUNITY"
++    assert detail(api, bucket["drilldown"])["items"][0]["source_category"] == "COMMUNITY"
++    severe = next(
++        c
++        for cell in value["current_cells"]
++        if cell["selected_subject"]
++        for c in cell["metrics"]
++        if c["metric_code"] == "severe_error_run_rate"
++    )
++    assert severe["numerator"] == samples(api, severe, cohort="NUMERATOR")["total"] == 1
++    # 同一analysis的新CONFIRMED整条替换旧修正，恢复机器UNJUDGEABLE。
++    assert api.submit(case).status_code == 201
++    restored = insights(api, product_ids=product)
++    assert restored["fact_risks"][0]["verdict_counts"]["UNJUDGEABLE"] == 1
++    assert restored["fact_risks"][0]["verdict_counts"]["INCORRECT"] == 0
++    assert (
++        detail(api, restored["fact_risks"][0]["drilldown"])["items"][0]["verdict"] == "UNJUDGEABLE"
++    )
++    api.reanalyze(case)
++    newer = insights(api, product_ids=product)
++    assert (
++        newer["fact_risks"][0]["claim_count"]
++        == newer["citation_insights"][0]["citation_count"]
++        == 0
++    )
++    backlog = next(
++        c
++        for c in newer["data_quality"]["overview"]["cards"]
++        if c["metric_code"] == "review_backlog"
++    )
++    assert backlog["numerator"] == 1
++    query = {
++        "filters": newer["filters"],
++        "operation_id": "listGeoInsightQualityRuns",
++        "quality_code": "review_backlog",
++        "cohort": "NUMERATOR",
++    }
++    backlog_rows = detail(api, query)
++    assert backlog_rows["total"] == 1 and backlog_rows["items"][0]["review_id"] is None
++    assert (
++        insights(api, product_ids=product, review_policy="REVIEWED_ONLY")["data_quality"][
++            "overview"
++        ]["candidate_run_count"]
++        == 0
++    )
++
++
++def test_unjudgeable_claims_have_detail_but_never_enter_accuracy_denominator(overview_api):
++    api = overview_api
++    case = api.create()
++    assert api.submit(case).status_code == 201
++    product = next(s["product_id"] for s in case.input["subjects"] if s["product_id"])
++    value = insights(api, product_ids=product)
++    risk = value["fact_risks"][0]
++    assert risk["verdict_counts"]["UNJUDGEABLE"] == 1
++    rows = detail(api, risk["drilldown"], verdict="UNJUDGEABLE")
++    assert rows["total"] == 1
++    accuracy = next(
++        c
++        for cell in value["current_cells"]
++        if cell["selected_subject"]
++        for c in cell["metrics"]
++        if c["metric_code"] == "accurate_claim_rate"
++    )
++    assert accuracy["value"] is None and accuracy["denominator"] == 0
++    assert accuracy["unjudgeable_claim_count"] == 1
++    assert samples(api, accuracy)["total"] == 0
++
++
++def test_quality_versions_exclusions_and_stable_pagination_match_summary(overview_api, monkeypatch):
++    api = overview_api
++    original = geo_analysis_support.run
++
++    def isolated_window(conn, db, batch_id, **patch):
++        # 模块共用数据库，按创建时的冻结窗口隔离本组数据。
++        return original(
++            conn, db, batch_id, **(patch | {"created_at": datetime(2020, 1, 1, tzinfo=UTC)})
++        )
++
++    monkeypatch.setattr(geo_analysis_support, "run", isolated_window)
++    cases = [api.create(review_required=False, products=0) for _ in range(12)]
++    value = insights(api, date_from="2020-01-01T00:00:00Z", date_to="2020-01-02T00:00:00Z")
++    quality = value["data_quality"]
++    all_drill = {
++        "filters": value["filters"],
++        "operation_id": "listGeoInsightQualityRuns",
++        "quality_code": "eligible_runs",
++        "cohort": "CANDIDATE",
++    }
++    first, second = (
++        detail(api, all_drill, page_size=10),
++        detail(api, all_drill, page_size=10, page=2),
++    )
++    rows = first["items"] + second["items"]
++    assert (
++        len(rows)
++        == first["total"]
++        == second["total"]
++        == quality["overview"]["candidate_run_count"]
++        == 12
++    )
++    assert {r["run_id"] for r in rows} == {str(c.run_id) for c in cases}
++    assert len({r["run_id"] for r in rows}) == 12
++    assert (
++        detail(api, quality["excluded_drilldown"])["total"]
++        == quality["overview"]["excluded_run_count"]
++    )
++    assert quality["known_costs"] == [] and all(r["cost_amount"] is None for r in rows)
++    for version in quality["collection_versions"] + quality["analysis_versions"]:
++        assert detail(api, version["drilldown"])["total"] == version["run_count"]
++    assert all(r["source_version"] is None for r in rows)
++    for word in ("answer_text", "fact_excerpt", "lease_token", "raw_payload", "comment", "api_key"):
++        assert word not in str(rows)
++
++
++def test_reported_costs_and_versions_round_trip_through_http(overview_api, monkeypatch):
++    api = overview_api
++    original_run, original_snapshot = geo_analysis_support.run, geo_analysis_support.snapshot
++    costs = iter([(Decimal(0), "USD"), (Decimal(6), "USD"), (Decimal(9), "CNY"), (None, None)])
++    versions = iter(["v1", "v1", "v2", None])
++
++    def isolated_run(conn, db, batch_id, **patch):
++        return original_run(
++            conn, db, batch_id, **(patch | {"created_at": datetime(2021, 1, 1, tzinfo=UTC)})
++        )
++
++    def reported_snapshot(conn, db, run_id, **patch):
++        version = next(versions)
++        return original_snapshot(
++            conn,
++            db,
++            run_id,
++            **(
++                patch
++                | {
++                    "source_model": "虚构模型" if version else None,
++                    "source_product": "虚构产品",
++                    "source_version": version,
++                }
++            ),
++        )
++
++    def reported_collect(conn, run_id):
++        # 在首次采集同事务保存报告费用；不更新终态、不放宽生产guard。
++        amount, currency = next(costs)
++        conn.execute(
++            "UPDATE geo_observation_runs SET status='COLLECTED', started_at=now(), "
++            "collected_at=now(),cost_amount=%s,cost_currency=%s,revision=revision+1 WHERE id=%s",
++            (amount, currency, run_id),
++        )
++
++    monkeypatch.setattr(geo_analysis_support, "run", isolated_run)
++    monkeypatch.setattr(geo_analysis_support, "snapshot", reported_snapshot)
++    monkeypatch.setattr(geo_analysis_support, "collect", reported_collect)
++    cases = [api.create(review_required=False, products=0) for _ in range(4)]
++    value = insights(api, date_from="2021-01-01T00:00:00Z", date_to="2021-01-02T00:00:00Z")
++    quality = value["data_quality"]
++    groups = {g["currency"]: g for g in quality["known_costs"]}
++    assert set(groups) == {"USD", "CNY"}
++    for currency, count, total, average in (("USD", 2, 6, 3), ("CNY", 1, 9, 9)):
++        group = groups[currency]
++        assert group["known_run_count"] == count
++        assert Decimal(group["total_amount"]) == total
++        assert Decimal(group["average_amount"]) == average
++        rows = detail(api, group["drilldown"])
++        assert rows["total"] == count
++        assert all(r["cost_currency"] == currency for r in rows["items"])
++        assert sum(Decimal(r["cost_amount"]) for r in rows["items"]) == total
++    assert {
++        Decimal(r["cost_amount"])
++        for r in detail(api, groups["USD"]["drilldown"])["items"]
++    } == {Decimal(0), Decimal(6)}
++    for code in ("cost_coverage", "model_version_coverage"):
++        card = next(c for c in quality["overview"]["cards"] if c["metric_code"] == code)
++        assert (card["numerator"], card["denominator"]) == (3, 4)
++        rows = detail(
++            api,
++            {
++                "filters": value["filters"],
++                "quality_code": code,
++                "cohort": "CANDIDATE",
++                "operation_id": "listGeoInsightQualityRuns",
++            },
++        )
++        assert rows["total"] == 4
++        assert {r["run_id"] for r in rows["items"]} == {str(c.run_id) for c in cases}
++        assert sum(r["numerator"] for r in rows["items"]) == 3
++    for group in quality["collection_versions"]:
++        assert detail(api, group["drilldown"])["total"] == group["run_count"]
++    assert {g["source_version"] for g in quality["collection_versions"]} == {"v1", "v2", None}
++    for document in (yaml.safe_load(Path("/contracts/openapi.yaml").read_text()), app.openapi()):
++        validate(document, "GeoAnswerInsights", value)
++
++
++def test_detail_queries_are_fixed_repeatable_read_and_do_not_mix_new_review(overview_api):
++    api = overview_api
++    case = api.create()
++    product = next(s["product_id"] for s in case.input["subjects"] if s["product_id"])
++    before_value = insights(api, product_ids=product)
++    drill = before_value["fact_risks"][0]["drilldown"]
++    inserted = False
++    sqls, levels = [], []
++
++    def after_run(conn, cursor, statement, parameters, context, many):
++        nonlocal inserted
++        if inserted or "FROM geo_observation_runs" not in statement:
++            return
++        inserted = True
++        assert api.submit(case).status_code == 201
++
++    engine = api.harness.factory.kw["bind"]
++    event.listen(engine, "after_cursor_execute", after_run)
++    try:
++        assert detail(api, drill)["total"] == 0
++    finally:
++        event.remove(engine, "after_cursor_execute", after_run)
++    assert inserted and detail(api, drill)["total"] == 1
++
++    def before(conn, cursor, statement, parameters, context, many):
++        sqls.append(statement)
++        levels.append(conn.get_isolation_level())
++
++    for candidate_drill in (
++        insights(api, product_ids=product)["citation_insights"][0]["drilldown"],
++        drill,
++        {
++            "filters": before_value["filters"],
++            "operation_id": "listGeoInsightQualityRuns",
++            "quality_code": "eligible_runs",
++        },
++    ):
++        sqls.clear()
++        levels.clear()
++        event.listen(engine, "before_cursor_execute", before)
++        try:
++            detail(api, candidate_drill)
++        finally:
++            event.remove(engine, "before_cursor_execute", before)
++        assert len(sqls) == 13 and set(levels) == {"REPEATABLE READ"}
++        assert all(sql.lstrip().startswith("SELECT") for sql in sqls)
++        assert not any(
++            word in sql
++            for sql in sqls
++            for word in ("lease_token", "api_key_encrypted", "channel_headers")
++        )
++
++
++def test_closed_contracts_authentication_and_shared_filters(overview_api):
++    api = overview_api
++    case = api.create()
++    assert api.submit(case).status_code == 201
++    product = next(s["product_id"] for s in case.input["subjects"] if s["product_id"])
++    value = insights(api, product_ids=product)
++    docs = (yaml.safe_load((Path("/contracts") / "openapi.yaml").read_text()), app.openapi())
++    for doc in docs:
++        validate(doc, "GeoAnswerInsights", value)
++    for suffix, name, drill in (
++        ("/citations", "GeoInsightCitationPage", value["citation_insights"][0]["drilldown"]),
++        ("/claims", "GeoInsightClaimPage", value["fact_risks"][0]["drilldown"]),
++        ("/quality/runs", "GeoInsightQualityPage", value["data_quality"]["excluded_drilldown"]),
++    ):
++        payload = detail(api, drill)
++        for doc in docs:
++            validate(doc, name, payload)
++        query = params(api, case)
++        if suffix != "/quality/runs":
++            query["cell_key"] = drill["cell_key"]
++        assert api.anonymous.get(PATH + suffix, params=query).status_code == 401
++        response = api.engineer.get(PATH + suffix, params=query | {"unknown": "private-canary"})
++        assert response.status_code == 422 and "private-canary" not in response.text
++        if suffix != "/quality/runs":
++            assert (
++                api.engineer.get(PATH + suffix, params=query | {"cell_key": "0" * 64}).status_code
++                == 404
++            )
++        response = api.engineer.get(PATH + suffix, params=query | {"collection_modes": "BROWSER"})
++        assert response.status_code == (200 if suffix == "/quality/runs" else 404)
++        if response.status_code == 200:
++            assert response.json()["total"] == 0
++    empty = insights(api, product_ids=str(uuid4()))
++    assert empty["citation_insights"] == empty["fact_risks"] == []
++    assert empty["data_quality"]["overview"]["candidate_run_count"] == 0
+--- a/backend/tests/unit/test_geo_insight_details.py
++++ b/backend/tests/unit/test_geo_insight_details.py
+@@ -0,0 +1,221 @@
++"""604独立手算金标：事件/运行去重、未知声明和操作质量不能相互替代。"""
++
++from dataclasses import replace
++from decimal import Decimal
++from uuid import uuid4
++
++import pytest
++from pydantic import ValidationError
++
++from app.schemas.geo_insight_details import GeoInsightQualityFilters
++from app.services.geo_answer_insights import _cells
++from app.services.geo_insight_details import citation_events, claim_events, summaries
++from app.services.geo_insight_evidence import InsightCitation, InsightClaim, InsightEvidence
++from app.services.geo_insight_quality import data_quality
++from app.services.geo_metric_types import MetricCitation, MetricClaim
++from tests.unit.test_geo_overview import filters, source
++
++
++def evidence_source():
++    value = source()
++    own = value.snapshot.subjects[0].id
++    candidates = (own, uuid4())
++    citations = tuple(
++        InsightCitation(
++            uuid4(),
++            url,
++            host,
++            None,
++            positions,
++            category,
++            own if category == "OWNED" else None,
++            shared,
++        )
++        for url, host, category, positions, shared in (
++            ("https://shared.test/a", "shared.test", "OWNED", (1, 4), candidates),
++            ("https://shared.test/b", "shared.test", "OWNED", (2,), candidates),
++            ("https://media.test/c", "media.test", "INDUSTRY_MEDIA", (3,), ()),
++        )
++    )
++    claims = tuple(
++        InsightClaim(
++            uuid4(),
++            own,
++            None if verdict == "UNJUDGEABLE" else uuid4(),
++            "PARAMETER",
++            "虚构参数声明",
++            verdict,
++            severity,
++            None if verdict == "UNJUDGEABLE" else "批准事实摘录",
++            "虚构解释",
++        )
++        for verdict, severity in (
++            ("ACCURATE", "LOW"),
++            ("PARTIAL", "HIGH"),
++            ("INCORRECT", "HIGH"),
++            ("INCORRECT", "LOW"),
++            ("UNJUDGEABLE", "CRITICAL"),
++        )
++    )
++    return replace(
++        value,
++        metric=replace(
++            value.metric,
++            citations=tuple(
++                MetricCitation(c.normalized_url, c.hostname, c.source_category == "OWNED")
++                for c in citations
++            ),
++            claims=tuple(MetricClaim(c.subject_id, c.verdict, c.severity) for c in claims),
++            citation_classification_complete=True,
++        ),
++        evidence=InsightEvidence(
++            citations, claims, "fake-model", None, None, "analyzer-v1", "rules-v1"
++        ),
++    )
++
++
++def test_citation_gold_deduplicates_url_occurrences_and_domain_run_coverage():
++    first = evidence_source()
++    first = replace(
++        first,
++        evidence=replace(
++            first.evidence, citations=(*first.evidence.citations, first.evidence.citations[0])
++        ),
++        metric=replace(
++            first.metric, citations=(*first.metric.citations, first.metric.citations[0])
++        ),
++    )
++    second = replace(first, metric=replace(first.metric, run_id=uuid4(), repeat_index=2))
++    cells = _cells([first, second], filters(), "CURRENT")
++    cell = next(iter(cells.values()))
++    summary = summaries(cells, filters())[0][0]
++    assert summary.citation_count == len(citation_events(cell)) == 6
++    domain = next(b for b in summary.domains if b.key == "shared.test")
++    assert (domain.citation_count, domain.run_count, domain.coverage_value, domain.share_value) == (
++        4,
++        2,
++        1,
++        4 / 6,
++    )
++    assert sum(b.citation_count for b in summary.urls) == 6
++    card = next(c for c in cell.public.metrics if c.metric_code == "owned_citation_share")
++    assert (card.numerator, card.denominator, card.eligible_run_count) == (4, 6, 2)
++
++
++def test_claim_gold_keeps_unknown_only_run_without_counting_it_correct_or_incorrect():
++    first = evidence_source()
++    unknown = replace(
++        first,
++        metric=replace(
++            first.metric, run_id=uuid4(), repeat_index=2, claims=(first.metric.claims[-1],)
++        ),
++        evidence=replace(first.evidence, claims=(first.evidence.claims[-1],)),
++    )
++    cells = _cells([first, unknown], filters(), "CURRENT")
++    cell = next(iter(cells.values()))
++    summary = summaries(cells, filters())[1][0]
++    assert summary.claim_count == len(claim_events(cell)) == 6
++    assert summary.verdict_counts == {"ACCURATE": 1, "PARTIAL": 1, "INCORRECT": 2, "UNJUDGEABLE": 2}
++    assert summary.incorrect_severity_counts == {"LOW": 1, "MEDIUM": 0, "HIGH": 1, "CRITICAL": 0}
++    cards = {c.metric_code: c for c in cell.public.metrics}
++    assert (cards["accurate_claim_rate"].numerator, cards["accurate_claim_rate"].denominator) == (
++        1,
++        4,
++    )
++    assert cards["incorrect_claim_rate"].value == 0.5
++    assert cards["severe_error_run_rate"].value == 1
++    assert cards["severe_error_run_rate"].eligible_run_count == 1
++    assert cards["accurate_claim_rate"].unjudgeable_claim_count == 2
++
++
++def test_high_partial_and_unknown_claims_do_not_create_severe_error():
++    value = evidence_source()
++    keep = (value.evidence.claims[1], value.evidence.claims[-1])
++    value = replace(
++        value,
++        evidence=replace(value.evidence, claims=keep),
++        metric=replace(
++            value.metric,
++            claims=tuple(MetricClaim(c.subject_id, c.verdict, c.severity) for c in keep),
++        ),
++    )
++    cell = next(iter(_cells([value], filters(), "CURRENT").values()))
++    severe = next(c for c in cell.public.metrics if c.metric_code == "severe_error_run_rate")
++    assert severe.numerator == 0 and severe.denominator == 1
++
++
++def test_review_backlog_is_quality_data_but_has_no_business_citation_or_claim_events():
++    value = evidence_source()
++    value = replace(
++        value,
++        metric=replace(
++            value.metric, status="NEEDS_REVIEW", review_required=True, current_review_valid=False
++        ),
++    )
++    cell = next(iter(_cells([value], filters(), "CURRENT").values()))
++    assert not citation_events(cell) and not claim_events(cell)
++    quality = data_quality([value], filters())
++    assert quality.overview.candidate_run_count == quality.overview.excluded_run_count == 1
++    assert {x.code for x in quality.overview.exclusion_reason_counts} == {
++        "RUN_NOT_COMPLETED",
++        "CURRENT_REVIEW_REQUIRED",
++    }
++    assert quality.shared_domain_run_count == 1 and quality.shared_domain_citation_count == 2
++    assert "SHARED_DOMAIN" in quality.notes and "REVIEW_BACKLOG" in quality.notes
++    backlog = next(c for c in quality.overview.cards if c.metric_code == "review_backlog")
++    assert backlog.numerator == 1
++
++
++def test_cost_zero_is_known_unknown_is_not_zero_and_currencies_do_not_mix():
++    first = evidence_source()
++    values = [
++        first,
++        replace(first, cost_amount=Decimal("0"), cost_currency="USD"),
++        replace(first, cost_amount=Decimal("6"), cost_currency="USD"),
++        replace(first, cost_amount=Decimal("9"), cost_currency="CNY"),
++    ]
++    quality = data_quality(values, filters())
++    costs = {c.currency: c for c in quality.known_costs}
++    assert (
++        costs["USD"].total_amount,
++        costs["USD"].average_amount,
++        costs["USD"].known_run_count,
++    ) == (6, 3, 2)
++    assert costs["CNY"].total_amount == 9 and costs["CNY"].average_amount == 9
++    card = next(c for c in quality.overview.cards if c.metric_code == "cost_coverage")
++    assert (card.numerator, card.denominator, card.value) == (3, 4, 0.75)
++    assert "COST_UNKNOWN" in quality.notes
++    assert data_quality([first], filters()).known_costs == []
++
++
++def test_unknown_collection_and_mixed_analysis_versions_are_explicit():
++    first = evidence_source()
++    second = replace(
++        first,
++        metric=replace(first.metric, run_id=uuid4()),
++        evidence=replace(first.evidence, source_version="v2", analyzer_version="analyzer-v2"),
++        version_known=True,
++    )
++    quality = data_quality([first, second], filters())
++    assert {v.source_version for v in quality.collection_versions} == {None, "v2"}
++    assert {v.analyzer_version for v in quality.analysis_versions} == {"analyzer-v1", "analyzer-v2"}
++    assert {"MODEL_VERSION_UNKNOWN", "MIXED_COLLECTION_VERSIONS", "MIXED_ANALYSIS_VERSIONS"} <= set(
++        quality.notes
++    )
++
++
++@pytest.mark.parametrize(
++    "patch",
++    [
++        {"quality_code": "review_backlog", "version_key": "0" * 64},
++        {"quality_code": "analysis_version", "currency": "USD"},
++        {
++            "quality_code": "eligible_runs",
++            "cohort": "CANDIDATE",
++            "exclusion_reason": "INTEGRITY_ERROR",
++        },
++    ],
++)
++def test_invalid_quality_selector_combinations_are_rejected(patch):
++    with pytest.raises(ValidationError):
++        GeoInsightQualityFilters(**filters().model_dump(), **patch)

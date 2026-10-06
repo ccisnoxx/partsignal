@@ -19,8 +19,10 @@ REQUIRED_TRACKED_FILES = {
     "deploy/nginx/partsignal-security-headers.conf",
     "deploy/nginx/partsignal.conf.template",
     "deploy/scripts/activate-production.sh",
+    "deploy/scripts/check-production-inputs.py",
     "deploy/scripts/deploy.sh",
     "deploy/scripts/prepare-production-data.py",
+    "deploy/scripts/production_upgrade_recovery.py",
     "deploy/scripts/rollback-production-frontend.sh",
 }
 REPO_DIGEST_PATTERN = re.compile(r"[^@\s]+@sha256:[0-9a-f]{64}")

@@ -1,0 +1,11 @@
+# GEO-501 设计
+
+Accepted ADR-003决定显式pointer、多产品事实强引用和追加review；根合同拥有精确实现。Analysis PENDING是执行外壳，输入创建起冻结；终结事务插入子结果并一次COMPLETED/FAILED。子结果插入仅PENDING且提交前必须COMPLETED；失败无结果。事实绑定与闭合输入manifest一致；创建时存在合格事实的自有产品不得省略绑定，同产品非空APPROVED资格在创建/绑定时裁决，之后RETIRED不破坏历史。
+
+PG对jsonb规范文本、答案UTF8摘要、analyzer_type/version生成input_sha256；snapshot包括对象/aliases/domains、规则、模型/提示版本与闭合参数。禁止复制headers/request凭据。后续装配者使用PG返回摘要，不维护第二套序列化。
+
+聚合写Run→Analysis→Fact加锁。Run同值写建立RR冲突而不改业务revision。analysis revision=max+1；成功输入部分唯一允许失败重试。终态Run仅独立pointer+revision发布，不能顺带改采集字段；新pointer同RunCOMPLETED且严格前进。review只在current追加，server clock_timestamp排序；有效review限当前analysis，按created_at DESC,id DESC选取，无第二可变pointer。
+
+review修正为闭合、版本化、类型化mentions/recommendations/claims/citations数组，不覆盖机器结果和原始引用，不改事实基线；引用必须本analysis/run。没有分析命令、API、Worker或算法；后续任务接入。历史FK全部RESTRICT，无永久删除例外。
+
+事实资格按装配事务可见快照裁决，RR旧快照不强制刷新到后来批准的事实；历史无依据结论保持UNJUDGEABLE。新RC装配看到合格事实后不能省略。该策略是纯分析输入的时间边界，不削弱pointer/review并发防线；真实双连接反例记录在test_geo_analysis_concurrency。

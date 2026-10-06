@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "定向合同验证和门禁"}
+{"file": ".trellis/spec/infra/ci-execution.md", "reason": "仓库检查入口"}
+{"file": ".trellis/spec/infra/e2e-isolation.md", "reason": "PG/Redis/fake隔离要求"}
+{"file": "docs/geo-monitoring/03-technical/07-testing-and-quality.md", "reason": "902验证边界"}
+{"file": ".trellis/tasks/10-05-geo-902-observability/independent-review.md", "reason": "独立复核发现及修正证据"}

@@ -1,0 +1,8 @@
+{
+  "argv": [
+    "make",
+    "contract-check"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 3.898
+}

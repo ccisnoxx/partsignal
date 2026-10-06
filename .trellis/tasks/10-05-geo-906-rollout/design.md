@@ -1,0 +1,9 @@
+# GEO-906 发布设计
+
+生产动作由既有candidate producer、prepare-production-data维护锁/状态、deploy/activate所有者控制；不另建发布执行器或自动批准机制。runbook明确入口、退出和停止条件，记录引用不可变candidate manifest/archive/image摘要，不复制敏感配置。模板不是批准记录，也不是实际发布manifest。
+
+区分仓库验证、目标现场和获准生产操作；未知保持null/NOT_VERIFIED。默认false、本地测试和依赖done不证明现场。expand/deploy在备份和暂停consumer后走existing upgrade，前滚0065并准备API/frontend；Browser始终false、无服务/profile/挂载/生产会话。enable只按批准范围开放MANUAL及现有能力；activation仍要求全应用真实AI/OSS Gate=MET，不能因GEO API关闭绕过。cron及自动evaluator未接线不在本任务实现。
+
+activation仅启动Worker/Scheduler；在UPGRADE_PREPARED切MANUAL配置后须在enable批准内再次同manifest deploy重建API，再activate。begin_upgrade允许prepared同候选重入，initialized同候选明确拒绝。停止阻止新调用和写入，停Beat，等待或记录在途请求确定/未知结果后停止API/consumer，保留PG与状态。initialized后恢复需新不可变release身份与批准完整upgrade；不能删状态或直接Compose up绕过所有者。恢复不重放Redis/beat文件，不改Run终态，备份后外发先对账；SENT/UNKNOWN不自动重发。MANUAL分析恢复需总开关true，API/Browserfalse；数据库降级不作为回滚。
+
+配置gate把R0“无任何geo_任务”改为当前唯一已验收retention精确集合；18场景、共享Settings、零网络audithook均保留。不为全门禁放宽未知任务/外部访问。

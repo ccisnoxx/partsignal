@@ -1,0 +1,62 @@
+#0 building with "colima" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 831B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python:3.12-slim
+#2 ...
+
+#3 [internal] load metadata for ghcr.io/astral-sh/uv:0.7.13
+#3 DONE 0.2s
+
+#2 [internal] load metadata for docker.io/library/python:3.12-slim
+#2 DONE 0.3s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 152B done
+#4 DONE 0.0s
+
+#5 FROM ghcr.io/astral-sh/uv:0.7.13@sha256:6c1e19020ec221986a210027040044a5df8de762eb36d5240e382bc41d7a9043
+#5 resolve ghcr.io/astral-sh/uv:0.7.13@sha256:6c1e19020ec221986a210027040044a5df8de762eb36d5240e382bc41d7a9043 0.0s done
+#5 DONE 0.0s
+
+#6 [runtime 1/8] FROM docker.io/library/python:3.12-slim@sha256:ddb0207ae1f0356c2b724d740769b0c5f5f51cc54a0525178f721825f78fe74c
+#6 resolve docker.io/library/python:3.12-slim@sha256:ddb0207ae1f0356c2b724d740769b0c5f5f51cc54a0525178f721825f78fe74c 0.0s done
+#6 DONE 0.0s
+
+#7 [internal] load build context
+#7 transferring context: 93.07kB 0.0s done
+#7 DONE 0.0s
+
+#8 [runtime 5/8] RUN uv sync --no-dev --no-install-project
+#8 CACHED
+
+#9 [runtime 6/8] COPY . .
+#9 CACHED
+
+#10 [runtime 3/8] COPY --from=ghcr.io/astral-sh/uv:0.7.13 /uv /uvx /bin/
+#10 CACHED
+
+#11 [runtime 2/8] WORKDIR /app
+#11 CACHED
+
+#12 [runtime 7/8] RUN uv sync --no-dev
+#12 CACHED
+
+#13 [runtime 4/8] COPY pyproject.toml uv.lock* ./
+#13 CACHED
+
+#14 [runtime 8/8] RUN find alembic -type f ( -name '*.pyc' -o -name '*.pyo' ) -delete
+#14 CACHED
+
+#15 exporting to image
+#15 exporting layers done
+#15 exporting manifest sha256:a78ffcb7df6e9c2bec18a60d81ab3800e17f65eb31a0a6beafa5efb1a6cb8362 done
+#15 exporting config sha256:826807750251cf40dbe757a4dc8d5b3c5600342d39ae48d629ee0770b2af90f4
+#15 exporting config sha256:826807750251cf40dbe757a4dc8d5b3c5600342d39ae48d629ee0770b2af90f4 done
+#15 exporting attestation manifest sha256:1282827286e5c7335f2446f78f3fbc98d6708bb2f56d9f7b851bdd9661f32cb9 done
+#15 exporting manifest list sha256:3db9449efe97c4448d89aa8470e55c0347439372c3e9c5b54aff344cdf8b0323 done
+#15 naming to docker.io/library/geo1007-canonical-8e2136305ded4d5cabcaaab68e084b2f:production done
+#15 unpacking to docker.io/library/geo1007-canonical-8e2136305ded4d5cabcaaab68e084b2f:production done
+#15 DONE 0.0s

@@ -1,0 +1,90 @@
+[
+  {
+    "name": "validation",
+    "command": [
+      "uv",
+      "run",
+      "--project",
+      "backend",
+      "python",
+      ".trellis/tasks/10-05-geo-browser-scope-adjustment/evidence/validate.py"
+    ],
+    "cwd": "/Users/sc/PycharmProjects/partsignal",
+    "exit_code": 0,
+    "result_summary": {
+      "tasks": 71,
+      "internal_links": 608,
+      "broken_links": 0,
+      "source_config_unchanged": 1295
+    }
+  },
+  {
+    "name": "task804-context",
+    "command": [
+      "python3",
+      ".trellis/scripts/task.py",
+      "validate",
+      ".trellis/tasks/10-05-geo-804-approved-browser-adapter"
+    ],
+    "cwd": "/Users/sc/PycharmProjects/partsignal",
+    "exit_code": 0
+  },
+  {
+    "name": "governance-context",
+    "command": [
+      "python3",
+      ".trellis/scripts/task.py",
+      "validate",
+      ".trellis/tasks/10-05-geo-browser-scope-adjustment"
+    ],
+    "cwd": "/Users/sc/PycharmProjects/partsignal",
+    "exit_code": 0
+  },
+  {
+    "name": "deferred-list",
+    "command": [
+      "python3",
+      ".trellis/scripts/task.py",
+      "list",
+      "--status",
+      "deferred",
+      "--json"
+    ],
+    "cwd": "/Users/sc/PycharmProjects/partsignal",
+    "exit_code": 0
+  },
+  {
+    "name": "doc-checksums",
+    "command": [
+      "shasum",
+      "-a",
+      "256",
+      "-c",
+      "SHA256SUMS"
+    ],
+    "cwd": "/Users/sc/PycharmProjects/partsignal/docs/geo-monitoring",
+    "exit_code": 0
+  },
+  {
+    "name": "prompt-checksums",
+    "command": [
+      "shasum",
+      "-a",
+      "256",
+      "-c",
+      "SHA256SUMS"
+    ],
+    "cwd": "/Users/sc/PycharmProjects/partsignal/docs/geo-monitoring/04-delivery/codex-prompts",
+    "exit_code": 0
+  },
+  {
+    "name": "git-diff-check",
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "cwd": "/Users/sc/PycharmProjects/partsignal",
+    "exit_code": 0
+  }
+]

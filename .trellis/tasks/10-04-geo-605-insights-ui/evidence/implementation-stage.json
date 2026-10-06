@@ -1,0 +1,15 @@
+{
+  "audit_id": "20261004T084610Z-geo-605-a7d6046a",
+  "audit_dir": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261004T084610Z-geo-605-a7d6046a",
+  "sequence": 1,
+  "name": "implementation",
+  "prefix": "01-implementation",
+  "paths": {
+    "draft": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261004T084610Z-geo-605-a7d6046a/01-implementation.draft.json",
+    "plan": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261004T084610Z-geo-605-a7d6046a/01-implementation.plan.json",
+    "dispatch_dir": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261004T084610Z-geo-605-a7d6046a/01-implementation.dispatches",
+    "execution": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261004T084610Z-geo-605-a7d6046a/01-implementation.execution.json",
+    "summary_json": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261004T084610Z-geo-605-a7d6046a/01-implementation.summary.json",
+    "summary_text": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261004T084610Z-geo-605-a7d6046a/01-implementation.summary.txt"
+  }
+}

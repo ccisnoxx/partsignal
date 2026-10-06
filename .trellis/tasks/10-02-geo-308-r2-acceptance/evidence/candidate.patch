@@ -1,0 +1,824 @@
+--- before/docs/geo-monitoring/03-technical/07-testing-and-quality.md
++++ after/docs/geo-monitoring/03-technical/07-testing-and-quality.md
+@@ -460,3 +460,10 @@
+ 组件测试覆盖 URL/query owner、服务端动作、轮询停止、错误/权限、dirty、canonical 保存、409 输入保留、未知提交同键恢复、主体切换与迟到响应、截图真实摘要/传输/校验/放弃、不可变原文安全展示及过期签名恢复。文件恢复必须覆盖 VERIFIED/FAILED/ABORTED 已提交而回执丢失，不能用 mock 把 complete/abort 伪装成幂等成功。
+ 
+ `runs-real-stack.spec.ts` 由隔离真实栈入口注册：准备现有配置后，UI 创建三次人工采样批次，保存并刷新恢复草稿和筛选，上传本地 PNG、编辑重复引用位置、正式提交和检查证据/hash/时间线，验证完整批次 collected 与 pending_manual_count。测试不连接真实 AI；完整门禁、首次诊断和实际限制记录在 [GEO-307 实施证据](../../../.trellis/tasks/10-02-geo-307-run-center/implement.md)。
++
++
++## GEO-308 / R2 收口验收边界
++
++新增 `test_geo_manual_races.py` 使用真实 PostgreSQL 锁等待，确定取消存储 writer / manual-submit、草稿 revision / submit 的两个先后顺序。`test_geo_r2_immutability.py` 在正式提交之后，用新事务攻击冻结聚合并验证整笔 rollback、精确 SQLSTATE/constraint、全行事实相等和原幂等回执。取消 writer 仅测试已有策略及存储，不代表 HTTP/UI 取消已实现。
++
++既有 `runs-real-stack.spec.ts` 继续证明三次人工采样，并使用 Router 解析后的 URL 状态验收数字形式搜索词，`geo-real-stack.spec.ts` 补充新旧导航、旧筛选书签/历史详情刷新及实际上传对象字节/hash，保留文章更正、工作台指标和优化任务来源验收。`surfaces-real-stack.spec.ts` 使用自己的工程师账号，消除共享 seed 改密污染，保持真实首次改密、CSRF 和只读权限。`questions-real-stack.spec.ts` 的手工导航使用 Router 序列化，固定数值搜索词，避免科学计数法字符串被解析为number后丢失筛选。完整 R2 边界及门禁结果见 [R2 验收](../04-delivery/07-r2-acceptance.md) 与 [实施记录](../../../.trellis/tasks/10-02-geo-308-r2-acceptance/implement.md)；不把 COLLECTED 宣称为分析/复核完成。
+--- before/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ after/docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -618,7 +618,7 @@
+   phase: R2
+   release: R2
+   title: 完成 R2 并发、不可变和兼容性验收
+-  status: planned
++  status: review
+   dependencies:
+   - GEO-307
+   areas:
+@@ -628,6 +628,9 @@
+   deliverables: 补齐取消/提交竞态、不可变触发器、旧文章观测导航兼容和 R2 验收证据。
+   tests: make verify + GEO E2E。
+   acceptance: 现有 GEO 流程不回归，新人工回答级观测可业务试用。
++  task_brief: .trellis/tasks/10-02-geo-308-r2-acceptance/prd.md
++  implementation_record: .trellis/tasks/10-02-geo-308-r2-acceptance/implement.md
++  review_note: 2026-10-03 本地R2验收完成，等待人工接受。新增20项真实PG并发/已提交聚合不可变反例；旧文章更正、导航、书签、工作台指标和优化来源及三次人工采样通过。完整单元2717/1121、集成790、make e2e真实26与fixture498/54预期跳过、最终专项5通过。首次make verify因问题库测试手工URL丢失数值筛选失败；仅修正测试序列化后，复用输入未变的成功合同/单元/集成，恢复门禁退出0，构建、完整E2E、部署脚本及配置通过。无生产代码、根合同、Alembic、Collector或分析变化；取消仅测试策略/存储writer，无公共命令。未标记done、未提交或发布。
+   required_docs:
+   - 01-product/02-geo-core-prd.md
+   - 02-business/02-domain-model.md
+--- before/docs/geo-monitoring/CHANGELOG.md
++++ after/docs/geo-monitoring/CHANGELOG.md
+@@ -1,4 +1,12 @@
+ # 文档包变更记录
++
++## GEO-308 / R2 — 2026-10-02
++
++- 补齐确定锁等待的取消/提交和草稿/提交竞态，以及已提交聚合和取消终态的 SQL 不可变验收。
++- 补齐新旧 GEO 导航、旧书签和历史详情刷新；上传证据使用实际对象字节/hash，观测面只读验收采用独立账号。
++- 新增 R2 试用边界与验收记录；生产合同、Alembic head 和状态机不变，取消公共命令与自动采集仍未接入。
++- 实际门禁与 review 状态以 GEO-308 实施记录和 task-manifest 为准，不自行标记 done。
++
+ 
+ ## GEO-307 运行中心与人工证据页面 — 2026-10-02（review）
+ 
+--- before/docs/geo-monitoring/README.md
++++ after/docs/geo-monitoring/README.md
+@@ -253,3 +253,6 @@
+ GEO-306 / R2 已实现五个Batch/Run列表与详情读取端点、完整批次summary、筛选分页、同cell attempts/真实时间线及受控证据签名。复杂详情由服务端一次RR快照组装，data quality明确NOT_IMPLEMENTED/null；没有新增Collector、分析、指标或前端页面。状态及验证见[Task Brief](../../.trellis/tasks/10-02-geo-306-read-model/prd.md)和[实施证据](../../.trellis/tasks/10-02-geo-306-read-model/implement.md)，已于2026-10-02人工接受，状态done；GEO-307实现见下文。
+ 
+ GEO-307 / R2 已实现 `/geo/runs` 批次/运行双层视图、从计划创建人工批次、manual editor、截图校验、引用编辑和不可变证据详情。URL保留筛选/分页/选中对象，服务端草稿支持刷新恢复，dirty与409不覆盖输入；不确定结果显式同键确认，文件恢复读取canonical状态。无OpenAPI、数据库或Alembic新增，无Collector/分析/指标/机会。当前状态与实际门禁见[任务清单](./04-delivery/task-manifest.yaml)、[Task Brief](../../.trellis/tasks/10-02-geo-307-run-center/prd.md)和[实施证据](../../.trellis/tasks/10-02-geo-307-run-center/implement.md)。
++
++
++GEO-308 / R2 的并发、已提交聚合不可变与旧文章导航兼容验收见 [R2 试用与验收边界](./04-delivery/07-r2-acceptance.md)、[Task Brief](../../.trellis/tasks/10-02-geo-308-r2-acceptance/prd.md) 和 [实际实施证据](../../.trellis/tasks/10-02-geo-308-r2-acceptance/implement.md)。只补测试与验收文档，不改变根合同或生产状态机；取消仍无公共命令，人工正式提交停在 COLLECTED，分析为 NOT_IMPLEMENTED。当前状态以任务清单为准，不代表生产发布或后续自动采集已经完成。
+--- before/docs/geo-monitoring/SHA256SUMS
++++ after/docs/geo-monitoring/SHA256SUMS
+@@ -13,7 +13,7 @@
+ 5f8dfd5ce025da9a312e800a4c13e48eb64dee88927e2668c82f81490457bd67  ./03-technical/04-frontend-architecture.md
+ 504aa595621dad9a7dee12cc697911977aa9e6092a907672455281525fa9571a  ./03-technical/05-worker-and-collector-architecture.md
+ 2698d3095cfaeb5857d6bafd3efd633d9d50b813257054e7568d779be35d7dd7  ./03-technical/06-security-and-compliance.md
+-194ae8a446d698e2575708285e8791ab9c0b77b698abd1abce41699e576935d4  ./03-technical/07-testing-and-quality.md
++1c0ce7b0d258f858fc466d5c3f58b6efcba06212eaae3f4337569867625acc40  ./03-technical/07-testing-and-quality.md
+ 61a4dd642c6f74b581e95eb2269453be79d71a75fa240269eb001e56f45e2b83  ./03-technical/08-deployment-and-operations.md
+ f8c643e46c1159c51bd2e271e87de1d0e5a0448e2845af01f33bef5e4e1d411b  ./04-delivery/01-implementation-roadmap.md
+ acf0bde87ddfc34ebbc09543c1f2c2c1f496d48f330727b5e943807267eed41c  ./04-delivery/02-work-breakdown-structure.md
+@@ -102,13 +102,14 @@
+ 7106b3f1df66de6ba41a4d7ca85e291b8b181f78e2b7c0ef91f4fa696d1f9e8b  ./04-delivery/geo-003-baseline/sources.json
+ 316ab24c5f645e18d39c529c7fcbca2260b14a5375cc5ebd799a5b7c6cfc8f40  ./04-delivery/geo-003-baseline/tests.json
+ 9dae298eb77cc0063394bfacea27b02ece69bf2a7dceba637ef1320565810ec7  ./04-delivery/geo-003-baseline/validation.md
+-52407bbbab58dc0409dd4fcd2470aa6a8cbdcf12a5a7d2ce47575e5d1f108943  ./04-delivery/task-manifest.yaml
++d258c9c61cb9eb3a432339fc4e7ab6aeb968bb30b808377b7abf4b3c4a034902  ./04-delivery/task-manifest.yaml
+ 2c0f8d8ba314039b44e48614481c28e615e996c2e4ed444c8f07362b5cd75de9  ./05-decisions/ADR-001-extend-modular-monolith.md
+ 4e0ec1be59e33c2f3e83ee50abc55ffe35d2d0bf471c19cc2c713b391fc12cee  ./05-decisions/ADR-002-unified-observation-run-model.md
+ 00baab5f8fe68fbaf75e3aa7b07a0cfbd7c510e39b6a70ea462d9ab941330dc7  ./05-decisions/ADR-003-separate-collection-analysis-review.md
+ 09d2ba6a3d8f07ca61309d0a9d4a557c30a1d16853d73139e15b43ca6f1303bb  ./05-decisions/ADR-004-no-unified-geo-score.md
+ 6197eb3379ad5c5f99c499ab8b74eac5cf18e6df26a3f5c34c4e9bf83845593b  ./05-decisions/ADR-005-staged-collector-rollout.md
+ c3e9f23a90bd7fc9b47760d53c56fd6f09f73065dff5b19c1040ee5fd608a560  ./05-decisions/GEO-002-architecture-review.md
+-3c452586fec9f84dad60028f524905840412bc63bc42105d169663b3637d6fe6  ./CHANGELOG.md
+-96de4d7b7ed9446403fe45581a575a46b408b1cb69ea52c18ac464dfd2d372b2  ./README.md
++1889f9cc1ae9f48f00b3c6bc5711586b866aa889c7b682ed3f68a86a01245608  ./CHANGELOG.md
++28a5a0117ad43b227b2c5e836d32f2811cd7199f415c01168ac76ffa3947a656  ./README.md
+ 36be92c676c3150e5953f01498418900d3e2bcc1f37a0bda31b9892e57b8a2d0  ./01-product/04-catalog-user-guide.md
++a80ebe00c833b45a53bf82b140a84b9bb1a20a49bb37688cb233ef6d5e818782  ./04-delivery/07-r2-acceptance.md
+--- before/frontend/tests/e2e/geo-real-stack.spec.ts
++++ after/frontend/tests/e2e/geo-real-stack.spec.ts
+@@ -1,5 +1,5 @@
+ /** 在唯一隔离真实栈中验证 GEO Observation 更正链与优化任务来源。 */
+-import { randomUUID } from 'node:crypto';
++import { createHash, randomUUID } from 'node:crypto';
+ import {
+   expect,
+   test,
+@@ -259,14 +259,21 @@
+ }
+ 
+ async function uploadEvidence(page: Page, filename: string) {
+-  const [intentResponse, transferRequest, completeResponse] = await Promise.all([
++  const bytes = Buffer.from(`PartSignal GEO evidence ${filename}`);
++  const transferPaths: string[] = [];
++  const observeTransfer = (request: Request) => {
++    const path = new URL(request.url()).pathname;
++    if (request.method() === 'PUT' && /^\/api\/v1\/files\/[^/]+\/content$/.test(path)) transferPaths.push(path);
++  };
++  page.on('request', observeTransfer);
++  const [intentResponse, transferResponse, completeResponse] = await Promise.all([
+     page.waitForResponse((response) => (
+       response.request().method() === 'POST'
+       && new URL(response.url()).pathname === '/api/v1/files/upload-intents'
+     )),
+-    page.waitForRequest((request) => (
+-      request.method() === 'PUT'
+-      && /^\/api\/v1\/files\/[^/]+\/content$/.test(new URL(request.url()).pathname)
++    page.waitForResponse((response) => (
++      response.request().method() === 'PUT'
++      && /^\/api\/v1\/files\/[^/]+\/content$/.test(new URL(response.url()).pathname)
+     )),
+     page.waitForResponse((response) => (
+       response.request().method() === 'POST'
+@@ -275,11 +282,15 @@
+     page.getByLabel('上传 GEO 证据截图').setInputFiles({
+       name: filename,
+       mimeType: 'image/png',
+-      buffer: Buffer.from(`PartSignal GEO evidence ${filename}`),
++      buffer: bytes,
+     }),
+   ]);
+   const intent = await responseBody<UploadIntent>(intentResponse);
+   const file = await responseBody<FileRecord>(completeResponse);
++  page.off('request', observeTransfer);
++  expect(transferPaths).toEqual([intent.upload.url]);
++  const transferRequest = transferResponse.request();
++  expect(transferResponse.status()).toBe(204);
+   expect(intent.upload.method).toBe('PUT');
+   expect(intent.upload.url).toBe(`/api/v1/files/${intent.file.id}/content`);
+   expect(new URL(transferRequest.url()).pathname).toBe(intent.upload.url);
+@@ -289,11 +300,19 @@
+     '上传请求必须使用同一会话的 CSRF 令牌',
+   ).toBe(true);
+   expect(transferRequest.headers()['content-type']).toBe('application/octet-stream');
+-  expect(transferRequest.postDataBuffer()).toEqual(Buffer.from(`PartSignal GEO evidence ${filename}`));
++  // Chromium 对 Blob 上传可能不暴露 postData；从实际存储下载，验证字节与摘要。
++  const download = await responseBody<components['schemas']['SignedUrl']>(
++    await page.request.get(`${apiBaseUrl}/api/v1/files/${file.id}/download-url`),
++  );
++  const downloaded = await page.request.get(download.url);
++  expect(downloaded.status()).toBe(200);
++  expect(await downloaded.body()).toEqual(bytes);
+   expect(file).toMatchObject({
+     id: intent.file.id,
+     original_filename: filename,
+     status: 'VERIFIED',
++    size: bytes.length,
++    sha256: createHash('sha256').update(bytes).digest('hex'),
+   });
+   await expect(page.getByText(filename)).toBeVisible();
+   return file;
+@@ -491,6 +510,26 @@
+   await expect(page.getByText(rootNotes).first()).toBeVisible();
+   await expect(page.getByText(correctionNotes)).toHaveCount(1);
+   await expect(page.getByRole('link', { name: rootFile.original_filename }).first()).toBeVisible();
++
++  // R2 新旧入口共存；旧书签、筛选与历史详情在整页刷新后仍可用。
++  const navigation = page.getByRole('navigation', { name: '主导航', exact: true });
++  await expect(navigation.getByRole('link', { name: '观测记录', exact: true })).toHaveAttribute('href', '/geo/observations');
++  await navigation.getByRole('link', { name: '运行中心', exact: true }).click();
++  await expect(page).toHaveURL('/geo/runs');
++  await page.reload();
++  await expect(page.getByRole('heading', { level: 1, name: '运行中心', exact: true })).toBeVisible();
++  await expect(page.getByText('回答级批次、人工录入与不可变采集证据。')).toBeVisible();
++  await navigation.getByRole('link', { name: '观测记录', exact: true }).click();
++  await expect(page.getByRole('heading', { level: 1, name: 'GEO 观测记录', exact: true })).toBeVisible();
++  const bookmark = `/geo/observations?productId=${setup.product.id}&page=1&pageSize=20`;
++  await page.goto(bookmark);
++  await page.reload();
++  await expect(page).toHaveURL(bookmark);
++  await expect(page.getByRole('link', { name: setup.topic.canonical_question })).toHaveAttribute('href', `/geo/observations/${correction.id}`);
++  await page.goto(`/geo/observations/${root.id}`);
++  await page.reload();
++  await expect(page.getByText('历史记录', { exact: true })).toBeVisible();
++  await expect(page.getByText(rootNotes).first()).toBeVisible();
+ 
+   const rootDetail = manualDetail(await responseBody(
+     await page.request.get(`${apiBaseUrl}/api/v1/geo-observations/${root.id}/detail`),
+--- before/frontend/tests/e2e/questions-real-stack.spec.ts
++++ after/frontend/tests/e2e/questions-real-stack.spec.ts
+@@ -1,6 +1,7 @@
+ /** GEO-202：ENGINEER 通过实际工作区维护问题变体，所有业务请求使用真实 API。 */
+-import { randomUUID } from 'node:crypto';
++import { randomInt, randomUUID } from 'node:crypto';
+ import { expect, test, type APIResponse, type Page, type Response } from '@playwright/test';
++import { defaultStringifySearch } from '@tanstack/react-router';
+ import type { components } from '../../src/shared/api/generated/schema';
+ import { createAuthTrafficScope, createRealStackRuntimeAudit, trafficExpectationErrors, type RuntimeCancellation, type TrafficExpectation } from './real-stack-runtime';
+ import { registerCurrentRealStackCookies, registerRealStackLoginSecrets } from './real-stack-session';
+@@ -28,7 +29,7 @@
+ }
+ 
+ test('工程师创建、筛选、编辑、启停、复制与删除；刷新持久化，运行入口不可用', async ({ page, browser }, testInfo) => {
+-  const suffix = randomUUID().slice(0, 8);
++  const suffix = randomInt(10_000_000, 100_000_000).toString();
+   const temporaryPassword = `Geo202-temp-${randomUUID()}`;
+   const newPassword = `Geo202-final-${randomUUID()}`;
+   await registerArtifactSecrets([temporaryPassword, newPassword]);
+@@ -146,7 +147,8 @@
+     await mutate('delete-copy', 'DELETE', `${variantsPath}/${copied.id}`, () => engineer.getByRole('dialog', { name: '确认删除变体' }).getByRole('button', { name: '确认操作' }).click(), 204);
+     await expect(workspace).toBeHidden();
+     await engineer.waitForLoadState('networkidle');
+-    await engineer.goto(`/geo/questions?selected=${created.id}&q=${suffix}`);
++    // 字符串查询必须经过 Router 序列化，数值形式也应保持字符串筛选。
++    await engineer.goto(`/geo/questions${defaultStringifySearch({ selected: created.id, q: suffix })}`);
+     allowedCancellations.push({ phase: 'delete', method: 'DELETE', origin: apiOrigin, pathname: `${variantsPath}/${created.id}`, reason: 'net::ERR_ABORTED' });
+     await detailAction(engineer, '删除变体');
+     await mutate('delete', 'DELETE', `${variantsPath}/${created.id}`, () => engineer.getByRole('dialog', { name: '确认删除变体' }).getByRole('button', { name: '确认操作' }).click(), 204);
+--- before/frontend/tests/e2e/runs-real-stack.spec.ts
++++ after/frontend/tests/e2e/runs-real-stack.spec.ts
+@@ -1,6 +1,7 @@
+ /** GEO-307：真实 DB/API/本地文件服务；目标业务写入全部经过运行中心。 */
+-import { randomUUID, createHash } from 'node:crypto';
++import { randomInt, createHash } from 'node:crypto';
+ import { expect, test, type APIResponse, type Response } from '@playwright/test';
++import { defaultParseSearch } from '@tanstack/react-router';
+ import type { components } from '../../src/shared/api/generated/schema';
+ import {
+   createAuthTrafficScope,
+@@ -28,7 +29,8 @@
+   return response.json() as Promise<T>;
+ }
+ test('人工批次三次采样、URL、dirty、草稿刷新、截图、引用与不可变详情', async ({ page }, testInfo) => {
+-  const suffix = randomUUID().slice(0, 8);
++  // 每次覆盖数字形式的搜索词，避免只在随机 UUID 恰好像 JSON 数字时发现回归。
++  const suffix = randomInt(10_000_000, 100_000_000).toString();
+   const password = process.env.PARTSIGNAL_SEED_ADMIN_PASSWORD;
+   if (!password) throw new Error('真实栈必须提供管理员验收密码');
+   const auth = await body<components['schemas']['AuthSession']>(
+@@ -245,7 +247,8 @@
+         'https://example.test/spec#second',
+       );
+       expect(new URL(page.url()).searchParams.get('batch_id')).toBe(batchId);
+-      expect(new URL(page.url()).searchParams.get('q')).toBe(suffix);
++      // 数字形式的字符串会被 Router 以 JSON 引号编码，验收解析后的 URL 状态。
++      expect(defaultParseSearch(new URL(page.url()).search)).toMatchObject({ q: suffix });
+     }
+     if (index === 0) {
+       for (const width of [375, 768, 1024, 1440]) {
+--- before/frontend/tests/e2e/surfaces-real-stack.spec.ts
++++ after/frontend/tests/e2e/surfaces-real-stack.spec.ts
+@@ -92,16 +92,21 @@
+   await page.screenshot({ path: testInfo.outputPath('geo205-admin-mobile.png'), fullPage: true });
+   await page.setViewportSize({ width: 1440, height: 1000 });
+ 
++  // 独立工程师账号，避免认证验收已改密的共享 seed 账号影响 GEO 门禁。
++  const username = `geo308-surfaces-${suffix}`;
++  const engineerPassword = `Geo308-temp-${randomUUID()}`;
++  const newPassword = `Geo308-final-${randomUUID()}`;
++  await registerArtifactSecrets([engineerPassword, newPassword]);
++  await body(await page.request.post(`${api}/api/v1/users`, {
++    headers: { 'X-CSRF-Token': login.csrf_token },
++    data: { username, display_name: '虚构观测面验收工程师', temporary_password: engineerPassword, account_type: 'ENGINEER' } satisfies components['schemas']['UserCreate'],
++  }), 201);
+   const engineerContext = await browser.newContext({ baseURL: process.env.PARTSIGNAL_E2E_BASE_URL ?? 'http://127.0.0.1:4174' });
+   try {
+     const engineer = await engineerContext.newPage();
+-    const engineerPassword = process.env.PARTSIGNAL_SEED_ENGINEER_PASSWORD;
+-    if (!engineerPassword) throw new Error('真实栈必须提供工程师验收密码');
+-    const session = await body<components['schemas']['AuthSession']>(await engineer.request.post(`${api}/api/v1/auth/login`, { data: { username: 'content_editor', password: engineerPassword } }));
++    const session = await body<components['schemas']['AuthSession']>(await engineer.request.post(`${api}/api/v1/auth/login`, { data: { username, password: engineerPassword } }));
+     await registerRealStackLoginSecrets(engineerContext, api, session.csrf_token);
+     if (session.user.must_change_password) {
+-      const newPassword = `Geo205-final-${randomUUID()}`;
+-      await registerArtifactSecrets([newPassword]);
+       expect((await engineer.request.post(`${api}/api/v1/auth/change-password`, { headers: { 'X-CSRF-Token': session.csrf_token }, data: { old_password: engineerPassword, new_password: newPassword } })).status()).toBe(204);
+       await registerCurrentRealStackCookies(engineerContext, api);
+     }
+--- before/backend/tests/integration/test_geo_manual_races.py
++++ after/backend/tests/integration/test_geo_manual_races.py
+@@ -0,0 +1,269 @@
++"""R2：确定锁顺序的真实竞争；取消 writer 仅测试策略/存储，非 HTTP 命令。"""
++
++from concurrent.futures import ThreadPoolExecutor
++from queue import Queue
++from threading import Event
++from time import monotonic
++from uuid import uuid4
++
++import pytest
++from sqlalchemy import select, text
++
++from app.errors import AppError
++from app.models.geo_answers import GeoAnswerSnapshot
++from app.models.geo_manual_collection import GeoManualDraft, GeoManualSubmission
++from app.models.geo_runs import GeoObservationBatch, GeoObservationRun
++from app.models.identity import AuditLog, User
++from app.schemas.geo_manual_collection import GeoManualDraftSave, GeoManualObservationSubmit
++from app.schemas.geo_runs import GeoRunStatus
++from app.services import geo_manual_collection as service
++from app.services.geo_run_policy import require_cancellable, run_transition
++from tests.integration.geo_plans_support import plans_api as plans_api
++from tests.integration.geo_plans_support import questions_api as questions_api
++from tests.integration.geo_plans_support import questions_engine as questions_engine
++from tests.integration.test_geo_manual_collection import batch_run, evidence, payload, submit
++
++pytestmark = pytest.mark.integration
++__all__ = ["plans_api", "questions_api", "questions_engine"]
++
++
++def wait_for_lock(api, waiter, holder):
++    """必须证明指定连接阻塞；线程启动或耗时本身不是竞争证据。"""
++    with api.api.engine.connect() as conn:
++        deadline = monotonic() + 5
++        while monotonic() < deadline:
++            blockers = conn.scalar(text("SELECT pg_blocking_pids(:pid)"), {"pid": waiter})
++            if holder in blockers:
++                return
++    pytest.fail("未观测到指定 PostgreSQL 连接持有的锁等待")
++
++
++def start(pool, api, actor_id, operation):
++    ready = Queue()
++
++    def invoke():
++        with api.api.factory() as db:
++            db.execute(text("SET LOCAL statement_timeout='10s'"))
++            actor = db.get(User, actor_id)
++            ready.put(db.scalar(text("SELECT pg_backend_pid()")))
++            try:
++                return operation(db, actor)
++            except AppError as error:
++                # 写命令自己的 rollback 必须使原 Session 可继续使用。
++                assert not db.in_transaction()
++                assert db.scalar(text("SELECT 1")) == 1
++                return error
++
++    future = pool.submit(invoke)
++    return future, ready.get(timeout=5)
++
++
++def cancel_storage_writer(db, run):
++    """仅验收 SQL 写边界；不注册路由、不伪造取消审计/回执/清理能力。"""
++    db.scalar(
++        select(GeoObservationBatch).where(GeoObservationBatch.id == run.batch_id).with_for_update()
++    )
++    current = service._run(db, run.id, lock=True)
++    state = service._state(db, current)
++    require_cancellable(state)
++    run_transition(state, GeoRunStatus.CANCELLED)
++    db.execute(
++        text(
++            "UPDATE geo_observation_runs SET status='CANCELLED', revision=revision+1, "
++            "finished_at=clock_timestamp() WHERE id=:id"
++        ),
++        {"id": run.id},
++    )
++    db.commit()
++    return "CANCELLED"
++
++
++def facts(api, run):
++    with api.api.factory() as db:
++        current = db.get(GeoObservationRun, run.id)
++        answers = list(
++            db.scalars(select(GeoAnswerSnapshot).where(GeoAnswerSnapshot.run_id == run.id))
++        )
++        submissions = list(
++            db.scalars(select(GeoManualSubmission).where(GeoManualSubmission.run_id == run.id))
++        )
++        logs = list(db.scalars(select(AuditLog).where(AuditLog.target_id == str(run.id))))
++        return current, answers, submissions, logs, db.get(GeoManualDraft, run.id)
++
++
++def test_cancel_commits_before_waiting_submit(plans_api):
++    api = plans_api
++    run = batch_run(api)[0]
++    file_id, _ = evidence(api)
++    value = GeoManualObservationSubmit.model_validate(payload(run, screenshot_file_id=str(file_id)))
++    with ThreadPoolExecutor(max_workers=1) as pool, api.api.factory() as first:
++        first.scalar(
++            select(GeoObservationBatch)
++            .where(GeoObservationBatch.id == run.batch_id)
++            .with_for_update()
++        )
++        service._run(first, run.id, lock=True)
++        holder = first.scalar(text("SELECT pg_backend_pid()"))
++        future, waiter = start(
++            pool,
++            api,
++            api.api.engineer_id,
++            lambda db, actor: service.submit_manual_observation(
++                db,
++                run_id=run.id,
++                payload=value,
++                actor=actor,
++                idempotency_key="cancel-first",
++                request_id=str(uuid4()),
++            ),
++        )
++        try:
++            wait_for_lock(api, waiter, holder)
++            assert cancel_storage_writer(first, run) == "CANCELLED"
++        finally:
++            first.rollback()
++        error = future.result(timeout=5)
++    assert (error.status_code, error.code) == (409, "INVALID_STATE_TRANSITION")
++    current, answers, submissions, logs, draft = facts(api, run)
++    assert (current.status, current.revision, current.collected_at) == ("CANCELLED", 1, None)
++    assert current.input_snapshot == run.input_snapshot and current.finished_at is not None
++    assert not answers and not submissions and not logs and draft is None
++    response = submit(api, run, value.model_dump(mode="json"), key="cancel-first")
++    assert response.status_code == 409
++    assert response.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
++
++
++@pytest.mark.parametrize("loser", ["cancel", "save"])
++def test_submit_commits_before_waiting_cancel_or_save(plans_api, monkeypatch, loser):
++    api = plans_api
++    run = batch_run(api)[0]
++    file_id, _ = evidence(api, owner=api.api.admin_id)
++    value = GeoManualObservationSubmit.model_validate(payload(run, screenshot_file_id=str(file_id)))
++    locked, release = Event(), Event()
++    holder = Queue()
++    original = service._lock_entry
++
++    def pause_after_lock(db, identity):
++        result = original(db, identity)
++        if db.info.get("geo308_hold"):
++            holder.put(db.scalar(text("SELECT pg_backend_pid()")))
++            locked.set()
++            assert release.wait(timeout=8), "测试未释放提交事务"
++        return result
++
++    monkeypatch.setattr(service, "_lock_entry", pause_after_lock)
++
++    def winner(db, actor):
++        db.info["geo308_hold"] = True
++        return service.submit_manual_observation(
++            db,
++            run_id=run.id,
++            payload=value,
++            actor=actor,
++            idempotency_key="submit-first",
++            request_id=str(uuid4()),
++        )
++
++    def contender(db, actor):
++        if loser == "cancel":
++            try:
++                return cancel_storage_writer(db, run)
++            except AppError:
++                db.rollback()
++                raise
++        return service.save_manual_draft(
++            db,
++            run_id=run.id,
++            actor=actor,
++            payload=GeoManualDraftSave(
++                expected_draft_revision=0, draft={"answer_text": "迟到草稿"}
++            ),
++            request_id=str(uuid4()),
++        )
++
++    with ThreadPoolExecutor(max_workers=2) as pool:
++        winning, _ = start(pool, api, api.api.admin_id, winner)
++        try:
++            assert locked.wait(timeout=5)
++            losing, waiter = start(pool, api, api.api.engineer_id, contender)
++            wait_for_lock(api, waiter, holder.get(timeout=5))
++        finally:
++            release.set()
++        receipt, error = winning.result(timeout=5), losing.result(timeout=5)
++    assert (error.status_code, error.code) == (
++        409,
++        "GEO_RUN_ALREADY_STARTED" if loser == "cancel" else "INVALID_STATE_TRANSITION",
++    )
++    current, answers, submissions, logs, draft = facts(api, run)
++    assert (current.status, current.revision) == ("COLLECTED", 1)
++    assert current.finished_at is None and current.input_snapshot == run.input_snapshot
++    assert len(answers) == len(submissions) == len(logs) == 1 and draft is None
++    assert (
++        answers[0].answer_text == value.answer_text and answers[0].id == receipt.answer_snapshot_id
++    )
++    assert submissions[0].run_revision == receipt.run_revision
++    assert logs[0].action == "geo_manual_observation.submitted"
++
++
++def test_saved_revision_commits_before_waiting_submit(plans_api, monkeypatch):
++    api = plans_api
++    run = batch_run(api)[0]
++    file_id, _ = evidence(api)
++    locked, release = Event(), Event()
++    holder = Queue()
++    original = service._lock_entry
++
++    def pause_after_lock(db, identity):
++        result = original(db, identity)
++        if db.info.get("geo308_hold"):
++            holder.put(db.scalar(text("SELECT pg_backend_pid()")))
++            locked.set()
++            assert release.wait(timeout=8)
++        return result
++
++    monkeypatch.setattr(service, "_lock_entry", pause_after_lock)
++
++    def winner(db, actor):
++        db.info["geo308_hold"] = True
++        return service.save_manual_draft(
++            db,
++            run_id=run.id,
++            actor=actor,
++            payload=GeoManualDraftSave(
++                expected_draft_revision=0, draft={"answer_text": "赢家草稿"}
++            ),
++            request_id=str(uuid4()),
++        )
++
++    value = GeoManualObservationSubmit.model_validate(payload(run, screenshot_file_id=str(file_id)))
++    with ThreadPoolExecutor(max_workers=2) as pool:
++        winning, _ = start(pool, api, api.api.admin_id, winner)
++        try:
++            assert locked.wait(timeout=5)
++            losing, waiter = start(
++                pool,
++                api,
++                api.api.engineer_id,
++                lambda db, actor: service.submit_manual_observation(
++                    db,
++                    run_id=run.id,
++                    payload=value,
++                    actor=actor,
++                    idempotency_key="save-first",
++                    request_id=str(uuid4()),
++                ),
++            )
++            wait_for_lock(api, waiter, holder.get(timeout=5))
++        finally:
++            release.set()
++        saved, error = winning.result(timeout=5), losing.result(timeout=5)
++    assert (error.status_code, error.code, error.details) == (
++        409,
++        "REVISION_CONFLICT",
++        {"current_revision": 1},
++    )
++    current, answers, submissions, logs, draft = facts(api, run)
++    assert (current.status, current.revision) == ("PENDING", 0)
++    assert not answers and not submissions and len(logs) == 1
++    assert logs[0].action == "geo_manual_draft.saved"
++    assert draft.draft == saved.draft.model_dump(mode="json") and draft.draft_revision == 1
+--- before/backend/tests/integration/test_geo_r2_immutability.py
++++ after/backend/tests/integration/test_geo_r2_immutability.py
+@@ -0,0 +1,213 @@
++"""R2：已提交聚合的 SQL 攻击必须失败，整笔事务及对外事实保持原样。"""
++
++import pytest
++from sqlalchemy import text
++from sqlalchemy.exc import IntegrityError
++
++from tests.integration.geo_plans_support import plans_api as plans_api
++from tests.integration.geo_plans_support import questions_api as questions_api
++from tests.integration.geo_plans_support import questions_engine as questions_engine
++from tests.integration.test_geo_manual_collection import (
++    batch_run,
++    evidence,
++    payload,
++    prefix,
++    submit,
++)
++from tests.integration.test_geo_manual_races import cancel_storage_writer
++
++pytestmark = pytest.mark.integration
++__all__ = ["plans_api", "questions_api", "questions_engine"]
++
++
++def committed_facts(api, run, file_id):
++    # 查询条件限定当前聚合，避免把其他用例的数据当作本用例证据。
++    selections = {
++        "geo_observation_batches": "id=:batch",
++        "geo_observation_runs": "batch_id=:batch",
++        "geo_batch_creation_requests": "batch_id=:batch",
++        "geo_batch_subjects": "batch_id=:batch",
++        "geo_answer_snapshots": "run_id=:run",
++        "geo_answer_citations": (
++            "answer_snapshot_id IN (SELECT id FROM geo_answer_snapshots WHERE run_id=:run)"
++        ),
++        "geo_manual_submissions": "run_id=:run",
++        "geo_manual_drafts": "run_id=:run",
++        "file_records": "id=:file",
++        "audit_logs": "target_id=:target",
++        "query_topics": "id=:topic",
++    }
++    with api.api.factory() as db:
++        return {
++            table: list(
++                db.scalars(
++                    text(
++                        f"SELECT to_jsonb(t) FROM {table} t WHERE {where} "
++                        "ORDER BY to_jsonb(t)::text"
++                    ),
++                    {
++                        "batch": run.batch_id,
++                        "run": run.id,
++                        "file": file_id,
++                        "target": str(run.id),
++                        "topic": api.api.topic,
++                    },
++                )
++            )
++            for table, where in selections.items()
++        }
++
++
++def public_facts(api, run):
++    response = api.api.engineer.get(prefix(run))
++    assert response.status_code == 200
++    value = response.json()
++    # as_of 和短期签名属于每次读取的能力，不属于冻结业务事实。
++    value.pop("as_of")
++    for file in value["evidence_files"]:
++        file.pop("download")
++    return value
++
++
++@pytest.mark.parametrize(
++    "statement,constraint",
++    [
++        (
++            "UPDATE geo_answer_snapshots SET answer_text='篡改' WHERE run_id=:run",
++            "ck_geo_answers_immutable",
++        ),
++        ("DELETE FROM geo_answer_snapshots WHERE run_id=:run", "ck_geo_answers_immutable"),
++        (
++            "UPDATE geo_answer_citations SET id=id WHERE answer_snapshot_id=:answer",
++            "ck_geo_citations_immutable",
++        ),
++        (
++            "DELETE FROM geo_answer_citations WHERE answer_snapshot_id=:answer",
++            "ck_geo_citations_immutable",
++        ),
++        (
++            "UPDATE geo_manual_submissions SET identity_hash=identity_hash WHERE run_id=:run",
++            "ck_geo_manual_submissions_immutable",
++        ),
++        (
++            "DELETE FROM geo_manual_submissions WHERE run_id=:run",
++            "ck_geo_manual_submissions_immutable",
++        ),
++        (
++            "UPDATE geo_batch_creation_requests SET request_hash=request_hash "
++            "WHERE batch_id=:batch",
++            "ck_geo_creation_immutable",
++        ),
++        ("DELETE FROM geo_batch_subjects WHERE batch_id=:batch", "ck_geo_creation_immutable"),
++        (
++            "UPDATE geo_observation_runs SET input_snapshot='{}',revision=revision+1 WHERE id=:run",
++            "ck_geo_runs_immutable",
++        ),
++        ("DELETE FROM geo_observation_runs WHERE id=:run", "ck_geo_runs_immutable"),
++        (
++            "UPDATE geo_observation_batches SET rule_snapshot='{}',revision=revision+1 "
++            "WHERE id=:batch",
++            "ck_geo_batches_immutable",
++        ),
++        ("DELETE FROM geo_observation_batches WHERE id=:batch", "ck_geo_batches_immutable"),
++        (
++            "UPDATE file_records SET status='DELETING' WHERE id=:file",
++            "ck_geo_evidence_file_immutable",
++        ),
++        ("DELETE FROM file_records WHERE id=:file", "ck_geo_evidence_file_immutable"),
++    ],
++)
++def test_committed_aggregate_attack_rolls_back_entire_transaction(plans_api, statement, constraint):
++    api = plans_api
++    run = batch_run(api)[0]
++    file_id, _ = evidence(api)
++    value = payload(
++        run,
++        screenshot_file_id=str(file_id),
++        citations=[
++            {
++                "original_url": "https://example.test/r2",
++                "position": 1,
++                "title": "虚构来源",
++            }
++        ],
++    )
++    result = submit(api, run, value)
++    assert result.status_code == 201, result.text
++    receipt = result.json()
++    before = committed_facts(api, run, file_id)
++    public_before = public_facts(api, run)
++    assert all(before[table] for table in before if table != "geo_manual_drafts")
++    with api.api.factory() as db:
++        # 先做一次合法更新，证明错误回滚的不只是最后一条非法语句。
++        db.execute(
++            text(
++                "UPDATE query_topics SET canonical_question='必须回滚',revision=revision+1 "
++                "WHERE id=:id"
++            ),
++            {"id": api.api.topic},
++        )
++        with pytest.raises(IntegrityError) as raised:
++            db.execute(
++                text(statement),
++                {
++                    "run": run.id,
++                    "batch": run.batch_id,
++                    "answer": receipt["answer_snapshot_id"],
++                    "file": file_id,
++                },
++            )
++            db.commit()
++        assert raised.value.orig.sqlstate == "23514"
++        assert raised.value.orig.diag.constraint_name == constraint
++        db.rollback()
++        assert db.scalar(text("SELECT 1")) == 1
++    assert committed_facts(api, run, file_id) == before
++    assert public_facts(api, run) == public_before
++    assert submit(api, run, value).json() == receipt
++
++
++@pytest.mark.parametrize("attack", ["late_answer", "reopen"])
++def test_committed_cancelled_run_cannot_accept_late_result(plans_api, attack):
++    api = plans_api
++    source, cancelled = batch_run(api, repeats=2)
++    file_id, _ = evidence(api)
++    assert submit(api, source, payload(source, screenshot_file_id=str(file_id))).status_code == 201
++    with api.api.factory() as db:
++        cancel_storage_writer(db, cancelled)
++    before = committed_facts(api, cancelled, file_id)
++    with api.api.factory() as db:
++        # PostgreSQL 行锁的合法同值更新不改历史，真实修改仍必须被拒绝。
++        db.execute(
++            text("UPDATE geo_observation_runs SET revision=revision WHERE id=:id"),
++            {"id": cancelled.id},
++        )
++        db.commit()
++        with pytest.raises(IntegrityError) as raised:
++            if attack == "late_answer":
++                db.execute(
++                    text(
++                        "INSERT INTO geo_answer_snapshots "
++                        "(id,run_id,prompt_text,answer_text,answer_format,collected_at, "
++                        "raw_payload_summary,citation_count,screenshot_file_id) "
++                        "SELECT gen_random_uuid(),:run,prompt_text,answer_text,answer_format, "
++                        "collected_at,raw_payload_summary,0,screenshot_file_id "
++                        "FROM geo_answer_snapshots WHERE run_id=:source"
++                    ),
++                    {"run": cancelled.id, "source": source.id},
++                )
++            else:
++                db.execute(
++                    text(
++                        "UPDATE geo_observation_runs SET status='COLLECTED',revision=revision+1 "
++                        "WHERE id=:id"
++                    ),
++                    {"id": cancelled.id},
++                )
++            db.commit()
++        assert raised.value.orig.sqlstate == "23514"
++        assert raised.value.orig.diag.constraint_name == (
++            "ck_geo_answers_submission" if attack == "late_answer" else "ck_geo_runs_terminal"
++        )
++        db.rollback()
++    assert committed_facts(api, cancelled, file_id) == before
+--- before/docs/geo-monitoring/04-delivery/07-r2-acceptance.md
++++ after/docs/geo-monitoring/04-delivery/07-r2-acceptance.md
+@@ -0,0 +1,56 @@
++# R2 人工回答级观测验收（GEO-308）
++
++状态：本地验收完成，`review`，等待人工接受。任务状态以 [task-manifest](./task-manifest.yaml) 为准；只有人工接受后才能成为 `done`。
++
++## 1. 试用范围与入口
++
++R2 支持人工采样、原始回答和引用、受控证据文件、草稿及不可变正式提交。管理员先维护已启用且具备资格的 MANUAL 观测面/采集配置、监测对象、问题变体和计划。工程师进入 `/geo/runs`，选择“创建运行批次”，搜索计划并确认创建，然后在运行列表选择 PENDING 的“人工录入”。
++
++试用环境须按 [配置说明](../../production-configuration.md) 显式启用 `GEO_MONITORING_ENABLED=true` 并让服务重新加载启动配置；API 采集、浏览器采集和机会开关继续关闭。配置文件写入不等于运行进程已加载。本任务只在隔离测试环境观察该配置，不发布或更改生产环境。
++
++录入回答原文、采集时间、截图和引用后，可以保存草稿；服务端草稿在刷新后恢复。提交前确认内容，选择“正式提交人工观测”。成功后以运行详情中的原文、SHA-256、引用实际位置、证据图片和时间线核对；已提交回答不提供原地编辑。失败或 revision 冲突保留本地输入；结果不确定时使用现有同键确认入口，不重复创建新的提交身份。
++
++成功提交停在 `COLLECTED`，回执为 `analysis_dispatch=NOT_IMPLEMENTED`。三次人工采样均提交后，批次 `pending_manual_count=0`、`collected=3`、`completed=0`；未知费用保持未知。分析、复核、指标、机会和自动采集不属于 R2 当前可试用能力。
++
++## 2. 新旧 GEO 兼容
++
++| 入口 | 当前语义 | 验收证据 |
++|---|---|---|
++| `/geo/runs` / 运行中心 | 独立回答级 Batch/Run、人工录入和不可变原始证据 | 三次采样真实栈 E2E |
++| `/geo/observations` / 观测记录 | 现有文章关系观测，包含旧列表筛选 | 导航、旧筛选书签和整页刷新 |
++| `/geo/observations/new` | 现有文章观测登记 | 真实截图上传、原记录创建 |
++| `/geo/observations/{id}` 与 `/{id}/correct` | 不可变原记录与追加更正链 | 历史节点、tail 列表、原附件保留 |
++| `/geo/insights` | 现有文章关系洞察及优化任务来源 | 原统计复算、优化任务不可变来源 |
++
++两个入口共存，不改旧 URL、query schema、query key 或旧指标分母。运行中心数值搜索词按已安装 Router 解析后的状态验收，问题库测试手工导航按 Router 序列化构造URL，JSON 引号编码不视为筛选变化。新 Run 不混入文章观测统计。兼容验收同时核对工作台发现/提及/准确率、更正后列表与历史详情、真实 Insights 和优化任务。
++
++## 3. 并发与不可变证据
++
++| 情形 | 预期结果 | 当前测试 |
++|---|---|---|
++| 取消存储事务先提交，manual-submit 实际等待 | 409 `INVALID_STATE_TRANSITION`；无回答/提交身份/成功审计 | `test_cancel_commits_before_waiting_submit` |
++| 正式提交先持锁，取消存储事务实际等待 | 取消资格 409 `GEO_RUN_ALREADY_STARTED`；仅一次完整提交 | `test_submit_commits_before_waiting_cancel_or_save[cancel]` |
++| 正式提交先持锁，保存草稿实际等待 | 保存 409 `INVALID_STATE_TRANSITION`，不重建草稿 | 同上 `[save]` |
++| 保存先持锁，旧 revision 提交实际等待 | 409 `REVISION_CONFLICT`，current_revision=1，保留赢家草稿 | `test_saved_revision_commits_before_waiting_submit` |
++| 已提交聚合的 SQL 改写/同值更新/删除 | 精确 SQLSTATE `23514` + 具名约束；整笔事务回滚、全行事实不变、原回执重放 | `test_committed_aggregate_attack_rolls_back_entire_transaction`，14 类 |
++| 已提交 CANCELLED Run 追加回答或重开 | `ck_geo_answers_submission` / `ck_geo_runs_terminal`，终态与完整聚合不变 | `test_committed_cancelled_run_cannot_accept_late_result`，2 类 |
++
++锁竞争以 `pg_blocking_pids` 观测指定持有者，使用独立 PostgreSQL Session、不同 actor、有界等待和 `finally` 解锁。应用提交沿用 User → 幂等 advisory lock → Surface → Profile → Batch → Run → Draft → UUID 排序文件锁；草稿没有提交幂等锁。Run revision 和草稿 revision 独立维护。
++
++取消目前只有既有策略，没有生产 Application Service / HTTP / UI 命令。取消测试专用 writer 使用 Batch → Run 行锁及现有 `require_cancellable` / `run_transition`；它不代表取消审计、草稿清理、批次缓存刷新或队列恢复已交付。该限制不得被测试通过掩盖。
++
++SQL 反例覆盖 Batch/Run 冻结输入、Answer/Citation、创建幂等身份、主体引用、正式提交身份和被引用文件。测试先做合法业务行更新，再触发非法操作，rollback 后从新 Session 比较完整 JSON 行；详情比较只排除每次读取生成的 `as_of` 与短期签名，数据库事实逐字相等。
++
++## 4. 合同、迁移与安全
++
++GEO-308 不改变 OpenAPI、数据库合同、生产代码、迁移或 ADR；head 仍为 `0051_geo_manual_collection`。现有集成用例继续证明空库前滚、0048 旧文章数据保留、0050/0051 非空原始证据保留、metadata 对齐和不可逆降级的明确停止。没有回填、历史数据修改或生产迁移。
++
++验证使用任务独立 PostgreSQL 16、Redis 和本地 fake-OSS / fake OpenAI-compatible 服务。API/BROWSER Collector 与机会开关关闭；不访问真实外部 AI。角色、CSRF、SSRF、TLS、文件上传者、签名与不可变守卫均保持原实现。工程师 E2E 创建自己的账号并完成真实首次改密，测试密码与会话秘密在产物前登记扫描。
++
++旧上传验收仍要求唯一 PUT、正确来源/路径/CSRF、204 和 VERIFIED；增加签名下载完整字节、长度和 SHA-256 验证。Chromium 不暴露 Blob 的 `postDataBuffer` 不能代表传输失败，实际对象下载是验收依据。
++
++## 5. 实际门禁和追踪
++
++完整命令、退出码、时间、日志和首次失败诊断统一保存于 [实施记录](../../../.trellis/tasks/10-02-geo-308-r2-acceptance/implement.md) 与该任务 `evidence/`。基线后端 1,382、前端 59、人工观测集成 77 项通过；新增 R2 PostgreSQL 定向 20 项通过。后端完整单元2717、前端1121、集成790通过；make e2e与恢复门禁的真实栈26及fixture498通过/54预期跳过，最终专项5通过。首次verify因问题库E2E手工URL丢失数值筛选失败，修正测试后复用输入未变的成功合同/单元/集成，恢复verify退出0；构建、部署脚本、配置和秘密扫描通过。实际命令与复用依据逐项列于实施记录。
++
++Task Brief：[prd.md](../../../.trellis/tasks/10-02-geo-308-r2-acceptance/prd.md)；测试设计：[design.md](../../../.trellis/tasks/10-02-geo-308-r2-acceptance/design.md)。本任务等待人工接受，不提前实施 GEO-401 及后续任务。

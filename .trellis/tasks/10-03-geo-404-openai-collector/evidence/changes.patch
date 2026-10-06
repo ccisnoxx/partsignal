@@ -1,0 +1,1775 @@
+--- a/backend/app/collectors/openai_compatible.py
++++ b/backend/app/collectors/openai_compatible.py
+@@ -0,0 +1,302 @@
++"""一次调用一个原始问题的 OpenAI-compatible GEO Collector。"""
++
++from __future__ import annotations
++
++import json
++import math
++import re
++import time
++from base64 import b64encode
++from collections.abc import Mapping
++from types import MappingProxyType
++from urllib.parse import quote, quote_from_bytes
++from uuid import UUID
++
++from pydantic import TypeAdapter
++
++from app.collectors.base import SendAuthorization
++from app.collectors.contracts import CollectedAnswer, CollectionEstimate, CollectionRequest
++from app.collectors.errors import CollectorError, CollectorStage
++from app.collectors.openai_response import parse_response
++from app.collectors.registry import (
++    CollectionProfileSnapshot,
++    CollectorRegistration,
++    ProfileBlocker,
++    ProfileBlockerCode,
++    collector_registry,
++)
++from app.errors import AppError
++from app.schemas.geo_runs import GeoExternalCallState as State
++from app.schemas.geo_runs import GeoRunDataClassification
++from app.schemas.geo_runs import GeoRunErrorCode as Code
++from app.services.openai_client import validate_header
++from app.services.pinned_http import PinnedHTTPTransport, PinnedResponse, PinnedTransportError
++
++# 只支持非指令数值配置，不能把模型生成 settings/tools/额外 messages 带进监测问题。
++_NUMERIC_PARAMETERS = {
++    "temperature": (0, 2),
++    "top_p": (0, 1),
++    "presence_penalty": (-2, 2),
++    "frequency_penalty": (-2, 2),
++}
++_INTEGER_PARAMETERS = {"max_tokens", "max_completion_tokens", "seed", "n"}
++_ANSWER: TypeAdapter[CollectedAnswer] = TypeAdapter(CollectedAnswer)
++
++
++def _percent_encoding(value: bytes) -> bytes:
++    """只规范检测副本的 URL escape；大小写等价编码不能绕过已知凭据检查。"""
++    return re.sub(rb"%[0-9a-fA-F]{2}", lambda match: match.group().upper(), value)
++
++
++def _configuration_error() -> CollectorError:
++    return CollectorError(
++        Code.COLLECTOR_CONFIGURATION_INVALID,
++        stage=CollectorStage.CONFIGURATION,
++        external_call_state=State.NOT_STARTED,
++    )
++
++
++def _parameters(value: Mapping[str, object]) -> dict[str, object]:
++    params = dict(value)
++    for key, setting in params.items():
++        if key in _NUMERIC_PARAMETERS:
++            low, high = _NUMERIC_PARAMETERS[key]
++            if (
++                type(setting) not in {int, float}
++                or not isinstance(setting, (int, float))
++                or not low <= setting <= high
++                or not math.isfinite(setting)
++            ):
++                raise _configuration_error()
++        elif key in _INTEGER_PARAMETERS:
++            if type(setting) is not int or not isinstance(setting, int):
++                raise _configuration_error()
++            if key.startswith("max_") and not 1 <= setting <= 65536:
++                raise _configuration_error()
++            if key == "n" and setting != 1:
++                raise _configuration_error()
++            if key == "seed" and not -(2**63) <= setting < 2**63:
++                raise _configuration_error()
++        else:
++            raise _configuration_error()
++    if "max_tokens" in params and "max_completion_tokens" in params:
++        raise _configuration_error()
++    return params
++
++
++class OpenAICompatibleGeoCollector:
++    """配置仅驻留本次调用内存；调用方拥有当前资格、凭据解密和发送授权事务。"""
++
++    def __init__(
++        self,
++        *,
++        channel_id: UUID,
++        model_id: UUID,
++        protocol_type: str,
++        base_url: str,
++        provider_model: str,
++        api_key: str,
++        headers: Mapping[str, str] | None = None,
++        sensitive_headers: Mapping[str, str] | None = None,
++        request_parameters: Mapping[str, object] | None = None,
++        allow_local_http: bool = False,
++        environment: str = "production",
++        transport: PinnedHTTPTransport | None = None,
++    ) -> None:
++        self._registration = collector_registry.resolve("openai-compatible-chat")
++        if (
++            not isinstance(channel_id, UUID)
++            or not isinstance(model_id, UUID)
++            or protocol_type != self._registration.model_protocol
++            or environment not in self._registration.environments
++            or (allow_local_http and environment not in {"development", "test"})
++            or not provider_model.strip()
++            or len(provider_model) > 200
++            or any(ord(c) < 32 or ord(c) == 127 for c in provider_model)
++            or not api_key
++            or any(ord(c) < 33 or ord(c) > 126 for c in api_key)
++        ):
++            raise _configuration_error()
++        clean_headers: dict[str, str] = {}
++        secrets = {api_key, *(sensitive_headers or {}).values()}
++        try:
++            for name, value in [*(headers or {}).items(), *(sensitive_headers or {}).items()]:
++                normalized = validate_header(name, value)
++                if normalized in clean_headers or normalized in {"content-type", "accept-encoding"}:
++                    raise _configuration_error()
++                clean_headers[normalized] = value
++                if normalized in {"cookie", "set-cookie", "proxy-authorization"}:
++                    secrets.add(value)
++            params = _parameters(request_parameters or {})
++        except AppError:
++            raise _configuration_error() from None
++        self._channel_id = channel_id
++        self._model_id = model_id
++        self._base_url = base_url
++        self._provider_model = provider_model
++        self._headers = MappingProxyType({"Authorization": f"Bearer {api_key}", **clean_headers})
++        self._parameters = MappingProxyType(params)
++        # 检查允许返回的全部字段，不修改原文；已知凭据回显必须使整个结果失败。
++        variants = {
++            encoded
++            for value in secrets
++            for encoded in (
++                value, quote(value, safe=""), quote_from_bytes(value.encode("latin-1"), safe=""),
++                json.dumps(value, ensure_ascii=True)[1:-1],
++                b64encode(value.encode("utf-8")).decode("ascii"),
++                b64encode(value.encode("latin-1")).decode("ascii"),
++            )
++        }
++        self._secret_needles = frozenset(
++            _percent_encoding(wire.encode("utf-8"))
++            for value in variants
++            for wire in (
++                value, json.dumps(value, ensure_ascii=True)[1:-1],
++                json.dumps(value, ensure_ascii=False)[1:-1],
++            )
++        )
++        self._transport = transport or PinnedHTTPTransport(allow_local_http=allow_local_http)
++
++    @property
++    def registration(self) -> CollectorRegistration:
++        return self._registration
++
++    def validate_profile(self, profile: CollectionProfileSnapshot) -> tuple[ProfileBlocker, ...]:
++        blockers = self.registration.validate_profile(profile)
++        if profile.ai_channel_id != self._channel_id or profile.ai_model_id != self._model_id:
++            blockers += (ProfileBlocker(ProfileBlockerCode.MODEL_BINDING_INVALID, "ai_model_id"),)
++        return blockers
++
++    def estimate(self, request: CollectionRequest) -> CollectionEstimate:
++        return CollectionEstimate(cost=None)
++
++    def collect(
++        self, request: CollectionRequest, *, before_send: SendAuthorization
++    ) -> CollectedAnswer:
++        profile = request.profile
++        if (
++            profile.adapter_key != self.registration.key
++            or profile.adapter_version != self.registration.version
++            or profile.collection_mode != self.registration.collection_mode
++            or profile.login_state not in self.registration.login_states
++            or profile.web_search_policy not in self.registration.web_search_policies
++            or profile.ai_channel_id != self._channel_id
++            or profile.ai_model_id != self._model_id
++            or request.engine_surface.surface_kind not in self.registration.surface_kinds
++        ):
++            raise _configuration_error()
++        # 当前没有非 PUBLIC 外发授权合同；不能把预算或品牌监测授权当成数据外发授权。
++        if request.data_classification != GeoRunDataClassification.PUBLIC:
++            raise CollectorError(
++                Code.DATA_CLASSIFICATION_FORBIDDEN,
++                stage=CollectorStage.CONFIGURATION,
++                external_call_state=State.NOT_STARTED,
++            )
++        params = dict(self._parameters)
++        settings = dict(profile.settings)
++        if settings.get("temperature") is not None:
++            params["temperature"] = settings["temperature"]
++        if settings.get("max_output_tokens") is not None:
++            key = "max_completion_tokens" if "max_completion_tokens" in params else "max_tokens"
++            params[key] = settings["max_output_tokens"]
++        try:
++            body = json.dumps(
++                {
++                    "model": self._provider_model,
++                    "stream": False,
++                    "messages": [{"role": "user", "content": request.prompt_text}],
++                    **params,
++                },
++                ensure_ascii=False,
++                allow_nan=False,
++                separators=(",", ":"),
++            ).encode("utf-8")
++        except (ValueError, UnicodeError):
++            raise _configuration_error() from None
++        started = time.monotonic()
++        authorizing = False
++
++        def authorize() -> None:
++            nonlocal authorizing
++            # 回调异常即使同属 PinnedTransportError，也由授权 owner 原样处理。
++            authorizing = True
++            before_send()
++            authorizing = False
++
++        try:
++            response = self._transport.request(
++                method="POST",
++                base_url=self._base_url,
++                suffix="chat/completions",
++                headers=dict(self._headers),
++                timeout_seconds=request.timeout_seconds,
++                body=body,
++                before_send=authorize,
++                max_response_bytes=request.max_response_bytes,
++            )
++        except PinnedTransportError as error:
++            if authorizing:
++                raise
++            raise _transport_error(error) from None
++        _check_status(response)
++        result = parse_response(response, duration_ms=int((time.monotonic() - started) * 1000))
++        safe_payload = _percent_encoding(_ANSWER.dump_json(result))
++        if any(needle in safe_payload for needle in self._secret_needles):
++            raise CollectorError(
++                Code.PROVIDER_RESPONSE_INVALID,
++                stage=CollectorStage.PARSE,
++                external_call_state=State.COMPLETED,
++            )
++        return result
++
++
++def _transport_error(error: PinnedTransportError) -> CollectorError:
++    stage = CollectorStage(error.stage)
++    state = State.NOT_STARTED
++    if error.code == "AI_URL_FORBIDDEN":
++        code = Code.COLLECTOR_CONFIGURATION_INVALID
++    elif error.code == "AI_RESPONSE_TOO_LARGE":
++        code = Code.PROVIDER_RESPONSE_TOO_LARGE
++        state = State.SENT
++    elif error.code == "AI_RESPONSE_INVALID":
++        code = Code.PROVIDER_RESPONSE_INVALID
++        state = State.SENT
++    elif error.request_started:
++        code = Code.COLLECTOR_UNKNOWN_OUTCOME
++        state = State.UNKNOWN
++    elif error.code == "AI_PROVIDER_TIMEOUT":
++        code = Code.PROVIDER_TIMEOUT
++    else:
++        code = Code.PROVIDER_UNAVAILABLE
++    return CollectorError(code, stage=stage, external_call_state=state)
++
++
++def _check_status(response: PinnedResponse) -> None:
++    status = response.status_code
++    if not 100 <= status <= 599:
++        raise CollectorError(
++            Code.PROVIDER_RESPONSE_INVALID,
++            stage=CollectorStage.RECEIVE,
++            external_call_state=State.COMPLETED,
++        )
++    if 200 <= status < 300:
++        return
++    retry_after = None
++    if status in {401, 403}:
++        code = Code.PROVIDER_AUTH_FAILED
++    elif status == 429:
++        code = Code.PROVIDER_RATE_LIMITED
++        value = response.headers.get("retry-after", "")
++        if value.isascii() and value.isdecimal() and len(value) <= 9:
++            retry_after = int(value)
++    elif 500 <= status < 600:
++        code = Code.PROVIDER_UNAVAILABLE
++    else:
++        code = Code.PROVIDER_RESPONSE_INVALID
++    raise CollectorError(
++        code,
++        stage=CollectorStage.RECEIVE,
++        external_call_state=State.COMPLETED,
++        provider_status=status,
++        retry_after_seconds=retry_after,
++    )
+--- a/backend/app/collectors/openai_response.py
++++ b/backend/app/collectors/openai_response.py
+@@ -0,0 +1,209 @@
++"""GEO Chat Completions 响应边界；正文是原始回答，绝不解析内容生成四字段。"""
++
++from __future__ import annotations
++
++import json
++import re
++from decimal import Decimal, InvalidOperation
++from typing import Literal
++
++from pydantic import TypeAdapter
++
++from app.collectors.contracts import (
++    CollectedAnswer,
++    CollectedCitation,
++    Money,
++    RawPayloadSummary,
++    Usage,
++)
++from app.collectors.errors import CollectorError, CollectorStage
++from app.schemas.geo_monitoring_plans import PlanBudget
++from app.schemas.geo_runs import GeoExternalCallState, GeoRunErrorCode
++from app.services.pinned_http import PinnedResponse
++
++_AMOUNT: TypeAdapter[Decimal] = TypeAdapter(PlanBudget)
++
++
++def _object(value: object) -> dict[str, object]:
++    if not isinstance(value, dict):
++        raise ValueError("必须是对象")
++    return value
++
++
++def _unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
++    result: dict[str, object] = {}
++    for key, value in pairs:
++        if key in result:
++            raise ValueError("JSON 键不得重复")
++        result[key] = value
++    return result
++
++
++def _reject_constant(_value: str) -> object:
++    raise ValueError("JSON 数字必须有限")
++
++
++def _text(value: object) -> str:
++    if not isinstance(value, str):
++        raise ValueError("必须是字符串")
++    # UTF-8 JSON 中的孤立 surrogate 转义也不能成为可存储的正文或证据。
++    value.encode("utf-8")
++    return value
++
++
++def _optional_text(value: object) -> str | None:
++    return None if value is None else _text(value)
++
++
++def _integer(value: object) -> int:
++    if type(value) is not int:
++        raise ValueError("必须是整数")
++    return value
++
++
++def _citations(
++    payload: dict[str, object], message: dict[str, object], answer: str
++) -> tuple[CollectedCitation, ...]:
++    reported = payload.get("citations")
++    annotations = message.get("annotations")
++    if reported is None:
++        reported = []
++    if annotations is None:
++        annotations = []
++    if not isinstance(reported, list) or not isinstance(annotations, list):
++        raise ValueError("引用必须是数组")
++    if len(reported) > 1000 or len(annotations) > 1000:
++        raise ValueError("引用超过上限")
++    if reported and annotations:
++        raise ValueError("引用来源存在歧义")
++    citations: list[CollectedCitation] = []
++    for raw in reported:
++        citation = _object(raw)
++        citations.append(
++            CollectedCitation(
++                url=_text(citation["url"]),
++                title=_optional_text(citation.get("title")),
++                position=_integer(citation["position"]),
++                extraction_source="STRUCTURED",
++            )
++        )
++    # 标准 annotations 以正文字符位置排序；position 是提交合同中的引用序号。
++    located: list[tuple[int, int, dict[str, object]]] = []
++    for order, raw in enumerate(annotations):
++        annotation = _object(raw)
++        if annotation.get("type") != "url_citation":
++            raise ValueError("不支持的引用类型")
++        citation = _object(annotation["url_citation"])
++        start = _integer(citation["start_index"])
++        end = _integer(citation["end_index"])
++        if not 0 <= start < end <= len(answer):
++            raise ValueError("引用位置超出正文")
++        located.append((start, order, citation))
++    for position, (_, _, citation) in enumerate(sorted(located), start=1):
++        citations.append(
++            CollectedCitation(
++                url=_text(citation["url"]),
++                title=_optional_text(citation.get("title")),
++                position=position,
++                extraction_source="STRUCTURED",
++            )
++        )
++    return tuple(sorted(citations, key=lambda item: item.position))
++
++
++def _usage(value: object) -> Usage | None:
++    if value is None:
++        return None
++    reported = _object(value)
++    counts = tuple(
++        reported.get(key) for key in ("prompt_tokens", "completion_tokens", "total_tokens")
++    )
++    if all(count is None for count in counts):
++        return None
++    return Usage(
++        prompt_tokens=None if counts[0] is None else _integer(counts[0]),
++        completion_tokens=None if counts[1] is None else _integer(counts[1]),
++        total_tokens=None if counts[2] is None else _integer(counts[2]),
++    )
++
++
++def _cost(value: object) -> Money | None:
++    if value is None:
++        return None
++    reported = _object(value)
++    amount = reported.get("amount")
++    currency = reported.get("currency")
++    # 缺任一字段无法建立金额；已报告的非法值仍必须拒绝，不能被 null 掩盖。
++    parsed: Decimal | None = None
++    if amount is not None:
++        if not isinstance(amount, (str, Decimal, int)) or isinstance(amount, bool):
++            raise ValueError("费用金额无效")
++        parsed = _AMOUNT.validate_python(amount if isinstance(amount, str) else Decimal(amount))
++        if not parsed.is_finite() or parsed < 0:
++            raise ValueError("费用金额必须有限且非负")
++    if currency is not None and re.fullmatch(r"[A-Z]{3}", _text(currency)) is None:
++        raise ValueError("费用币种无效")
++    if parsed is None or currency is None:
++        return None
++    return Money(amount=parsed, currency=_text(currency))
++
++
++def parse_response(response: PinnedResponse, *, duration_ms: int) -> CollectedAnswer:
++    """只保留允许落库的正文/结构化元数据；所有解析失败转换为无敏感值的固定错误。"""
++    try:
++        payload = _object(
++            json.loads(
++                response.body.decode("utf-8"),
++                object_pairs_hook=_unique_object,
++                parse_float=Decimal,
++                parse_constant=_reject_constant,
++            )
++        )
++        if payload.get("error") is not None:
++            raise ValueError("供应商报告失败")
++        choices = payload["choices"]
++        if not isinstance(choices, list) or len(choices) != 1:
++            raise ValueError("必须返回一个完整回答")
++        choice = _object(choices[0])
++        message = _object(choice["message"])
++        if message.get("role", "assistant") != "assistant":
++            raise ValueError("回答角色无效")
++        if message.get("tool_calls") or message.get("function_call") or message.get("refusal"):
++            raise ValueError("未返回可采集的完整回答")
++        answer = _text(message["content"])
++        finish = choice.get("finish_reason")
++        finish_reason: Literal["STOP", "OTHER"] | None = None
++        if finish is not None:
++            finish = _text(finish)
++            if finish in {"length", "content_filter", "tool_calls", "function_call"}:
++                raise ValueError("回答已截断或未完成")
++            if not finish:
++                raise ValueError("结束原因无效")
++            finish_reason = "STOP" if finish == "stop" else "OTHER"
++        search = payload.get("web_search_observed")
++        if search is not None and type(search) is not bool:
++            raise ValueError("搜索状态必须为布尔或未知")
++        return CollectedAnswer(
++            answer_text=answer,
++            answer_format="TEXT",
++            source_product=_optional_text(payload.get("source_product")),
++            source_model=_optional_text(payload.get("model")),
++            source_version=_optional_text(payload.get("source_version")),
++            web_search_observed=search,
++            citations=_citations(payload, message, answer),
++            provider_request_id=_optional_text(response.headers.get("x-request-id")),
++            usage=_usage(payload.get("usage")),
++            cost=_cost(payload.get("cost")),
++            duration_ms=duration_ms,
++            raw_payload_summary=RawPayloadSummary(
++                payload_format="JSON", payload_bytes=len(response.body), finish_reason=finish_reason
++            ),
++            screenshot_bytes=None,
++            raw_payload_bytes=None,
++        )
++    except (ValueError, TypeError, KeyError, RecursionError, InvalidOperation):
++        raise CollectorError(
++            GeoRunErrorCode.PROVIDER_RESPONSE_INVALID,
++            stage=CollectorStage.PARSE,
++            external_call_state=GeoExternalCallState.COMPLETED,
++        ) from None
+--- a/backend/app/services/pinned_http.py
++++ b/backend/app/services/pinned_http.py
+@@ -8,7 +8,7 @@
+ import ssl
+ from collections.abc import Callable, Sequence
+ from dataclasses import dataclass
+-from typing import Protocol
++from typing import Literal, Protocol
+ from urllib.parse import quote, urlsplit, urlunsplit
+ 
+ from app.errors import AppError
+@@ -63,6 +63,23 @@
+     status_code: int
+     headers: dict[str, str]
+     body: bytes
++
++
++class PinnedTransportError(AppError):
++    """保留既有错误协议，并明确首次 HTTP 发送边界供采集恢复分类使用。"""
++
++    def __init__(
++        self,
++        code: str,
++        message: str,
++        status_code: int,
++        *,
++        stage: Literal["CONFIGURATION", "CONNECT", "SEND", "RECEIVE"],
++        request_started: bool,
++    ) -> None:
++        super().__init__(code, message, status_code)
++        self.stage = stage
++        self.request_started = request_started
+ 
+ 
+ class HTTPTransport(Protocol):
+@@ -140,7 +157,10 @@
+     if not local_http and any(not address.is_global for address in parsed_addresses):
+         raise AppError("AI_URL_FORBIDDEN", "AI 渠道解析到了非公网地址", 422)
+ 
+-    path_prefix = quote(parsed.path.rstrip("/"), safe="/%:@!$&'()*+,;=-._~")
++    try:
++        path_prefix = quote(parsed.path.rstrip("/"), safe="/%:@!$&'()*+,;=-._~")
++    except UnicodeError:
++        raise AppError("AI_URL_FORBIDDEN", "AI 渠道地址路径无法编码", 422) from None
+     return ResolvedEndpoint(
+         scheme=parsed.scheme,
+         hostname=parsed.hostname,
+@@ -202,14 +222,39 @@
+         headers: dict[str, str],
+         timeout_seconds: int,
+         body: bytes | None,
++        before_send: Callable[[], None] | None = None,
++        max_response_bytes: int | None = None,
+     ) -> PinnedResponse:
+         """最多发送一次 HTTP 请求；开始发送后任何失败都不会换地址重试。"""
+-        endpoint = resolve_endpoint(
+-            base_url,
+-            allow_local_http=self._allow_local_http,
+-            resolver=self._resolver,
+-        )
+-        connection = self._connect(endpoint, timeout_seconds)
++        limit = self._max_response_bytes
++        if max_response_bytes is not None:
++            if max_response_bytes <= 0:
++                raise ValueError("响应上限必须大于零")
++            limit = min(limit, max_response_bytes)
++        try:
++            endpoint = resolve_endpoint(
++                base_url,
++                allow_local_http=self._allow_local_http,
++                resolver=self._resolver,
++            )
++        except AppError as error:
++            raise PinnedTransportError(
++                error.code,
++                error.message,
++                error.status_code,
++                stage="CONFIGURATION",
++                request_started=False,
++            ) from None
++        try:
++            connection = self._connect(endpoint, timeout_seconds)
++        except AppError as error:
++            raise PinnedTransportError(
++                error.code,
++                error.message,
++                error.status_code,
++                stage="CONNECT",
++                request_started=False,
++            ) from None
+         try:
+             request_headers = {
+                 "Host": endpoint.host_header,
+@@ -219,42 +264,85 @@
+             if body is not None:
+                 request_headers["Content-Type"] = "application/json"
+                 request_headers["Content-Length"] = str(len(body))
+-            request = [
+-                f"{method} {endpoint.request_path(suffix)} HTTP/1.1\r\n".encode("ascii")
+-            ]
+-            request.extend(
+-                f"{name}: {value}\r\n".encode("latin-1")
+-                for name, value in request_headers.items()
+-            )
+-            request.append(b"\r\n")
+-            if body is not None:
+-                request.append(body)
+-            connection.sendall(b"".join(request))
++            try:
++                request = [
++                    f"{method} {endpoint.request_path(suffix)} HTTP/1.1\r\n".encode("ascii")
++                ]
++                request.extend(
++                    f"{name}: {value}\r\n".encode("latin-1")
++                    for name, value in request_headers.items()
++                )
++                request.append(b"\r\n")
++                if body is not None:
++                    request.append(body)
++                wire = b"".join(request)
++            except UnicodeError:
++                raise PinnedTransportError(
++                    "AI_URL_FORBIDDEN", "AI 渠道请求配置无法编码", 422,
++                    stage="CONFIGURATION", request_started=False,
++                ) from None
++            # 必须在 TLS/peer 和全部序列化之后；回调失败原样传播且不会发出字节。
++            if before_send is not None:
++                before_send()
++            return self._exchange(connection, wire, limit)
++        finally:
++            connection.close()
++
++    def _exchange(self, connection: socket.socket, wire: bytes, limit: int) -> PinnedResponse:
++        stage: Literal["SEND", "RECEIVE"] = "SEND"
++        try:
++            # sendall 失败时无法证明未发送任何字节，不能宣称可安全重发。
++            connection.sendall(wire)
++            stage = "RECEIVE"
+             response = http.client.HTTPResponse(connection)
+             response.begin()
+             content_length = response.getheader("content-length")
+             if content_length is not None:
+                 try:
+-                    if int(content_length) > self._max_response_bytes:
++                    if not content_length.isascii() or not content_length.isdecimal():
++                        raise ValueError
++                    if int(content_length) > limit:
+                         raise AppError("AI_RESPONSE_TOO_LARGE", "AI 渠道响应超过大小上限", 502)
+                 except ValueError as error:
+                     raise AppError("AI_RESPONSE_INVALID", "AI 渠道响应长度无效", 502) from error
+-            response_body = response.read(self._max_response_bytes + 1)
+-            if len(response_body) > self._max_response_bytes:
++            response_body = response.read(limit + 1)
++            if len(response_body) > limit:
+                 raise AppError("AI_RESPONSE_TOO_LARGE", "AI 渠道响应超过大小上限", 502)
++            if (
++                content_length is not None
++                and not response.chunked
++                and len(response_body) != int(content_length)
++            ):
++                raise http.client.IncompleteRead(response_body)
+             return PinnedResponse(
+                 status_code=response.status,
+                 headers={name.casefold(): value for name, value in response.getheaders()},
+                 body=response_body,
+             )
+-        except AppError:
+-            raise
+-        except TimeoutError as error:
+-            raise AppError("AI_PROVIDER_TIMEOUT", "AI 渠道请求超时", 504) from error
+-        except (OSError, http.client.HTTPException) as error:
+-            raise AppError("AI_PROVIDER_UNAVAILABLE", "AI 渠道网络请求失败", 502) from error
+-        finally:
+-            connection.close()
++        except AppError as error:
++            raise PinnedTransportError(
++                error.code,
++                error.message,
++                error.status_code,
++                stage=stage,
++                request_started=True,
++            ) from None
++        except TimeoutError:
++            raise PinnedTransportError(
++                "AI_PROVIDER_TIMEOUT",
++                "AI 渠道请求超时",
++                504,
++                stage=stage,
++                request_started=True,
++            ) from None
++        except (OSError, http.client.HTTPException):
++            raise PinnedTransportError(
++                "AI_PROVIDER_UNAVAILABLE",
++                "AI 渠道网络请求失败",
++                502,
++                stage=stage,
++                request_started=True,
++            ) from None
+ 
+     def _connect(self, endpoint: ResolvedEndpoint, timeout_seconds: int) -> socket.socket:
+         """仅在 HTTP 字节尚未发送前依次尝试本次解析批准的地址。"""
+--- a/backend/tests/geo_openai_support.py
++++ b/backend/tests/geo_openai_support.py
+@@ -0,0 +1,58 @@
++"""真实 GEO API adapter 的本地测试装配，不读取生产凭据或业务数据库。"""
++
++from dataclasses import replace
++from uuid import uuid4
++
++from app.collectors.openai_compatible import OpenAICompatibleGeoCollector
++from app.schemas.geo_surfaces import GeoSurfaceKind
++from tests.geo_collector_contract import test_secret
++from tests.unit.test_geo_collector_suite import make_request as fixture_request
++
++
++def make_request():
++    request = fixture_request()
++    return replace(
++        request,
++        profile=replace(
++            request.profile,
++            adapter_key="openai-compatible-chat",
++            adapter_version="1",
++            ai_channel_id=uuid4(),
++            ai_model_id=uuid4(),
++        ),
++        engine_surface=replace(request.engine_surface, surface_kind=GeoSurfaceKind.MODEL_API),
++    )
++
++
++def configuration(request, **changes):
++    config = {
++        "channel_id": request.profile.ai_channel_id,
++        "model_id": request.profile.ai_model_id,
++        "protocol_type": "openai-compatible-chat-completions",
++        "base_url": "https://provider.test/v1",
++        "provider_model": "geo-fixture-model",
++        "api_key": "test-credential",
++    }
++    return {**config, **changes}
++
++
++def make_collector(provider, request, **changes):
++    secrets = tuple(test_secret(kind) for kind in ("api", "header", "cookie"))
++    collector = OpenAICompatibleGeoCollector(
++        **configuration(
++            request,
++            base_url=provider.base_url + "/v1",
++            api_key=secrets[0],
++            headers={
++                "X-GEO-Attempt-ID": str(request.run_id),
++            },
++            sensitive_headers={
++                "X-Custom-Secret": secrets[1],
++                "Cookie": secrets[2],
++            },
++            allow_local_http=True,
++            environment="test",
++            **changes,
++        )
++    )
++    return collector, secrets
+--- a/backend/tests/unit/test_geo_openai_collector.py
++++ b/backend/tests/unit/test_geo_openai_collector.py
+@@ -0,0 +1,174 @@
++"""GEO-404 真实实现接入 GEO-402 的独立合同套件。"""
++
++from dataclasses import replace
++from decimal import Decimal
++from uuid import uuid4
++
++import pytest
++from pydantic import TypeAdapter
++
++from app.collectors.base import GeoCollector
++from app.collectors.contracts import CollectedAnswer
++from app.collectors.errors import CollectorError
++from app.collectors.openai_compatible import OpenAICompatibleGeoCollector
++from app.collectors.registry import CollectionProfileSnapshot
++from app.geo_fake_server import FakeMode, FakeScenario, running_geo_fake
++from app.schemas.geo_runs import GeoExternalCallState as State
++from app.schemas.geo_runs import GeoRunDataClassification
++from app.schemas.geo_runs import GeoRunErrorCode as Code
++from app.schemas.geo_surfaces import GeoProfileTestStatus
++from tests.geo_collector_contract import (
++    FAILURE_CASES,
++    assert_authorization_rejection,
++    assert_collection_case,
++    assert_secrets_absent,
++)
++from tests.geo_network_guard import local_geo_network as local_geo_network
++from tests.geo_openai_support import configuration, make_collector, make_request
++
++
++@pytest.mark.parametrize("mode", [FakeMode.SUCCESS, FakeMode.CITATIONS])
++@pytest.mark.parametrize("search", [True, False, None])
++def test_real_collector_contract_original_text_metadata_and_secrets(mode, search, capsys, caplog):
++    request = make_request()
++    with running_geo_fake() as provider:
++        collector, secrets = make_collector(provider, request)
++        assert isinstance(collector, GeoCollector)
++        result = assert_collection_case(
++            collector,
++            request,
++            provider,
++            FakeScenario(
++                mode=mode,
++                answer_text="  完整回答，保留空白和格式。\r\n",
++                web_search_observed=search,
++                partial_usage=True,
++                reported_cost=True,
++                echo_sensitive=True,
++            ),
++            secrets=secrets,
++        )
++        assert isinstance(result, CollectedAnswer)
++        assert result.cost.amount == Decimal("0.001200")
++        assert result.raw_payload_bytes is None and result.screenshot_bytes is None
++        assert_secrets_absent(
++            [TypeAdapter(CollectedAnswer).dump_json(result), caplog.text, *capsys.readouterr()],
++            secrets,
++        )
++
++
++@pytest.mark.parametrize("case", FAILURE_CASES, ids=lambda case: case.mode.value)
++def test_real_collector_failure_matrix_one_send_and_no_redirect(case, capsys, caplog):
++    request = make_request()
++    with running_geo_fake() as provider:
++        collector, secrets = make_collector(provider, request)
++        assert_collection_case(
++            collector,
++            request,
++            provider,
++            FakeScenario(mode=case.mode, response_bytes=8193, echo_sensitive=True),
++            secrets=secrets,
++        )
++        assert_secrets_absent([caplog.text, *capsys.readouterr()], secrets)
++
++
++def test_unknown_cost_search_and_usage_stay_null_and_authorization_failure_blocks_send():
++    request = make_request()
++    with running_geo_fake() as provider:
++        collector, _ = make_collector(provider, request)
++        assert collector.estimate(request).cost is None
++        assert_authorization_rejection(collector, request, provider)
++        result = assert_collection_case(collector, request, provider, FakeScenario())
++        assert isinstance(result, CollectedAnswer)
++        assert result.cost is result.usage is result.web_search_observed is None
++
++
++@pytest.mark.parametrize(
++    "field", ["adapter_key", "adapter_version", "ai_channel_id", "ai_model_id"]
++)
++def test_frozen_adapter_and_model_binding_cannot_be_substituted(field):
++    request = make_request()
++    with running_geo_fake() as provider:
++        collector, _ = make_collector(provider, request)
++        value = uuid4() if field.startswith("ai_") else "other"
++        request = replace(request, profile=replace(request.profile, **{field: value}))
++        with pytest.raises(CollectorError) as caught:
++            collector.collect(request, before_send=lambda: pytest.fail("不能授权"))
++        assert caught.value.failure.code == Code.COLLECTOR_CONFIGURATION_INVALID
++        assert caught.value.failure.external_call_state == State.NOT_STARTED
++        assert provider.state.snapshot(request.run_id)["count"] == 0
++
++
++@pytest.mark.parametrize(
++    "classification", [GeoRunDataClassification.INTERNAL, GeoRunDataClassification.RESTRICTED]
++)
++def test_nonpublic_input_has_no_external_authorization(classification):
++    request = replace(make_request(), data_classification=classification)
++    with running_geo_fake() as provider:
++        collector, _ = make_collector(provider, request)
++        with pytest.raises(CollectorError) as caught:
++            collector.collect(request, before_send=lambda: pytest.fail("不能授权"))
++        assert caught.value.failure.code == Code.DATA_CLASSIFICATION_FORBIDDEN
++        assert provider.state.snapshot(request.run_id)["count"] == 0
++
++
++@pytest.mark.parametrize(
++    "params",
++    [
++        {"messages": []},
++        {"system": "品牌结论"},
++        {"tools": []},
++        {"response_format": {"type": "json_object"}},
++        {"extra_body": {}},
++        {"stream": True},
++        {"model": "substitute"},
++        {"n": 2},
++        {"temperature": True},
++        {"temperature": float("nan")},
++        {"temperature": 10**1000},
++        {"max_tokens": 0},
++        {"max_tokens": 1, "max_completion_tokens": 2},
++    ],
++)
++def test_instruction_parameters_and_invalid_numeric_settings_fail_closed(params):
++    with pytest.raises(CollectorError) as caught:
++        OpenAICompatibleGeoCollector(**configuration(make_request(), request_parameters=params))
++    assert caught.value.failure.code == Code.COLLECTOR_CONFIGURATION_INVALID
++    assert caught.value.failure.external_call_state == State.NOT_STARTED
++
++
++@pytest.mark.parametrize(
++    "change",
++    [
++        {"headers": {"Host": "private"}},
++        {"headers": {"Authorization": "override"}},
++        {"headers": {"x-secret": "line\r\nInjected: yes"}},
++        {"headers": {"X-Key": "one", "x-key": "two"}},
++        {"api_key": "line\nkey"},
++        {"protocol_type": "browser"},
++        {"allow_local_http": True, "environment": "production"},
++    ],
++)
++def test_sensitive_headers_protocol_and_production_http_are_rejected(change):
++    with pytest.raises(CollectorError):
++        OpenAICompatibleGeoCollector(**configuration(make_request(), **change))
++
++
++def test_profile_validation_and_estimate_are_pure_and_do_not_grant_execution():
++    request = make_request()
++    profile = request.profile
++    collector = OpenAICompatibleGeoCollector(**configuration(request))
++    snapshot = CollectionProfileSnapshot(
++        **{
++            key: getattr(profile, key)
++            for key in CollectionProfileSnapshot.__dataclass_fields__
++            if hasattr(profile, key)
++        },
++        is_active=False,
++        last_test_status=GeoProfileTestStatus.UNTESTED,
++        last_tested_at=None,
++    )
++    assert collector.validate_profile(snapshot) == ()
++    assert collector.validate_profile(replace(snapshot, ai_model_id=uuid4()))
++    assert collector.estimate(request).cost is None
++    assert collector.registration.approved is False
+--- a/backend/tests/unit/test_geo_openai_response.py
++++ b/backend/tests/unit/test_geo_openai_response.py
+@@ -0,0 +1,209 @@
++"""真实响应解析金标；不使用生产解析器生成期望结果。"""
++
++import json
++from decimal import Decimal
++
++import pytest
++
++from app.collectors.errors import CollectorError, CollectorStage
++from app.collectors.openai_response import parse_response
++from app.schemas.geo_runs import GeoExternalCallState, GeoRunErrorCode
++from app.services.pinned_http import PinnedResponse
++
++
++def completion(**changes):
++    return {
++        "choices": [{"message": {"content": "原始回答与引用"}, "finish_reason": "stop"}],
++        **changes,
++    }
++
++
++def parse(payload, **headers):
++    return parse_response(
++        PinnedResponse(200, headers, json.dumps(payload, ensure_ascii=False).encode()),
++        duration_ms=1,
++    )
++
++
++def test_original_answer_is_not_a_generated_draft_and_metadata_is_not_inferred():
++    content = '{"title":"保持原文","body_markdown":"body","excerpt":"","geo_summary":""}'
++    result = parse({"choices": [{"message": {"content": content}}]})
++    assert result.answer_text == content
++    assert result.source_model is result.source_version is result.source_product is None
++    assert result.web_search_observed is result.cost is result.usage is None
++    assert result.provider_request_id is None
++    assert result.raw_payload_summary.finish_reason is None
++
++
++def test_structured_citations_keep_actual_positions_and_repeated_urls():
++    result = parse(
++        completion(
++            citations=[
++                {"url": "https://example.com/a", "title": None, "position": 7},
++                {"url": "https://example.com/a", "title": "证据", "position": 2},
++            ]
++        )
++    )
++    assert tuple(c.position for c in result.citations) == (2, 7)
++    assert result.citations[0].url == result.citations[1].url
++    assert result.web_search_observed is None
++
++
++def test_standard_url_annotations_follow_answer_positions_and_are_not_fetched():
++    result = parse(
++        {
++            "choices": [
++                {
++                    "message": {
++                        "content": "原始回答与引用",
++                        "annotations": [
++                            {
++                                "type": "url_citation",
++                                "url_citation": {
++                                    "url": "https://example.com/b",
++                                    "title": "后",
++                                    "start_index": 5,
++                                    "end_index": 7,
++                                },
++                            },
++                            {
++                                "type": "url_citation",
++                                "url_citation": {
++                                    "url": "https://example.com/a",
++                                    "title": "前",
++                                    "start_index": 0,
++                                    "end_index": 2,
++                                },
++                            },
++                        ],
++                    }
++                }
++            ]
++        }
++    )
++    assert tuple(c.title for c in result.citations) == ("前", "后")
++    assert tuple(c.position for c in result.citations) == (1, 2)
++    assert all(c.extraction_source == "STRUCTURED" for c in result.citations)
++
++
++@pytest.mark.parametrize(
++    "usage",
++    [
++        {"prompt_tokens": 7},
++        {"completion_tokens": 0},
++        {"total_tokens": 8},
++    ],
++)
++def test_usage_is_partial_without_sums(usage):
++    result = parse(completion(usage=usage))
++    assert result.usage is not None
++    for field in ("prompt_tokens", "completion_tokens", "total_tokens"):
++        assert getattr(result.usage, field) == usage.get(field)
++
++
++@pytest.mark.parametrize(
++    "cost", [{"amount": "0", "currency": "USD"}, {"amount": "0.001200", "currency": "CNY"}]
++)
++def test_reported_cost_is_exact_and_zero_is_distinct_from_unknown(cost):
++    result = parse(completion(cost=cost))
++    assert result.cost.amount == Decimal(cost["amount"])
++    assert result.cost.currency == cost["currency"]
++
++
++@pytest.mark.parametrize("cost", [{}, {"amount": "1.200000"}, {"currency": "USD"}])
++def test_partial_cost_stays_unknown(cost):
++    assert parse(completion(cost=cost)).cost is None
++
++
++@pytest.mark.parametrize(
++    "changes",
++    [
++        {"choices": []},
++        {"choices": [{}, {}]},
++        {"choices": [{"message": {"content": []}}]},
++        {"choices": [{"message": {"content": " \n"}}]},
++        {"choices": [{"message": {"content": "NUL\x00"}}]},
++        {"choices": [{"message": {"content": "\ud800"}}]},
++        {"choices": [{"message": {"content": "x" * 1048577}}]},
++        {"choices": [{"message": {"content": "partial"}, "finish_reason": "length"}]},
++        {"choices": [{"message": {"content": "blocked"}, "finish_reason": "content_filter"}]},
++        {"choices": [{"message": {"content": "tool", "tool_calls": [{"id": "call"}]}}]},
++        {"web_search_observed": "unknown"},
++        {"web_search_observed": 0},
++        {"model": ""},
++        {"source_version": {}},
++        {"error": {"message": "private"}},
++        {"usage": {"prompt_tokens": True}},
++        {"usage": {"completion_tokens": -1}},
++        {"usage": {"total_tokens": 2147483648}},
++        {"usage": {"prompt_tokens": "7"}},
++        {"cost": {"amount": "NaN", "currency": "USD"}},
++        {"cost": {"amount": "0.0000001", "currency": "USD"}},
++        {"cost": {"amount": "100000000", "currency": "USD"}},
++        {"cost": {"amount": "-1", "currency": "USD"}},
++        {"cost": {"amount": True, "currency": "USD"}},
++        {"cost": {"amount": "1", "currency": "usd"}},
++        {"cost": {"amount": "invalid"}},
++        {"citations": [{"url": "javascript:alert(1)", "position": 1}]},
++        {"citations": [{"url": "https://example.com", "position": True}]},
++        {"citations": [{"url": "https://example.com", "position": 1001}]},
++        {"citations": [{"url": "https://example.com", "position": 1}] * 2},
++        {"citations": [{"url": "https://example.com", "position": 1}] * 1001},
++        {
++            "choices": [
++                {
++                    "message": {
++                        "content": "text",
++                        "annotations": [
++                            {
++                                "type": "url_citation",
++                                "url_citation": {
++                                    "url": "https://example.com",
++                                    "start_index": 0,
++                                    "end_index": 5,
++                                },
++                            }
++                        ],
++                    }
++                }
++            ]
++        },
++    ],
++)
++def test_malformed_or_incomplete_reported_fields_fail_closed(changes):
++    # ensure_ascii 可构造非法 surrogate 金标，由响应边界负责拒绝。
++    response = PinnedResponse(200, {}, json.dumps(completion(**changes)).encode())
++    with pytest.raises(CollectorError) as caught:
++        parse_response(response, duration_ms=1)
++    assert caught.value.failure.code == GeoRunErrorCode.PROVIDER_RESPONSE_INVALID
++    assert caught.value.failure.stage == CollectorStage.PARSE
++    assert caught.value.failure.external_call_state == GeoExternalCallState.COMPLETED
++    assert str(caught.value) == "供应商回答格式无效"
++
++
++@pytest.mark.parametrize(
++    "body",
++    [
++        b"not json",
++        b"\xff",
++        b'{"choices":[],"choices":[]}',
++        b'{"usage":{"prompt_tokens":NaN}}',
++        b"[" * 2000,
++    ],
++)
++def test_invalid_encoding_duplicates_nonfinite_and_excessive_nesting(body):
++    with pytest.raises(CollectorError):
++        parse_response(PinnedResponse(200, {}, body), duration_ms=1)
++
++
++def test_request_id_controls_are_rejected_and_debug_cookies_are_discarded():
++    with pytest.raises(CollectorError):
++        parse(completion(), **{"x-request-id": "id\nsecret"})
++    result = parse(completion(debug={"token": "private"}), **{"set-cookie": "private"})
++    assert result.raw_payload_bytes is None
++    assert result.raw_payload_summary.to_contract().model_dump() == {
++        "schema_version": 1,
++        "payload_format": "JSON",
++        "payload_bytes": result.raw_payload_summary.payload_bytes,
++        "finish_reason": "STOP",
++    }
+--- a/backend/tests/unit/test_geo_openai_network.py
++++ b/backend/tests/unit/test_geo_openai_network.py
+@@ -0,0 +1,396 @@
++"""GEO 出站 SSRF、真实本地 TLS、发送边界与响应上限金标。"""
++
++import json
++import socket
++import ssl
++from base64 import b64encode
++from dataclasses import replace
++from typing import cast
++from urllib.parse import quote, quote_from_bytes
++
++import pytest
++
++from app.collectors.errors import CollectorError, CollectorRetryability, CollectorStage
++from app.collectors.openai_compatible import OpenAICompatibleGeoCollector
++from app.geo_fake_server import running_geo_fake
++from app.schemas.geo_runs import GeoExternalCallState as State
++from app.schemas.geo_runs import GeoRunErrorCode as Code
++from app.services.pinned_http import PinnedHTTPTransport, PinnedTransportError
++from tests.geo_collector_contract import assert_secrets_absent, test_secret
++from tests.geo_network_guard import local_geo_network as local_geo_network
++from tests.geo_openai_support import configuration, make_request
++from tests.integration.test_ai_egress_https import PeerOverrideSocket, write_local_ca
++from tests.unit.test_pinned_http import FakeSocket, ok_response, resolver_for
++
++
++def answer_bytes():
++    return b'{"choices":[{"message":{"content":"answer"},"finish_reason":"stop"}]}'
++
++
++def collector_for_socket(request, fake, *, resolver=None, **changes):
++    transport = PinnedHTTPTransport(
++        allow_local_http=False,
++        resolver=resolver or resolver_for("93.184.216.34"),
++        connector=lambda _address, _timeout: fake,
++        tls_wrapper=lambda connection, _host: connection,
++    )
++    return OpenAICompatibleGeoCollector(**configuration(request, transport=transport, **changes))
++
++
++def test_profile_overrides_sampling_and_output_limit_without_adding_instructions():
++    request = make_request()
++    request = replace(
++        request,
++        profile=replace(
++            request.profile, settings=(("temperature", 0.2), ("max_output_tokens", 80))
++        ),
++    )
++    fake = FakeSocket(peer_ip="93.184.216.34", response=ok_response(answer_bytes()))
++    params = {"temperature": 1.5, "max_completion_tokens": 100, "top_p": 0.9}
++    collector = collector_for_socket(request, fake, request_parameters=params)
++    params["temperature"] = 2
++    collector.collect(request, before_send=lambda: None)
++    wire = json.loads(fake.sent[0].split(b"\r\n\r\n", 1)[1])
++    assert wire == {
++        "model": "geo-fixture-model",
++        "stream": False,
++        "messages": [{"role": "user", "content": request.prompt_text}],
++        "temperature": 0.2,
++        "max_completion_tokens": 80,
++        "top_p": 0.9,
++    }
++    assert fake.closed
++
++
++@pytest.mark.parametrize(
++    "bad_url",
++    [
++        "http://provider.test/v1",
++        "https://user:pass@provider.test/v1",
++        "https://provider.test/v1?token=private",
++        "https://provider.test/v1#fragment",
++    ],
++)
++def test_forbidden_urls_never_authorize_or_send(bad_url):
++    request = make_request()
++    fake = FakeSocket(peer_ip="93.184.216.34", response=ok_response(answer_bytes()))
++    collector = collector_for_socket(request, fake, base_url=bad_url)
++    with pytest.raises(CollectorError) as caught:
++        collector.collect(request, before_send=lambda: pytest.fail("不能授权"))
++    assert caught.value.failure.code == Code.COLLECTOR_CONFIGURATION_INVALID
++    assert caught.value.failure.external_call_state == State.NOT_STARTED
++    assert fake.sent == []
++
++
++@pytest.mark.parametrize("ip", ["127.0.0.1", "10.0.0.1", "169.254.169.254", "fd00::1", "::1"])
++def test_any_private_dns_answer_blocks_whole_set_before_connect(ip):
++    request = make_request()
++    fake = FakeSocket(peer_ip="93.184.216.34", response=ok_response(answer_bytes()))
++
++    def resolve(_host, port, **_kwargs):
++        return [
++            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", port)),
++            (
++                socket.AF_INET6 if ":" in ip else socket.AF_INET,
++                socket.SOCK_STREAM,
++                6,
++                "",
++                (ip, port),
++            ),
++        ]
++
++    collector = collector_for_socket(request, fake, resolver=resolve)
++    with pytest.raises(CollectorError) as caught:
++        collector.collect(request, before_send=lambda: pytest.fail("不能授权"))
++    assert caught.value.failure.stage == CollectorStage.CONFIGURATION
++    assert fake.sent == []
++
++
++def test_peer_mismatch_never_authorizes_or_sends_and_releases_socket():
++    request = make_request()
++    fake = FakeSocket(peer_ip="10.0.0.1", response=ok_response(answer_bytes()))
++    collector = collector_for_socket(request, fake)
++    with pytest.raises(CollectorError) as caught:
++        collector.collect(request, before_send=lambda: pytest.fail("不能授权"))
++    assert caught.value.failure.stage == CollectorStage.CONNECT
++    assert caught.value.failure.external_call_state == State.NOT_STARTED
++    assert fake.closed and fake.sent == []
++
++
++@pytest.mark.parametrize("error", [OSError("connect"), TimeoutError("connect")])
++def test_connect_failure_is_distinct_from_sent_unknown(error):
++    request = make_request()
++
++    def connect(_address, _timeout):
++        raise error
++
++    collector = OpenAICompatibleGeoCollector(
++        **configuration(
++            request,
++            transport=PinnedHTTPTransport(
++                allow_local_http=False,
++                resolver=resolver_for("93.184.216.34"),
++                connector=connect,
++            ),
++        )
++    )
++    with pytest.raises(CollectorError) as caught:
++        collector.collect(request, before_send=lambda: pytest.fail("不能授权"))
++    assert caught.value.failure.code == (
++        Code.PROVIDER_TIMEOUT if isinstance(error, TimeoutError) else Code.PROVIDER_UNAVAILABLE
++    )
++    assert caught.value.failure.external_call_state == State.NOT_STARTED
++    assert caught.value.failure.retryability == CollectorRetryability.SAFE_BEFORE_SEND
++
++
++def test_send_exception_is_unknown_and_never_switches_addresses():
++    request = make_request()
++    fake = FakeSocket(peer_ip="93.184.216.34", response=b"", send_error=OSError("partial"))
++    calls = []
++    collector = collector_for_socket(
++        request, fake, resolver=resolver_for("93.184.216.34", "93.184.216.35")
++    )
++    with pytest.raises(CollectorError) as caught:
++        collector.collect(request, before_send=lambda: calls.append("authorized"))
++    assert caught.value.failure.code == Code.COLLECTOR_UNKNOWN_OUTCOME
++    assert caught.value.failure.stage == CollectorStage.SEND
++    assert caught.value.failure.external_call_state == State.UNKNOWN
++    assert len(fake.sent) == len(calls) == 1 and fake.closed
++
++
++@pytest.mark.parametrize(
++    "response",
++    [
++        b"HTTP/1.1 200 OK\r\nContent-Length: 4097\r\n\r\n",
++        b"HTTP/1.1 200 OK\r\n\r\n" + b"x" * 4097,
++        b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n1001\r\n"
++        + b"x" * 4097
++        + b"\r\n0\r\n\r\n",
++    ],
++)
++def test_per_request_limit_covers_declared_eof_and_chunked_bodies(response):
++    request = make_request()
++    fake = FakeSocket(peer_ip="93.184.216.34", response=response)
++    with pytest.raises(CollectorError) as caught:
++        collector_for_socket(request, fake).collect(request, before_send=lambda: None)
++    assert caught.value.failure.code == Code.PROVIDER_RESPONSE_TOO_LARGE
++    assert caught.value.failure.external_call_state == State.SENT
++    assert fake.closed
++
++
++def test_exact_response_limit_is_valid_but_truncated_declared_body_is_unknown():
++    request = replace(make_request(), max_response_bytes=len(answer_bytes()))
++    fake = FakeSocket(peer_ip="93.184.216.34", response=ok_response(answer_bytes()))
++    assert (
++        collector_for_socket(request, fake).collect(request, before_send=lambda: None).answer_text
++    )
++    fake = FakeSocket(
++        peer_ip="93.184.216.34",
++        response=(b"HTTP/1.1 200 OK\r\nContent-Length: 100\r\n\r\n" + answer_bytes()),
++    )
++    request = replace(request, max_response_bytes=100)
++    with pytest.raises(CollectorError) as caught:
++        collector_for_socket(request, fake).collect(request, before_send=lambda: None)
++    assert caught.value.failure.code == Code.COLLECTOR_UNKNOWN_OUTCOME
++    assert caught.value.failure.external_call_state == State.UNKNOWN
++
++
++def test_callback_exception_is_not_mapped_as_network_failure():
++    request = make_request()
++    fake = FakeSocket(peer_ip="93.184.216.34", response=ok_response(answer_bytes()))
++    rejected = OSError("授权存储失败")
++
++    def reject():
++        raise rejected
++
++    with pytest.raises(OSError) as caught:
++        collector_for_socket(request, fake).collect(request, before_send=reject)
++    assert caught.value is rejected
++    assert fake.sent == [] and fake.closed
++
++
++def test_transport_error_from_callback_is_the_original_authorization_failure():
++    request = make_request()
++    fake = FakeSocket(peer_ip="93.184.216.34", response=ok_response(answer_bytes()))
++    rejected = PinnedTransportError(
++        "AI_PROVIDER_TIMEOUT", "授权方失败", 504, stage="CONNECT", request_started=False
++    )
++
++    def reject():
++        raise rejected
++
++    with pytest.raises(PinnedTransportError) as caught:
++        collector_for_socket(request, fake).collect(request, before_send=reject)
++    assert caught.value is rejected
++    assert fake.sent == [] and fake.closed
++
++
++@pytest.mark.parametrize("status", [600, 999])
++def test_invalid_http_status_has_stable_completed_error(status):
++    request = make_request()
++    fake = FakeSocket(
++        peer_ip="93.184.216.34",
++        response=(f"HTTP/1.1 {status} Invalid\r\nContent-Length: 0\r\n\r\n".encode()),
++    )
++    with pytest.raises(CollectorError) as caught:
++        collector_for_socket(request, fake).collect(request, before_send=lambda: None)
++    assert caught.value.failure.code == Code.PROVIDER_RESPONSE_INVALID
++    assert caught.value.failure.stage == CollectorStage.RECEIVE
++    assert caught.value.failure.external_call_state == State.COMPLETED
++    assert caught.value.failure.provider_status is None
++    assert len(fake.sent) == 1 and fake.closed
++
++
++@pytest.mark.parametrize(
++    "field",
++    [
++        "answer",
++        "model",
++        "source_product",
++        "source_version",
++        "request_id",
++        "citation_url",
++        "citation_title",
++    ],
++)
++def test_provider_cannot_return_actual_credentials_in_any_retained_field(field):
++    request = make_request()
++    secret = test_secret("api")
++    payload = json.loads(answer_bytes())
++    response_headers = b""
++    if field == "answer":
++        payload["choices"][0]["message"]["content"] = f"原文包含 {secret}"
++    elif field == "request_id":
++        response_headers = f"X-Request-ID: {secret}\r\n".encode()
++    elif field.startswith("citation_"):
++        payload["citations"] = [
++            {
++                "url": f"https://example.com/?credential={secret}"
++                if field == "citation_url"
++                else "https://example.com/",
++                "title": secret if field == "citation_title" else None,
++                "position": 1,
++            }
++        ]
++    else:
++        payload[field] = secret
++    body = json.dumps(payload).encode()
++    fake = FakeSocket(
++        peer_ip="93.184.216.34",
++        response=(
++            b"HTTP/1.1 200 OK\r\n"
++            + response_headers
++            + f"Content-Length: {len(body)}\r\n\r\n".encode()
++            + body
++        ),
++    )
++    with pytest.raises(CollectorError) as caught:
++        collector_for_socket(request, fake, api_key=secret).collect(
++            request, before_send=lambda: None
++        )
++    assert caught.value.failure.code == Code.PROVIDER_RESPONSE_INVALID
++    assert caught.value.failure.stage == CollectorStage.PARSE
++    assert caught.value.failure.external_call_state == State.COMPLETED
++    assert_secrets_absent([str(caught.value), repr(caught.value)], [secret])
++
++
++@pytest.mark.parametrize(
++    "encoding", ["plain", "url", "url-lower", "url-wire", "json", "base64", "base64-wire"]
++)
++def test_sensitive_header_reflections_are_rejected_in_retained_text(encoding):
++    request = make_request()
++    secret = test_secret("header") + '/quoted"é'
++    values = {
++        "plain": secret,
++        "url": quote(secret, safe=""),
++        "url-wire": quote_from_bytes(secret.encode("latin-1"), safe=""),
++        "url-lower": quote(secret, safe="").replace("%2F", "%2f").replace("%C3%A9", "%c3%a9"),
++        "json": json.dumps(secret, ensure_ascii=True)[1:-1],
++        "base64": b64encode(secret.encode()).decode(),
++        "base64-wire": b64encode(secret.encode("latin-1")).decode(),
++    }
++    body = json.dumps({"choices": [{"message": {"content": values[encoding]}}]}).encode()
++    fake = FakeSocket(peer_ip="93.184.216.34", response=ok_response(body))
++    with pytest.raises(CollectorError):
++        collector_for_socket(request, fake, sensitive_headers={"X-Secret": secret}).collect(
++            request, before_send=lambda: None
++        )
++
++
++@pytest.mark.parametrize("url", ["https://☃.test/v1", "https://provider.test/\ud800"])
++def test_unencodable_url_configuration_fails_before_callback_with_stable_error(url):
++    request = make_request()
++    fake = FakeSocket(peer_ip="93.184.216.34", response=ok_response(answer_bytes()))
++    collector = collector_for_socket(request, fake, base_url=url)
++    with pytest.raises(CollectorError) as caught:
++        collector.collect(request, before_send=lambda: pytest.fail("不能授权"))
++    assert caught.value.failure.code == Code.COLLECTOR_CONFIGURATION_INVALID
++    assert caught.value.failure.external_call_state == State.NOT_STARTED
++    assert fake.sent == []
++    assert fake.closed if "☃" in url else not fake.closed
++
++
++@pytest.mark.parametrize("case", ["trusted", "untrusted", "wrong-hostname"])
++def test_real_local_tls_checks_ca_sni_host_before_send(case, tmp_path, monkeypatch):
++    hostname = "provider.test"
++    certificate_name = "wrong.test" if case == "wrong-hostname" else hostname
++    ca, certificate, key = write_local_ca(tmp_path, certificate_name)
++    server_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
++    server_context.load_cert_chain(certificate, key)
++    sni_names = []
++    server_context.set_servername_callback(lambda _socket, name, _context: sni_names.append(name))
++    client_context = ssl.create_default_context(cafile=None if case == "untrusted" else str(ca))
++    request = make_request()
++    host_headers = []
++    with running_geo_fake() as provider:
++        provider.socket = server_context.wrap_socket(provider.socket, server_side=True)
++
++        def connect(_address, timeout):
++            connection = socket.create_connection(provider.server_address, timeout=timeout)
++            return cast(socket.socket, PeerOverrideSocket(connection, "93.184.216.34"))
++
++        def wrap(connection, name):
++            tls = client_context.wrap_socket(connection, server_hostname=name)
++            send = tls.sendall
++
++            def capture(data):
++                host_headers.extend(
++                    line for line in data.split(b"\r\n") if line.startswith(b"Host:")
++                )
++                send(data)
++
++            monkeypatch.setattr(tls, "sendall", capture)
++            return tls
++
++        transport = PinnedHTTPTransport(
++            allow_local_http=False,
++            resolver=resolver_for("93.184.216.34"),
++            connector=connect,
++            tls_wrapper=wrap,
++        )
++        collector = OpenAICompatibleGeoCollector(
++            **configuration(
++                request,
++                transport=transport,
++                headers={"X-GEO-Attempt-ID": str(request.run_id)},
++            )
++        )
++        callbacks = []
++
++        def authorize():
++            assert sni_names == [hostname]
++            assert provider.state.snapshot(request.run_id)["count"] == 0
++            callbacks.append("authorized")
++
++        if case == "trusted":
++            collector.collect(request, before_send=authorize)
++            assert callbacks == ["authorized"]
++            stats = provider.state.snapshot(request.run_id)
++            assert stats["count"] == 1
++            assert host_headers == [b"Host: provider.test"]
++        else:
++            with pytest.raises(CollectorError) as caught:
++                collector.collect(request, before_send=authorize)
++            assert caught.value.failure.stage == CollectorStage.CONNECT
++            assert caught.value.failure.external_call_state == State.NOT_STARTED
++            assert callbacks == [] and provider.state.snapshot(request.run_id)["count"] == 0
+--- a/backend/tests/unit/test_geo_collector_contract.py
++++ b/backend/tests/unit/test_geo_collector_contract.py
+@@ -318,14 +318,31 @@
+ 
+ def test_collector_modules_do_not_depend_on_orm_or_transaction_owner() -> None:
+     root = Path(__file__).resolve().parents[2] / "app/collectors"
++    # GEO-404 允许复用无业务状态的传输/Header 边界，不能据此依赖其他服务或生成解析。
++    transport_symbols = {"PinnedHTTPTransport", "PinnedResponse", "PinnedTransportError"}
++    allowed_services = {
++        "openai_compatible.py": {
++            "app.services.pinned_http": transport_symbols,
++            "app.services.openai_client": {"validate_header"},
++        },
++        "openai_response.py": {"app.services.pinned_http": {"PinnedResponse"}},
++    }
+     for path in root.glob("*.py"):
+         tree = ast.parse(path.read_text())
+         for node in ast.walk(tree):
+             if isinstance(node, ast.ImportFrom):
++                module = node.module or ""
++                if module.startswith("app.services"):
++                    allowed = allowed_services.get(path.name, {}).get(module, set())
++                    assert allowed and {name.name for name in node.names} <= allowed
++                    continue
+                 assert not (node.module or "").startswith(
+-                    ("sqlalchemy", "app.db", "app.models", "app.services")
++                    ("sqlalchemy", "app.db", "app.models")
+                 )
+             elif isinstance(node, ast.Import):
+-                assert all(not n.name.startswith("sqlalchemy") for n in node.names)
++                assert all(
++                    not n.name.startswith(("sqlalchemy", "app.db", "app.models", "app.services"))
++                    for n in node.names
++                )
+             elif isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+                 assert node.func.attr not in {"commit", "rollback", "flush", "execute"}
+--- a/deploy/scripts/test-geo-collector-contract.py
++++ b/deploy/scripts/test-geo-collector-contract.py
+@@ -43,6 +43,9 @@
+                 [
+                     str(ROOT / "backend/tests/unit/test_geo_fake_provider.py"),
+                     str(ROOT / "backend/tests/unit/test_geo_collector_suite.py"),
++                    str(ROOT / "backend/tests/unit/test_geo_openai_collector.py"),
++                    str(ROOT / "backend/tests/unit/test_geo_openai_response.py"),
++                    str(ROOT / "backend/tests/unit/test_geo_openai_network.py"),
+                     "--basetemp",
+                     str(artifacts / "pytest"),
+                     "-o",
+--- a/docs/geo-monitoring/README.md
++++ b/docs/geo-monitoring/README.md
+@@ -273,3 +273,11 @@
+ [Task Brief](../../.trellis/tasks/10-03-geo-402-fake-provider/prd.md) 与
+ [实施记录](../../.trellis/tasks/10-03-geo-402-fake-provider/implement.md)。
+ 该测试驱动不登记生产 Collector，不代表 Profile 连接测试、Worker 或发送恢复已经实现。
++
++GEO-404 / R3 已实现独立 OpenAI-compatible GEO Collector：原始 user prompt、严格回答/
++引用/usage/cost 解析、null 语义、固定错误与 pinned HTTP 发送及响应大小边界。
++Registry 采集批准仍为 false，没有 Worker 或业务命令接线。实现边界见
++[Collector 说明](./03-technical/05-worker-and-collector-architecture.md#当前-r3geo-404-openai-compatible-geo-collector)，
++逐项证据与限制见 [Task Brief](../../.trellis/tasks/10-03-geo-404-openai-collector/prd.md) 和
++[实施记录](../../.trellis/tasks/10-03-geo-404-openai-collector/implement.md)，当前状态以
++[任务清单](./04-delivery/task-manifest.yaml) 为准；不代表 GEO-405/406 或 R3 发布完成。
+--- a/docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md
++++ b/docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md
+@@ -526,3 +526,54 @@
+ 
+ `make test-geo-collector-contract` 在输出前扫描日志和临时产物；CI 只允许本地请求。
+ 实现与实际验证见 [GEO-402 记录](../../../.trellis/tasks/10-03-geo-402-fake-provider/implement.md)。
++
++## 当前 R3：GEO-404 OpenAI-compatible GEO Collector
++
++`collectors/openai_compatible.py::OpenAICompatibleGeoCollector` 接收受控调用方提供的
++一次调用内存配置：channel/model UUID、协议、base URL、provider model ID、已解密的凭据、
++Header 和模型参数。无 ORM、Run 状态或事务写入；没有 Worker/业务命令接线。
++Registry 继续保留 `approved=false` 和仅保证 `answer_text` 的声明；可解析的可选元数据
++不表示各供应商均提供该能力，也不授予任何平台采集批准。`validate_profile` 只做纯配置
++和绑定一致性校验，`estimate.cost` 为 null，当前执行资格仍由共享 Application Service
++策略及发送前回调裁决。
++
++只发送一个原始 `user` 消息和 `stream=false`，不带 subject、别名、事实、生成指令或
++system/tool 上下文。模型参数白名单为 temperature、top_p、presence_penalty、
++frequency_penalty、max_tokens、max_completion_tokens、seed、n；拒绝未知参数，不静默
++删除。n 只允许 1；两种输出 token 键不能同时存在，输出 token 范围为 1–65536。
++Profile 的 temperature/max_output_tokens 显式覆盖相应模型参数。当前没有非 PUBLIC
++数据外发授权合同，INTERNAL/RESTRICTED 在任何网络请求前失败；PUBLIC 仍需 `before_send`。
++
++复用 pinned transport 的完整 DNS 集合审批、固定 sockaddr、peer、原始主机名 SNI/Host
++和证书验证。开发回环 HTTP 仅允许 development/test 的受控装配。全部请求 bytes 和
++TLS/peer 检查完成后、首个 HTTP 字节前调用一次 `before_send`；失败原样传播并关闭连接。
++发送后不自动重试、跳转或切换地址。响应 byte 限制取 transport 的既有 2 MiB 上限与
++请求上限的较小值，覆盖 Content-Length、chunked 和 EOF 定界；拒绝声明长度不完整的结果。
++发送前连接故障为 NOT_STARTED，发送/读取中断为 UNKNOWN_OUTCOME/UNKNOWN；超限为 SENT，
++只在完整接收后报告 provider_status/COMPLETED。429 Retry-After 仅保留数值秒元数据。
++
++`collectors/openai_response.py` 独立解析 choices 中的单个完整 string 回答；不调用
++GeneratedDraft 解析器。严格拒绝重复 JSON 键、NaN、非法 UTF-8、孤立 surrogate、空/NUL/
++超长正文、截断或工具输出及非法已报告元数据。正文不裁剪或改写，返回 TEXT。只读取真实
++source_product/model/source_version 和 x-request-id，不用配置或 system_fingerprint 猜版本。
++显式 web_search_observed 为 bool/null；没有搜索字段时即使有引用也为 null。usage 三个
++token 字段独立，未报告字段保持 null；cost 仅完整 amount/currency 成为 Money，部分金额
++仍为 null，已报告非法值失败，不按 token 补算、不舍入。金额复用现有 14 位/6 位小数合同。
++
++顶层 citations(url/title/position) 是受控兼容扩展，保留真实位置与重复 URL；标准
++message.annotations.url_citation 以正文字符位置排序转换为引用序号。两来源同时非空
++拒绝歧义；不猜测 TEXT 引用、不抓取 URL。规范化、同 URL occurrences 和不可变提交仍由
++既有回答提交边界拥有。原始 bytes/截图均不保存，debug、Header、Cookie 和任意扩展值不
++进入结果；只返回既有四字段安全摘要。标准 annotations 的字段来源为
++[OpenAI 官方类型](https://github.com/openai/openai-python/blob/main/src/openai/types/chat/chat_completion_message.py)。
++
++受控装配以 `headers` 传入非敏感项、`sensitive_headers` 传入敏感项；未来调用方根据已有
++AIChannelHeader.is_sensitive 显式分类，不能靠 Header 名称猜测。API Key、显式敏感 Header
++与 Cookie 的已知原值及 URL/JSON/base64 形式若进入任何保留字段，则整份结果失败为固定
++PARSE/COMPLETED 错误，正文不改写。被丢弃的 debug/响应 Header 不进入结果扫描。HTTP
++状态超出 100–599 为固定 RECEIVE/COMPLETED 错误且 provider_status 为 null；回调抛出的
++传输同类异常仍保持原实例；请求编码失败在回调前按 NOT_STARTED 配置错误关闭连接。
++
++当前范围、逐项验证和限制见 [Task Brief](../../../.trellis/tasks/10-03-geo-404-openai-collector/prd.md)
++及 [实施证据](../../../.trellis/tasks/10-03-geo-404-openai-collector/implement.md)。生产 Worker、
++发送状态持久化、lease/迟到结果与恢复分别由后续 GEO-405/406 交付。
+--- a/docs/geo-monitoring/03-technical/07-testing-and-quality.md
++++ b/docs/geo-monitoring/03-technical/07-testing-and-quality.md
+@@ -496,3 +496,22 @@
+ 
+ 此处不证明尚未实现的生产 adapter、TLS、Profile 管理测试、业务审计、Worker lease/
+ 重复消息/发送隔离/迟到结果，也不实现 Browser、分析或指标。
++
++### GEO-404：真实 API Collector 合同与安全金标
++
++`make test-geo-collector-contract` 已纳入真实 `OpenAICompatibleGeoCollector`，复用 GEO-402
++独立合同断言和本地 fake provider，而非用生产解析器生成期望值。新增用例为
++`test_geo_openai_collector.py`、`test_geo_openai_response.py`、`test_geo_openai_network.py`。
++覆盖原问题请求哈希、原文保留、实际引用位置、null/部分元数据、费用精度、稳定错误矩阵、
++每 attempt 单次调用、发送回调拒绝、无重定向、SSRF/peer 和各种响应定界大小限制。
++JSON 金标包括非法 encoding、重复键、NaN、深层嵌套、截断、空/NUL/超长回答及非法
++usage/cost/引用。Profile/模型参数覆盖测试通过实际发送 bytes 检查无额外指令。
++
++真实 TLS 金标使用临时本地 CA、真实 socket 和回环 fake provider，验证受信 CA、
++SNI/Host，以及不受信 CA/错误主机名在回调和 HTTP 首字节前失败。测试专用 connector 将
++已批准公网 sockaddr 路由至本地 listener，不改变生产 TLS/SSRF 校验。所有测试应用
++仅允许回环连接的网络 guard；CI 输出和临时产物在打印前扫描凭据 canary。
++
++此验证只证明同步 Collector/传输边界；不证明未来 Worker 的数据库 SENT、lease、
++重复消息、迟到结果或外部平台可用性，也不构成真实平台采集批准。实际命令、结果和
++未运行检查见 [GEO-404 实施证据](../../../.trellis/tasks/10-03-geo-404-openai-collector/implement.md)。
+--- a/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ b/docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -710,7 +710,7 @@
+   phase: R3
+   release: R3
+   title: 实现 OpenAI-compatible GEO Collector
+-  status: planned
++  status: review
+   dependencies:
+   - GEO-401
+   - GEO-403
+@@ -719,12 +719,15 @@
+   deliverables: 无品牌污染的 user prompt 请求、回答/引用/usage/cost 解析、严格大小和错误。
+   tests: Collector contract、SSRF/TLS/响应金标。
+   acceptance: 不复用 GeneratedDraft 解析；未知搜索/费用为 null。
+-  required_docs:
+-  - 01-product/02-geo-core-prd.md
+-  - 02-business/02-domain-model.md
+-  - 02-business/03-workflows-and-state-machines.md
+-  - 03-technical/01-technical-architecture.md
+-  - 04-delivery/04-codex-execution-guide.md
++  review_note: 原始user请求、独立回答/引用/usage/cost解析与严格大小/稳定错误已实现；最终后端2994/前端1125单元、194项Collector合同与SSRF/TLS/响应金标、secret scan和指定静态/合同检查通过。两轮独立只读复核及已发现问题修复完成；采集批准仍false，无Worker接线，等待人工验收。
++  required_docs:
++  - 01-product/02-geo-core-prd.md
++  - 02-business/02-domain-model.md
++  - 02-business/03-workflows-and-state-machines.md
++  - 03-technical/01-technical-architecture.md
++  - 04-delivery/04-codex-execution-guide.md
++  trellis_task: .trellis/tasks/10-03-geo-404-openai-collector
++  validation_record: .trellis/tasks/10-03-geo-404-openai-collector/implement.md
+ - id: GEO-405
+   phase: R3
+   release: R3
+--- a/docs/geo-monitoring/SHA256SUMS
++++ b/docs/geo-monitoring/SHA256SUMS
+@@ -11,9 +11,9 @@
+ 71ad777c12034ec8d69b0dbfd1457aa1886d24de901c7e4fb3f304f19915812b  ./03-technical/02-data-architecture.md
+ 3ad8c855eb54244918d4d6774e40f3b5299f6e51d93befbf490d07b8cd7a41a3  ./03-technical/03-api-contract-design.md
+ 5f8dfd5ce025da9a312e800a4c13e48eb64dee88927e2668c82f81490457bd67  ./03-technical/04-frontend-architecture.md
+-d653c779bf9dfc6fcc7020cd89851cd667569d407171c18ed3abe4df1c3a1434  ./03-technical/05-worker-and-collector-architecture.md
++ed9f4e203b0dd8c40ef0b2c8cf76a7d66de55b0654b298e12b95092ab03e7090  ./03-technical/05-worker-and-collector-architecture.md
+ 2698d3095cfaeb5857d6bafd3efd633d9d50b813257054e7568d779be35d7dd7  ./03-technical/06-security-and-compliance.md
+-f4e1ac7be909fe219a27d9863c34672e4faf9794227a6f14972be9be836dc0f5  ./03-technical/07-testing-and-quality.md
++6637c4b8232d8d3b18d0f396411341af3a772215e7ab59c9e11c1efbdc372e1a  ./03-technical/07-testing-and-quality.md
+ 61a4dd642c6f74b581e95eb2269453be79d71a75fa240269eb001e56f45e2b83  ./03-technical/08-deployment-and-operations.md
+ f8c643e46c1159c51bd2e271e87de1d0e5a0448e2845af01f33bef5e4e1d411b  ./04-delivery/01-implementation-roadmap.md
+ acf0bde87ddfc34ebbc09543c1f2c2c1f496d48f330727b5e943807267eed41c  ./04-delivery/02-work-breakdown-structure.md
+@@ -102,7 +102,7 @@
+ 7106b3f1df66de6ba41a4d7ca85e291b8b181f78e2b7c0ef91f4fa696d1f9e8b  ./04-delivery/geo-003-baseline/sources.json
+ 316ab24c5f645e18d39c529c7fcbca2260b14a5375cc5ebd799a5b7c6cfc8f40  ./04-delivery/geo-003-baseline/tests.json
+ 9dae298eb77cc0063394bfacea27b02ece69bf2a7dceba637ef1320565810ec7  ./04-delivery/geo-003-baseline/validation.md
+-b1ae06f8cdc6e69f7915d239cca32211b6e090efa01533c60f7579dfd10a71cf  ./04-delivery/task-manifest.yaml
++3a470d00fea6ca112104e0b4efb675063d5819943582bfdb63e678b24d7bd6c2  ./04-delivery/task-manifest.yaml
+ 2c0f8d8ba314039b44e48614481c28e615e996c2e4ed444c8f07362b5cd75de9  ./05-decisions/ADR-001-extend-modular-monolith.md
+ 4e0ec1be59e33c2f3e83ee50abc55ffe35d2d0bf471c19cc2c713b391fc12cee  ./05-decisions/ADR-002-unified-observation-run-model.md
+ 00baab5f8fe68fbaf75e3aa7b07a0cfbd7c510e39b6a70ea462d9ab941330dc7  ./05-decisions/ADR-003-separate-collection-analysis-review.md
+@@ -110,6 +110,6 @@
+ 6197eb3379ad5c5f99c499ab8b74eac5cf18e6df26a3f5c34c4e9bf83845593b  ./05-decisions/ADR-005-staged-collector-rollout.md
+ c3e9f23a90bd7fc9b47760d53c56fd6f09f73065dff5b19c1040ee5fd608a560  ./05-decisions/GEO-002-architecture-review.md
+ 1889f9cc1ae9f48f00b3c6bc5711586b866aa889c7b682ed3f68a86a01245608  ./CHANGELOG.md
+-9b293298b0f54f297aa03c2e905b90011a408760e40e81ce9b5f423773533ba7  ./README.md
++8b6755a6ef67ef9146f73571a69b63c9e79d8da80895be2f9708c8a166aeaa5f  ./README.md
+ 36be92c676c3150e5953f01498418900d3e2bcc1f37a0bda31b9892e57b8a2d0  ./01-product/04-catalog-user-guide.md
+ a80ebe00c833b45a53bf82b140a84b9bb1a20a49bb37688cb233ef6d5e818782  ./04-delivery/07-r2-acceptance.md

@@ -1,0 +1,7 @@
+{
+  "file": "docs/geo-monitoring/01-product/02-geo-core-prd.md",
+  "baseline_actual": "cbcbdb4bf180d2669cac61a3b5160fb2baff743a1360492bf42fde00f0571e2f",
+  "current_actual": "cbcbdb4bf180d2669cac61a3b5160fb2baff743a1360492bf42fde00f0571e2f",
+  "baseline_expected": "44d54c96622be90ace3165fad8cd99208c3e56be8b38ae954196518ab3b47131",
+  "classification": "任务前已存在；业务文档不修改"
+}

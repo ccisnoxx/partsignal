@@ -1,0 +1,149 @@
+E702 Multiple statements on one line (semicolon)
+   --> deploy/scripts/test-upgrade-recovery.py:175:52
+    |
+173 |                 self.assert_rejected("失败候选身份")
+174 |                 setattr(self.args, field, original)
+175 |                 state = owner.read_state(self.live); state["phase"] = "PRODUCTION_INITIALIZED"; state["candidate"] = self.previous
+    |                                                    ^
+176 |                 owner.atomic_write_state(self.live, state)
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> deploy/scripts/test-upgrade-recovery.py:175:95
+    |
+173 |                 self.assert_rejected("失败候选身份")
+174 |                 setattr(self.args, field, original)
+175 |                 state = owner.read_state(self.live); state["phase"] = "PRODUCTION_INITIALIZED"; state["candidate"] = self.previous
+    |                                                                                               ^
+176 |                 owner.atomic_write_state(self.live, state)
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> deploy/scripts/test-upgrade-recovery.py:180:25
+    |
+178 |     def test_wrong_phase_and_initialized_replay(self):
+179 |         self.assert_rejected("未初始化")
+180 |         self.deploying(); self.recover()
+    |                         ^
+181 |         state = owner.read_state(self.live); state["phase"] = "UPGRADE_PREPARED"
+182 |         owner.atomic_write_state(self.live, state)
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> deploy/scripts/test-upgrade-recovery.py:181:44
+    |
+179 |         self.assert_rejected("未初始化")
+180 |         self.deploying(); self.recover()
+181 |         state = owner.read_state(self.live); state["phase"] = "UPGRADE_PREPARED"
+    |                                            ^
+182 |         owner.atomic_write_state(self.live, state)
+183 |         self.assert_rejected("冲突")
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> deploy/scripts/test-upgrade-recovery.py:184:50
+    |
+182 |         owner.atomic_write_state(self.live, state)
+183 |         self.assert_rejected("冲突")
+184 |         state["phase"] = "PRODUCTION_INITIALIZED"; owner.atomic_write_state(self.live, state)
+    |                                                  ^
+185 |         self.assert_rejected("未初始化")
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> deploy/scripts/test-upgrade-recovery.py:207:46
+    |
+205 |         self.deploying()
+206 |         payload = json.loads(self.fixed_manifest.read_text())
+207 |         payload["schema_head"] = "other_head"; self.fixed_manifest.write_text(json.dumps(payload))
+    |                                              ^
+208 |         self.assert_rejected("相同 schema")
+209 |         payload["schema_head"] = "test_head"
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> deploy/scripts/test-upgrade-recovery.py:217:38
+    |
+215 |     def test_changed_migrations_and_local_drift(self):
+216 |         self.deploying()
+217 |         files = dict(self.migrations); files["backend/alembic/sql/one.sql"] = b"DELETE FROM history;"
+    |                                      ^
+218 |         self.write_archive(Path(self.args.source_archive), files)
+219 |         payload = json.loads(self.fixed_manifest.read_text())
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> deploy/scripts/test-upgrade-recovery.py:257:25
+    |
+256 |     def test_prepared_requires_database_proof_and_failure_keeps_deploying(self):
+257 |         self.deploying(); self.recover()
+    |                         ^
+258 |         with patch.object(owner, "verify_recovery_database", side_effect=owner.DataStateError("bad database")):
+259 |             with self.assertRaisesRegex(owner.DataStateError, "bad database"):
+    |
+
+E701 Multiple statements on one line (colon)
+   --> deploy/scripts/test-upgrade-recovery.py:293:42
+    |
+291 |             end = time.monotonic() + 5
+292 |             while not (self.root / name).exists():
+293 |                 if time.monotonic() > end: self.fail(f"missing event: {name}")
+    |                                          ^
+294 |                 time.sleep(0.01)
+295 |         try:
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> deploy/scripts/test-upgrade-recovery.py:296:32
+    |
+294 |                 time.sleep(0.01)
+295 |         try:
+296 |             await_file("ready"); process.send_signal(signal.SIGTERM); await_file("terminating")
+    |                                ^
+297 |             with self.assertRaisesRegex(owner.DataStateError, "排他锁"):
+298 |                 with owner.maintenance_lock(): pass
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> deploy/scripts/test-upgrade-recovery.py:296:69
+    |
+294 |                 time.sleep(0.01)
+295 |         try:
+296 |             await_file("ready"); process.send_signal(signal.SIGTERM); await_file("terminating")
+    |                                                                     ^
+297 |             with self.assertRaisesRegex(owner.DataStateError, "排他锁"):
+298 |                 with owner.maintenance_lock(): pass
+    |
+
+E701 Multiple statements on one line (colon)
+   --> deploy/scripts/test-upgrade-recovery.py:298:46
+    |
+296 |             await_file("ready"); process.send_signal(signal.SIGTERM); await_file("terminating")
+297 |             with self.assertRaisesRegex(owner.DataStateError, "排他锁"):
+298 |                 with owner.maintenance_lock(): pass
+    |                                              ^
+299 |             (self.root / "release").touch()
+300 |             process.communicate(timeout=5)
+    |
+
+E701 Multiple statements on one line (colon)
+   --> deploy/scripts/test-upgrade-recovery.py:302:42
+    |
+300 |             process.communicate(timeout=5)
+301 |             self.assertEqual(process.returncode, 143)
+302 |             with owner.maintenance_lock(): pass
+    |                                          ^
+303 |             self.assertEqual(owner.read_state(self.live)["phase"], "UPGRADE_DEPLOYING")
+304 |         finally:
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> deploy/scripts/test-upgrade-recovery.py:307:52
+    |
+305 |             (self.root / "release").touch()
+306 |             if process.poll() is None:
+307 |                 process.send_signal(signal.SIGTERM); process.communicate(timeout=12)
+    |                                                    ^
+    |
+
+Found 14 errors.

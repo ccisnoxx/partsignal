@@ -1,0 +1,15 @@
+{
+  "command": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "pytest",
+    "backend/tests/integration/test_geo_manual_races.py",
+    "backend/tests/integration/test_geo_r2_immutability.py"
+  ],
+  "exit_code": 0,
+  "started_at": "2026-10-03T06:33:00.314365+00:00",
+  "seconds": 6.01,
+  "log": "r2-integration-final.log"
+}

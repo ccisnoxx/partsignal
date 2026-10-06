@@ -1,0 +1,8 @@
+{
+  "scope": "11 candidate source/contract paths",
+  "paths_checked": 11,
+  "changed_paths": [],
+  "observed_write_paths": [],
+  "method": "before/after SHA-256 + reviewer final readonly statement",
+  "review_task_outcome": "accepted (complete report with confirmed P2; not implementation acceptance)"
+}

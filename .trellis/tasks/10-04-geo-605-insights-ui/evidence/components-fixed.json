@@ -1,0 +1,15 @@
+{
+  "argv": [
+    "npm",
+    "--prefix",
+    "frontend",
+    "run",
+    "test",
+    "--",
+    "src/domains/geo-insights",
+    "src/app/navigation.test.ts"
+  ],
+  "exit_code": 0,
+  "started_at": "2026-10-04T09:10:16.155141+00:00",
+  "finished_at": "2026-10-04T09:10:18.343151+00:00"
+}

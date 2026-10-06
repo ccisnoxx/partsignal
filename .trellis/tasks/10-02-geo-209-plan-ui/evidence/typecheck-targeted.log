@@ -1,0 +1,8 @@
+
+> partsignal-frontend-v2@0.1.0 typecheck
+> tsc -b --pretty false
+
+src/domains/geo-plans/plan-wizard.test.tsx(28,390): error TS2322: Type '"VIEW_DETAILS"' is not assignable to type '"MANAGE_SUBJECT" | "ENABLE_SUBJECT"'.
+src/domains/geo-plans/plan-wizard.test.tsx(93,33): error TS2488: Type 'never' must have a '[Symbol.iterator]()' method that returns an iterator.
+src/domains/geo-plans/plan-wizard.test.tsx(203,33): error TS2488: Type 'never' must have a '[Symbol.iterator]()' method that returns an iterator.
+tests/e2e/plans-real-stack.spec.ts(110,20): error TS1252: Function declarations are not allowed inside blocks in strict mode when targeting 'ES5'. Modules are automatically in strict mode.

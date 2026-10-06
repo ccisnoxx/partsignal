@@ -1,0 +1,6 @@
+{
+  "command": [
+    "deploy/scripts/e2e-local.sh"
+  ],
+  "exit_code": 1
+}

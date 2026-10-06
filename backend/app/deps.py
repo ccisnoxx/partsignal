@@ -23,6 +23,7 @@ from app.schemas.common import AccountType
 from app.security import hash_token
 
 DbSession = Annotated[Session, Depends(get_db)]
+CURRENT_SESSION_ID = "authenticated_session_id"
 session_cookie_scheme = APIKeyCookie(
     name=settings.session_cookie_name, scheme_name="sessionCookie", auto_error=False
 )
@@ -57,6 +58,8 @@ def _resolve_current_session(
     ):
         raise AppError("PASSWORD_CHANGE_REQUIRED", "必须先修改临时密码", 403)
     record.last_seen_at = now
+    # 请求独占的 DB Session 只传递已认证身份，不存储 Cookie 或 CSRF 原文。
+    db.info[CURRENT_SESSION_ID] = record.id
     return record
 
 

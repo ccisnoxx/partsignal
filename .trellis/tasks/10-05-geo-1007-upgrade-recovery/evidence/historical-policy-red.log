@@ -1,0 +1,20 @@
+test_historical_missing_wrong_or_unknown_policy_cannot_rebind (policy_regression.CachePolicyTests.test_historical_missing_wrong_or_unknown_policy_cannot_rebind) ... FAIL
+
+======================================================================
+FAIL: test_historical_missing_wrong_or_unknown_policy_cannot_rebind (policy_regression.CachePolicyTests.test_historical_missing_wrong_or_unknown_policy_cannot_rebind)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-upgrade-cache-policy.py", line 63, in test_historical_missing_wrong_or_unknown_policy_cannot_rebind
+    self.data.assert_rejected("失败执行缺少绑定候选的迁移缓存策略证明")
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-upgrade-recovery.py", line 176, in assert_rejected
+    with self.assertRaisesRegex((owner.DataStateError, ValueError), reason):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: (<class 'production_state.DataStateError'>, <class 'ValueError'>) not raised
+
+----------------------------------------------------------------------
+Ran 1 test in 0.011s
+
+FAILED (failures=1)
+Production upgrade 数据所有权与候选绑定校验通过。
+升级前向恢复候选已显式绑定；仍未初始化，必须重新 deploy 和验收。
+因果反例：仅移除历史策略门禁，历史missing策略被接受，测试按预期失败；无磁盘代码变更

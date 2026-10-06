@@ -1,0 +1,24 @@
+--- initial/docs/geo-monitoring/03-technical/07-testing-and-quality.md
++++ candidate/docs/geo-monitoring/03-technical/07-testing-and-quality.md
+@@ -478,3 +478,21 @@
+ 发送隔离、截图裁剪或 raw bytes 脱敏；这些分别由 GEO-402/404/405/406 与 Browser 任务验证。
+ 没有新增 HTTP、持久化写入或页面旅程，因此不增加数据库迁移或 E2E 用例。指定门禁与
+ 实际独立复核证据见 [实施记录](../../../.trellis/tasks/10-03-geo-401-collector-contract/implement.md)。
++
++
++## GEO-402 / R3 本地合同套件验证边界
++
++独立 TCP fake provider 覆盖成功/重复原始引用、三态搜索、partial usage/cost，以及
++429、Header/正文超时、接收请求后断连、307、Content-Length/chunked 超限、非法 JSON/
++结构/空白回答和 401/403/503。每 attempt 计数和正文 SHA256 由真实接收记录生成，
++并发重复请求全部保留；发送授权拒绝零请求，显式新 UUID 独立计数。
++
++套件同时自测正常测试驱动和故意重试/跟随 redirect/泄漏异常的反例，不能以 fake 去重
++掩盖违规。实际响应携带的测试 canary 不进入结果、统计、错误、日志或 JSON 产物；
++CI 入口先扫描再输出，扫描失败非零且不打印值。网络守卫拒绝非回环 DNS/TCP。
++`make test-geo-collector-contract` 可独立运行，部署脚本门禁和已有 CI unit 均接入。
++完整协议见 [测试说明](../../../backend/tests/fixtures/geo_provider/README.md)，
++逐项结果与环境缺口见 [实施证据](../../../.trellis/tasks/10-03-geo-402-fake-provider/implement.md)。
++
++此处不证明尚未实现的生产 adapter、TLS、Profile 管理测试、业务审计、Worker lease/
++重复消息/发送隔离/迟到结果，也不实现 Browser、分析或指标。

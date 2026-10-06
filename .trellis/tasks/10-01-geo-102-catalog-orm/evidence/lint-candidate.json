@@ -1,0 +1,6 @@
+{
+  "command": "make lint",
+  "exit_code": 0,
+  "duration_seconds": 6.22,
+  "log": "lint-candidate.log"
+}

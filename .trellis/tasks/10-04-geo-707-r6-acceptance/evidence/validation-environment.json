@@ -1,0 +1,12 @@
+{
+  "APP_ENV": "test",
+  "database": "geo707-validation PostgreSQL16 at loopback55477; E2E creates exclusive random owned database",
+  "redis": "geo707-validation Redis7.4 loopback56477; E2E DB14, integration DB15",
+  "compose_override": ".trellis/tasks/10-04-geo-707-r6-acceptance/evidence/compose.yaml",
+  "providers": "local fake services only; no real external AI",
+  "seed_accounts": "development fictional credentials; no production credentials",
+  "browser": "project Chromium real-stack",
+  "retention": "trace/video off for GEO707; screenshots only safe audit; canonical encrypted secret manifest scan",
+  "GEO_RECOVERY_SCAN_SECONDS": 5,
+  "cadence_reason": "test-only canonical assembly; actual manual analysis depends on Beat scan, production default60 unchanged"
+}

@@ -1,0 +1,156 @@
+.................................FFFF...........................         [100%]
+=================================== FAILURES ===================================
+______ test_idna_unicode_and_alabel_share_one_identity[\u4f8b\u5b50.test] ______
+
+host = '例子.test'
+
+    @pytest.mark.parametrize("host", ["例子.test", "bücher.test", "faß.test", "ＥＸＡＭＰＬＥ.test"])
+    def test_idna_unicode_and_alabel_share_one_identity(host):
+>       value = subject(domains=[(host, "OFFICIAL")])
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_citations.py:129: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+number = 1, kind = 'OWN_PRODUCT', domains = [('例子.test', 'OFFICIAL')]
+role = 'PRIMARY'
+
+    def subject(number=1, kind="OWN_PRODUCT", domains=None, role="PRIMARY"):
+        return GeoRunSubjectSnapshot(
+            id=UUID(int=number),
+            revision=3,
+            subject_type=GeoSubjectType(kind),
+            role=GeoPlanSubjectRole(role),
+            product_id=UUID(int=number + 100) if kind == "OWN_PRODUCT" else None,
+            parent_subject_id=None,
+            canonical_name="虚构器件",
+            display_name="虚构器件",
+            aliases=[],
+            domains=[
+>               GeoRunDomainSnapshot(hostname=host, relation_type=relation)
+                for host, relation in (domains or [(DOMAIN, "OWNED")])
+            ],
+        )
+E       pydantic_core._pydantic_core.ValidationError: 1 validation error for GeoRunDomainSnapshot
+E       hostname
+E         String should match pattern '^(?=.{3,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$' [type=string_pattern_mismatch, input_value='例子.test', input_type=str]
+E           For further information visit https://errors.pydantic.dev/2.13/v/string_pattern_mismatch
+
+backend/tests/unit/test_geo_citations.py:48: ValidationError
+_______ test_idna_unicode_and_alabel_share_one_identity[b\xfccher.test] ________
+
+host = 'bücher.test'
+
+    @pytest.mark.parametrize("host", ["例子.test", "bücher.test", "faß.test", "ＥＸＡＭＰＬＥ.test"])
+    def test_idna_unicode_and_alabel_share_one_identity(host):
+>       value = subject(domains=[(host, "OFFICIAL")])
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_citations.py:129: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+number = 1, kind = 'OWN_PRODUCT', domains = [('bücher.test', 'OFFICIAL')]
+role = 'PRIMARY'
+
+    def subject(number=1, kind="OWN_PRODUCT", domains=None, role="PRIMARY"):
+        return GeoRunSubjectSnapshot(
+            id=UUID(int=number),
+            revision=3,
+            subject_type=GeoSubjectType(kind),
+            role=GeoPlanSubjectRole(role),
+            product_id=UUID(int=number + 100) if kind == "OWN_PRODUCT" else None,
+            parent_subject_id=None,
+            canonical_name="虚构器件",
+            display_name="虚构器件",
+            aliases=[],
+            domains=[
+>               GeoRunDomainSnapshot(hostname=host, relation_type=relation)
+                for host, relation in (domains or [(DOMAIN, "OWNED")])
+            ],
+        )
+E       pydantic_core._pydantic_core.ValidationError: 1 validation error for GeoRunDomainSnapshot
+E       hostname
+E         String should match pattern '^(?=.{3,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$' [type=string_pattern_mismatch, input_value='bücher.test', input_type=str]
+E           For further information visit https://errors.pydantic.dev/2.13/v/string_pattern_mismatch
+
+backend/tests/unit/test_geo_citations.py:48: ValidationError
+_________ test_idna_unicode_and_alabel_share_one_identity[fa\xdf.test] _________
+
+host = 'faß.test'
+
+    @pytest.mark.parametrize("host", ["例子.test", "bücher.test", "faß.test", "ＥＸＡＭＰＬＥ.test"])
+    def test_idna_unicode_and_alabel_share_one_identity(host):
+>       value = subject(domains=[(host, "OFFICIAL")])
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_citations.py:129: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+number = 1, kind = 'OWN_PRODUCT', domains = [('faß.test', 'OFFICIAL')]
+role = 'PRIMARY'
+
+    def subject(number=1, kind="OWN_PRODUCT", domains=None, role="PRIMARY"):
+        return GeoRunSubjectSnapshot(
+            id=UUID(int=number),
+            revision=3,
+            subject_type=GeoSubjectType(kind),
+            role=GeoPlanSubjectRole(role),
+            product_id=UUID(int=number + 100) if kind == "OWN_PRODUCT" else None,
+            parent_subject_id=None,
+            canonical_name="虚构器件",
+            display_name="虚构器件",
+            aliases=[],
+            domains=[
+>               GeoRunDomainSnapshot(hostname=host, relation_type=relation)
+                for host, relation in (domains or [(DOMAIN, "OWNED")])
+            ],
+        )
+E       pydantic_core._pydantic_core.ValidationError: 1 validation error for GeoRunDomainSnapshot
+E       hostname
+E         String should match pattern '^(?=.{3,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$' [type=string_pattern_mismatch, input_value='faß.test', input_type=str]
+E           For further information visit https://errors.pydantic.dev/2.13/v/string_pattern_mismatch
+
+backend/tests/unit/test_geo_citations.py:48: ValidationError
+_ test_idna_unicode_and_alabel_share_one_identity[\uff25\uff38\uff21\uff2d\uff30\uff2c\uff25.test] _
+
+host = 'ＥＸＡＭＰＬＥ.test'
+
+    @pytest.mark.parametrize("host", ["例子.test", "bücher.test", "faß.test", "ＥＸＡＭＰＬＥ.test"])
+    def test_idna_unicode_and_alabel_share_one_identity(host):
+>       value = subject(domains=[(host, "OFFICIAL")])
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_citations.py:129: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+number = 1, kind = 'OWN_PRODUCT', domains = [('ＥＸＡＭＰＬＥ.test', 'OFFICIAL')]
+role = 'PRIMARY'
+
+    def subject(number=1, kind="OWN_PRODUCT", domains=None, role="PRIMARY"):
+        return GeoRunSubjectSnapshot(
+            id=UUID(int=number),
+            revision=3,
+            subject_type=GeoSubjectType(kind),
+            role=GeoPlanSubjectRole(role),
+            product_id=UUID(int=number + 100) if kind == "OWN_PRODUCT" else None,
+            parent_subject_id=None,
+            canonical_name="虚构器件",
+            display_name="虚构器件",
+            aliases=[],
+            domains=[
+>               GeoRunDomainSnapshot(hostname=host, relation_type=relation)
+                for host, relation in (domains or [(DOMAIN, "OWNED")])
+            ],
+        )
+E       pydantic_core._pydantic_core.ValidationError: 1 validation error for GeoRunDomainSnapshot
+E       hostname
+E         String should match pattern '^(?=.{3,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$' [type=string_pattern_mismatch, input_value='ＥＸＡＭＰＬＥ.test', input_type=str]
+E           For further information visit https://errors.pydantic.dev/2.13/v/string_pattern_mismatch
+
+backend/tests/unit/test_geo_citations.py:48: ValidationError
+=========================== short test summary info ============================
+FAILED backend/tests/unit/test_geo_citations.py::test_idna_unicode_and_alabel_share_one_identity[\u4f8b\u5b50.test]
+FAILED backend/tests/unit/test_geo_citations.py::test_idna_unicode_and_alabel_share_one_identity[b\xfccher.test]
+FAILED backend/tests/unit/test_geo_citations.py::test_idna_unicode_and_alabel_share_one_identity[fa\xdf.test]
+FAILED backend/tests/unit/test_geo_citations.py::test_idna_unicode_and_alabel_share_one_identity[\uff25\uff38\uff21\uff2d\uff30\uff2c\uff25.test]
+4 failed, 60 passed in 0.23s

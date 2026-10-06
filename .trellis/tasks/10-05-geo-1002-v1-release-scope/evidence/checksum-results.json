@@ -1,0 +1,13 @@
+{
+  "command": [
+    "shasum",
+    "-a",
+    "256",
+    "-c",
+    "SHA256SUMS"
+  ],
+  "workdir": "/Users/sc/PycharmProjects/partsignal/docs/geo-monitoring",
+  "files": 131,
+  "ok": 131,
+  "exit_code": 0
+}

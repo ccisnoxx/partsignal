@@ -1,0 +1,19 @@
+{
+  "command": [
+    "env",
+    "APP_ENV=test",
+    "DATABASE_URL=postgresql+psycopg://partsignal:partsignal_dev@127.0.0.1:55469/partsignal",
+    "REDIS_URL=redis://127.0.0.1:56409/15",
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "pytest",
+    "--import-mode=importlib",
+    "backend/tests/unit/test_geo_reports.py",
+    "backend/tests/integration/test_geo_reports.py",
+    "-q"
+  ],
+  "exit_code": 0,
+  "duration_seconds": 8.99
+}

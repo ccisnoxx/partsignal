@@ -1,0 +1,31 @@
+{
+  "task_id": "GEO-204",
+  "status": "review",
+  "completedAt": null,
+  "branch": "geo/GEO-204",
+  "mandatory_and_closing_commands": {
+    "diff-check": 0,
+    "contract-check": 0,
+    "lint": 0,
+    "typecheck": 0,
+    "test-unit": 0,
+    "test-integration": 0,
+    "docs-checksums": 0,
+    "infra-down": 0,
+    "colima-stop": 0,
+    "context-restore": 0
+  },
+  "targeted_unit_passed": 54,
+  "targeted_pg_passed": 5,
+  "backend_unit_passed": 1096,
+  "frontend_tests_passed": 940,
+  "postgresql_integration_passed": 546,
+  "warnings": "6条既有SQLAlchemy metadata warning，无新测试warning",
+  "new_alembic_revision": null,
+  "head": "0046_geo_surfaces_profiles",
+  "provider_requests": false,
+  "independent_review": "无阻断；审计Bundle校验通过",
+  "audit_id": "20261002T160351Z-geo-204-independent-review-15c3d044",
+  "unrelated_changes_preserved": true,
+  "environment_restored": true
+}

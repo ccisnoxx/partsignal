@@ -1,0 +1,541 @@
+{
+  "task": "GEO-508",
+  "release": "R4",
+  "delivery_state": "review",
+  "dependency": "GEO-507=done",
+  "mandatory_commands": [
+    {
+      "command": "git diff --check",
+      "final_exit_code": 0,
+      "evidence": "diff-check-final.json"
+    },
+    {
+      "command": "make lint",
+      "observed_exit_code": 0,
+      "evidence": "make-lint-final.json",
+      "final_candidate": "make-verify-final.log中同目标Ruff/ESLint再次执行通过"
+    },
+    {
+      "command": "make typecheck",
+      "observed_exit_code": 0,
+      "evidence": "make-typecheck-final.json",
+      "final_candidate": "make-verify-final.log中同目标mypy/tsc再次执行通过"
+    },
+    {
+      "command": "make test-unit",
+      "observed_exit_code": 0,
+      "evidence": "make-test-unit-final.json",
+      "final_candidate": "make-verify-final.log：backend3341/frontend124文件1170项"
+    },
+    {
+      "command": "npm --prefix frontend run test",
+      "observed_exit_code": 0,
+      "evidence": "frontend-test.json",
+      "final_candidate": "make-verify-final.log实际同命令1170项"
+    },
+    {
+      "command": "npm --prefix frontend run typecheck",
+      "observed_exit_code": 0,
+      "evidence": "frontend-typecheck.json",
+      "final_candidate": "make-verify-final.log实际同命令退出0"
+    },
+    {
+      "command": "make e2e",
+      "final_exit_code": 0,
+      "evidence": "make-e2e-candidate.json",
+      "counts": {
+        "canonical": 27,
+        "geo_modes": 3,
+        "ui_matrix": 498,
+        "ui_matrix_expected_skipped": 60,
+        "geo_mutually_exclusive_skipped": 3
+      }
+    },
+    {
+      "command": "make verify",
+      "initial_exit_code": 2,
+      "initial_evidence": "make-verify.json",
+      "final_resume_exit_code": 0,
+      "final_resume_command": [
+        "make",
+        "verify",
+        "-o",
+        "contract-check",
+        "-o",
+        "test-integration",
+        "-o",
+        "build-frontend",
+        "-o",
+        "e2e",
+        "COMPOSE=docker compose -p partsignal-geo508-validation -f .trellis/tasks/10-03-geo-508-analysis-review-ui/evidence/validation-compose.yaml"
+      ],
+      "final_evidence": "make-verify-final.json",
+      "reuse_evidence": "validation-reuse.json",
+      "note": "首轮GEO duplicate测试前置已修复；没有最后再无参数重跑全部前置，复用已通过且输入未变证据"
+    }
+  ],
+  "counts": {
+    "backend_unit": 3341,
+    "frontend_unit": 1170,
+    "frontend_files": 124,
+    "pg_integration": 973,
+    "gold_suite": 270,
+    "gold_unique_json_scenarios": 151,
+    "gold_phase_checks": 190,
+    "collector_contract": 194,
+    "pg_review_baseline": 26,
+    "pg_r4_longitudinal": 1,
+    "review_receipt_targeted": 28,
+    "test_runtime_targeted": 30
+  },
+  "early_failures": {
+    "baseline-e2e": "缺DATABASE_URL，启动前阻断；建立独占测试栈后基线及最终真实流程通过",
+    "backend-scope-lint": "3处E501长行，格式修正后通过",
+    "make-typecheck": "新测试RTL参数/never类型错误，修正后通过",
+    "make-test-unit": "新测试断言等待/原生离开观察边界及焦点恢复，修正后通过",
+    "make-e2e": "取消原生导航后等待reload超时；改为runBeforeUnload并取消，真实流程通过",
+    "make-e2e-final": "共库计划空态假设失败；改为唯一suffix筛选且使用filtered-empty真实标题",
+    "r4-plan-pair-e2e": "筛选后仍使用旧空态标题；明确标题修正后组合2项通过",
+    "make-verify": "GEO duplicate测试CLI只允许COLLECTED；R4调用者等待COMPLETED，调整测试前置后enabled流程/全部E2E通过"
+  },
+  "all_command_attempts": {
+    "analysis-gold": {
+      "command": [
+        "uv",
+        "run",
+        "--project",
+        "backend",
+        "pytest",
+        "backend/tests/unit/test_geo_analysis.py",
+        "backend/tests/unit/test_geo_recommendations.py",
+        "backend/tests/unit/test_geo_citations.py",
+        "backend/tests/unit/test_geo_claims.py",
+        "--junitxml=.trellis/tasks/10-03-geo-508-analysis-review-ui/evidence/analysis-gold.xml"
+      ],
+      "exit_code": 0,
+      "log": "analysis-gold.log"
+    },
+    "backend-scope-lint-final": {
+      "command": [
+        "uv",
+        "run",
+        "--project",
+        "backend",
+        "ruff",
+        "check",
+        "backend/tests/integration/geo_analysis_support.py",
+        "backend/tests/integration/test_geo_r4_acceptance.py"
+      ],
+      "exit_code": 0,
+      "log": "backend-scope-lint-final.log"
+    },
+    "backend-scope-lint": {
+      "command": [
+        "uv",
+        "run",
+        "--project",
+        "backend",
+        "ruff",
+        "check",
+        "backend/tests/integration/geo_analysis_support.py",
+        "backend/tests/integration/test_geo_r4_acceptance.py"
+      ],
+      "exit_code": 1,
+      "log": "backend-scope-lint.log"
+    },
+    "baseline-analysis": {
+      "command": [
+        "uv",
+        "run",
+        "--project",
+        "backend",
+        "pytest",
+        "backend/tests/unit/test_geo_analysis.py",
+        "backend/tests/unit/test_geo_recommendations.py",
+        "backend/tests/unit/test_geo_citations.py",
+        "backend/tests/unit/test_geo_claims.py",
+        "backend/tests/unit/test_geo_review_contract.py",
+        "--junitxml=.trellis/tasks/10-03-geo-508-analysis-review-ui/evidence/baseline-analysis.xml"
+      ],
+      "exit_code": 0,
+      "log": "baseline-analysis.log"
+    },
+    "baseline-e2e": {
+      "command": [
+        "deploy/scripts/e2e-local.sh"
+      ],
+      "exit_code": 1,
+      "log": "baseline-e2e.log"
+    },
+    "baseline-frontend": {
+      "command": [
+        "npm",
+        "--prefix",
+        "frontend",
+        "run",
+        "test",
+        "--",
+        "src/domains/geo-runs"
+      ],
+      "exit_code": 0,
+      "log": "baseline-frontend.log"
+    },
+    "baseline-review-pg": {
+      "command": [
+        "docker",
+        "compose",
+        "-p",
+        "partsignal-geo508-validation",
+        "-f",
+        ".trellis/tasks/10-03-geo-508-analysis-review-ui/evidence/validation-compose.yaml",
+        "run",
+        "--rm",
+        "backend-test",
+        "pytest",
+        "tests/integration/test_geo_reviews.py",
+        "tests/integration/test_geo_review_reads.py",
+        "tests/integration/test_geo_review_concurrency.py",
+        "tests/integration/test_geo_review_guards.py"
+      ],
+      "exit_code": 0,
+      "log": "baseline-review-pg.log"
+    },
+    "baseline-runs-e2e": {
+      "command": [
+        "deploy/scripts/e2e-local.sh"
+      ],
+      "exit_code": 0,
+      "log": "baseline-runs-e2e.log"
+    },
+    "diff-check-final": {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit_code": 0,
+      "log": "diff-check-final.log"
+    },
+    "diff-check": {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit_code": 0,
+      "log": "diff-check.log"
+    },
+    "e2e-runner-syntax": {
+      "command": [
+        "bash",
+        "-n",
+        "deploy/scripts/e2e-local.sh"
+      ],
+      "exit_code": 0,
+      "log": "e2e-runner-syntax.log"
+    },
+    "e2e-scope-lint": {
+      "command": [
+        "npx",
+        "--prefix",
+        "frontend",
+        "eslint",
+        "frontend/tests/e2e/geo-review-support.ts",
+        "frontend/tests/e2e/geo-review-real-stack.spec.ts",
+        "frontend/tests/e2e/runs-real-stack.spec.ts",
+        "frontend/tests/e2e/geo-api-real-stack.spec.ts"
+      ],
+      "exit_code": 0,
+      "log": "e2e-scope-lint.log"
+    },
+    "fixture-check": {
+      "command": [
+        "make",
+        "test-geo-fixtures"
+      ],
+      "exit_code": 0,
+      "log": "fixture-check.log"
+    },
+    "frontend-test": {
+      "command": [
+        "npm",
+        "--prefix",
+        "frontend",
+        "run",
+        "test"
+      ],
+      "exit_code": 0,
+      "log": "frontend-test.log"
+    },
+    "frontend-typecheck": {
+      "command": [
+        "npm",
+        "--prefix",
+        "frontend",
+        "run",
+        "typecheck"
+      ],
+      "exit_code": 0,
+      "log": "frontend-typecheck.log"
+    },
+    "geo-api-r4-e2e": {
+      "command": [
+        "env",
+        "PARTSIGNAL_E2E_GEO_MODE=enabled",
+        "deploy/scripts/e2e-local.sh"
+      ],
+      "exit_code": 0,
+      "log": "geo-api-r4-e2e.log"
+    },
+    "geo-runtime-lint": {
+      "command": [
+        "uv",
+        "run",
+        "--project",
+        "backend",
+        "ruff",
+        "check",
+        "backend/tests/geo_e2e_runtime.py"
+      ],
+      "exit_code": 0,
+      "log": "geo-runtime-lint.log"
+    },
+    "geo-runtime-unit": {
+      "command": [
+        "uv",
+        "run",
+        "--project",
+        "backend",
+        "pytest",
+        "backend/tests/unit/test_geo_e2e_runtime.py"
+      ],
+      "exit_code": 0,
+      "log": "geo-runtime-unit.log"
+    },
+    "infra-start": {
+      "command": [
+        "docker",
+        "compose",
+        "-p",
+        "partsignal-geo508-validation",
+        "-f",
+        ".trellis/tasks/10-03-geo-508-analysis-review-ui/evidence/validation-compose.yaml",
+        "up",
+        "--build",
+        "-d",
+        "postgres",
+        "redis",
+        "fake-oss"
+      ],
+      "exit_code": 0,
+      "log": "infra-start.log"
+    },
+    "infra-stop": {
+      "command": [
+        "docker",
+        "compose",
+        "-p",
+        "partsignal-geo508-validation",
+        "-f",
+        ".trellis/tasks/10-03-geo-508-analysis-review-ui/evidence/validation-compose.yaml",
+        "down",
+        "--remove-orphans"
+      ],
+      "exit_code": 0,
+      "log": "infra-stop.log"
+    },
+    "make-e2e-candidate": {
+      "command": [
+        "make",
+        "e2e"
+      ],
+      "exit_code": 0,
+      "log": "make-e2e-candidate.log"
+    },
+    "make-e2e-final": {
+      "command": [
+        "make",
+        "e2e"
+      ],
+      "exit_code": 2,
+      "log": "make-e2e-final.log"
+    },
+    "make-e2e": {
+      "command": [
+        "make",
+        "e2e"
+      ],
+      "exit_code": 2,
+      "log": "make-e2e.log"
+    },
+    "make-lint-final": {
+      "command": [
+        "make",
+        "lint"
+      ],
+      "exit_code": 0,
+      "log": "make-lint-final.log"
+    },
+    "make-lint": {
+      "command": [
+        "make",
+        "lint"
+      ],
+      "exit_code": 0,
+      "log": "make-lint.log"
+    },
+    "make-test-unit-final": {
+      "command": [
+        "make",
+        "test-unit"
+      ],
+      "exit_code": 0,
+      "log": "make-test-unit-final.log"
+    },
+    "make-test-unit": {
+      "command": [
+        "make",
+        "test-unit"
+      ],
+      "exit_code": 2,
+      "log": "make-test-unit.log"
+    },
+    "make-typecheck-final": {
+      "command": [
+        "make",
+        "typecheck"
+      ],
+      "exit_code": 0,
+      "log": "make-typecheck-final.log"
+    },
+    "make-typecheck": {
+      "command": [
+        "make",
+        "typecheck"
+      ],
+      "exit_code": 2,
+      "log": "make-typecheck.log"
+    },
+    "make-verify-final": {
+      "command": [
+        "make",
+        "verify",
+        "-o",
+        "contract-check",
+        "-o",
+        "test-integration",
+        "-o",
+        "build-frontend",
+        "-o",
+        "e2e",
+        "COMPOSE=docker compose -p partsignal-geo508-validation -f .trellis/tasks/10-03-geo-508-analysis-review-ui/evidence/validation-compose.yaml"
+      ],
+      "exit_code": 0,
+      "log": "make-verify-final.log"
+    },
+    "make-verify": {
+      "command": [
+        "make",
+        "verify",
+        "COMPOSE=docker compose -p partsignal-geo508-validation -f .trellis/tasks/10-03-geo-508-analysis-review-ui/evidence/validation-compose.yaml"
+      ],
+      "exit_code": 2,
+      "log": "make-verify.log"
+    },
+    "r4-plan-pair-e2e-final": {
+      "command": [
+        "deploy/scripts/e2e-local.sh",
+        "tests/e2e/plans-real-stack.spec.ts"
+      ],
+      "exit_code": 0,
+      "log": "r4-plan-pair-e2e-final.log"
+    },
+    "r4-plan-pair-e2e": {
+      "command": [
+        "deploy/scripts/e2e-local.sh",
+        "tests/e2e/plans-real-stack.spec.ts"
+      ],
+      "exit_code": 1,
+      "log": "r4-plan-pair-e2e.log"
+    },
+    "r4-review-e2e-final": {
+      "command": [
+        "deploy/scripts/e2e-local.sh"
+      ],
+      "exit_code": 0,
+      "log": "r4-review-e2e-final.log"
+    },
+    "r4-review-e2e": {
+      "command": [
+        "deploy/scripts/e2e-local.sh"
+      ],
+      "exit_code": 0,
+      "log": "r4-review-e2e.log"
+    },
+    "r4-severe-pg": {
+      "command": [
+        "docker",
+        "compose",
+        "-p",
+        "partsignal-geo508-validation",
+        "-f",
+        ".trellis/tasks/10-03-geo-508-analysis-review-ui/evidence/validation-compose.yaml",
+        "run",
+        "--rm",
+        "backend-test",
+        "pytest",
+        "tests/integration/test_geo_r4_acceptance.py"
+      ],
+      "exit_code": 0,
+      "log": "r4-severe-pg.log"
+    },
+    "review-receipt-unit-final": {
+      "command": [
+        "npm",
+        "--prefix",
+        "frontend",
+        "run",
+        "test",
+        "--",
+        "src/domains/geo-runs/runs.api.test.ts",
+        "src/domains/geo-runs/run-review.test.tsx"
+      ],
+      "exit_code": 0,
+      "log": "review-receipt-unit-final.log"
+    },
+    "review-receipt-unit-unicode": {
+      "command": [
+        "npm",
+        "--prefix",
+        "frontend",
+        "run",
+        "test",
+        "--",
+        "src/domains/geo-runs/runs.api.test.ts",
+        "src/domains/geo-runs/run-review.test.tsx"
+      ],
+      "exit_code": 0,
+      "log": "review-receipt-unit-unicode.log"
+    },
+    "review-receipt-unit": {
+      "command": [
+        "npm",
+        "--prefix",
+        "frontend",
+        "run",
+        "test",
+        "--",
+        "src/domains/geo-runs/runs.api.test.ts",
+        "src/domains/geo-runs/run-review.test.tsx"
+      ],
+      "exit_code": 0,
+      "log": "review-receipt-unit.log"
+    }
+  },
+  "not_run": {
+    "unchanged_verify_targets": "最终续跑复用contract-check/test-integration/build-frontend/e2e，均已有成功证据；未将复用说成重新执行",
+    "independent_review": "最后Unicode单行及测试装配前置修订未新增独立复核；依据明确建议自查、定向及全门禁验证",
+    "outside_scope": "无生产迁移、真实外部AI调用或发布"
+  },
+  "cleanup": "infra-stop.json退出0；E2E日志逐阶段owner校验、随机数据库drop/Redis14精确键清理/端口释放/存储移除"
+}

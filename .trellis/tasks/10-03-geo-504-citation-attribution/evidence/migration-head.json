@@ -1,0 +1,13 @@
+{
+  "command": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "alembic",
+    "-c",
+    "backend/alembic.ini",
+    "heads"
+  ],
+  "exit_code": 0
+}

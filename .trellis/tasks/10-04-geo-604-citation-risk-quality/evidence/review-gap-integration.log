@@ -1,0 +1,76 @@
+ Container partsignal-geo604-validation-postgres-1 Running 
+ Container partsignal-geo604-validation-redis-1 Running 
+ Container partsignal-geo604-validation-fake-oss-1 Running 
+ Container partsignal-geo604-validation-postgres-1 Waiting 
+ Container partsignal-geo604-validation-postgres-1 Healthy 
+ Container partsignal-geo604-validation-backend-test-run-10400ac5c284 Creating 
+ Container partsignal-geo604-validation-backend-test-run-10400ac5c284 Created 
+....F..                                                                  [100%]
+=================================== FAILURES ===================================
+___________ test_reported_costs_and_versions_round_trip_through_http ___________
+
+overview_api = ReviewAPI(harness=AnalysisHarness(database=AnswerDatabase(runs=RunDatabase(plan=PlanDatabase(url='postgresql://partsig...s=<starlette.testclient.TestClient object at 0xe1dd1d67b020>, engineer_id=UUID('c4312f29-2249-4da9-9903-68a6f0057dbe'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0xe1dd1d7dc500>
+
+    def test_reported_costs_and_versions_round_trip_through_http(overview_api, monkeypatch):
+        api = overview_api
+        original_run, original_snapshot = geo_analysis_support.run, geo_analysis_support.snapshot
+        costs = iter([(Decimal(0), "USD"), (Decimal(6), "USD"), (Decimal(9), "CNY"), (None, None)])
+        versions = iter(["v1", "v1", "v2", None])
+    
+        def isolated_run(conn, db, batch_id, **patch):
+            return original_run(
+                conn, db, batch_id, **(patch | {"created_at": datetime(2021, 1, 1, tzinfo=UTC)})
+            )
+    
+        def reported_snapshot(conn, db, run_id, **patch):
+            version = next(versions)
+            return original_snapshot(
+                conn,
+                db,
+                run_id,
+                **(
+                    patch
+                    | {
+                        "source_model": "虚构模型" if version else None,
+                        "source_product": "虚构产品",
+                        "source_version": version,
+                    }
+                ),
+            )
+    
+        def reported_collect(conn, run_id):
+            # 在首次采集同事务保存报告费用；不更新终态、不放宽生产guard。
+            amount, currency = next(costs)
+            conn.execute(
+                "UPDATE geo_observation_runs SET status='COLLECTED', started_at=now(), "
+                "collected_at=now(),cost_amount=%s,cost_currency=%s,revision=revision+1 WHERE id=%s",
+                (amount, currency, run_id),
+            )
+    
+        monkeypatch.setattr(geo_analysis_support, "run", isolated_run)
+        monkeypatch.setattr(geo_analysis_support, "snapshot", reported_snapshot)
+        monkeypatch.setattr(geo_analysis_support, "collect", reported_collect)
+        cases = [api.create(review_required=False, products=0) for _ in range(4)]
+        value = insights(api, date_from="2021-01-01T00:00:00Z", date_to="2021-01-02T00:00:00Z")
+        quality = value["data_quality"]
+        groups = {g["currency"]: g for g in quality["known_costs"]}
+        assert set(groups) == {"USD", "CNY"}
+        for currency, count, total, average in (("USD", 2, 6, 3), ("CNY", 1, 9, 9)):
+            group = groups[currency]
+            assert group["known_run_count"] == count
+            assert Decimal(group["total_amount"]) == total
+            assert Decimal(group["average_amount"]) == average
+            rows = detail(api, group["drilldown"])
+            assert rows["total"] == count
+            assert all(r["cost_currency"] == currency for r in rows["items"])
+            assert sum(Decimal(r["cost_amount"]) for r in rows["items"]) == total
+>       assert Decimal(detail(api, groups["USD"]["drilldown"])["items"][1]["cost_amount"]) == 0
+E       AssertionError: assert Decimal('6.000000') == 0
+E        +  where Decimal('6.000000') = Decimal('6.000000')
+
+tests/integration/test_geo_insight_details.py:319: AssertionError
+=========================== short test summary info ============================
+FAILED tests/integration/test_geo_insight_details.py::test_reported_costs_and_versions_round_trip_through_http
+1 failed, 6 passed in 7.42s
+

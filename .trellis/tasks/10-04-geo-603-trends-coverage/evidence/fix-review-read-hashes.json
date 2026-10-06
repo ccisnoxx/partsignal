@@ -1,0 +1,9 @@
+{
+  "backend/app/schemas/geo_answer_insights.py": "9207c0d78aca6b14b6be68866513cf9934e36b0244892d5ebf0ee302a8c33e50",
+  "backend/app/routers/geo_answer_insights.py": "69387ad7bc66e33c6913effe270e1135a22d2c55eea479b6500a40704f1f1c0e",
+  "backend/app/services/geo_answer_insights.py": "3e73f759217aababbff35bb9b668fef04b1920dcc30243d07aa5aa6667aad5bf",
+  "contracts/openapi.yaml": "11d52b6c9127f80fbd0a8e1d672694c6b5dea7a38d8ef047db3655af7bbb5488",
+  "backend/tests/unit/test_geo_answer_insights.py": "1345677c52daef6c283ced6c549178b60c3a3cd0f32c8b6a80d0a507a1493caa",
+  "backend/tests/integration/test_geo_answer_insights.py": "326e8321c56ab5440d4aa51012557edf15d43bd88eaed43fe67c5ee972bf491e",
+  "docs/geo-monitoring/02-business/04-monitoring-methodology-and-metrics.md": "4cf8fddea0720c9eee8800cb25376f572ddd292f08a77abbfdfc4372aecf87c4"
+}

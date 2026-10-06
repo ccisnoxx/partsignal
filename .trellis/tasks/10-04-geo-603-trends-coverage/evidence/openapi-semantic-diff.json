@@ -1,0 +1,21 @@
+{
+  "changed_existing_paths": [],
+  "changed_existing_schemas": [],
+  "new_paths": [
+    "/api/v1/geo/insights",
+    "/api/v1/geo/insights/runs"
+  ],
+  "new_schemas": [
+    "GeoAnswerInsightCell",
+    "GeoAnswerInsightDrilldown",
+    "GeoAnswerInsightMetric",
+    "GeoAnswerInsightTrend",
+    "GeoInsightWindow",
+    "GeoPlatformPerformance",
+    "GeoQuestionCoverage",
+    "GeoQuestionVariantCoverage",
+    "GeoAnswerInsights",
+    "GeoAnswerInsightSampleFilters",
+    "GeoAnswerInsightRunPage"
+  ]
+}

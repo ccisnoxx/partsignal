@@ -1,0 +1,512 @@
+{
+  "fixture_version": "1.0.0",
+  "dataset_id": "geo-005-v1",
+  "synthetic": true,
+  "gold_version": "1.0.0",
+  "cases": [
+    {
+      "id": "gold-exact-model",
+      "answer_id": "answer-exact-model",
+      "category": "exact_model",
+      "expected": {
+        "mentions": [
+          {
+            "subject_ids": [
+              "subject-own-brand"
+            ],
+            "mentioned": true,
+            "excerpt": "虚构雾桥晶元"
+          },
+          {
+            "subject_ids": [
+              "subject-base"
+            ],
+            "mentioned": true,
+            "excerpt": "GEOFX-731Q"
+          }
+        ],
+        "recommendations": [
+          {
+            "subject_id": "subject-base",
+            "label": "RECOMMENDED",
+            "rank": 1,
+            "excerpt": "首选虚构雾桥晶元的 GEOFX-731Q。"
+          }
+        ],
+        "claims": [
+          {
+            "subject_id": "subject-base",
+            "claim_type": "PARAMETER",
+            "excerpt": "GEOFX-731Q 的供电电压为 3.3 V。",
+            "fact_version_id": "fact-base-v1",
+            "verdict": "ACCURATE",
+            "severity": "LOW",
+            "reason": "与批准的虚构事实供电参数一致。"
+          }
+        ],
+        "citations": [
+          {
+            "citation_id": "citation-owned-1",
+            "normalized_url": "https://geo-fixture-owned.test/products/geofx-731q",
+            "source_category": "OWNED",
+            "subject_ids": [
+              "subject-base"
+            ]
+          },
+          {
+            "citation_id": "citation-owned-2",
+            "normalized_url": "https://geo-fixture-owned.test/products/geofx-731q",
+            "source_category": "OWNED",
+            "subject_ids": [
+              "subject-base"
+            ]
+          }
+        ],
+        "review_required_reasons": []
+      }
+    },
+    {
+      "id": "gold-model-suffix",
+      "answer_id": "answer-model-suffix",
+      "category": "model_suffix",
+      "expected": {
+        "mentions": [
+          {
+            "subject_ids": [
+              "subject-suffix"
+            ],
+            "mentioned": true,
+            "excerpt": "GEOFX-731Q-S"
+          },
+          {
+            "subject_ids": [
+              "subject-base"
+            ],
+            "mentioned": false,
+            "excerpt": null
+          }
+        ],
+        "recommendations": [
+          {
+            "subject_id": "subject-suffix",
+            "label": "CONSIDERED",
+            "rank": null,
+            "excerpt": "GEOFX-731Q-S 是独立的 1.8 V 器件。"
+          }
+        ],
+        "claims": [
+          {
+            "subject_id": "subject-suffix",
+            "claim_type": "PARAMETER",
+            "excerpt": "GEOFX-731Q-S 是独立的 1.8 V 器件。",
+            "fact_version_id": "fact-suffix-v1",
+            "verdict": "ACCURATE",
+            "severity": "LOW",
+            "reason": "后缀产品绑定自身事实版本。"
+          }
+        ],
+        "citations": [],
+        "review_required_reasons": []
+      }
+    },
+    {
+      "id": "gold-normalized-model",
+      "answer_id": "answer-normalized-model",
+      "category": "case_and_hyphen",
+      "expected": {
+        "mentions": [
+          {
+            "subject_ids": [
+              "subject-base"
+            ],
+            "mentioned": true,
+            "excerpt": "geofx-731q"
+          }
+        ],
+        "recommendations": [
+          {
+            "subject_id": "subject-base",
+            "label": "CONSIDERED",
+            "rank": null,
+            "excerpt": "Consider geofx-731q (also written GEOFX731Q) for comparison."
+          }
+        ],
+        "claims": [],
+        "citations": [],
+        "review_required_reasons": []
+      }
+    },
+    {
+      "id": "gold-ambiguous-brand",
+      "answer_id": "answer-ambiguous-brand",
+      "category": "ambiguous_alias",
+      "expected": {
+        "mentions": [
+          {
+            "subject_ids": [
+              "subject-own-brand",
+              "subject-competitor-brand"
+            ],
+            "mentioned": null,
+            "excerpt": "桥芯"
+          }
+        ],
+        "recommendations": [],
+        "claims": [],
+        "citations": [],
+        "review_required_reasons": [
+          "ambiguous_alias"
+        ]
+      }
+    },
+    {
+      "id": "gold-negative-mention",
+      "answer_id": "answer-negative-mention",
+      "category": "negated_mention",
+      "expected": {
+        "mentions": [
+          {
+            "subject_ids": [
+              "subject-base"
+            ],
+            "mentioned": true,
+            "excerpt": "GEOFX-731Q"
+          }
+        ],
+        "recommendations": [
+          {
+            "subject_id": "subject-base",
+            "label": "NOT_RECOMMENDED",
+            "rank": null,
+            "excerpt": "不推荐 GEOFX-731Q 用于这一应用。"
+          }
+        ],
+        "claims": [],
+        "citations": [],
+        "review_required_reasons": []
+      }
+    },
+    {
+      "id": "gold-listing-only",
+      "answer_id": "answer-listing-only",
+      "category": "listed_without_recommendation",
+      "expected": {
+        "mentions": [
+          {
+            "subject_ids": [
+              "subject-base"
+            ],
+            "mentioned": true,
+            "excerpt": "GEOFX-731Q"
+          },
+          {
+            "subject_ids": [
+              "subject-competitor"
+            ],
+            "mentioned": true,
+            "excerpt": "GEOCX-842R"
+          }
+        ],
+        "recommendations": [
+          {
+            "subject_id": "subject-base",
+            "label": "CONSIDERED",
+            "rank": null,
+            "excerpt": "仅列举候选：GEOFX-731Q、GEOCX-842R；尚未完成选型。"
+          },
+          {
+            "subject_id": "subject-competitor",
+            "label": "CONSIDERED",
+            "rank": null,
+            "excerpt": "仅列举候选：GEOFX-731Q、GEOCX-842R；尚未完成选型。"
+          }
+        ],
+        "claims": [],
+        "citations": [],
+        "review_required_reasons": []
+      }
+    },
+    {
+      "id": "gold-ordered-recommendation",
+      "answer_id": "answer-ordered-recommendation",
+      "category": "ordered_recommendation",
+      "expected": {
+        "mentions": [
+          {
+            "subject_ids": [
+              "subject-base"
+            ],
+            "mentioned": true,
+            "excerpt": "GEOFX-731Q"
+          },
+          {
+            "subject_ids": [
+              "subject-competitor"
+            ],
+            "mentioned": true,
+            "excerpt": "GEOCX-842R"
+          }
+        ],
+        "recommendations": [
+          {
+            "subject_id": "subject-competitor",
+            "label": "RECOMMENDED",
+            "rank": 1,
+            "excerpt": "1. GEOCX-842R，优先评估。"
+          },
+          {
+            "subject_id": "subject-base",
+            "label": "RECOMMENDED",
+            "rank": 2,
+            "excerpt": "2. GEOFX-731Q，次选。"
+          }
+        ],
+        "claims": [],
+        "citations": [
+          {
+            "citation_id": "citation-competitor",
+            "normalized_url": "https://docs.geo-fixture-competitor.test/devices/geocx-842r",
+            "source_category": "COMPETITOR",
+            "subject_ids": [
+              "subject-competitor"
+            ]
+          }
+        ],
+        "review_required_reasons": []
+      }
+    },
+    {
+      "id": "gold-unordered-recommendation",
+      "answer_id": "answer-unordered-recommendation",
+      "category": "unordered_recommendation",
+      "expected": {
+        "mentions": [
+          {
+            "subject_ids": [
+              "subject-base"
+            ],
+            "mentioned": true,
+            "excerpt": "GEOFX-731Q"
+          },
+          {
+            "subject_ids": [
+              "subject-competitor"
+            ],
+            "mentioned": true,
+            "excerpt": "GEOCX-842R"
+          }
+        ],
+        "recommendations": [
+          {
+            "subject_id": "subject-base",
+            "label": "RECOMMENDED",
+            "rank": null,
+            "excerpt": "建议评估以下两个方案，顺序不代表优先级："
+          },
+          {
+            "subject_id": "subject-competitor",
+            "label": "RECOMMENDED",
+            "rank": null,
+            "excerpt": "建议评估以下两个方案，顺序不代表优先级："
+          }
+        ],
+        "claims": [],
+        "citations": [],
+        "review_required_reasons": [
+          "unreliable_rank"
+        ]
+      }
+    },
+    {
+      "id": "gold-conditional-replacement",
+      "answer_id": "answer-conditional-replacement",
+      "category": "conditional_replacement",
+      "expected": {
+        "mentions": [
+          {
+            "subject_ids": [
+              "subject-base"
+            ],
+            "mentioned": true,
+            "excerpt": "GEOFX-731Q"
+          },
+          {
+            "subject_ids": [
+              "subject-reference"
+            ],
+            "mentioned": true,
+            "excerpt": "GEORF-915T"
+          }
+        ],
+        "recommendations": [
+          {
+            "subject_id": "subject-base",
+            "label": "CONSIDERED",
+            "rank": null,
+            "excerpt": "在 3.3 V 供电时，GEOFX-731Q 可替代 GEORF-915T。"
+          }
+        ],
+        "claims": [
+          {
+            "subject_id": "subject-base",
+            "claim_type": "REPLACEMENT",
+            "excerpt": "在 3.3 V 供电时，GEOFX-731Q 可替代 GEORF-915T。",
+            "fact_version_id": "fact-base-v1",
+            "verdict": "PARTIAL",
+            "severity": "HIGH",
+            "reason": "只给出供电条件，遗漏批准事实中的引脚与时序验证边界。"
+          }
+        ],
+        "citations": [],
+        "review_required_reasons": []
+      }
+    },
+    {
+      "id": "gold-parameter-conflict",
+      "answer_id": "answer-parameter-conflict",
+      "category": "parameter_conflict",
+      "expected": {
+        "mentions": [
+          {
+            "subject_ids": [
+              "subject-base"
+            ],
+            "mentioned": true,
+            "excerpt": "GEOFX-731Q"
+          }
+        ],
+        "recommendations": [],
+        "claims": [
+          {
+            "subject_id": "subject-base",
+            "claim_type": "PARAMETER",
+            "excerpt": "GEOFX-731Q 的供电电压为 5 V。",
+            "fact_version_id": "fact-base-v1",
+            "verdict": "INCORRECT",
+            "severity": "HIGH",
+            "reason": "批准的虚构事实为 3.3 V，回答数字冲突。"
+          }
+        ],
+        "citations": [],
+        "review_required_reasons": [
+          "high_severity_incorrect"
+        ]
+      }
+    },
+    {
+      "id": "gold-insufficient-facts",
+      "answer_id": "answer-insufficient-facts",
+      "category": "insufficient_facts",
+      "expected": {
+        "mentions": [
+          {
+            "subject_ids": [
+              "subject-base"
+            ],
+            "mentioned": true,
+            "excerpt": "GEOFX-731Q"
+          }
+        ],
+        "recommendations": [],
+        "claims": [
+          {
+            "subject_id": "subject-base",
+            "claim_type": "CERTIFICATION",
+            "excerpt": "GEOFX-731Q 已获得虚构安全认证 Q-77。",
+            "fact_version_id": "fact-base-v1",
+            "verdict": "UNJUDGEABLE",
+            "severity": "MEDIUM",
+            "reason": "已批准事实明确未提供认证结论，不猜测通过或不通过。"
+          }
+        ],
+        "citations": [],
+        "review_required_reasons": [
+          "insufficient_facts"
+        ]
+      }
+    },
+    {
+      "id": "gold-prompt-injection",
+      "answer_id": "answer-prompt-injection",
+      "category": "prompt_injection",
+      "expected": {
+        "mentions": [
+          {
+            "subject_ids": [
+              "subject-base"
+            ],
+            "mentioned": true,
+            "excerpt": "GEOFX-731Q"
+          }
+        ],
+        "recommendations": [
+          {
+            "subject_id": "subject-base",
+            "label": "UNKNOWN",
+            "rank": null,
+            "excerpt": "GEOFX-731Q 仅作为文本示例出现。"
+          }
+        ],
+        "claims": [],
+        "citations": [],
+        "review_required_reasons": [
+          "untrusted_instructions"
+        ]
+      }
+    },
+    {
+      "id": "gold-mixed-language",
+      "answer_id": "answer-mixed-language",
+      "category": "mixed_language",
+      "expected": {
+        "mentions": [
+          {
+            "subject_ids": [
+              "subject-own-brand"
+            ],
+            "mentioned": true,
+            "excerpt": "虚构雾桥晶元"
+          },
+          {
+            "subject_ids": [
+              "subject-base"
+            ],
+            "mentioned": true,
+            "excerpt": "GEOFX-731Q"
+          },
+          {
+            "subject_ids": [
+              "subject-competitor"
+            ],
+            "mentioned": true,
+            "excerpt": "GEOCX-842R"
+          }
+        ],
+        "recommendations": [
+          {
+            "subject_id": "subject-base",
+            "label": "CONSIDERED",
+            "rank": null,
+            "excerpt": "GEOFX-731Q is a candidate"
+          },
+          {
+            "subject_id": "subject-competitor",
+            "label": "CONSIDERED",
+            "rank": null,
+            "excerpt": "GEOCX-842R is another candidate"
+          }
+        ],
+        "claims": [],
+        "citations": [
+          {
+            "citation_id": "citation-media",
+            "normalized_url": "https://geo-fixture-media.test/compare/fixture-devices",
+            "source_category": "INDUSTRY_MEDIA",
+            "subject_ids": []
+          }
+        ],
+        "review_required_reasons": []
+      }
+    }
+  ]
+}

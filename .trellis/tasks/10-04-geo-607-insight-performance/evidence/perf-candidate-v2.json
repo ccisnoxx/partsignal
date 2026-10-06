@@ -1,0 +1,25 @@
+{
+  "command": [
+    "docker",
+    "compose",
+    "-p",
+    "geo607-validation",
+    "-f",
+    ".trellis/tasks/10-04-geo-607-insight-performance/evidence/validation-compose.yaml",
+    "run",
+    "--rm",
+    "-e",
+    "GEO_PERF_PHASE=candidate",
+    "-e",
+    "GEO_PERF_PROFILE=1",
+    "-e",
+    "GEO_PERF_OUTPUT=/app/tests/performance/.results/candidate-v2",
+    "backend-test",
+    "pytest",
+    "-s",
+    "tests/performance/test_geo_insight_performance.py"
+  ],
+  "started_at": "2026-10-04T12:57:47.470982+00:00",
+  "duration_seconds": 598.2753179169958,
+  "exit_code": 1
+}

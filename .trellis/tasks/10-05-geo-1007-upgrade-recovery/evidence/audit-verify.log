@@ -1,0 +1,10 @@
+MULTI_AGENT_AUDIT_BUNDLE
+status: passed
+audit_id: 20261006T054537Z-geo-1007-upgrade-recovery-592e0aff
+audit_dir: /Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261006T054537Z-geo-1007-upgrade-recovery-592e0aff
+bundle_status: closed
+artifact_count: 32
+size_bytes: 61240
+summary: {"plan_count": 5, "executed_attempt_count": 5, "accepted_attempt_count": 5, "independent_review_count": 5, "attention_required": true, "anomaly_count": 1}
+errors: []
+warnings: []

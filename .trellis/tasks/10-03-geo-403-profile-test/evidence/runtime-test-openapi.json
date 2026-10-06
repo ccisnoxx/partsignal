@@ -1,0 +1,145 @@
+{
+  "post": {
+    "tags": [
+      "geo-surface-management"
+    ],
+    "summary": "Test Profile",
+    "operationId": "testGeoCollectionProfile",
+    "security": [
+      {
+        "sessionCookie": []
+      }
+    ],
+    "parameters": [
+      {
+        "name": "profile_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "title": "Profile Id"
+        }
+      },
+      {
+        "name": "X-CSRF-Token",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 32,
+          "title": "X-Csrf-Token"
+        }
+      },
+      {
+        "$ref": "#/components/parameters/RequestIdHeader"
+      }
+    ],
+    "requestBody": {
+      "required": true,
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "#/components/schemas/GeoConfigurationRevisionRequest"
+          }
+        }
+      }
+    },
+    "responses": {
+      "200": {
+        "description": "Successful Response",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/GeoCollectionProfileRead"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIdResponseHeader"
+          }
+        }
+      },
+      "401": {
+        "description": "业务或校验错误",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIdResponseHeader"
+          }
+        }
+      },
+      "403": {
+        "description": "业务或校验错误",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIdResponseHeader"
+          }
+        }
+      },
+      "404": {
+        "description": "业务或校验错误",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIdResponseHeader"
+          }
+        }
+      },
+      "409": {
+        "description": "业务或校验错误",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIdResponseHeader"
+          }
+        }
+      },
+      "422": {
+        "description": "业务或校验错误",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestIdResponseHeader"
+          }
+        }
+      },
+      "400": {
+        "$ref": "#/components/responses/ErrorResponse"
+      }
+    },
+    "description": "管理员固定连接及 answer_text 能力诊断。先预留 revision 并停用，事务外 pinned 出网，完成时重验依赖版本；不创建业务 Run，成功不自动启用。provider 失败以安全 test_error 和 FAILED 返回200，过期结果409。诊断仅支持 openai-compatible-chat，采集仍未批准。"
+  }
+}

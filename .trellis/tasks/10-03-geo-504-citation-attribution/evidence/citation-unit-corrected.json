@@ -1,0 +1,13 @@
+{
+  "command": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "pytest",
+    "backend/tests/unit/test_geo_citations.py",
+    "backend/tests/unit/test_geo_analysis.py",
+    "backend/tests/unit/test_geo_recommendations.py"
+  ],
+  "exit_code": 0
+}

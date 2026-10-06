@@ -1,0 +1,8 @@
+{
+  "scope": "本机开发环境；不是生产验收",
+  "browser_collection_enabled": false,
+  "configured_session_root": false,
+  "configured_public_key": false,
+  "configured_service_key": false,
+  "dev_session_table_exists": false
+}

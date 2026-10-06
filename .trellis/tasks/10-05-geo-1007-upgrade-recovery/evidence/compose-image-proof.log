@@ -1,0 +1,3 @@
+真实迁移提交后 artifact exit23：UPGRADE_DEPLOYING；既有表完整行摘要不变
+真实启动 artifact exit24；新候选和 frontend rollback 原路径均拒绝
+清理确认：本次 container/network/image/temp=0；共享开发 PG 未访问

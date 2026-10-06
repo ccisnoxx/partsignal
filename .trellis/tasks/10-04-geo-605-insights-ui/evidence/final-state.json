@@ -1,0 +1,8 @@
+{
+  "task_status": "review",
+  "manifest_status": "review",
+  "branch": "geo/GEO-605",
+  "required_checks": "passed",
+  "worker_files_preserved": true,
+  "scope_file_count": 37
+}

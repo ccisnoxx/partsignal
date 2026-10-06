@@ -1,0 +1,191 @@
+[
+  {
+    "path": "backend/app/audit_types.py",
+    "change": "modified"
+  },
+  {
+    "path": "backend/app/models/geo_opportunities.py",
+    "change": "modified"
+  },
+  {
+    "path": "backend/app/routers/geo_opportunities.py",
+    "change": "modified"
+  },
+  {
+    "path": "backend/app/schemas/common.py",
+    "change": "modified"
+  },
+  {
+    "path": "backend/app/schemas/geo_opportunity_workbench.py",
+    "change": "modified"
+  },
+  {
+    "path": "backend/app/services/content_planning.py",
+    "change": "modified"
+  },
+  {
+    "path": "backend/app/services/geo_opportunity_policy.py",
+    "change": "modified"
+  },
+  {
+    "path": "backend/app/services/geo_opportunity_queries.py",
+    "change": "modified"
+  },
+  {
+    "path": "backend/app/services/product_facts.py",
+    "change": "modified"
+  },
+  {
+    "path": "backend/app/services/projections.py",
+    "change": "modified"
+  },
+  {
+    "path": "backend/app/services/publication.py",
+    "change": "modified"
+  },
+  {
+    "path": "backend/app/services/publication_queries.py",
+    "change": "modified"
+  },
+  {
+    "path": "backend/tests/integration/test_geo_admission_migration.py",
+    "change": "modified"
+  },
+  {
+    "path": "backend/tests/integration/test_geo_answer_migration.py",
+    "change": "modified"
+  },
+  {
+    "path": "backend/tests/integration/test_geo_opportunity_migration.py",
+    "change": "modified"
+  },
+  {
+    "path": "backend/tests/integration/test_migrations.py",
+    "change": "modified"
+  },
+  {
+    "path": "backend/tests/unit/test_contract.py",
+    "change": "modified"
+  },
+  {
+    "path": "backend/tests/unit/test_runtime_response_metadata.py",
+    "change": "modified"
+  },
+  {
+    "path": "backend/tests/unit/test_workflow_projections.py",
+    "change": "modified"
+  },
+  {
+    "path": "contracts/database.md",
+    "change": "modified"
+  },
+  {
+    "path": "contracts/openapi.yaml",
+    "change": "modified"
+  },
+  {
+    "path": "docs/geo-monitoring/03-technical/02-data-architecture.md",
+    "change": "modified"
+  },
+  {
+    "path": "docs/geo-monitoring/03-technical/03-api-contract-design.md",
+    "change": "modified"
+  },
+  {
+    "path": "docs/geo-monitoring/03-technical/04-frontend-architecture.md",
+    "change": "modified"
+  },
+  {
+    "path": "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "change": "modified"
+  },
+  {
+    "path": "frontend/src/domains/geo-opportunities/opportunities-page.test.tsx",
+    "change": "modified"
+  },
+  {
+    "path": "frontend/src/domains/geo-opportunities/opportunities.test-support.tsx",
+    "change": "modified"
+  },
+  {
+    "path": "frontend/src/domains/geo-opportunities/opportunity-detail.tsx",
+    "change": "modified"
+  },
+  {
+    "path": "frontend/src/shared/api/generated/schema.d.ts",
+    "change": "modified"
+  },
+  {
+    "path": "backend/app/schemas/geo_opportunity_actions.py",
+    "change": "added"
+  },
+  {
+    "path": "backend/app/services/geo_opportunity_actions.py",
+    "change": "added"
+  },
+  {
+    "path": "backend/app/services/geo_opportunity_action_views.py",
+    "change": "added"
+  },
+  {
+    "path": "backend/alembic/versions/0060_geo_opportunity_actions.py",
+    "change": "added"
+  },
+  {
+    "path": "backend/alembic/sql/0060_geo_opportunity_actions.sql",
+    "change": "added"
+  },
+  {
+    "path": "backend/tests/integration/geo_opportunity_actions_support.py",
+    "change": "added"
+  },
+  {
+    "path": "backend/tests/integration/test_geo_opportunity_actions.py",
+    "change": "added"
+  },
+  {
+    "path": "backend/tests/integration/test_geo_opportunity_action_guards.py",
+    "change": "added"
+  },
+  {
+    "path": "backend/tests/integration/test_geo_opportunity_action_migration.py",
+    "change": "added"
+  },
+  {
+    "path": "backend/tests/unit/test_geo_opportunity_actions.py",
+    "change": "added"
+  },
+  {
+    "path": "frontend/src/app/auth/auth-provider.tsx",
+    "change": "modified",
+    "evidence": "704编辑记录及当前diff；未纳入621路径起始内容快照"
+  },
+  {
+    "path": "frontend/src/domains/audit/audit.model.ts",
+    "change": "modified",
+    "evidence": "704编辑记录及当前diff；未纳入621路径起始内容快照"
+  },
+  {
+    "path": "frontend/src/domains/content/content-task-lifecycle.tsx",
+    "change": "modified",
+    "evidence": "704编辑记录及当前diff；未纳入621路径起始内容快照"
+  },
+  {
+    "path": "frontend/src/domains/identity/user.api.ts",
+    "change": "modified",
+    "evidence": "704编辑记录及当前diff；未纳入621路径起始内容快照"
+  },
+  {
+    "path": "frontend/tests/e2e/opportunities-real-stack.spec.ts",
+    "change": "modified",
+    "evidence": "704编辑记录及当前diff；未纳入621路径起始内容快照"
+  },
+  {
+    "path": "docs/geo-monitoring/CHANGELOG.md",
+    "change": "modified"
+  },
+  {
+    "path": "docs/geo-monitoring/SHA256SUMS",
+    "change": "modified"
+  }
+]

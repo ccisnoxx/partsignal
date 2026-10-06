@@ -1,0 +1,54 @@
+{
+  "task": "GEO-1002",
+  "status": "review",
+  "production": "NO-GO",
+  "docs_changed_from_task_baseline": 17,
+  "local_links_checked": 716,
+  "broken_links": 0,
+  "original_statuses": {
+    "done": 67,
+    "deferred": 4
+  },
+  "following_tasks": {
+    "GEO-1003": "planned",
+    "GEO-1004": "planned",
+    "GEO-1005": "planned",
+    "GEO-1006": "planned",
+    "GEO-1007": "planned",
+    "GEO-1008": "planned",
+    "GEO-1009": "planned",
+    "GEO-1010": "planned"
+  },
+  "checksums": {
+    "command": [
+      "shasum",
+      "-a",
+      "256",
+      "-c",
+      "SHA256SUMS"
+    ],
+    "workdir": "/Users/sc/PycharmProjects/partsignal/docs/geo-monitoring",
+    "files": 131,
+    "ok": 131,
+    "exit_code": 0
+  },
+  "protected": {
+    "unchanged_protected_files": 1350,
+    "audit_and_original_readiness_unchanged": true,
+    "production_verified": false
+  },
+  "git_diff_check": {
+    "global_exit": 2,
+    "preexisting_whitespace_lines": 12,
+    "candidate_whitespace_errors": 0
+  },
+  "independent_review": {
+    "findings": 0,
+    "scope": "documentation",
+    "audit_id": "20261006T034504Z-geo-1002-v1-release-scope-2b036082"
+  },
+  "business_tests_run": false,
+  "production_operations": false,
+  "committed": false,
+  "pushed": false
+}

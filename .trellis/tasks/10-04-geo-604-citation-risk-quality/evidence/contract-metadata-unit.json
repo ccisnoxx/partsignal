@@ -1,0 +1,15 @@
+{
+  "argv": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "pytest",
+    "backend/tests/unit/test_contract.py",
+    "backend/tests/unit/test_runtime_response_metadata.py",
+    "backend/tests/unit/test_geo_insight_details.py"
+  ],
+  "exit_code": 1,
+  "started_at": "2026-10-04T08:15:53.415647+00:00",
+  "finished_at": "2026-10-04T08:16:17.207711+00:00"
+}

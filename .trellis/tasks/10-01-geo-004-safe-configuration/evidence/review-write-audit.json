@@ -1,0 +1,14 @@
+{
+  "snapshot": "review-source-hashes.json",
+  "changed_paths": [
+    "docs/geo-monitoring/README.md",
+    "docs/production-configuration.md"
+  ],
+  "primary_known_edits": [
+    "docs/production-configuration.md",
+    "docs/geo-monitoring/README.md"
+  ],
+  "unexplained_changes": [],
+  "reviewer_observed_write_paths": [],
+  "evidence": "只读 reviewer 的完成自报与候选前后文件哈希对账；主代理在复核期间仅修改列出的文档说明。"
+}

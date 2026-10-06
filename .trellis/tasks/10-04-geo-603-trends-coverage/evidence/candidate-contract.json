@@ -1,0 +1,10 @@
+{
+  "argv": [
+    "make",
+    "contract-check"
+  ],
+  "cwd": "/Users/sc/PycharmProjects/partsignal",
+  "exit_code": 2,
+  "started_at": "2026-10-04T07:19:02.011388+00:00",
+  "finished_at": "2026-10-04T07:19:05.664908+00:00"
+}

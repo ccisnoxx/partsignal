@@ -1,0 +1,14 @@
+{
+  "command": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "ruff",
+    "check",
+    "backend/app/services/geo_report_csv.py",
+    "backend/tests/unit/test_geo_reports.py"
+  ],
+  "exit_code": 1,
+  "duration_seconds": 0.05
+}

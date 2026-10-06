@@ -1,0 +1,4 @@
+/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-upgrade-recovery-compose.py:284: SyntaxWarning: invalid escape sequence '\('
+  (build / "Dockerfile").write_text("FROM partsignal-backend:test\nCOPY . /app\nRUN find alembic -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete\n")
+真实迁移提交后 artifact exit23：UPGRADE_DEPLOYING；既有表完整行摘要不变
+清理确认：本次 container/network/image/temp=0；共享开发 PG 未访问

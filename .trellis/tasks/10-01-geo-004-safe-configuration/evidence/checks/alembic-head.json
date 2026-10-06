@@ -1,0 +1,13 @@
+{
+  "command": [
+    "UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv",
+    "uv",
+    "run",
+    "alembic",
+    "heads"
+  ],
+  "cwd": "backend",
+  "exit_code": 0,
+  "result": "0043_geo_platform_identity (head)",
+  "database_contact": false
+}

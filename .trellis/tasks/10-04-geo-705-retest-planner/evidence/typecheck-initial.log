@@ -1,0 +1,7 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend mypy --config-file backend/pyproject.toml backend/app
+backend/app/services/geo_retest_comparability.py:84: error: "type[QueryTopic]" has no attribute "is_active"  [attr-defined]
+backend/app/services/geo_retest_comparability.py:118: error: Need type annotation for "models" (hint: "models: dict[<type>, <type>] = ...")  [var-annotated]
+backend/app/services/geo_retest_comparability.py:119: error: Argument 1 to "dict" has incompatible type "Sequence[Row[tuple[UUID, str]]]"; expected "Iterable[tuple[Never, Never]]"  [arg-type]
+backend/app/services/geo_retest_comparability.py:144: error: Argument "collection_mode" to "matches_frozen_profile" of "ProfileFacts" has incompatible type "Literal['MANUAL', 'API', 'BROWSER']"; expected "GeoCollectionMode"  [arg-type]
+Found 4 errors in 1 file (checked 225 source files)
+make: *** [typecheck] Error 1

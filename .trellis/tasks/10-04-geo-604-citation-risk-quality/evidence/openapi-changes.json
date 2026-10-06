@@ -1,0 +1,37 @@
+{
+  "schemas": [
+    "GeoAnswerInsightDataQuality",
+    "GeoAnswerInsightDrilldown",
+    "GeoAnswerInsightMetric",
+    "GeoAnswerInsightSampleFilters",
+    "GeoAnswerInsightTrend",
+    "GeoAnswerInsights",
+    "GeoInsightCitationBucket",
+    "GeoInsightCitationDrilldown",
+    "GeoInsightCitationFilters",
+    "GeoInsightCitationPage",
+    "GeoInsightCitationSample",
+    "GeoInsightCitationSummary",
+    "GeoInsightClaimDrilldown",
+    "GeoInsightClaimFilters",
+    "GeoInsightClaimGroup",
+    "GeoInsightClaimPage",
+    "GeoInsightClaimSample",
+    "GeoInsightCostSummary",
+    "GeoInsightFactRiskSummary",
+    "GeoInsightQualityDrilldown",
+    "GeoInsightQualityFilters",
+    "GeoInsightQualityPage",
+    "GeoInsightQualitySample",
+    "GeoInsightVersionSummary"
+  ],
+  "paths": [
+    "/api/v1/geo/insights/citations",
+    "/api/v1/geo/insights/claims",
+    "/api/v1/geo/insights/quality/runs"
+  ],
+  "modified_paths": [
+    "/api/v1/geo/insights",
+    "/api/v1/geo/insights/runs"
+  ]
+}

@@ -1,0 +1,44 @@
+--- before/contracts/database.md
++++ contracts/database.md
+@@ -10,9 +10,9 @@
+ - JSONB is limited to immutable generation snapshots, structured generation output, and audit details. Editable product facts use one Markdown body on `products`; platform rules and normalized fact subgraphs no longer exist after `0025`.
+ - Review records, publication work events, publication verifications, observations, and audit logs cannot be modified in place。`0027` 仅在物理删除停用用户时允许把匹配 `audit_logs.actor_id` 置空；`0029` 允许管理员按完整更正链删除人工 GEO 观测；`0037` 允许普通删除未成功发布的任务聚合，并允许管理员永久删除已归档任务聚合。发布与 GEO 历史在保留期间仍禁止原地改写，删除只能从显式业务命令进入。
+ 
+-## GEO Catalog 合同（GEO-101 / R1，尚未迁移）
+-
+-本节冻结 GeoSubject/Alias/Domain 目标合同，供 GEO-102 ORM/Alembic、GEO-103 Schema/策略、GEO-104 Service/Router 实现。当前源码 head 仍为 `0043_geo_platform_identity`；本节不表示表、约束、触发器或 API 已部署。公共 Schema 和待接线操作分别见 `contracts/openapi.yaml` 的 `components.schemas.Geo*Subject*` 与 `x-geo-catalog-contract.paths`。既有文章关系 GEO、Product/FactVersion 与历史迁移均保持独立。
++## GEO Catalog 合同（GEO-101 / R1；GEO-102 ORM/Alembic）
++
++本节冻结 GeoSubject/Alias/Domain 合同。GEO-102 已实现三表 ORM、模型注册及 `0044_geo_catalog`，当前源码 head 从 `0043_geo_platform_identity` 前滚；这不表示生产数据库已迁移或 API 已接线。GEO-103 Schema/策略、GEO-104 Service/Router 仍待实施。公共 Schema 和待接线操作分别见 `contracts/openapi.yaml` 的 `components.schemas.Geo*Subject*` 与 `x-geo-catalog-contract.paths`。既有文章关系 GEO、Product/FactVersion 与历史迁移均保持独立。
+ 
+ ### 身份、归属与规范化
+ 
+@@ -55,7 +55,7 @@
+ | fk_geo_subjects_parent_identity | (parent_subject_id, parent_subject_type) → geo_subjects(id, subject_type)，MATCH FULL，ON DELETE RESTRICT，ON UPDATE RESTRICT；同时保证存在与真实父级类型 |
+ | uq_geo_subjects_active_own_product | UNIQUE(product_id) WHERE subject_type='OWN_PRODUCT' AND is_active；这是独立 partial unique index |
+ 
+-父子类型用 CHECK + 复合 FK 提供真实 SQL 最终防线；不能只做 Service 预检。两级合法类型关系天然排除多层循环。后续迁移的 `geo_subjects_identity_guard` 禁止更新 subject_type/product_id/created_by/created_at（SQLSTATE 55000，服务先以字段 validation 拒绝）；不为该未知数据库守卫错误增加宽泛业务映射。
++父子类型用 CHECK + 复合 FK 提供真实 SQL 最终防线；不能只做 Service 预检。两级合法类型关系天然排除多层循环。`0044_geo_catalog` 的 `geo_subjects_identity_guard` 禁止更新 subject_type/product_id/created_by/created_at（SQLSTATE 55000，后续服务先以字段 validation 拒绝）；不为该未知数据库守卫错误增加宽泛业务映射。
+ 
+ 索引：`ix_geo_subjects_type_active_name_id(subject_type,is_active,normalized_name,id)`、`ix_geo_subjects_product_id(product_id) WHERE product_id IS NOT NULL`、`ix_geo_subjects_parent_id(parent_subject_id)`、`ix_geo_subjects_created_by(created_by)`、`ix_geo_subjects_updated_id(updated_at,id)`。OWN_PRODUCT 名称筛选/排序 JOIN 当前 Product，不持久化派生搜索字段。NAME_ASC 按规范名称、id；UPDATED_DESC 按 updated_at DESC、id DESC，列表 total 与 items 应来自同一读取快照。
+ 
+@@ -113,7 +113,7 @@
+ 
+ ### 实施与恢复边界
+ 
+-GEO-101 新增 Alembic revision 为零；无前滚、回填、历史数据修改、downgrade 或数据库运行证据。GEO-102 应以新 revision 添加三张表及上述约束，不修改 0001～0043 或 migration_schema_v1。入口保持关闭直到实现及验证完成；合同先行可仅撤回新增定义和生成类型。将来数据存在后的恢复按前滚修复/迁移前备份处理，不删除现有 GEO/产品数据来通过迁移。
++GEO-101 只冻结合同。GEO-102 新增 `0044_geo_catalog`，仅添加三张表、约束、索引及身份守卫，不修改 0001～0043 或 migration_schema_v1，不回填或改写历史 Product/GEO 数据；迁移冻结自身 DDL，不导入运行时 ORM。隔离 PostgreSQL 16 的空库及含旧记录的 0043 前滚、metadata、直接 SQL 和唯一索引并发验证见 `.trellis/tasks/10-01-geo-102-catalog-orm/implement.md`。downgrade 以 SQLSTATE 55000 明确拒绝删除三表，保留 revision 和数据；恢复使用前滚修复或迁移前 PostgreSQL 备份。入口保持关闭，CRUD/API/UI 尚未实施。
+ 
+ ## Product Detail Read Projection
+ 
+@@ -490,6 +490,10 @@
+ Content Version Detail 是一次 `REPEATABLE READ` 只读投影。它只读取目标版本、任务当前指针、Fact Version identity、创建者、目标祖先链上的生成/自然化 Prompt 与 model snapshot，以及按既有顺序累计的审核记录；不返回完整 Task、Fact Markdown、Diff、无关 GenerationJob、版本列表或动作投影。`review_result` 必须取目标版本自身最后一条真实审核记录，`is_current` 只比较 `content_tasks.current_content_version_id`，两者都不得从版本状态推导。
+ 
+ 普通任务删除在行锁内校验调用方必填的 `expected_revision`，不匹配返回 `REVISION_CONFLICT`；删除范围与阻断条件仍由服务端在同一事务最终复核。
++
++### 0044 GEO Catalog
++
++版本文件 `0044_geo_catalog.py` 紧跟 `0043_geo_platform_identity`。新增 `geo_subjects`、`geo_subject_aliases`、`geo_subject_domains`，落实本合同的命名 CHECK/FK/UNIQUE/index 和 Subject 不可改身份触发器。活动 OWN_PRODUCT 的 partial unique 允许多个停用历史身份，并对创建及重新启用提供同一数据库仲裁；父级 MATCH FULL 复合 RESTRICT FK 校验真实品牌类型；子字典只在删除 Subject 时 CASCADE。无历史回填、服务写入、revision 自动递增或 HTTP 错误映射；未来 Application Service 继续拥有聚合事务、锁序、CAS 与成功审计。降级明确失败，不能用删除 Catalog 数据作为恢复方式。
+ 
+ ### Content Task Detail 读取快照
+ 

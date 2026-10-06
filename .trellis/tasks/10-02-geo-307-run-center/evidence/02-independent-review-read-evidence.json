@@ -1,0 +1,74 @@
+{
+  "source": "child rollout tool calls; inspected read-only commands",
+  "calls": [
+    {
+      "ordinal": 14,
+      "name": "exec"
+    },
+    {
+      "ordinal": 21,
+      "name": "exec"
+    },
+    {
+      "ordinal": 32,
+      "name": "exec"
+    },
+    {
+      "ordinal": 39,
+      "name": "exec"
+    },
+    {
+      "ordinal": 47,
+      "name": "exec"
+    },
+    {
+      "ordinal": 56,
+      "name": "exec"
+    },
+    {
+      "ordinal": 64,
+      "name": "exec"
+    },
+    {
+      "ordinal": 79,
+      "name": "exec"
+    },
+    {
+      "ordinal": 87,
+      "name": "exec"
+    },
+    {
+      "ordinal": 97,
+      "name": "exec"
+    },
+    {
+      "ordinal": 107,
+      "name": "exec"
+    },
+    {
+      "ordinal": 120,
+      "name": "exec"
+    },
+    {
+      "ordinal": 128,
+      "name": "exec"
+    },
+    {
+      "ordinal": 143,
+      "name": "exec"
+    },
+    {
+      "ordinal": 151,
+      "name": "exec"
+    },
+    {
+      "ordinal": 160,
+      "name": "exec"
+    },
+    {
+      "ordinal": 167,
+      "name": "exec"
+    }
+  ],
+  "write_paths": []
+}

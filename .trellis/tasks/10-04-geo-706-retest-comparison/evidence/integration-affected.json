@@ -1,0 +1,21 @@
+{
+  "argv": [
+    "docker",
+    "compose",
+    "-f",
+    ".trellis/tasks/10-04-geo-706-retest-comparison/evidence/compose.yaml",
+    "run",
+    "--rm",
+    "backend-test",
+    "pytest",
+    "tests/integration/test_geo_retest_comparisons.py",
+    "tests/integration/test_geo_retest_history.py",
+    "tests/integration/test_geo_decision_migration.py",
+    "tests/integration/test_geo_admission_migration.py",
+    "tests/integration/test_geo_answer_migration.py",
+    "tests/integration/test_migrations.py::test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent",
+    "--tb=short"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 23.84
+}

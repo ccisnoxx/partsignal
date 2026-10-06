@@ -1,0 +1,36 @@
+{
+  "changed_existing": [
+    ".env.example",
+    ".env.production.example",
+    "backend/app/config.py",
+    "backend/app/services/geo_batches.py",
+    "backend/app/services/geo_manual_collection.py",
+    "backend/app/worker.py",
+    "contracts/database.md",
+    "deploy/scripts/check-production-inputs.py",
+    "docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md",
+    "docs/geo-monitoring/03-technical/08-deployment-and-operations.md",
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "docs/geo-monitoring/README.md",
+    "docs/geo-monitoring/SHA256SUMS",
+    "docs/production-configuration.md"
+  ],
+  "new_maintained": [
+    "backend/app/services/geo_collection_execution.py",
+    "backend/app/services/geo_dispatch.py",
+    "backend/app/services/geo_run_lifecycle.py",
+    "backend/app/services/geo_runs.py",
+    "backend/tests/integration/geo_worker_support.py",
+    "backend/tests/integration/test_geo_worker.py",
+    "backend/tests/unit/test_geo_worker_configuration.py"
+  ],
+  "outside_task": [],
+  "baseline_unrelated_changes_preserved": true,
+  "baseline_quoted_path_omissions_verified_equal_to_HEAD": [
+    "docs/GEO多平台内容运营系统方案设计.md",
+    "docs/GEO系统前后端技术与部署方案.md",
+    "docs/GEO项目会话归档.md",
+    "docs/Hostdzire部署上线流程.md",
+    "docs/Hostdzire部署附录.md"
+  ]
+}

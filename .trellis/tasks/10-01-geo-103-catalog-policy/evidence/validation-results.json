@@ -1,0 +1,68 @@
+{
+  "baseline": {
+    "command": "UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/unit/test_geo_catalog_contract.py backend/tests/unit/test_geo_catalog_metadata.py backend/tests/unit/test_contract.py backend/tests/unit/test_contract_check.py",
+    "exit_code": 0,
+    "result": "163 passed"
+  },
+  "targeted": {
+    "command": "UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/unit/test_geo_catalog_schema.py backend/tests/unit/test_geo_catalog_policy.py backend/tests/unit/test_geo_catalog_projection.py",
+    "exit_code": 0,
+    "result": "98 passed after Schema metadata correction",
+    "log": "targeted-schema-corrected.log"
+  },
+  "lint": {
+    "command": "make lint",
+    "exit_code": 0,
+    "result": "Ruff + ESLint passed",
+    "log": "make-lint-final.log"
+  },
+  "typecheck": {
+    "command": "make typecheck",
+    "exit_code": 0,
+    "result": "mypy 85 source files + tsc passed",
+    "log": "make-typecheck-corrected.log"
+  },
+  "unit": {
+    "command": "make test-unit",
+    "exit_code": 0,
+    "result": "backend 953 passed; frontend 92 files / 863 passed",
+    "log": "make-test-unit-final.log"
+  },
+  "contract": {
+    "command": "make contract-check",
+    "exit_code": 0,
+    "result": "runtime operation/schema contract + generated types passed"
+  },
+  "integration": {
+    "command": "make test-integration COMPOSE='docker compose --env-file .env.example -p partsignal-geo103-validation -f deploy/compose.dev.yaml -f .trellis/tasks/10-01-geo-103-catalog-policy/evidence/compose-validation.yaml'",
+    "exit_code": 0,
+    "result": "427 passed, 2 existing SAWarning, no skips",
+    "reuse_reason": "最终修正仅尚未接线的 Catalog Schema 元数据、共享 IP pattern 常量及单元测试；数据库、部署、runtime Router 与既有服务保持初始指纹，integration 不消费新 Catalog Schema，完整结果仍适用。"
+  },
+  "alembic": {
+    "command": "env DATABASE_URL=postgresql+psycopg://partsignal:partsignal_dev@localhost:55439/geo103_validation UV_CACHE_DIR=.cache/uv uv run --project backend alembic -c backend/alembic.ini upgrade head",
+    "exit_code": 0,
+    "result": "isolated fresh PostgreSQL 16.15 -> 0044_geo_catalog, 3 Catalog tables; no new revision"
+  },
+  "schema_parity": {
+    "command": "UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/unit/test_geo_catalog_schema.py::test_generated_catalog_schemas_match_accepted_contract",
+    "before_fix_exit_code": 1,
+    "after_fix_exit_code": 0,
+    "result": "9 Catalog entry schemas, all referenced shapes, complete failures=[]"
+  },
+  "diff": {
+    "command": "git diff --check",
+    "exit_code": 0,
+    "result": "passed; owned untracked whitespace separately checked"
+  },
+  "docs": {
+    "command": "sh -c 'cd docs/geo-monitoring && shasum -a 256 -c SHA256SUMS'",
+    "exit_code": 0,
+    "result": "113 entries passed"
+  },
+  "catalog_contract_final": {
+    "command": "UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/unit/test_geo_catalog_contract.py",
+    "exit_code": 0,
+    "result": "29 passed after docs change"
+  }
+}

@@ -22,7 +22,24 @@ from app.errors import AppError, in_use, not_found
 from app.models.ai_generation import AIChannel, AIModel, GenerationJob
 from app.models.configuration import ContentHumanizationPrompt, PlatformPrompt, PlatformType
 from app.models.content import ContentReviewRecord, ContentTask, ContentVersion
+from app.models.geo_analysis import GeoRunReview
+from app.models.geo_browser_sessions import GeoBrowserSession
+from app.models.geo_catalog import GeoSubject
 from app.models.geo_files import FileRecord, GeoObservation
+from app.models.geo_manual_collection import GeoManualDraft, GeoManualSubmission
+from app.models.geo_monitoring_plans import GeoMonitoringPlan
+from app.models.geo_opportunities import (
+    GeoOpportunity,
+    GeoOpportunityAction,
+    GeoOpportunityEvaluation,
+)
+from app.models.geo_opportunity_decisions import GeoOpportunityDecision
+from app.models.geo_opportunity_evaluation import GeoOpportunityEvaluationRun
+from app.models.geo_prompt_variants import GeoPromptVariant
+from app.models.geo_retests import GeoRetestBaseline, GeoRetestRequest
+from app.models.geo_rules import GeoRuleSetRevision
+from app.models.geo_runs import GeoObservationBatch
+from app.models.geo_surfaces import GeoCollectionProfile, GeoEngineSurface
 from app.models.identity import (
     SessionRecord,
     User,
@@ -49,6 +66,7 @@ from app.schemas.common import (
     UserUpdate,
 )
 from app.security import generate_token, hash_password, hash_token, verify_password
+from app.services.current_actor import discard_auth_heartbeat
 
 _USER_STATE_LOCK = text("LOCK TABLE users IN SHARE ROW EXCLUSIVE MODE")
 _BULK_ITEM_ERROR_CODES: set[UserBulkStatusFailureCode] = {
@@ -88,6 +106,27 @@ def _user_business_reference_counts(
         ContentVersion.created_by,
         ContentReviewRecord.actor_id,
         GeoObservation.tested_by,
+        GeoSubject.created_by,
+        GeoPromptVariant.created_by,
+        GeoEngineSurface.created_by,
+        GeoCollectionProfile.created_by,
+        GeoBrowserSession.created_by,
+        GeoBrowserSession.revoked_by,
+        GeoMonitoringPlan.created_by,
+        GeoMonitoringPlan.updated_by,
+        GeoObservationBatch.created_by,
+        GeoManualDraft.updated_by,
+        GeoManualSubmission.submitted_by,
+        GeoRunReview.reviewer_id,
+        GeoRuleSetRevision.created_by,
+        GeoOpportunity.acknowledged_by,
+        GeoOpportunity.resolved_by,
+        GeoOpportunityAction.created_by,
+        GeoOpportunityEvaluation.created_by,
+        GeoOpportunityEvaluationRun.created_by,
+        GeoRetestBaseline.created_by,
+        GeoRetestRequest.created_by,
+        GeoOpportunityDecision.created_by,
         FileRecord.uploader_id,
         FactVersion.created_by,
         FactVersion.approved_by,
@@ -364,6 +403,7 @@ def change_password(
     request_id: str,
 ) -> None:
     """验证旧密码后更新自身密码，并撤销当前会话以外的会话。"""
+    discard_auth_heartbeat(db)
     user = db.scalar(select(User).where(User.id == current.user_id).with_for_update())
     if user is None or not verify_password(user.password_hash, payload.old_password):
         raise AppError("AUTH_REQUIRED", "旧密码错误", 401)
@@ -568,6 +608,7 @@ def update_user(
     request_id: str,
 ) -> User:
     """以共享状态不变量更新单个用户并提交事务。"""
+    discard_auth_heartbeat(db)
     db.execute(_USER_STATE_LOCK)
     user = _update_user_locked(
         db=db,
@@ -590,6 +631,7 @@ def bulk_update_user_status(
     request_id: str,
 ) -> tuple[list[User], list[UserBulkStatusFailure]]:
     """按 UUID 稳定加锁，保留逐项预期失败并原子回滚意外错误。"""
+    discard_auth_heartbeat(db)
     db.execute(_USER_STATE_LOCK)
     succeeded: dict[uuid.UUID, User] = {}
     failures: dict[uuid.UUID, UserBulkStatusFailure] = {}
@@ -631,6 +673,7 @@ def delete_user(
     request_id: str,
 ) -> None:
     """删除已停用且没有业务历史引用的用户。"""
+    discard_auth_heartbeat(db)
     db.execute(_USER_STATE_LOCK)
     user = db.scalar(select(User).where(User.id == user_id).with_for_update())
     if user is None:
@@ -686,6 +729,7 @@ def reset_user_password(
     request_id: str,
 ) -> User:
     """为其他用户设置临时密码，并立即撤销其全部会话。"""
+    discard_auth_heartbeat(db)
     if user_id == actor.id:
         raise AppError("VALIDATION_ERROR", "管理员必须通过自助改密修改自己的密码", 422)
     user = db.scalar(select(User).where(User.id == user_id).with_for_update())

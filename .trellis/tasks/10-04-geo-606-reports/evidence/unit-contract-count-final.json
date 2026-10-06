@@ -1,0 +1,13 @@
+{
+  "command": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "pytest",
+    "backend/tests/unit/test_contract.py::test_frozen_response_status_signatures_cover_every_operation",
+    "-q"
+  ],
+  "exit_code": 0,
+  "duration_seconds": 2.22
+}

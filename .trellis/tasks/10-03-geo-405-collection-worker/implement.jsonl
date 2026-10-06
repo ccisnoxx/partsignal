@@ -1,0 +1,7 @@
+{"file": ".trellis/spec/backend/index.md", "reason": "后端规范入口"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "后端质量与测试"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "PostgreSQL边界"}
+{"file": "contracts/database.md", "reason": "当前数据库写入合同"}
+{"file": "docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md", "reason": "405执行与后续范围"}
+{"file": "docs/geo-monitoring/05-decisions/ADR-005-staged-collector-rollout.md", "reason": "保守恢复决策"}
+{"file": ".trellis/tasks/10-03-geo-405-collection-worker/design.md", "reason": "本任务责任、锁序与停止边界"}

@@ -1,0 +1,148 @@
+{
+  "date": "2026-10-05",
+  "scope": "GEO-906 人工接受后的本地 verify 入口修复",
+  "checks": [
+    {
+      "command": "git diff --check",
+      "exit_code": 0,
+      "result": "passed",
+      "note": "最终记录写入后检查，退出 0"
+    },
+    {
+      "command": "make lint",
+      "exit_code": 0,
+      "result": "passed",
+      "log": "lint.log"
+    },
+    {
+      "command": "make typecheck",
+      "exit_code": 0,
+      "result": "passed",
+      "log": "typecheck.log"
+    },
+    {
+      "command": "make test-deploy-scripts",
+      "exit_code": 0,
+      "result": "passed",
+      "log": "test-deploy-scripts.log"
+    },
+    {
+      "command": "UV_CACHE_DIR=\"$PWD/.cache/uv\" uv run --project backend python .trellis/tasks/10-05-verify-entrypoint/run-verify.py",
+      "invoked_command": "make verify",
+      "exit_code": 0,
+      "result": "passed",
+      "log": "verify.log"
+    },
+    {
+      "command": "make test-geo-recovery-integration",
+      "exit_code": 2,
+      "result": "failed_then_fixed",
+      "log": "recovery.log",
+      "cause": "未启用 Compose test profile，配置缺 backend-test"
+    },
+    {
+      "command": "make test-geo-recovery-integration",
+      "exit_code": 0,
+      "result": "passed",
+      "passed": 6,
+      "seconds": 18.8,
+      "log": "recovery-corrected.log"
+    },
+    {
+      "command": "PGHOST=unapproved.invalid UV_CACHE_DIR=... uv run --project backend python deploy/scripts/test-geo-recovery-integration.py",
+      "exit_code": 1,
+      "result": "expected_rejection",
+      "log": "recovery-pg-override-rejected.log"
+    }
+  ],
+  "verify_details": {
+    "contract_lint_typecheck": "passed",
+    "backend_unit": {
+      "passed": 3783,
+      "seconds": 65.9
+    },
+    "frontend_unit": {
+      "files_passed": 135,
+      "passed": 1285
+    },
+    "integration_container": {
+      "passed": 1170,
+      "warnings": 43,
+      "seconds": 602.05
+    },
+    "integration_recovery": {
+      "passed": 6,
+      "seconds": 17.43
+    },
+    "performance": {
+      "passed": 1,
+      "seconds": 558.37,
+      "sample_count": 100000
+    },
+    "backend_and_frontend_build": "passed",
+    "real_stack_e2e": {
+      "passed": 32,
+      "duration": "4.0m"
+    },
+    "geo_api_e2e": {
+      "modes": [
+        "enabled",
+        "api-disabled",
+        "monitoring-disabled"
+      ],
+      "passed": 3,
+      "skipped": 3,
+      "skip_reason": "既有 mode 条件：正常旅程和关闭开关的消费门禁分别执行"
+    },
+    "frontend_fixture_e2e": {
+      "passed": 498,
+      "skipped": 74,
+      "duration": "6.6m",
+      "note": "保留原套件条件选择，未添加 skip 或缩小过滤"
+    },
+    "deploy_scripts": "passed",
+    "development_compose_config": "passed",
+    "production_compose_config": "passed"
+  },
+  "boundaries": {
+    "openapi_changes": false,
+    "database_contract_changes": false,
+    "new_alembic_revision": false,
+    "production_migration": false,
+    "business_formula_changes": false,
+    "frontend_behavior_changes": false,
+    "private_env_modified": false,
+    "browser_production_enable": false,
+    "production_status": "NOT_STARTED/NOT_VERIFIED",
+    "redis_keys_before": {
+      "13": 0,
+      "14": 6,
+      "15": 63
+    },
+    "redis_keys_after": {
+      "13": 0,
+      "14": 6,
+      "15": 67
+    },
+    "redis_note": "E2E DB13 精确清理为空；未清扫 DB14/15；DB15 保留测试运行后的状态"
+  },
+  "not_run": [
+    {
+      "check": "生产 smoke、生产恢复/停止演练",
+      "reason": "本次仅本地入口修复；精确生产目标、固定候选及分阶段人工授权仍缺失"
+    },
+    {
+      "check": "远端 GitHub Actions",
+      "reason": "未授权触发/推送，本次验证本地 Make 入口；独立 CI pytest 编排未修改"
+    }
+  ],
+  "independent_review": {
+    "result": "未确认阻断问题",
+    "audit_id": "20261006T015455Z-verify-entrypoint-4daba9dc",
+    "audit_verify": "passed"
+  },
+  "previous_geo906_record_preserved": true,
+  "geo906_manifest_status": "done",
+  "geo906_trellis_status": "completed",
+  "followup_task_status": "review"
+}

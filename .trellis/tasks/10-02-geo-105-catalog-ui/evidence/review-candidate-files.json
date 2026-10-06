@@ -1,0 +1,16 @@
+{
+  "frontend/src/domains/geo-catalog/catalog-controls.tsx": "6bef6cec186e3bb61ae608085d4393f5c97fc9a35596f47866c5795e8b414633",
+  "frontend/src/domains/geo-catalog/catalog-page.tsx": "8c23d2f2ef9b227dd7c8ac1603cceaae3435789fa66ea370d4d302c09a487af0",
+  "frontend/src/domains/geo-catalog/catalog-options.tsx": "f81c8900a09d78c844cb447293e071793a58e169b6e7f60177bd87345bf0fb0b",
+  "frontend/src/domains/geo-catalog/catalog.api.ts": "fb66fbdbbe02cfd78c6e77633b76199d144396d331fa528660725518eea93ac0",
+  "frontend/src/domains/geo-catalog/catalog-dictionary-form.tsx": "28b1d756612cd220dabfd7c9df91dc7c24c4f1698cc8afac9099180f618259a5",
+  "frontend/src/domains/geo-catalog/catalog-form-command.tsx": "8be09d1000b77149649d5e02cc64d56e066c9a61520a99a1c6af3638ca1fb992",
+  "frontend/src/domains/geo-catalog/catalog-detail.tsx": "fb79ac306ec39060117216b33ed799cf87d0c9ab633e40ae6b466c0c045fa229",
+  "frontend/src/domains/geo-catalog/catalog-list.tsx": "f8b69ad87dbd746665263583d69677c1e52780529d15176c2d5257571330f0aa",
+  "frontend/src/domains/geo-catalog/catalog.model.ts": "b3346cf9350856ac3d3f9a7854ea49e0d403cf4ff7e94b27273b57efa8ab20c3",
+  "frontend/src/domains/geo-catalog/catalog.api.test.ts": "6825bf7c50b29a70ae81eecb0b6dbaf7b1fc883f2f07afcce728351bfe20104b",
+  "frontend/src/domains/geo-catalog/catalog-form.model.ts": "c4b637c0f8159ffc2099b81ac1507f40164780b226d893208418675a348e9fcf",
+  "frontend/src/domains/geo-catalog/catalog-subject-form.tsx": "5b9b385a0260738f71390950c5dfebf71bba23b744958f4ea68185f0ac9930a2",
+  "frontend/src/domains/geo-catalog/catalog.model.test.ts": "850888c0e26a839e8005e718a0e6eaf67d880bb7c454880d94cdc5bd1e2ab9b0",
+  "frontend/src/routes/_app/configuration/geo-entities.tsx": "65d81f53945d9eb738295ccf893666b2dc283477c6927d3ceaa2292b8dbc986b"
+}

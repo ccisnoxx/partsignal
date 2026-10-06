@@ -1,0 +1,49 @@
+{
+  "changed_existing": [
+    "deploy/scripts/e2e-local.sh",
+    "docs/geo-monitoring/03-technical/04-frontend-architecture.md",
+    "docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md",
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "docs/geo-monitoring/CHANGELOG.md",
+    "docs/geo-monitoring/README.md",
+    "docs/geo-monitoring/SHA256SUMS",
+    "frontend/src/app/layout/app-shell.tsx",
+    "frontend/src/app/navigation.test.ts",
+    "frontend/src/app/navigation.ts",
+    "frontend/src/routeTree.gen.ts",
+    "frontend/tests/e2e/plans-real-stack.spec.ts"
+  ],
+  "new_maintained": [
+    ".trellis/tasks/10-04-geo-605-insights-ui/check.jsonl",
+    ".trellis/tasks/10-04-geo-605-insights-ui/design.md",
+    ".trellis/tasks/10-04-geo-605-insights-ui/implement.jsonl",
+    ".trellis/tasks/10-04-geo-605-insights-ui/implement.md",
+    ".trellis/tasks/10-04-geo-605-insights-ui/prd.md",
+    ".trellis/tasks/10-04-geo-605-insights-ui/task.json",
+    "frontend/src/domains/geo-insights/drilldown.model.ts",
+    "frontend/src/domains/geo-insights/evidence-sections.test.tsx",
+    "frontend/src/domains/geo-insights/evidence-sections.tsx",
+    "frontend/src/domains/geo-insights/insight-drilldown.tsx",
+    "frontend/src/domains/geo-insights/insight-filters.tsx",
+    "frontend/src/domains/geo-insights/insight-page-frame.tsx",
+    "frontend/src/domains/geo-insights/insight-sample-tables.tsx",
+    "frontend/src/domains/geo-insights/insights-components.tsx",
+    "frontend/src/domains/geo-insights/insights-page.test.tsx",
+    "frontend/src/domains/geo-insights/insights-page.tsx",
+    "frontend/src/domains/geo-insights/insights.api.ts",
+    "frontend/src/domains/geo-insights/insights.model.test.ts",
+    "frontend/src/domains/geo-insights/insights.model.ts",
+    "frontend/src/domains/geo-insights/insights.test-support.ts",
+    "frontend/src/domains/geo-insights/overview-page.tsx",
+    "frontend/src/domains/geo-insights/performance-sections.tsx",
+    "frontend/src/routes/_app/geo/insights/answers.tsx",
+    "frontend/src/routes/_app/geo/overview.tsx",
+    "frontend/tests/e2e/insights-real-stack.spec.ts"
+  ],
+  "removed": [],
+  "contract_unchanged": {
+    "contracts/openapi.yaml": true,
+    "contracts/database.md": true,
+    "frontend/src/shared/api/generated/schema.d.ts": true
+  }
+}

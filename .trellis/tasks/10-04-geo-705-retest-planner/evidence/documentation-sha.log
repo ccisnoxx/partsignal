@@ -1,0 +1,235 @@
+shasum: ./00-governance/01-document-governance.md: No such file or directory
+./00-governance/01-document-governance.md: FAILED open or read
+shasum: ./00-governance/02-glossary.md: No such file or directory
+./00-governance/02-glossary.md: FAILED open or read
+shasum: ./01-product/01-product-vision-and-scope.md: No such file or directory
+./01-product/01-product-vision-and-scope.md: FAILED open or read
+shasum: ./01-product/02-geo-core-prd.md: No such file or directory
+./01-product/02-geo-core-prd.md: FAILED open or read
+shasum: ./01-product/03-information-architecture-and-page-spec.md: No such file or directory
+./01-product/03-information-architecture-and-page-spec.md: FAILED open or read
+shasum: ./01-product/04-catalog-user-guide.md: No such file or directory
+./01-product/04-catalog-user-guide.md: FAILED open or read
+shasum: ./02-business/01-business-architecture.md: No such file or directory
+./02-business/01-business-architecture.md: FAILED open or read
+shasum: ./02-business/02-domain-model.md: No such file or directory
+./02-business/02-domain-model.md: FAILED open or read
+shasum: ./02-business/03-workflows-and-state-machines.md: No such file or directory
+./02-business/03-workflows-and-state-machines.md: FAILED open or read
+shasum: ./02-business/04-monitoring-methodology-and-metrics.md: No such file or directory
+./02-business/04-monitoring-methodology-and-metrics.md: FAILED open or read
+shasum: ./03-technical/01-technical-architecture.md: No such file or directory
+./03-technical/01-technical-architecture.md: FAILED open or read
+shasum: ./03-technical/02-data-architecture.md: No such file or directory
+./03-technical/02-data-architecture.md: FAILED open or read
+shasum: ./03-technical/03-api-contract-design.md: No such file or directory
+./03-technical/03-api-contract-design.md: FAILED open or read
+shasum: ./03-technical/04-frontend-architecture.md: No such file or directory
+./03-technical/04-frontend-architecture.md: FAILED open or read
+shasum: ./03-technical/05-worker-and-collector-architecture.md: No such file or directory
+./03-technical/05-worker-and-collector-architecture.md: FAILED open or read
+shasum: ./03-technical/06-security-and-compliance.md: No such file or directory
+./03-technical/06-security-and-compliance.md: FAILED open or read
+shasum: ./03-technical/07-testing-and-quality.md: No such file or directory
+./03-technical/07-testing-and-quality.md: FAILED open or read
+shasum: ./03-technical/08-deployment-and-operations.md: No such file or directory
+./03-technical/08-deployment-and-operations.md: FAILED open or read
+shasum: ./04-delivery/01-implementation-roadmap.md: No such file or directory
+./04-delivery/01-implementation-roadmap.md: FAILED open or read
+shasum: ./04-delivery/02-work-breakdown-structure.md: No such file or directory
+./04-delivery/02-work-breakdown-structure.md: FAILED open or read
+shasum: ./04-delivery/03-requirement-traceability-matrix.md: No such file or directory
+./04-delivery/03-requirement-traceability-matrix.md: FAILED open or read
+shasum: ./04-delivery/04-codex-execution-guide.md: No such file or directory
+./04-delivery/04-codex-execution-guide.md: FAILED open or read
+shasum: ./04-delivery/05-task-template.md: No such file or directory
+./04-delivery/05-task-template.md: FAILED open or read
+shasum: ./04-delivery/06-current-geo-baseline.md: No such file or directory
+./04-delivery/06-current-geo-baseline.md: FAILED open or read
+shasum: ./04-delivery/06-r5-insight-performance-acceptance.md: No such file or directory
+./04-delivery/06-r5-insight-performance-acceptance.md: FAILED open or read
+shasum: ./04-delivery/07-r2-acceptance.md: No such file or directory
+./04-delivery/07-r2-acceptance.md: FAILED open or read
+shasum: ./04-delivery/08-r3-api-acceptance.md: No such file or directory
+./04-delivery/08-r3-api-acceptance.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/ALL_PROMPTS.md: No such file or directory
+./04-delivery/codex-prompts/ALL_PROMPTS.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/EXECUTION_ORDER.md: No such file or directory
+./04-delivery/codex-prompts/EXECUTION_ORDER.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R0/GEO-003.md: No such file or directory
+./04-delivery/codex-prompts/R0/GEO-003.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R0/GEO-004.md: No such file or directory
+./04-delivery/codex-prompts/R0/GEO-004.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R0/GEO-005.md: No such file or directory
+./04-delivery/codex-prompts/R0/GEO-005.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R1/GEO-101.md: No such file or directory
+./04-delivery/codex-prompts/R1/GEO-101.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R1/GEO-102.md: No such file or directory
+./04-delivery/codex-prompts/R1/GEO-102.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R1/GEO-103.md: No such file or directory
+./04-delivery/codex-prompts/R1/GEO-103.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R1/GEO-104.md: No such file or directory
+./04-delivery/codex-prompts/R1/GEO-104.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R1/GEO-105.md: No such file or directory
+./04-delivery/codex-prompts/R1/GEO-105.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R1/GEO-106.md: No such file or directory
+./04-delivery/codex-prompts/R1/GEO-106.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R1/GEO-201.md: No such file or directory
+./04-delivery/codex-prompts/R1/GEO-201.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R1/GEO-202.md: No such file or directory
+./04-delivery/codex-prompts/R1/GEO-202.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R1/GEO-203.md: No such file or directory
+./04-delivery/codex-prompts/R1/GEO-203.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R1/GEO-204.md: No such file or directory
+./04-delivery/codex-prompts/R1/GEO-204.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R1/GEO-205.md: No such file or directory
+./04-delivery/codex-prompts/R1/GEO-205.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R1/GEO-206.md: No such file or directory
+./04-delivery/codex-prompts/R1/GEO-206.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R1/GEO-207.md: No such file or directory
+./04-delivery/codex-prompts/R1/GEO-207.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R1/GEO-208.md: No such file or directory
+./04-delivery/codex-prompts/R1/GEO-208.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R1/GEO-209.md: No such file or directory
+./04-delivery/codex-prompts/R1/GEO-209.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R2/GEO-301.md: No such file or directory
+./04-delivery/codex-prompts/R2/GEO-301.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R2/GEO-302.md: No such file or directory
+./04-delivery/codex-prompts/R2/GEO-302.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R2/GEO-303.md: No such file or directory
+./04-delivery/codex-prompts/R2/GEO-303.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R2/GEO-304.md: No such file or directory
+./04-delivery/codex-prompts/R2/GEO-304.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R2/GEO-305.md: No such file or directory
+./04-delivery/codex-prompts/R2/GEO-305.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R2/GEO-306.md: No such file or directory
+./04-delivery/codex-prompts/R2/GEO-306.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R2/GEO-307.md: No such file or directory
+./04-delivery/codex-prompts/R2/GEO-307.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R2/GEO-308.md: No such file or directory
+./04-delivery/codex-prompts/R2/GEO-308.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R3/GEO-401.md: No such file or directory
+./04-delivery/codex-prompts/R3/GEO-401.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R3/GEO-402.md: No such file or directory
+./04-delivery/codex-prompts/R3/GEO-402.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R3/GEO-403.md: No such file or directory
+./04-delivery/codex-prompts/R3/GEO-403.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R3/GEO-404.md: No such file or directory
+./04-delivery/codex-prompts/R3/GEO-404.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R3/GEO-405.md: No such file or directory
+./04-delivery/codex-prompts/R3/GEO-405.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R3/GEO-406.md: No such file or directory
+./04-delivery/codex-prompts/R3/GEO-406.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R3/GEO-407.md: No such file or directory
+./04-delivery/codex-prompts/R3/GEO-407.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R3/GEO-408.md: No such file or directory
+./04-delivery/codex-prompts/R3/GEO-408.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R4/GEO-501.md: No such file or directory
+./04-delivery/codex-prompts/R4/GEO-501.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R4/GEO-502.md: No such file or directory
+./04-delivery/codex-prompts/R4/GEO-502.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R4/GEO-503.md: No such file or directory
+./04-delivery/codex-prompts/R4/GEO-503.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R4/GEO-504.md: No such file or directory
+./04-delivery/codex-prompts/R4/GEO-504.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R4/GEO-505.md: No such file or directory
+./04-delivery/codex-prompts/R4/GEO-505.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R4/GEO-506.md: No such file or directory
+./04-delivery/codex-prompts/R4/GEO-506.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R4/GEO-507.md: No such file or directory
+./04-delivery/codex-prompts/R4/GEO-507.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R4/GEO-508.md: No such file or directory
+./04-delivery/codex-prompts/R4/GEO-508.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R5/GEO-601.md: No such file or directory
+./04-delivery/codex-prompts/R5/GEO-601.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R5/GEO-602.md: No such file or directory
+./04-delivery/codex-prompts/R5/GEO-602.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R5/GEO-603.md: No such file or directory
+./04-delivery/codex-prompts/R5/GEO-603.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R5/GEO-604.md: No such file or directory
+./04-delivery/codex-prompts/R5/GEO-604.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R5/GEO-605.md: No such file or directory
+./04-delivery/codex-prompts/R5/GEO-605.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R5/GEO-606.md: No such file or directory
+./04-delivery/codex-prompts/R5/GEO-606.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R5/GEO-607.md: No such file or directory
+./04-delivery/codex-prompts/R5/GEO-607.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R6/GEO-701.md: No such file or directory
+./04-delivery/codex-prompts/R6/GEO-701.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R6/GEO-702.md: No such file or directory
+./04-delivery/codex-prompts/R6/GEO-702.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R6/GEO-703.md: No such file or directory
+./04-delivery/codex-prompts/R6/GEO-703.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R6/GEO-704.md: No such file or directory
+./04-delivery/codex-prompts/R6/GEO-704.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R6/GEO-705.md: No such file or directory
+./04-delivery/codex-prompts/R6/GEO-705.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R6/GEO-706.md: No such file or directory
+./04-delivery/codex-prompts/R6/GEO-706.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R6/GEO-707.md: No such file or directory
+./04-delivery/codex-prompts/R6/GEO-707.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R7/GEO-801.md: No such file or directory
+./04-delivery/codex-prompts/R7/GEO-801.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R7/GEO-802.md: No such file or directory
+./04-delivery/codex-prompts/R7/GEO-802.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R7/GEO-803.md: No such file or directory
+./04-delivery/codex-prompts/R7/GEO-803.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R7/GEO-804.md: No such file or directory
+./04-delivery/codex-prompts/R7/GEO-804.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R7/GEO-805.md: No such file or directory
+./04-delivery/codex-prompts/R7/GEO-805.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R7/GEO-806.md: No such file or directory
+./04-delivery/codex-prompts/R7/GEO-806.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R7/GEO-807.md: No such file or directory
+./04-delivery/codex-prompts/R7/GEO-807.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R8/GEO-901.md: No such file or directory
+./04-delivery/codex-prompts/R8/GEO-901.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R8/GEO-902.md: No such file or directory
+./04-delivery/codex-prompts/R8/GEO-902.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R8/GEO-903.md: No such file or directory
+./04-delivery/codex-prompts/R8/GEO-903.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R8/GEO-904.md: No such file or directory
+./04-delivery/codex-prompts/R8/GEO-904.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R8/GEO-905.md: No such file or directory
+./04-delivery/codex-prompts/R8/GEO-905.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/R8/GEO-906.md: No such file or directory
+./04-delivery/codex-prompts/R8/GEO-906.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/README.md: No such file or directory
+./04-delivery/codex-prompts/README.md: FAILED open or read
+shasum: ./04-delivery/codex-prompts/REVIEW_CHECKLIST.md: No such file or directory
+./04-delivery/codex-prompts/REVIEW_CHECKLIST.md: FAILED open or read
+shasum: ./04-delivery/geo-003-baseline/database.json: No such file or directory
+./04-delivery/geo-003-baseline/database.json: FAILED open or read
+shasum: ./04-delivery/geo-003-baseline/migrations.json: No such file or directory
+./04-delivery/geo-003-baseline/migrations.json: FAILED open or read
+shasum: ./04-delivery/geo-003-baseline/openapi.json: No such file or directory
+./04-delivery/geo-003-baseline/openapi.json: FAILED open or read
+shasum: ./04-delivery/geo-003-baseline/queries.json: No such file or directory
+./04-delivery/geo-003-baseline/queries.json: FAILED open or read
+shasum: ./04-delivery/geo-003-baseline/routes.json: No such file or directory
+./04-delivery/geo-003-baseline/routes.json: FAILED open or read
+shasum: ./04-delivery/geo-003-baseline/sources.json: No such file or directory
+./04-delivery/geo-003-baseline/sources.json: FAILED open or read
+shasum: ./04-delivery/geo-003-baseline/tests.json: No such file or directory
+./04-delivery/geo-003-baseline/tests.json: FAILED open or read
+shasum: ./04-delivery/geo-003-baseline/validation.md: No such file or directory
+./04-delivery/geo-003-baseline/validation.md: FAILED open or read
+shasum: ./04-delivery/task-manifest.yaml: No such file or directory
+./04-delivery/task-manifest.yaml: FAILED open or read
+shasum: ./05-decisions/ADR-001-extend-modular-monolith.md: No such file or directory
+./05-decisions/ADR-001-extend-modular-monolith.md: FAILED open or read
+shasum: ./05-decisions/ADR-002-unified-observation-run-model.md: No such file or directory
+./05-decisions/ADR-002-unified-observation-run-model.md: FAILED open or read
+shasum: ./05-decisions/ADR-003-separate-collection-analysis-review.md: No such file or directory
+./05-decisions/ADR-003-separate-collection-analysis-review.md: FAILED open or read
+shasum: ./05-decisions/ADR-004-no-unified-geo-score.md: No such file or directory
+./05-decisions/ADR-004-no-unified-geo-score.md: FAILED open or read
+shasum: ./05-decisions/ADR-005-staged-collector-rollout.md: No such file or directory
+./05-decisions/ADR-005-staged-collector-rollout.md: FAILED open or read
+shasum: ./05-decisions/GEO-002-architecture-review.md: No such file or directory
+./05-decisions/GEO-002-architecture-review.md: FAILED open or read
+shasum: ./CHANGELOG.md: No such file or directory
+./CHANGELOG.md: FAILED open or read
+./README.md: FAILED
+shasum: WARNING: 116 listed files could not be read
+shasum: WARNING: 1 computed checksum did NOT match

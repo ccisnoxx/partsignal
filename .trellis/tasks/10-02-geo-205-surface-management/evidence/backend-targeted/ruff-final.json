@@ -1,0 +1,33 @@
+{
+  "command": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "ruff",
+    "check",
+    "backend/app/services/geo_collection_profiles.py",
+    "backend/tests/unit/test_geo_surface_contract.py",
+    "backend/app/audit_types.py",
+    "backend/app/errors.py",
+    "backend/app/main.py",
+    "backend/app/services/audit_logs.py",
+    "backend/tests/unit/test_contract.py",
+    "backend/tests/integration/geo_surface_management_support.py",
+    "backend/tests/integration/test_geo_surface_management_concurrency.py",
+    "backend/tests/integration/test_geo_surface_management_reads.py",
+    "backend/tests/integration/test_geo_surface_management_constraint_mapping.py",
+    "backend/tests/integration/test_geo_surface_management_transactions.py",
+    "backend/tests/integration/test_geo_surface_management_api.py",
+    "backend/tests/unit/test_validation_error_safety.py",
+    "backend/tests/unit/test_geo_surface_management_errors.py",
+    "backend/app/services/geo_surface_commands.py",
+    "backend/app/services/geo_surface_queries.py",
+    "backend/app/services/geo_surface_locks.py",
+    "backend/app/services/geo_surface_projections.py",
+    "backend/app/routers/geo_surface_management.py",
+    "backend/app/schemas/geo_surface_management.py"
+  ],
+  "exit_code": 0,
+  "seconds": 0.027713124989531934
+}

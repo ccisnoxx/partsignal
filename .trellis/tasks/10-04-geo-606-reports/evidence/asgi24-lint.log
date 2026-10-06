@@ -1,0 +1,21 @@
+E501 Line too long (105 > 100)
+   --> backend/tests/unit/test_geo_reports.py:356:101
+    |
+355 |     iterator = rows()
+356 |     stream = CsvStream(("text",), iterator, next(iterator), lambda: released.append(not active.is_set()))
+    |                                                                                                     ^^^^^
+357 |     close = stream.close
+    |
+
+E501 Line too long (110 > 100)
+   --> backend/tests/unit/test_geo_reports.py:373:101
+    |
+371 |             await asyncio.Event().wait()
+372 |
+373 |         task = asyncio.create_task(response({"type": "http", "asgi": {"spec_version": "2.4"}}, receive, send))
+    |                                                                                                     ^^^^^^^^^^
+374 |         try:
+375 |             assert await asyncio.to_thread(entered.wait, 5)
+    |
+
+Found 2 errors.

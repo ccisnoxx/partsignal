@@ -1,0 +1,10 @@
+{
+  "audit_id": "20261001T230125Z-geo-101-catalog-contract-0d37d7b0",
+  "status": "closed",
+  "verification": "passed",
+  "plan_count": 1,
+  "executed_attempt_count": 1,
+  "accepted_attempt_count": 1,
+  "independent_review_count": 1,
+  "anomaly_count": 0
+}

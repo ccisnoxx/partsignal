@@ -1,0 +1,11 @@
+{
+  "task_manifest": "review",
+  "task_json": "review",
+  "other_manifest_blocks_unchanged": true,
+  "GEO-705": "planned",
+  "files": 46,
+  "snapshot_delta_files": 41,
+  "git_branch": "geo/GEO-704",
+  "baseline_scope": 621,
+  "unrelated_changes_preserved": true
+}

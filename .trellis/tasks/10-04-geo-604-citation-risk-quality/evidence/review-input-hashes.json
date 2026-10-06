@@ -1,0 +1,13 @@
+{
+  "backend/app/schemas/geo_answer_insights.py": "f70c851bf9b537dd5747a82720edb36bd9d5a2f8cd37b05ab7c61958737a0c31",
+  "backend/app/schemas/geo_insight_details.py": "af822d889102b8828fb3873049eacfa6802b31064491eb71ad0aa9f18cd2ef66",
+  "backend/app/services/geo_answer_insights.py": "03a4c6682bf64ca0e33488d12f56b7dea04c3ee6eef83e8841329083987f71fc",
+  "backend/app/services/geo_overview_queries.py": "9872a9ae52f679d2ea50cd3119ce4e049e31ebac8b666e6744d869757fec0f25",
+  "backend/app/services/geo_insight_evidence.py": "1dbf78c5ad72cc712520f3d78f60089a923bcabc2ecbb6ea4df936b219932acd",
+  "backend/app/services/geo_insight_details.py": "f727f23ef3870ec582807f07255c4108aa9777a98839e8bb9de81a7ba7b123b4",
+  "backend/app/services/geo_insight_quality.py": "e924e31675f894c536787851e87f8e020a9e7a9e258e1a2053e75e81a8558c8a",
+  "backend/app/routers/geo_answer_insights.py": "a3855611ed0a6c2f678cd9242dee44472a1df42d4562dfae1d7925ec70877551",
+  "backend/tests/unit/test_geo_insight_details.py": "92bcb822563ae83436cfbec795b2c255f1d72d46ab1ef4f685eba2639109af96",
+  "backend/tests/integration/test_geo_insight_details.py": "135de40901825b3a087c98dfd3d5d1f5d1277eca56aef784cbbe74d9c5b274bd",
+  "contracts/openapi.yaml": "8abb7efe2dae387de5feb8acf410cba17a3e327712bab22fbab3214f09cb145d"
+}

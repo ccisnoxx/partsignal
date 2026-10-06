@@ -1,0 +1,11 @@
+{
+  "argv": [
+    "make",
+    "test-integration",
+    "COMPOSE=docker compose -p partsignal-geo603-validation -f .trellis/tasks/10-04-geo-603-trends-coverage/evidence/validation-compose.yaml"
+  ],
+  "cwd": "/Users/sc/PycharmProjects/partsignal",
+  "exit_code": 0,
+  "started_at": "2026-10-04T07:18:48.463718+00:00",
+  "finished_at": "2026-10-04T07:27:01.740240+00:00"
+}

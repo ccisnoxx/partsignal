@@ -1,0 +1,10 @@
+MULTI_AGENT_AUDIT_BUNDLE
+status: passed
+audit_id: 20261002T074402Z-geo-104-catalog-independent-review-17ed434b
+audit_dir: /Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261002T074402Z-geo-104-catalog-independent-review-17ed434b
+bundle_status: closed
+artifact_count: 20
+size_bytes: 37609
+summary: {"plan_count": 3, "executed_attempt_count": 3, "accepted_attempt_count": 3, "independent_review_count": 3, "attention_required": false, "anomaly_count": 0}
+errors: []
+warnings: []

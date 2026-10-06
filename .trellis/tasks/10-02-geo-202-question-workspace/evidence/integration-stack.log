@@ -1,0 +1,85 @@
+ Image partsignal-geo202-validation-fake-oss Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 590B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 594B done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/python:3.12-slim
+#3 ...
+
+#4 [auth] astral-sh/uv:pull token for ghcr.io
+#4 DONE 0.0s
+
+#5 [internal] load metadata for ghcr.io/astral-sh/uv:0.7.13
+#5 ...
+
+#3 [internal] load metadata for docker.io/library/python:3.12-slim
+#3 DONE 1.7s
+
+#5 [internal] load metadata for ghcr.io/astral-sh/uv:0.7.13
+#5 DONE 1.9s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 152B done
+#6 DONE 0.0s
+
+#7 FROM ghcr.io/astral-sh/uv:0.7.13@sha256:6c1e19020ec221986a210027040044a5df8de762eb36d5240e382bc41d7a9043
+#7 resolve ghcr.io/astral-sh/uv:0.7.13@sha256:6c1e19020ec221986a210027040044a5df8de762eb36d5240e382bc41d7a9043 0.0s done
+#7 DONE 0.0s
+
+#8 [runtime 1/7] FROM docker.io/library/python:3.12-slim@sha256:dddfd7e07f9d15aeeca61529320492139d21cac7f0070c00609243e51e4e0016
+#8 resolve docker.io/library/python:3.12-slim@sha256:dddfd7e07f9d15aeeca61529320492139d21cac7f0070c00609243e51e4e0016 0.0s done
+#8 DONE 0.0s
+
+#9 [internal] load build context
+#9 transferring context: 1.51MB 0.0s done
+#9 DONE 0.0s
+
+#10 [runtime 2/7] WORKDIR /app
+#10 CACHED
+
+#11 [runtime 3/7] COPY --from=ghcr.io/astral-sh/uv:0.7.13 /uv /uvx /bin/
+#11 CACHED
+
+#12 [runtime 4/7] COPY pyproject.toml uv.lock* ./
+#12 CACHED
+
+#13 [runtime 5/7] RUN uv sync --no-dev --no-install-project
+#13 CACHED
+
+#14 [runtime 6/7] COPY . .
+#14 DONE 0.0s
+
+#15 [runtime 7/7] RUN uv sync --no-dev
+#15 0.152 Resolved 88 packages in 1ms
+#15 0.157    Building partsignal-backend @ file:///app
+#15 3.448       Built partsignal-backend @ file:///app
+#15 3.448 Prepared 1 package in 3.29s
+#15 3.450 Installed 1 package in 1ms
+#15 3.597 Bytecode compiled 2466 files in 146ms
+#15 3.597  + partsignal-backend==0.1.0 (from file:///app)
+#15 DONE 3.6s
+
+#16 exporting to image
+#16 exporting layers
+#16 exporting layers 0.2s done
+#16 exporting manifest sha256:783e46021a03adb5175599df755f6df719cef2190403df6cb498fb978da135d4 done
+#16 exporting config sha256:9e81dba70fea6df0ff9be7c005b1520dc0ad3ececeac98a85a5ba717cefbdc28 done
+#16 exporting attestation manifest sha256:6309781349e242feb28b5aac3f359c40d5a3e3bef90357d83348b5f5dfcbceec done
+#16 exporting manifest list sha256:7abbeb4d2af9a8fbf15f63fc63f1ca5d68324529e2edc5d82cc5b2a9ddc03ffa done
+#16 naming to docker.io/library/partsignal-geo202-validation-fake-oss:latest done
+#16 unpacking to docker.io/library/partsignal-geo202-validation-fake-oss:latest 0.0s done
+#16 DONE 0.2s
+
+#17 resolving provenance for metadata file
+#17 DONE 0.0s
+ Image partsignal-geo202-validation-fake-oss Built 
+ Container partsignal-geo202-validation-fake-oss-1 Creating 
+ Container partsignal-geo202-validation-fake-oss-1 Created 
+ Container partsignal-geo202-validation-fake-oss-1 Starting 
+ Container partsignal-geo202-validation-fake-oss-1 Started 
+ Container partsignal-geo202-validation-fake-oss-1 Waiting 
+ Container partsignal-geo202-validation-fake-oss-1 Healthy 

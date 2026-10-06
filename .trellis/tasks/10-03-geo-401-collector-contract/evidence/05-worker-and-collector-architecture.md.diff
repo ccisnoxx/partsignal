@@ -1,0 +1,65 @@
+--- baseline/docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md
++++ docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md
+@@ -451,3 +451,62 @@
+ ```
+ 
+ 命令必须支持 dry-run、限批、稳定输出和非零失败码，不允许批量静默改状态。
++
++## 当前 R3：GEO-401 内部采集合同
++
++`backend/app/collectors/base.py::GeoCollector` 定义同步结构协议，`registration` 复用
++GEO-204 的 `CollectorRegistration`，key/version/模式/六项能力只有一个元数据 owner。
++`validate_profile` 返回既有 `ProfileBlocker` 元组，保持纯配置校验；当前执行资格继续由
++Application Service 的共享 `evaluate_profile` 裁决。`estimate` 无外部 I/O，
++`CollectionEstimate.cost=None` 表示未知，显式零金额仍需币种。默认 Registry 仍只有
++manual 元数据，不登记可执行占位或自动 adapter。
++
++`contracts.py` 定义严格、不可变的 `CollectionRequest`、`CollectionProfile`、
++`CollectionSurface`、`CollectedAnswer`、`CollectedCitation`、`Usage`、`Money` 与
++`RawPayloadSummary`。`CollectionRequest.from_snapshot` 显式转换已校验的
++`GeoRunInputSnapshot`，复制原问题和冻结 Profile/Surface 配置，不传递 API DTO、ORM、
++凭据、事实正文或 subject/别名字典。上文建议结构中的 `subject_snapshot` 不进入实际
++Collector 输入：这些内容属于后续分析上下文，不应被拼接到监测问题或无必要外发。
++输入保留数据分级，但该标记不构成外发授权；凭据和网络客户端的受控构造属于后续 adapter。
++
++回答保留完整原文；未知 source/search/usage/cost 为 None，partial usage 不补算 total。
++已报告的来源文本必须非空且不含 NUL，引用标题允许空串但不含 NUL；非法值显式拒绝，
++不静默清理字符或补值，避免构造不能通过既有 PostgreSQL 证据边界的成功结果。
++引用保留原 URL 和实际位置，要求位置唯一升序；同 URL 不同位置保留给已有提交边界统一
++规范化/去重并保存 occurrences，不进行来源归属分析或网络抓取。安全摘要转换为既有
++GEO-304 四字段闭合 DTO，禁止任意 provider 字符串/秘密键。可选证据 bytes 有既有文件大小
++上限，仅能承载已清理的内容；值对象的结构校验不证明截图裁剪或原始 bytes 已脱敏。
++adapter 必须在实际采集边界完成脱敏与响应大小限制，Application Service 负责文件资格、
++存储与不可变聚合提交。请求/结果 repr 不展示问题、答案、引用或大对象。
++
++`errors.py::CollectorError` 只接收闭合字段，`failure` 为不可变 `CollectorFailure`：
++code 复用 `GeoRunErrorCode` 的 Collector 子集；stage 为
++CONFIGURATION/CONNECT/SEND/RECEIVE/PARSE/EVIDENCE；必须显式提供
++`external_call_state`（NOT_STARTED/SENT/UNKNOWN/COMPLETED），没有默认发送状态。
++message 由 code 映射固定中文安全摘要，不接受底层异常、响应正文或自定义 message。
++所有细阶段映射到 Run 的 COLLECTION，非 Collector 的 Worker/预算/分析/复核错误拒绝。
++错误不新增 HTTP 映射或持久化字段。
++
++| 条件 | retryability | 含义 |
++|---|---|---|
++| CONNECT/SEND、NOT_STARTED，且 TIMEOUT/UNAVAILABLE | SAFE_BEFORE_SEND | 仅说明 transport 确证未发出字节；恢复仍需数据库 lease/token/持久化状态裁决 |
++| 配置、关闭、认证、分级或会话失效 | NOT_RETRYABLE | 先修复配置或取得授权，不直接重发 |
++| 其他已发送/未知/已完整接收的失败 | NEW_ATTEMPT_ONLY | 只允许后续显式新 attempt，同一 attempt 不自动重试 |
++
++CONFIGURATION/CONNECT 必须 NOT_STARTED；RECEIVE 不能 NOT_STARTED；PARSE/EVIDENCE 必须
++COMPLETED。COLLECTOR_UNKNOWN_OUTCOME 只能 SENT/UNKNOWN。provider_status 仅用于完整响应，
++retry_after_seconds 仅用于完整 429，不能解释为同 attempt 自动等待后重发。
++COMPLETED 只表示外部结果已完整接收，不能解释为业务成功、回答有效或已提交数据库。
++
++`collect(request, *, before_send)` 必须接收 `SendAuthorization` 回调。未来 Worker 的回调
++在首次请求字节前，按当前 lease/token/状态/授权执行短事务并原子持久化 SENT；Collector
++不获得 Session 或提交能力。回调失败不能发送；返回后不执行无关等待；一次调用至多发送
++一次，不自动 redirect/retry/发送后切换地址。若回调已保存 SENT 但实际字节未发出，仍按
++数据库保守恢复，不能只用 Collector 的 NOT_STARTED 撤销持久化标记。
++
++GEO-401 只定义协议和值/错误边界，不实现回调、网络 adapter、假 provider、调用计数、
++Worker claim/lease、恢复、预算、机器分析或 Browser；真实 at-most-once 与资源释放必须由
++GEO-404/405/406 的传输和并发测试证明。当前验证见
++[Task Brief](../../../.trellis/tasks/10-03-geo-401-collector-contract/prd.md) 与
++[实施证据](../../../.trellis/tasks/10-03-geo-401-collector-contract/implement.md)，交付状态以
++[任务清单](../04-delivery/task-manifest.yaml) 为准。

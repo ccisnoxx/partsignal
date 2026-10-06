@@ -1,0 +1,17 @@
+{
+  "argv": [
+    "docker",
+    "compose",
+    "-f",
+    ".trellis/tasks/10-05-geo-901-retention/evidence/compose.yaml",
+    "run",
+    "--rm",
+    "backend-test",
+    "pytest",
+    "tests/integration/test_geo_retention.py",
+    "tests/integration/test_geo_answer_files.py",
+    "tests/integration/test_geo_manual_collection.py"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 11.926
+}

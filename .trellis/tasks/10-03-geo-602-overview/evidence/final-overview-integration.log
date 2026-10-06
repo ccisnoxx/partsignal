@@ -1,0 +1,86 @@
+ Container partsignal-geo602-validation-postgres-1 Running 
+ Container partsignal-geo602-validation-redis-1 Running 
+ Container partsignal-geo602-validation-fake-oss-1 Running 
+ Container partsignal-geo602-validation-postgres-1 Waiting 
+ Container partsignal-geo602-validation-postgres-1 Healthy 
+ Container partsignal-geo602-validation-backend-test-run-7d74a2de9285 Creating 
+ Container partsignal-geo602-validation-backend-test-run-7d74a2de9285 Created 
+.......F                                                                 [100%]
+=================================== FAILURES ===================================
+____ test_latest_attempt_and_cross_page_composition_use_filtered_candidates ____
+
+overview_api = ReviewAPI(harness=AnalysisHarness(database=AnswerDatabase(runs=RunDatabase(plan=PlanDatabase(url='postgresql://partsig...s=<starlette.testclient.TestClient object at 0xf688747bc620>, engineer_id=UUID('54462527-c027-4d81-b00a-03f0affe3ff9'))
+
+    def test_latest_attempt_and_cross_page_composition_use_filtered_candidates(overview_api):
+        api = overview_api
+        db = api.harness.database.runs
+        with psycopg.connect(db.url) as conn:
+            start = conn.execute("SELECT now()").fetchone()[0]
+            identity = batch(conn, db)
+            parent = run(conn, db, identity)
+            terminal(conn, parent, "FAILED")
+>           conn.commit()
+
+tests/integration/test_geo_overview.py:328: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/venv/lib/python3.12/site-packages/psycopg/connection.py:305: in commit
+    self.wait(self._commit_gen())
+/opt/venv/lib/python3.12/site-packages/psycopg/connection.py:484: in wait
+    return waiting.wait(gen, self.pgconn.socket, interval=interval)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+psycopg_binary/_psycopg/waiting.pyx:241: in psycopg_binary._psycopg.wait_c
+    ???
+/opt/venv/lib/python3.12/site-packages/psycopg/_connection_base.py:585: in _commit_gen
+    yield from self._exec_command(b"COMMIT")
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <psycopg.Connection [BAD] at 0xf68874959910>, command = b'COMMIT'
+result_format = <Format.TEXT: 0>
+
+    def _exec_command(
+        self, command: QueryNoTemplate, result_format: pq.Format = TEXT
+    ) -> PQGen[PGresult | None]:
+        """
+        Generator to send a command and receive the result to the backend.
+    
+        Only used to implement internal commands such as "commit", with eventual
+        arguments bound client-side. The cursor can do more complex stuff.
+        """
+        self._check_connection_ok()
+    
+        if isinstance(command, str):
+            command = command.encode(self.pgconn._encoding)
+        elif isinstance(command, Composable):
+            command = command.as_bytes(self)
+    
+        if self._pipeline:
+            cmd = partial(
+                self.pgconn.send_query_params,
+                command,
+                None,
+                result_format=result_format,
+            )
+            self._pipeline.command_queue.append(cmd)
+            self._pipeline.result_queue.append(None)
+            return None
+    
+        # Unless needed, use the simple query protocol, e.g. to interact with
+        # pgbouncer. In pipeline mode we always use the advanced query protocol
+        # instead, see #350
+        if result_format == TEXT:
+            self.pgconn.send_query(command)
+        else:
+            self.pgconn.send_query_params(command, None, result_format=result_format)
+    
+        result: PGresult = (yield from generators.execute(self.pgconn))[-1]
+        if result.status != COMMAND_OK and result.status != TUPLES_OK:
+            if result.status == FATAL_ERROR:
+>               raise e.error_from_result(result, encoding=self.pgconn._encoding)
+E               psycopg.errors.CheckViolation: 批次主体引用不完整
+E               CONTEXT:  PL/pgSQL function geo_batch_subject_complete_guard() line 7 at RAISE
+
+/opt/venv/lib/python3.12/site-packages/psycopg/_connection_base.py:483: CheckViolation
+=========================== short test summary info ============================
+FAILED tests/integration/test_geo_overview.py::test_latest_attempt_and_cross_page_composition_use_filtered_candidates
+1 failed, 7 passed in 5.87s
+

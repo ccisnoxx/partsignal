@@ -1,0 +1,19 @@
+{
+  "command": [
+    "docker",
+    "compose",
+    "-p",
+    "geo606-validation",
+    "-f",
+    ".trellis/tasks/10-04-geo-606-reports/evidence/validation-compose.yaml",
+    "run",
+    "--rm",
+    "backend-test",
+    "pytest",
+    "tests/integration/test_geo_answer_files.py::test_head_verified_association_and_gc_retains_both_refs",
+    "tests/integration/test_geo_manual_collection.py::test_submit_freezes_all_once_replay_and_no_analysis",
+    "-q"
+  ],
+  "exit_code": 0,
+  "duration_seconds": 7.06
+}

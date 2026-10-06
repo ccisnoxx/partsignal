@@ -1,0 +1,12 @@
+{
+  "argv": [
+    "docker",
+    "compose",
+    "-f",
+    ".trellis/tasks/10-04-geo-702-opportunity-evaluation/evidence/compose.yaml",
+    "down",
+    "--remove-orphans"
+  ],
+  "exit_code": 0,
+  "seconds": 0.4
+}

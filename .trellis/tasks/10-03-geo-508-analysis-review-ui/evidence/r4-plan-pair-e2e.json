@@ -1,0 +1,7 @@
+{
+  "command": [
+    "deploy/scripts/e2e-local.sh",
+    "tests/e2e/plans-real-stack.spec.ts"
+  ],
+  "exit_code": 1
+}

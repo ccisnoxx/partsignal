@@ -1,0 +1,16 @@
+{
+  "command": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "pytest",
+    "backend/tests/unit/test_geo_analysis.py",
+    "backend/tests/unit/test_geo_recommendations.py",
+    "backend/tests/unit/test_geo_citations.py",
+    "backend/tests/unit/test_geo_claims.py",
+    "backend/tests/unit/test_geo_review_contract.py",
+    "--junitxml=.trellis/tasks/10-03-geo-508-analysis-review-ui/evidence/baseline-analysis.xml"
+  ],
+  "exit_code": 0
+}

@@ -1,0 +1,19 @@
+ Container geo607-validation-fake-oss-1 Running 
+ Container geo607-validation-postgres-1 Running 
+ Container geo607-validation-redis-1 Running 
+ Container geo607-validation-postgres-1 Waiting 
+ Container geo607-validation-postgres-1 Healthy 
+ Container geo607-validation-backend-test-run-8d8536c1eb87 Creating 
+ Container geo607-validation-backend-test-run-8d8536c1eb87 Created 
+.                                                                        [100%]
+=============================== warnings summary ===============================
+tests/integration/test_geo_insight_indexes.py::test_0057_forward_and_index_only_rollback_preserve_history
+  /app/tests/integration/test_geo_insight_indexes.py:66: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_insight_indexes.py::test_0057_forward_and_index_only_rollback_preserve_history
+  /app/tests/integration/test_geo_insight_indexes.py:66: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+    assert compare_metadata(context, Base.metadata) == []
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 2 warnings in 5.35s

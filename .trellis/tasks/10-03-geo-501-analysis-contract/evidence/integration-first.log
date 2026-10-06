@@ -1,0 +1,2063 @@
+ Container partsignal-geo501-validation-fake-oss-1 Running 
+ Container partsignal-geo501-validation-postgres-1 Running 
+ Container partsignal-geo501-validation-redis-1 Running 
+ Container partsignal-geo501-validation-postgres-1 Waiting 
+ Container partsignal-geo501-validation-postgres-1 Healthy 
+ Container partsignal-geo501-validation-backend-test-run-f78d6a2ff609 Creating 
+ Container partsignal-geo501-validation-backend-test-run-f78d6a2ff609 Created 
+EEEEEEEEEEF                                                              [100%]
+==================================== ERRORS ====================================
+__ ERROR at setup of test_full_results_facts_and_review_separate_from_answer ___
+
+run_database = RunDatabase(plan=PlanDatabase(url='postgresql://partsignal:partsignal_dev@postgres:5432/partsignal_geo206_6fc18163df',...n': 'RECOMMENDED', 'search_platform': None, 'observation_kind': 'LEGACY_MODEL_RESULT', 'web_search_enabled': True},)]])
+
+    @pytest.fixture(scope="module")
+    def answer_database(run_database: RunDatabase) -> Iterator[AnswerDatabase]:
+        db = run_database
+        with psycopg.connect(db.url) as conn:
+            legacy = run(conn, db, batch(conn, db))
+        run_alembic(db.plan.env, db.plan.backend_dir, "0049_geo_batch_creation")
+>       run_alembic(db.plan.env, db.plan.backend_dir, "head")
+
+tests/integration/geo_answers_support.py:38: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/integration/test_migrations.py:77: in run_alembic
+    return subprocess.run(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+input = None, capture_output = False, timeout = None, check = True
+popenargs = (['/opt/venv/bin/python3', '-m', 'alembic', 'upgrade', 'head'],)
+kwargs = {'cwd': PosixPath('/app'), 'env': {'AI_ALLOW_LOCAL_HTTP': 'true', 'AI_CREDENTIAL_ENCRYPTION_KEY': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=', 'APP_ENV': 'test', 'CONTENT_GENERATOR': 'openai-compatible', ...}, 'text': True}
+process = <Popen: returncode: 1 args: ['/opt/venv/bin/python3', '-m', 'alembic', 'upgr...>
+stdout = None, stderr = None, retcode = 1
+
+    def run(*popenargs,
+            input=None, capture_output=False, timeout=None, check=False, **kwargs):
+        """Run command with arguments and return a CompletedProcess instance.
+    
+        The returned instance will have attributes args, returncode, stdout and
+        stderr. By default, stdout and stderr are not captured, and those attributes
+        will be None. Pass stdout=PIPE and/or stderr=PIPE in order to capture them,
+        or pass capture_output=True to capture both.
+    
+        If check is True and the exit code was non-zero, it raises a
+        CalledProcessError. The CalledProcessError object will have the return code
+        in the returncode attribute, and output & stderr attributes if those streams
+        were captured.
+    
+        If timeout (seconds) is given and the process takes too long,
+         a TimeoutExpired exception will be raised.
+    
+        There is an optional argument "input", allowing you to
+        pass bytes or a string to the subprocess's stdin.  If you use this argument
+        you may not also use the Popen constructor's "stdin" argument, as
+        it will be used internally.
+    
+        By default, all communication is in bytes, and therefore any "input" should
+        be bytes, and the stdout and stderr will be bytes. If in text mode, any
+        "input" should be a string, and stdout and stderr will be strings decoded
+        according to locale encoding, or by "encoding" if set. Text mode is
+        triggered by setting any of text, encoding, errors or universal_newlines.
+    
+        The other arguments are the same as for the Popen constructor.
+        """
+        if input is not None:
+            if kwargs.get('stdin') is not None:
+                raise ValueError('stdin and input arguments may not both be used.')
+            kwargs['stdin'] = PIPE
+    
+        if capture_output:
+            if kwargs.get('stdout') is not None or kwargs.get('stderr') is not None:
+                raise ValueError('stdout and stderr arguments may not be used '
+                                 'with capture_output.')
+            kwargs['stdout'] = PIPE
+            kwargs['stderr'] = PIPE
+    
+        with Popen(*popenargs, **kwargs) as process:
+            try:
+                stdout, stderr = process.communicate(input, timeout=timeout)
+            except TimeoutExpired as exc:
+                process.kill()
+                if _mswindows:
+                    # Windows accumulates the output in a single blocking
+                    # read() call run on child threads, with the timeout
+                    # being done in a join() on those threads.  communicate()
+                    # _after_ kill() is required to collect that and add it
+                    # to the exception.
+                    exc.stdout, exc.stderr = process.communicate()
+                else:
+                    # POSIX _communicate already populated the output so
+                    # far into the TimeoutExpired exception.
+                    process.wait()
+                raise
+            except:  # Including KeyboardInterrupt, communicate handled that.
+                process.kill()
+                # We don't call process.wait() as .__exit__ does that for us.
+                raise
+            retcode = process.poll()
+            if check and retcode:
+>               raise CalledProcessError(retcode, process.args,
+                                         output=stdout, stderr=stderr)
+E               subprocess.CalledProcessError: Command '['/opt/venv/bin/python3', '-m', 'alembic', 'upgrade', 'head']' returned non-zero exit status 1.
+
+/usr/local/lib/python3.12/subprocess.py:571: CalledProcessError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_identity_audit, 创建身份、会话和审计表。
+INFO  [alembic.runtime.migration] Running upgrade 0001_identity_audit -> 0002_product_facts, 创建规范化产品事实和不可变事实版本。
+INFO  [alembic.runtime.migration] Running upgrade 0002_product_facts -> 0003_content_planning, 创建目标问题、平台规则版本和内容任务。
+INFO  [alembic.runtime.migration] Running upgrade 0003_content_planning -> 0004_content_production, 创建 PostgreSQL 权威生成作业和不可变 Markdown 内容版本。
+INFO  [alembic.runtime.migration] Running upgrade 0004_content_production -> 0005_content_review, 创建追加式内容审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0005_content_review -> 0006_publication, 创建平台账号、人工发布记录和状态事件。
+INFO  [alembic.runtime.migration] Running upgrade 0006_publication -> 0007_geo_observation, 创建追加式 GEO 观测及引用关联。
+INFO  [alembic.runtime.migration] Running upgrade 0007_geo_observation -> 0008_files, 创建文件生命周期、附件关联并补加证据文件外键。
+INFO  [alembic.runtime.migration] Running upgrade 0008_files -> 0009_config_center, 迁移账号类型、配置中心与真实 AI 生成字段。
+INFO  [alembic.runtime.migration] Running upgrade 0009_config_center -> 0010_user_cleanup, 清理旧版职责账号并强制既有内容工程师改密。
+INFO  [alembic.runtime.migration] Running upgrade 0010_user_cleanup -> 0011_generation_reliability, 增加生成作业补投递诊断字段与到期扫描索引。
+INFO  [alembic.runtime.migration] Running upgrade 0011_generation_reliability -> 0012_ai_data_classification, 为生成输入增加显式数据分级与责任人记录。
+INFO  [alembic.runtime.migration] Running upgrade 0012_ai_data_classification -> 0013_publication_closure, 增加发布异常待办、修复任务来源和发布平台一致性门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0013_publication_closure -> 0014_platform_prompt_ownership, 将当前 Prompt 所有权从平台类型迁移到具体平台。
+INFO  [alembic.runtime.migration] Running upgrade 0014_platform_prompt_ownership -> 0015_platform_rule_draft_editing, 允许按修订号编辑平台规则草稿，并继续冻结已激活或退役正文。
+INFO  [alembic.runtime.migration] Running upgrade 0015_platform_rule_draft_editing -> 0016_fact_review_cleanup, 允许受约束删除事实版本时清理其从属审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0016_fact_review_cleanup -> 0017_content_humanization, 增加全局自然化 Prompt，并让现有 AI 作业承载自然化修订。
+INFO  [alembic.runtime.migration] Running upgrade 0017_content_humanization -> 0018_manual_geo_observation, 增加产品级人工 GEO 观测，并保留旧模型观测历史。
+INFO  [alembic.runtime.migration] Running upgrade 0018_manual_geo_observation -> 0019_product_driven_tasks, 允许新内容任务直接围绕产品创建，同时保留历史目标问题关联。
+INFO  [alembic.runtime.migration] Running upgrade 0019_product_driven_tasks -> 0020_platform_branding_task_list, 为具体平台增加官网与单一来源 Logo。
+INFO  [alembic.runtime.migration] Running upgrade 0020_platform_branding_task_list -> 0021_ai_channel_model_management, 补齐 AI 渠道身份字段与使用统计索引。
+INFO  [alembic.runtime.migration] Running upgrade 0021_ai_channel_model_management -> 0022_geo_observation_insights, 补充人工 GEO 逐篇阶段事实与问题主题约束。
+INFO  [alembic.runtime.migration] Running upgrade 0022_geo_observation_insights -> 0023_platform_management, 增加具体平台启停状态与管理聚合索引。
+INFO  [alembic.runtime.migration] Running upgrade 0023_platform_management -> 0024_audit_outcome, 补齐审计模块、命令结果和安全结果说明。
+INFO  [alembic.runtime.migration] Running upgrade 0024_audit_outcome -> 0025_markdown_facts, 将结构化产品事实收敛为 Markdown，并让内容任务直接绑定平台。
+INFO  [alembic.runtime.migration] Running upgrade 0025_markdown_facts -> 0026_publication_account_dedup, 补齐发布账号修订约束，并阻止同平台规范化账号标识重复。
+INFO  [alembic.runtime.migration] Running upgrade 0026_publication_account_dedup -> 0027_audit_user_delete_guard, 只允许受约束用户删除把匹配审计操作者置空。
+INFO  [alembic.runtime.migration] Running upgrade 0027_audit_user_delete_guard -> 0028_platform_logo_lifecycle, 增加平台 Logo 的未引用保留、幂等删除状态与数据库门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0028_platform_logo_lifecycle -> 0029_geo_evidence_management, 收敛人工 GEO 独立事实，并为完整更正链删除增加事务门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0029_geo_evidence_management -> 0030_publication_record_delete, 为从未公开的发布聚合增加事务级受控删除门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0030_publication_record_delete -> 0031_reusable_platform_prompts, 把平台私有 Prompt 收敛为可复用模板和平台当前绑定。
+INFO  [alembic.runtime.migration] Running upgrade 0031_reusable_platform_prompts -> 0032_content_task_idempotency, 为普通内容任务创建增加持久化请求键幂等约束。
+INFO  [alembic.runtime.migration] Running upgrade 0032_content_task_idempotency -> 0033_task_owned_history_delete, 允许受控删除已取消任务自有的未批准生产历史。
+INFO  [alembic.runtime.migration] Running upgrade 0033_task_owned_history_delete -> 0034_publication_redesign, 以发布工作、首次核验成果和发布后内容问题替换旧发布记录。
+INFO  [alembic.runtime.migration] Running upgrade 0034_publication_redesign -> 0035_business_workflow, 建立事实提交、内容单主线、发布版本快照与 GEO 来源合同。
+INFO  [alembic.runtime.migration] Running upgrade 0035_business_workflow -> 0036_remove_section_url, 删除没有稳定业务含义的发布栏目地址。
+INFO  [alembic.runtime.migration] Running upgrade 0036_remove_section_url -> 0037_simplify_deletion_lifecycle, 收缩任务、配置与审计的删除生命周期。
+INFO  [alembic.runtime.migration] Running upgrade 0037_simplify_deletion_lifecycle -> 0038_published_article_delete, 允许受控删除无 GEO 引用的发布成果聚合。
+INFO  [alembic.runtime.migration] Running upgrade 0038_published_article_delete -> 0039_article_delete_platform, 允许归档任务在删除失效平台的发布成果后转为已取消。
+INFO  [alembic.runtime.migration] Running upgrade 0039_article_delete_platform -> 0040_content_draft_management, 允许当前人工未审核草稿受控保存和彻底删除。
+INFO  [alembic.runtime.migration] Running upgrade 0040_content_draft_management -> 0041_content_task_list, 补齐内容任务列表的稳定更新时间与排序索引。
+INFO  [alembic.runtime.migration] Running upgrade 0041_content_task_list -> 0042_content_version_detail, 记录内容版本自身的真实更新时间。
+INFO  [alembic.runtime.migration] Running upgrade 0042_content_version_detail -> 0043_geo_platform_identity, 冻结发布工作的平台 UUID，避免配置删除后 GEO 历史失去身份。
+INFO  [alembic.runtime.migration] Running upgrade 0043_geo_platform_identity -> 0044_geo_catalog, 新增 GEO Catalog 三表；冻结本 revision，不读取运行时 ORM。
+INFO  [alembic.runtime.migration] Running upgrade 0044_geo_catalog -> 0045_geo_prompt_variants, 仅新增问题变体，冻结规范化及历史锁存，不回填旧问题数组。
+INFO  [alembic.runtime.migration] Running upgrade 0045_geo_prompt_variants -> 0046_geo_surfaces_profiles, 新增观测配置与闭合JSON合同；不回填旧GEO或实现运行资格。
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0046_geo_surfaces_profiles -> 0047_geo_monitoring_plans, 仅增加计划配置聚合；不创建批次、运行或改写历史观测。
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0047_geo_monitoring_plans -> 0048_geo_batches_runs, 新增独立回答级 Batch/Run，冻结 DDL 与快照/写入守卫，不迁移旧 GEO。
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0048_geo_batches_runs -> 0049_geo_batch_creation, 创建幂等与批次主体引用；不修改已冻结的 Batch/Run 输入。
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0049_geo_batch_creation -> 0050_geo_answer_evidence, 新增不可变原始回答、引用和受控文件关系；不实现采集命令。
+INFO  [alembic.runtime.migration] Running upgrade 0050_geo_answer_evidence -> 0051_geo_manual_collection, 人工草稿和不可变提交身份；不回填或修改已提交证据。
+INFO  [alembic.runtime.migration] Running upgrade 0051_geo_manual_collection -> 0052_geo_profile_tests, API Profile 当前诊断资格与依赖失效；不修改业务历史。
+INFO  [alembic.runtime.migration] Running upgrade 0052_geo_profile_tests -> 0053_geo_collection_admission, 加法保存预算预留与发送限速事实，历史 Run 和原始证据保持不变。
+INFO  [alembic.runtime.migration] Running upgrade 0053_geo_collection_admission -> 0054_geo_analysis_contract, 分析输入/结果、追加复核与限定 current pointer；不回填历史证据。
+Traceback (most recent call last):
+  File "/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1817, in _execute_context
+    context = constructor(
+              ^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 1417, in _init_compiled
+    compiled.construct_params(
+  File "/opt/venv/lib/python3.12/site-packages/sqlalchemy/sql/compiler.py", line 1963, in construct_params
+    raise exc.InvalidRequestError(
+sqlalchemy.exc.InvalidRequestError: A value is required for bind parameter 'null' (Background on this error at: https://sqlalche.me/e/20/cd3x)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/opt/venv/lib/python3.12/site-packages/alembic/__main__.py", line 4, in <module>
+    main(prog="alembic")
+  File "/opt/venv/lib/python3.12/site-packages/alembic/config.py", line 1047, in main
+    CommandLine(prog=prog).main(argv=argv)
+  File "/opt/venv/lib/python3.12/site-packages/alembic/config.py", line 1037, in main
+    self.run_cmd(cfg, options)
+  File "/opt/venv/lib/python3.12/site-packages/alembic/config.py", line 971, in run_cmd
+    fn(
+  File "/opt/venv/lib/python3.12/site-packages/alembic/command.py", line 490, in upgrade
+    script.run_env()
+  File "/opt/venv/lib/python3.12/site-packages/alembic/script/base.py", line 556, in run_env
+    util.load_python_file(self.dir, "env.py")
+  File "/opt/venv/lib/python3.12/site-packages/alembic/util/pyfiles.py", line 116, in load_python_file
+    module = load_module_py(module_id, path)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/alembic/util/pyfiles.py", line 136, in load_module_py
+    spec.loader.exec_module(module)  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap_external>", line 999, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/app/alembic/env.py", line 50, in <module>
+    run_migrations_online()
+  File "/app/alembic/env.py", line 44, in run_migrations_online
+    context.run_migrations()
+  File "<string>", line 8, in run_migrations
+  File "/opt/venv/lib/python3.12/site-packages/alembic/runtime/environment.py", line 969, in run_migrations
+    self.get_context().run_migrations(**kw)
+  File "/opt/venv/lib/python3.12/site-packages/alembic/runtime/migration.py", line 626, in run_migrations
+    step.migration_fn(**kw)
+  File "/app/alembic/versions/0054_geo_analysis_contract.py", line 22, in upgrade
+    op.execute((root / name).read_text())
+  File "<string>", line 8, in execute
+  File "<string>", line 3, in execute
+  File "/opt/venv/lib/python3.12/site-packages/alembic/operations/ops.py", line 2667, in execute
+    return operations.invoke(op)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/alembic/operations/base.py", line 452, in invoke
+    return fn(self, operation)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/alembic/operations/toimpl.py", line 259, in execute_sql
+    operations.migration_context.impl.execute(
+  File "/opt/venv/lib/python3.12/site-packages/alembic/ddl/impl.py", line 263, in execute
+    self._exec(sql, execution_options)
+  File "/opt/venv/lib/python3.12/site-packages/alembic/ddl/impl.py", line 256, in _exec
+    return conn.execute(construct, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1421, in execute
+    return meth(
+           ^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/sqlalchemy/sql/elements.py", line 526, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1643, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1823, in _execute_context
+    self._handle_dbapi_exception(
+  File "/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 2365, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1817, in _execute_context
+    context = constructor(
+              ^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 1417, in _init_compiled
+    compiled.construct_params(
+  File "/opt/venv/lib/python3.12/site-packages/sqlalchemy/sql/compiler.py", line 1963, in construct_params
+    raise exc.InvalidRequestError(
+sqlalchemy.exc.StatementError: (sqlalchemy.exc.InvalidRequestError) A value is required for bind parameter 'null'
+[SQL: -- 分析边界只保存闭合、无凭据的版本输入，不复制外部请求配置。
+CREATE FUNCTION geo_analysis_text_valid(value jsonb, maximum integer, nullable boolean DEFAULT false)
+RETURNS boolean LANGUAGE sql IMMUTABLE AS $$
+    SELECT COALESCE((nullable AND value = 'null'::jsonb) OR
+        (jsonb_typeof(value) = 'string' AND length(value #>> '{}') BETWEEN 1 AND maximum
+            AND value #>> '{}' ~ '[^[:space:]]'), false)
+$$;
+CREATE FUNCTION geo_analysis_number_valid(value jsonb, minimum numeric, maximum numeric,
+    integral boolean DEFAULT false, nullable boolean DEFAULT false)
+RETURNS boolean LANGUAGE plpgsql IMMUTABLE AS $$
+BEGIN
+    IF nullable AND value = 'null'::jsonb THEN RETURN true; END IF;
+    IF jsonb_typeof(value) IS DISTINCT FROM 'number' THEN RETURN false; END IF;
+    RETURN value::numeric >= minimum AND (maximum IS NULL OR value::numeric <= maximum)
+        AND (NOT integral OR value::text ~ '^(0|[1-9][0-9]*)$');
+END $$;
+CREATE FUNCTION geo_analysis_strings_valid(value jsonb, maximum integer, minimum_count integer,
+    maximum_count integer) RETURNS boolean LANGUAGE plpgsql IMMUTABLE AS $$
+DECLARE item jsonb;
+BEGIN
+    IF jsonb_typeof(value) IS DISTINCT FROM 'array' THEN RETURN false; END IF;
+    IF jsonb_array_length(value) < minimum_count OR (maximum_count IS NOT NULL
+        AND jsonb_array_length(value) > maximum_count) THEN RETURN false; END IF;
+    FOR item IN SELECT * FROM jsonb_array_elements(value) LOOP
+        IF NOT geo_analysis_text_valid(item, maximum) THEN RETURN false; END IF;
+    END LOOP;
+    RETURN true;
+END $$;
+CREATE FUNCTION geo_analysis_input_valid(value jsonb) RETURNS boolean LANGUAGE plpgsql IMMUTABLE AS $$
+DECLARE c jsonb; p jsonb; item jsonb; child jsonb; ids text[] := '{}'; facts text[] := '{}';
+BEGIN
+    IF NOT geo_run_snapshot_object(value, ARRAY['schema_version','answer_sha256','subjects',
+        'fact_versions','configuration']) OR value->'schema_version' IS DISTINCT FROM '1'::jsonb
+        OR NOT geo_snapshot_strings(value, ARRAY['answer_sha256'])
+        OR COALESCE(value->>'answer_sha256' !~ '^[0-9a-f]{64}$', true)
+        OR jsonb_typeof(value->'subjects') IS DISTINCT FROM 'array'
+        OR jsonb_typeof(value->'fact_versions') IS DISTINCT FROM 'array' THEN RETURN false; END IF;
+    IF jsonb_array_length(value->'subjects') < 1 THEN RETURN false; END IF;
+    FOR item IN SELECT * FROM jsonb_array_elements(value->'subjects') LOOP
+        IF NOT geo_run_snapshot_object(item, ARRAY['id','revision','subject_type','role',
+                'product_id','parent_subject_id','canonical_name','display_name','aliases','domains'])
+            OR NOT geo_snapshot_uuids(item, ARRAY['id'], ARRAY['product_id','parent_subject_id'])
+            OR NOT geo_snapshot_revision(item->'revision')
+            OR NOT geo_snapshot_strings(item, ARRAY['subject_type','role'])
+            OR item->>'subject_type' NOT IN ('OWN_BRAND','OWN_PRODUCT','COMPETITOR_BRAND','COMPETITOR_PRODUCT','REFERENCE_PART')
+            OR item->>'role' NOT IN ('PRIMARY','COMPETITOR','REFERENCE')
+            OR ((item->>'subject_type' = 'OWN_PRODUCT') <> (item->'product_id' <> 'null'::jsonb))
+            OR item->>'id' = ANY(ids)
+            OR NOT geo_analysis_text_valid(item->'canonical_name',240)
+            OR NOT geo_analysis_text_valid(item->'display_name',321)
+            OR jsonb_typeof(item->'aliases') IS DISTINCT FROM 'array'
+            OR jsonb_typeof(item->'domains') IS DISTINCT FROM 'array' THEN RETURN false; END IF;
+        ids := array_append(ids,item->>'id');
+        FOR child IN SELECT * FROM jsonb_array_elements(item->'aliases') LOOP
+            IF NOT geo_run_snapshot_object(child, ARRAY['alias','normalized_alias','alias_kind','language_code'])
+                OR NOT geo_analysis_text_valid(child->'alias',240)
+                OR NOT geo_analysis_text_valid(child->'normalized_alias',240)
+                OR NOT geo_snapshot_strings(child, ARRAY['alias_kind'], ARRAY['language_code'])
+                OR child->>'alias_kind' NOT IN ('NAME','PART_NUMBER','ABBREVIATION','LEGACY')
+                THEN RETURN false; END IF;
+        END LOOP;
+        FOR child IN SELECT * FROM jsonb_array_elements(item->'domains') LOOP
+            IF NOT geo_run_snapshot_object(child, ARRAY['hostname','relation_type'])
+                OR NOT geo_snapshot_strings(child, ARRAY['hostname','relation_type'])
+                OR NOT geo_analysis_text_valid(child->'hostname',253)
+                OR child->>'relation_type' NOT IN ('OWNED','OFFICIAL','DISTRIBUTOR','OTHER')
+                THEN RETURN false; END IF;
+        END LOOP;
+    END LOOP;
+    FOR item IN SELECT * FROM jsonb_array_elements(value->'fact_versions') LOOP
+        IF NOT geo_run_snapshot_object(item, ARRAY['subject_id','fact_version_id'])
+            OR NOT geo_snapshot_uuids(item, ARRAY['subject_id','fact_version_id'])
+            OR item->>'subject_id' = ANY(facts)
+            OR NOT EXISTS (SELECT 1 FROM jsonb_array_elements(value->'subjects') s
+                WHERE s->>'id' = item->>'subject_id' AND s->>'subject_type' = 'OWN_PRODUCT')
+            THEN RETURN false; END IF;
+        facts := array_append(facts,item->>'subject_id');
+    END LOOP;
+    c := value->'configuration'; p := c->'parameters';
+    IF NOT geo_run_snapshot_object(c, ARRAY['rule_set_version','model_name','model_version',
+            'prompt_template_version','prompt_sha256','parameters'])
+        OR NOT geo_analysis_text_valid(c->'rule_set_version',100)
+        OR NOT geo_analysis_text_valid(c->'model_name',200,true)
+        OR NOT geo_analysis_text_valid(c->'model_version',100,true)
+        OR NOT geo_analysis_text_valid(c->'prompt_template_version',100,true)
+        OR NOT geo_snapshot_strings(c, ARRAY[]::text[], ARRAY['prompt_sha256'])
+        OR (c->'prompt_sha256' <> 'null'::jsonb AND c->>'prompt_sha256' !~ '^[0-9a-f]{64}$')
+        OR ((c->'model_name' = 'null'::jsonb) <> (c->'model_version' = 'null'::jsonb))
+        OR ((c->'model_name' = 'null'::jsonb) <> (c->'prompt_template_version' = 'null'::jsonb))
+        OR ((c->'model_name' = 'null'::jsonb) <> (c->'prompt_sha256' = 'null'::jsonb))
+        OR NOT geo_run_snapshot_object(p, ARRAY['temperature','top_p','max_output_tokens','seed'])
+        OR NOT geo_analysis_number_valid(p->'temperature',0,2,false,true)
+        OR NOT geo_analysis_number_valid(p->'top_p',0,1,false,true)
+        OR NOT geo_analysis_number_valid(p->'max_output_tokens',1,2147483647,true,true)
+        OR NOT geo_analysis_number_valid(p->'seed',0,2147483647,true,true)
+        OR (c->'model_name' = 'null'::jsonb AND p <> '{"temperature"%(null)s,"top_p"%(null)s,"max_output_tokens"%(null)s,"seed"%(null)s}'::jsonb)
+        THEN RETURN false; END IF;
+    RETURN true;
+END $$;
+CREATE FUNCTION geo_analysis_summary_valid(summary jsonb, reasons jsonb) RETURNS boolean
+LANGUAGE sql IMMUTABLE AS $$
+    SELECT COALESCE((summary IS NULL OR (geo_run_snapshot_object(summary,
+        ARRAY['mentions','recommendations','claims'])
+        AND geo_analysis_number_valid(summary->'mentions',0,1,false,true)
+        AND geo_analysis_number_valid(summary->'recommendations',0,1,false,true)
+        AND geo_analysis_number_valid(summary->'claims',0,1,false,true)))
+        AND geo_analysis_strings_valid(reasons,100,0,20), false)
+$$;
+-- jsonb::text 的数据库规范表示为唯一哈希序列化；数组顺序是冻结输入的一部分。
+CREATE FUNCTION geo_analysis_input_sha256(value jsonb, analyzer_type text, analyzer_version text)
+RETURNS text LANGUAGE sql IMMUTABLE STRICT AS $$
+    SELECT geo_answer_sha256(jsonb_build_array('geo-analysis-v1',value,analyzer_type,analyzer_version)::text)
+$$;
+CREATE FUNCTION geo_review_corrections_valid(value jsonb) RETURNS boolean LANGUAGE plpgsql IMMUTABLE AS $$
+DECLARE category text; item jsonb; ids text[]; identity text; total integer := 0;
+BEGIN
+    IF NOT geo_run_snapshot_object(value, ARRAY['schema_version','mentions','recommendations','claims','citations'])
+        OR value->'schema_version' IS DISTINCT FROM '1'::jsonb THEN RETURN false; END IF;
+    FOREACH category IN ARRAY ARRAY['mentions','recommendations','claims','citations'] LOOP
+        IF jsonb_typeof(value->category) IS DISTINCT FROM 'array' THEN RETURN false; END IF;
+        ids := '{}'; total := total + jsonb_array_length(value->category);
+        FOR item IN SELECT * FROM jsonb_array_elements(value->category) LOOP
+            IF category = 'mentions' THEN
+                IF NOT geo_run_snapshot_object(item, ARRAY['subject_id','mention_count','first_character_offset','matched_aliases'])
+                    OR NOT geo_snapshot_uuids(item, ARRAY['subject_id'])
+                    OR NOT geo_analysis_number_valid(item->'mention_count',0,2147483647,true)
+                    OR NOT geo_analysis_number_valid(item->'first_character_offset',0,2147483647,true,true)
+                    OR NOT geo_analysis_strings_valid(item->'matched_aliases',240,0,NULL)
+                    THEN RETURN false; END IF;
+                IF (item->>'mention_count' = '0' AND (item->'first_character_offset' <> 'null'::jsonb
+                    OR item->'matched_aliases' <> '[]'::jsonb)) OR
+                    (item->>'mention_count' <> '0' AND jsonb_array_length(item->'matched_aliases') = 0)
+                    THEN RETURN false; END IF;
+                identity := item->>'subject_id';
+            ELSIF category = 'recommendations' THEN
+                IF NOT geo_run_snapshot_object(item, ARRAY['subject_id','recommendation','rank','rationale_excerpt'])
+                    OR NOT geo_snapshot_uuids(item, ARRAY['subject_id'])
+                    OR NOT geo_snapshot_strings(item, ARRAY['recommendation'])
+                    OR item->>'recommendation' NOT IN ('RECOMMENDED','CONSIDERED','NOT_RECOMMENDED','UNKNOWN')
+                    OR NOT geo_analysis_number_valid(item->'rank',1,2147483647,true,true)
+                    OR NOT geo_analysis_text_valid(item->'rationale_excerpt',2000,true)
+                    THEN RETURN false; END IF;
+                identity := item->>'subject_id';
+            ELSIF category = 'claims' THEN
+                IF NOT geo_run_snapshot_object(item, ARRAY['claim_assessment_id','verdict','severity','explanation'])
+                    OR NOT geo_snapshot_uuids(item, ARRAY['claim_assessment_id'])
+                    OR NOT geo_snapshot_strings(item, ARRAY['verdict','severity'])
+                    OR item->>'verdict' NOT IN ('ACCURATE','PARTIAL','INCORRECT','UNJUDGEABLE')
+                    OR item->>'severity' NOT IN ('LOW','MEDIUM','HIGH','CRITICAL')
+                    OR NOT geo_analysis_text_valid(item->'explanation',2000) THEN RETURN false; END IF;
+                identity := item->>'claim_assessment_id';
+            ELSE
+                IF NOT geo_run_snapshot_object(item, ARRAY['citation_id','source_category','subject_id'])
+                    OR NOT geo_snapshot_uuids(item, ARRAY['citation_id'],ARRAY['subject_id'])
+                    OR NOT geo_snapshot_strings(item, ARRAY['source_category'])
+                    OR item->>'source_category' NOT IN ('OWNED','COMPETITOR','INDUSTRY_MEDIA','DISTRIBUTOR',
+                        'COMMUNITY','SOCIAL','SEARCH_ENGINE','ACADEMIC_OR_INSTITUTIONAL','OTHER','UNKNOWN')
+                    THEN RETURN false; END IF;
+                identity := item->>'citation_id';
+            END IF;
+            IF identity = ANY(ids) THEN RETURN false; END IF;
+            ids := array_append(ids,identity);
+        END LOOP;
+    END LOOP;
+    RETURN total > 0;
+END $$;
+]
+[parameters: [immutabledict({})]]
+(Background on this error at: https://sqlalche.me/e/20/cd3x)
+_ ERROR at setup of test_pending_input_frozen_and_children_cannot_commit_partial _
+
+run_database = RunDatabase(plan=PlanDatabase(url='postgresql://partsignal:partsignal_dev@postgres:5432/partsignal_geo206_6fc18163df',...n': 'RECOMMENDED', 'search_platform': None, 'observation_kind': 'LEGACY_MODEL_RESULT', 'web_search_enabled': True},)]])
+
+    @pytest.fixture(scope="module")
+    def answer_database(run_database: RunDatabase) -> Iterator[AnswerDatabase]:
+        db = run_database
+        with psycopg.connect(db.url) as conn:
+            legacy = run(conn, db, batch(conn, db))
+        run_alembic(db.plan.env, db.plan.backend_dir, "0049_geo_batch_creation")
+>       run_alembic(db.plan.env, db.plan.backend_dir, "head")
+
+tests/integration/geo_answers_support.py:38: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/integration/test_migrations.py:77: in run_alembic
+    return subprocess.run(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+input = None, capture_output = False, timeout = None, check = True
+popenargs = (['/opt/venv/bin/python3', '-m', 'alembic', 'upgrade', 'head'],)
+kwargs = {'cwd': PosixPath('/app'), 'env': {'AI_ALLOW_LOCAL_HTTP': 'true', 'AI_CREDENTIAL_ENCRYPTION_KEY': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=', 'APP_ENV': 'test', 'CONTENT_GENERATOR': 'openai-compatible', ...}, 'text': True}
+process = <Popen: returncode: 1 args: ['/opt/venv/bin/python3', '-m', 'alembic', 'upgr...>
+stdout = None, stderr = None, retcode = 1
+
+    def run(*popenargs,
+            input=None, capture_output=False, timeout=None, check=False, **kwargs):
+        """Run command with arguments and return a CompletedProcess instance.
+    
+        The returned instance will have attributes args, returncode, stdout and
+        stderr. By default, stdout and stderr are not captured, and those attributes
+        will be None. Pass stdout=PIPE and/or stderr=PIPE in order to capture them,
+        or pass capture_output=True to capture both.
+    
+        If check is True and the exit code was non-zero, it raises a
+        CalledProcessError. The CalledProcessError object will have the return code
+        in the returncode attribute, and output & stderr attributes if those streams
+        were captured.
+    
+        If timeout (seconds) is given and the process takes too long,
+         a TimeoutExpired exception will be raised.
+    
+        There is an optional argument "input", allowing you to
+        pass bytes or a string to the subprocess's stdin.  If you use this argument
+        you may not also use the Popen constructor's "stdin" argument, as
+        it will be used internally.
+    
+        By default, all communication is in bytes, and therefore any "input" should
+        be bytes, and the stdout and stderr will be bytes. If in text mode, any
+        "input" should be a string, and stdout and stderr will be strings decoded
+        according to locale encoding, or by "encoding" if set. Text mode is
+        triggered by setting any of text, encoding, errors or universal_newlines.
+    
+        The other arguments are the same as for the Popen constructor.
+        """
+        if input is not None:
+            if kwargs.get('stdin') is not None:
+                raise ValueError('stdin and input arguments may not both be used.')
+            kwargs['stdin'] = PIPE
+    
+        if capture_output:
+            if kwargs.get('stdout') is not None or kwargs.get('stderr') is not None:
+                raise ValueError('stdout and stderr arguments may not be used '
+                                 'with capture_output.')
+            kwargs['stdout'] = PIPE
+            kwargs['stderr'] = PIPE
+    
+        with Popen(*popenargs, **kwargs) as process:
+            try:
+                stdout, stderr = process.communicate(input, timeout=timeout)
+            except TimeoutExpired as exc:
+                process.kill()
+                if _mswindows:
+                    # Windows accumulates the output in a single blocking
+                    # read() call run on child threads, with the timeout
+                    # being done in a join() on those threads.  communicate()
+                    # _after_ kill() is required to collect that and add it
+                    # to the exception.
+                    exc.stdout, exc.stderr = process.communicate()
+                else:
+                    # POSIX _communicate already populated the output so
+                    # far into the TimeoutExpired exception.
+                    process.wait()
+                raise
+            except:  # Including KeyboardInterrupt, communicate handled that.
+                process.kill()
+                # We don't call process.wait() as .__exit__ does that for us.
+                raise
+            retcode = process.poll()
+            if check and retcode:
+>               raise CalledProcessError(retcode, process.args,
+                                         output=stdout, stderr=stderr)
+E               subprocess.CalledProcessError: Command '['/opt/venv/bin/python3', '-m', 'alembic', 'upgrade', 'head']' returned non-zero exit status 1.
+
+/usr/local/lib/python3.12/subprocess.py:571: CalledProcessError
+_______ ERROR at setup of test_unique_revision_subject_and_success_input _______
+
+run_database = RunDatabase(plan=PlanDatabase(url='postgresql://partsignal:partsignal_dev@postgres:5432/partsignal_geo206_6fc18163df',...n': 'RECOMMENDED', 'search_platform': None, 'observation_kind': 'LEGACY_MODEL_RESULT', 'web_search_enabled': True},)]])
+
+    @pytest.fixture(scope="module")
+    def answer_database(run_database: RunDatabase) -> Iterator[AnswerDatabase]:
+        db = run_database
+        with psycopg.connect(db.url) as conn:
+            legacy = run(conn, db, batch(conn, db))
+        run_alembic(db.plan.env, db.plan.backend_dir, "0049_geo_batch_creation")
+>       run_alembic(db.plan.env, db.plan.backend_dir, "head")
+
+tests/integration/geo_answers_support.py:38: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/integration/test_migrations.py:77: in run_alembic
+    return subprocess.run(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+input = None, capture_output = False, timeout = None, check = True
+popenargs = (['/opt/venv/bin/python3', '-m', 'alembic', 'upgrade', 'head'],)
+kwargs = {'cwd': PosixPath('/app'), 'env': {'AI_ALLOW_LOCAL_HTTP': 'true', 'AI_CREDENTIAL_ENCRYPTION_KEY': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=', 'APP_ENV': 'test', 'CONTENT_GENERATOR': 'openai-compatible', ...}, 'text': True}
+process = <Popen: returncode: 1 args: ['/opt/venv/bin/python3', '-m', 'alembic', 'upgr...>
+stdout = None, stderr = None, retcode = 1
+
+    def run(*popenargs,
+            input=None, capture_output=False, timeout=None, check=False, **kwargs):
+        """Run command with arguments and return a CompletedProcess instance.
+    
+        The returned instance will have attributes args, returncode, stdout and
+        stderr. By default, stdout and stderr are not captured, and those attributes
+        will be None. Pass stdout=PIPE and/or stderr=PIPE in order to capture them,
+        or pass capture_output=True to capture both.
+    
+        If check is True and the exit code was non-zero, it raises a
+        CalledProcessError. The CalledProcessError object will have the return code
+        in the returncode attribute, and output & stderr attributes if those streams
+        were captured.
+    
+        If timeout (seconds) is given and the process takes too long,
+         a TimeoutExpired exception will be raised.
+    
+        There is an optional argument "input", allowing you to
+        pass bytes or a string to the subprocess's stdin.  If you use this argument
+        you may not also use the Popen constructor's "stdin" argument, as
+        it will be used internally.
+    
+        By default, all communication is in bytes, and therefore any "input" should
+        be bytes, and the stdout and stderr will be bytes. If in text mode, any
+        "input" should be a string, and stdout and stderr will be strings decoded
+        according to locale encoding, or by "encoding" if set. Text mode is
+        triggered by setting any of text, encoding, errors or universal_newlines.
+    
+        The other arguments are the same as for the Popen constructor.
+        """
+        if input is not None:
+            if kwargs.get('stdin') is not None:
+                raise ValueError('stdin and input arguments may not both be used.')
+            kwargs['stdin'] = PIPE
+    
+        if capture_output:
+            if kwargs.get('stdout') is not None or kwargs.get('stderr') is not None:
+                raise ValueError('stdout and stderr arguments may not be used '
+                                 'with capture_output.')
+            kwargs['stdout'] = PIPE
+            kwargs['stderr'] = PIPE
+    
+        with Popen(*popenargs, **kwargs) as process:
+            try:
+                stdout, stderr = process.communicate(input, timeout=timeout)
+            except TimeoutExpired as exc:
+                process.kill()
+                if _mswindows:
+                    # Windows accumulates the output in a single blocking
+                    # read() call run on child threads, with the timeout
+                    # being done in a join() on those threads.  communicate()
+                    # _after_ kill() is required to collect that and add it
+                    # to the exception.
+                    exc.stdout, exc.stderr = process.communicate()
+                else:
+                    # POSIX _communicate already populated the output so
+                    # far into the TimeoutExpired exception.
+                    process.wait()
+                raise
+            except:  # Including KeyboardInterrupt, communicate handled that.
+                process.kill()
+                # We don't call process.wait() as .__exit__ does that for us.
+                raise
+            retcode = process.poll()
+            if check and retcode:
+>               raise CalledProcessError(retcode, process.args,
+                                         output=stdout, stderr=stderr)
+E               subprocess.CalledProcessError: Command '['/opt/venv/bin/python3', '-m', 'alembic', 'upgrade', 'head']' returned non-zero exit status 1.
+
+/usr/local/lib/python3.12/subprocess.py:571: CalledProcessError
+____ ERROR at setup of test_pointer_latest_success_failure_and_stale_review ____
+
+run_database = RunDatabase(plan=PlanDatabase(url='postgresql://partsignal:partsignal_dev@postgres:5432/partsignal_geo206_6fc18163df',...n': 'RECOMMENDED', 'search_platform': None, 'observation_kind': 'LEGACY_MODEL_RESULT', 'web_search_enabled': True},)]])
+
+    @pytest.fixture(scope="module")
+    def answer_database(run_database: RunDatabase) -> Iterator[AnswerDatabase]:
+        db = run_database
+        with psycopg.connect(db.url) as conn:
+            legacy = run(conn, db, batch(conn, db))
+        run_alembic(db.plan.env, db.plan.backend_dir, "0049_geo_batch_creation")
+>       run_alembic(db.plan.env, db.plan.backend_dir, "head")
+
+tests/integration/geo_answers_support.py:38: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/integration/test_migrations.py:77: in run_alembic
+    return subprocess.run(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+input = None, capture_output = False, timeout = None, check = True
+popenargs = (['/opt/venv/bin/python3', '-m', 'alembic', 'upgrade', 'head'],)
+kwargs = {'cwd': PosixPath('/app'), 'env': {'AI_ALLOW_LOCAL_HTTP': 'true', 'AI_CREDENTIAL_ENCRYPTION_KEY': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=', 'APP_ENV': 'test', 'CONTENT_GENERATOR': 'openai-compatible', ...}, 'text': True}
+process = <Popen: returncode: 1 args: ['/opt/venv/bin/python3', '-m', 'alembic', 'upgr...>
+stdout = None, stderr = None, retcode = 1
+
+    def run(*popenargs,
+            input=None, capture_output=False, timeout=None, check=False, **kwargs):
+        """Run command with arguments and return a CompletedProcess instance.
+    
+        The returned instance will have attributes args, returncode, stdout and
+        stderr. By default, stdout and stderr are not captured, and those attributes
+        will be None. Pass stdout=PIPE and/or stderr=PIPE in order to capture them,
+        or pass capture_output=True to capture both.
+    
+        If check is True and the exit code was non-zero, it raises a
+        CalledProcessError. The CalledProcessError object will have the return code
+        in the returncode attribute, and output & stderr attributes if those streams
+        were captured.
+    
+        If timeout (seconds) is given and the process takes too long,
+         a TimeoutExpired exception will be raised.
+    
+        There is an optional argument "input", allowing you to
+        pass bytes or a string to the subprocess's stdin.  If you use this argument
+        you may not also use the Popen constructor's "stdin" argument, as
+        it will be used internally.
+    
+        By default, all communication is in bytes, and therefore any "input" should
+        be bytes, and the stdout and stderr will be bytes. If in text mode, any
+        "input" should be a string, and stdout and stderr will be strings decoded
+        according to locale encoding, or by "encoding" if set. Text mode is
+        triggered by setting any of text, encoding, errors or universal_newlines.
+    
+        The other arguments are the same as for the Popen constructor.
+        """
+        if input is not None:
+            if kwargs.get('stdin') is not None:
+                raise ValueError('stdin and input arguments may not both be used.')
+            kwargs['stdin'] = PIPE
+    
+        if capture_output:
+            if kwargs.get('stdout') is not None or kwargs.get('stderr') is not None:
+                raise ValueError('stdout and stderr arguments may not be used '
+                                 'with capture_output.')
+            kwargs['stdout'] = PIPE
+            kwargs['stderr'] = PIPE
+    
+        with Popen(*popenargs, **kwargs) as process:
+            try:
+                stdout, stderr = process.communicate(input, timeout=timeout)
+            except TimeoutExpired as exc:
+                process.kill()
+                if _mswindows:
+                    # Windows accumulates the output in a single blocking
+                    # read() call run on child threads, with the timeout
+                    # being done in a join() on those threads.  communicate()
+                    # _after_ kill() is required to collect that and add it
+                    # to the exception.
+                    exc.stdout, exc.stderr = process.communicate()
+                else:
+                    # POSIX _communicate already populated the output so
+                    # far into the TimeoutExpired exception.
+                    process.wait()
+                raise
+            except:  # Including KeyboardInterrupt, communicate handled that.
+                process.kill()
+                # We don't call process.wait() as .__exit__ does that for us.
+                raise
+            retcode = process.poll()
+            if check and retcode:
+>               raise CalledProcessError(retcode, process.args,
+                                         output=stdout, stderr=stderr)
+E               subprocess.CalledProcessError: Command '['/opt/venv/bin/python3', '-m', 'alembic', 'upgrade', 'head']' returned non-zero exit status 1.
+
+/usr/local/lib/python3.12/subprocess.py:571: CalledProcessError
+___ ERROR at setup of test_terminal_run_publication_cannot_change_collection ___
+
+run_database = RunDatabase(plan=PlanDatabase(url='postgresql://partsignal:partsignal_dev@postgres:5432/partsignal_geo206_6fc18163df',...n': 'RECOMMENDED', 'search_platform': None, 'observation_kind': 'LEGACY_MODEL_RESULT', 'web_search_enabled': True},)]])
+
+    @pytest.fixture(scope="module")
+    def answer_database(run_database: RunDatabase) -> Iterator[AnswerDatabase]:
+        db = run_database
+        with psycopg.connect(db.url) as conn:
+            legacy = run(conn, db, batch(conn, db))
+        run_alembic(db.plan.env, db.plan.backend_dir, "0049_geo_batch_creation")
+>       run_alembic(db.plan.env, db.plan.backend_dir, "head")
+
+tests/integration/geo_answers_support.py:38: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/integration/test_migrations.py:77: in run_alembic
+    return subprocess.run(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+input = None, capture_output = False, timeout = None, check = True
+popenargs = (['/opt/venv/bin/python3', '-m', 'alembic', 'upgrade', 'head'],)
+kwargs = {'cwd': PosixPath('/app'), 'env': {'AI_ALLOW_LOCAL_HTTP': 'true', 'AI_CREDENTIAL_ENCRYPTION_KEY': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=', 'APP_ENV': 'test', 'CONTENT_GENERATOR': 'openai-compatible', ...}, 'text': True}
+process = <Popen: returncode: 1 args: ['/opt/venv/bin/python3', '-m', 'alembic', 'upgr...>
+stdout = None, stderr = None, retcode = 1
+
+    def run(*popenargs,
+            input=None, capture_output=False, timeout=None, check=False, **kwargs):
+        """Run command with arguments and return a CompletedProcess instance.
+    
+        The returned instance will have attributes args, returncode, stdout and
+        stderr. By default, stdout and stderr are not captured, and those attributes
+        will be None. Pass stdout=PIPE and/or stderr=PIPE in order to capture them,
+        or pass capture_output=True to capture both.
+    
+        If check is True and the exit code was non-zero, it raises a
+        CalledProcessError. The CalledProcessError object will have the return code
+        in the returncode attribute, and output & stderr attributes if those streams
+        were captured.
+    
+        If timeout (seconds) is given and the process takes too long,
+         a TimeoutExpired exception will be raised.
+    
+        There is an optional argument "input", allowing you to
+        pass bytes or a string to the subprocess's stdin.  If you use this argument
+        you may not also use the Popen constructor's "stdin" argument, as
+        it will be used internally.
+    
+        By default, all communication is in bytes, and therefore any "input" should
+        be bytes, and the stdout and stderr will be bytes. If in text mode, any
+        "input" should be a string, and stdout and stderr will be strings decoded
+        according to locale encoding, or by "encoding" if set. Text mode is
+        triggered by setting any of text, encoding, errors or universal_newlines.
+    
+        The other arguments are the same as for the Popen constructor.
+        """
+        if input is not None:
+            if kwargs.get('stdin') is not None:
+                raise ValueError('stdin and input arguments may not both be used.')
+            kwargs['stdin'] = PIPE
+    
+        if capture_output:
+            if kwargs.get('stdout') is not None or kwargs.get('stderr') is not None:
+                raise ValueError('stdout and stderr arguments may not be used '
+                                 'with capture_output.')
+            kwargs['stdout'] = PIPE
+            kwargs['stderr'] = PIPE
+    
+        with Popen(*popenargs, **kwargs) as process:
+            try:
+                stdout, stderr = process.communicate(input, timeout=timeout)
+            except TimeoutExpired as exc:
+                process.kill()
+                if _mswindows:
+                    # Windows accumulates the output in a single blocking
+                    # read() call run on child threads, with the timeout
+                    # being done in a join() on those threads.  communicate()
+                    # _after_ kill() is required to collect that and add it
+                    # to the exception.
+                    exc.stdout, exc.stderr = process.communicate()
+                else:
+                    # POSIX _communicate already populated the output so
+                    # far into the TimeoutExpired exception.
+                    process.wait()
+                raise
+            except:  # Including KeyboardInterrupt, communicate handled that.
+                process.kill()
+                # We don't call process.wait() as .__exit__ does that for us.
+                raise
+            retcode = process.poll()
+            if check and retcode:
+>               raise CalledProcessError(retcode, process.args,
+                                         output=stdout, stderr=stderr)
+E               subprocess.CalledProcessError: Command '['/opt/venv/bin/python3', '-m', 'alembic', 'upgrade', 'head']' returned non-zero exit status 1.
+
+/usr/local/lib/python3.12/subprocess.py:571: CalledProcessError
+__________ ERROR at setup of test_wrong_run_subject_and_hash_rejected __________
+
+run_database = RunDatabase(plan=PlanDatabase(url='postgresql://partsignal:partsignal_dev@postgres:5432/partsignal_geo206_6fc18163df',...n': 'RECOMMENDED', 'search_platform': None, 'observation_kind': 'LEGACY_MODEL_RESULT', 'web_search_enabled': True},)]])
+
+    @pytest.fixture(scope="module")
+    def answer_database(run_database: RunDatabase) -> Iterator[AnswerDatabase]:
+        db = run_database
+        with psycopg.connect(db.url) as conn:
+            legacy = run(conn, db, batch(conn, db))
+        run_alembic(db.plan.env, db.plan.backend_dir, "0049_geo_batch_creation")
+>       run_alembic(db.plan.env, db.plan.backend_dir, "head")
+
+tests/integration/geo_answers_support.py:38: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/integration/test_migrations.py:77: in run_alembic
+    return subprocess.run(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+input = None, capture_output = False, timeout = None, check = True
+popenargs = (['/opt/venv/bin/python3', '-m', 'alembic', 'upgrade', 'head'],)
+kwargs = {'cwd': PosixPath('/app'), 'env': {'AI_ALLOW_LOCAL_HTTP': 'true', 'AI_CREDENTIAL_ENCRYPTION_KEY': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=', 'APP_ENV': 'test', 'CONTENT_GENERATOR': 'openai-compatible', ...}, 'text': True}
+process = <Popen: returncode: 1 args: ['/opt/venv/bin/python3', '-m', 'alembic', 'upgr...>
+stdout = None, stderr = None, retcode = 1
+
+    def run(*popenargs,
+            input=None, capture_output=False, timeout=None, check=False, **kwargs):
+        """Run command with arguments and return a CompletedProcess instance.
+    
+        The returned instance will have attributes args, returncode, stdout and
+        stderr. By default, stdout and stderr are not captured, and those attributes
+        will be None. Pass stdout=PIPE and/or stderr=PIPE in order to capture them,
+        or pass capture_output=True to capture both.
+    
+        If check is True and the exit code was non-zero, it raises a
+        CalledProcessError. The CalledProcessError object will have the return code
+        in the returncode attribute, and output & stderr attributes if those streams
+        were captured.
+    
+        If timeout (seconds) is given and the process takes too long,
+         a TimeoutExpired exception will be raised.
+    
+        There is an optional argument "input", allowing you to
+        pass bytes or a string to the subprocess's stdin.  If you use this argument
+        you may not also use the Popen constructor's "stdin" argument, as
+        it will be used internally.
+    
+        By default, all communication is in bytes, and therefore any "input" should
+        be bytes, and the stdout and stderr will be bytes. If in text mode, any
+        "input" should be a string, and stdout and stderr will be strings decoded
+        according to locale encoding, or by "encoding" if set. Text mode is
+        triggered by setting any of text, encoding, errors or universal_newlines.
+    
+        The other arguments are the same as for the Popen constructor.
+        """
+        if input is not None:
+            if kwargs.get('stdin') is not None:
+                raise ValueError('stdin and input arguments may not both be used.')
+            kwargs['stdin'] = PIPE
+    
+        if capture_output:
+            if kwargs.get('stdout') is not None or kwargs.get('stderr') is not None:
+                raise ValueError('stdout and stderr arguments may not be used '
+                                 'with capture_output.')
+            kwargs['stdout'] = PIPE
+            kwargs['stderr'] = PIPE
+    
+        with Popen(*popenargs, **kwargs) as process:
+            try:
+                stdout, stderr = process.communicate(input, timeout=timeout)
+            except TimeoutExpired as exc:
+                process.kill()
+                if _mswindows:
+                    # Windows accumulates the output in a single blocking
+                    # read() call run on child threads, with the timeout
+                    # being done in a join() on those threads.  communicate()
+                    # _after_ kill() is required to collect that and add it
+                    # to the exception.
+                    exc.stdout, exc.stderr = process.communicate()
+                else:
+                    # POSIX _communicate already populated the output so
+                    # far into the TimeoutExpired exception.
+                    process.wait()
+                raise
+            except:  # Including KeyboardInterrupt, communicate handled that.
+                process.kill()
+                # We don't call process.wait() as .__exit__ does that for us.
+                raise
+            retcode = process.poll()
+            if check and retcode:
+>               raise CalledProcessError(retcode, process.args,
+                                         output=stdout, stderr=stderr)
+E               subprocess.CalledProcessError: Command '['/opt/venv/bin/python3', '-m', 'alembic', 'upgrade', 'head']' returned non-zero exit status 1.
+
+/usr/local/lib/python3.12/subprocess.py:571: CalledProcessError
+_ ERROR at setup of test_fact_manifest_qualification_claim_binding_and_deletion _
+
+run_database = RunDatabase(plan=PlanDatabase(url='postgresql://partsignal:partsignal_dev@postgres:5432/partsignal_geo206_6fc18163df',...n': 'RECOMMENDED', 'search_platform': None, 'observation_kind': 'LEGACY_MODEL_RESULT', 'web_search_enabled': True},)]])
+
+    @pytest.fixture(scope="module")
+    def answer_database(run_database: RunDatabase) -> Iterator[AnswerDatabase]:
+        db = run_database
+        with psycopg.connect(db.url) as conn:
+            legacy = run(conn, db, batch(conn, db))
+        run_alembic(db.plan.env, db.plan.backend_dir, "0049_geo_batch_creation")
+>       run_alembic(db.plan.env, db.plan.backend_dir, "head")
+
+tests/integration/geo_answers_support.py:38: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/integration/test_migrations.py:77: in run_alembic
+    return subprocess.run(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+input = None, capture_output = False, timeout = None, check = True
+popenargs = (['/opt/venv/bin/python3', '-m', 'alembic', 'upgrade', 'head'],)
+kwargs = {'cwd': PosixPath('/app'), 'env': {'AI_ALLOW_LOCAL_HTTP': 'true', 'AI_CREDENTIAL_ENCRYPTION_KEY': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=', 'APP_ENV': 'test', 'CONTENT_GENERATOR': 'openai-compatible', ...}, 'text': True}
+process = <Popen: returncode: 1 args: ['/opt/venv/bin/python3', '-m', 'alembic', 'upgr...>
+stdout = None, stderr = None, retcode = 1
+
+    def run(*popenargs,
+            input=None, capture_output=False, timeout=None, check=False, **kwargs):
+        """Run command with arguments and return a CompletedProcess instance.
+    
+        The returned instance will have attributes args, returncode, stdout and
+        stderr. By default, stdout and stderr are not captured, and those attributes
+        will be None. Pass stdout=PIPE and/or stderr=PIPE in order to capture them,
+        or pass capture_output=True to capture both.
+    
+        If check is True and the exit code was non-zero, it raises a
+        CalledProcessError. The CalledProcessError object will have the return code
+        in the returncode attribute, and output & stderr attributes if those streams
+        were captured.
+    
+        If timeout (seconds) is given and the process takes too long,
+         a TimeoutExpired exception will be raised.
+    
+        There is an optional argument "input", allowing you to
+        pass bytes or a string to the subprocess's stdin.  If you use this argument
+        you may not also use the Popen constructor's "stdin" argument, as
+        it will be used internally.
+    
+        By default, all communication is in bytes, and therefore any "input" should
+        be bytes, and the stdout and stderr will be bytes. If in text mode, any
+        "input" should be a string, and stdout and stderr will be strings decoded
+        according to locale encoding, or by "encoding" if set. Text mode is
+        triggered by setting any of text, encoding, errors or universal_newlines.
+    
+        The other arguments are the same as for the Popen constructor.
+        """
+        if input is not None:
+            if kwargs.get('stdin') is not None:
+                raise ValueError('stdin and input arguments may not both be used.')
+            kwargs['stdin'] = PIPE
+    
+        if capture_output:
+            if kwargs.get('stdout') is not None or kwargs.get('stderr') is not None:
+                raise ValueError('stdout and stderr arguments may not be used '
+                                 'with capture_output.')
+            kwargs['stdout'] = PIPE
+            kwargs['stderr'] = PIPE
+    
+        with Popen(*popenargs, **kwargs) as process:
+            try:
+                stdout, stderr = process.communicate(input, timeout=timeout)
+            except TimeoutExpired as exc:
+                process.kill()
+                if _mswindows:
+                    # Windows accumulates the output in a single blocking
+                    # read() call run on child threads, with the timeout
+                    # being done in a join() on those threads.  communicate()
+                    # _after_ kill() is required to collect that and add it
+                    # to the exception.
+                    exc.stdout, exc.stderr = process.communicate()
+                else:
+                    # POSIX _communicate already populated the output so
+                    # far into the TimeoutExpired exception.
+                    process.wait()
+                raise
+            except:  # Including KeyboardInterrupt, communicate handled that.
+                process.kill()
+                # We don't call process.wait() as .__exit__ does that for us.
+                raise
+            retcode = process.poll()
+            if check and retcode:
+>               raise CalledProcessError(retcode, process.args,
+                                         output=stdout, stderr=stderr)
+E               subprocess.CalledProcessError: Command '['/opt/venv/bin/python3', '-m', 'alembic', 'upgrade', 'head']' returned non-zero exit status 1.
+
+/usr/local/lib/python3.12/subprocess.py:571: CalledProcessError
+_ ERROR at setup of test_review_corrected_scope_clock_and_reference_projection _
+
+run_database = RunDatabase(plan=PlanDatabase(url='postgresql://partsignal:partsignal_dev@postgres:5432/partsignal_geo206_6fc18163df',...n': 'RECOMMENDED', 'search_platform': None, 'observation_kind': 'LEGACY_MODEL_RESULT', 'web_search_enabled': True},)]])
+
+    @pytest.fixture(scope="module")
+    def answer_database(run_database: RunDatabase) -> Iterator[AnswerDatabase]:
+        db = run_database
+        with psycopg.connect(db.url) as conn:
+            legacy = run(conn, db, batch(conn, db))
+        run_alembic(db.plan.env, db.plan.backend_dir, "0049_geo_batch_creation")
+>       run_alembic(db.plan.env, db.plan.backend_dir, "head")
+
+tests/integration/geo_answers_support.py:38: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/integration/test_migrations.py:77: in run_alembic
+    return subprocess.run(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+input = None, capture_output = False, timeout = None, check = True
+popenargs = (['/opt/venv/bin/python3', '-m', 'alembic', 'upgrade', 'head'],)
+kwargs = {'cwd': PosixPath('/app'), 'env': {'AI_ALLOW_LOCAL_HTTP': 'true', 'AI_CREDENTIAL_ENCRYPTION_KEY': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=', 'APP_ENV': 'test', 'CONTENT_GENERATOR': 'openai-compatible', ...}, 'text': True}
+process = <Popen: returncode: 1 args: ['/opt/venv/bin/python3', '-m', 'alembic', 'upgr...>
+stdout = None, stderr = None, retcode = 1
+
+    def run(*popenargs,
+            input=None, capture_output=False, timeout=None, check=False, **kwargs):
+        """Run command with arguments and return a CompletedProcess instance.
+    
+        The returned instance will have attributes args, returncode, stdout and
+        stderr. By default, stdout and stderr are not captured, and those attributes
+        will be None. Pass stdout=PIPE and/or stderr=PIPE in order to capture them,
+        or pass capture_output=True to capture both.
+    
+        If check is True and the exit code was non-zero, it raises a
+        CalledProcessError. The CalledProcessError object will have the return code
+        in the returncode attribute, and output & stderr attributes if those streams
+        were captured.
+    
+        If timeout (seconds) is given and the process takes too long,
+         a TimeoutExpired exception will be raised.
+    
+        There is an optional argument "input", allowing you to
+        pass bytes or a string to the subprocess's stdin.  If you use this argument
+        you may not also use the Popen constructor's "stdin" argument, as
+        it will be used internally.
+    
+        By default, all communication is in bytes, and therefore any "input" should
+        be bytes, and the stdout and stderr will be bytes. If in text mode, any
+        "input" should be a string, and stdout and stderr will be strings decoded
+        according to locale encoding, or by "encoding" if set. Text mode is
+        triggered by setting any of text, encoding, errors or universal_newlines.
+    
+        The other arguments are the same as for the Popen constructor.
+        """
+        if input is not None:
+            if kwargs.get('stdin') is not None:
+                raise ValueError('stdin and input arguments may not both be used.')
+            kwargs['stdin'] = PIPE
+    
+        if capture_output:
+            if kwargs.get('stdout') is not None or kwargs.get('stderr') is not None:
+                raise ValueError('stdout and stderr arguments may not be used '
+                                 'with capture_output.')
+            kwargs['stdout'] = PIPE
+            kwargs['stderr'] = PIPE
+    
+        with Popen(*popenargs, **kwargs) as process:
+            try:
+                stdout, stderr = process.communicate(input, timeout=timeout)
+            except TimeoutExpired as exc:
+                process.kill()
+                if _mswindows:
+                    # Windows accumulates the output in a single blocking
+                    # read() call run on child threads, with the timeout
+                    # being done in a join() on those threads.  communicate()
+                    # _after_ kill() is required to collect that and add it
+                    # to the exception.
+                    exc.stdout, exc.stderr = process.communicate()
+                else:
+                    # POSIX _communicate already populated the output so
+                    # far into the TimeoutExpired exception.
+                    process.wait()
+                raise
+            except:  # Including KeyboardInterrupt, communicate handled that.
+                process.kill()
+                # We don't call process.wait() as .__exit__ does that for us.
+                raise
+            retcode = process.poll()
+            if check and retcode:
+>               raise CalledProcessError(retcode, process.args,
+                                         output=stdout, stderr=stderr)
+E               subprocess.CalledProcessError: Command '['/opt/venv/bin/python3', '-m', 'alembic', 'upgrade', 'head']' returned non-zero exit status 1.
+
+/usr/local/lib/python3.12/subprocess.py:571: CalledProcessError
+_ ERROR at setup of test_fact_delete_and_reviewer_history_existing_service_boundary _
+
+run_database = RunDatabase(plan=PlanDatabase(url='postgresql://partsignal:partsignal_dev@postgres:5432/partsignal_geo206_6fc18163df',...n': 'RECOMMENDED', 'search_platform': None, 'observation_kind': 'LEGACY_MODEL_RESULT', 'web_search_enabled': True},)]])
+
+    @pytest.fixture(scope="module")
+    def answer_database(run_database: RunDatabase) -> Iterator[AnswerDatabase]:
+        db = run_database
+        with psycopg.connect(db.url) as conn:
+            legacy = run(conn, db, batch(conn, db))
+        run_alembic(db.plan.env, db.plan.backend_dir, "0049_geo_batch_creation")
+>       run_alembic(db.plan.env, db.plan.backend_dir, "head")
+
+tests/integration/geo_answers_support.py:38: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/integration/test_migrations.py:77: in run_alembic
+    return subprocess.run(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+input = None, capture_output = False, timeout = None, check = True
+popenargs = (['/opt/venv/bin/python3', '-m', 'alembic', 'upgrade', 'head'],)
+kwargs = {'cwd': PosixPath('/app'), 'env': {'AI_ALLOW_LOCAL_HTTP': 'true', 'AI_CREDENTIAL_ENCRYPTION_KEY': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=', 'APP_ENV': 'test', 'CONTENT_GENERATOR': 'openai-compatible', ...}, 'text': True}
+process = <Popen: returncode: 1 args: ['/opt/venv/bin/python3', '-m', 'alembic', 'upgr...>
+stdout = None, stderr = None, retcode = 1
+
+    def run(*popenargs,
+            input=None, capture_output=False, timeout=None, check=False, **kwargs):
+        """Run command with arguments and return a CompletedProcess instance.
+    
+        The returned instance will have attributes args, returncode, stdout and
+        stderr. By default, stdout and stderr are not captured, and those attributes
+        will be None. Pass stdout=PIPE and/or stderr=PIPE in order to capture them,
+        or pass capture_output=True to capture both.
+    
+        If check is True and the exit code was non-zero, it raises a
+        CalledProcessError. The CalledProcessError object will have the return code
+        in the returncode attribute, and output & stderr attributes if those streams
+        were captured.
+    
+        If timeout (seconds) is given and the process takes too long,
+         a TimeoutExpired exception will be raised.
+    
+        There is an optional argument "input", allowing you to
+        pass bytes or a string to the subprocess's stdin.  If you use this argument
+        you may not also use the Popen constructor's "stdin" argument, as
+        it will be used internally.
+    
+        By default, all communication is in bytes, and therefore any "input" should
+        be bytes, and the stdout and stderr will be bytes. If in text mode, any
+        "input" should be a string, and stdout and stderr will be strings decoded
+        according to locale encoding, or by "encoding" if set. Text mode is
+        triggered by setting any of text, encoding, errors or universal_newlines.
+    
+        The other arguments are the same as for the Popen constructor.
+        """
+        if input is not None:
+            if kwargs.get('stdin') is not None:
+                raise ValueError('stdin and input arguments may not both be used.')
+            kwargs['stdin'] = PIPE
+    
+        if capture_output:
+            if kwargs.get('stdout') is not None or kwargs.get('stderr') is not None:
+                raise ValueError('stdout and stderr arguments may not be used '
+                                 'with capture_output.')
+            kwargs['stdout'] = PIPE
+            kwargs['stderr'] = PIPE
+    
+        with Popen(*popenargs, **kwargs) as process:
+            try:
+                stdout, stderr = process.communicate(input, timeout=timeout)
+            except TimeoutExpired as exc:
+                process.kill()
+                if _mswindows:
+                    # Windows accumulates the output in a single blocking
+                    # read() call run on child threads, with the timeout
+                    # being done in a join() on those threads.  communicate()
+                    # _after_ kill() is required to collect that and add it
+                    # to the exception.
+                    exc.stdout, exc.stderr = process.communicate()
+                else:
+                    # POSIX _communicate already populated the output so
+                    # far into the TimeoutExpired exception.
+                    process.wait()
+                raise
+            except:  # Including KeyboardInterrupt, communicate handled that.
+                process.kill()
+                # We don't call process.wait() as .__exit__ does that for us.
+                raise
+            retcode = process.poll()
+            if check and retcode:
+>               raise CalledProcessError(retcode, process.args,
+                                         output=stdout, stderr=stderr)
+E               subprocess.CalledProcessError: Command '['/opt/venv/bin/python3', '-m', 'alembic', 'upgrade', 'head']' returned non-zero exit status 1.
+
+/usr/local/lib/python3.12/subprocess.py:571: CalledProcessError
+___ ERROR at setup of test_forward_keeps_nonempty_history_and_matches_models ___
+
+run_database = RunDatabase(plan=PlanDatabase(url='postgresql://partsignal:partsignal_dev@postgres:5432/partsignal_geo206_d2a39931ca',...n': 'RECOMMENDED', 'search_platform': None, 'observation_kind': 'LEGACY_MODEL_RESULT', 'web_search_enabled': True},)]])
+
+    @pytest.fixture(scope="module")
+    def answer_database(run_database: RunDatabase) -> Iterator[AnswerDatabase]:
+        db = run_database
+        with psycopg.connect(db.url) as conn:
+            legacy = run(conn, db, batch(conn, db))
+        run_alembic(db.plan.env, db.plan.backend_dir, "0049_geo_batch_creation")
+>       run_alembic(db.plan.env, db.plan.backend_dir, "head")
+
+tests/integration/geo_answers_support.py:38: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/integration/test_migrations.py:77: in run_alembic
+    return subprocess.run(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+input = None, capture_output = False, timeout = None, check = True
+popenargs = (['/opt/venv/bin/python3', '-m', 'alembic', 'upgrade', 'head'],)
+kwargs = {'cwd': PosixPath('/app'), 'env': {'AI_ALLOW_LOCAL_HTTP': 'true', 'AI_CREDENTIAL_ENCRYPTION_KEY': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=', 'APP_ENV': 'test', 'CONTENT_GENERATOR': 'openai-compatible', ...}, 'text': True}
+process = <Popen: returncode: 1 args: ['/opt/venv/bin/python3', '-m', 'alembic', 'upgr...>
+stdout = None, stderr = None, retcode = 1
+
+    def run(*popenargs,
+            input=None, capture_output=False, timeout=None, check=False, **kwargs):
+        """Run command with arguments and return a CompletedProcess instance.
+    
+        The returned instance will have attributes args, returncode, stdout and
+        stderr. By default, stdout and stderr are not captured, and those attributes
+        will be None. Pass stdout=PIPE and/or stderr=PIPE in order to capture them,
+        or pass capture_output=True to capture both.
+    
+        If check is True and the exit code was non-zero, it raises a
+        CalledProcessError. The CalledProcessError object will have the return code
+        in the returncode attribute, and output & stderr attributes if those streams
+        were captured.
+    
+        If timeout (seconds) is given and the process takes too long,
+         a TimeoutExpired exception will be raised.
+    
+        There is an optional argument "input", allowing you to
+        pass bytes or a string to the subprocess's stdin.  If you use this argument
+        you may not also use the Popen constructor's "stdin" argument, as
+        it will be used internally.
+    
+        By default, all communication is in bytes, and therefore any "input" should
+        be bytes, and the stdout and stderr will be bytes. If in text mode, any
+        "input" should be a string, and stdout and stderr will be strings decoded
+        according to locale encoding, or by "encoding" if set. Text mode is
+        triggered by setting any of text, encoding, errors or universal_newlines.
+    
+        The other arguments are the same as for the Popen constructor.
+        """
+        if input is not None:
+            if kwargs.get('stdin') is not None:
+                raise ValueError('stdin and input arguments may not both be used.')
+            kwargs['stdin'] = PIPE
+    
+        if capture_output:
+            if kwargs.get('stdout') is not None or kwargs.get('stderr') is not None:
+                raise ValueError('stdout and stderr arguments may not be used '
+                                 'with capture_output.')
+            kwargs['stdout'] = PIPE
+            kwargs['stderr'] = PIPE
+    
+        with Popen(*popenargs, **kwargs) as process:
+            try:
+                stdout, stderr = process.communicate(input, timeout=timeout)
+            except TimeoutExpired as exc:
+                process.kill()
+                if _mswindows:
+                    # Windows accumulates the output in a single blocking
+                    # read() call run on child threads, with the timeout
+                    # being done in a join() on those threads.  communicate()
+                    # _after_ kill() is required to collect that and add it
+                    # to the exception.
+                    exc.stdout, exc.stderr = process.communicate()
+                else:
+                    # POSIX _communicate already populated the output so
+                    # far into the TimeoutExpired exception.
+                    process.wait()
+                raise
+            except:  # Including KeyboardInterrupt, communicate handled that.
+                process.kill()
+                # We don't call process.wait() as .__exit__ does that for us.
+                raise
+            retcode = process.poll()
+            if check and retcode:
+>               raise CalledProcessError(retcode, process.args,
+                                         output=stdout, stderr=stderr)
+E               subprocess.CalledProcessError: Command '['/opt/venv/bin/python3', '-m', 'alembic', 'upgrade', 'head']' returned non-zero exit status 1.
+
+/usr/local/lib/python3.12/subprocess.py:571: CalledProcessError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_identity_audit, 创建身份、会话和审计表。
+INFO  [alembic.runtime.migration] Running upgrade 0001_identity_audit -> 0002_product_facts, 创建规范化产品事实和不可变事实版本。
+INFO  [alembic.runtime.migration] Running upgrade 0002_product_facts -> 0003_content_planning, 创建目标问题、平台规则版本和内容任务。
+INFO  [alembic.runtime.migration] Running upgrade 0003_content_planning -> 0004_content_production, 创建 PostgreSQL 权威生成作业和不可变 Markdown 内容版本。
+INFO  [alembic.runtime.migration] Running upgrade 0004_content_production -> 0005_content_review, 创建追加式内容审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0005_content_review -> 0006_publication, 创建平台账号、人工发布记录和状态事件。
+INFO  [alembic.runtime.migration] Running upgrade 0006_publication -> 0007_geo_observation, 创建追加式 GEO 观测及引用关联。
+INFO  [alembic.runtime.migration] Running upgrade 0007_geo_observation -> 0008_files, 创建文件生命周期、附件关联并补加证据文件外键。
+INFO  [alembic.runtime.migration] Running upgrade 0008_files -> 0009_config_center, 迁移账号类型、配置中心与真实 AI 生成字段。
+INFO  [alembic.runtime.migration] Running upgrade 0009_config_center -> 0010_user_cleanup, 清理旧版职责账号并强制既有内容工程师改密。
+INFO  [alembic.runtime.migration] Running upgrade 0010_user_cleanup -> 0011_generation_reliability, 增加生成作业补投递诊断字段与到期扫描索引。
+INFO  [alembic.runtime.migration] Running upgrade 0011_generation_reliability -> 0012_ai_data_classification, 为生成输入增加显式数据分级与责任人记录。
+INFO  [alembic.runtime.migration] Running upgrade 0012_ai_data_classification -> 0013_publication_closure, 增加发布异常待办、修复任务来源和发布平台一致性门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0013_publication_closure -> 0014_platform_prompt_ownership, 将当前 Prompt 所有权从平台类型迁移到具体平台。
+INFO  [alembic.runtime.migration] Running upgrade 0014_platform_prompt_ownership -> 0015_platform_rule_draft_editing, 允许按修订号编辑平台规则草稿，并继续冻结已激活或退役正文。
+INFO  [alembic.runtime.migration] Running upgrade 0015_platform_rule_draft_editing -> 0016_fact_review_cleanup, 允许受约束删除事实版本时清理其从属审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0016_fact_review_cleanup -> 0017_content_humanization, 增加全局自然化 Prompt，并让现有 AI 作业承载自然化修订。
+INFO  [alembic.runtime.migration] Running upgrade 0017_content_humanization -> 0018_manual_geo_observation, 增加产品级人工 GEO 观测，并保留旧模型观测历史。
+INFO  [alembic.runtime.migration] Running upgrade 0018_manual_geo_observation -> 0019_product_driven_tasks, 允许新内容任务直接围绕产品创建，同时保留历史目标问题关联。
+INFO  [alembic.runtime.migration] Running upgrade 0019_product_driven_tasks -> 0020_platform_branding_task_list, 为具体平台增加官网与单一来源 Logo。
+INFO  [alembic.runtime.migration] Running upgrade 0020_platform_branding_task_list -> 0021_ai_channel_model_management, 补齐 AI 渠道身份字段与使用统计索引。
+INFO  [alembic.runtime.migration] Running upgrade 0021_ai_channel_model_management -> 0022_geo_observation_insights, 补充人工 GEO 逐篇阶段事实与问题主题约束。
+INFO  [alembic.runtime.migration] Running upgrade 0022_geo_observation_insights -> 0023_platform_management, 增加具体平台启停状态与管理聚合索引。
+INFO  [alembic.runtime.migration] Running upgrade 0023_platform_management -> 0024_audit_outcome, 补齐审计模块、命令结果和安全结果说明。
+INFO  [alembic.runtime.migration] Running upgrade 0024_audit_outcome -> 0025_markdown_facts, 将结构化产品事实收敛为 Markdown，并让内容任务直接绑定平台。
+INFO  [alembic.runtime.migration] Running upgrade 0025_markdown_facts -> 0026_publication_account_dedup, 补齐发布账号修订约束，并阻止同平台规范化账号标识重复。
+INFO  [alembic.runtime.migration] Running upgrade 0026_publication_account_dedup -> 0027_audit_user_delete_guard, 只允许受约束用户删除把匹配审计操作者置空。
+INFO  [alembic.runtime.migration] Running upgrade 0027_audit_user_delete_guard -> 0028_platform_logo_lifecycle, 增加平台 Logo 的未引用保留、幂等删除状态与数据库门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0028_platform_logo_lifecycle -> 0029_geo_evidence_management, 收敛人工 GEO 独立事实，并为完整更正链删除增加事务门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0029_geo_evidence_management -> 0030_publication_record_delete, 为从未公开的发布聚合增加事务级受控删除门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0030_publication_record_delete -> 0031_reusable_platform_prompts, 把平台私有 Prompt 收敛为可复用模板和平台当前绑定。
+INFO  [alembic.runtime.migration] Running upgrade 0031_reusable_platform_prompts -> 0032_content_task_idempotency, 为普通内容任务创建增加持久化请求键幂等约束。
+INFO  [alembic.runtime.migration] Running upgrade 0032_content_task_idempotency -> 0033_task_owned_history_delete, 允许受控删除已取消任务自有的未批准生产历史。
+INFO  [alembic.runtime.migration] Running upgrade 0033_task_owned_history_delete -> 0034_publication_redesign, 以发布工作、首次核验成果和发布后内容问题替换旧发布记录。
+INFO  [alembic.runtime.migration] Running upgrade 0034_publication_redesign -> 0035_business_workflow, 建立事实提交、内容单主线、发布版本快照与 GEO 来源合同。
+INFO  [alembic.runtime.migration] Running upgrade 0035_business_workflow -> 0036_remove_section_url, 删除没有稳定业务含义的发布栏目地址。
+INFO  [alembic.runtime.migration] Running upgrade 0036_remove_section_url -> 0037_simplify_deletion_lifecycle, 收缩任务、配置与审计的删除生命周期。
+INFO  [alembic.runtime.migration] Running upgrade 0037_simplify_deletion_lifecycle -> 0038_published_article_delete, 允许受控删除无 GEO 引用的发布成果聚合。
+INFO  [alembic.runtime.migration] Running upgrade 0038_published_article_delete -> 0039_article_delete_platform, 允许归档任务在删除失效平台的发布成果后转为已取消。
+INFO  [alembic.runtime.migration] Running upgrade 0039_article_delete_platform -> 0040_content_draft_management, 允许当前人工未审核草稿受控保存和彻底删除。
+INFO  [alembic.runtime.migration] Running upgrade 0040_content_draft_management -> 0041_content_task_list, 补齐内容任务列表的稳定更新时间与排序索引。
+INFO  [alembic.runtime.migration] Running upgrade 0041_content_task_list -> 0042_content_version_detail, 记录内容版本自身的真实更新时间。
+INFO  [alembic.runtime.migration] Running upgrade 0042_content_version_detail -> 0043_geo_platform_identity, 冻结发布工作的平台 UUID，避免配置删除后 GEO 历史失去身份。
+INFO  [alembic.runtime.migration] Running upgrade 0043_geo_platform_identity -> 0044_geo_catalog, 新增 GEO Catalog 三表；冻结本 revision，不读取运行时 ORM。
+INFO  [alembic.runtime.migration] Running upgrade 0044_geo_catalog -> 0045_geo_prompt_variants, 仅新增问题变体，冻结规范化及历史锁存，不回填旧问题数组。
+INFO  [alembic.runtime.migration] Running upgrade 0045_geo_prompt_variants -> 0046_geo_surfaces_profiles, 新增观测配置与闭合JSON合同；不回填旧GEO或实现运行资格。
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0046_geo_surfaces_profiles -> 0047_geo_monitoring_plans, 仅增加计划配置聚合；不创建批次、运行或改写历史观测。
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0047_geo_monitoring_plans -> 0048_geo_batches_runs, 新增独立回答级 Batch/Run，冻结 DDL 与快照/写入守卫，不迁移旧 GEO。
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0048_geo_batches_runs -> 0049_geo_batch_creation, 创建幂等与批次主体引用；不修改已冻结的 Batch/Run 输入。
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0049_geo_batch_creation -> 0050_geo_answer_evidence, 新增不可变原始回答、引用和受控文件关系；不实现采集命令。
+INFO  [alembic.runtime.migration] Running upgrade 0050_geo_answer_evidence -> 0051_geo_manual_collection, 人工草稿和不可变提交身份；不回填或修改已提交证据。
+INFO  [alembic.runtime.migration] Running upgrade 0051_geo_manual_collection -> 0052_geo_profile_tests, API Profile 当前诊断资格与依赖失效；不修改业务历史。
+INFO  [alembic.runtime.migration] Running upgrade 0052_geo_profile_tests -> 0053_geo_collection_admission, 加法保存预算预留与发送限速事实，历史 Run 和原始证据保持不变。
+INFO  [alembic.runtime.migration] Running upgrade 0053_geo_collection_admission -> 0054_geo_analysis_contract, 分析输入/结果、追加复核与限定 current pointer；不回填历史证据。
+Traceback (most recent call last):
+  File "/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1817, in _execute_context
+    context = constructor(
+              ^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 1417, in _init_compiled
+    compiled.construct_params(
+  File "/opt/venv/lib/python3.12/site-packages/sqlalchemy/sql/compiler.py", line 1963, in construct_params
+    raise exc.InvalidRequestError(
+sqlalchemy.exc.InvalidRequestError: A value is required for bind parameter 'null' (Background on this error at: https://sqlalche.me/e/20/cd3x)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/opt/venv/lib/python3.12/site-packages/alembic/__main__.py", line 4, in <module>
+    main(prog="alembic")
+  File "/opt/venv/lib/python3.12/site-packages/alembic/config.py", line 1047, in main
+    CommandLine(prog=prog).main(argv=argv)
+  File "/opt/venv/lib/python3.12/site-packages/alembic/config.py", line 1037, in main
+    self.run_cmd(cfg, options)
+  File "/opt/venv/lib/python3.12/site-packages/alembic/config.py", line 971, in run_cmd
+    fn(
+  File "/opt/venv/lib/python3.12/site-packages/alembic/command.py", line 490, in upgrade
+    script.run_env()
+  File "/opt/venv/lib/python3.12/site-packages/alembic/script/base.py", line 556, in run_env
+    util.load_python_file(self.dir, "env.py")
+  File "/opt/venv/lib/python3.12/site-packages/alembic/util/pyfiles.py", line 116, in load_python_file
+    module = load_module_py(module_id, path)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/alembic/util/pyfiles.py", line 136, in load_module_py
+    spec.loader.exec_module(module)  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap_external>", line 999, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/app/alembic/env.py", line 50, in <module>
+    run_migrations_online()
+  File "/app/alembic/env.py", line 44, in run_migrations_online
+    context.run_migrations()
+  File "<string>", line 8, in run_migrations
+  File "/opt/venv/lib/python3.12/site-packages/alembic/runtime/environment.py", line 969, in run_migrations
+    self.get_context().run_migrations(**kw)
+  File "/opt/venv/lib/python3.12/site-packages/alembic/runtime/migration.py", line 626, in run_migrations
+    step.migration_fn(**kw)
+  File "/app/alembic/versions/0054_geo_analysis_contract.py", line 22, in upgrade
+    op.execute((root / name).read_text())
+  File "<string>", line 8, in execute
+  File "<string>", line 3, in execute
+  File "/opt/venv/lib/python3.12/site-packages/alembic/operations/ops.py", line 2667, in execute
+    return operations.invoke(op)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/alembic/operations/base.py", line 452, in invoke
+    return fn(self, operation)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/alembic/operations/toimpl.py", line 259, in execute_sql
+    operations.migration_context.impl.execute(
+  File "/opt/venv/lib/python3.12/site-packages/alembic/ddl/impl.py", line 263, in execute
+    self._exec(sql, execution_options)
+  File "/opt/venv/lib/python3.12/site-packages/alembic/ddl/impl.py", line 256, in _exec
+    return conn.execute(construct, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1421, in execute
+    return meth(
+           ^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/sqlalchemy/sql/elements.py", line 526, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1643, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1823, in _execute_context
+    self._handle_dbapi_exception(
+  File "/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 2365, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1817, in _execute_context
+    context = constructor(
+              ^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 1417, in _init_compiled
+    compiled.construct_params(
+  File "/opt/venv/lib/python3.12/site-packages/sqlalchemy/sql/compiler.py", line 1963, in construct_params
+    raise exc.InvalidRequestError(
+sqlalchemy.exc.StatementError: (sqlalchemy.exc.InvalidRequestError) A value is required for bind parameter 'null'
+[SQL: -- 分析边界只保存闭合、无凭据的版本输入，不复制外部请求配置。
+CREATE FUNCTION geo_analysis_text_valid(value jsonb, maximum integer, nullable boolean DEFAULT false)
+RETURNS boolean LANGUAGE sql IMMUTABLE AS $$
+    SELECT COALESCE((nullable AND value = 'null'::jsonb) OR
+        (jsonb_typeof(value) = 'string' AND length(value #>> '{}') BETWEEN 1 AND maximum
+            AND value #>> '{}' ~ '[^[:space:]]'), false)
+$$;
+CREATE FUNCTION geo_analysis_number_valid(value jsonb, minimum numeric, maximum numeric,
+    integral boolean DEFAULT false, nullable boolean DEFAULT false)
+RETURNS boolean LANGUAGE plpgsql IMMUTABLE AS $$
+BEGIN
+    IF nullable AND value = 'null'::jsonb THEN RETURN true; END IF;
+    IF jsonb_typeof(value) IS DISTINCT FROM 'number' THEN RETURN false; END IF;
+    RETURN value::numeric >= minimum AND (maximum IS NULL OR value::numeric <= maximum)
+        AND (NOT integral OR value::text ~ '^(0|[1-9][0-9]*)$');
+END $$;
+CREATE FUNCTION geo_analysis_strings_valid(value jsonb, maximum integer, minimum_count integer,
+    maximum_count integer) RETURNS boolean LANGUAGE plpgsql IMMUTABLE AS $$
+DECLARE item jsonb;
+BEGIN
+    IF jsonb_typeof(value) IS DISTINCT FROM 'array' THEN RETURN false; END IF;
+    IF jsonb_array_length(value) < minimum_count OR (maximum_count IS NOT NULL
+        AND jsonb_array_length(value) > maximum_count) THEN RETURN false; END IF;
+    FOR item IN SELECT * FROM jsonb_array_elements(value) LOOP
+        IF NOT geo_analysis_text_valid(item, maximum) THEN RETURN false; END IF;
+    END LOOP;
+    RETURN true;
+END $$;
+CREATE FUNCTION geo_analysis_input_valid(value jsonb) RETURNS boolean LANGUAGE plpgsql IMMUTABLE AS $$
+DECLARE c jsonb; p jsonb; item jsonb; child jsonb; ids text[] := '{}'; facts text[] := '{}';
+BEGIN
+    IF NOT geo_run_snapshot_object(value, ARRAY['schema_version','answer_sha256','subjects',
+        'fact_versions','configuration']) OR value->'schema_version' IS DISTINCT FROM '1'::jsonb
+        OR NOT geo_snapshot_strings(value, ARRAY['answer_sha256'])
+        OR COALESCE(value->>'answer_sha256' !~ '^[0-9a-f]{64}$', true)
+        OR jsonb_typeof(value->'subjects') IS DISTINCT FROM 'array'
+        OR jsonb_typeof(value->'fact_versions') IS DISTINCT FROM 'array' THEN RETURN false; END IF;
+    IF jsonb_array_length(value->'subjects') < 1 THEN RETURN false; END IF;
+    FOR item IN SELECT * FROM jsonb_array_elements(value->'subjects') LOOP
+        IF NOT geo_run_snapshot_object(item, ARRAY['id','revision','subject_type','role',
+                'product_id','parent_subject_id','canonical_name','display_name','aliases','domains'])
+            OR NOT geo_snapshot_uuids(item, ARRAY['id'], ARRAY['product_id','parent_subject_id'])
+            OR NOT geo_snapshot_revision(item->'revision')
+            OR NOT geo_snapshot_strings(item, ARRAY['subject_type','role'])
+            OR item->>'subject_type' NOT IN ('OWN_BRAND','OWN_PRODUCT','COMPETITOR_BRAND','COMPETITOR_PRODUCT','REFERENCE_PART')
+            OR item->>'role' NOT IN ('PRIMARY','COMPETITOR','REFERENCE')
+            OR ((item->>'subject_type' = 'OWN_PRODUCT') <> (item->'product_id' <> 'null'::jsonb))
+            OR item->>'id' = ANY(ids)
+            OR NOT geo_analysis_text_valid(item->'canonical_name',240)
+            OR NOT geo_analysis_text_valid(item->'display_name',321)
+            OR jsonb_typeof(item->'aliases') IS DISTINCT FROM 'array'
+            OR jsonb_typeof(item->'domains') IS DISTINCT FROM 'array' THEN RETURN false; END IF;
+        ids := array_append(ids,item->>'id');
+        FOR child IN SELECT * FROM jsonb_array_elements(item->'aliases') LOOP
+            IF NOT geo_run_snapshot_object(child, ARRAY['alias','normalized_alias','alias_kind','language_code'])
+                OR NOT geo_analysis_text_valid(child->'alias',240)
+                OR NOT geo_analysis_text_valid(child->'normalized_alias',240)
+                OR NOT geo_snapshot_strings(child, ARRAY['alias_kind'], ARRAY['language_code'])
+                OR child->>'alias_kind' NOT IN ('NAME','PART_NUMBER','ABBREVIATION','LEGACY')
+                THEN RETURN false; END IF;
+        END LOOP;
+        FOR child IN SELECT * FROM jsonb_array_elements(item->'domains') LOOP
+            IF NOT geo_run_snapshot_object(child, ARRAY['hostname','relation_type'])
+                OR NOT geo_snapshot_strings(child, ARRAY['hostname','relation_type'])
+                OR NOT geo_analysis_text_valid(child->'hostname',253)
+                OR child->>'relation_type' NOT IN ('OWNED','OFFICIAL','DISTRIBUTOR','OTHER')
+                THEN RETURN false; END IF;
+        END LOOP;
+    END LOOP;
+    FOR item IN SELECT * FROM jsonb_array_elements(value->'fact_versions') LOOP
+        IF NOT geo_run_snapshot_object(item, ARRAY['subject_id','fact_version_id'])
+            OR NOT geo_snapshot_uuids(item, ARRAY['subject_id','fact_version_id'])
+            OR item->>'subject_id' = ANY(facts)
+            OR NOT EXISTS (SELECT 1 FROM jsonb_array_elements(value->'subjects') s
+                WHERE s->>'id' = item->>'subject_id' AND s->>'subject_type' = 'OWN_PRODUCT')
+            THEN RETURN false; END IF;
+        facts := array_append(facts,item->>'subject_id');
+    END LOOP;
+    c := value->'configuration'; p := c->'parameters';
+    IF NOT geo_run_snapshot_object(c, ARRAY['rule_set_version','model_name','model_version',
+            'prompt_template_version','prompt_sha256','parameters'])
+        OR NOT geo_analysis_text_valid(c->'rule_set_version',100)
+        OR NOT geo_analysis_text_valid(c->'model_name',200,true)
+        OR NOT geo_analysis_text_valid(c->'model_version',100,true)
+        OR NOT geo_analysis_text_valid(c->'prompt_template_version',100,true)
+        OR NOT geo_snapshot_strings(c, ARRAY[]::text[], ARRAY['prompt_sha256'])
+        OR (c->'prompt_sha256' <> 'null'::jsonb AND c->>'prompt_sha256' !~ '^[0-9a-f]{64}$')
+        OR ((c->'model_name' = 'null'::jsonb) <> (c->'model_version' = 'null'::jsonb))
+        OR ((c->'model_name' = 'null'::jsonb) <> (c->'prompt_template_version' = 'null'::jsonb))
+        OR ((c->'model_name' = 'null'::jsonb) <> (c->'prompt_sha256' = 'null'::jsonb))
+        OR NOT geo_run_snapshot_object(p, ARRAY['temperature','top_p','max_output_tokens','seed'])
+        OR NOT geo_analysis_number_valid(p->'temperature',0,2,false,true)
+        OR NOT geo_analysis_number_valid(p->'top_p',0,1,false,true)
+        OR NOT geo_analysis_number_valid(p->'max_output_tokens',1,2147483647,true,true)
+        OR NOT geo_analysis_number_valid(p->'seed',0,2147483647,true,true)
+        OR (c->'model_name' = 'null'::jsonb AND p <> '{"temperature"%(null)s,"top_p"%(null)s,"max_output_tokens"%(null)s,"seed"%(null)s}'::jsonb)
+        THEN RETURN false; END IF;
+    RETURN true;
+END $$;
+CREATE FUNCTION geo_analysis_summary_valid(summary jsonb, reasons jsonb) RETURNS boolean
+LANGUAGE sql IMMUTABLE AS $$
+    SELECT COALESCE((summary IS NULL OR (geo_run_snapshot_object(summary,
+        ARRAY['mentions','recommendations','claims'])
+        AND geo_analysis_number_valid(summary->'mentions',0,1,false,true)
+        AND geo_analysis_number_valid(summary->'recommendations',0,1,false,true)
+        AND geo_analysis_number_valid(summary->'claims',0,1,false,true)))
+        AND geo_analysis_strings_valid(reasons,100,0,20), false)
+$$;
+-- jsonb::text 的数据库规范表示为唯一哈希序列化；数组顺序是冻结输入的一部分。
+CREATE FUNCTION geo_analysis_input_sha256(value jsonb, analyzer_type text, analyzer_version text)
+RETURNS text LANGUAGE sql IMMUTABLE STRICT AS $$
+    SELECT geo_answer_sha256(jsonb_build_array('geo-analysis-v1',value,analyzer_type,analyzer_version)::text)
+$$;
+CREATE FUNCTION geo_review_corrections_valid(value jsonb) RETURNS boolean LANGUAGE plpgsql IMMUTABLE AS $$
+DECLARE category text; item jsonb; ids text[]; identity text; total integer := 0;
+BEGIN
+    IF NOT geo_run_snapshot_object(value, ARRAY['schema_version','mentions','recommendations','claims','citations'])
+        OR value->'schema_version' IS DISTINCT FROM '1'::jsonb THEN RETURN false; END IF;
+    FOREACH category IN ARRAY ARRAY['mentions','recommendations','claims','citations'] LOOP
+        IF jsonb_typeof(value->category) IS DISTINCT FROM 'array' THEN RETURN false; END IF;
+        ids := '{}'; total := total + jsonb_array_length(value->category);
+        FOR item IN SELECT * FROM jsonb_array_elements(value->category) LOOP
+            IF category = 'mentions' THEN
+                IF NOT geo_run_snapshot_object(item, ARRAY['subject_id','mention_count','first_character_offset','matched_aliases'])
+                    OR NOT geo_snapshot_uuids(item, ARRAY['subject_id'])
+                    OR NOT geo_analysis_number_valid(item->'mention_count',0,2147483647,true)
+                    OR NOT geo_analysis_number_valid(item->'first_character_offset',0,2147483647,true,true)
+                    OR NOT geo_analysis_strings_valid(item->'matched_aliases',240,0,NULL)
+                    THEN RETURN false; END IF;
+                IF (item->>'mention_count' = '0' AND (item->'first_character_offset' <> 'null'::jsonb
+                    OR item->'matched_aliases' <> '[]'::jsonb)) OR
+                    (item->>'mention_count' <> '0' AND jsonb_array_length(item->'matched_aliases') = 0)
+                    THEN RETURN false; END IF;
+                identity := item->>'subject_id';
+            ELSIF category = 'recommendations' THEN
+                IF NOT geo_run_snapshot_object(item, ARRAY['subject_id','recommendation','rank','rationale_excerpt'])
+                    OR NOT geo_snapshot_uuids(item, ARRAY['subject_id'])
+                    OR NOT geo_snapshot_strings(item, ARRAY['recommendation'])
+                    OR item->>'recommendation' NOT IN ('RECOMMENDED','CONSIDERED','NOT_RECOMMENDED','UNKNOWN')
+                    OR NOT geo_analysis_number_valid(item->'rank',1,2147483647,true,true)
+                    OR NOT geo_analysis_text_valid(item->'rationale_excerpt',2000,true)
+                    THEN RETURN false; END IF;
+                identity := item->>'subject_id';
+            ELSIF category = 'claims' THEN
+                IF NOT geo_run_snapshot_object(item, ARRAY['claim_assessment_id','verdict','severity','explanation'])
+                    OR NOT geo_snapshot_uuids(item, ARRAY['claim_assessment_id'])
+                    OR NOT geo_snapshot_strings(item, ARRAY['verdict','severity'])
+                    OR item->>'verdict' NOT IN ('ACCURATE','PARTIAL','INCORRECT','UNJUDGEABLE')
+                    OR item->>'severity' NOT IN ('LOW','MEDIUM','HIGH','CRITICAL')
+                    OR NOT geo_analysis_text_valid(item->'explanation',2000) THEN RETURN false; END IF;
+                identity := item->>'claim_assessment_id';
+            ELSE
+                IF NOT geo_run_snapshot_object(item, ARRAY['citation_id','source_category','subject_id'])
+                    OR NOT geo_snapshot_uuids(item, ARRAY['citation_id'],ARRAY['subject_id'])
+                    OR NOT geo_snapshot_strings(item, ARRAY['source_category'])
+                    OR item->>'source_category' NOT IN ('OWNED','COMPETITOR','INDUSTRY_MEDIA','DISTRIBUTOR',
+                        'COMMUNITY','SOCIAL','SEARCH_ENGINE','ACADEMIC_OR_INSTITUTIONAL','OTHER','UNKNOWN')
+                    THEN RETURN false; END IF;
+                identity := item->>'citation_id';
+            END IF;
+            IF identity = ANY(ids) THEN RETURN false; END IF;
+            ids := array_append(ids,identity);
+        END LOOP;
+    END LOOP;
+    RETURN total > 0;
+END $$;
+]
+[parameters: [immutabledict({})]]
+(Background on this error at: https://sqlalche.me/e/20/cd3x)
+=================================== FAILURES ===================================
+____________ test_0053_preserves_run_history_and_backfills_unknown _____________
+
+run_database = RunDatabase(plan=PlanDatabase(url='postgresql://partsignal:partsignal_dev@postgres:5432/partsignal_geo206_52dd1db2db',...n': 'RECOMMENDED', 'search_platform': None, 'observation_kind': 'LEGACY_MODEL_RESULT', 'web_search_enabled': True},)]])
+
+    def test_0053_preserves_run_history_and_backfills_unknown(run_database):
+        db = run_database
+        run_alembic(db.plan.env, db.plan.backend_dir, "0052_geo_profile_tests")
+        # 历史冻结输入允许当前配置已失效；模拟当时 API 已发送而 Worker 丢失的事实。
+        value = input_snapshot("API")
+        value["profile"]["settings"].pop("max_concurrency")
+        value["profile"]["settings"].pop("requests_per_minute")
+        value["prompt"] = db.input["prompt"]
+        value["subjects"] = db.input["subjects"]
+        value["profile"]["id"] = db.input["profile"]["id"]
+        value["profile"]["surface"]["id"] = db.input["profile"]["surface"]["id"]
+        with psycopg.connect(db.url) as conn:
+            profile = insert_profile(
+                conn,
+                db.plan,
+                db.input["profile"]["surface"]["id"],
+                "API",
+                ai_channel_id=None,
+                ai_model_id=None,
+            )
+            value["profile"]["id"] = str(profile)
+            identities = []
+            created = datetime.now(UTC) - timedelta(days=2)
+            midnight = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+            for external in ["NOT_STARTED", "UNKNOWN", "SENT"]:
+                batch_id = batch(conn, db, plan_snapshot=Jsonb(plan_snapshot(value)))
+                insert_row(
+                    conn,
+                    "geo_batch_subjects",
+                    {"batch_id": batch_id, "subject_id": db.plan.subjects[0], "role": "PRIMARY"},
+                )
+                identity = run(
+                    conn,
+                    db,
+                    batch_id,
+                    collection_profile_id=profile,
+                    input_snapshot=Jsonb(value),
+                    created_at=created,
+                )
+                conn.execute(
+                    "UPDATE geo_observation_runs SET status='RUNNING', started_at=%s, "
+                    "lease_token=%s,lease_expires_at=now()+interval '5 minutes',revision=1 WHERE id=%s",
+                    (midnight - timedelta(seconds=1), uuid4(), identity),
+                )
+                if external != "NOT_STARTED":
+                    conn.execute(
+                        "UPDATE geo_observation_runs SET external_call_state='SENT',revision=2 "
+                        "WHERE id=%s",
+                        (identity,),
+                    )
+                if external == "UNKNOWN":
+                    conn.execute(
+                        "UPDATE geo_observation_runs SET status='FAILED',external_call_state='UNKNOWN',"
+                        "error_stage='COLLECTION',error_code='COLLECTOR_UNKNOWN_OUTCOME',"
+                        "error_summary='虚构旧采集丢失',finished_at=now(),lease_token=NULL,"
+                        "lease_expires_at=NULL,revision=3 WHERE id=%s",
+                        (identity,),
+                    )
+                identities.append(identity)
+            before = conn.execute(
+                "SELECT to_jsonb(r) FROM geo_observation_runs r ORDER BY id"
+            ).fetchall()
+>       run_alembic(db.plan.env, db.plan.backend_dir, "head")
+
+tests/integration/test_geo_admission_migration.py:88: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/integration/test_migrations.py:77: in run_alembic
+    return subprocess.run(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+input = None, capture_output = False, timeout = None, check = True
+popenargs = (['/opt/venv/bin/python3', '-m', 'alembic', 'upgrade', 'head'],)
+kwargs = {'cwd': PosixPath('/app'), 'env': {'AI_ALLOW_LOCAL_HTTP': 'true', 'AI_CREDENTIAL_ENCRYPTION_KEY': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=', 'APP_ENV': 'test', 'CONTENT_GENERATOR': 'openai-compatible', ...}, 'text': True}
+process = <Popen: returncode: 1 args: ['/opt/venv/bin/python3', '-m', 'alembic', 'upgr...>
+stdout = None, stderr = None, retcode = 1
+
+    def run(*popenargs,
+            input=None, capture_output=False, timeout=None, check=False, **kwargs):
+        """Run command with arguments and return a CompletedProcess instance.
+    
+        The returned instance will have attributes args, returncode, stdout and
+        stderr. By default, stdout and stderr are not captured, and those attributes
+        will be None. Pass stdout=PIPE and/or stderr=PIPE in order to capture them,
+        or pass capture_output=True to capture both.
+    
+        If check is True and the exit code was non-zero, it raises a
+        CalledProcessError. The CalledProcessError object will have the return code
+        in the returncode attribute, and output & stderr attributes if those streams
+        were captured.
+    
+        If timeout (seconds) is given and the process takes too long,
+         a TimeoutExpired exception will be raised.
+    
+        There is an optional argument "input", allowing you to
+        pass bytes or a string to the subprocess's stdin.  If you use this argument
+        you may not also use the Popen constructor's "stdin" argument, as
+        it will be used internally.
+    
+        By default, all communication is in bytes, and therefore any "input" should
+        be bytes, and the stdout and stderr will be bytes. If in text mode, any
+        "input" should be a string, and stdout and stderr will be strings decoded
+        according to locale encoding, or by "encoding" if set. Text mode is
+        triggered by setting any of text, encoding, errors or universal_newlines.
+    
+        The other arguments are the same as for the Popen constructor.
+        """
+        if input is not None:
+            if kwargs.get('stdin') is not None:
+                raise ValueError('stdin and input arguments may not both be used.')
+            kwargs['stdin'] = PIPE
+    
+        if capture_output:
+            if kwargs.get('stdout') is not None or kwargs.get('stderr') is not None:
+                raise ValueError('stdout and stderr arguments may not be used '
+                                 'with capture_output.')
+            kwargs['stdout'] = PIPE
+            kwargs['stderr'] = PIPE
+    
+        with Popen(*popenargs, **kwargs) as process:
+            try:
+                stdout, stderr = process.communicate(input, timeout=timeout)
+            except TimeoutExpired as exc:
+                process.kill()
+                if _mswindows:
+                    # Windows accumulates the output in a single blocking
+                    # read() call run on child threads, with the timeout
+                    # being done in a join() on those threads.  communicate()
+                    # _after_ kill() is required to collect that and add it
+                    # to the exception.
+                    exc.stdout, exc.stderr = process.communicate()
+                else:
+                    # POSIX _communicate already populated the output so
+                    # far into the TimeoutExpired exception.
+                    process.wait()
+                raise
+            except:  # Including KeyboardInterrupt, communicate handled that.
+                process.kill()
+                # We don't call process.wait() as .__exit__ does that for us.
+                raise
+            retcode = process.poll()
+            if check and retcode:
+>               raise CalledProcessError(retcode, process.args,
+                                         output=stdout, stderr=stderr)
+E               subprocess.CalledProcessError: Command '['/opt/venv/bin/python3', '-m', 'alembic', 'upgrade', 'head']' returned non-zero exit status 1.
+
+/usr/local/lib/python3.12/subprocess.py:571: CalledProcessError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_identity_audit, 创建身份、会话和审计表。
+INFO  [alembic.runtime.migration] Running upgrade 0001_identity_audit -> 0002_product_facts, 创建规范化产品事实和不可变事实版本。
+INFO  [alembic.runtime.migration] Running upgrade 0002_product_facts -> 0003_content_planning, 创建目标问题、平台规则版本和内容任务。
+INFO  [alembic.runtime.migration] Running upgrade 0003_content_planning -> 0004_content_production, 创建 PostgreSQL 权威生成作业和不可变 Markdown 内容版本。
+INFO  [alembic.runtime.migration] Running upgrade 0004_content_production -> 0005_content_review, 创建追加式内容审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0005_content_review -> 0006_publication, 创建平台账号、人工发布记录和状态事件。
+INFO  [alembic.runtime.migration] Running upgrade 0006_publication -> 0007_geo_observation, 创建追加式 GEO 观测及引用关联。
+INFO  [alembic.runtime.migration] Running upgrade 0007_geo_observation -> 0008_files, 创建文件生命周期、附件关联并补加证据文件外键。
+INFO  [alembic.runtime.migration] Running upgrade 0008_files -> 0009_config_center, 迁移账号类型、配置中心与真实 AI 生成字段。
+INFO  [alembic.runtime.migration] Running upgrade 0009_config_center -> 0010_user_cleanup, 清理旧版职责账号并强制既有内容工程师改密。
+INFO  [alembic.runtime.migration] Running upgrade 0010_user_cleanup -> 0011_generation_reliability, 增加生成作业补投递诊断字段与到期扫描索引。
+INFO  [alembic.runtime.migration] Running upgrade 0011_generation_reliability -> 0012_ai_data_classification, 为生成输入增加显式数据分级与责任人记录。
+INFO  [alembic.runtime.migration] Running upgrade 0012_ai_data_classification -> 0013_publication_closure, 增加发布异常待办、修复任务来源和发布平台一致性门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0013_publication_closure -> 0014_platform_prompt_ownership, 将当前 Prompt 所有权从平台类型迁移到具体平台。
+INFO  [alembic.runtime.migration] Running upgrade 0014_platform_prompt_ownership -> 0015_platform_rule_draft_editing, 允许按修订号编辑平台规则草稿，并继续冻结已激活或退役正文。
+INFO  [alembic.runtime.migration] Running upgrade 0015_platform_rule_draft_editing -> 0016_fact_review_cleanup, 允许受约束删除事实版本时清理其从属审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0016_fact_review_cleanup -> 0017_content_humanization, 增加全局自然化 Prompt，并让现有 AI 作业承载自然化修订。
+INFO  [alembic.runtime.migration] Running upgrade 0017_content_humanization -> 0018_manual_geo_observation, 增加产品级人工 GEO 观测，并保留旧模型观测历史。
+INFO  [alembic.runtime.migration] Running upgrade 0018_manual_geo_observation -> 0019_product_driven_tasks, 允许新内容任务直接围绕产品创建，同时保留历史目标问题关联。
+INFO  [alembic.runtime.migration] Running upgrade 0019_product_driven_tasks -> 0020_platform_branding_task_list, 为具体平台增加官网与单一来源 Logo。
+INFO  [alembic.runtime.migration] Running upgrade 0020_platform_branding_task_list -> 0021_ai_channel_model_management, 补齐 AI 渠道身份字段与使用统计索引。
+INFO  [alembic.runtime.migration] Running upgrade 0021_ai_channel_model_management -> 0022_geo_observation_insights, 补充人工 GEO 逐篇阶段事实与问题主题约束。
+INFO  [alembic.runtime.migration] Running upgrade 0022_geo_observation_insights -> 0023_platform_management, 增加具体平台启停状态与管理聚合索引。
+INFO  [alembic.runtime.migration] Running upgrade 0023_platform_management -> 0024_audit_outcome, 补齐审计模块、命令结果和安全结果说明。
+INFO  [alembic.runtime.migration] Running upgrade 0024_audit_outcome -> 0025_markdown_facts, 将结构化产品事实收敛为 Markdown，并让内容任务直接绑定平台。
+INFO  [alembic.runtime.migration] Running upgrade 0025_markdown_facts -> 0026_publication_account_dedup, 补齐发布账号修订约束，并阻止同平台规范化账号标识重复。
+INFO  [alembic.runtime.migration] Running upgrade 0026_publication_account_dedup -> 0027_audit_user_delete_guard, 只允许受约束用户删除把匹配审计操作者置空。
+INFO  [alembic.runtime.migration] Running upgrade 0027_audit_user_delete_guard -> 0028_platform_logo_lifecycle, 增加平台 Logo 的未引用保留、幂等删除状态与数据库门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0028_platform_logo_lifecycle -> 0029_geo_evidence_management, 收敛人工 GEO 独立事实，并为完整更正链删除增加事务门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0029_geo_evidence_management -> 0030_publication_record_delete, 为从未公开的发布聚合增加事务级受控删除门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0030_publication_record_delete -> 0031_reusable_platform_prompts, 把平台私有 Prompt 收敛为可复用模板和平台当前绑定。
+INFO  [alembic.runtime.migration] Running upgrade 0031_reusable_platform_prompts -> 0032_content_task_idempotency, 为普通内容任务创建增加持久化请求键幂等约束。
+INFO  [alembic.runtime.migration] Running upgrade 0032_content_task_idempotency -> 0033_task_owned_history_delete, 允许受控删除已取消任务自有的未批准生产历史。
+INFO  [alembic.runtime.migration] Running upgrade 0033_task_owned_history_delete -> 0034_publication_redesign, 以发布工作、首次核验成果和发布后内容问题替换旧发布记录。
+INFO  [alembic.runtime.migration] Running upgrade 0034_publication_redesign -> 0035_business_workflow, 建立事实提交、内容单主线、发布版本快照与 GEO 来源合同。
+INFO  [alembic.runtime.migration] Running upgrade 0035_business_workflow -> 0036_remove_section_url, 删除没有稳定业务含义的发布栏目地址。
+INFO  [alembic.runtime.migration] Running upgrade 0036_remove_section_url -> 0037_simplify_deletion_lifecycle, 收缩任务、配置与审计的删除生命周期。
+INFO  [alembic.runtime.migration] Running upgrade 0037_simplify_deletion_lifecycle -> 0038_published_article_delete, 允许受控删除无 GEO 引用的发布成果聚合。
+INFO  [alembic.runtime.migration] Running upgrade 0038_published_article_delete -> 0039_article_delete_platform, 允许归档任务在删除失效平台的发布成果后转为已取消。
+INFO  [alembic.runtime.migration] Running upgrade 0039_article_delete_platform -> 0040_content_draft_management, 允许当前人工未审核草稿受控保存和彻底删除。
+INFO  [alembic.runtime.migration] Running upgrade 0040_content_draft_management -> 0041_content_task_list, 补齐内容任务列表的稳定更新时间与排序索引。
+INFO  [alembic.runtime.migration] Running upgrade 0041_content_task_list -> 0042_content_version_detail, 记录内容版本自身的真实更新时间。
+INFO  [alembic.runtime.migration] Running upgrade 0042_content_version_detail -> 0043_geo_platform_identity, 冻结发布工作的平台 UUID，避免配置删除后 GEO 历史失去身份。
+INFO  [alembic.runtime.migration] Running upgrade 0043_geo_platform_identity -> 0044_geo_catalog, 新增 GEO Catalog 三表；冻结本 revision，不读取运行时 ORM。
+INFO  [alembic.runtime.migration] Running upgrade 0044_geo_catalog -> 0045_geo_prompt_variants, 仅新增问题变体，冻结规范化及历史锁存，不回填旧问题数组。
+INFO  [alembic.runtime.migration] Running upgrade 0045_geo_prompt_variants -> 0046_geo_surfaces_profiles, 新增观测配置与闭合JSON合同；不回填旧GEO或实现运行资格。
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0046_geo_surfaces_profiles -> 0047_geo_monitoring_plans, 仅增加计划配置聚合；不创建批次、运行或改写历史观测。
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0047_geo_monitoring_plans -> 0048_geo_batches_runs, 新增独立回答级 Batch/Run，冻结 DDL 与快照/写入守卫，不迁移旧 GEO。
+----------------------------- Captured stderr call -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0048_geo_batches_runs -> 0049_geo_batch_creation, 创建幂等与批次主体引用；不修改已冻结的 Batch/Run 输入。
+INFO  [alembic.runtime.migration] Running upgrade 0049_geo_batch_creation -> 0050_geo_answer_evidence, 新增不可变原始回答、引用和受控文件关系；不实现采集命令。
+INFO  [alembic.runtime.migration] Running upgrade 0050_geo_answer_evidence -> 0051_geo_manual_collection, 人工草稿和不可变提交身份；不回填或修改已提交证据。
+INFO  [alembic.runtime.migration] Running upgrade 0051_geo_manual_collection -> 0052_geo_profile_tests, API Profile 当前诊断资格与依赖失效；不修改业务历史。
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0052_geo_profile_tests -> 0053_geo_collection_admission, 加法保存预算预留与发送限速事实，历史 Run 和原始证据保持不变。
+INFO  [alembic.runtime.migration] Running upgrade 0053_geo_collection_admission -> 0054_geo_analysis_contract, 分析输入/结果、追加复核与限定 current pointer；不回填历史证据。
+Traceback (most recent call last):
+  File "/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1817, in _execute_context
+    context = constructor(
+              ^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 1417, in _init_compiled
+    compiled.construct_params(
+  File "/opt/venv/lib/python3.12/site-packages/sqlalchemy/sql/compiler.py", line 1963, in construct_params
+    raise exc.InvalidRequestError(
+sqlalchemy.exc.InvalidRequestError: A value is required for bind parameter 'null' (Background on this error at: https://sqlalche.me/e/20/cd3x)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/opt/venv/lib/python3.12/site-packages/alembic/__main__.py", line 4, in <module>
+    main(prog="alembic")
+  File "/opt/venv/lib/python3.12/site-packages/alembic/config.py", line 1047, in main
+    CommandLine(prog=prog).main(argv=argv)
+  File "/opt/venv/lib/python3.12/site-packages/alembic/config.py", line 1037, in main
+    self.run_cmd(cfg, options)
+  File "/opt/venv/lib/python3.12/site-packages/alembic/config.py", line 971, in run_cmd
+    fn(
+  File "/opt/venv/lib/python3.12/site-packages/alembic/command.py", line 490, in upgrade
+    script.run_env()
+  File "/opt/venv/lib/python3.12/site-packages/alembic/script/base.py", line 556, in run_env
+    util.load_python_file(self.dir, "env.py")
+  File "/opt/venv/lib/python3.12/site-packages/alembic/util/pyfiles.py", line 116, in load_python_file
+    module = load_module_py(module_id, path)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/alembic/util/pyfiles.py", line 136, in load_module_py
+    spec.loader.exec_module(module)  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap_external>", line 999, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/app/alembic/env.py", line 50, in <module>
+    run_migrations_online()
+  File "/app/alembic/env.py", line 44, in run_migrations_online
+    context.run_migrations()
+  File "<string>", line 8, in run_migrations
+  File "/opt/venv/lib/python3.12/site-packages/alembic/runtime/environment.py", line 969, in run_migrations
+    self.get_context().run_migrations(**kw)
+  File "/opt/venv/lib/python3.12/site-packages/alembic/runtime/migration.py", line 626, in run_migrations
+    step.migration_fn(**kw)
+  File "/app/alembic/versions/0054_geo_analysis_contract.py", line 22, in upgrade
+    op.execute((root / name).read_text())
+  File "<string>", line 8, in execute
+  File "<string>", line 3, in execute
+  File "/opt/venv/lib/python3.12/site-packages/alembic/operations/ops.py", line 2667, in execute
+    return operations.invoke(op)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/alembic/operations/base.py", line 452, in invoke
+    return fn(self, operation)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/alembic/operations/toimpl.py", line 259, in execute_sql
+    operations.migration_context.impl.execute(
+  File "/opt/venv/lib/python3.12/site-packages/alembic/ddl/impl.py", line 263, in execute
+    self._exec(sql, execution_options)
+  File "/opt/venv/lib/python3.12/site-packages/alembic/ddl/impl.py", line 256, in _exec
+    return conn.execute(construct, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1421, in execute
+    return meth(
+           ^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/sqlalchemy/sql/elements.py", line 526, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1643, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1823, in _execute_context
+    self._handle_dbapi_exception(
+  File "/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 2365, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1817, in _execute_context
+    context = constructor(
+              ^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 1417, in _init_compiled
+    compiled.construct_params(
+  File "/opt/venv/lib/python3.12/site-packages/sqlalchemy/sql/compiler.py", line 1963, in construct_params
+    raise exc.InvalidRequestError(
+sqlalchemy.exc.StatementError: (sqlalchemy.exc.InvalidRequestError) A value is required for bind parameter 'null'
+[SQL: -- 分析边界只保存闭合、无凭据的版本输入，不复制外部请求配置。
+CREATE FUNCTION geo_analysis_text_valid(value jsonb, maximum integer, nullable boolean DEFAULT false)
+RETURNS boolean LANGUAGE sql IMMUTABLE AS $$
+    SELECT COALESCE((nullable AND value = 'null'::jsonb) OR
+        (jsonb_typeof(value) = 'string' AND length(value #>> '{}') BETWEEN 1 AND maximum
+            AND value #>> '{}' ~ '[^[:space:]]'), false)
+$$;
+CREATE FUNCTION geo_analysis_number_valid(value jsonb, minimum numeric, maximum numeric,
+    integral boolean DEFAULT false, nullable boolean DEFAULT false)
+RETURNS boolean LANGUAGE plpgsql IMMUTABLE AS $$
+BEGIN
+    IF nullable AND value = 'null'::jsonb THEN RETURN true; END IF;
+    IF jsonb_typeof(value) IS DISTINCT FROM 'number' THEN RETURN false; END IF;
+    RETURN value::numeric >= minimum AND (maximum IS NULL OR value::numeric <= maximum)
+        AND (NOT integral OR value::text ~ '^(0|[1-9][0-9]*)$');
+END $$;
+CREATE FUNCTION geo_analysis_strings_valid(value jsonb, maximum integer, minimum_count integer,
+    maximum_count integer) RETURNS boolean LANGUAGE plpgsql IMMUTABLE AS $$
+DECLARE item jsonb;
+BEGIN
+    IF jsonb_typeof(value) IS DISTINCT FROM 'array' THEN RETURN false; END IF;
+    IF jsonb_array_length(value) < minimum_count OR (maximum_count IS NOT NULL
+        AND jsonb_array_length(value) > maximum_count) THEN RETURN false; END IF;
+    FOR item IN SELECT * FROM jsonb_array_elements(value) LOOP
+        IF NOT geo_analysis_text_valid(item, maximum) THEN RETURN false; END IF;
+    END LOOP;
+    RETURN true;
+END $$;
+CREATE FUNCTION geo_analysis_input_valid(value jsonb) RETURNS boolean LANGUAGE plpgsql IMMUTABLE AS $$
+DECLARE c jsonb; p jsonb; item jsonb; child jsonb; ids text[] := '{}'; facts text[] := '{}';
+BEGIN
+    IF NOT geo_run_snapshot_object(value, ARRAY['schema_version','answer_sha256','subjects',
+        'fact_versions','configuration']) OR value->'schema_version' IS DISTINCT FROM '1'::jsonb
+        OR NOT geo_snapshot_strings(value, ARRAY['answer_sha256'])
+        OR COALESCE(value->>'answer_sha256' !~ '^[0-9a-f]{64}$', true)
+        OR jsonb_typeof(value->'subjects') IS DISTINCT FROM 'array'
+        OR jsonb_typeof(value->'fact_versions') IS DISTINCT FROM 'array' THEN RETURN false; END IF;
+    IF jsonb_array_length(value->'subjects') < 1 THEN RETURN false; END IF;
+    FOR item IN SELECT * FROM jsonb_array_elements(value->'subjects') LOOP
+        IF NOT geo_run_snapshot_object(item, ARRAY['id','revision','subject_type','role',
+                'product_id','parent_subject_id','canonical_name','display_name','aliases','domains'])
+            OR NOT geo_snapshot_uuids(item, ARRAY['id'], ARRAY['product_id','parent_subject_id'])
+            OR NOT geo_snapshot_revision(item->'revision')
+            OR NOT geo_snapshot_strings(item, ARRAY['subject_type','role'])
+            OR item->>'subject_type' NOT IN ('OWN_BRAND','OWN_PRODUCT','COMPETITOR_BRAND','COMPETITOR_PRODUCT','REFERENCE_PART')
+            OR item->>'role' NOT IN ('PRIMARY','COMPETITOR','REFERENCE')
+            OR ((item->>'subject_type' = 'OWN_PRODUCT') <> (item->'product_id' <> 'null'::jsonb))
+            OR item->>'id' = ANY(ids)
+            OR NOT geo_analysis_text_valid(item->'canonical_name',240)
+            OR NOT geo_analysis_text_valid(item->'display_name',321)
+            OR jsonb_typeof(item->'aliases') IS DISTINCT FROM 'array'
+            OR jsonb_typeof(item->'domains') IS DISTINCT FROM 'array' THEN RETURN false; END IF;
+        ids := array_append(ids,item->>'id');
+        FOR child IN SELECT * FROM jsonb_array_elements(item->'aliases') LOOP
+            IF NOT geo_run_snapshot_object(child, ARRAY['alias','normalized_alias','alias_kind','language_code'])
+                OR NOT geo_analysis_text_valid(child->'alias',240)
+                OR NOT geo_analysis_text_valid(child->'normalized_alias',240)
+                OR NOT geo_snapshot_strings(child, ARRAY['alias_kind'], ARRAY['language_code'])
+                OR child->>'alias_kind' NOT IN ('NAME','PART_NUMBER','ABBREVIATION','LEGACY')
+                THEN RETURN false; END IF;
+        END LOOP;
+        FOR child IN SELECT * FROM jsonb_array_elements(item->'domains') LOOP
+            IF NOT geo_run_snapshot_object(child, ARRAY['hostname','relation_type'])
+                OR NOT geo_snapshot_strings(child, ARRAY['hostname','relation_type'])
+                OR NOT geo_analysis_text_valid(child->'hostname',253)
+                OR child->>'relation_type' NOT IN ('OWNED','OFFICIAL','DISTRIBUTOR','OTHER')
+                THEN RETURN false; END IF;
+        END LOOP;
+    END LOOP;
+    FOR item IN SELECT * FROM jsonb_array_elements(value->'fact_versions') LOOP
+        IF NOT geo_run_snapshot_object(item, ARRAY['subject_id','fact_version_id'])
+            OR NOT geo_snapshot_uuids(item, ARRAY['subject_id','fact_version_id'])
+            OR item->>'subject_id' = ANY(facts)
+            OR NOT EXISTS (SELECT 1 FROM jsonb_array_elements(value->'subjects') s
+                WHERE s->>'id' = item->>'subject_id' AND s->>'subject_type' = 'OWN_PRODUCT')
+            THEN RETURN false; END IF;
+        facts := array_append(facts,item->>'subject_id');
+    END LOOP;
+    c := value->'configuration'; p := c->'parameters';
+    IF NOT geo_run_snapshot_object(c, ARRAY['rule_set_version','model_name','model_version',
+            'prompt_template_version','prompt_sha256','parameters'])
+        OR NOT geo_analysis_text_valid(c->'rule_set_version',100)
+        OR NOT geo_analysis_text_valid(c->'model_name',200,true)
+        OR NOT geo_analysis_text_valid(c->'model_version',100,true)
+        OR NOT geo_analysis_text_valid(c->'prompt_template_version',100,true)
+        OR NOT geo_snapshot_strings(c, ARRAY[]::text[], ARRAY['prompt_sha256'])
+        OR (c->'prompt_sha256' <> 'null'::jsonb AND c->>'prompt_sha256' !~ '^[0-9a-f]{64}$')
+        OR ((c->'model_name' = 'null'::jsonb) <> (c->'model_version' = 'null'::jsonb))
+        OR ((c->'model_name' = 'null'::jsonb) <> (c->'prompt_template_version' = 'null'::jsonb))
+        OR ((c->'model_name' = 'null'::jsonb) <> (c->'prompt_sha256' = 'null'::jsonb))
+        OR NOT geo_run_snapshot_object(p, ARRAY['temperature','top_p','max_output_tokens','seed'])
+        OR NOT geo_analysis_number_valid(p->'temperature',0,2,false,true)
+        OR NOT geo_analysis_number_valid(p->'top_p',0,1,false,true)
+        OR NOT geo_analysis_number_valid(p->'max_output_tokens',1,2147483647,true,true)
+        OR NOT geo_analysis_number_valid(p->'seed',0,2147483647,true,true)
+        OR (c->'model_name' = 'null'::jsonb AND p <> '{"temperature"%(null)s,"top_p"%(null)s,"max_output_tokens"%(null)s,"seed"%(null)s}'::jsonb)
+        THEN RETURN false; END IF;
+    RETURN true;
+END $$;
+CREATE FUNCTION geo_analysis_summary_valid(summary jsonb, reasons jsonb) RETURNS boolean
+LANGUAGE sql IMMUTABLE AS $$
+    SELECT COALESCE((summary IS NULL OR (geo_run_snapshot_object(summary,
+        ARRAY['mentions','recommendations','claims'])
+        AND geo_analysis_number_valid(summary->'mentions',0,1,false,true)
+        AND geo_analysis_number_valid(summary->'recommendations',0,1,false,true)
+        AND geo_analysis_number_valid(summary->'claims',0,1,false,true)))
+        AND geo_analysis_strings_valid(reasons,100,0,20), false)
+$$;
+-- jsonb::text 的数据库规范表示为唯一哈希序列化；数组顺序是冻结输入的一部分。
+CREATE FUNCTION geo_analysis_input_sha256(value jsonb, analyzer_type text, analyzer_version text)
+RETURNS text LANGUAGE sql IMMUTABLE STRICT AS $$
+    SELECT geo_answer_sha256(jsonb_build_array('geo-analysis-v1',value,analyzer_type,analyzer_version)::text)
+$$;
+CREATE FUNCTION geo_review_corrections_valid(value jsonb) RETURNS boolean LANGUAGE plpgsql IMMUTABLE AS $$
+DECLARE category text; item jsonb; ids text[]; identity text; total integer := 0;
+BEGIN
+    IF NOT geo_run_snapshot_object(value, ARRAY['schema_version','mentions','recommendations','claims','citations'])
+        OR value->'schema_version' IS DISTINCT FROM '1'::jsonb THEN RETURN false; END IF;
+    FOREACH category IN ARRAY ARRAY['mentions','recommendations','claims','citations'] LOOP
+        IF jsonb_typeof(value->category) IS DISTINCT FROM 'array' THEN RETURN false; END IF;
+        ids := '{}'; total := total + jsonb_array_length(value->category);
+        FOR item IN SELECT * FROM jsonb_array_elements(value->category) LOOP
+            IF category = 'mentions' THEN
+                IF NOT geo_run_snapshot_object(item, ARRAY['subject_id','mention_count','first_character_offset','matched_aliases'])
+                    OR NOT geo_snapshot_uuids(item, ARRAY['subject_id'])
+                    OR NOT geo_analysis_number_valid(item->'mention_count',0,2147483647,true)
+                    OR NOT geo_analysis_number_valid(item->'first_character_offset',0,2147483647,true,true)
+                    OR NOT geo_analysis_strings_valid(item->'matched_aliases',240,0,NULL)
+                    THEN RETURN false; END IF;
+                IF (item->>'mention_count' = '0' AND (item->'first_character_offset' <> 'null'::jsonb
+                    OR item->'matched_aliases' <> '[]'::jsonb)) OR
+                    (item->>'mention_count' <> '0' AND jsonb_array_length(item->'matched_aliases') = 0)
+                    THEN RETURN false; END IF;
+                identity := item->>'subject_id';
+            ELSIF category = 'recommendations' THEN
+                IF NOT geo_run_snapshot_object(item, ARRAY['subject_id','recommendation','rank','rationale_excerpt'])
+                    OR NOT geo_snapshot_uuids(item, ARRAY['subject_id'])
+                    OR NOT geo_snapshot_strings(item, ARRAY['recommendation'])
+                    OR item->>'recommendation' NOT IN ('RECOMMENDED','CONSIDERED','NOT_RECOMMENDED','UNKNOWN')
+                    OR NOT geo_analysis_number_valid(item->'rank',1,2147483647,true,true)
+                    OR NOT geo_analysis_text_valid(item->'rationale_excerpt',2000,true)
+                    THEN RETURN false; END IF;
+                identity := item->>'subject_id';
+            ELSIF category = 'claims' THEN
+                IF NOT geo_run_snapshot_object(item, ARRAY['claim_assessment_id','verdict','severity','explanation'])
+                    OR NOT geo_snapshot_uuids(item, ARRAY['claim_assessment_id'])
+                    OR NOT geo_snapshot_strings(item, ARRAY['verdict','severity'])
+                    OR item->>'verdict' NOT IN ('ACCURATE','PARTIAL','INCORRECT','UNJUDGEABLE')
+                    OR item->>'severity' NOT IN ('LOW','MEDIUM','HIGH','CRITICAL')
+                    OR NOT geo_analysis_text_valid(item->'explanation',2000) THEN RETURN false; END IF;
+                identity := item->>'claim_assessment_id';
+            ELSE
+                IF NOT geo_run_snapshot_object(item, ARRAY['citation_id','source_category','subject_id'])
+                    OR NOT geo_snapshot_uuids(item, ARRAY['citation_id'],ARRAY['subject_id'])
+                    OR NOT geo_snapshot_strings(item, ARRAY['source_category'])
+                    OR item->>'source_category' NOT IN ('OWNED','COMPETITOR','INDUSTRY_MEDIA','DISTRIBUTOR',
+                        'COMMUNITY','SOCIAL','SEARCH_ENGINE','ACADEMIC_OR_INSTITUTIONAL','OTHER','UNKNOWN')
+                    THEN RETURN false; END IF;
+                identity := item->>'citation_id';
+            END IF;
+            IF identity = ANY(ids) THEN RETURN false; END IF;
+            ids := array_append(ids,identity);
+        END LOOP;
+    END LOOP;
+    RETURN total > 0;
+END $$;
+]
+[parameters: [immutabledict({})]]
+(Background on this error at: https://sqlalche.me/e/20/cd3x)
+=========================== short test summary info ============================
+FAILED tests/integration/test_geo_admission_migration.py::test_0053_preserves_run_history_and_backfills_unknown
+ERROR tests/integration/test_geo_analysis.py::test_full_results_facts_and_review_separate_from_answer
+ERROR tests/integration/test_geo_analysis.py::test_pending_input_frozen_and_children_cannot_commit_partial
+ERROR tests/integration/test_geo_analysis.py::test_unique_revision_subject_and_success_input
+ERROR tests/integration/test_geo_analysis.py::test_pointer_latest_success_failure_and_stale_review
+ERROR tests/integration/test_geo_analysis.py::test_terminal_run_publication_cannot_change_collection
+ERROR tests/integration/test_geo_analysis.py::test_wrong_run_subject_and_hash_rejected
+ERROR tests/integration/test_geo_analysis.py::test_fact_manifest_qualification_claim_binding_and_deletion
+ERROR tests/integration/test_geo_analysis.py::test_review_corrected_scope_clock_and_reference_projection
+ERROR tests/integration/test_geo_analysis.py::test_fact_delete_and_reviewer_history_existing_service_boundary
+ERROR tests/integration/test_geo_answer_migration.py::test_forward_keeps_nonempty_history_and_matches_models
+1 failed, 10 errors in 8.98s
+

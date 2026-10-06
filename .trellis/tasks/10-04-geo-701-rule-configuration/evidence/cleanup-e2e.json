@@ -1,0 +1,15 @@
+{
+  "command": [
+    "docker",
+    "compose",
+    "-p",
+    "partsignal-geo701-e2e",
+    "-f",
+    ".trellis/tasks/10-04-geo-701-rule-configuration/evidence/e2e-infra.yaml",
+    "down",
+    "--remove-orphans"
+  ],
+  "started_at": "2026-10-04T15:41:20.802662+00:00",
+  "duration_seconds": 0.37064333399757743,
+  "exit_code": 0
+}

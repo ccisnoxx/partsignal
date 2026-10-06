@@ -1,0 +1,9 @@
+{
+  "concurrency": 10,
+  "messages": 20,
+  "runs": 10,
+  "provider_calls": 10,
+  "seconds": 20.055637301993556,
+  "pool": "threads",
+  "external_platform_calls": 0
+}

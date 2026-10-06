@@ -4,6 +4,137 @@
  */
 
 export interface paths {
+    "/api/v1/geo/subjects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listGeoSubjects"];
+        put?: never;
+        post: operations["createGeoSubject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/subjects/{subject_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getGeoSubject"];
+        put?: never;
+        post?: never;
+        /** @description expected_revision 是父 Subject revision；Subject 删除复核真实直接引用；子删除只移除当前字典，不改写历史。 */
+        delete: operations["deleteGeoSubject"];
+        options?: never;
+        head?: never;
+        patch: operations["updateGeoSubject"];
+        trace?: never;
+    };
+    "/api/v1/geo/subjects/{subject_id}/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["enableGeoSubject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/subjects/{subject_id}/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["disableGeoSubject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/subjects/{subject_id}/aliases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createGeoSubjectAlias"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/subjects/{subject_id}/aliases/{alias_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description 使用父 Subject expected_revision；只删除当前字典条目，递增父 revision 并返回完整父投影，历史快照不变。 */
+        delete: operations["deleteGeoSubjectAlias"];
+        options?: never;
+        head?: never;
+        patch: operations["updateGeoSubjectAlias"];
+        trace?: never;
+    };
+    "/api/v1/geo/subjects/{subject_id}/domains": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createGeoSubjectDomain"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/subjects/{subject_id}/domains/{domain_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description 使用父 Subject expected_revision；只删除当前字典条目，递增父 revision 并返回完整父投影，历史快照不变。 */
+        delete: operations["deleteGeoSubjectDomain"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health/live": {
         parameters: {
             query?: never;
@@ -2128,6 +2259,1185 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/geo/prompt-variants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listGeoPromptVariants"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/query-topics/{query_topic_id}/prompt-variants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createGeoPromptVariant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/prompt-variants/{variant_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getGeoPromptVariant"];
+        put?: never;
+        post?: never;
+        delete: operations["deleteGeoPromptVariant"];
+        options?: never;
+        head?: never;
+        patch: operations["updateGeoPromptVariant"];
+        trace?: never;
+    };
+    "/api/v1/geo/prompt-variants/{variant_id}/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["enableGeoPromptVariant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/prompt-variants/{variant_id}/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["disableGeoPromptVariant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/engine-surfaces": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Surfaces */
+        get: operations["listGeoEngineSurfaces"];
+        put?: never;
+        /** Create Surface */
+        post: operations["createGeoEngineSurface"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/engine-surfaces/{surface_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Surface */
+        get: operations["getGeoEngineSurface"];
+        put?: never;
+        post?: never;
+        /** Delete Surface */
+        delete: operations["deleteGeoEngineSurface"];
+        options?: never;
+        head?: never;
+        /** Update Surface */
+        patch: operations["updateGeoEngineSurface"];
+        trace?: never;
+    };
+    "/api/v1/geo/engine-surfaces/{surface_id}/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Enable Surface */
+        post: operations["enableGeoEngineSurface"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/engine-surfaces/{surface_id}/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Disable Surface */
+        post: operations["disableGeoEngineSurface"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/collection-profiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Profiles */
+        get: operations["listGeoCollectionProfiles"];
+        put?: never;
+        /** Create Profile */
+        post: operations["createGeoCollectionProfile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/collection-profiles/{profile_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Profile */
+        get: operations["getGeoCollectionProfile"];
+        put?: never;
+        post?: never;
+        /** Delete Profile */
+        delete: operations["deleteGeoCollectionProfile"];
+        options?: never;
+        head?: never;
+        /** Update Profile */
+        patch: operations["updateGeoCollectionProfile"];
+        trace?: never;
+    };
+    "/api/v1/geo/collection-profiles/{profile_id}/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Enable Profile */
+        post: operations["enableGeoCollectionProfile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/collection-profiles/{profile_id}/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Disable Profile */
+        post: operations["disableGeoCollectionProfile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/monitoring-plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description 支持按 CRON 查询只读历史；其存储 ACTIVE 不表示 V1.0 调度可用，读模型投影为 UNSUPPORTED_SCHEDULE 且无写动作。 */
+        get: operations["listGeoMonitoringPlans"];
+        put?: never;
+        /** @description V1.0 仅支持 MANUAL_ONLY。合法 CRON 请求或历史 CRON 写命令返回 409 GEO_PLAN_CRON_UNSUPPORTED；历史配置、状态和快照只读保留，不降级、不创建执行。 */
+        post: operations["createGeoMonitoringPlan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/monitoring-plans/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["previewGeoMonitoringPlan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/monitoring-plans/{plan_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description 历史 CRON 保留原始 status，workflow_stage 为 UNSUPPORTED_SCHEDULE，primary_task 为 VIEW_HISTORY，available_actions 为空；run_entry.reason_code 为 GEO_PLAN_CRON_UNSUPPORTED。不承诺自动运行。 */
+        get: operations["getGeoMonitoringPlan"];
+        put?: never;
+        post?: never;
+        /** @description V1.0 仅支持 MANUAL_ONLY。合法 CRON 请求或历史 CRON 写命令返回 409 GEO_PLAN_CRON_UNSUPPORTED；历史配置、状态和快照只读保留，不降级、不创建执行。 */
+        delete: operations["deleteGeoMonitoringPlan"];
+        options?: never;
+        head?: never;
+        /** @description V1.0 仅支持 MANUAL_ONLY。合法 CRON 请求或历史 CRON 写命令返回 409 GEO_PLAN_CRON_UNSUPPORTED；历史配置、状态和快照只读保留，不降级、不创建执行。 */
+        patch: operations["updateGeoMonitoringPlan"];
+        trace?: never;
+    };
+    "/api/v1/geo/monitoring-plans/{plan_id}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description V1.0 仅支持 MANUAL_ONLY。合法 CRON 请求或历史 CRON 写命令返回 409 GEO_PLAN_CRON_UNSUPPORTED；历史配置、状态和快照只读保留，不降级、不创建执行。 */
+        post: operations["activateGeoMonitoringPlan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/monitoring-plans/{plan_id}/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description V1.0 仅支持 MANUAL_ONLY。合法 CRON 请求或历史 CRON 写命令返回 409 GEO_PLAN_CRON_UNSUPPORTED；历史配置、状态和快照只读保留，不降级、不创建执行。 */
+        post: operations["pauseGeoMonitoringPlan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/monitoring-plans/{plan_id}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description V1.0 仅支持 MANUAL_ONLY。合法 CRON 请求或历史 CRON 写命令返回 409 GEO_PLAN_CRON_UNSUPPORTED；历史配置、状态和快照只读保留，不降级、不创建执行。 */
+        post: operations["resumeGeoMonitoringPlan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/monitoring-plans/{plan_id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description V1.0 仅支持 MANUAL_ONLY。合法 CRON 请求或历史 CRON 写命令返回 409 GEO_PLAN_CRON_UNSUPPORTED；历史配置、状态和快照只读保留，不降级、不创建执行。 */
+        post: operations["archiveGeoMonitoringPlan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/monitoring-plans/{plan_id}/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description V1.0 仅支持 MANUAL_ONLY。合法 CRON 请求或历史 CRON 写命令返回 409 GEO_PLAN_CRON_UNSUPPORTED；历史配置、状态和快照只读保留，不降级、不创建执行。 */
+        post: operations["copyGeoMonitoringPlan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/monitoring-plans/{plan_id}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run Now
+         * @description V1.0 首次运行仅支持 MANUAL_ONLY；历史 CRON 首次 run 返回 409 GEO_PLAN_CRON_UNSUPPORTED，配置与快照只读保留。已有幂等回执只读重放，不创建 Batch/Run 或重新投递。
+         */
+        post: operations["runGeoMonitoringPlanNow"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/observation-batches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** listGeoObservationBatches */
+        get: operations["listGeoObservationBatches"];
+        put?: never;
+        /**
+         * Create Batch
+         * @description V1.0 首次 PLAN 批次仅接受 MANUAL_ONLY，历史 CRON 返回 409 GEO_PLAN_CRON_UNSUPPORTED；AD_HOC 仅人工配置。已提交幂等回执只读重放，不创建或重新投递。
+         */
+        post: operations["createGeoObservationBatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/observation-batches/{batch_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** getGeoObservationBatch */
+        get: operations["getGeoObservationBatch"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/observation-batches/{batch_id}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** listGeoObservationBatchRuns */
+        get: operations["listGeoObservationBatchRuns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/observation-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** listGeoObservationRuns */
+        get: operations["listGeoObservationRuns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/observation-runs/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** getGeoObservationRun */
+        get: operations["getGeoObservationRun"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/observation-runs/{run_id}/manual-entry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Manual Entry */
+        get: operations["getGeoManualEntryContext"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/observation-runs/{run_id}/manual-draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Save Manual Draft */
+        put: operations["saveGeoManualDraft"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/observation-runs/{run_id}/manual-submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit Manual Observation */
+        post: operations["submitGeoManualObservation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/collection-profiles/{profile_id}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Profile
+         * @description 管理员固定连接及 answer_text 能力诊断。先预留 revision 并停用，事务外 pinned 出网，完成时重验依赖版本；不创建业务 Run，成功不自动启用。provider 失败以安全 test_error 和 FAILED 返回200，过期结果409。诊断仅支持 openai-compatible-chat，采集仍未批准。
+         */
+        post: operations["testGeoCollectionProfile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/observation-runs/{run_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry Geo Observation Run
+         * @description 显式追加同输入采集 attempt；required expected_revision。原尝试不变，已有后继返回409 GEO_RUN_HAS_SUCCESSOR；无自动命令重放。提交后投递稳定Run ID，Broker失败由PENDING扫描恢复。
+         */
+        post: operations["retryGeoObservationRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/observation-runs/{run_id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Review Run
+         * @description 复核只追加到当前成功分析；expected_run_revision 必填。CONFIRMED 无修正，CORRECTED 有说明与四栏结构化修正。latest Review 整体替换旧修正，原始证据与机器结果保留。
+         */
+        post: operations["reviewGeoObservationRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getGeoOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/overview/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listGeoOverviewRuns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/insights": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getGeoAnswerInsights"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/insights/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listGeoAnswerInsightRuns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/insights/citations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Citations */
+        get: operations["listGeoInsightCitations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/insights/claims": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Claims */
+        get: operations["listGeoInsightClaims"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/insights/quality/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Quality Runs */
+        get: operations["listGeoInsightQualityRuns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/reports/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** getGeoReportPreview */
+        get: operations["getGeoReportPreview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/reports/print": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** getGeoPrintReport */
+        get: operations["getGeoPrintReport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/reports/runs.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** exportGeoRunsCsv */
+        get: operations["exportGeoRunsCsv"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/reports/citations.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** exportGeoCitationsCsv */
+        get: operations["exportGeoCitationsCsv"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/reports/claims.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** exportGeoClaimsCsv */
+        get: operations["exportGeoClaimsCsv"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/reports/opportunities.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** exportGeoOpportunitiesCsv */
+        get: operations["exportGeoOpportunitiesCsv"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Rules */
+        get: operations["getGeoRules"];
+        /** Update Rules */
+        put: operations["updateGeoRules"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/rules/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview Rules */
+        post: operations["previewGeoRules"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/opportunities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Opportunities */
+        get: operations["listGeoOpportunities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/opportunities/evaluate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Evaluate Opportunities
+         * @description ADMIN 显式运行一次规则机会评估；UTC 半开窗口最多31天，ALL 禁止实体过滤，FILTERED 至少指定一类实体过滤。规则 revision 显式固定，缺候选不造机会。相同用户同幂等键重放冻结回执，不创建行动或复测，不注册周期调度。evaluated_cells 按规则×范围评估结果计数（包括无候选结果），created/existing_reused/skipped 为互斥分区；unavailable reason count 按结果计数。
+         */
+        post: operations["evaluateGeoOpportunities"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/opportunities/{opportunity_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Opportunity */
+        get: operations["getGeoOpportunity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/opportunities/{opportunity_id}/acknowledge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Acknowledge Opportunity */
+        post: operations["acknowledgeGeoOpportunity"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/opportunities/{opportunity_id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Dismiss Opportunity */
+        post: operations["dismissGeoOpportunity"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/opportunities/{opportunity_id}/actions/fact-revision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** startFactRevisionFromGeoOpportunity */
+        post: operations["startFactRevisionFromGeoOpportunity"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/opportunities/{opportunity_id}/actions/content-task": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** createContentTaskFromGeoOpportunity */
+        post: operations["createContentTaskFromGeoOpportunity"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/opportunities/{opportunity_id}/actions/publication-repair": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** createPublicationRepairFromGeoOpportunity */
+        post: operations["createPublicationRepairFromGeoOpportunity"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/opportunities/{opportunity_id}/retest-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Preview Retest */
+        get: operations["previewGeoOpportunityRetest"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/opportunities/{opportunity_id}/retest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Retest
+         * @description 人工独立复测从已提交的不可变基线复制严格矩阵并创建 RETEST；历史 plan_id/CRON 快照仅作来源追溯，不执行或修改当前 Plan，继续受可比性、权限与外发门禁约束。
+         */
+        post: operations["createGeoOpportunityRetest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/opportunities/{opportunity_id}/comparison": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Comparison */
+        get: operations["getGeoOpportunityComparison"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/opportunities/{opportunity_id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resolve Opportunity */
+        post: operations["resolveGeoOpportunity"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/opportunities/{opportunity_id}/continue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Continue Opportunity */
+        post: operations["continueGeoOpportunity"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/collection-profiles/{profile_id}/browser-session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Session
+         * @description 管理员查看 Profile 会话引用、存储健康和待清理数量；不返回 Cookie、密文、文件路径或密钥。健康不代表真实平台登录状态。
+         */
+        get: operations["getGeoBrowserSession"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/collection-profiles/{profile_id}/browser-session/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Session
+         * @description 管理员经 CSRF、当前 revision、合规与人工账号授权导入 storage_state。API 仅持公钥，受保护卷保存 AES-GCM/RSA-OAEP 密文；数据库仅保存引用。替换会撤销旧引用、停用 Profile 并失效测试事实，不自动采集。
+         */
+        post: operations["importGeoBrowserSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/collection-profiles/{profile_id}/browser-session/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check Health
+         * @description 管理员检查密文存在性、摘要与授权期限；不解密、不调用平台。过期会永久撤销引用；login_probe 始终为 NOT_IMPLEMENTED。
+         */
+        post: operations["checkGeoBrowserSessionHealth"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/collection-profiles/{profile_id}/browser-session/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke Session
+         * @description 管理员永久撤销当前引用。数据库墓碑与审计先提交，再删除受保护卷密文；删除失败以 cleanup_pending_count 显式返回，可通过 purge 恢复。相同 revision 重复撤销幂等。
+         */
+        post: operations["revokeGeoBrowserSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/collection-profiles/{profile_id}/browser-session/purge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Purge Sessions
+         * @description 管理员按当前 Profile revision 重试删除已撤销密文；缺失文件按已清理处理，清理失败保持待办。不会删除撤销历史或复活引用。
+         */
+        post: operations["purgeGeoBrowserSessions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/internal/geo/browser-sessions/{session_reference}/access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Access Session
+         * @description 专用服务能力凭据绑定现有管理员身份，仅授权此端点。每次检查当前身份、开关、Profile/Surface 资格、引用归属与过期/撤销状态，成功访问审计提交后返回密文；仅独立 Collector 私钥可在内存解密。本端点不授权 Run SEND。
+         */
+        post: operations["accessGeoBrowserSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2173,8 +3483,12 @@ export interface components {
         AccountType: "ADMIN" | "ENGINEER";
         /** @enum {string} */
         UserStatus: "ENABLED" | "DISABLED";
-        /** @enum {string} */
-        DeletionBlockerType: "FACT_VERSION" | "CONTENT_TASK" | "GEO_OBSERVATION" | "CONTENT_VERSION" | "GENERATION_JOB" | "PUBLISHED_ARTICLE" | "PLATFORM_PROFILE" | "PLATFORM_ACCOUNT" | "PUBLICATION_WORK" | "PROTECTED_CONTENT_VERSION" | "PUBLISHED_CONTENT_ISSUE" | "GEO_OPTIMIZATION_SOURCE" | "USER_BUSINESS_HISTORY";
+        /**
+         * DeletionBlockerType
+         * @description 受约束物理删除的稳定直接引用类型。
+         * @enum {string}
+         */
+        DeletionBlockerType: "FACT_VERSION" | "CONTENT_TASK" | "GEO_OBSERVATION" | "GEO_ANALYSIS" | "GEO_SUBJECT" | "GEO_PROMPT_VARIANT" | "CONTENT_VERSION" | "GENERATION_JOB" | "PUBLISHED_ARTICLE" | "PLATFORM_PROFILE" | "PLATFORM_ACCOUNT" | "PUBLICATION_WORK" | "PROTECTED_CONTENT_VERSION" | "PUBLISHED_CONTENT_ISSUE" | "GEO_OPTIMIZATION_SOURCE" | "USER_BUSINESS_HISTORY" | "GEO_OPPORTUNITY_ACTION";
         DeletionBlocker: {
             type: components["schemas"]["DeletionBlockerType"];
             count: number;
@@ -5535,6 +6849,6852 @@ export interface components {
             /** Format: date-time */
             expires_at: string;
         };
+        /** @enum {string} */
+        GeoSubjectType: "OWN_BRAND" | "OWN_PRODUCT" | "COMPETITOR_BRAND" | "COMPETITOR_PRODUCT" | "REFERENCE_PART";
+        /** @enum {string} */
+        GeoSubjectAliasKind: "NAME" | "PART_NUMBER" | "ABBREVIATION" | "LEGACY";
+        /** @enum {string} */
+        GeoSubjectDomainRelationType: "OWNED" | "OFFICIAL" | "DISTRIBUTOR" | "OTHER";
+        /** @enum {string} */
+        GeoSubjectWorkflowStage: "ACTIVE" | "DISABLED";
+        /** @enum {string} */
+        GeoSubjectPrimaryTask: "MANAGE_SUBJECT" | "ENABLE_SUBJECT";
+        /** @enum {string} */
+        GeoSubjectAction: "UPDATE" | "ENABLE" | "DISABLE" | "DELETE" | "CREATE_ALIAS" | "CREATE_DOMAIN";
+        /** @enum {string} */
+        GeoSubjectAliasAction: "UPDATE" | "DELETE";
+        /** @enum {string} */
+        GeoSubjectDomainAction: "DELETE";
+        /** @enum {string} */
+        GeoSubjectDeletionBlockerType: "CHILD_SUBJECT" | "MONITORING_PLAN" | "OBSERVATION_RUN" | "ANALYSIS" | "OPPORTUNITY";
+        /** @enum {string} */
+        GeoCatalogErrorCode: "GEO_SUBJECT_IN_USE" | "GEO_SUBJECT_PRODUCT_EXISTS" | "GEO_SUBJECT_ALIAS_EXISTS" | "GEO_SUBJECT_DOMAIN_EXISTS" | "GEO_SUBJECT_PARENT_INVALID";
+        GeoSubjectDeletionBlocker: {
+            type: components["schemas"]["GeoSubjectDeletionBlockerType"];
+            count: number;
+        };
+        GeoSubjectDeletionProjection: {
+            blockers: components["schemas"]["GeoSubjectDeletionBlocker"][];
+        };
+        GeoSubjectReferences: {
+            child_subject_count: number;
+            monitoring_plan_count: number;
+            observation_run_count: number;
+            analysis_count: number;
+            opportunity_count: number;
+        };
+        /** @description 从当前 Product 一致读取的只读身份摘要；不持久化到 GEO Catalog，不包含事实正文。 */
+        GeoSubjectProductSummary: {
+            /** Format: uuid */
+            id: string;
+            part_number: string;
+            brand: string;
+            category: string;
+            revision: number;
+        };
+        GeoSubjectParentSummary: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            subject_type: "OWN_BRAND" | "COMPETITOR_BRAND";
+            display_name: string;
+            is_active: boolean;
+        };
+        /** @description 新建时 is_active=true、revision=0；parent 省略等同 null。父子类型由应用服务及数据库共同守卫。 */
+        GeoOwnProductSubjectCreate: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            subject_type: "OWN_PRODUCT";
+            /** Format: uuid */
+            product_id: string;
+            /** Format: uuid */
+            parent_subject_id?: string | null;
+            /** @default  */
+            description: string;
+        };
+        /** @description 新建时 is_active=true、revision=0；parent 省略等同 null。父子类型由应用服务及数据库共同守卫。 */
+        GeoNamedSubjectCreate: {
+            /** @enum {string} */
+            subject_type: "OWN_BRAND" | "COMPETITOR_BRAND" | "COMPETITOR_PRODUCT" | "REFERENCE_PART";
+            canonical_name: string;
+            display_name: string;
+            /** Format: uuid */
+            parent_subject_id?: string | null;
+            /** @default  */
+            description: string;
+        } & (unknown & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            subject_type: "OWN_BRAND" | "COMPETITOR_BRAND" | "COMPETITOR_PRODUCT" | "REFERENCE_PART";
+        });
+        GeoSubjectCreate: components["schemas"]["GeoOwnProductSubjectCreate"] | components["schemas"]["GeoNamedSubjectCreate"];
+        /** @description PATCH：至少一个可编辑字段；省略保留原值，parent=null 清空父级。subject_type 仅作判别且必须与目标相同，不能改变类型或 product_id。 */
+        GeoOwnProductSubjectUpdate: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            subject_type: "OWN_PRODUCT";
+            expected_revision: number;
+            /** Format: uuid */
+            parent_subject_id?: string | null;
+            description?: string;
+        };
+        /** @description PATCH：至少一个可编辑字段；省略保留原值，parent=null 清空父级。subject_type 仅作判别且必须与目标相同，不能改变类型或 product_id。 */
+        GeoNamedSubjectUpdate: {
+            /** @enum {string} */
+            subject_type: "OWN_BRAND" | "COMPETITOR_BRAND" | "COMPETITOR_PRODUCT" | "REFERENCE_PART";
+            expected_revision: number;
+            /** Format: uuid */
+            parent_subject_id?: string | null;
+            description?: string;
+            canonical_name?: string;
+            display_name?: string;
+        } & (unknown & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            subject_type: "OWN_BRAND" | "COMPETITOR_BRAND" | "COMPETITOR_PRODUCT" | "REFERENCE_PART";
+        });
+        GeoSubjectUpdate: components["schemas"]["GeoOwnProductSubjectUpdate"] | components["schemas"]["GeoNamedSubjectUpdate"];
+        /** @description Subject 当前 aggregate revision；Alias/Domain 写请求同样提交该父 revision，不是子行版本。 */
+        GeoSubjectRevisionRequest: {
+            expected_revision: number;
+        };
+        GeoSubjectAliasCreate: {
+            expected_revision: number;
+            alias: string;
+            alias_kind: components["schemas"]["GeoSubjectAliasKind"];
+            language_code?: string | null;
+            /** @default true */
+            is_active: boolean;
+        };
+        /** @description 至少一个可编辑字段；省略保留原值，language_code=null 清空标签；只改变当前字典，不改写历史快照。 */
+        GeoSubjectAliasUpdate: {
+            expected_revision: number;
+            alias?: string;
+            alias_kind?: components["schemas"]["GeoSubjectAliasKind"];
+            language_code?: string | null;
+            is_active?: boolean;
+        };
+        /** @description 规范 lowercase ASCII IDNA 主机名；无协议/路径/端口/通配符/尾点/IP，不能凭此发起网络访问。 */
+        GeoSubjectHostname: string;
+        GeoSubjectDomainCreate: {
+            expected_revision: number;
+            /** @description 可输入 Unicode 域名；服务端按 database.md 的 IDNA 边界转换并验证，不执行 DNS/HTTP。 */
+            hostname: string;
+            relation_type: components["schemas"]["GeoSubjectDomainRelationType"];
+        };
+        /** @description Subject 聚合子实体，无独立 revision。修改请求使用外层 Subject revision；ADMIN 的子动作由服务端投影，ENGINEER 为空数组。 */
+        GeoSubjectAliasOut: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            subject_id: string;
+            alias: string;
+            normalized_alias: string;
+            alias_kind: components["schemas"]["GeoSubjectAliasKind"];
+            language_code: string | null;
+            is_active: boolean;
+            available_actions: components["schemas"]["GeoSubjectAliasAction"][];
+            /** Format: date-time */
+            created_at: string;
+        };
+        /** @description Subject 聚合子实体，无独立 revision。修改请求使用外层 Subject revision；ADMIN 的子动作由服务端投影，ENGINEER 为空数组。 */
+        GeoSubjectDomainOut: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            subject_id: string;
+            hostname: components["schemas"]["GeoSubjectHostname"];
+            relation_type: components["schemas"]["GeoSubjectDomainRelationType"];
+            /** @constant */
+            is_active: true;
+            available_actions: components["schemas"]["GeoSubjectDomainAction"][];
+            /** Format: date-time */
+            created_at: string;
+        };
+        GeoOwnProductSubjectOut: {
+            /** @constant */
+            subject_type: "OWN_PRODUCT";
+            /** Format: uuid */
+            product_id: string;
+            product: components["schemas"]["GeoSubjectProductSummary"];
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            parent_subject_id: string | null;
+            parent: components["schemas"]["GeoSubjectParentSummary"] | null;
+            /** @description 当前 Product.part_number，只读投影。 */
+            canonical_name: string;
+            /** @description 当前 Product.brand + 单个空格 + Product.part_number，只读投影。 */
+            display_name: string;
+            description: string;
+            is_active: boolean;
+            aliases: components["schemas"]["GeoSubjectAliasOut"][];
+            domains: components["schemas"]["GeoSubjectDomainOut"][];
+            references: components["schemas"]["GeoSubjectReferences"];
+            workflow_stage: components["schemas"]["GeoSubjectWorkflowStage"];
+            primary_task: components["schemas"]["GeoSubjectPrimaryTask"];
+            available_actions: components["schemas"]["GeoSubjectAction"][];
+            deletion: components["schemas"]["GeoSubjectDeletionProjection"] | null;
+            revision: number;
+            /** Format: uuid */
+            created_by: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        } & (unknown & unknown & unknown & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            subject_type: "OWN_PRODUCT";
+        });
+        GeoNamedSubjectOut: {
+            /** @enum {string} */
+            subject_type: "OWN_BRAND" | "COMPETITOR_BRAND" | "COMPETITOR_PRODUCT" | "REFERENCE_PART";
+            product_id: null;
+            product: null;
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            parent_subject_id: string | null;
+            parent: components["schemas"]["GeoSubjectParentSummary"] | null;
+            canonical_name: string;
+            display_name: string;
+            description: string;
+            is_active: boolean;
+            aliases: components["schemas"]["GeoSubjectAliasOut"][];
+            domains: components["schemas"]["GeoSubjectDomainOut"][];
+            references: components["schemas"]["GeoSubjectReferences"];
+            workflow_stage: components["schemas"]["GeoSubjectWorkflowStage"];
+            primary_task: components["schemas"]["GeoSubjectPrimaryTask"];
+            available_actions: components["schemas"]["GeoSubjectAction"][];
+            deletion: components["schemas"]["GeoSubjectDeletionProjection"] | null;
+            revision: number;
+            /** Format: uuid */
+            created_by: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        } & (unknown & unknown & unknown & unknown & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            subject_type: "OWN_BRAND" | "COMPETITOR_BRAND" | "COMPETITOR_PRODUCT" | "REFERENCE_PART";
+        });
+        /** @description 列表、详情和所有非删除命令共用完整一致投影。ADMIN deletion 为真实 blocker 集合；ENGINEER 为 null 且所有写动作为空。projection 不构成授权。 */
+        GeoSubjectOut: components["schemas"]["GeoOwnProductSubjectOut"] | components["schemas"]["GeoNamedSubjectOut"];
+        GeoSubjectListPage: {
+            items: components["schemas"]["GeoSubjectOut"][];
+            page: number;
+            /** @enum {integer} */
+            page_size: 10 | 20 | 50;
+            total: number;
+        };
+        /** @description 删除预检 conflict 的 details；数据库 FK 最终冲突的 details 为 {}，不在 rollback 后猜测引用数。 */
+        GeoSubjectInUseDetails: {
+            references: components["schemas"]["GeoSubjectDeletionBlocker"][];
+        };
+        /** @enum {string} */
+        GeoPromptMentionMode: "BRANDED" | "UNBRANDED";
+        /** @enum {string} */
+        GeoPromptPriority: "CORE" | "STANDARD" | "EXPLORATORY";
+        /** @description GEO-201 组件，GEO-202 接线端点。语言/地区/模式/优先级必须显式提供；文本 NFKC 与 Unicode 空白折叠，保留大小写、标点与型号后缀。创建者由服务端身份确定。 */
+        GeoPromptVariantCreate: {
+            /** Format: uuid */
+            query_topic_id: string;
+            prompt_text: string;
+            mention_mode: components["schemas"]["GeoPromptMentionMode"];
+            language_code: string;
+            region_code: string;
+            priority: components["schemas"]["GeoPromptPriority"];
+        };
+        /** @description 仅未引用变体允许编辑。PATCH 只写显式字段；必须携带 expected_revision。历史后只能停用，新语义创建新变体。 */
+        GeoPromptVariantUpdate: {
+            expected_revision: number;
+            prompt_text?: string;
+            mention_mode?: components["schemas"]["GeoPromptMentionMode"];
+            language_code?: string;
+            region_code?: string;
+            priority?: components["schemas"]["GeoPromptPriority"];
+        };
+        GeoPromptVariantRevisionRequest: {
+            expected_revision: number;
+        };
+        /** @enum {string} */
+        GeoPromptVariantErrorCode: "GEO_PROMPT_VARIANT_EXISTS" | "GEO_PROMPT_VARIANT_IN_USE" | "GEO_PROMPT_VARIANT_IMMUTABLE";
+        GeoPromptRunEntry: {
+            /** @constant */
+            available: false;
+            /** @constant */
+            reason_code: "NOT_IMPLEMENTED";
+        };
+        GeoPromptTopicSummary: {
+            /** Format: uuid */
+            id: string;
+            canonical_question: string;
+            intent_type: components["schemas"]["IntentType"];
+            revision: number;
+        };
+        /** @enum {string} */
+        GeoPromptVariantAction: "UPDATE" | "ENABLE" | "DISABLE" | "DELETE" | "COPY";
+        GeoPromptVariantDeletion: {
+            blockers: ("HISTORY_REFERENCE" | "MONITORING_PLAN")[];
+        };
+        /** @enum {string} */
+        GeoPromptVariantPrimaryTask: "EDIT" | "VIEW_DETAILS";
+        /** @enum {string} */
+        GeoPromptVariantWorkflowStage: "ACTIVE" | "DISABLED" | "REFERENCED";
+        GeoPromptVariantOut: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            query_topic_id: string;
+            prompt_text: string;
+            mention_mode: components["schemas"]["GeoPromptMentionMode"];
+            language_code: string;
+            region_code: string;
+            priority: components["schemas"]["GeoPromptPriority"];
+            is_active: boolean;
+            revision: number;
+            first_referenced_at: string | null;
+            /** Format: uuid */
+            created_by: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            query_topic: components["schemas"]["GeoPromptTopicSummary"];
+            workflow_stage: components["schemas"]["GeoPromptVariantWorkflowStage"];
+            primary_task: components["schemas"]["GeoPromptVariantPrimaryTask"];
+            available_actions: components["schemas"]["GeoPromptVariantAction"][];
+            deletion: components["schemas"]["GeoPromptVariantDeletion"];
+            run_entry: components["schemas"]["GeoPromptRunEntry"];
+        };
+        GeoPromptVariantListPage: {
+            items: components["schemas"]["GeoPromptVariantOut"][];
+            total: number;
+            page: number;
+            /** @enum {integer} */
+            page_size: 10 | 20 | 50;
+        };
+        /** @enum {string} */
+        GeoComplianceStatus: "NOT_REVIEWED" | "APPROVED" | "REJECTED" | "SUSPENDED";
+        GeoSurfaceCapabilities: {
+            /**
+             * Answer Text
+             * @constant
+             */
+            answer_text: true;
+            /** Citations */
+            citations: boolean;
+            /** Web Search Signal */
+            web_search_signal: boolean;
+            /** Model Version */
+            model_version: boolean;
+            /** Usage */
+            usage: boolean;
+            /** Cost */
+            cost: boolean;
+        };
+        /** @enum {string} */
+        GeoSurfaceKind: "CONSUMER_UI" | "MODEL_API" | "SEARCH_API" | "MANUAL_SITE";
+        /** @enum {string} */
+        GeoSurfaceProviderBrand: "OPENAI" | "ANTHROPIC" | "GOOGLE" | "AZURE_OPENAI" | "ZHIPU" | "QWEN" | "CUSTOM";
+        GeoEngineSurfaceCreate: {
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            surface_kind: components["schemas"]["GeoSurfaceKind"];
+            provider_brand: components["schemas"]["GeoSurfaceProviderBrand"];
+            /** Website Url */
+            website_url: string | null;
+            compliance_status: components["schemas"]["GeoComplianceStatus"];
+            capabilities: components["schemas"]["GeoSurfaceCapabilities"];
+        };
+        GeoEngineSurfaceUpdate: {
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            surface_kind: components["schemas"]["GeoSurfaceKind"];
+            provider_brand: components["schemas"]["GeoSurfaceProviderBrand"];
+            /** Website Url */
+            website_url: string | null;
+            compliance_status: components["schemas"]["GeoComplianceStatus"];
+            capabilities: components["schemas"]["GeoSurfaceCapabilities"];
+            /** Expected Revision */
+            expected_revision: number;
+        };
+        GeoEngineSurfaceOut: {
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            surface_kind: components["schemas"]["GeoSurfaceKind"];
+            provider_brand: components["schemas"]["GeoSurfaceProviderBrand"];
+            /** Website Url */
+            website_url: string | null;
+            compliance_status: components["schemas"]["GeoComplianceStatus"];
+            capabilities: components["schemas"]["GeoSurfaceCapabilities"];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Is Active */
+            is_active: boolean;
+            /** Revision */
+            revision: number;
+            /** First Referenced At */
+            first_referenced_at: string | null;
+            /**
+             * Created By
+             * Format: uuid
+             */
+            created_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        GeoApiProfileCreate: {
+            /** Name */
+            name: string;
+            /** Adapter Key */
+            adapter_key: string;
+            /** Language Code */
+            language_code: string;
+            /** Region Code */
+            region_code: string;
+            web_search_policy: components["schemas"]["GeoWebSearchPolicy"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            collection_mode: "API";
+            /** Ai Channel Id */
+            ai_channel_id: string | null;
+            /** Ai Model Id */
+            ai_model_id: string | null;
+            /**
+             * Login State
+             * @constant
+             */
+            login_state: "NOT_APPLICABLE";
+            settings: components["schemas"]["GeoApiSettings"];
+            /**
+             * Engine Surface Id
+             * Format: uuid
+             */
+            engine_surface_id: string;
+        } & ({
+            ai_channel_id?: null;
+            ai_model_id?: null;
+        } | {
+            ai_channel_id?: string;
+            ai_model_id?: string;
+        });
+        GeoApiSettings: {
+            /**
+             * Temperature
+             * @default null
+             */
+            temperature: number | null;
+            /**
+             * Max Output Tokens
+             * @default null
+             */
+            max_output_tokens: number | null;
+            /**
+             * Max Concurrency
+             * @default 1
+             */
+            max_concurrency: number;
+            /**
+             * Requests Per Minute
+             * @default 60
+             */
+            requests_per_minute: number;
+        };
+        GeoBrowserProfileCreate: {
+            /** Name */
+            name: string;
+            /** Adapter Key */
+            adapter_key: string;
+            /** Language Code */
+            language_code: string;
+            /** Region Code */
+            region_code: string;
+            web_search_policy: components["schemas"]["GeoWebSearchPolicy"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            collection_mode: "BROWSER";
+            /** Ai Channel Id */
+            ai_channel_id: null;
+            /** Ai Model Id */
+            ai_model_id: null;
+            /**
+             * Login State
+             * @enum {string}
+             */
+            login_state: "ANONYMOUS" | "AUTHENTICATED";
+            settings: components["schemas"]["GeoBrowserSettings"];
+            /**
+             * Engine Surface Id
+             * Format: uuid
+             */
+            engine_surface_id: string;
+        };
+        GeoBrowserSettings: {
+            /**
+             * Require Screenshot
+             * @default true
+             */
+            require_screenshot: boolean;
+            /**
+             * Answer Timeout Seconds
+             * @default 120
+             */
+            answer_timeout_seconds: number;
+        };
+        GeoManualProfileCreate: {
+            /** Name */
+            name: string;
+            /**
+             * Adapter Key
+             * @constant
+             */
+            adapter_key: "manual";
+            /** Language Code */
+            language_code: string;
+            /** Region Code */
+            region_code: string;
+            web_search_policy: components["schemas"]["GeoWebSearchPolicy"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            collection_mode: "MANUAL";
+            /** Ai Channel Id */
+            ai_channel_id: null;
+            /** Ai Model Id */
+            ai_model_id: null;
+            /**
+             * Login State
+             * @enum {string}
+             */
+            login_state: "ANONYMOUS" | "AUTHENTICATED";
+            settings: components["schemas"]["GeoManualSettings"];
+            /**
+             * Engine Surface Id
+             * Format: uuid
+             */
+            engine_surface_id: string;
+        };
+        GeoManualSettings: {
+            /**
+             * Require Screenshot
+             * @default true
+             */
+            require_screenshot: boolean;
+        };
+        /** @enum {string} */
+        GeoWebSearchPolicy: "UNKNOWN" | "REQUESTED" | "REQUIRED" | "NOT_APPLICABLE";
+        GeoCollectionProfileCreate: components["schemas"]["GeoManualProfileCreate"] | components["schemas"]["GeoApiProfileCreate"] | components["schemas"]["GeoBrowserProfileCreate"];
+        GeoApiProfileUpdate: {
+            /** Name */
+            name: string;
+            /** Adapter Key */
+            adapter_key: string;
+            /** Language Code */
+            language_code: string;
+            /** Region Code */
+            region_code: string;
+            web_search_policy: components["schemas"]["GeoWebSearchPolicy"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            collection_mode: "API";
+            /** Ai Channel Id */
+            ai_channel_id: string | null;
+            /** Ai Model Id */
+            ai_model_id: string | null;
+            /**
+             * Login State
+             * @constant
+             */
+            login_state: "NOT_APPLICABLE";
+            settings: components["schemas"]["GeoApiSettings"];
+            /** Expected Revision */
+            expected_revision: number;
+        } & ({
+            ai_channel_id?: null;
+            ai_model_id?: null;
+        } | {
+            ai_channel_id?: string;
+            ai_model_id?: string;
+        });
+        GeoBrowserProfileUpdate: {
+            /** Name */
+            name: string;
+            /** Adapter Key */
+            adapter_key: string;
+            /** Language Code */
+            language_code: string;
+            /** Region Code */
+            region_code: string;
+            web_search_policy: components["schemas"]["GeoWebSearchPolicy"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            collection_mode: "BROWSER";
+            /** Ai Channel Id */
+            ai_channel_id: null;
+            /** Ai Model Id */
+            ai_model_id: null;
+            /**
+             * Login State
+             * @enum {string}
+             */
+            login_state: "ANONYMOUS" | "AUTHENTICATED";
+            settings: components["schemas"]["GeoBrowserSettings"];
+            /** Expected Revision */
+            expected_revision: number;
+        };
+        GeoManualProfileUpdate: {
+            /** Name */
+            name: string;
+            /**
+             * Adapter Key
+             * @constant
+             */
+            adapter_key: "manual";
+            /** Language Code */
+            language_code: string;
+            /** Region Code */
+            region_code: string;
+            web_search_policy: components["schemas"]["GeoWebSearchPolicy"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            collection_mode: "MANUAL";
+            /** Ai Channel Id */
+            ai_channel_id: null;
+            /** Ai Model Id */
+            ai_model_id: null;
+            /**
+             * Login State
+             * @enum {string}
+             */
+            login_state: "ANONYMOUS" | "AUTHENTICATED";
+            settings: components["schemas"]["GeoManualSettings"];
+            /** Expected Revision */
+            expected_revision: number;
+        };
+        GeoCollectionProfileUpdate: components["schemas"]["GeoManualProfileUpdate"] | components["schemas"]["GeoApiProfileUpdate"] | components["schemas"]["GeoBrowserProfileUpdate"];
+        GeoApiProfileOut: ({
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Engine Surface Id
+             * Format: uuid
+             */
+            engine_surface_id: string;
+            /** Is Active */
+            is_active: boolean;
+            last_test_status: components["schemas"]["GeoProfileTestStatus"];
+            /** Last Tested At */
+            last_tested_at: string | null;
+            /** Revision */
+            revision: number;
+            /**
+             * Created By
+             * Format: uuid
+             */
+            created_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Name */
+            name: string;
+            /** Adapter Key */
+            adapter_key: string;
+            /** Language Code */
+            language_code: string;
+            /** Region Code */
+            region_code: string;
+            web_search_policy: components["schemas"]["GeoWebSearchPolicy"];
+            /**
+             * Collection Mode
+             * @constant
+             */
+            collection_mode: "API";
+            /** Ai Channel Id */
+            ai_channel_id: string | null;
+            /** Ai Model Id */
+            ai_model_id: string | null;
+            /**
+             * Login State
+             * @constant
+             */
+            login_state: "NOT_APPLICABLE";
+            settings: components["schemas"]["GeoApiSettings"];
+        } & (({
+            /** @constant */
+            last_test_status?: "UNTESTED";
+            last_tested_at?: null;
+        } | {
+            /** @enum {unknown} */
+            last_test_status?: "PASSED" | "FAILED";
+            /** Format: date-time */
+            last_tested_at?: string;
+        }) & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            collection_mode: "API";
+        })) & ({
+            ai_channel_id?: null;
+            ai_model_id?: null;
+        } | {
+            ai_channel_id?: string;
+            ai_model_id?: string;
+        });
+        GeoBrowserProfileOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Engine Surface Id
+             * Format: uuid
+             */
+            engine_surface_id: string;
+            /** Is Active */
+            is_active: boolean;
+            last_test_status: components["schemas"]["GeoProfileTestStatus"];
+            /** Last Tested At */
+            last_tested_at: string | null;
+            /** Revision */
+            revision: number;
+            /**
+             * Created By
+             * Format: uuid
+             */
+            created_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Name */
+            name: string;
+            /** Adapter Key */
+            adapter_key: string;
+            /** Language Code */
+            language_code: string;
+            /** Region Code */
+            region_code: string;
+            web_search_policy: components["schemas"]["GeoWebSearchPolicy"];
+            /**
+             * Collection Mode
+             * @constant
+             */
+            collection_mode: "BROWSER";
+            /** Ai Channel Id */
+            ai_channel_id: null;
+            /** Ai Model Id */
+            ai_model_id: null;
+            /**
+             * Login State
+             * @enum {string}
+             */
+            login_state: "ANONYMOUS" | "AUTHENTICATED";
+            settings: components["schemas"]["GeoBrowserSettings"];
+        } & (({
+            /** @constant */
+            last_test_status?: "UNTESTED";
+            last_tested_at?: null;
+        } | {
+            /** @enum {unknown} */
+            last_test_status?: "PASSED" | "FAILED";
+            /** Format: date-time */
+            last_tested_at?: string;
+        }) & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            collection_mode: "BROWSER";
+        });
+        GeoManualProfileOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Engine Surface Id
+             * Format: uuid
+             */
+            engine_surface_id: string;
+            /** Is Active */
+            is_active: boolean;
+            last_test_status: components["schemas"]["GeoProfileTestStatus"];
+            /** Last Tested At */
+            last_tested_at: string | null;
+            /** Revision */
+            revision: number;
+            /**
+             * Created By
+             * Format: uuid
+             */
+            created_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Name */
+            name: string;
+            /**
+             * Adapter Key
+             * @constant
+             */
+            adapter_key: "manual";
+            /** Language Code */
+            language_code: string;
+            /** Region Code */
+            region_code: string;
+            web_search_policy: components["schemas"]["GeoWebSearchPolicy"];
+            /**
+             * Collection Mode
+             * @constant
+             */
+            collection_mode: "MANUAL";
+            /** Ai Channel Id */
+            ai_channel_id: null;
+            /** Ai Model Id */
+            ai_model_id: null;
+            /**
+             * Login State
+             * @enum {string}
+             */
+            login_state: "ANONYMOUS" | "AUTHENTICATED";
+            settings: components["schemas"]["GeoManualSettings"];
+        } & (({
+            /** @constant */
+            last_test_status?: "UNTESTED";
+            last_tested_at?: null;
+        } | {
+            /** @enum {unknown} */
+            last_test_status?: "PASSED" | "FAILED";
+            /** Format: date-time */
+            last_tested_at?: string;
+        }) & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            collection_mode: "MANUAL";
+        });
+        /** @enum {string} */
+        GeoProfileTestStatus: "UNTESTED" | "PASSED" | "FAILED";
+        GeoCollectionProfileOut: components["schemas"]["GeoManualProfileOut"] | components["schemas"]["GeoApiProfileOut"] | components["schemas"]["GeoBrowserProfileOut"];
+        /** @enum {string} */
+        GeoCollectionMode: "MANUAL" | "API" | "BROWSER";
+        /** @enum {string} */
+        GeoProfileLoginState: "ANONYMOUS" | "AUTHENTICATED" | "NOT_APPLICABLE";
+        /** GeoCollectionProfileListPage */
+        GeoCollectionProfileListPage: {
+            /** Items */
+            items: components["schemas"]["GeoCollectionProfileRead"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /** GeoProfileTestError */
+        GeoProfileTestError: {
+            code: components["schemas"]["GeoProfileTestErrorCode"];
+            /** Summary */
+            summary: string;
+        };
+        /**
+         * GeoProfileTestErrorCode
+         * @enum {string}
+         */
+        GeoProfileTestErrorCode: "AI_URL_FORBIDDEN" | "AI_REDIRECT_FORBIDDEN" | "AI_PROVIDER_TIMEOUT" | "AI_PROVIDER_UNAVAILABLE" | "AI_PROVIDER_ERROR" | "AI_RESPONSE_TOO_LARGE" | "AI_RESPONSE_INVALID" | "AI_CREDENTIAL_INVALID" | "CREDENTIAL_DECRYPTION_FAILED" | "INVALID_HEADER";
+        /** GeoCollectionProfileRead */
+        GeoCollectionProfileRead: {
+            summary: components["schemas"]["GeoCollectionProfileSummary"];
+            /** Configuration */
+            configuration: (components["schemas"]["GeoManualProfileOut"] | components["schemas"]["GeoApiProfileOut"] | components["schemas"]["GeoBrowserProfileOut"]) | null;
+            workflow_stage: components["schemas"]["GeoConfigurationWorkflowStage"];
+            primary_task: components["schemas"]["GeoConfigurationPrimaryTask"];
+            /** Available Actions */
+            available_actions: components["schemas"]["GeoConfigurationAction"][];
+            deletion: components["schemas"]["GeoConfigurationDeletionProjection"] | null;
+            /** Activation Blockers */
+            activation_blockers: components["schemas"]["GeoProfileActivationBlocker"][] | null;
+            /** Test Blockers */
+            test_blockers: components["schemas"]["GeoProfileActivationBlocker"][] | null;
+            test_error: components["schemas"]["GeoProfileTestError"] | null;
+        };
+        /** GeoCollectionProfileSummary */
+        GeoCollectionProfileSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Engine Surface Id
+             * Format: uuid
+             */
+            engine_surface_id: string;
+            engine_surface: components["schemas"]["GeoEngineSurfaceSummary"];
+            collection_mode: components["schemas"]["GeoCollectionMode"];
+            /** Language Code */
+            language_code: string;
+            /** Region Code */
+            region_code: string;
+            login_state: components["schemas"]["GeoProfileLoginState"];
+            web_search_policy: components["schemas"]["GeoWebSearchPolicy"];
+            /** Is Active */
+            is_active: boolean;
+            last_test_status: components["schemas"]["GeoProfileTestStatus"];
+            /** Last Tested At */
+            last_tested_at: string | null;
+            /** Revision */
+            revision: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * GeoConfigurationAction
+         * @enum {string}
+         */
+        GeoConfigurationAction: "UPDATE" | "ENABLE" | "DISABLE" | "DELETE" | "TEST";
+        /** GeoConfigurationDeletionBlocker */
+        GeoConfigurationDeletionBlocker: {
+            type: components["schemas"]["GeoConfigurationDeletionBlockerType"];
+            /** Count */
+            count: number;
+        };
+        /**
+         * GeoConfigurationDeletionBlockerType
+         * @enum {string}
+         */
+        GeoConfigurationDeletionBlockerType: "COLLECTION_PROFILE" | "HISTORICAL_REFERENCE" | "MONITORING_PLAN";
+        /** GeoConfigurationDeletionProjection */
+        GeoConfigurationDeletionProjection: {
+            /** Blockers */
+            blockers: components["schemas"]["GeoConfigurationDeletionBlocker"][];
+        };
+        /**
+         * GeoConfigurationPrimaryTask
+         * @enum {string}
+         */
+        GeoConfigurationPrimaryTask: "VIEW_SUMMARY" | "MANAGE_SURFACE" | "ENABLE_SURFACE" | "MANAGE_PROFILE" | "ENABLE_PROFILE" | "RESOLVE_BLOCKERS";
+        /** GeoConfigurationRevisionRequest */
+        GeoConfigurationRevisionRequest: {
+            /** Expected Revision */
+            expected_revision: number;
+        };
+        /**
+         * GeoConfigurationWorkflowStage
+         * @enum {string}
+         */
+        GeoConfigurationWorkflowStage: "ACTIVE" | "DISABLED" | "BLOCKED";
+        /** GeoEngineSurfaceListPage */
+        GeoEngineSurfaceListPage: {
+            /** Items */
+            items: components["schemas"]["GeoEngineSurfaceRead"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /** GeoEngineSurfaceRead */
+        GeoEngineSurfaceRead: {
+            summary: components["schemas"]["GeoEngineSurfaceSummary"];
+            configuration: components["schemas"]["GeoEngineSurfaceOut"] | null;
+            workflow_stage: components["schemas"]["GeoConfigurationWorkflowStage"];
+            primary_task: components["schemas"]["GeoConfigurationPrimaryTask"];
+            /** Available Actions */
+            available_actions: components["schemas"]["GeoConfigurationAction"][];
+            deletion: components["schemas"]["GeoConfigurationDeletionProjection"] | null;
+        };
+        /** GeoEngineSurfaceSummary */
+        GeoEngineSurfaceSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            surface_kind: components["schemas"]["GeoSurfaceKind"];
+            provider_brand: components["schemas"]["GeoSurfaceProviderBrand"];
+            compliance_status: components["schemas"]["GeoComplianceStatus"];
+            capabilities: components["schemas"]["GeoSurfaceCapabilities"];
+            /** Is Active */
+            is_active: boolean;
+            /** Revision */
+            revision: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** GeoProfileActivationBlocker */
+        GeoProfileActivationBlocker: {
+            code: components["schemas"]["ProfileBlockerCode"];
+            /** Field */
+            field: string;
+        };
+        /**
+         * ProfileBlockerCode
+         * @enum {string}
+         */
+        ProfileBlockerCode: "ADAPTER_UNKNOWN" | "CONFIGURATION_INVALID" | "MODE_UNSUPPORTED" | "SURFACE_UNSUPPORTED" | "LANGUAGE_UNSUPPORTED" | "REGION_UNSUPPORTED" | "LOGIN_UNSUPPORTED" | "SEARCH_POLICY_UNSUPPORTED" | "CAPABILITY_UNSUPPORTED" | "MONITORING_DISABLED" | "API_COLLECTION_DISABLED" | "BROWSER_COLLECTION_DISABLED" | "PROFILE_DISABLED" | "SURFACE_DISABLED" | "ADAPTER_NOT_APPROVED" | "ENVIRONMENT_UNSUPPORTED" | "COMPLIANCE_NOT_APPROVED" | "PROFILE_NOT_TESTED" | "MODEL_BINDING_REQUIRED" | "MODEL_BINDING_UNSUPPORTED" | "MODEL_BINDING_INVALID" | "MODEL_DISABLED" | "CHANNEL_DISABLED" | "MODEL_NOT_TESTED" | "CREDENTIAL_NOT_CONFIGURED" | "PROTOCOL_UNSUPPORTED";
+        /**
+         * GeoPlanScheduleKind
+         * @enum {string}
+         */
+        GeoPlanScheduleKind: "MANUAL_ONLY" | "CRON";
+        /** GeoPlanSubject */
+        GeoPlanSubject: {
+            /**
+             * Subject Id
+             * Format: uuid
+             */
+            subject_id: string;
+            role: components["schemas"]["GeoPlanSubjectRole"];
+        };
+        /**
+         * GeoPlanSubjectRole
+         * @enum {string}
+         */
+        GeoPlanSubjectRole: "PRIMARY" | "COMPETITOR" | "REFERENCE";
+        /** GeoMonitoringPlanCreate */
+        GeoMonitoringPlanCreate: {
+            /** Name */
+            name: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Subjects
+             * @description subject_id 在集合内唯一；至少一个 PRIMARY，不由对象类型推断角色。
+             */
+            subjects: components["schemas"]["GeoPlanSubject"][];
+            /** Prompt Variant Ids */
+            prompt_variant_ids: string[];
+            /** Collection Profile Ids */
+            collection_profile_ids: string[];
+            /**
+             * Repeat Count
+             * @default 3
+             */
+            repeat_count: number;
+            /** @default MANUAL_ONLY */
+            schedule_kind: components["schemas"]["GeoPlanScheduleKind"];
+            /**
+             * Cron Expression
+             * @default null
+             */
+            cron_expression: string | null;
+            /**
+             * Timezone
+             * @default Asia/Shanghai
+             */
+            timezone: string;
+            /**
+             * Budget Limit
+             * @default null
+             */
+            budget_limit: string | null;
+            /**
+             * Rule Set Revision
+             * @default 1
+             */
+            rule_set_revision: number;
+        } & unknown;
+        /**
+         * GeoMonitoringPlanUpdate
+         * @description 完整替换配置，避免 PATCH 集合片段绕过聚合完整性；不允许写状态或追溯。
+         */
+        GeoMonitoringPlanUpdate: {
+            /** Name */
+            name: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Subjects
+             * @description subject_id 在集合内唯一；至少一个 PRIMARY，不由对象类型推断角色。
+             */
+            subjects: components["schemas"]["GeoPlanSubject"][];
+            /** Prompt Variant Ids */
+            prompt_variant_ids: string[];
+            /** Collection Profile Ids */
+            collection_profile_ids: string[];
+            /**
+             * Repeat Count
+             * @default 3
+             */
+            repeat_count: number;
+            /** @default MANUAL_ONLY */
+            schedule_kind: components["schemas"]["GeoPlanScheduleKind"];
+            /**
+             * Cron Expression
+             * @default null
+             */
+            cron_expression: string | null;
+            /**
+             * Timezone
+             * @default Asia/Shanghai
+             */
+            timezone: string;
+            /**
+             * Budget Limit
+             * @default null
+             */
+            budget_limit: string | null;
+            /**
+             * Rule Set Revision
+             * @default 1
+             */
+            rule_set_revision: number;
+            /** Expected Revision */
+            expected_revision: number;
+        } & unknown;
+        /**
+         * GeoMonitoringPlanStatus
+         * @enum {string}
+         */
+        GeoMonitoringPlanStatus: "DISABLED" | "ACTIVE" | "PAUSED" | "ARCHIVED";
+        /**
+         * GeoMonitoringPlanOut
+         * @description 数据组件，不是尚未实施的 Plan 详情/动作/运行健康读模型。
+         */
+        GeoMonitoringPlanOut: {
+            /** Name */
+            name: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Subjects
+             * @description subject_id 在集合内唯一；至少一个 PRIMARY，不由对象类型推断角色。
+             */
+            subjects: components["schemas"]["GeoPlanSubject"][];
+            /** Prompt Variant Ids */
+            prompt_variant_ids: string[];
+            /** Collection Profile Ids */
+            collection_profile_ids: string[];
+            /**
+             * Repeat Count
+             * @default 3
+             */
+            repeat_count: number;
+            /** @default MANUAL_ONLY */
+            schedule_kind: components["schemas"]["GeoPlanScheduleKind"];
+            /**
+             * Cron Expression
+             * @default null
+             */
+            cron_expression: string | null;
+            /**
+             * Timezone
+             * @default Asia/Shanghai
+             */
+            timezone: string;
+            /**
+             * Budget Limit
+             * @default null
+             */
+            budget_limit: string | null;
+            /**
+             * Rule Set Revision
+             * @default 1
+             */
+            rule_set_revision: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            status: components["schemas"]["GeoMonitoringPlanStatus"];
+            /** Revision */
+            revision: number;
+            /**
+             * Created By
+             * Format: uuid
+             */
+            created_by: string;
+            /**
+             * Updated By
+             * Format: uuid
+             */
+            updated_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        } & unknown;
+        /** GeoMonitoringPlanRevisionRequest */
+        GeoMonitoringPlanRevisionRequest: {
+            /** Expected Revision */
+            expected_revision: number;
+        };
+        /**
+         * GeoEstimatedCostCoverage
+         * @enum {string}
+         */
+        GeoEstimatedCostCoverage: "NONE" | "PARTIAL" | "COMPLETE";
+        /** GeoKnownCostTotal */
+        GeoKnownCostTotal: {
+            /** Value */
+            value: string;
+            /** Currency */
+            currency: string;
+        };
+        /**
+         * GeoPlanBlockerCode
+         * @enum {string}
+         */
+        GeoPlanBlockerCode: "SUBJECT_NOT_FOUND" | "SUBJECT_DISABLED" | "PROMPT_NOT_FOUND" | "PROMPT_DISABLED" | "PROFILE_NOT_FOUND" | "BUDGET_EXCEEDED" | "BUDGET_CURRENCY_MISMATCH";
+        /** GeoPlanEstimatedCost */
+        GeoPlanEstimatedCost: {
+            /** Value */
+            value: string | null;
+            /** Currency */
+            currency: string | null;
+            coverage: components["schemas"]["GeoEstimatedCostCoverage"];
+            /** Known Run Count */
+            known_run_count: number;
+            /** Unknown Run Count */
+            unknown_run_count: number;
+            /** Known Costs */
+            known_costs: components["schemas"]["GeoKnownCostTotal"][];
+        };
+        /** GeoPlanPreviewBlocker */
+        GeoPlanPreviewBlocker: {
+            /** Code */
+            code: components["schemas"]["GeoPlanBlockerCode"] | components["schemas"]["ProfileBlockerCode"];
+            /** Field */
+            field: string;
+            /** Resource Id */
+            resource_id: string | null;
+            /** Related Resource Id */
+            related_resource_id: string | null;
+        };
+        /** GeoPlanPreviewWarning */
+        GeoPlanPreviewWarning: {
+            code: components["schemas"]["GeoPlanWarningCode"];
+            /** Field */
+            field: string;
+            /** Resource Id */
+            resource_id: string | null;
+            /** Related Resource Id */
+            related_resource_id: string | null;
+        };
+        /**
+         * GeoPlanWarningCode
+         * @enum {string}
+         */
+        GeoPlanWarningCode: "MIXED_COLLECTION_MODES" | "MIXED_PROFILE_ENVIRONMENTS" | "PROMPT_PROFILE_ENVIRONMENT_MISMATCH" | "MODEL_VERSION_UNKNOWN" | "COST_UNKNOWN" | "COST_PARTIAL" | "COST_CURRENCY_MISMATCH" | "BUDGET_UNVERIFIED";
+        /** GeoMonitoringPlanPreview */
+        GeoMonitoringPlanPreview: {
+            /** Prompt Count */
+            prompt_count: number;
+            /** Profile Count */
+            profile_count: number;
+            /** Repeat Count */
+            repeat_count: number;
+            /** Run Count */
+            run_count: number;
+            /** Manual Run Count */
+            manual_run_count: number;
+            /** Api Run Count */
+            api_run_count: number;
+            /** Browser Run Count */
+            browser_run_count: number;
+            /** Unresolved Run Count */
+            unresolved_run_count: number;
+            estimated_cost: components["schemas"]["GeoPlanEstimatedCost"];
+            /** Blockers */
+            blockers: components["schemas"]["GeoPlanPreviewBlocker"][];
+            /** Warnings */
+            warnings: components["schemas"]["GeoPlanPreviewWarning"][];
+        };
+        /**
+         * GeoPlanAction
+         * @enum {string}
+         */
+        GeoPlanAction: "UPDATE" | "PREVIEW" | "ACTIVATE" | "PAUSE" | "RESUME" | "ARCHIVE" | "COPY" | "CREATE_REVISION" | "DELETE";
+        /**
+         * GeoPlanWorkflowStage
+         * @enum {string}
+         */
+        GeoPlanWorkflowStage: "UNSUPPORTED_SCHEDULE" | "CONFIGURATION_REQUIRED" | "READY" | "ACTIVE" | "PAUSED" | "ARCHIVED";
+        /**
+         * GeoPlanPrimaryTask
+         * @enum {string}
+         */
+        GeoPlanPrimaryTask: "COMPLETE_CONFIGURATION" | "ACTIVATE" | "VIEW_RUNTIME" | "RESUME" | "VIEW_HISTORY";
+        /** GeoPlanDeletion */
+        GeoPlanDeletion: {
+            /** Blockers */
+            blockers: ("PLAN_NOT_DISABLED" | "ARCHIVED" | "HAS_BATCH_HISTORY" | "SCHEDULE_UNSUPPORTED")[];
+        };
+        /** GeoPlanRunEntry */
+        GeoPlanRunEntry: {
+            /**
+             * Available
+             * @constant
+             */
+            available: false;
+            /**
+             * Reason Code
+             * @enum {string}
+             */
+            reason_code: "UI_NOT_IMPLEMENTED" | "GEO_PLAN_CRON_UNSUPPORTED";
+        };
+        /** GeoMonitoringPlanCopy */
+        GeoMonitoringPlanCopy: {
+            /** Expected Revision */
+            expected_revision: number;
+            /** Name */
+            name: string;
+        };
+        /** GeoMonitoringPlanDetail */
+        GeoMonitoringPlanDetail: {
+            /** Name */
+            name: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Subjects
+             * @description subject_id 在集合内唯一；至少一个 PRIMARY，不由对象类型推断角色。
+             */
+            subjects: components["schemas"]["GeoPlanSubject"][];
+            /** Prompt Variant Ids */
+            prompt_variant_ids: string[];
+            /** Collection Profile Ids */
+            collection_profile_ids: string[];
+            /**
+             * Repeat Count
+             * @default 3
+             */
+            repeat_count: number;
+            /** @default MANUAL_ONLY */
+            schedule_kind: components["schemas"]["GeoPlanScheduleKind"];
+            /** Cron Expression */
+            cron_expression?: string | null;
+            /**
+             * Timezone
+             * @default Asia/Shanghai
+             */
+            timezone: string;
+            /** Budget Limit */
+            budget_limit?: string | null;
+            /**
+             * Rule Set Revision
+             * @default 1
+             */
+            rule_set_revision: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            status: components["schemas"]["GeoMonitoringPlanStatus"];
+            /** Revision */
+            revision: number;
+            /**
+             * Created By
+             * Format: uuid
+             */
+            created_by: string;
+            /**
+             * Updated By
+             * Format: uuid
+             */
+            updated_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            preview: components["schemas"]["GeoMonitoringPlanPreview"];
+            workflow_stage: components["schemas"]["GeoPlanWorkflowStage"];
+            primary_task: components["schemas"]["GeoPlanPrimaryTask"];
+            /** Available Actions */
+            available_actions: components["schemas"]["GeoPlanAction"][];
+            deletion: components["schemas"]["GeoPlanDeletion"];
+            run_entry: components["schemas"]["GeoPlanRunEntry"];
+        } & unknown;
+        /** GeoMonitoringPlanListPage */
+        GeoMonitoringPlanListPage: {
+            /** Items */
+            items: components["schemas"]["GeoMonitoringPlanDetail"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /**
+             * Page Size
+             * @enum {integer}
+             */
+            page_size: 10 | 20 | 50;
+        };
+        /** GeoBatchPlanSnapshot */
+        GeoBatchPlanSnapshot: ({
+            /** Name */
+            name: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Subjects
+             * @description subject_id 在集合内唯一；至少一个 PRIMARY，不由对象类型推断角色。
+             */
+            subjects: components["schemas"]["GeoPlanSubject"][];
+            /** Prompt Variant Ids */
+            prompt_variant_ids: string[];
+            /** Collection Profile Ids */
+            collection_profile_ids: string[];
+            /**
+             * Repeat Count
+             * @default 3
+             */
+            repeat_count: number;
+            /** @default MANUAL_ONLY */
+            schedule_kind: components["schemas"]["GeoPlanScheduleKind"];
+            /**
+             * Cron Expression
+             * @default null
+             */
+            cron_expression: string | null;
+            /**
+             * Timezone
+             * @default Asia/Shanghai
+             */
+            timezone: string;
+            /**
+             * Budget Limit
+             * @default null
+             */
+            budget_limit: string | null;
+            /**
+             * Rule Set Revision
+             * @default 1
+             */
+            rule_set_revision: number;
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: 1;
+            /** Plan Id */
+            plan_id: string | null;
+            /** Plan Revision */
+            plan_revision: number | null;
+        } & unknown) & ({
+            plan_id?: null;
+            plan_revision?: null;
+        } | {
+            plan_id?: string;
+            plan_revision?: number;
+        });
+        /** GeoBatchRuleSnapshot */
+        GeoBatchRuleSnapshot: {
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: 1;
+            /** Rule Set Revision */
+            rule_set_revision: number;
+        };
+        /**
+         * GeoBatchStatus
+         * @enum {string}
+         */
+        GeoBatchStatus: "PLANNED" | "QUEUED" | "RUNNING" | "COMPLETED" | "PARTIAL" | "FAILED" | "CANCELLED" | "BUDGET_BLOCKED";
+        /**
+         * GeoBatchTriggerType
+         * @enum {string}
+         */
+        GeoBatchTriggerType: "SCHEDULED" | "MANUAL" | "RETEST";
+        /**
+         * GeoObservationBatchOut
+         * @description 基础数据组件；不是 GEO-306 的详情、汇总或动作投影。
+         */
+        GeoObservationBatchOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Plan Id */
+            plan_id: string | null;
+            trigger_type: components["schemas"]["GeoBatchTriggerType"];
+            status: components["schemas"]["GeoBatchStatus"];
+            /** Revision */
+            revision: number;
+            /** Scheduled For */
+            scheduled_for: string | null;
+            /** Schedule Identity */
+            schedule_identity: string | null;
+            plan_snapshot: components["schemas"]["GeoBatchPlanSnapshot"];
+            /** Rule Snapshot */
+            rule_snapshot: components["schemas"]["GeoBatchRuleSnapshot"] | components["schemas"]["GeoBatchRuleSnapshotV2"];
+            /** Requested Run Count */
+            requested_run_count: number;
+            /** Source Opportunity Id */
+            source_opportunity_id: string | null;
+            /** Baseline Batch Id */
+            baseline_batch_id: string | null;
+            /** Created By */
+            created_by: string | null;
+            /** Started At */
+            started_at: string | null;
+            /** Finished At */
+            finished_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * GeoExternalCallState
+         * @enum {string}
+         */
+        GeoExternalCallState: "NOT_STARTED" | "SENT" | "UNKNOWN" | "COMPLETED";
+        /** GeoRunAliasSnapshot */
+        GeoRunAliasSnapshot: {
+            /** Alias */
+            alias: string;
+            /** Normalized Alias */
+            normalized_alias: string;
+            alias_kind: components["schemas"]["GeoSubjectAliasKind"];
+            /** Language Code */
+            language_code: string | null;
+        };
+        /** GeoRunApiProfileSnapshot */
+        GeoRunApiProfileSnapshot: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Revision */
+            revision: number;
+            /** Adapter Version */
+            adapter_version: string;
+            surface: components["schemas"]["GeoRunSurfaceSnapshot"];
+            /** Name */
+            name: string;
+            /** Adapter Key */
+            adapter_key: string;
+            /** Language Code */
+            language_code: string;
+            /** Region Code */
+            region_code: string;
+            web_search_policy: components["schemas"]["GeoWebSearchPolicy"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            collection_mode: "API";
+            /** Ai Channel Id */
+            ai_channel_id: string | null;
+            /** Ai Model Id */
+            ai_model_id: string | null;
+            /**
+             * Login State
+             * @constant
+             */
+            login_state: "NOT_APPLICABLE";
+            settings: components["schemas"]["GeoApiSettings"];
+        } & ({
+            ai_channel_id?: null;
+            ai_model_id?: null;
+        } | {
+            ai_channel_id?: string;
+            ai_model_id?: string;
+        });
+        /** GeoRunBrowserProfileSnapshot */
+        GeoRunBrowserProfileSnapshot: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Revision */
+            revision: number;
+            /** Adapter Version */
+            adapter_version: string;
+            surface: components["schemas"]["GeoRunSurfaceSnapshot"];
+            /** Name */
+            name: string;
+            /** Adapter Key */
+            adapter_key: string;
+            /** Language Code */
+            language_code: string;
+            /** Region Code */
+            region_code: string;
+            web_search_policy: components["schemas"]["GeoWebSearchPolicy"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            collection_mode: "BROWSER";
+            /** Ai Channel Id */
+            ai_channel_id: null;
+            /** Ai Model Id */
+            ai_model_id: null;
+            /**
+             * Login State
+             * @enum {string}
+             */
+            login_state: "ANONYMOUS" | "AUTHENTICATED";
+            settings: components["schemas"]["GeoBrowserSettings"];
+        };
+        /**
+         * GeoRunDataClassification
+         * @enum {string}
+         */
+        GeoRunDataClassification: "PUBLIC" | "INTERNAL" | "RESTRICTED";
+        /** GeoRunDomainSnapshot */
+        GeoRunDomainSnapshot: {
+            /** Hostname */
+            hostname: string;
+            relation_type: components["schemas"]["GeoSubjectDomainRelationType"];
+        };
+        /**
+         * GeoRunErrorCode
+         * @enum {string}
+         */
+        GeoRunErrorCode: "COLLECTOR_CONFIGURATION_INVALID" | "COLLECTOR_DISABLED" | "PROVIDER_AUTH_FAILED" | "PROVIDER_RATE_LIMITED" | "PROVIDER_TIMEOUT" | "PROVIDER_UNAVAILABLE" | "PROVIDER_RESPONSE_INVALID" | "PROVIDER_RESPONSE_TOO_LARGE" | "COLLECTOR_UNKNOWN_OUTCOME" | "DATA_CLASSIFICATION_FORBIDDEN" | "PROFILE_NEEDS_REAUTH" | "WORKER_LOST" | "BUDGET_EXCEEDED" | "ANALYSIS_FAILED" | "REVIEW_FAILED";
+        /**
+         * GeoRunErrorStage
+         * @enum {string}
+         */
+        GeoRunErrorStage: "COLLECTION" | "ANALYSIS" | "REVIEW";
+        /** GeoRunInputSnapshot */
+        GeoRunInputSnapshot: {
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: 1;
+            data_classification: components["schemas"]["GeoRunDataClassification"];
+            prompt: components["schemas"]["GeoRunPromptSnapshot"];
+            /** Profile */
+            profile: components["schemas"]["GeoRunManualProfileSnapshot"] | components["schemas"]["GeoRunApiProfileSnapshot"] | components["schemas"]["GeoRunBrowserProfileSnapshot"];
+            /** Subjects */
+            subjects: components["schemas"]["GeoRunSubjectSnapshot"][];
+            /** Rule Set Revision */
+            rule_set_revision: number;
+        };
+        /** GeoRunManualProfileSnapshot */
+        GeoRunManualProfileSnapshot: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Revision */
+            revision: number;
+            /** Adapter Version */
+            adapter_version: string;
+            surface: components["schemas"]["GeoRunSurfaceSnapshot"];
+            /** Name */
+            name: string;
+            /**
+             * Adapter Key
+             * @constant
+             */
+            adapter_key: "manual";
+            /** Language Code */
+            language_code: string;
+            /** Region Code */
+            region_code: string;
+            web_search_policy: components["schemas"]["GeoWebSearchPolicy"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            collection_mode: "MANUAL";
+            /** Ai Channel Id */
+            ai_channel_id: null;
+            /** Ai Model Id */
+            ai_model_id: null;
+            /**
+             * Login State
+             * @enum {string}
+             */
+            login_state: "ANONYMOUS" | "AUTHENTICATED";
+            settings: components["schemas"]["GeoManualSettings"];
+        };
+        /** GeoRunPromptSnapshot */
+        GeoRunPromptSnapshot: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Revision */
+            revision: number;
+            /**
+             * Query Topic Id
+             * Format: uuid
+             */
+            query_topic_id: string;
+            /** Query Topic Revision */
+            query_topic_revision: number;
+            /** Canonical Question */
+            canonical_question: string;
+            intent_type: components["schemas"]["IntentType"];
+            /** Prompt Text */
+            prompt_text: string;
+            mention_mode: components["schemas"]["GeoPromptMentionMode"];
+            priority: components["schemas"]["GeoPromptPriority"];
+            /** Language Code */
+            language_code: string;
+            /** Region Code */
+            region_code: string;
+        };
+        /**
+         * GeoRunStatus
+         * @enum {string}
+         */
+        GeoRunStatus: "PENDING" | "RUNNING" | "COLLECTED" | "ANALYZING" | "NEEDS_REVIEW" | "COMPLETED" | "FAILED" | "CANCELLED" | "BUDGET_BLOCKED";
+        /** GeoRunSubjectSnapshot */
+        GeoRunSubjectSnapshot: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Revision */
+            revision: number;
+            subject_type: components["schemas"]["GeoSubjectType"];
+            role: components["schemas"]["GeoPlanSubjectRole"];
+            /** Product Id */
+            product_id: string | null;
+            /** Parent Subject Id */
+            parent_subject_id: string | null;
+            /** Canonical Name */
+            canonical_name: string;
+            /** Display Name */
+            display_name: string;
+            /** Aliases */
+            aliases: components["schemas"]["GeoRunAliasSnapshot"][];
+            /** Domains */
+            domains: components["schemas"]["GeoRunDomainSnapshot"][];
+        };
+        /** GeoRunSurfaceSnapshot */
+        GeoRunSurfaceSnapshot: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Revision */
+            revision: number;
+            /** Name */
+            name: string;
+            surface_kind: components["schemas"]["GeoSurfaceKind"];
+            provider_brand: components["schemas"]["GeoSurfaceProviderBrand"];
+            compliance_status: components["schemas"]["GeoComplianceStatus"];
+            capabilities: components["schemas"]["GeoSurfaceCapabilities"];
+        };
+        /**
+         * GeoObservationRunOut
+         * @description lease_token 是执行授权信息，只有数据库内部使用，公共组件不暴露。
+         */
+        GeoObservationRunOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Batch Id
+             * Format: uuid
+             */
+            batch_id: string;
+            /**
+             * Prompt Variant Id
+             * Format: uuid
+             */
+            prompt_variant_id: string;
+            /**
+             * Collection Profile Id
+             * Format: uuid
+             */
+            collection_profile_id: string;
+            /** Run Cell Key */
+            run_cell_key: string;
+            /** Repeat Index */
+            repeat_index: number;
+            /** Attempt No */
+            attempt_no: number;
+            /** Previous Attempt Id */
+            previous_attempt_id: string | null;
+            status: components["schemas"]["GeoRunStatus"];
+            /** Revision */
+            revision: number;
+            input_snapshot: components["schemas"]["GeoRunInputSnapshot"];
+            external_call_state: components["schemas"]["GeoExternalCallState"];
+            /** Lease Expires At */
+            lease_expires_at: string | null;
+            /** Dispatch Attempt Count */
+            dispatch_attempt_count: number;
+            /** Last Dispatch Attempt At */
+            last_dispatch_attempt_at: string | null;
+            error_stage: components["schemas"]["GeoRunErrorStage"] | null;
+            error_code: components["schemas"]["GeoRunErrorCode"] | null;
+            /** Error Summary */
+            error_summary: string | null;
+            /** Provider Status */
+            provider_status: number | null;
+            /** Retry After Seconds */
+            retry_after_seconds: number | null;
+            /** Provider Request Id */
+            provider_request_id: string | null;
+            /** Duration Ms */
+            duration_ms: number | null;
+            /** Cost Amount */
+            cost_amount: string | null;
+            /** Cost Currency */
+            cost_currency: string | null;
+            /** Prompt Tokens */
+            prompt_tokens: number | null;
+            /** Completion Tokens */
+            completion_tokens: number | null;
+            /** Total Tokens */
+            total_tokens: number | null;
+            /** Started At */
+            started_at: string | null;
+            /** Collected At */
+            collected_at: string | null;
+            /** Finished At */
+            finished_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * GeoRunCommandErrorCode
+         * @enum {string}
+         */
+        GeoRunCommandErrorCode: "GEO_RUN_NOT_MANUAL" | "GEO_RUN_NOT_PENDING" | "GEO_RUN_ALREADY_STARTED" | "GEO_RUN_NOT_RETRYABLE" | "GEO_RUN_HAS_SUCCESSOR" | "GEO_SCHEDULE_WINDOW_EXISTS";
+        /**
+         * GeoRunWorkflowStage
+         * @enum {string}
+         */
+        GeoRunWorkflowStage: "MANUAL_ENTRY_REQUIRED" | "QUEUED" | "COLLECTION_IN_PROGRESS" | "ANALYSIS_PENDING" | "ANALYSIS_IN_PROGRESS" | "REVIEW_REQUIRED" | "COMPLETED" | "RETRYABLE_FAILURE" | "HISTORICAL_FAILURE" | "CANCELLED" | "BUDGET_BLOCKED";
+        /**
+         * GeoRunPrimaryTask
+         * @enum {string}
+         */
+        GeoRunPrimaryTask: "ENTER_MANUAL_OBSERVATION" | "VIEW_EXECUTION_PROGRESS" | "VIEW_REVIEW" | "VIEW_OBSERVATION" | "HANDLE_FAILURE" | "VIEW_FAILURE";
+        /**
+         * GeoRunAction
+         * @enum {string}
+         */
+        GeoRunAction: "ENTER_MANUAL_OBSERVATION" | "CANCEL" | "RETRY";
+        /**
+         * GeoBatchWorkflowStage
+         * @enum {string}
+         */
+        GeoBatchWorkflowStage: "PREPARING" | "QUEUED" | "MANUAL_ENTRY_REQUIRED" | "IN_PROGRESS" | "COMPLETED" | "PARTIAL" | "FAILED" | "CANCELLED" | "BUDGET_BLOCKED";
+        /**
+         * GeoBatchPrimaryTask
+         * @enum {string}
+         */
+        GeoBatchPrimaryTask: "VIEW_EXECUTION_PROGRESS" | "ENTER_MANUAL_OBSERVATIONS" | "VIEW_RESULTS" | "HANDLE_FAILURE";
+        /**
+         * GeoBatchAction
+         * @enum {string}
+         */
+        GeoBatchAction: "CANCEL";
+        /** GeoRunWorkflowProjection */
+        GeoRunWorkflowProjection: {
+            workflow_stage: components["schemas"]["GeoRunWorkflowStage"];
+            primary_task: components["schemas"]["GeoRunPrimaryTask"];
+            available_actions: components["schemas"]["GeoRunAction"][];
+        };
+        /** GeoBatchWorkflowProjection */
+        GeoBatchWorkflowProjection: {
+            status: components["schemas"]["GeoBatchStatus"];
+            workflow_stage: components["schemas"]["GeoBatchWorkflowStage"];
+            primary_task: components["schemas"]["GeoBatchPrimaryTask"];
+            available_actions: components["schemas"]["GeoBatchAction"][];
+        };
+        /** GeoAdHocBatchConfiguration */
+        GeoAdHocBatchConfiguration: {
+            /** Name */
+            name: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Subjects
+             * @description subject_id 在集合内唯一；至少一个 PRIMARY，不由对象类型推断角色。
+             */
+            subjects: components["schemas"]["GeoPlanSubject"][];
+            /** Prompt Variant Ids */
+            prompt_variant_ids: string[];
+            /** Collection Profile Ids */
+            collection_profile_ids: string[];
+            /**
+             * Repeat Count
+             * @default 3
+             */
+            repeat_count: number;
+            /**
+             * Schedule Kind
+             * @default MANUAL_ONLY
+             * @constant
+             */
+            schedule_kind: "MANUAL_ONLY";
+            /**
+             * Cron Expression
+             * @default null
+             */
+            cron_expression: null;
+            /**
+             * Timezone
+             * @default Asia/Shanghai
+             */
+            timezone: string;
+            /**
+             * Budget Limit
+             * @default null
+             */
+            budget_limit: string | null;
+            /**
+             * Rule Set Revision
+             * @default 1
+             */
+            rule_set_revision: number;
+        } & unknown;
+        /** GeoAdHocBatchCreate */
+        GeoAdHocBatchCreate: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            source: "AD_HOC";
+            configuration: components["schemas"]["GeoAdHocBatchConfiguration"];
+        };
+        /** GeoPlanBatchCreate */
+        GeoPlanBatchCreate: {
+            /** Expected Revision */
+            expected_revision: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            source: "PLAN";
+            /**
+             * Plan Id
+             * Format: uuid
+             */
+            plan_id: string;
+        };
+        /** GeoBatchCreated */
+        GeoBatchCreated: {
+            /**
+             * Batch Id
+             * Format: uuid
+             */
+            batch_id: string;
+            /** Requested Run Count */
+            requested_run_count: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * GeoRawPayloadSummary
+         * @description 只允许结构事实；不接收 Header、正文、凭据或任意 provider 字符串。
+         */
+        GeoRawPayloadSummary: {
+            /**
+             * Schema Version
+             * @default 1
+             * @constant
+             */
+            schema_version: 1;
+            /**
+             * Payload Format
+             * @default null
+             */
+            payload_format: ("JSON" | "TEXT" | "DOM") | null;
+            /**
+             * Payload Bytes
+             * @default null
+             */
+            payload_bytes: number | null;
+            /**
+             * Finish Reason
+             * @default null
+             */
+            finish_reason: ("STOP" | "LENGTH" | "CONTENT_FILTER" | "OTHER") | null;
+        };
+        /** GeoAnswerSnapshotOut */
+        GeoAnswerSnapshotOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /** Prompt Text */
+            prompt_text: string;
+            /** Answer Text */
+            answer_text: string;
+            /** Answer Sha256 */
+            answer_sha256: string;
+            /**
+             * Answer Format
+             * @enum {string}
+             */
+            answer_format: "TEXT" | "MARKDOWN" | "HTML_TEXT";
+            /** Source Product */
+            source_product: string | null;
+            /** Source Model */
+            source_model: string | null;
+            /** Source Version */
+            source_version: string | null;
+            /** Web Search Observed */
+            web_search_observed: boolean | null;
+            raw_payload_summary: components["schemas"]["GeoRawPayloadSummary"];
+            /** Raw Payload File Id */
+            raw_payload_file_id: string | null;
+            /** Screenshot File Id */
+            screenshot_file_id: string | null;
+            /** Citation Count */
+            citation_count: number;
+            /**
+             * Collected At
+             * Format: date-time
+             */
+            collected_at: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** GeoAnswerCitationInput */
+        GeoAnswerCitationInput: {
+            /** Original Url */
+            original_url: string;
+            /** Position */
+            position: number;
+            /**
+             * Title
+             * @default null
+             */
+            title: string | null;
+            /**
+             * Extraction Source
+             * @enum {string}
+             */
+            extraction_source: "STRUCTURED" | "DOM" | "TEXT" | "MANUAL";
+        };
+        /** GeoAnswerCitationOut */
+        GeoAnswerCitationOut: {
+            /** Original Url */
+            original_url: string;
+            /** Position */
+            position: number;
+            /**
+             * Title
+             * @default null
+             */
+            title: string | null;
+            /**
+             * Extraction Source
+             * @enum {string}
+             */
+            extraction_source: "STRUCTURED" | "DOM" | "TEXT" | "MANUAL";
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Answer Snapshot Id
+             * Format: uuid
+             */
+            answer_snapshot_id: string;
+            /** Normalized Url */
+            normalized_url: string;
+            /** Hostname */
+            hostname: string;
+            /** Occurrences */
+            occurrences: number[];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** GeoManualCitationInput */
+        GeoManualCitationInput: {
+            /** Original Url */
+            original_url: string;
+            /** Position */
+            position: number;
+            /** Title */
+            title?: string | null;
+            /**
+             * Extraction Source
+             * @default MANUAL
+             * @constant
+             */
+            extraction_source: "MANUAL";
+        };
+        /** GeoManualObservationDraft */
+        GeoManualObservationDraft: {
+            /**
+             * Answer Text
+             * @default
+             */
+            answer_text: string;
+            /**
+             * Answer Format
+             * @default TEXT
+             * @enum {string}
+             */
+            answer_format: "TEXT" | "MARKDOWN" | "HTML_TEXT";
+            /** Source Product */
+            source_product?: string | null;
+            /** Source Model */
+            source_model?: string | null;
+            /** Source Version */
+            source_version?: string | null;
+            /** Web Search Observed */
+            web_search_observed?: boolean | null;
+            raw_payload_summary?: components["schemas"]["GeoRawPayloadSummary"];
+            /** Raw Payload File Id */
+            raw_payload_file_id?: string | null;
+            /** Screenshot File Id */
+            screenshot_file_id?: string | null;
+            /** Citations */
+            citations?: components["schemas"]["GeoManualCitationInput"][];
+            /** Collected At */
+            collected_at?: string | null;
+        };
+        /** GeoManualDraftSave */
+        GeoManualDraftSave: {
+            /** Expected Draft Revision */
+            expected_draft_revision: number;
+            draft: components["schemas"]["GeoManualObservationDraft"];
+        };
+        /** GeoManualObservationSubmit */
+        GeoManualObservationSubmit: {
+            /** Answer Text */
+            answer_text: string;
+            /**
+             * Answer Format
+             * @default TEXT
+             * @enum {string}
+             */
+            answer_format: "TEXT" | "MARKDOWN" | "HTML_TEXT";
+            /** Source Product */
+            source_product?: string | null;
+            /** Source Model */
+            source_model?: string | null;
+            /** Source Version */
+            source_version?: string | null;
+            /** Web Search Observed */
+            web_search_observed?: boolean | null;
+            raw_payload_summary?: components["schemas"]["GeoRawPayloadSummary"];
+            /** Raw Payload File Id */
+            raw_payload_file_id?: string | null;
+            /** Screenshot File Id */
+            screenshot_file_id?: string | null;
+            /** Citations */
+            citations?: components["schemas"]["GeoManualCitationInput"][];
+            /**
+             * Collected At
+             * Format: date-time
+             */
+            collected_at: string;
+            /** Expected Draft Revision */
+            expected_draft_revision: number;
+        };
+        /** GeoManualDraftOut */
+        GeoManualDraftOut: {
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /** Draft Revision */
+            draft_revision: number;
+            draft: components["schemas"]["GeoManualObservationDraft"];
+            /**
+             * Updated By
+             * Format: uuid
+             */
+            updated_by: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** GeoManualEntryContext */
+        GeoManualEntryContext: {
+            workflow_stage: components["schemas"]["GeoRunWorkflowStage"];
+            primary_task: components["schemas"]["GeoRunPrimaryTask"];
+            /** Available Actions */
+            available_actions: components["schemas"]["GeoRunAction"][];
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /**
+             * Batch Id
+             * Format: uuid
+             */
+            batch_id: string;
+            /** Run Revision */
+            run_revision: number;
+            input_snapshot: components["schemas"]["GeoRunInputSnapshot"];
+            /** Require Screenshot */
+            require_screenshot: boolean;
+            /** Draft Revision */
+            draft_revision: number;
+            draft: components["schemas"]["GeoManualDraftOut"] | null;
+            /** Collection Blockers */
+            collection_blockers: components["schemas"]["GeoProfileActivationBlocker"][];
+        };
+        /**
+         * GeoManualObservationSubmitted
+         * @description 首次提交的稳定回执；不代表当前 Run 状态或已经执行分析。
+         */
+        GeoManualObservationSubmitted: {
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /**
+             * Answer Snapshot Id
+             * Format: uuid
+             */
+            answer_snapshot_id: string;
+            /** Answer Sha256 */
+            answer_sha256: string;
+            /** Run Revision */
+            run_revision: number;
+            /** Draft Revision */
+            draft_revision: number;
+            /**
+             * Collected At
+             * Format: date-time
+             */
+            collected_at: string;
+            /**
+             * Submitted At
+             * Format: date-time
+             */
+            submitted_at: string;
+            /**
+             * Collection Status
+             * @constant
+             */
+            collection_status: "COLLECTED";
+            /**
+             * Analysis Dispatch
+             * @constant
+             */
+            analysis_dispatch: "NOT_IMPLEMENTED";
+        };
+        /** GeoBatchListItem */
+        GeoBatchListItem: {
+            status: components["schemas"]["GeoBatchStatus"];
+            workflow_stage: components["schemas"]["GeoBatchWorkflowStage"];
+            primary_task: components["schemas"]["GeoBatchPrimaryTask"];
+            /** Available Actions */
+            available_actions: components["schemas"]["GeoBatchAction"][];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Plan Id */
+            plan_id: string | null;
+            /** Plan Name */
+            plan_name: string;
+            /** Plan Revision */
+            plan_revision: number | null;
+            trigger_type: components["schemas"]["GeoBatchTriggerType"];
+            /** Revision */
+            revision: number;
+            /** Created By */
+            created_by: string | null;
+            /** Scheduled For */
+            scheduled_for: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Started At */
+            started_at: string | null;
+            /** Finished At */
+            finished_at: string | null;
+            summary: components["schemas"]["GeoBatchSummary"];
+        };
+        /** GeoBatchSummary */
+        GeoBatchSummary: {
+            /** Requested Run Count */
+            requested_run_count: number;
+            /** Attempt Count */
+            attempt_count: number;
+            status_counts: components["schemas"]["GeoRunStatusCounts"];
+            /** Pending Manual Count */
+            pending_manual_count: number;
+            cost: components["schemas"]["GeoRunCostSummary"];
+        };
+        /** GeoRunCostSummary */
+        GeoRunCostSummary: {
+            /** Known Attempt Count */
+            known_attempt_count: number;
+            /** Unknown Attempt Count */
+            unknown_attempt_count: number;
+            /** Known Costs */
+            known_costs: components["schemas"]["GeoKnownCostTotal"][];
+        };
+        /** GeoRunStatusCounts */
+        GeoRunStatusCounts: {
+            /** Pending */
+            pending: number;
+            /** Running */
+            running: number;
+            /** Collected */
+            collected: number;
+            /** Analyzing */
+            analyzing: number;
+            /** Needs Review */
+            needs_review: number;
+            /** Completed */
+            completed: number;
+            /** Failed */
+            failed: number;
+            /** Cancelled */
+            cancelled: number;
+            /** Budget Blocked */
+            budget_blocked: number;
+        };
+        /** GeoBatchListPage */
+        GeoBatchListPage: {
+            /** Items */
+            items: components["schemas"]["GeoBatchListItem"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /**
+             * Page Size
+             * @enum {integer}
+             */
+            page_size: 10 | 20 | 50;
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+        };
+        /** GeoBatchDetail */
+        GeoBatchDetail: {
+            batch: components["schemas"]["GeoObservationBatchOut"];
+            summary: components["schemas"]["GeoBatchSummary"];
+            workflow: components["schemas"]["GeoBatchWorkflowProjection"];
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+        };
+        /** GeoRunListItem */
+        GeoRunListItem: {
+            workflow_stage: components["schemas"]["GeoRunWorkflowStage"];
+            primary_task: components["schemas"]["GeoRunPrimaryTask"];
+            /** Available Actions */
+            available_actions: components["schemas"]["GeoRunAction"][];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Batch Id
+             * Format: uuid
+             */
+            batch_id: string;
+            /**
+             * Prompt Variant Id
+             * Format: uuid
+             */
+            prompt_variant_id: string;
+            /**
+             * Collection Profile Id
+             * Format: uuid
+             */
+            collection_profile_id: string;
+            /** Run Cell Key */
+            run_cell_key: string;
+            /** Repeat Index */
+            repeat_index: number;
+            /** Attempt No */
+            attempt_no: number;
+            /** Previous Attempt Id */
+            previous_attempt_id: string | null;
+            status: components["schemas"]["GeoRunStatus"];
+            /** Revision */
+            revision: number;
+            input_snapshot: components["schemas"]["GeoRunInputSnapshot"];
+            external_call_state: components["schemas"]["GeoExternalCallState"];
+            /** Lease Expires At */
+            lease_expires_at: string | null;
+            /** Dispatch Attempt Count */
+            dispatch_attempt_count: number;
+            /** Last Dispatch Attempt At */
+            last_dispatch_attempt_at: string | null;
+            error_stage: components["schemas"]["GeoRunErrorStage"] | null;
+            error_code: components["schemas"]["GeoRunErrorCode"] | null;
+            /** Error Summary */
+            error_summary: string | null;
+            /** Provider Status */
+            provider_status: number | null;
+            /** Retry After Seconds */
+            retry_after_seconds: number | null;
+            /** Provider Request Id */
+            provider_request_id: string | null;
+            /** Duration Ms */
+            duration_ms: number | null;
+            /** Cost Amount */
+            cost_amount: string | null;
+            /** Cost Currency */
+            cost_currency: string | null;
+            /** Prompt Tokens */
+            prompt_tokens: number | null;
+            /** Completion Tokens */
+            completion_tokens: number | null;
+            /** Total Tokens */
+            total_tokens: number | null;
+            /** Started At */
+            started_at: string | null;
+            /** Collected At */
+            collected_at: string | null;
+            /** Finished At */
+            finished_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Answer Snapshot Id */
+            answer_snapshot_id: string | null;
+            /** Collection Eligible */
+            collection_eligible: boolean;
+            /** Collection Blockers */
+            collection_blockers: components["schemas"]["GeoProfileActivationBlocker"][];
+            /** Frozen Binding Matches */
+            frozen_binding_matches: boolean;
+            /** Is Latest Attempt */
+            is_latest_attempt: boolean;
+        };
+        /** GeoRunListPage */
+        GeoRunListPage: {
+            /** Items */
+            items: components["schemas"]["GeoRunListItem"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /**
+             * Page Size
+             * @enum {integer}
+             */
+            page_size: 10 | 20 | 50;
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+        };
+        /** GeoRunAttemptSummary */
+        GeoRunAttemptSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Attempt No */
+            attempt_no: number;
+            /** Previous Attempt Id */
+            previous_attempt_id: string | null;
+            status: components["schemas"]["GeoRunStatus"];
+            error_stage: components["schemas"]["GeoRunErrorStage"] | null;
+            error_code: components["schemas"]["GeoRunErrorCode"] | null;
+            /** Error Summary */
+            error_summary: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Started At */
+            started_at: string | null;
+            /** Collected At */
+            collected_at: string | null;
+            /** Finished At */
+            finished_at: string | null;
+        };
+        /** GeoRunDataQuality */
+        GeoRunDataQuality: {
+            /**
+             * Assessment
+             * @constant
+             */
+            assessment: "NOT_IMPLEMENTED";
+            /** Metric Eligible */
+            metric_eligible: false | null;
+            /**
+             * Reason Code
+             * @enum {string}
+             */
+            reason_code: "METRIC_ELIGIBILITY_NOT_IMPLEMENTED" | "GEO_REVIEW_REQUIRED";
+            /** Unavailable Sections */
+            unavailable_sections: ("ANALYSIS" | "REVIEW" | "METRICS" | "OPPORTUNITIES" | "RETEST")[];
+        };
+        /** GeoRunEvidenceFile */
+        GeoRunEvidenceFile: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "SCREENSHOT" | "RAW_PAYLOAD";
+            /** Content Type */
+            content_type: string;
+            /** Size */
+            size: number;
+            /** Sha256 */
+            sha256: string;
+            /**
+             * Access Level
+             * @enum {string}
+             */
+            access_level: "INTERNAL" | "RESTRICTED";
+            download: components["schemas"]["SignedUrl"];
+        };
+        /** GeoRunTimelineEvent */
+        GeoRunTimelineEvent: {
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /** Attempt No */
+            attempt_no: number;
+            /**
+             * Event
+             * @enum {string}
+             */
+            event: "CREATED" | "STARTED" | "COLLECTED" | "FINISHED";
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+        };
+        /** GeoRunDetail */
+        GeoRunDetail: {
+            run: components["schemas"]["GeoRunListItem"];
+            batch: components["schemas"]["GeoBatchListItem"];
+            answer: components["schemas"]["GeoAnswerSnapshotOut"] | null;
+            /** Citations */
+            citations: components["schemas"]["GeoAnswerCitationOut"][];
+            /** Evidence Files */
+            evidence_files: components["schemas"]["GeoRunEvidenceFile"][];
+            /** Attempts */
+            attempts: components["schemas"]["GeoRunAttemptSummary"][];
+            /** Timeline */
+            timeline: components["schemas"]["GeoRunTimelineEvent"][];
+            data_quality: components["schemas"]["GeoRunDataQuality"];
+            analysis: components["schemas"]["GeoRunAnalysisDetail"];
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+        };
+        /** GeoRunRetryRequest */
+        GeoRunRetryRequest: {
+            /** Expected Revision */
+            expected_revision: number;
+        };
+        /** GeoRunRetryCreated */
+        GeoRunRetryCreated: {
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /**
+             * Batch Id
+             * Format: uuid
+             */
+            batch_id: string;
+            /**
+             * Previous Attempt Id
+             * Format: uuid
+             */
+            previous_attempt_id: string;
+            /** Attempt No */
+            attempt_no: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** GeoAnalysisConfidenceSummary */
+        GeoAnalysisConfidenceSummary: {
+            /** Mentions */
+            mentions: number | null;
+            /** Recommendations */
+            recommendations: number | null;
+            /** Claims */
+            claims: number | null;
+        };
+        /**
+         * GeoAnalysisConfiguration
+         * @description 仅非敏感的模型/模板身份和受控参数，不保存 prompt 正文或请求头。
+         */
+        GeoAnalysisConfiguration: {
+            /** Rule Set Version */
+            rule_set_version: string;
+            /** Model Name */
+            model_name: string | null;
+            /** Model Version */
+            model_version: string | null;
+            /** Prompt Template Version */
+            prompt_template_version: string | null;
+            /** Prompt Sha256 */
+            prompt_sha256: string | null;
+            parameters: components["schemas"]["GeoAnalysisParameters"];
+        } & ({
+            model_name?: null;
+            model_version?: null;
+            prompt_template_version?: null;
+            prompt_sha256?: null;
+            parameters?: {
+                temperature?: null;
+                top_p?: null;
+                max_output_tokens?: null;
+                seed?: null;
+            };
+        } | {
+            model_name?: string;
+            model_version?: string;
+            prompt_template_version?: string;
+            prompt_sha256?: string;
+        });
+        /** GeoAnalysisFactBinding */
+        GeoAnalysisFactBinding: {
+            /**
+             * Subject Id
+             * Format: uuid
+             */
+            subject_id: string;
+            /**
+             * Fact Version Id
+             * Format: uuid
+             */
+            fact_version_id: string;
+        };
+        /** GeoAnalysisInputSnapshot */
+        GeoAnalysisInputSnapshot: {
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: 1;
+            /** Answer Sha256 */
+            answer_sha256: string;
+            /** Subjects */
+            subjects: components["schemas"]["GeoRunSubjectSnapshot"][];
+            /** Fact Versions */
+            fact_versions: components["schemas"]["GeoAnalysisFactBinding"][];
+            configuration: components["schemas"]["GeoAnalysisConfiguration"];
+        };
+        /** GeoAnalysisParameters */
+        GeoAnalysisParameters: {
+            /** Temperature */
+            temperature: number | null;
+            /** Top P */
+            top_p: number | null;
+            /** Max Output Tokens */
+            max_output_tokens: number | null;
+            /** Seed */
+            seed: number | null;
+        };
+        /**
+         * GeoAnalysisStatus
+         * @enum {string}
+         */
+        GeoAnalysisStatus: "PENDING" | "COMPLETED" | "FAILED";
+        /**
+         * GeoAnalyzerType
+         * @enum {string}
+         */
+        GeoAnalyzerType: "DETERMINISTIC" | "HYBRID" | "EXTERNAL_MODEL";
+        /** GeoAnalysisRevisionOut */
+        GeoAnalysisRevisionOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /**
+             * Answer Snapshot Id
+             * Format: uuid
+             */
+            answer_snapshot_id: string;
+            /** Revision */
+            revision: number;
+            status: components["schemas"]["GeoAnalysisStatus"];
+            analyzer_type: components["schemas"]["GeoAnalyzerType"];
+            /** Analyzer Version */
+            analyzer_version: string;
+            input_snapshot: components["schemas"]["GeoAnalysisInputSnapshot"];
+            /** Input Sha256 */
+            input_sha256: string;
+            confidence_summary: components["schemas"]["GeoAnalysisConfidenceSummary"] | null;
+            /** Review Required Reasons */
+            review_required_reasons: string[];
+            /** Error Code */
+            error_code: "ANALYSIS_FAILED" | null;
+            /** Error Summary */
+            error_summary: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Finished At */
+            finished_at: string | null;
+        } & (unknown & unknown & unknown & unknown);
+        /** GeoEntityMentionOut */
+        GeoEntityMentionOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Analysis Revision Id
+             * Format: uuid
+             */
+            analysis_revision_id: string;
+            /**
+             * Subject Id
+             * Format: uuid
+             */
+            subject_id: string;
+            /** Mention Count */
+            mention_count: number;
+            /** First Character Offset */
+            first_character_offset: number | null;
+            /** Matched Aliases */
+            matched_aliases: string[];
+            /** Confidence */
+            confidence: number | null;
+        };
+        /**
+         * GeoRecommendationKind
+         * @enum {string}
+         */
+        GeoRecommendationKind: "RECOMMENDED" | "CONSIDERED" | "NOT_RECOMMENDED" | "UNKNOWN";
+        /** GeoRecommendationOut */
+        GeoRecommendationOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Analysis Revision Id
+             * Format: uuid
+             */
+            analysis_revision_id: string;
+            /**
+             * Subject Id
+             * Format: uuid
+             */
+            subject_id: string;
+            recommendation: components["schemas"]["GeoRecommendationKind"];
+            /** Rank */
+            rank: number | null;
+            /** Rationale Excerpt */
+            rationale_excerpt: string | null;
+            /** Confidence */
+            confidence: number | null;
+        };
+        /**
+         * GeoClaimKind
+         * @enum {string}
+         */
+        GeoClaimKind: "IDENTITY" | "PARAMETER" | "PACKAGE" | "TEMPERATURE_GRADE" | "CERTIFICATION" | "LIFECYCLE_STATUS" | "APPLICATION" | "REPLACEMENT_RELATION" | "COMPATIBILITY_CONDITION" | "OTHER";
+        /**
+         * GeoClaimSeverity
+         * @enum {string}
+         */
+        GeoClaimSeverity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+        /**
+         * GeoClaimVerdict
+         * @enum {string}
+         */
+        GeoClaimVerdict: "ACCURATE" | "PARTIAL" | "INCORRECT" | "UNJUDGEABLE";
+        /** GeoClaimAssessmentOut */
+        GeoClaimAssessmentOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Analysis Revision Id
+             * Format: uuid
+             */
+            analysis_revision_id: string;
+            /**
+             * Subject Id
+             * Format: uuid
+             */
+            subject_id: string;
+            /** Fact Version Id */
+            fact_version_id: string | null;
+            claim_kind: components["schemas"]["GeoClaimKind"];
+            /** Claim Text */
+            claim_text: string;
+            /** Claim Sha256 */
+            claim_sha256: string;
+            verdict: components["schemas"]["GeoClaimVerdict"];
+            severity: components["schemas"]["GeoClaimSeverity"];
+            /** Fact Excerpt */
+            fact_excerpt: string | null;
+            /** Explanation */
+            explanation: string;
+            /** Confidence */
+            confidence: number | null;
+        };
+        /** GeoCitationCorrection */
+        GeoCitationCorrection: {
+            /**
+             * Citation Id
+             * Format: uuid
+             */
+            citation_id: string;
+            source_category: components["schemas"]["GeoSourceCategory"];
+            /** Subject Id */
+            subject_id: string | null;
+        };
+        /** GeoClaimCorrection */
+        GeoClaimCorrection: {
+            /**
+             * Claim Assessment Id
+             * Format: uuid
+             */
+            claim_assessment_id: string;
+            verdict: components["schemas"]["GeoClaimVerdict"];
+            severity: components["schemas"]["GeoClaimSeverity"];
+            /** Explanation */
+            explanation: string;
+        };
+        /** GeoMentionCorrection */
+        GeoMentionCorrection: {
+            /**
+             * Subject Id
+             * Format: uuid
+             */
+            subject_id: string;
+            /** Mention Count */
+            mention_count: number;
+            /** First Character Offset */
+            first_character_offset: number | null;
+            /** Matched Aliases */
+            matched_aliases: string[];
+        };
+        /** GeoRecommendationCorrection */
+        GeoRecommendationCorrection: {
+            /**
+             * Subject Id
+             * Format: uuid
+             */
+            subject_id: string;
+            recommendation: components["schemas"]["GeoRecommendationKind"];
+            /** Rank */
+            rank: number | null;
+            /** Rationale Excerpt */
+            rationale_excerpt: string | null;
+        };
+        /** GeoReviewCorrectionPayload */
+        GeoReviewCorrectionPayload: {
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: 1;
+            /** Mentions */
+            mentions: components["schemas"]["GeoMentionCorrection"][];
+            /** Recommendations */
+            recommendations: components["schemas"]["GeoRecommendationCorrection"][];
+            /** Claims */
+            claims: components["schemas"]["GeoClaimCorrection"][];
+            /** Citations */
+            citations: components["schemas"]["GeoCitationCorrection"][];
+        } | {
+            mentions?: unknown;
+        } | {
+            recommendations?: unknown;
+        } | {
+            claims?: unknown;
+        } | {
+            citations?: unknown;
+        };
+        /**
+         * GeoReviewDecision
+         * @enum {string}
+         */
+        GeoReviewDecision: "CONFIRMED" | "CORRECTED";
+        /**
+         * GeoSourceCategory
+         * @enum {string}
+         */
+        GeoSourceCategory: "OWNED" | "COMPETITOR" | "INDUSTRY_MEDIA" | "DISTRIBUTOR" | "COMMUNITY" | "SOCIAL" | "SEARCH_ENGINE" | "ACADEMIC_OR_INSTITUTIONAL" | "OTHER" | "UNKNOWN";
+        /** GeoRunReviewOut */
+        GeoRunReviewOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /**
+             * Analysis Revision Id
+             * Format: uuid
+             */
+            analysis_revision_id: string;
+            decision: components["schemas"]["GeoReviewDecision"];
+            correction_payload: components["schemas"]["GeoReviewCorrectionPayload"] | null;
+            /** Comment */
+            comment: string;
+            /**
+             * Reviewer Id
+             * Format: uuid
+             */
+            reviewer_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * GeoAnalysisSelection
+         * @description 选择规则组件；后续查询服务负责一致读，历史 review 不伪装有效。
+         */
+        GeoAnalysisSelection: {
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /** Current Analysis Revision Id */
+            current_analysis_revision_id: string | null;
+            /** Current Review Id */
+            current_review_id: string | null;
+        };
+        /** GeoAnalysisResult */
+        GeoAnalysisResult: {
+            analysis: components["schemas"]["GeoAnalysisRevisionOut"];
+            /** Mentions */
+            mentions: components["schemas"]["GeoEntityMentionOut"][];
+            /** Recommendations */
+            recommendations: components["schemas"]["GeoRecommendationOut"][];
+            /** Claims */
+            claims: components["schemas"]["GeoClaimAssessmentOut"][];
+            /** Citations */
+            citations: components["schemas"]["GeoCitationClassificationOut"][];
+            /** Citation Classification Complete */
+            citation_classification_complete: boolean;
+        };
+        /** GeoCitationClassificationOut */
+        GeoCitationClassificationOut: {
+            /**
+             * Analysis Revision Id
+             * Format: uuid
+             */
+            analysis_revision_id: string;
+            /**
+             * Citation Id
+             * Format: uuid
+             */
+            citation_id: string;
+            source_category: components["schemas"]["GeoSourceCategory"];
+            /** Subject Id */
+            subject_id: string | null;
+        };
+        /** GeoReviewHistoryItem */
+        GeoReviewHistoryItem: {
+            review: components["schemas"]["GeoRunReviewOut"];
+            /** Is Current */
+            is_current: boolean;
+        };
+        /**
+         * GeoReviewedResults
+         * @description 不借用机器行身份表示新增/移除的人工提及。
+         */
+        GeoReviewedResults: {
+            /** Mentions */
+            mentions: components["schemas"]["GeoMentionCorrection"][];
+            /** Recommendations */
+            recommendations: components["schemas"]["GeoRecommendationCorrection"][];
+            /** Claims */
+            claims: components["schemas"]["GeoClaimAssessmentOut"][];
+            /** Citations */
+            citations: components["schemas"]["GeoCitationClassificationOut"][];
+            /** Citation Classification Complete */
+            citation_classification_complete: boolean;
+        };
+        /** GeoRunAnalysisDetail */
+        GeoRunAnalysisDetail: {
+            selection: components["schemas"]["GeoAnalysisSelection"];
+            /** Revisions */
+            revisions: components["schemas"]["GeoAnalysisResult"][];
+            /** Reviews */
+            reviews: components["schemas"]["GeoReviewHistoryItem"][];
+            effective_results: components["schemas"]["GeoReviewedResults"] | null;
+            /** Review Required */
+            review_required: boolean;
+            /** Review Gate Passed */
+            review_gate_passed: boolean;
+            /** Available Actions */
+            available_actions: "REVIEW"[];
+        };
+        /** GeoRunReviewRequest */
+        GeoRunReviewRequest: {
+            /**
+             * Analysis Revision Id
+             * Format: uuid
+             */
+            analysis_revision_id: string;
+            /** Expected Run Revision */
+            expected_run_revision: number;
+            decision: components["schemas"]["GeoReviewDecision"];
+            correction_payload: components["schemas"]["GeoReviewCorrectionPayload"] | null;
+            /** Comment */
+            comment: string;
+        };
+        /** GeoRunReviewCreated */
+        GeoRunReviewCreated: {
+            review: components["schemas"]["GeoRunReviewOut"];
+            /** Run Revision */
+            run_revision: number;
+        };
+        /** GeoOverview */
+        GeoOverview: {
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            filters: components["schemas"]["GeoOverviewFilters"];
+            /** Cards */
+            cards: components["schemas"]["GeoOverviewCard"][];
+            /** Metric Cells */
+            metric_cells: components["schemas"]["GeoOverviewCell"][];
+            /** Key Products */
+            key_products: components["schemas"]["GeoOverviewCell"][];
+            /** Risks */
+            risks: components["schemas"]["GeoOverviewRisk"][];
+            /** Recent Batches */
+            recent_batches: components["schemas"]["GeoOverviewBatch"][];
+            open_opportunities: components["schemas"]["GeoOverviewOpportunityPlaceholder"];
+            data_quality: components["schemas"]["GeoOverviewDataQuality"];
+            /** Unavailable Sections */
+            unavailable_sections: ("TRENDS" | "COMPETITOR_SOV" | "INSIGHT_DETAILS" | "OPPORTUNITIES")[];
+        };
+        /** GeoOverviewBatch */
+        GeoOverviewBatch: {
+            /**
+             * Batch Id
+             * Format: uuid
+             */
+            batch_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Candidate Run Count */
+            candidate_run_count: number;
+            /** Status Counts */
+            status_counts: {
+                [key: string]: number;
+            };
+            drilldown: components["schemas"]["GeoOverviewDrilldown"];
+        };
+        /** GeoOverviewCard */
+        GeoOverviewCard: {
+            /**
+             * Metric Code
+             * @enum {string}
+             */
+            metric_code: "answer_coverage" | "natural_visibility" | "product_mention" | "recommendation_rate" | "top_recommendation_rate" | "owned_source_coverage" | "accurate_claim_rate" | "severe_error_run_rate" | "eligible_runs" | "run_success_rate" | "analysis_run_coverage" | "review_backlog" | "evidence_completeness" | "cost_coverage" | "model_version_coverage";
+            /** Formula Version */
+            formula_version: string;
+            /** Value */
+            value: number | null;
+            /** Numerator */
+            numerator: number;
+            /** Denominator */
+            denominator: number;
+            sample_level: components["schemas"]["SampleLevel"];
+            /** Eligible Run Count */
+            eligible_run_count: number;
+            /** Excluded Run Count */
+            excluded_run_count: number;
+            /** Exclusion Reason Counts */
+            exclusion_reason_counts: components["schemas"]["GeoOverviewExclusion"][];
+            /** Unjudgeable Claim Count */
+            unjudgeable_claim_count: number;
+            /** Unavailable Reason */
+            unavailable_reason: "NO_DENOMINATOR" | null;
+            drilldown: components["schemas"]["GeoOverviewDrilldown"];
+        };
+        /** GeoOverviewCell */
+        GeoOverviewCell: {
+            /** Cell Key */
+            cell_key: string;
+            /**
+             * Subject Id
+             * Format: uuid
+             */
+            subject_id: string;
+            /** Product Id */
+            product_id: string | null;
+            /** Display Name */
+            display_name: string;
+            dimensions: components["schemas"]["GeoOverviewDimensions"];
+            /** Cards */
+            cards: components["schemas"]["GeoOverviewCard"][];
+        };
+        /** GeoOverviewDataQuality */
+        GeoOverviewDataQuality: {
+            /** Candidate Run Count */
+            candidate_run_count: number;
+            /** Eligible Run Count */
+            eligible_run_count: number;
+            /** Excluded Run Count */
+            excluded_run_count: number;
+            /** Exclusion Reason Counts */
+            exclusion_reason_counts: components["schemas"]["GeoOverviewExclusion"][];
+            /** Status Counts */
+            status_counts: {
+                [key: string]: number;
+            };
+            /** Dimension Count */
+            dimension_count: number;
+            /** Cards */
+            cards: components["schemas"]["GeoOverviewCard"][];
+        };
+        /** GeoOverviewDimensions */
+        GeoOverviewDimensions: {
+            /**
+             * Query Topic Id
+             * Format: uuid
+             */
+            query_topic_id: string;
+            /** Query Topic Revision */
+            query_topic_revision: number;
+            /**
+             * Prompt Variant Id
+             * Format: uuid
+             */
+            prompt_variant_id: string;
+            /** Prompt Revision */
+            prompt_revision: number;
+            /**
+             * Collection Profile Id
+             * Format: uuid
+             */
+            collection_profile_id: string;
+            /** Profile Revision */
+            profile_revision: number;
+            /**
+             * Engine Surface Id
+             * Format: uuid
+             */
+            engine_surface_id: string;
+            /** Surface Revision */
+            surface_revision: number;
+            collection_mode: components["schemas"]["GeoCollectionMode"];
+            /** Language Code */
+            language_code: string;
+            /** Region Code */
+            region_code: string;
+            login_state: components["schemas"]["GeoProfileLoginState"];
+            mention_mode: components["schemas"]["GeoPromptMentionMode"];
+            intent_type: components["schemas"]["IntentType"];
+            /** Source Model */
+            source_model: string | null;
+            /** Source Product */
+            source_product: string | null;
+            /** Model Version */
+            model_version: string | null;
+            /** Product Version */
+            product_version: string | null;
+            /** Rule Set Version */
+            rule_set_version: string;
+            /** Analysis Configuration Key */
+            analysis_configuration_key: string;
+            /** Subject Versions */
+            subject_versions: [
+                string,
+                number
+            ][];
+            /** Fact Version Bindings */
+            fact_version_bindings: [
+                string,
+                string
+            ][];
+            /** Window Key */
+            window_key: string;
+        };
+        /** GeoOverviewDrilldown */
+        GeoOverviewDrilldown: {
+            /**
+             * Operation Id
+             * @default listGeoOverviewRuns
+             * @constant
+             */
+            operation_id: "listGeoOverviewRuns";
+            filters: components["schemas"]["GeoOverviewFilters"];
+            /**
+             * Metric Code
+             * @enum {string}
+             */
+            metric_code: "answer_coverage" | "natural_visibility" | "product_mention" | "recommendation_rate" | "top_recommendation_rate" | "owned_source_coverage" | "accurate_claim_rate" | "severe_error_run_rate" | "eligible_runs" | "run_success_rate" | "analysis_run_coverage" | "review_backlog" | "evidence_completeness" | "cost_coverage" | "model_version_coverage";
+            /** Cell Key */
+            cell_key: string | null;
+            /**
+             * Cohort
+             * @enum {string}
+             */
+            cohort: "CANDIDATE" | "DENOMINATOR" | "NUMERATOR" | "EXCLUDED";
+            /** Batch Id */
+            batch_id: string | null;
+        };
+        /** GeoOverviewExclusion */
+        GeoOverviewExclusion: {
+            code: components["schemas"]["MetricExclusion"];
+            /** Run Count */
+            run_count: number;
+        };
+        /** GeoOverviewFilters */
+        GeoOverviewFilters: {
+            /**
+             * Date From
+             * Format: date-time
+             */
+            date_from: string;
+            /**
+             * Date To
+             * Format: date-time
+             */
+            date_to: string;
+            /** Subject Ids */
+            subject_ids?: string[];
+            /** Product Ids */
+            product_ids?: string[];
+            /** Query Topic Ids */
+            query_topic_ids?: string[];
+            /** Prompt Variant Ids */
+            prompt_variant_ids?: string[];
+            /** Engine Surface Ids */
+            engine_surface_ids?: string[];
+            /** Collection Profile Ids */
+            collection_profile_ids?: string[];
+            /** Collection Modes */
+            collection_modes?: components["schemas"]["GeoCollectionMode"][];
+            /** Language Codes */
+            language_codes?: string[];
+            /** Region Codes */
+            region_codes?: string[];
+            /** Login States */
+            login_states?: components["schemas"]["GeoProfileLoginState"][];
+            /** Intent Types */
+            intent_types?: components["schemas"]["IntentType"][];
+            mention_mode?: components["schemas"]["GeoPromptMentionMode"] | null;
+            /**
+             * Review Policy
+             * @default EFFECTIVE
+             * @enum {string}
+             */
+            review_policy: "EFFECTIVE" | "REVIEWED_ONLY";
+        };
+        /** GeoOverviewOpportunityPlaceholder */
+        GeoOverviewOpportunityPlaceholder: {
+            /**
+             * Available
+             * @default false
+             * @constant
+             */
+            available: false;
+            /**
+             * Reason Code
+             * @default NOT_IMPLEMENTED
+             * @constant
+             */
+            reason_code: "NOT_IMPLEMENTED";
+            /** Open Count */
+            open_count?: null;
+            /** Numerator */
+            numerator?: null;
+            /** Denominator */
+            denominator?: null;
+            filters: components["schemas"]["GeoOverviewFilters"];
+        };
+        /** GeoOverviewRisk */
+        GeoOverviewRisk: {
+            /** Cell Key */
+            cell_key: string;
+            /**
+             * Subject Id
+             * Format: uuid
+             */
+            subject_id: string;
+            severe_error: components["schemas"]["GeoOverviewCard"];
+        };
+        /**
+         * MetricExclusion
+         * @enum {string}
+         */
+        MetricExclusion: "RUN_NOT_COMPLETED" | "ANSWER_MISSING_OR_EMPTY" | "CURRENT_ANALYSIS_UNAVAILABLE" | "CURRENT_REVIEW_REQUIRED" | "INTEGRITY_ERROR" | "ADMINISTRATOR_EXCLUDED" | "SUPERSEDED_ATTEMPT" | "DIMENSION_MISMATCH" | "SUBJECT_NOT_APPLICABLE" | "MENTION_MODE_NOT_APPLICABLE" | "INTENT_NOT_APPLICABLE" | "RELIABLE_ORDER_UNAVAILABLE" | "TARGET_RANK_UNAVAILABLE" | "CITATION_OBSERVATION_UNAVAILABLE" | "CITATION_CLASSIFICATION_INCOMPLETE" | "ASSESSABLE_CLAIM_UNAVAILABLE" | "INSUFFICIENT_REPEATS";
+        /**
+         * SampleLevel
+         * @enum {string}
+         */
+        SampleLevel: "NONE" | "OBSERVED" | "REPORTABLE" | "STABLE";
+        /** GeoOverviewRunPage */
+        GeoOverviewRunPage: {
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            filters: components["schemas"]["GeoOverviewSampleFilters"];
+            /** Items */
+            items: components["schemas"]["GeoOverviewRunSample"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+        };
+        /** GeoOverviewRunSample */
+        GeoOverviewRunSample: {
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /**
+             * Batch Id
+             * Format: uuid
+             */
+            batch_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            status: components["schemas"]["GeoRunStatus"];
+            /** Analysis Revision Id */
+            analysis_revision_id: string | null;
+            /** Review Id */
+            review_id: string | null;
+            /** Numerator */
+            numerator: number;
+            /** Denominator */
+            denominator: number;
+            /** Exclusion Reasons */
+            exclusion_reasons: components["schemas"]["MetricExclusion"][];
+        };
+        /** GeoOverviewSampleFilters */
+        GeoOverviewSampleFilters: {
+            /**
+             * Date From
+             * Format: date-time
+             */
+            date_from: string;
+            /**
+             * Date To
+             * Format: date-time
+             */
+            date_to: string;
+            /** Subject Ids */
+            subject_ids?: string[];
+            /** Product Ids */
+            product_ids?: string[];
+            /** Query Topic Ids */
+            query_topic_ids?: string[];
+            /** Prompt Variant Ids */
+            prompt_variant_ids?: string[];
+            /** Engine Surface Ids */
+            engine_surface_ids?: string[];
+            /** Collection Profile Ids */
+            collection_profile_ids?: string[];
+            /** Collection Modes */
+            collection_modes?: components["schemas"]["GeoCollectionMode"][];
+            /** Language Codes */
+            language_codes?: string[];
+            /** Region Codes */
+            region_codes?: string[];
+            /** Login States */
+            login_states?: components["schemas"]["GeoProfileLoginState"][];
+            /** Intent Types */
+            intent_types?: components["schemas"]["IntentType"][];
+            mention_mode?: components["schemas"]["GeoPromptMentionMode"] | null;
+            /**
+             * Review Policy
+             * @default EFFECTIVE
+             * @enum {string}
+             */
+            review_policy: "EFFECTIVE" | "REVIEWED_ONLY";
+            /**
+             * Metric Code
+             * @enum {string}
+             */
+            metric_code: "answer_coverage" | "natural_visibility" | "product_mention" | "recommendation_rate" | "top_recommendation_rate" | "owned_source_coverage" | "accurate_claim_rate" | "severe_error_run_rate" | "eligible_runs" | "run_success_rate" | "analysis_run_coverage" | "review_backlog" | "evidence_completeness" | "cost_coverage" | "model_version_coverage";
+            /** Cell Key */
+            cell_key?: string | null;
+            /**
+             * Cohort
+             * @default DENOMINATOR
+             * @enum {string}
+             */
+            cohort: "CANDIDATE" | "DENOMINATOR" | "NUMERATOR" | "EXCLUDED";
+            /** Batch Id */
+            batch_id?: string | null;
+            /**
+             * Page
+             * @default 1
+             */
+            page: number;
+            /**
+             * Page Size
+             * @default 20
+             * @enum {integer}
+             */
+            page_size: 10 | 20 | 50;
+        };
+        /** GeoAnswerInsightCell */
+        GeoAnswerInsightCell: {
+            /** Cell Key */
+            cell_key: string;
+            /**
+             * Subject Id
+             * Format: uuid
+             */
+            subject_id: string;
+            /** Product Id */
+            product_id: string | null;
+            /** Display Name */
+            display_name: string;
+            /** Selected Subject */
+            selected_subject: boolean;
+            dimensions: components["schemas"]["GeoOverviewDimensions"];
+            /** Sov Subject Ids */
+            sov_subject_ids: string[];
+            /** Metrics */
+            metrics: components["schemas"]["GeoAnswerInsightMetric"][];
+        };
+        /** GeoAnswerInsightDrilldown */
+        GeoAnswerInsightDrilldown: {
+            /**
+             * Operation Id
+             * @default listGeoAnswerInsightRuns
+             * @constant
+             */
+            operation_id: "listGeoAnswerInsightRuns";
+            filters: components["schemas"]["GeoOverviewFilters"];
+            /** Cell Key */
+            cell_key: string;
+            /**
+             * Metric Code
+             * @enum {string}
+             */
+            metric_code: "natural_visibility" | "recommendation_rate" | "accurate_claim_rate" | "mention_sov" | "recommendation_sov" | "owned_source_coverage" | "owned_citation_share" | "partial_claim_rate" | "incorrect_claim_rate" | "severe_error_run_rate";
+            /**
+             * Period
+             * @enum {string}
+             */
+            period: "CURRENT" | "PREVIOUS";
+            /**
+             * Cohort
+             * @enum {string}
+             */
+            cohort: "CANDIDATE" | "DENOMINATOR" | "NUMERATOR" | "EXCLUDED";
+        };
+        /** GeoAnswerInsightMetric */
+        GeoAnswerInsightMetric: {
+            /**
+             * Metric Code
+             * @enum {string}
+             */
+            metric_code: "natural_visibility" | "recommendation_rate" | "accurate_claim_rate" | "mention_sov" | "recommendation_sov" | "owned_source_coverage" | "owned_citation_share" | "partial_claim_rate" | "incorrect_claim_rate" | "severe_error_run_rate";
+            /** Formula Version */
+            formula_version: string;
+            /** Value */
+            value: number | null;
+            /** Numerator */
+            numerator: number;
+            /** Denominator */
+            denominator: number;
+            sample_level: components["schemas"]["SampleLevel"];
+            /** Eligible Run Count */
+            eligible_run_count: number;
+            /** Excluded Run Count */
+            excluded_run_count: number;
+            /** Exclusion Reason Counts */
+            exclusion_reason_counts: components["schemas"]["GeoOverviewExclusion"][];
+            /** Unjudgeable Claim Count */
+            unjudgeable_claim_count: number;
+            /** Unavailable Reason */
+            unavailable_reason: "NO_DENOMINATOR" | null;
+            drilldown: components["schemas"]["GeoAnswerInsightDrilldown"];
+        };
+        /** GeoAnswerInsightTrend */
+        GeoAnswerInsightTrend: {
+            /**
+             * Subject Id
+             * Format: uuid
+             */
+            subject_id: string;
+            /**
+             * Prompt Variant Id
+             * Format: uuid
+             */
+            prompt_variant_id: string;
+            /**
+             * Collection Profile Id
+             * Format: uuid
+             */
+            collection_profile_id: string;
+            /**
+             * Metric Code
+             * @enum {string}
+             */
+            metric_code: "natural_visibility" | "recommendation_rate" | "accurate_claim_rate" | "mention_sov" | "recommendation_sov" | "owned_source_coverage" | "owned_citation_share" | "partial_claim_rate" | "incorrect_claim_rate" | "severe_error_run_rate";
+            /** Current Cell Keys */
+            current_cell_keys: string[];
+            /** Previous Cell Keys */
+            previous_cell_keys: string[];
+            /** Change Points */
+            change_points: number | null;
+            /** Relative Change */
+            relative_change: number | null;
+            /** Minimum Run Count */
+            minimum_run_count: number;
+            /** Unavailable Reasons */
+            unavailable_reasons: ("MISSING_WINDOW" | "MIXED_DIMENSIONS" | "COMPETITOR_SET_CHANGED" | "DIMENSIONS_CHANGED" | "FORMULA_CHANGED" | "NO_DENOMINATOR" | "INSUFFICIENT_SAMPLE")[];
+            /** Changed Dimensions */
+            changed_dimensions: string[];
+            /** Version Warnings */
+            version_warnings: ("MODEL_VERSION_CHANGED" | "MODEL_VERSION_UNKNOWN" | "PRODUCT_VERSION_CHANGED" | "PRODUCT_VERSION_UNKNOWN")[];
+        };
+        /** GeoInsightWindow */
+        GeoInsightWindow: {
+            /**
+             * Date From
+             * Format: date-time
+             */
+            date_from: string;
+            /**
+             * Date To
+             * Format: date-time
+             */
+            date_to: string;
+        };
+        /** GeoPlatformPerformance */
+        GeoPlatformPerformance: {
+            /**
+             * Engine Surface Id
+             * Format: uuid
+             */
+            engine_surface_id: string;
+            /** Cell Keys */
+            cell_keys: string[];
+        };
+        /** GeoQuestionCoverage */
+        GeoQuestionCoverage: {
+            /**
+             * Subject Id
+             * Format: uuid
+             */
+            subject_id: string;
+            /** Stratum Key */
+            stratum_key: string;
+            /** Variant Results */
+            variant_results: components["schemas"]["GeoQuestionVariantCoverage"][];
+            /** Monitored Topic Ids */
+            monitored_topic_ids: string[];
+            /** Eligible Topic Ids */
+            eligible_topic_ids: string[];
+            /** Reached Topic Ids */
+            reached_topic_ids: string[];
+            /** Target Topic Coverage */
+            target_topic_coverage: number | null;
+            /** Positive Topic Coverage */
+            positive_topic_coverage: number | null;
+            /** Numerator */
+            numerator: number;
+            /** Monitored Denominator */
+            monitored_denominator: number;
+            /** Eligible Denominator */
+            eligible_denominator: number;
+            /** Target Rate */
+            target_rate: number;
+            /** Reportable Minimum */
+            reportable_minimum: number;
+            /** Stable Minimum */
+            stable_minimum: number;
+        };
+        /** GeoQuestionVariantCoverage */
+        GeoQuestionVariantCoverage: {
+            /** Cell Key */
+            cell_key: string;
+            /** Classification */
+            classification: ("DATA_INSUFFICIENT" | "NOT_VISIBLE" | "OCCASIONAL" | "STABLE") | null;
+            /** Unavailable Reason */
+            unavailable_reason: ("INSUFFICIENT_SAMPLE" | "INSUFFICIENT_STABLE_SAMPLE") | null;
+            /** Target Reached */
+            target_reached: boolean;
+        };
+        /** GeoAnswerInsights */
+        GeoAnswerInsights: {
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            filters: components["schemas"]["GeoOverviewFilters"];
+            current_window: components["schemas"]["GeoInsightWindow"];
+            previous_window: components["schemas"]["GeoInsightWindow"];
+            /** Current Cells */
+            current_cells: components["schemas"]["GeoAnswerInsightCell"][];
+            /** Previous Cells */
+            previous_cells: components["schemas"]["GeoAnswerInsightCell"][];
+            /** Trends */
+            trends: components["schemas"]["GeoAnswerInsightTrend"][];
+            /** Product Matrix Cell Keys */
+            product_matrix_cell_keys: string[];
+            /** Question Coverage */
+            question_coverage: components["schemas"]["GeoQuestionCoverage"][];
+            /** Platform Performance */
+            platform_performance: components["schemas"]["GeoPlatformPerformance"][];
+            /** Competitor Sov Cell Keys */
+            competitor_sov_cell_keys: string[];
+            /** Citation Insights */
+            citation_insights: components["schemas"]["GeoInsightCitationSummary"][];
+            /** Fact Risks */
+            fact_risks: components["schemas"]["GeoInsightFactRiskSummary"][];
+            data_quality: components["schemas"]["GeoAnswerInsightDataQuality"];
+            /** Unavailable Sections */
+            unavailable_sections: ("CITATION_INSIGHTS" | "FACT_RISKS" | "DATA_QUALITY" | "OPPORTUNITIES")[];
+        };
+        /** GeoAnswerInsightSampleFilters */
+        GeoAnswerInsightSampleFilters: {
+            /**
+             * Date From
+             * Format: date-time
+             */
+            date_from: string;
+            /**
+             * Date To
+             * Format: date-time
+             */
+            date_to: string;
+            /** Subject Ids */
+            subject_ids?: string[];
+            /** Product Ids */
+            product_ids?: string[];
+            /** Query Topic Ids */
+            query_topic_ids?: string[];
+            /** Prompt Variant Ids */
+            prompt_variant_ids?: string[];
+            /** Engine Surface Ids */
+            engine_surface_ids?: string[];
+            /** Collection Profile Ids */
+            collection_profile_ids?: string[];
+            /** Collection Modes */
+            collection_modes?: components["schemas"]["GeoCollectionMode"][];
+            /** Language Codes */
+            language_codes?: string[];
+            /** Region Codes */
+            region_codes?: string[];
+            /** Login States */
+            login_states?: components["schemas"]["GeoProfileLoginState"][];
+            /** Intent Types */
+            intent_types?: components["schemas"]["IntentType"][];
+            mention_mode?: components["schemas"]["GeoPromptMentionMode"] | null;
+            /**
+             * Review Policy
+             * @default EFFECTIVE
+             * @enum {string}
+             */
+            review_policy: "EFFECTIVE" | "REVIEWED_ONLY";
+            /** Cell Key */
+            cell_key: string;
+            /**
+             * Metric Code
+             * @enum {string}
+             */
+            metric_code: "natural_visibility" | "recommendation_rate" | "accurate_claim_rate" | "mention_sov" | "recommendation_sov" | "owned_source_coverage" | "owned_citation_share" | "partial_claim_rate" | "incorrect_claim_rate" | "severe_error_run_rate";
+            /**
+             * Period
+             * @default CURRENT
+             * @enum {string}
+             */
+            period: "CURRENT" | "PREVIOUS";
+            /**
+             * Cohort
+             * @default DENOMINATOR
+             * @enum {string}
+             */
+            cohort: "CANDIDATE" | "DENOMINATOR" | "NUMERATOR" | "EXCLUDED";
+            /**
+             * Page
+             * @default 1
+             */
+            page: number;
+            /**
+             * Page Size
+             * @default 20
+             * @enum {integer}
+             */
+            page_size: 10 | 20 | 50;
+        };
+        /** GeoAnswerInsightRunPage */
+        GeoAnswerInsightRunPage: {
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            filters: components["schemas"]["GeoAnswerInsightSampleFilters"];
+            /** Items */
+            items: components["schemas"]["GeoOverviewRunSample"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+        };
+        /** GeoAnswerInsightDataQuality */
+        GeoAnswerInsightDataQuality: {
+            overview: components["schemas"]["GeoOverviewDataQuality"];
+            /** Shared Domain Run Count */
+            shared_domain_run_count: number;
+            /** Shared Domain Citation Count */
+            shared_domain_citation_count: number;
+            shared_domain_drilldown: components["schemas"]["GeoInsightQualityDrilldown"];
+            excluded_drilldown: components["schemas"]["GeoInsightQualityDrilldown"];
+            /** Known Costs */
+            known_costs: components["schemas"]["GeoInsightCostSummary"][];
+            /** Collection Versions */
+            collection_versions: components["schemas"]["GeoInsightVersionSummary"][];
+            /** Analysis Versions */
+            analysis_versions: components["schemas"]["GeoInsightVersionSummary"][];
+            /** Notes */
+            notes: ("SHARED_DOMAIN" | "REVIEW_BACKLOG" | "COST_UNKNOWN" | "MODEL_VERSION_UNKNOWN" | "MIXED_COLLECTION_VERSIONS" | "MIXED_ANALYSIS_VERSIONS" | "MULTIPLE_DIMENSIONS")[];
+        };
+        /** GeoInsightCitationBucket */
+        GeoInsightCitationBucket: {
+            /** Key */
+            key: string;
+            /** Citation Count */
+            citation_count: number;
+            /** Run Count */
+            run_count: number;
+            /** Coverage Value */
+            coverage_value: number | null;
+            /** Coverage Denominator */
+            coverage_denominator: number;
+            /** Share Value */
+            share_value: number | null;
+            /** Share Denominator */
+            share_denominator: number;
+            /** Query Topic Ids */
+            query_topic_ids: string[];
+            /** Engine Surface Ids */
+            engine_surface_ids: string[];
+            drilldown: components["schemas"]["GeoInsightCitationDrilldown"];
+        };
+        /** GeoInsightCitationDrilldown */
+        GeoInsightCitationDrilldown: {
+            /**
+             * Operation Id
+             * @default listGeoInsightCitations
+             * @constant
+             */
+            operation_id: "listGeoInsightCitations";
+            filters: components["schemas"]["GeoOverviewFilters"];
+            /** Cell Key */
+            cell_key: string;
+            /** Hostname */
+            hostname?: string | null;
+            /** Normalized Url */
+            normalized_url?: string | null;
+            source_category?: components["schemas"]["GeoSourceCategory"] | null;
+        };
+        /** GeoInsightCitationFilters */
+        GeoInsightCitationFilters: {
+            /**
+             * Date From
+             * Format: date-time
+             */
+            date_from: string;
+            /**
+             * Date To
+             * Format: date-time
+             */
+            date_to: string;
+            /** Subject Ids */
+            subject_ids?: string[];
+            /** Product Ids */
+            product_ids?: string[];
+            /** Query Topic Ids */
+            query_topic_ids?: string[];
+            /** Prompt Variant Ids */
+            prompt_variant_ids?: string[];
+            /** Engine Surface Ids */
+            engine_surface_ids?: string[];
+            /** Collection Profile Ids */
+            collection_profile_ids?: string[];
+            /** Collection Modes */
+            collection_modes?: components["schemas"]["GeoCollectionMode"][];
+            /** Language Codes */
+            language_codes?: string[];
+            /** Region Codes */
+            region_codes?: string[];
+            /** Login States */
+            login_states?: components["schemas"]["GeoProfileLoginState"][];
+            /** Intent Types */
+            intent_types?: components["schemas"]["IntentType"][];
+            mention_mode?: components["schemas"]["GeoPromptMentionMode"] | null;
+            /**
+             * Review Policy
+             * @default EFFECTIVE
+             * @enum {string}
+             */
+            review_policy: "EFFECTIVE" | "REVIEWED_ONLY";
+            /** Cell Key */
+            cell_key: string;
+            /** Hostname */
+            hostname?: string | null;
+            /** Normalized Url */
+            normalized_url?: string | null;
+            source_category?: components["schemas"]["GeoSourceCategory"] | null;
+            /**
+             * Page
+             * @default 1
+             */
+            page: number;
+            /**
+             * Page Size
+             * @default 20
+             * @enum {integer}
+             */
+            page_size: 10 | 20 | 50;
+        };
+        /** GeoInsightCitationPage */
+        GeoInsightCitationPage: {
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            filters: components["schemas"]["GeoInsightCitationFilters"];
+            /** Items */
+            items: components["schemas"]["GeoInsightCitationSample"][];
+            /** Total */
+            total: number;
+            /** Run Count */
+            run_count: number;
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+        };
+        /** GeoInsightCitationSample */
+        GeoInsightCitationSample: {
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /**
+             * Batch Id
+             * Format: uuid
+             */
+            batch_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Analysis Revision Id
+             * Format: uuid
+             */
+            analysis_revision_id: string;
+            /** Review Id */
+            review_id: string | null;
+            /**
+             * Citation Id
+             * Format: uuid
+             */
+            citation_id: string;
+            /** Normalized Url */
+            normalized_url: string;
+            /** Hostname */
+            hostname: string;
+            /** Title */
+            title: string | null;
+            /** Occurrences */
+            occurrences: number[];
+            source_category: components["schemas"]["GeoSourceCategory"];
+            /** Attributed Subject Id */
+            attributed_subject_id: string | null;
+            /** Candidate Subject Ids */
+            candidate_subject_ids: string[];
+            /** Shared Domain */
+            shared_domain: boolean;
+        };
+        /** GeoInsightCitationSummary */
+        GeoInsightCitationSummary: {
+            /** Cell Key */
+            cell_key: string;
+            /**
+             * Subject Id
+             * Format: uuid
+             */
+            subject_id: string;
+            /** Citation Count */
+            citation_count: number;
+            /** Domains */
+            domains: components["schemas"]["GeoInsightCitationBucket"][];
+            /** Urls */
+            urls: components["schemas"]["GeoInsightCitationBucket"][];
+            /** Source Categories */
+            source_categories: components["schemas"]["GeoInsightCitationBucket"][];
+            drilldown: components["schemas"]["GeoInsightCitationDrilldown"];
+        };
+        /** GeoInsightClaimDrilldown */
+        GeoInsightClaimDrilldown: {
+            /**
+             * Operation Id
+             * @default listGeoInsightClaims
+             * @constant
+             */
+            operation_id: "listGeoInsightClaims";
+            filters: components["schemas"]["GeoOverviewFilters"];
+            /** Cell Key */
+            cell_key: string;
+            verdict?: components["schemas"]["GeoClaimVerdict"] | null;
+            severity?: components["schemas"]["GeoClaimSeverity"] | null;
+            claim_kind?: components["schemas"]["GeoClaimKind"] | null;
+        };
+        /** GeoInsightClaimFilters */
+        GeoInsightClaimFilters: {
+            /**
+             * Date From
+             * Format: date-time
+             */
+            date_from: string;
+            /**
+             * Date To
+             * Format: date-time
+             */
+            date_to: string;
+            /** Subject Ids */
+            subject_ids?: string[];
+            /** Product Ids */
+            product_ids?: string[];
+            /** Query Topic Ids */
+            query_topic_ids?: string[];
+            /** Prompt Variant Ids */
+            prompt_variant_ids?: string[];
+            /** Engine Surface Ids */
+            engine_surface_ids?: string[];
+            /** Collection Profile Ids */
+            collection_profile_ids?: string[];
+            /** Collection Modes */
+            collection_modes?: components["schemas"]["GeoCollectionMode"][];
+            /** Language Codes */
+            language_codes?: string[];
+            /** Region Codes */
+            region_codes?: string[];
+            /** Login States */
+            login_states?: components["schemas"]["GeoProfileLoginState"][];
+            /** Intent Types */
+            intent_types?: components["schemas"]["IntentType"][];
+            mention_mode?: components["schemas"]["GeoPromptMentionMode"] | null;
+            /**
+             * Review Policy
+             * @default EFFECTIVE
+             * @enum {string}
+             */
+            review_policy: "EFFECTIVE" | "REVIEWED_ONLY";
+            /** Cell Key */
+            cell_key: string;
+            verdict?: components["schemas"]["GeoClaimVerdict"] | null;
+            severity?: components["schemas"]["GeoClaimSeverity"] | null;
+            claim_kind?: components["schemas"]["GeoClaimKind"] | null;
+            /**
+             * Page
+             * @default 1
+             */
+            page: number;
+            /**
+             * Page Size
+             * @default 20
+             * @enum {integer}
+             */
+            page_size: 10 | 20 | 50;
+        };
+        /** GeoInsightClaimGroup */
+        GeoInsightClaimGroup: {
+            claim_kind: components["schemas"]["GeoClaimKind"];
+            verdict: components["schemas"]["GeoClaimVerdict"];
+            severity: components["schemas"]["GeoClaimSeverity"];
+            /** Claim Count */
+            claim_count: number;
+            /** Run Count */
+            run_count: number;
+            drilldown: components["schemas"]["GeoInsightClaimDrilldown"];
+        };
+        /** GeoInsightClaimPage */
+        GeoInsightClaimPage: {
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            filters: components["schemas"]["GeoInsightClaimFilters"];
+            /** Items */
+            items: components["schemas"]["GeoInsightClaimSample"][];
+            /** Total */
+            total: number;
+            /** Run Count */
+            run_count: number;
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+        };
+        /** GeoInsightClaimSample */
+        GeoInsightClaimSample: {
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /**
+             * Batch Id
+             * Format: uuid
+             */
+            batch_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Analysis Revision Id
+             * Format: uuid
+             */
+            analysis_revision_id: string;
+            /** Review Id */
+            review_id: string | null;
+            /**
+             * Claim Assessment Id
+             * Format: uuid
+             */
+            claim_assessment_id: string;
+            /**
+             * Subject Id
+             * Format: uuid
+             */
+            subject_id: string;
+            /** Fact Version Id */
+            fact_version_id: string | null;
+            claim_kind: components["schemas"]["GeoClaimKind"];
+            /** Claim Text */
+            claim_text: string;
+            verdict: components["schemas"]["GeoClaimVerdict"];
+            severity: components["schemas"]["GeoClaimSeverity"];
+            /** Fact Excerpt */
+            fact_excerpt: string | null;
+            /** Explanation */
+            explanation: string;
+        };
+        /** GeoInsightCostSummary */
+        GeoInsightCostSummary: {
+            /** Currency */
+            currency: string;
+            /** Known Run Count */
+            known_run_count: number;
+            /** Total Amount */
+            total_amount: string;
+            /** Average Amount */
+            average_amount: string;
+            drilldown: components["schemas"]["GeoInsightQualityDrilldown"];
+        };
+        /** GeoInsightFactRiskSummary */
+        GeoInsightFactRiskSummary: {
+            /** Cell Key */
+            cell_key: string;
+            /**
+             * Subject Id
+             * Format: uuid
+             */
+            subject_id: string;
+            /** Claim Count */
+            claim_count: number;
+            /** Verdict Counts */
+            verdict_counts: {
+                [key: string]: number;
+            };
+            /** Incorrect Severity Counts */
+            incorrect_severity_counts: {
+                [key: string]: number;
+            };
+            /** Groups */
+            groups: components["schemas"]["GeoInsightClaimGroup"][];
+            drilldown: components["schemas"]["GeoInsightClaimDrilldown"];
+        };
+        /** GeoInsightQualityDrilldown */
+        GeoInsightQualityDrilldown: {
+            /**
+             * Operation Id
+             * @default listGeoInsightQualityRuns
+             * @constant
+             */
+            operation_id: "listGeoInsightQualityRuns";
+            filters: components["schemas"]["GeoOverviewFilters"];
+            /**
+             * Quality Code
+             * @enum {string}
+             */
+            quality_code: "eligible_runs" | "run_success_rate" | "analysis_run_coverage" | "review_backlog" | "evidence_completeness" | "cost_coverage" | "model_version_coverage" | "shared_domain" | "collection_version" | "analysis_version";
+            /**
+             * Cohort
+             * @default CANDIDATE
+             * @enum {string}
+             */
+            cohort: "CANDIDATE" | "DENOMINATOR" | "NUMERATOR" | "EXCLUDED";
+            exclusion_reason?: components["schemas"]["MetricExclusion"] | null;
+            /** Version Key */
+            version_key?: string | null;
+            /** Currency */
+            currency?: string | null;
+        };
+        /** GeoInsightQualityFilters */
+        GeoInsightQualityFilters: {
+            /**
+             * Date From
+             * Format: date-time
+             */
+            date_from: string;
+            /**
+             * Date To
+             * Format: date-time
+             */
+            date_to: string;
+            /** Subject Ids */
+            subject_ids?: string[];
+            /** Product Ids */
+            product_ids?: string[];
+            /** Query Topic Ids */
+            query_topic_ids?: string[];
+            /** Prompt Variant Ids */
+            prompt_variant_ids?: string[];
+            /** Engine Surface Ids */
+            engine_surface_ids?: string[];
+            /** Collection Profile Ids */
+            collection_profile_ids?: string[];
+            /** Collection Modes */
+            collection_modes?: components["schemas"]["GeoCollectionMode"][];
+            /** Language Codes */
+            language_codes?: string[];
+            /** Region Codes */
+            region_codes?: string[];
+            /** Login States */
+            login_states?: components["schemas"]["GeoProfileLoginState"][];
+            /** Intent Types */
+            intent_types?: components["schemas"]["IntentType"][];
+            mention_mode?: components["schemas"]["GeoPromptMentionMode"] | null;
+            /**
+             * Review Policy
+             * @default EFFECTIVE
+             * @enum {string}
+             */
+            review_policy: "EFFECTIVE" | "REVIEWED_ONLY";
+            /**
+             * Quality Code
+             * @default eligible_runs
+             * @enum {string}
+             */
+            quality_code: "eligible_runs" | "run_success_rate" | "analysis_run_coverage" | "review_backlog" | "evidence_completeness" | "cost_coverage" | "model_version_coverage" | "shared_domain" | "collection_version" | "analysis_version";
+            /**
+             * Cohort
+             * @default CANDIDATE
+             * @enum {string}
+             */
+            cohort: "CANDIDATE" | "DENOMINATOR" | "NUMERATOR" | "EXCLUDED";
+            exclusion_reason?: components["schemas"]["MetricExclusion"] | null;
+            /** Version Key */
+            version_key?: string | null;
+            /** Currency */
+            currency?: string | null;
+            /**
+             * Page
+             * @default 1
+             */
+            page: number;
+            /**
+             * Page Size
+             * @default 20
+             * @enum {integer}
+             */
+            page_size: 10 | 20 | 50;
+        };
+        /** GeoInsightQualityPage */
+        GeoInsightQualityPage: {
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            filters: components["schemas"]["GeoInsightQualityFilters"];
+            /** Items */
+            items: components["schemas"]["GeoInsightQualitySample"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+        };
+        /** GeoInsightQualitySample */
+        GeoInsightQualitySample: {
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /**
+             * Batch Id
+             * Format: uuid
+             */
+            batch_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            status: components["schemas"]["GeoRunStatus"];
+            /** Analysis Revision Id */
+            analysis_revision_id: string | null;
+            /** Review Id */
+            review_id: string | null;
+            /** Numerator */
+            numerator: number;
+            /** Denominator */
+            denominator: number;
+            /** Exclusion Reasons */
+            exclusion_reasons: components["schemas"]["MetricExclusion"][];
+            /** Cost Amount */
+            cost_amount: string | null;
+            /** Cost Currency */
+            cost_currency: string | null;
+            /** Source Model */
+            source_model: string | null;
+            /** Source Product */
+            source_product: string | null;
+            /** Source Version */
+            source_version: string | null;
+            /** Analyzer Version */
+            analyzer_version: string | null;
+            /** Rule Set Version */
+            rule_set_version: string | null;
+            /** Analysis Configuration Key */
+            analysis_configuration_key: string | null;
+            /** Review Required */
+            review_required: boolean;
+            /** Current Review Valid */
+            current_review_valid: boolean;
+            /** Shared Domain Citation Ids */
+            shared_domain_citation_ids: string[];
+            /** Review Required Reasons */
+            review_required_reasons: string[];
+        };
+        /** GeoInsightVersionSummary */
+        GeoInsightVersionSummary: {
+            /** Version Key */
+            version_key: string;
+            /** Source Model */
+            source_model: string | null;
+            /** Source Product */
+            source_product: string | null;
+            /** Source Version */
+            source_version: string | null;
+            /** Analyzer Version */
+            analyzer_version: string | null;
+            /** Rule Set Version */
+            rule_set_version: string | null;
+            /** Analysis Configuration Key */
+            analysis_configuration_key: string | null;
+            /** Run Count */
+            run_count: number;
+            drilldown: components["schemas"]["GeoInsightQualityDrilldown"];
+        };
+        /** GeoReportExport */
+        GeoReportExport: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "runs" | "citations" | "claims" | "opportunities";
+            /** Available */
+            available: boolean;
+            /** Unavailable Reason */
+            unavailable_reason: "NOT_IMPLEMENTED" | null;
+        };
+        /** GeoReportFormula */
+        GeoReportFormula: {
+            /** Metric Code */
+            metric_code: ("answer_coverage" | "natural_visibility" | "product_mention" | "recommendation_rate" | "top_recommendation_rate" | "owned_source_coverage" | "accurate_claim_rate" | "severe_error_run_rate" | "eligible_runs" | "run_success_rate" | "analysis_run_coverage" | "review_backlog" | "evidence_completeness" | "cost_coverage" | "model_version_coverage") | ("natural_visibility" | "recommendation_rate" | "accurate_claim_rate" | "mention_sov" | "recommendation_sov" | "owned_source_coverage" | "owned_citation_share" | "partial_claim_rate" | "incorrect_claim_rate" | "severe_error_run_rate");
+            /** Label */
+            label: string;
+            /** Formula Version */
+            formula_version: string;
+            /** Numerator Description */
+            numerator_description: string;
+            /** Denominator Description */
+            denominator_description: string;
+        };
+        /** GeoReportPreview */
+        GeoReportPreview: {
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /**
+             * Source Mode
+             * @default LIVE
+             * @constant
+             */
+            source_mode: "LIVE";
+            filters: components["schemas"]["GeoOverviewFilters"];
+            /** Available */
+            available: boolean;
+            /** Unavailable Reason */
+            unavailable_reason: ("NO_DATA" | "NO_ELIGIBLE_RUNS") | null;
+            insights: components["schemas"]["GeoAnswerInsights"];
+            /** Formulas */
+            formulas: components["schemas"]["GeoReportFormula"][];
+            /** Method Notes */
+            method_notes: string[];
+            /** Exports */
+            exports: components["schemas"]["GeoReportExport"][];
+        };
+        /**
+         * GeoRuleCode
+         * @enum {string}
+         */
+        GeoRuleCode: "VISIBILITY_DROP" | "RECOMMENDATION_DROP" | "COMPETITOR_SURGE" | "TOPIC_COVERAGE_GAP" | "OWN_CITATION_LOST" | "CRITICAL_FACT_ERROR" | "REPEATED_FACT_ERROR" | "UNSTABLE_RESULT" | "DATA_QUALITY_PROBLEM" | "RUN_FAILURE";
+        /** GeoRuleConfiguration */
+        GeoRuleConfiguration: {
+            sample_policy?: components["schemas"]["GeoRuleSamplePolicy"];
+            /**
+             * Visibility Drop Points
+             * @default 0.1
+             */
+            visibility_drop_points: number;
+            /**
+             * Recommendation Drop Points
+             * @default 0.1
+             */
+            recommendation_drop_points: number;
+            /**
+             * Competitor Surge Points
+             * @default 0.15
+             */
+            competitor_surge_points: number;
+            /**
+             * Own Citation Previous Count
+             * @default 2
+             */
+            own_citation_previous_count: number;
+            /**
+             * Repeated Error Minimum Runs
+             * @default 3
+             */
+            repeated_error_minimum_runs: number;
+            /**
+             * Repeated Error Window Days
+             * @default 30
+             */
+            repeated_error_window_days: number;
+            /**
+             * Unstable Minimum Repeats
+             * @default 3
+             */
+            unstable_minimum_repeats: number;
+            /**
+             * Stability Minimum Rate
+             * @default 0.67
+             */
+            stability_minimum_rate: number;
+            /**
+             * Dedup Window Days
+             * @default 30
+             */
+            dedup_window_days: number;
+            /**
+             * Data Quality Minimum Success Rate
+             * @default null
+             */
+            data_quality_minimum_success_rate: number | null;
+            /**
+             * Data Quality Minimum Evidence Rate
+             * @default null
+             */
+            data_quality_minimum_evidence_rate: number | null;
+            /**
+             * Run Failure Consecutive Limit
+             * @default null
+             */
+            run_failure_consecutive_limit: number | null;
+            recovery?: components["schemas"]["GeoRuleRecovery"];
+        };
+        /** GeoRulePreviewRead */
+        GeoRulePreviewRead: {
+            /** Baseline Revision */
+            baseline_revision: number;
+            /** Proposed Revision */
+            proposed_revision: number;
+            /** Changed */
+            changed: boolean;
+            snapshot: components["schemas"]["GeoRuleSnapshot"];
+            current_sample_level: components["schemas"]["SampleLevel"];
+            previous_sample_level: components["schemas"]["SampleLevel"];
+            /** Sample Gates */
+            sample_gates: components["schemas"]["GeoRuleSampleGate"][];
+            /**
+             * Preview Scope
+             * @constant
+             */
+            preview_scope: "CONFIGURATION_AND_SAMPLE_GATES";
+        };
+        /** GeoRulePreviewRequest */
+        GeoRulePreviewRequest: {
+            /** Expected Revision */
+            expected_revision: number;
+            configuration: components["schemas"]["GeoRuleConfiguration"];
+            samples?: components["schemas"]["GeoRulePreviewSamples"];
+        };
+        /** GeoRulePreviewSamples */
+        GeoRulePreviewSamples: {
+            /**
+             * Current Runs
+             * @default 0
+             */
+            current_runs: number;
+            /**
+             * Previous Runs
+             * @default 0
+             */
+            previous_runs: number;
+        };
+        /** GeoRuleRecovery */
+        GeoRuleRecovery: {
+            /**
+             * Minimum Runs
+             * @default 5
+             */
+            minimum_runs: number;
+            /**
+             * Visibility Drop Max Points
+             * @default 0
+             */
+            visibility_drop_max_points: number;
+            /**
+             * Recommendation Drop Max Points
+             * @default 0
+             */
+            recommendation_drop_max_points: number;
+            /**
+             * Competitor Surge Max Points
+             * @default 0
+             */
+            competitor_surge_max_points: number;
+            /**
+             * Topic Visibility Minimum Rate
+             * @default 0.6
+             */
+            topic_visibility_minimum_rate: number;
+            /**
+             * Owned Citation Minimum Count
+             * @default 1
+             */
+            owned_citation_minimum_count: number;
+            /**
+             * Stability Minimum Rate
+             * @default 0.67
+             */
+            stability_minimum_rate: number;
+            /**
+             * Fact Error Max Count
+             * @default 0
+             * @constant
+             */
+            fact_error_max_count: 0;
+            /**
+             * Strict Comparability Required
+             * @default true
+             * @constant
+             */
+            strict_comparability_required: true;
+            /**
+             * Manual Confirmation Required
+             * @default true
+             * @constant
+             */
+            manual_confirmation_required: true;
+        };
+        /** GeoRuleSampleGate */
+        GeoRuleSampleGate: {
+            rule_code: components["schemas"]["GeoRuleCode"];
+            /** Current Minimum */
+            current_minimum: number;
+            /** Previous Minimum */
+            previous_minimum: number;
+            /** Sample Sufficient */
+            sample_sufficient: boolean;
+            /** Threshold Configured */
+            threshold_configured: boolean;
+        };
+        /**
+         * GeoRuleSamplePolicy
+         * @description 必须满足 1 < reportable_minimum < stable_minimum；顺序由服务端权威校验。
+         */
+        GeoRuleSamplePolicy: {
+            /**
+             * Reportable Minimum
+             * @default 3
+             */
+            reportable_minimum: number;
+            /**
+             * Stable Minimum
+             * @default 5
+             */
+            stable_minimum: number;
+        };
+        /** GeoRuleSetRead */
+        GeoRuleSetRead: {
+            /** Revision */
+            revision: number;
+            configuration: components["schemas"]["GeoRuleConfiguration"];
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Updated By */
+            updated_by: string | null;
+            /** Available Actions */
+            available_actions: ("UPDATE" | "PREVIEW")[];
+        };
+        /** GeoRuleSnapshot */
+        GeoRuleSnapshot: {
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: 1;
+            /** Rule Set Revision */
+            rule_set_revision: number;
+            configuration: components["schemas"]["GeoRuleConfiguration"];
+        };
+        /** GeoRuleUpdateRequest */
+        GeoRuleUpdateRequest: {
+            /** Expected Revision */
+            expected_revision: number;
+            configuration: components["schemas"]["GeoRuleConfiguration"];
+        };
+        /**
+         * GeoBatchRuleSnapshotV2
+         * @description 新批次保存完整配置；v1 只用于读取已存在的历史输入。
+         */
+        GeoBatchRuleSnapshotV2: {
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: 2;
+            /** Rule Set Revision */
+            rule_set_revision: number;
+            configuration: components["schemas"]["GeoRuleConfiguration"];
+        };
+        /**
+         * GeoOpportunityPriority
+         * @enum {string}
+         */
+        GeoOpportunityPriority: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+        /** GeoOpportunityScope */
+        GeoOpportunityScope: {
+            /** Subject Id */
+            subject_id: string | null;
+            /** Query Topic Id */
+            query_topic_id: string | null;
+            /** Prompt Variant Id */
+            prompt_variant_id: string | null;
+            /** Collection Profile Id */
+            collection_profile_id: string | null;
+            /** Engine Surface Id */
+            engine_surface_id: string | null;
+            /** Batch Id */
+            batch_id: string | null;
+            /** Environment Key */
+            environment_key: string;
+        };
+        /**
+         * GeoOpportunitySourceRole
+         * @enum {string}
+         */
+        GeoOpportunitySourceRole: "TRIGGER" | "SUPPORTING" | "BASELINE" | "RETEST";
+        /** GeoOpportunitySourceSnapshot */
+        GeoOpportunitySourceSnapshot: {
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /** Analysis Revision Id */
+            analysis_revision_id: string | null;
+            /** Review Id */
+            review_id: string | null;
+            source_role: components["schemas"]["GeoOpportunitySourceRole"];
+        };
+        /** GeoOpportunityTriggerSnapshot */
+        GeoOpportunityTriggerSnapshot: {
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: 1;
+            rule_snapshot: components["schemas"]["GeoRuleSnapshot"];
+            rule_code: components["schemas"]["GeoRuleCode"];
+            scope: components["schemas"]["GeoOpportunityScope"];
+            /**
+             * Source Date From
+             * Format: date-time
+             */
+            source_date_from: string;
+            /**
+             * Source Date To
+             * Format: date-time
+             */
+            source_date_to: string;
+            /** Triggered */
+            triggered: boolean;
+            priority: components["schemas"]["GeoOpportunityPriority"];
+            /** Value */
+            value: number | null;
+            /** Threshold */
+            threshold: number | null;
+            /** Numerator */
+            numerator: number;
+            /** Denominator */
+            denominator: number;
+            /** Unavailable Reasons */
+            unavailable_reasons: string[];
+            /** Sources */
+            sources: components["schemas"]["GeoOpportunitySourceSnapshot"][];
+            /** Details */
+            details: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * GeoOpportunityStatus
+         * @enum {string}
+         */
+        GeoOpportunityStatus: "OPEN" | "ACKNOWLEDGED" | "IN_PROGRESS" | "RESOLVED" | "DISMISSED";
+        /**
+         * GeoOpportunityActionType
+         * @enum {string}
+         */
+        GeoOpportunityActionType: "FACT_REVISION" | "CONTENT_TASK" | "PUBLICATION_REPAIR" | "ADDITIONAL_MONITORING" | "OTHER";
+        /** AIChannelHeaderOut */
+        AIChannelHeaderOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Is Sensitive */
+            is_sensitive: boolean;
+            /** Is Configured */
+            is_configured: boolean;
+            /** Available Actions */
+            available_actions: ("UPDATE" | "DELETE")[];
+            /**
+             * Primary Task
+             * @enum {string}
+             */
+            primary_task: "EDIT_HEADER" | "RECONFIGURE_HEADER";
+        };
+        /** AIChannelOut */
+        AIChannelOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            protocol_type: components["schemas"]["AIProtocolType"];
+            provider_brand: components["schemas"]["AIProviderBrand"];
+            /**
+             * Base Url
+             * Format: uri
+             */
+            base_url: string;
+            /** Timeout Seconds */
+            timeout_seconds: number;
+            /** Is Enabled */
+            is_enabled: boolean;
+            /** Api Key Configured */
+            api_key_configured: boolean;
+            /**
+             * Api Key Updated At
+             * Format: date-time
+             */
+            api_key_updated_at: string;
+            /** Headers */
+            headers: components["schemas"]["AIChannelHeaderOut"][];
+            /** Enabled Models */
+            enabled_models: components["schemas"]["AIChannelModelSummary"][];
+            latest_test_status: components["schemas"]["AIModelTestStatus"];
+            /** Last Tested At */
+            last_tested_at: string | null;
+            /**
+             * Workflow Stage
+             * @enum {string}
+             */
+            workflow_stage: "INCOMPLETE" | "UNVERIFIED" | "READY_TO_ENABLE" | "RUNNING";
+            /**
+             * Primary Task
+             * @enum {string}
+             */
+            primary_task: "COMPLETE_CONFIGURATION" | "TEST_MODEL" | "ENABLE_CHANNEL" | "VIEW_RUNTIME";
+            /** Available Actions */
+            available_actions: ("UPDATE" | "REPLACE_API_KEY" | "ENABLE" | "DISABLE" | "DELETE" | "DISCOVER_MODELS" | "CREATE_HEADER" | "CREATE_MODEL")[];
+            /** Revision */
+            revision: number;
+            /**
+             * Created By
+             * Format: uuid
+             */
+            created_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** AIModelOut */
+        AIModelOut: {
+            /** Display Name */
+            display_name: string;
+            /** Model Id */
+            model_id: string;
+            /** Request Parameters */
+            request_parameters: {
+                [key: string]: unknown;
+            };
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Channel Id
+             * Format: uuid
+             */
+            channel_id: string;
+            /** Is Enabled */
+            is_enabled: boolean;
+            test_status: components["schemas"]["AIModelTestStatus"];
+            /** Last Tested At */
+            last_tested_at?: string | null;
+            /** Last Test Error Summary */
+            last_test_error_summary?: string | null;
+            /**
+             * Workflow Stage
+             * @enum {string}
+             */
+            workflow_stage: "UNTESTED" | "TEST_FAILED" | "READY_TO_ENABLE" | "CHANNEL_DISABLED" | "RUNNING";
+            /**
+             * Primary Task
+             * @enum {string}
+             */
+            primary_task: "TEST_CONNECTION" | "VIEW_FAILURE_AND_RETRY" | "ENABLE_MODEL" | "ENABLE_CHANNEL" | "VIEW_MODEL_RUNTIME";
+            /** Available Actions */
+            available_actions: ("UPDATE" | "TEST" | "ENABLE" | "DISABLE" | "DELETE")[];
+            /** Revision */
+            revision: number;
+            /**
+             * Created By
+             * Format: uuid
+             */
+            created_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** AuditLogOut */
+        AuditLogOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Actor Id */
+            actor_id: string | null;
+            actor: components["schemas"]["AuditActor"] | null;
+            business_module: components["schemas"]["AuditModule"];
+            /** Action */
+            action: string;
+            /** Target Type */
+            target_type: string;
+            /** Target Id */
+            target_id: string | null;
+            outcome: components["schemas"]["AuditOutcome"];
+            /**
+             * Primary Task
+             * @constant
+             */
+            primary_task: "VIEW_LOG_DETAIL";
+            /** Request Id */
+            request_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * ContentHumanizationPromptOut
+         * @description 全局自然化 Prompt 当前配置。
+         */
+        ContentHumanizationPromptOut: {
+            /** Template Markdown */
+            template_markdown: string;
+            /** Available Actions */
+            available_actions: "UPDATE"[];
+            /** Revision */
+            revision: number;
+            /**
+             * Updated By
+             * Format: uuid
+             */
+            updated_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * ContentTaskArchiveStatus
+         * @description 任务列表的归档可见范围。
+         * @enum {string}
+         */
+        ContentTaskArchiveStatus: "ACTIVE" | "ARCHIVED" | "ALL";
+        /** ContentTaskOut */
+        ContentTaskOut: {
+            /**
+             * Product Id
+             * Format: uuid
+             */
+            product_id: string;
+            /**
+             * Fact Version Id
+             * Format: uuid
+             */
+            fact_version_id: string;
+            /** Platform Profile Id */
+            platform_profile_id: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Query Topic Id */
+            query_topic_id: string | null;
+            /** Source Published Content Issue Id */
+            source_published_content_issue_id: string | null;
+            /** Current Content Version Id */
+            current_content_version_id: string | null;
+            /**
+             * Workflow Stage
+             * @enum {string}
+             */
+            workflow_stage: "NO_DRAFT" | "GENERATING" | "GENERATION_FAILED" | "DRAFT" | "REVIEW_PENDING" | "CHANGES_REQUESTED" | "APPROVED" | "PUBLISHING" | "VERIFIED" | "CANCELLED";
+            /**
+             * Primary Task
+             * @enum {string}
+             */
+            primary_task: "CREATE_FIRST_DRAFT" | "VIEW_GENERATION_PROGRESS" | "HANDLE_GENERATION_FAILURE" | "EDIT_AND_SUBMIT_REVIEW" | "REVIEW_CONTENT" | "REVISE_CONTENT" | "START_PUBLICATION" | "CONTINUE_PUBLICATION" | "VIEW_FULL_LINEAGE" | "VIEW_CANCELLATION";
+            /** Available Actions */
+            available_actions: ("CANCEL" | "DELETE" | "ARCHIVE" | "RESTORE" | "PERMANENT_DELETE" | "CREATE_GENERATION_JOB" | "CREATE_MANUAL_VERSION")[];
+            deletion: components["schemas"]["DeletionProjection"] | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "OPEN" | "COMPLETED" | "CANCELLED";
+            /** Revision */
+            revision: number;
+            /**
+             * Created By
+             * Format: uuid
+             */
+            created_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Archived At */
+            archived_at: string | null;
+        };
+        /** ContentVersionOut */
+        ContentVersionOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Task Id
+             * Format: uuid
+             */
+            task_id: string;
+            /**
+             * Fact Version Id
+             * Format: uuid
+             */
+            fact_version_id: string;
+            /** Source Job Id */
+            source_job_id: string | null;
+            /** Based On Id */
+            based_on_id: string | null;
+            /** Version */
+            version: number;
+            /**
+             * Source Type
+             * @enum {string}
+             */
+            source_type: "AI" | "HUMAN";
+            /** Title */
+            title: string;
+            /** Summary */
+            summary: string;
+            /** Body Markdown */
+            body_markdown: string;
+            /** Tags */
+            tags: string[];
+            /** Content Hash */
+            content_hash: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "DRAFT" | "PENDING_REVIEW" | "CHANGES_REQUESTED" | "APPROVED" | "SUPERSEDED" | "ABANDONED";
+            /**
+             * Workflow Stage
+             * @enum {string}
+             */
+            workflow_stage: "CURRENT_DRAFT" | "CURRENT_REVIEW_PENDING" | "CURRENT_CHANGES_REQUESTED" | "CURRENT_APPROVED" | "CURRENT_PUBLISHING" | "PUBLISHED" | "HISTORICAL";
+            /**
+             * Primary Task
+             * @enum {string}
+             */
+            primary_task: "EDIT_AND_SUBMIT_REVIEW" | "REVIEW_CONTENT" | "CREATE_REVISION" | "START_PUBLICATION" | "CONTINUE_PUBLICATION" | "VIEW_PUBLICATION_RESULT" | "VIEW_VERSION_HISTORY";
+            /** Available Actions */
+            available_actions: ("SAVE" | "DELETE" | "CREATE_REVISION" | "CREATE_HUMANIZATION_JOB" | "SUBMIT_REVIEW" | "APPROVE" | "REQUEST_CHANGES" | "ABANDON")[];
+            /** Revision */
+            revision: number;
+            /** Quality Issues */
+            quality_issues: components["schemas"]["QualityIssue"][];
+            /**
+             * Created By
+             * Format: uuid
+             */
+            created_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** FactVersionOut */
+        FactVersionOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Product Id
+             * Format: uuid
+             */
+            product_id: string;
+            /** Version */
+            version: number;
+            status: components["schemas"]["FactVersionStatus"];
+            /** Body Markdown */
+            body_markdown: string;
+            classification: components["schemas"]["Confidentiality"];
+            /** Change Summary */
+            change_summary: string;
+            /**
+             * Primary Task
+             * @enum {string}
+             */
+            primary_task: "REVIEW_FACT" | "CREATE_CONTENT_TASK" | "REVISE_FACT" | "VIEW_FACT_HISTORY";
+            /** Available Actions */
+            available_actions: ("APPROVE" | "REQUEST_CHANGES" | "RETIRE" | "DELETE")[];
+            deletion: components["schemas"]["DeletionProjection"] | null;
+            /** Revision */
+            revision: number;
+            /**
+             * Created By
+             * Format: uuid
+             */
+            created_by: string;
+            /** Approved By */
+            approved_by?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Approved At */
+            approved_at?: string | null;
+        };
+        /** FileRecordOut */
+        FileRecordOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Category
+             * @enum {string}
+             */
+            category: "EVIDENCE" | "OPERATION_SCREENSHOT" | "PUBLICATION_ASSET" | "PLATFORM_LOGO";
+            /** Original Filename */
+            original_filename: string;
+            /** Object Key */
+            object_key: string;
+            /** Content Type */
+            content_type: string;
+            /** Size */
+            size: number;
+            /** Sha256 */
+            sha256: string;
+            access_level: components["schemas"]["Confidentiality"];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "PENDING" | "VERIFIED" | "FAILED" | "ABORTED" | "DELETING" | "DELETED";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Verified At */
+            verified_at?: string | null;
+        };
+        /** GenerationJobOut */
+        GenerationJobOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Content Task Id
+             * Format: uuid
+             */
+            content_task_id: string;
+            /**
+             * Job Type
+             * @enum {string}
+             */
+            job_type: "GENERATE" | "HUMANIZE";
+            /** Source Content Version Id */
+            source_content_version_id: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "PENDING" | "RUNNING" | "SUCCEEDED" | "FAILED";
+            /**
+             * Workflow Stage
+             * @enum {string}
+             */
+            workflow_stage: "IN_PROGRESS" | "SUCCEEDED" | "RETRYABLE_FAILURE" | "HISTORICAL_FAILURE";
+            /**
+             * Primary Task
+             * @enum {string}
+             */
+            primary_task: "VIEW_EXECUTION_PROGRESS" | "VIEW_GENERATED_CONTENT" | "HANDLE_FAILURE" | "VIEW_FAILURE";
+            /** Available Actions */
+            available_actions: "RETRY"[];
+            /** Attempt Count */
+            attempt_count: number;
+            /** Content Version Id */
+            content_version_id?: string | null;
+            /** Retry Of Id */
+            retry_of_id?: string | null;
+            /** Error Code */
+            error_code?: string | null;
+            /** Error Summary */
+            error_summary?: string | null;
+            /** Provider Request Id */
+            provider_request_id?: string | null;
+            /** Response Duration Ms */
+            response_duration_ms?: number | null;
+            /** Prompt Tokens */
+            prompt_tokens?: number | null;
+            /** Completion Tokens */
+            completion_tokens?: number | null;
+            /** Total Tokens */
+            total_tokens?: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Started At */
+            started_at?: string | null;
+            /** Finished At */
+            finished_at?: string | null;
+        };
+        /** GeoArticleResultOut */
+        GeoArticleResultOut: {
+            /**
+             * Published Article Id
+             * Format: uuid
+             */
+            published_article_id: string;
+            /** Discovered */
+            discovered: boolean | null;
+            /** Mentioned */
+            mentioned: boolean | null;
+            /** Accuracy */
+            accuracy: ("ACCURATE" | "PARTIAL" | "INCORRECT" | "UNJUDGEABLE") | null;
+            /** Title */
+            title: string;
+            /** Platform Name */
+            platform_name: string;
+            /**
+             * Final Url
+             * Format: uri
+             */
+            final_url: string;
+        };
+        /**
+         * GeoOpportunityAction
+         * @enum {string}
+         */
+        GeoOpportunityAction: "ACKNOWLEDGE" | "DISMISS" | "RESOLVE" | "CONTINUE";
+        /** GeoOpportunityActionRecord */
+        GeoOpportunityActionRecord: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            action_type: components["schemas"]["GeoOpportunityActionType"];
+            /** Target Type */
+            target_type: string;
+            /**
+             * Target Id
+             * Format: uuid
+             */
+            target_id: string;
+            /** Status Snapshot */
+            status_snapshot: string;
+            /**
+             * Created By
+             * Format: uuid
+             */
+            created_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            source_snapshot?: components["schemas"]["GeoOpportunityActionSourceSnapshot"] | null;
+            /** Navigation Path */
+            navigation_path?: string | null;
+            /** Target Available */
+            target_available?: boolean | null;
+        };
+        /** GeoOpportunityDetail */
+        GeoOpportunityDetail: {
+            opportunity: components["schemas"]["GeoOpportunityListItem"];
+            trigger_snapshot: components["schemas"]["GeoOpportunityTriggerSnapshot"];
+            latest_evaluation: components["schemas"]["GeoOpportunityLinkedEvaluation"] | null;
+            sources: components["schemas"]["GeoOpportunitySourcePage"];
+            /** Actions */
+            actions: components["schemas"]["GeoOpportunityActionRecord"][];
+            /** Available Action Types */
+            available_action_types: components["schemas"]["GeoOpportunityActionType"][];
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+        };
+        /** GeoOpportunityDismissRequest */
+        GeoOpportunityDismissRequest: {
+            /** Expected Revision */
+            expected_revision: number;
+            /** Resolution Code */
+            resolution_code: string;
+            /** Resolution Comment */
+            resolution_comment: string;
+        };
+        /** GeoOpportunityFilterOption */
+        GeoOpportunityFilterOption: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+        };
+        /** GeoOpportunityFilterOptions */
+        GeoOpportunityFilterOptions: {
+            /** Subjects */
+            subjects: components["schemas"]["GeoOpportunityFilterOption"][];
+            /** Products */
+            products: components["schemas"]["GeoOpportunityFilterOption"][];
+            /** Query Topics */
+            query_topics: components["schemas"]["GeoOpportunityFilterOption"][];
+            /** Prompt Variants */
+            prompt_variants: components["schemas"]["GeoOpportunityFilterOption"][];
+            /** Collection Profiles */
+            collection_profiles: components["schemas"]["GeoOpportunityFilterOption"][];
+            /** Engine Surfaces */
+            engine_surfaces: components["schemas"]["GeoOpportunityFilterOption"][];
+        };
+        /** GeoOpportunityLinkedEvaluation */
+        GeoOpportunityLinkedEvaluation: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Rule Set Revision */
+            rule_set_revision: number;
+            /**
+             * Evaluated As Of
+             * Format: date-time
+             */
+            evaluated_as_of: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Disposition
+             * @enum {string}
+             */
+            disposition: "CREATED" | "UPDATED" | "UNCHANGED";
+            result_snapshot: components["schemas"]["GeoOpportunityTriggerSnapshot"];
+        };
+        /** GeoOpportunityListItem */
+        GeoOpportunityListItem: {
+            workflow_stage: components["schemas"]["GeoOpportunityWorkflowStage"];
+            /**
+             * Primary Task
+             * @enum {string}
+             */
+            primary_task: "ACKNOWLEDGE" | "VIEW_EVIDENCE";
+            /** Available Actions */
+            available_actions: components["schemas"]["GeoOpportunityAction"][];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            rule_code: components["schemas"]["GeoRuleCode"];
+            priority: components["schemas"]["GeoOpportunityPriority"];
+            status: components["schemas"]["GeoOpportunityStatus"];
+            /** Revision */
+            revision: number;
+            scope: components["schemas"]["GeoOpportunityScope"];
+            /** Title */
+            title: string;
+            /** Description */
+            description: string;
+            /** Subject Name */
+            subject_name: string | null;
+            /** Product Id */
+            product_id: string | null;
+            /** Query Topic Name */
+            query_topic_name: string | null;
+            /** Prompt Variant Name */
+            prompt_variant_name: string | null;
+            /** Collection Profile Name */
+            collection_profile_name: string | null;
+            /** Engine Surface Name */
+            engine_surface_name: string | null;
+            /** Value */
+            value: number | null;
+            /** Threshold */
+            threshold: number | null;
+            /** Numerator */
+            numerator: number;
+            /** Denominator */
+            denominator: number;
+            /**
+             * Source Date From
+             * Format: date-time
+             */
+            source_date_from: string;
+            /**
+             * Source Date To
+             * Format: date-time
+             */
+            source_date_to: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Last Seen At
+             * Format: date-time
+             */
+            last_seen_at: string;
+            /** Acknowledged At */
+            acknowledged_at: string | null;
+            /** Acknowledged By */
+            acknowledged_by: string | null;
+            /** Resolved At */
+            resolved_at: string | null;
+            /** Resolved By */
+            resolved_by: string | null;
+            /** Resolution Code */
+            resolution_code: string | null;
+            /** Resolution Comment */
+            resolution_comment: string | null;
+            /** Source Count */
+            source_count: number;
+            /** Action Count */
+            action_count: number;
+        };
+        /** GeoOpportunityListPage */
+        GeoOpportunityListPage: {
+            /** Items */
+            items: components["schemas"]["GeoOpportunityListItem"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /**
+             * Page Size
+             * @enum {integer}
+             */
+            page_size: 10 | 20 | 50;
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            filter_options: components["schemas"]["GeoOpportunityFilterOptions"];
+        };
+        /** GeoOpportunityRevisionRequest */
+        GeoOpportunityRevisionRequest: {
+            /** Expected Revision */
+            expected_revision: number;
+        };
+        /** GeoOpportunitySourceEvidence */
+        GeoOpportunitySourceEvidence: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /** Analysis Revision Id */
+            analysis_revision_id: string | null;
+            /** Review Id */
+            review_id: string | null;
+            source_role: components["schemas"]["GeoOpportunitySourceRole"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            run: components["schemas"]["GeoObservationRunOut"];
+            answer: components["schemas"]["GeoAnswerSnapshotOut"] | null;
+            /** Citations */
+            citations: components["schemas"]["GeoAnswerCitationOut"][];
+            /** Evidence Files */
+            evidence_files: components["schemas"]["GeoRunEvidenceFile"][];
+            analysis: components["schemas"]["GeoAnalysisResult"] | null;
+            review: components["schemas"]["GeoRunReviewOut"] | null;
+            effective_results: components["schemas"]["GeoReviewedResults"] | null;
+        };
+        /** GeoOpportunitySourcePage */
+        GeoOpportunitySourcePage: {
+            /** Items */
+            items: components["schemas"]["GeoOpportunitySourceEvidence"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /**
+             * Page Size
+             * @enum {integer}
+             */
+            page_size: 10 | 20 | 50;
+        };
+        /**
+         * GeoOpportunityWorkflowStage
+         * @enum {string}
+         */
+        GeoOpportunityWorkflowStage: "OPEN" | "ACKNOWLEDGED" | "IN_PROGRESS" | "CLOSED";
+        /** PlatformAccountOut */
+        PlatformAccountOut: {
+            /**
+             * Platform Profile Id
+             * Format: uuid
+             */
+            platform_profile_id: string;
+            /** Label */
+            label: string;
+            /** Account Identifier */
+            account_identifier: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Is Active */
+            is_active: boolean;
+            /**
+             * Workflow Stage
+             * @enum {string}
+             */
+            workflow_stage: "PLATFORM_DISABLED" | "ACCOUNT_DISABLED" | "OPERATIONAL";
+            /**
+             * Primary Task
+             * @enum {string}
+             */
+            primary_task: "HANDLE_PLATFORM" | "ENABLE_ACCOUNT" | "MANAGE_ACCOUNT";
+            /** Available Actions */
+            available_actions: ("UPDATE" | "ENABLE" | "DISABLE" | "DELETE")[];
+            deletion: components["schemas"]["DeletionProjection"] | null;
+            /** Revision */
+            revision: number;
+        };
+        /** PlatformProfileOut */
+        PlatformProfileOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            /** Allowed Domains */
+            allowed_domains: string[];
+            /** Platform Type Id */
+            platform_type_id: string | null;
+            platform_type: components["schemas"]["PlatformTypeSummary"] | null;
+            /** Website Url */
+            website_url: string | null;
+            /** Logo */
+            logo: (components["schemas"]["PlatformLogoUpload"] | components["schemas"]["PlatformLogoExternal"]) | null;
+            /** Revision */
+            revision: number;
+            /** Is Active */
+            is_active: boolean;
+            platform_prompt: components["schemas"]["PlatformPromptReference"] | null;
+            /** Configuration Complete */
+            configuration_complete: boolean;
+            /** Platform Account Count */
+            platform_account_count: number;
+            /** Enabled Platform Account Count */
+            enabled_platform_account_count: number;
+            readiness_status: components["schemas"]["PlatformReadinessStatus"];
+            /**
+             * Workflow Stage
+             * @enum {string}
+             */
+            workflow_stage: "DISABLED" | "GENERATION_UNCONFIGURED" | "OPERATIONAL";
+            /** Primary Task */
+            primary_task: ("ENABLE_PLATFORM" | "CONFIGURE_GENERATION" | "VIEW_PLATFORM_OPERATION") | null;
+            /** Available Actions */
+            available_actions: ("UPDATE" | "ENABLE" | "DISABLE" | "DELETE")[];
+            deletion: components["schemas"]["DeletionProjection"] | null;
+            /** Updated At */
+            updated_at: string | null;
+        };
+        /** PlatformTypeOut */
+        PlatformTypeOut: {
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Platform Count */
+            platform_count: number;
+            /** Available Actions */
+            available_actions: ("UPDATE" | "DELETE")[];
+            deletion: components["schemas"]["DeletionProjection"] | null;
+            /**
+             * Primary Task
+             * @constant
+             */
+            primary_task: "EDIT_CATEGORY";
+            /** Revision */
+            revision: number;
+            /**
+             * Created By
+             * Format: uuid
+             */
+            created_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ProductOut */
+        ProductOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Part Number */
+            part_number: string;
+            /** Brand */
+            brand: string;
+            /** Category */
+            category: string;
+            status: components["schemas"]["ProductStatus"];
+            workflow_stage: components["schemas"]["ProductWorkflowStage"];
+            /**
+             * Primary Task
+             * @enum {string}
+             */
+            primary_task: "ENTER_FACTS" | "SUBMIT_FACT_REVIEW" | "REVIEW_FACT" | "REVISE_FACT" | "CREATE_CONTENT_TASK" | "VIEW_FACT_HISTORY";
+            /** Available Actions */
+            available_actions: ("UPDATE" | "DELETE")[];
+            deletion: components["schemas"]["DeletionProjection"] | null;
+            /** Revision */
+            revision: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** PublicationVerificationOut */
+        PublicationVerificationOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Content Version Id
+             * Format: uuid
+             */
+            content_version_id: string;
+            outcome: components["schemas"]["PublicationVerificationOutcome"];
+            /** Actual Title Snapshot */
+            actual_title_snapshot: string;
+            /**
+             * Final Url Snapshot
+             * Format: uri
+             */
+            final_url_snapshot: string;
+            /**
+             * Published At Snapshot
+             * Format: date-time
+             */
+            published_at_snapshot: string;
+            /** Comment */
+            comment: string;
+            /**
+             * Actor Id
+             * Format: uuid
+             */
+            actor_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** PublicationWorkEventOut */
+        PublicationWorkEventOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "CREATED" | "PREPARATION_UPDATED" | "PLATFORM_REVIEW_MARKED" | "RESULT_REGISTERED" | "VERIFICATION_FAILED" | "CONTENT_VERSION_CHANGED" | "COMPLETED" | "CLOSED";
+            from_status: components["schemas"]["PublicationWorkStatus"] | null;
+            to_status: components["schemas"]["PublicationWorkStatus"];
+            /** From Content Version Id */
+            from_content_version_id: string | null;
+            /** To Content Version Id */
+            to_content_version_id: string | null;
+            /** Comment */
+            comment: string;
+            /**
+             * Actor Id
+             * Format: uuid
+             */
+            actor_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** PublicationWorkOut */
+        PublicationWorkOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Task Id
+             * Format: uuid
+             */
+            task_id: string;
+            /**
+             * Content Version Id
+             * Format: uuid
+             */
+            content_version_id: string;
+            /** Content Title */
+            content_title: string;
+            /** Content Version */
+            content_version: number;
+            product: components["schemas"]["ContentTaskProductSummary"];
+            /** Platform Profile Id */
+            platform_profile_id: string | null;
+            /** Platform Profile Name */
+            platform_profile_name: string;
+            /** Platform Account Id */
+            platform_account_id: string | null;
+            /** Platform Account Label */
+            platform_account_label: string;
+            /** Account Identifier */
+            account_identifier: string;
+            /** Actual Title */
+            actual_title: string | null;
+            /** Final Url */
+            final_url: string | null;
+            /** Published At */
+            published_at: string | null;
+            status: components["schemas"]["PublicationWorkStatus"];
+            /** Revision */
+            revision: number;
+            close_reason: components["schemas"]["PublicationCloseReason"] | null;
+            /** Close Comment */
+            close_comment: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            latest_event: components["schemas"]["PublicationWorkEventOut"];
+            latest_verification_outcome: components["schemas"]["PublicationVerificationOutcome"] | null;
+            /** Latest Verification At */
+            latest_verification_at: string | null;
+            /**
+             * Workflow Stage
+             * @enum {string}
+             */
+            workflow_stage: "PREPARING" | "PLATFORM_REVIEW" | "AWAITING_VERIFICATION" | "ACTION_REQUIRED" | "COMPLETED" | "CLOSED";
+            /**
+             * Primary Task
+             * @enum {string}
+             */
+            primary_task: "CONTINUE_PREPARATION" | "REGISTER_RESULT" | "RUN_FIRST_VERIFICATION" | "FIX_AND_REVERIFY" | "VIEW_COMPLETION" | "VIEW_CLOSURE";
+            /** Available Actions */
+            available_actions: ("UPDATE_PREPARATION" | "MARK_PLATFORM_REVIEW" | "REGISTER_RESULT" | "VERIFY" | "SWITCH_CONTENT_VERSION" | "CLOSE")[];
+            /** Content Hash */
+            content_hash: string;
+            /** Closed By */
+            closed_by: string | null;
+            /** Closed At */
+            closed_at: string | null;
+            /**
+             * Created By
+             * Format: uuid
+             */
+            created_by: string;
+            /** Events */
+            events: components["schemas"]["PublicationWorkEventOut"][];
+            /** Verifications */
+            verifications: components["schemas"]["PublicationVerificationOut"][];
+            /** Attachments */
+            attachments: components["schemas"]["FileRecordOut"][];
+        };
+        /** PublishedArticleOut */
+        PublishedArticleOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Task Id
+             * Format: uuid
+             */
+            task_id: string;
+            /**
+             * Product Id
+             * Format: uuid
+             */
+            product_id: string;
+            /**
+             * Content Version Id
+             * Format: uuid
+             */
+            content_version_id: string;
+            /** Content Title */
+            content_title: string;
+            /** Content Version */
+            content_version: number;
+            /** Platform Profile Id */
+            platform_profile_id: string | null;
+            /** Platform Profile Name */
+            platform_profile_name: string;
+            /** Platform Account Id */
+            platform_account_id: string | null;
+            /** Platform Account Label */
+            platform_account_label: string;
+            /** Account Identifier */
+            account_identifier: string;
+            /** Actual Title */
+            actual_title: string;
+            /**
+             * Final Url
+             * Format: uri
+             */
+            final_url: string;
+            /**
+             * Published At
+             * Format: date-time
+             */
+            published_at: string;
+            /**
+             * Verified At
+             * Format: date-time
+             */
+            verified_at: string;
+            /** Has Open Issue */
+            has_open_issue: boolean;
+            /** Open Issue Id */
+            open_issue_id: string | null;
+            /** Retired */
+            retired: boolean;
+            /** Revision */
+            revision: number;
+            /**
+             * Workflow Stage
+             * @enum {string}
+             */
+            workflow_stage: "HEALTHY" | "OPEN_ISSUE" | "RETIRED";
+            /**
+             * Primary Task
+             * @enum {string}
+             */
+            primary_task: "START_PRODUCT_OBSERVATION" | "HANDLE_CONTENT_ISSUE" | "VIEW_HISTORY";
+            /** Available Actions */
+            available_actions: ("OPEN_ISSUE" | "PERMANENT_DELETE")[];
+            deletion: components["schemas"]["DeletionProjection"] | null;
+            /** Content Hash */
+            content_hash: string;
+            verification: components["schemas"]["PublicationVerificationOut"];
+            source_content: components["schemas"]["ContentVersionDetail"];
+            /** Events */
+            events: components["schemas"]["PublicationWorkEventOut"][];
+            /** Issues */
+            issues: components["schemas"]["PublishedContentIssueHistoryItem"][];
+        };
+        /** PublishedContentIssueOut */
+        PublishedContentIssueOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            kind: components["schemas"]["PublishedContentIssueKind"];
+            /** Description */
+            description: string;
+            status: components["schemas"]["PublishedContentIssueStatus"];
+            /**
+             * Opened At
+             * Format: date-time
+             */
+            opened_at: string;
+            /** Resolved At */
+            resolved_at: string | null;
+            resolution_outcome: components["schemas"]["PublishedContentIssueResolution"] | null;
+            /** Resolution Comment */
+            resolution_comment: string | null;
+            /**
+             * Published Article Id
+             * Format: uuid
+             */
+            published_article_id: string;
+            /** Content Title */
+            content_title: string;
+            /** Platform Profile Name */
+            platform_profile_name: string;
+            /** Actual Title */
+            actual_title: string;
+            /**
+             * Final Url
+             * Format: uri
+             */
+            final_url: string;
+            /** Revision */
+            revision: number;
+            /** Repair Task Id */
+            repair_task_id: string | null;
+            /**
+             * Workflow Stage
+             * @enum {string}
+             */
+            workflow_stage: "OPEN" | "REPAIRING" | "AWAITING_RESOLUTION" | "RESOLVED";
+            /**
+             * Primary Task
+             * @enum {string}
+             */
+            primary_task: "HANDLE_CONTENT_ISSUE" | "CONTINUE_REPAIR" | "CONFIRM_RESOLUTION" | "VIEW_RESOLUTION";
+            /** Available Actions */
+            available_actions: ("CREATE_REPAIR_TASK" | "RESOLVE")[];
+            /**
+             * Opened By
+             * Format: uuid
+             */
+            opened_by: string;
+            /** Resolved By */
+            resolved_by: string | null;
+            article: components["schemas"]["PublishedArticleListItem"];
+        };
+        /** QueryTopicOut */
+        QueryTopicOut: {
+            /** Canonical Question */
+            canonical_question: string;
+            intent_type: components["schemas"]["IntentType"];
+            /** Variants */
+            variants: string[];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Available Actions */
+            available_actions: ("UPDATE" | "DELETE")[];
+            deletion: components["schemas"]["DeletionProjection"] | null;
+            /**
+             * Primary Task
+             * @constant
+             */
+            primary_task: "USE_FOR_OBSERVATION";
+            /** Revision */
+            revision: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** UserOut */
+        UserOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Username */
+            username: string;
+            /** Display Name */
+            display_name: string;
+            account_type: components["schemas"]["AccountType"];
+            /** Is Active */
+            is_active: boolean;
+            /** Must Change Password */
+            must_change_password: boolean;
+            /**
+             * Workflow Stage
+             * @enum {string}
+             */
+            workflow_stage: "FIRST_PASSWORD_CHANGE" | "ACTIVE" | "DISABLED";
+            /**
+             * Primary Task
+             * @enum {string}
+             */
+            primary_task: "MANAGE_LOGIN_SECURITY" | "MANAGE_USER" | "ENABLE_USER";
+            /** Available Actions */
+            available_actions: ("UPDATE" | "RESET_PASSWORD" | "ENABLE" | "DISABLE" | "DELETE")[];
+            deletion: components["schemas"]["DeletionProjection"] | null;
+            /** Revision */
+            revision: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** GeoOpportunityFactRevisionRequest */
+        GeoOpportunityFactRevisionRequest: {
+            /** Expected Revision */
+            expected_revision: number;
+            /**
+             * Product Id
+             * Format: uuid
+             */
+            product_id: string;
+        };
+        /** GeoOpportunityContentTaskRequest */
+        GeoOpportunityContentTaskRequest: {
+            /** Expected Revision */
+            expected_revision: number;
+            /**
+             * Product Id
+             * Format: uuid
+             */
+            product_id: string;
+            /**
+             * Fact Version Id
+             * Format: uuid
+             */
+            fact_version_id: string;
+            /**
+             * Platform Profile Id
+             * Format: uuid
+             */
+            platform_profile_id: string;
+        };
+        /** GeoOpportunityActionSourceSnapshot */
+        GeoOpportunityActionSourceSnapshot: {
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: 1;
+            /**
+             * Opportunity Id
+             * Format: uuid
+             */
+            opportunity_id: string;
+            /** Opportunity Revision */
+            opportunity_revision: number;
+            trigger_snapshot: components["schemas"]["GeoOpportunityTriggerSnapshot"];
+            /** Sources */
+            sources: components["schemas"]["GeoOpportunitySourceSnapshot"][];
+            /**
+             * Product Id
+             * Format: uuid
+             */
+            product_id: string;
+            /** Query Topic Id */
+            query_topic_id: string | null;
+            /** Fact Version Id */
+            fact_version_id: string | null;
+            /** Platform Profile Id */
+            platform_profile_id: string | null;
+            /** Published Article Id */
+            published_article_id: string | null;
+            /** Published Content Issue Id */
+            published_content_issue_id: string | null;
+            /** Request Id */
+            request_id: string;
+        };
+        /** GeoOpportunityActionResult */
+        GeoOpportunityActionResult: {
+            action: components["schemas"]["GeoOpportunityActionRecord"];
+            /** Opportunity Revision */
+            opportunity_revision: number;
+            /** Replayed */
+            replayed: boolean;
+        };
+        /** GeoOpportunityCreateRepairRequest */
+        GeoOpportunityCreateRepairRequest: {
+            /** Expected Revision */
+            expected_revision: number;
+            /**
+             * Published Content Issue Id
+             * Format: uuid
+             */
+            published_content_issue_id: string;
+            /** Expected Issue Revision */
+            expected_issue_revision: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            mode: "CREATE_REPAIR";
+            /**
+             * Fact Version Id
+             * Format: uuid
+             */
+            fact_version_id: string;
+        };
+        /** GeoOpportunityLinkIssueRequest */
+        GeoOpportunityLinkIssueRequest: {
+            /** Expected Revision */
+            expected_revision: number;
+            /**
+             * Published Content Issue Id
+             * Format: uuid
+             */
+            published_content_issue_id: string;
+            /** Expected Issue Revision */
+            expected_issue_revision: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            mode: "LINK_ISSUE";
+        };
+        /** GeoOpportunityOpenIssueRequest */
+        GeoOpportunityOpenIssueRequest: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            mode: "OPEN_ISSUE";
+            /** Expected Revision */
+            expected_revision: number;
+            /**
+             * Published Article Id
+             * Format: uuid
+             */
+            published_article_id: string;
+            kind: components["schemas"]["PublishedContentIssueKind"];
+            /** Description */
+            description: string;
+        };
+        /** GeoRetestRequest */
+        GeoRetestRequest: {
+            /** Expected Revision */
+            expected_revision: number;
+            /**
+             * Baseline Batch Id
+             * Format: uuid
+             */
+            baseline_batch_id: string;
+        };
+        /** GeoRetestBaselineSnapshot */
+        GeoRetestBaselineSnapshot: {
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: 1;
+            /**
+             * Opportunity Id
+             * Format: uuid
+             */
+            opportunity_id: string;
+            /**
+             * Baseline Batch Id
+             * Format: uuid
+             */
+            baseline_batch_id: string;
+            trigger_snapshot: components["schemas"]["GeoOpportunityTriggerSnapshot"];
+            plan_snapshot: components["schemas"]["GeoBatchPlanSnapshot"];
+            /** Rule Snapshot */
+            rule_snapshot: components["schemas"]["GeoBatchRuleSnapshot"] | components["schemas"]["GeoBatchRuleSnapshotV2"];
+            /** Cells */
+            cells: components["schemas"]["GeoRetestCell"][];
+        };
+        /** GeoRetestCell */
+        GeoRetestCell: {
+            /**
+             * Root Run Id
+             * Format: uuid
+             */
+            root_run_id: string;
+            /** Repeat Index */
+            repeat_index: number;
+            input_snapshot: components["schemas"]["GeoRunInputSnapshot"];
+            /** Answer Snapshot Id */
+            answer_snapshot_id: string | null;
+            /** Source Product */
+            source_product: string | null;
+            /** Source Model */
+            source_model: string | null;
+            /** Source Version */
+            source_version: string | null;
+        };
+        /** GeoRetestDifference */
+        GeoRetestDifference: {
+            code: components["schemas"]["GeoRetestDifferenceCode"];
+            /** Resource Id */
+            resource_id: string | null;
+            /** Field */
+            field: string;
+            /** Reason */
+            reason?: string | null;
+        };
+        /**
+         * GeoRetestDifferenceCode
+         * @enum {string}
+         */
+        GeoRetestDifferenceCode: "OPPORTUNITY_NOT_IN_PROGRESS" | "BASELINE_NOT_SOURCE" | "BASELINE_NOT_FINISHED" | "MATRIX_INVALID" | "VARIANT_UNAVAILABLE" | "VARIANT_CHANGED" | "TOPIC_CHANGED" | "PROFILE_UNAVAILABLE" | "PROFILE_CHANGED" | "SURFACE_CHANGED" | "SUBJECT_UNAVAILABLE" | "SUBJECT_CHANGED" | "MODEL_VERSION_CHANGED" | "MODEL_VERSION_UNKNOWN";
+        /** GeoRetestPreview */
+        GeoRetestPreview: {
+            /**
+             * Opportunity Id
+             * Format: uuid
+             */
+            opportunity_id: string;
+            /** Opportunity Revision */
+            opportunity_revision: number;
+            /** Baseline Id */
+            baseline_id: string | null;
+            /**
+             * Baseline Batch Id
+             * Format: uuid
+             */
+            baseline_batch_id: string;
+            snapshot: components["schemas"]["GeoRetestBaselineSnapshot"];
+            /** Comparable */
+            comparable: boolean;
+            /** Requires New Baseline */
+            requires_new_baseline: boolean;
+            /** Differences */
+            differences: components["schemas"]["GeoRetestDifference"][];
+        };
+        /** GeoRetestCreated */
+        GeoRetestCreated: {
+            /**
+             * Baseline Id
+             * Format: uuid
+             */
+            baseline_id: string;
+            /**
+             * Batch Id
+             * Format: uuid
+             */
+            batch_id: string;
+            /** Requested Run Count */
+            requested_run_count: number;
+            /** Opportunity Revision */
+            opportunity_revision: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Replayed */
+            replayed: boolean;
+        };
+        /** GeoOpportunityComparisonRead */
+        GeoOpportunityComparisonRead: {
+            opportunity: components["schemas"]["GeoOpportunityListItem"];
+            /**
+             * Opportunity Id
+             * Format: uuid
+             */
+            opportunity_id: string;
+            /** Opportunity Revision */
+            opportunity_revision: number;
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /** Retests */
+            retests: components["schemas"]["GeoRetestComparisonChoice"][];
+            /** Selected Retest Batch Id */
+            selected_retest_batch_id: string | null;
+            comparison: components["schemas"]["GeoRetestComparison"] | null;
+            /** Decisions */
+            decisions: components["schemas"]["GeoOpportunityDecision"][];
+        };
+        /** GeoOpportunityContinueRequest */
+        GeoOpportunityContinueRequest: {
+            /** Expected Revision */
+            expected_revision: number;
+            /** Resolution Code */
+            resolution_code: string;
+            /** Resolution Comment */
+            resolution_comment: string;
+            /** Retest Batch Id */
+            retest_batch_id?: string | null;
+            /** Comparison Fingerprint */
+            comparison_fingerprint?: string | null;
+        };
+        /** GeoOpportunityDecision */
+        GeoOpportunityDecision: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Opportunity Id
+             * Format: uuid
+             */
+            opportunity_id: string;
+            decision: components["schemas"]["GeoOpportunityDecisionKind"];
+            /** Reason Code */
+            reason_code: string;
+            /** Reason Comment */
+            reason_comment: string;
+            /** Revision Before */
+            revision_before: number;
+            /** Revision After */
+            revision_after: number;
+            /** Retest Batch Id */
+            retest_batch_id: string | null;
+            /** Comparison Fingerprint */
+            comparison_fingerprint: string | null;
+            comparison_snapshot: components["schemas"]["GeoRetestComparison"] | null;
+            /**
+             * Created By
+             * Format: uuid
+             */
+            created_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * GeoOpportunityDecisionKind
+         * @enum {string}
+         */
+        GeoOpportunityDecisionKind: "MANUAL_RESOLVE" | "RETEST_RESOLVE" | "CONTINUE";
+        /** GeoOpportunityDecisionResult */
+        GeoOpportunityDecisionResult: {
+            opportunity: components["schemas"]["GeoOpportunityListItem"];
+            decision: components["schemas"]["GeoOpportunityDecision"];
+        };
+        /** GeoOpportunityResolveRequest */
+        GeoOpportunityResolveRequest: {
+            /** Expected Revision */
+            expected_revision: number;
+            /** Resolution Code */
+            resolution_code: string;
+            /** Resolution Comment */
+            resolution_comment: string;
+            /**
+             * Resolution Method
+             * @enum {string}
+             */
+            resolution_method: "MANUAL" | "RETEST";
+            /** Retest Batch Id */
+            retest_batch_id?: string | null;
+            /** Comparison Fingerprint */
+            comparison_fingerprint?: string | null;
+        };
+        /** GeoRetestComparison */
+        GeoRetestComparison: {
+            /**
+             * Baseline Id
+             * Format: uuid
+             */
+            baseline_id: string;
+            /**
+             * Retest Batch Id
+             * Format: uuid
+             */
+            retest_batch_id: string;
+            /** Fingerprint */
+            fingerprint: string;
+            baseline: components["schemas"]["GeoRetestComparisonWindow"];
+            retest: components["schemas"]["GeoRetestComparisonWindow"];
+            /** Comparable */
+            comparable: boolean;
+            /** Differences */
+            differences: components["schemas"]["GeoRetestComparisonDifference"][];
+            recovery: components["schemas"]["GeoRetestRecovery"];
+            /**
+             * Causal Claim
+             * @default NOT_ESTABLISHED
+             * @constant
+             */
+            causal_claim: "NOT_ESTABLISHED";
+        };
+        /** GeoRetestComparisonChoice */
+        GeoRetestComparisonChoice: {
+            /**
+             * Batch Id
+             * Format: uuid
+             */
+            batch_id: string;
+            /**
+             * Baseline Id
+             * Format: uuid
+             */
+            baseline_id: string;
+            /**
+             * Baseline Batch Id
+             * Format: uuid
+             */
+            baseline_batch_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            status: components["schemas"]["GeoBatchStatus"];
+        };
+        /** GeoRetestComparisonDifference */
+        GeoRetestComparisonDifference: {
+            /**
+             * Code
+             * @enum {string}
+             */
+            code: "MATRIX_CHANGED" | "INPUT_CHANGED" | "MODEL_VERSION_UNKNOWN" | "MODEL_VERSION_CHANGED" | "ANALYSIS_VERSION_CHANGED" | "ENVIRONMENT_CHANGED" | "BASELINE_SOURCE_UNAVAILABLE";
+            /** Field */
+            field: string;
+            /** Baseline Run Id */
+            baseline_run_id: string | null;
+            /** Retest Run Id */
+            retest_run_id: string | null;
+            /** Baseline Value */
+            baseline_value: string | null;
+            /** Retest Value */
+            retest_value: string | null;
+        };
+        /** GeoRetestComparisonEnvironment */
+        GeoRetestComparisonEnvironment: {
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /** Repeat Index */
+            repeat_index: number;
+            input_snapshot: components["schemas"]["GeoRunInputSnapshot"];
+            /** Source Product */
+            source_product: string | null;
+            /** Source Model */
+            source_model: string | null;
+            /** Source Version */
+            source_version: string | null;
+            dimensions: components["schemas"]["GeoOverviewDimensions"];
+        };
+        /** GeoRetestComparisonMetric */
+        GeoRetestComparisonMetric: {
+            /**
+             * Metric Code
+             * @enum {string}
+             */
+            metric_code: "natural_visibility" | "recommendation_rate" | "recommendation_sov" | "owned_source_coverage" | "severe_error_run_rate" | "incorrect_claim_rate" | "mention_stability" | "run_success_rate" | "evidence_completeness" | "same_fact_error_count" | "owned_citation_count" | "consecutive_failed_count";
+            /** Formula Version */
+            formula_version: string;
+            /** Value */
+            value: number | null;
+            /** Numerator */
+            numerator: number;
+            /** Denominator */
+            denominator: number;
+            /** Candidate Run Count */
+            candidate_run_count: number;
+            /** Eligible Run Count */
+            eligible_run_count: number;
+            /** Excluded Run Count */
+            excluded_run_count: number;
+            sample_level: components["schemas"]["SampleLevel"];
+            /** Exclusion Reason Counts */
+            exclusion_reason_counts: components["schemas"]["GeoOverviewExclusion"][];
+            /** Unjudgeable Claim Count */
+            unjudgeable_claim_count: number;
+            dimensions: components["schemas"]["GeoOverviewDimensions"] | null;
+            /** Unavailable Reasons */
+            unavailable_reasons: string[];
+        };
+        /** GeoRetestComparisonWindow */
+        GeoRetestComparisonWindow: {
+            /**
+             * Batch Id
+             * Format: uuid
+             */
+            batch_id: string;
+            /**
+             * Date From
+             * Format: date-time
+             */
+            date_from: string;
+            /**
+             * Date To
+             * Format: date-time
+             */
+            date_to: string;
+            /** Candidate Run Count */
+            candidate_run_count: number;
+            /** Sources */
+            sources: components["schemas"]["GeoOpportunitySourceSnapshot"][];
+            /** Metrics */
+            metrics: components["schemas"]["GeoRetestComparisonMetric"][];
+            /** Environments */
+            environments: components["schemas"]["GeoRetestComparisonEnvironment"][];
+        };
+        /** GeoRetestRecovery */
+        GeoRetestRecovery: {
+            status: components["schemas"]["GeoRetestRecoveryStatus"];
+            rule_snapshot: components["schemas"]["GeoRuleSnapshot"];
+            recovery_configuration: components["schemas"]["GeoRuleRecovery"] | null;
+            /** Required Run Count */
+            required_run_count: number;
+            /**
+             * Reference Kind
+             * @enum {string}
+             */
+            reference_kind: "PREVIOUS_TRIGGER_WINDOW" | "FROZEN_RECOVERY_THRESHOLD";
+            /** Reference Value */
+            reference_value: number | null;
+            /** Observed Value */
+            observed_value: number | null;
+            /** Threshold */
+            threshold: number | null;
+            /** Reasons */
+            reasons: string[];
+            /**
+             * Manual Confirmation Required
+             * @default true
+             * @constant
+             */
+            manual_confirmation_required: true;
+        };
+        /**
+         * GeoRetestRecoveryStatus
+         * @enum {string}
+         */
+        GeoRetestRecoveryStatus: "PENDING" | "UNAVAILABLE" | "NOT_COMPARABLE" | "INSUFFICIENT_SAMPLE" | "NOT_RECOVERED" | "RECOVERED";
+        /** GeoBrowserSessionImport */
+        GeoBrowserSessionImport: {
+            /** Expected Revision */
+            expected_revision: number;
+            /**
+             * Storage State
+             * Format: password
+             */
+            storage_state: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /**
+             * Approved Account
+             * @constant
+             */
+            approved_account: true;
+        };
+        /** GeoBrowserSessionCommand */
+        GeoBrowserSessionCommand: {
+            /** Expected Revision */
+            expected_revision: number;
+            /**
+             * Session Reference
+             * Format: uuid
+             */
+            session_reference: string;
+        };
+        /** GeoBrowserSessionPurge */
+        GeoBrowserSessionPurge: {
+            /** Expected Revision */
+            expected_revision: number;
+        };
+        /** GeoBrowserSessionMetadata */
+        GeoBrowserSessionMetadata: {
+            /**
+             * Session Reference
+             * Format: uuid
+             */
+            session_reference: string;
+            /**
+             * Health
+             * @enum {string}
+             */
+            health: "AVAILABLE" | "EXPIRED" | "REVOKED" | "MISSING" | "UNREADABLE";
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /**
+             * Imported At
+             * Format: date-time
+             */
+            imported_at: string;
+            /**
+             * Last Checked At
+             * Format: date-time
+             */
+            last_checked_at: string;
+            /** Revoked At */
+            revoked_at: string | null;
+            /** Purged At */
+            purged_at: string | null;
+        };
+        /** GeoBrowserSessionContext */
+        GeoBrowserSessionContext: {
+            /**
+             * Profile Id
+             * Format: uuid
+             */
+            profile_id: string;
+            /** Profile Revision */
+            profile_revision: number;
+            session: components["schemas"]["GeoBrowserSessionMetadata"] | null;
+            /** Cleanup Pending Count */
+            cleanup_pending_count: number;
+            /** Available Actions */
+            available_actions: ("IMPORT" | "CHECK_HEALTH" | "REVOKE" | "PURGE")[];
+            /**
+             * Login Probe
+             * @constant
+             */
+            login_probe: "NOT_IMPLEMENTED";
+        };
+        /** GeoBrowserSessionAccessRequest */
+        GeoBrowserSessionAccessRequest: {
+            /**
+             * Profile Id
+             * Format: uuid
+             */
+            profile_id: string;
+        };
+        /** GeoBrowserSessionEnvelope */
+        GeoBrowserSessionEnvelope: {
+            /**
+             * Session Reference
+             * Format: uuid
+             */
+            session_reference: string;
+            /**
+             * Profile Id
+             * Format: uuid
+             */
+            profile_id: string;
+            /**
+             * Expires At
+             * Format: date-time
+             * @description AAD绑定期限：UTC六位微秒，固定+00:00后缀
+             */
+            expires_at: string;
+            /** Envelope */
+            envelope: string;
+        };
+        /** GeoOpportunityEvaluationRequest */
+        GeoOpportunityEvaluationRequest: {
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope: "ALL" | "FILTERED";
+            /**
+             * Date From
+             * Format: date-time
+             */
+            date_from: string;
+            /**
+             * Date To
+             * Format: date-time
+             */
+            date_to: string;
+            /** Rule Set Revision */
+            rule_set_revision: number;
+            /** Subject Ids */
+            subject_ids?: string[];
+            /** Engine Surface Ids */
+            engine_surface_ids?: string[];
+            /** Collection Profile Ids */
+            collection_profile_ids?: string[];
+            /** Collection Modes */
+            collection_modes?: components["schemas"]["GeoCollectionMode"][];
+        };
+        /** GeoOpportunityUnavailableReason */
+        GeoOpportunityUnavailableReason: {
+            /** Code */
+            code: string;
+            /** Count */
+            count: number;
+        };
+        /** GeoOpportunityEvaluationReceipt */
+        GeoOpportunityEvaluationReceipt: {
+            /**
+             * Evaluation Run Id
+             * Format: uuid
+             */
+            evaluation_run_id: string;
+            /** Rule Set Revision */
+            rule_set_revision: number;
+            /** Evaluated Cells */
+            evaluated_cells: number;
+            /** Created */
+            created: number;
+            /** Existing Reused */
+            existing_reused: number;
+            /** Skipped */
+            skipped: number;
+            /** Unavailable Reasons */
+            unavailable_reasons: components["schemas"]["GeoOpportunityUnavailableReason"][];
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /** Replayed */
+            replayed: boolean;
+        };
     };
     responses: {
         /** @description 业务或校验错误 */
@@ -5610,6 +13770,425 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    listGeoSubjects: {
+        parameters: {
+            query?: {
+                q?: string;
+                subject_type?: components["schemas"]["GeoSubjectType"];
+                product_id?: string;
+                parent_subject_id?: string;
+                is_active?: boolean;
+                sort?: "NAME_ASC" | "UPDATED_DESC";
+                page?: components["parameters"]["Page"];
+                page_size?: 10 | 20 | 50;
+            };
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Subject 聚合当前投影 */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoSubjectListPage"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    createGeoSubject: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoSubjectCreate"];
+            };
+        };
+        responses: {
+            /** @description Subject 聚合当前投影 */
+            201: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoSubjectOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getGeoSubject: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                subject_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Subject 聚合当前投影 */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoSubjectOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    deleteGeoSubject: {
+        parameters: {
+            query: {
+                expected_revision: number;
+            };
+            header: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                subject_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 删除完成 */
+            204: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateGeoSubject: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                subject_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoSubjectUpdate"];
+            };
+        };
+        responses: {
+            /** @description Subject 聚合当前投影 */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoSubjectOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    enableGeoSubject: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                subject_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoSubjectRevisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Subject 聚合当前投影 */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoSubjectOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    disableGeoSubject: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                subject_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoSubjectRevisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Subject 聚合当前投影 */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoSubjectOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    createGeoSubjectAlias: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                subject_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoSubjectAliasCreate"];
+            };
+        };
+        responses: {
+            /** @description Subject 聚合当前投影 */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoSubjectOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    deleteGeoSubjectAlias: {
+        parameters: {
+            query: {
+                expected_revision: number;
+            };
+            header: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                subject_id: string;
+                alias_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 删除子实体后的 Subject 聚合投影 */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoSubjectOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateGeoSubjectAlias: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                subject_id: string;
+                alias_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoSubjectAliasUpdate"];
+            };
+        };
+        responses: {
+            /** @description Subject 聚合当前投影 */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoSubjectOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    createGeoSubjectDomain: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                subject_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoSubjectDomainCreate"];
+            };
+        };
+        responses: {
+            /** @description Subject 聚合当前投影 */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoSubjectOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    deleteGeoSubjectDomain: {
+        parameters: {
+            query: {
+                expected_revision: number;
+            };
+            header: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                subject_id: string;
+                domain_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 删除子实体后的 Subject 聚合投影 */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoSubjectOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
     getLiveHealth: {
         parameters: {
             query?: never;
@@ -10891,6 +19470,2996 @@ export interface operations {
             404: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listGeoPromptVariants: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                query_topic_id?: string | null;
+                intent_type?: components["schemas"]["IntentType"] | null;
+                mention_mode?: components["schemas"]["GeoPromptMentionMode"] | null;
+                language_code?: string | null;
+                region_code?: string | null;
+                priority?: components["schemas"]["GeoPromptPriority"] | null;
+                is_active?: boolean | null;
+                sort?: "UPDATED_DESC" | "TEXT_ASC";
+                page?: number;
+                page_size?: 10 | 20 | 50;
+            };
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 问题变体结果 */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoPromptVariantListPage"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    createGeoPromptVariant: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                query_topic_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoPromptVariantCreate"];
+            };
+        };
+        responses: {
+            /** @description 问题变体结果 */
+            201: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoPromptVariantOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getGeoPromptVariant: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                variant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 问题变体结果 */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoPromptVariantOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    deleteGeoPromptVariant: {
+        parameters: {
+            query: {
+                expected_revision: number;
+            };
+            header: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                variant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 问题变体结果 */
+            204: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateGeoPromptVariant: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                variant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoPromptVariantUpdate"];
+            };
+        };
+        responses: {
+            /** @description 问题变体结果 */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoPromptVariantOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    enableGeoPromptVariant: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                variant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoPromptVariantRevisionRequest"];
+            };
+        };
+        responses: {
+            /** @description 问题变体结果 */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoPromptVariantOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    disableGeoPromptVariant: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                variant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoPromptVariantRevisionRequest"];
+            };
+        };
+        responses: {
+            /** @description 问题变体结果 */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoPromptVariantOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listGeoEngineSurfaces: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                surface_kind?: components["schemas"]["GeoSurfaceKind"] | null;
+                is_active?: boolean | null;
+                sort?: "NAME_ASC" | "UPDATED_DESC";
+                page?: number;
+                page_size?: 10 | 20 | 50;
+            };
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoEngineSurfaceListPage"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    createGeoEngineSurface: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoEngineSurfaceCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoEngineSurfaceRead"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getGeoEngineSurface: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                surface_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoEngineSurfaceRead"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    deleteGeoEngineSurface: {
+        parameters: {
+            query: {
+                expected_revision: number;
+            };
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                surface_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateGeoEngineSurface: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                surface_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoEngineSurfaceUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoEngineSurfaceRead"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    enableGeoEngineSurface: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                surface_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoConfigurationRevisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoEngineSurfaceRead"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    disableGeoEngineSurface: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                surface_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoConfigurationRevisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoEngineSurfaceRead"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listGeoCollectionProfiles: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                engine_surface_id?: string | null;
+                collection_mode?: components["schemas"]["GeoCollectionMode"] | null;
+                is_active?: boolean | null;
+                sort?: "NAME_ASC" | "UPDATED_DESC";
+                page?: number;
+                page_size?: 10 | 20 | 50;
+            };
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoCollectionProfileListPage"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    createGeoCollectionProfile: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoManualProfileCreate"] | components["schemas"]["GeoApiProfileCreate"] | components["schemas"]["GeoBrowserProfileCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoCollectionProfileRead"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getGeoCollectionProfile: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoCollectionProfileRead"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    deleteGeoCollectionProfile: {
+        parameters: {
+            query: {
+                expected_revision: number;
+            };
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateGeoCollectionProfile: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoManualProfileUpdate"] | components["schemas"]["GeoApiProfileUpdate"] | components["schemas"]["GeoBrowserProfileUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoCollectionProfileRead"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    enableGeoCollectionProfile: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoConfigurationRevisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoCollectionProfileRead"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    disableGeoCollectionProfile: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoConfigurationRevisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoCollectionProfileRead"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listGeoMonitoringPlans: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                status?: components["schemas"]["GeoMonitoringPlanStatus"] | null;
+                schedule_kind?: components["schemas"]["GeoPlanScheduleKind"] | null;
+                sort?: "UPDATED_DESC" | "NAME_ASC";
+                page?: number;
+                page_size?: 10 | 20 | 50;
+            };
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoMonitoringPlanListPage"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    createGeoMonitoringPlan: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoMonitoringPlanCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoMonitoringPlanDetail"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    previewGeoMonitoringPlan: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoMonitoringPlanCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoMonitoringPlanPreview"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getGeoMonitoringPlan: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                plan_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoMonitoringPlanDetail"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    deleteGeoMonitoringPlan: {
+        parameters: {
+            query: {
+                expected_revision: number;
+            };
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                plan_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateGeoMonitoringPlan: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                plan_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoMonitoringPlanUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoMonitoringPlanDetail"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    activateGeoMonitoringPlan: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                plan_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoMonitoringPlanRevisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoMonitoringPlanDetail"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    pauseGeoMonitoringPlan: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                plan_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoMonitoringPlanRevisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoMonitoringPlanDetail"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    resumeGeoMonitoringPlan: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                plan_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoMonitoringPlanRevisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoMonitoringPlanDetail"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    archiveGeoMonitoringPlan: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                plan_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoMonitoringPlanRevisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoMonitoringPlanDetail"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    copyGeoMonitoringPlan: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                plan_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoMonitoringPlanCopy"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoMonitoringPlanDetail"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    runGeoMonitoringPlanNow: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                plan_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoMonitoringPlanRevisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoBatchCreated"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listGeoObservationBatches: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                created_from?: string | null;
+                created_to?: string | null;
+                sort?: "CREATED_DESC" | "CREATED_ASC";
+                page?: number;
+                page_size?: 10 | 20 | 50;
+                plan_id?: string | null;
+                subject_id?: string | null;
+                status?: components["schemas"]["GeoBatchStatus"] | null;
+                trigger_type?: components["schemas"]["GeoBatchTriggerType"] | null;
+            };
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoBatchListPage"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    createGeoObservationBatch: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoPlanBatchCreate"] | components["schemas"]["GeoAdHocBatchCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoBatchCreated"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getGeoObservationBatch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoBatchDetail"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listGeoObservationBatchRuns: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                created_from?: string | null;
+                created_to?: string | null;
+                sort?: "CREATED_DESC" | "CREATED_ASC";
+                page?: number;
+                page_size?: 10 | 20 | 50;
+                plan_id?: string | null;
+                subject_id?: string | null;
+                product_id?: string | null;
+                query_topic_id?: string | null;
+                prompt_variant_id?: string | null;
+                collection_profile_id?: string | null;
+                engine_surface_id?: string | null;
+                collection_mode?: components["schemas"]["GeoCollectionMode"] | null;
+                status?: components["schemas"]["GeoRunStatus"] | null;
+                error_code?: components["schemas"]["GeoRunErrorCode"] | null;
+                needs_review?: boolean | null;
+                latest_only?: boolean;
+            };
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoRunListPage"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listGeoObservationRuns: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                created_from?: string | null;
+                created_to?: string | null;
+                sort?: "CREATED_DESC" | "CREATED_ASC";
+                page?: number;
+                page_size?: 10 | 20 | 50;
+                batch_id?: string | null;
+                plan_id?: string | null;
+                subject_id?: string | null;
+                product_id?: string | null;
+                query_topic_id?: string | null;
+                prompt_variant_id?: string | null;
+                collection_profile_id?: string | null;
+                engine_surface_id?: string | null;
+                collection_mode?: components["schemas"]["GeoCollectionMode"] | null;
+                status?: components["schemas"]["GeoRunStatus"] | null;
+                error_code?: components["schemas"]["GeoRunErrorCode"] | null;
+                needs_review?: boolean | null;
+                latest_only?: boolean;
+            };
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoRunListPage"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getGeoObservationRun: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoRunDetail"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    getGeoManualEntryContext: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoManualEntryContext"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    saveGeoManualDraft: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoManualDraftSave"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoManualDraftOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    submitGeoManualObservation: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "Idempotency-Key": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoManualObservationSubmit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoManualObservationSubmitted"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    testGeoCollectionProfile: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoConfigurationRevisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoCollectionProfileRead"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    retryGeoObservationRun: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoRunRetryRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoRunRetryCreated"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    reviewGeoObservationRun: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoRunReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoRunReviewCreated"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getGeoOverview: {
+        parameters: {
+            query: {
+                date_from: string;
+                date_to: string;
+                subject_ids?: string[];
+                product_ids?: string[];
+                query_topic_ids?: string[];
+                prompt_variant_ids?: string[];
+                engine_surface_ids?: string[];
+                collection_profile_ids?: string[];
+                collection_modes?: components["schemas"]["GeoCollectionMode"][];
+                language_codes?: string[];
+                region_codes?: string[];
+                login_states?: components["schemas"]["GeoProfileLoginState"][];
+                intent_types?: components["schemas"]["IntentType"][];
+                mention_mode?: components["schemas"]["GeoPromptMentionMode"] | null;
+                review_policy?: "EFFECTIVE" | "REVIEWED_ONLY";
+            };
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 回答级Overview一致快照 */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoOverview"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listGeoOverviewRuns: {
+        parameters: {
+            query: {
+                date_from: string;
+                date_to: string;
+                subject_ids?: string[];
+                product_ids?: string[];
+                query_topic_ids?: string[];
+                prompt_variant_ids?: string[];
+                engine_surface_ids?: string[];
+                collection_profile_ids?: string[];
+                collection_modes?: components["schemas"]["GeoCollectionMode"][];
+                language_codes?: string[];
+                region_codes?: string[];
+                login_states?: components["schemas"]["GeoProfileLoginState"][];
+                intent_types?: components["schemas"]["IntentType"][];
+                mention_mode?: components["schemas"]["GeoPromptMentionMode"] | null;
+                review_policy?: "EFFECTIVE" | "REVIEWED_ONLY";
+                metric_code: "answer_coverage" | "natural_visibility" | "product_mention" | "recommendation_rate" | "top_recommendation_rate" | "owned_source_coverage" | "accurate_claim_rate" | "severe_error_run_rate" | "eligible_runs" | "run_success_rate" | "analysis_run_coverage" | "review_backlog" | "evidence_completeness" | "cost_coverage" | "model_version_coverage";
+                cell_key?: string | null;
+                cohort?: "CANDIDATE" | "DENOMINATOR" | "NUMERATOR" | "EXCLUDED";
+                batch_id?: string | null;
+                page?: number;
+                page_size?: 10 | 20 | 50;
+            };
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 同筛选组成样本；每运行含事件贡献 */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoOverviewRunPage"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getGeoAnswerInsights: {
+        parameters: {
+            query: {
+                date_from: string;
+                date_to: string;
+                subject_ids?: string[];
+                product_ids?: string[];
+                query_topic_ids?: string[];
+                prompt_variant_ids?: string[];
+                engine_surface_ids?: string[];
+                collection_profile_ids?: string[];
+                collection_modes?: components["schemas"]["GeoCollectionMode"][];
+                language_codes?: string[];
+                region_codes?: string[];
+                login_states?: components["schemas"]["GeoProfileLoginState"][];
+                intent_types?: components["schemas"]["IntentType"][];
+                mention_mode?: components["schemas"]["GeoPromptMentionMode"] | null;
+                review_policy?: "EFFECTIVE" | "REVIEWED_ONLY";
+            };
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description GEO-603回答级洞察一致快照 */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoAnswerInsights"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listGeoAnswerInsightRuns: {
+        parameters: {
+            query: {
+                date_from: string;
+                date_to: string;
+                subject_ids?: string[];
+                product_ids?: string[];
+                query_topic_ids?: string[];
+                prompt_variant_ids?: string[];
+                engine_surface_ids?: string[];
+                collection_profile_ids?: string[];
+                collection_modes?: components["schemas"]["GeoCollectionMode"][];
+                language_codes?: string[];
+                region_codes?: string[];
+                login_states?: components["schemas"]["GeoProfileLoginState"][];
+                intent_types?: components["schemas"]["IntentType"][];
+                mention_mode?: components["schemas"]["GeoPromptMentionMode"] | null;
+                review_policy?: "EFFECTIVE" | "REVIEWED_ONLY";
+                cell_key: string;
+                metric_code: "natural_visibility" | "recommendation_rate" | "accurate_claim_rate" | "mention_sov" | "recommendation_sov" | "owned_source_coverage" | "owned_citation_share" | "partial_claim_rate" | "incorrect_claim_rate" | "severe_error_run_rate";
+                period?: "CURRENT" | "PREVIOUS";
+                cohort?: "CANDIDATE" | "DENOMINATOR" | "NUMERATOR" | "EXCLUDED";
+                page?: number;
+                page_size?: 10 | 20 | 50;
+            };
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description GEO-603回答级洞察一致快照 */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoAnswerInsightRunPage"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listGeoInsightCitations: {
+        parameters: {
+            query: {
+                date_from: string;
+                date_to: string;
+                subject_ids?: string[];
+                product_ids?: string[];
+                query_topic_ids?: string[];
+                prompt_variant_ids?: string[];
+                engine_surface_ids?: string[];
+                collection_profile_ids?: string[];
+                collection_modes?: components["schemas"]["GeoCollectionMode"][];
+                language_codes?: string[];
+                region_codes?: string[];
+                login_states?: components["schemas"]["GeoProfileLoginState"][];
+                intent_types?: components["schemas"]["IntentType"][];
+                mention_mode?: components["schemas"]["GeoPromptMentionMode"] | null;
+                review_policy?: "EFFECTIVE" | "REVIEWED_ONLY";
+                cell_key: string;
+                hostname?: string | null;
+                normalized_url?: string | null;
+                source_category?: components["schemas"]["GeoSourceCategory"] | null;
+                page?: number;
+                page_size?: 10 | 20 | 50;
+            };
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoInsightCitationPage"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listGeoInsightClaims: {
+        parameters: {
+            query: {
+                date_from: string;
+                date_to: string;
+                subject_ids?: string[];
+                product_ids?: string[];
+                query_topic_ids?: string[];
+                prompt_variant_ids?: string[];
+                engine_surface_ids?: string[];
+                collection_profile_ids?: string[];
+                collection_modes?: components["schemas"]["GeoCollectionMode"][];
+                language_codes?: string[];
+                region_codes?: string[];
+                login_states?: components["schemas"]["GeoProfileLoginState"][];
+                intent_types?: components["schemas"]["IntentType"][];
+                mention_mode?: components["schemas"]["GeoPromptMentionMode"] | null;
+                review_policy?: "EFFECTIVE" | "REVIEWED_ONLY";
+                cell_key: string;
+                verdict?: components["schemas"]["GeoClaimVerdict"] | null;
+                severity?: components["schemas"]["GeoClaimSeverity"] | null;
+                claim_kind?: components["schemas"]["GeoClaimKind"] | null;
+                page?: number;
+                page_size?: 10 | 20 | 50;
+            };
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoInsightClaimPage"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listGeoInsightQualityRuns: {
+        parameters: {
+            query: {
+                date_from: string;
+                date_to: string;
+                subject_ids?: string[];
+                product_ids?: string[];
+                query_topic_ids?: string[];
+                prompt_variant_ids?: string[];
+                engine_surface_ids?: string[];
+                collection_profile_ids?: string[];
+                collection_modes?: components["schemas"]["GeoCollectionMode"][];
+                language_codes?: string[];
+                region_codes?: string[];
+                login_states?: components["schemas"]["GeoProfileLoginState"][];
+                intent_types?: components["schemas"]["IntentType"][];
+                mention_mode?: components["schemas"]["GeoPromptMentionMode"] | null;
+                review_policy?: "EFFECTIVE" | "REVIEWED_ONLY";
+                quality_code?: "eligible_runs" | "run_success_rate" | "analysis_run_coverage" | "review_backlog" | "evidence_completeness" | "cost_coverage" | "model_version_coverage" | "shared_domain" | "collection_version" | "analysis_version";
+                cohort?: "CANDIDATE" | "DENOMINATOR" | "NUMERATOR" | "EXCLUDED";
+                exclusion_reason?: components["schemas"]["MetricExclusion"] | null;
+                version_key?: string | null;
+                currency?: string | null;
+                page?: number;
+                page_size?: 10 | 20 | 50;
+            };
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoInsightQualityPage"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getGeoReportPreview: {
+        parameters: {
+            query: {
+                date_from: string;
+                date_to: string;
+                subject_ids?: string[];
+                product_ids?: string[];
+                query_topic_ids?: string[];
+                prompt_variant_ids?: string[];
+                engine_surface_ids?: string[];
+                collection_profile_ids?: string[];
+                collection_modes?: components["schemas"]["GeoCollectionMode"][];
+                language_codes?: string[];
+                region_codes?: string[];
+                login_states?: components["schemas"]["GeoProfileLoginState"][];
+                intent_types?: components["schemas"]["IntentType"][];
+                mention_mode?: components["schemas"]["GeoPromptMentionMode"] | null;
+                review_policy?: "EFFECTIVE" | "REVIEWED_ONLY";
+            };
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description GEO-603回答级洞察一致快照 */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoReportPreview"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getGeoPrintReport: {
+        parameters: {
+            query: {
+                date_from: string;
+                date_to: string;
+                subject_ids?: string[];
+                product_ids?: string[];
+                query_topic_ids?: string[];
+                prompt_variant_ids?: string[];
+                engine_surface_ids?: string[];
+                collection_profile_ids?: string[];
+                collection_modes?: components["schemas"]["GeoCollectionMode"][];
+                language_codes?: string[];
+                region_codes?: string[];
+                login_states?: components["schemas"]["GeoProfileLoginState"][];
+                intent_types?: components["schemas"]["IntentType"][];
+                mention_mode?: components["schemas"]["GeoPromptMentionMode"] | null;
+                review_policy?: "EFFECTIVE" | "REVIEWED_ONLY";
+            };
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description GEO-603回答级洞察一致快照 */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoReportPreview"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    exportGeoRunsCsv: {
+        parameters: {
+            query: {
+                date_from: string;
+                date_to: string;
+                subject_ids?: string[];
+                product_ids?: string[];
+                query_topic_ids?: string[];
+                prompt_variant_ids?: string[];
+                engine_surface_ids?: string[];
+                collection_profile_ids?: string[];
+                collection_modes?: components["schemas"]["GeoCollectionMode"][];
+                language_codes?: string[];
+                region_codes?: string[];
+                login_states?: components["schemas"]["GeoProfileLoginState"][];
+                intent_types?: components["schemas"]["IntentType"][];
+                mention_mode?: components["schemas"]["GeoPromptMentionMode"] | null;
+                review_policy?: "EFFECTIVE" | "REVIEWED_ONLY";
+            };
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description GEO-603回答级洞察一致快照 */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    "Content-Disposition"?: string;
+                    "X-Report-As-Of"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            501: components["responses"]["ErrorResponse"];
+        };
+    };
+    exportGeoCitationsCsv: {
+        parameters: {
+            query: {
+                date_from: string;
+                date_to: string;
+                subject_ids?: string[];
+                product_ids?: string[];
+                query_topic_ids?: string[];
+                prompt_variant_ids?: string[];
+                engine_surface_ids?: string[];
+                collection_profile_ids?: string[];
+                collection_modes?: components["schemas"]["GeoCollectionMode"][];
+                language_codes?: string[];
+                region_codes?: string[];
+                login_states?: components["schemas"]["GeoProfileLoginState"][];
+                intent_types?: components["schemas"]["IntentType"][];
+                mention_mode?: components["schemas"]["GeoPromptMentionMode"] | null;
+                review_policy?: "EFFECTIVE" | "REVIEWED_ONLY";
+            };
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description GEO-603回答级洞察一致快照 */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    "Content-Disposition"?: string;
+                    "X-Report-As-Of"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            501: components["responses"]["ErrorResponse"];
+        };
+    };
+    exportGeoClaimsCsv: {
+        parameters: {
+            query: {
+                date_from: string;
+                date_to: string;
+                subject_ids?: string[];
+                product_ids?: string[];
+                query_topic_ids?: string[];
+                prompt_variant_ids?: string[];
+                engine_surface_ids?: string[];
+                collection_profile_ids?: string[];
+                collection_modes?: components["schemas"]["GeoCollectionMode"][];
+                language_codes?: string[];
+                region_codes?: string[];
+                login_states?: components["schemas"]["GeoProfileLoginState"][];
+                intent_types?: components["schemas"]["IntentType"][];
+                mention_mode?: components["schemas"]["GeoPromptMentionMode"] | null;
+                review_policy?: "EFFECTIVE" | "REVIEWED_ONLY";
+            };
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description GEO-603回答级洞察一致快照 */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    "Content-Disposition"?: string;
+                    "X-Report-As-Of"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            501: components["responses"]["ErrorResponse"];
+        };
+    };
+    exportGeoOpportunitiesCsv: {
+        parameters: {
+            query: {
+                date_from: string;
+                date_to: string;
+                subject_ids?: string[];
+                product_ids?: string[];
+                query_topic_ids?: string[];
+                prompt_variant_ids?: string[];
+                engine_surface_ids?: string[];
+                collection_profile_ids?: string[];
+                collection_modes?: components["schemas"]["GeoCollectionMode"][];
+                language_codes?: string[];
+                region_codes?: string[];
+                login_states?: components["schemas"]["GeoProfileLoginState"][];
+                intent_types?: components["schemas"]["IntentType"][];
+                mention_mode?: components["schemas"]["GeoPromptMentionMode"] | null;
+                review_policy?: "EFFECTIVE" | "REVIEWED_ONLY";
+            };
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description GEO-603回答级洞察一致快照 */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    "Content-Disposition"?: string;
+                    "X-Report-As-Of"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            501: components["responses"]["ErrorResponse"];
+        };
+    };
+    getGeoRules: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoRuleSetRead"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateGeoRules: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoRuleUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoRuleSetRead"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    previewGeoRules: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoRulePreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoRulePreviewRead"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    listGeoOpportunities: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                created_from?: string | null;
+                created_to?: string | null;
+                page?: number;
+                page_size?: 10 | 20 | 50;
+                sort?: "PRIORITY_DESC" | "CREATED_DESC" | "LAST_SEEN_DESC";
+                status?: components["schemas"]["GeoOpportunityStatus"] | null;
+                priority?: components["schemas"]["GeoOpportunityPriority"] | null;
+                rule_code?: components["schemas"]["GeoRuleCode"] | null;
+                subject_id?: string | null;
+                product_id?: string | null;
+                query_topic_id?: string | null;
+                prompt_variant_id?: string | null;
+                collection_profile_id?: string | null;
+                engine_surface_id?: string | null;
+                collection_mode?: components["schemas"]["GeoCollectionMode"] | null;
+            };
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoOpportunityListPage"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    evaluateGeoOpportunities: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "Idempotency-Key": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoOpportunityEvaluationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoOpportunityEvaluationReceipt"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    getGeoOpportunity: {
+        parameters: {
+            query?: {
+                source_page?: number;
+                source_page_size?: 10 | 20 | 50;
+            };
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                opportunity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoOpportunityDetail"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    acknowledgeGeoOpportunity: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                opportunity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoOpportunityRevisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoOpportunityListItem"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    dismissGeoOpportunity: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                opportunity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoOpportunityDismissRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoOpportunityListItem"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    startFactRevisionFromGeoOpportunity: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "Idempotency-Key": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                opportunity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoOpportunityFactRevisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoOpportunityActionResult"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    createContentTaskFromGeoOpportunity: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "Idempotency-Key": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                opportunity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoOpportunityContentTaskRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoOpportunityActionResult"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    createPublicationRepairFromGeoOpportunity: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "Idempotency-Key": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                opportunity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoOpportunityOpenIssueRequest"] | components["schemas"]["GeoOpportunityLinkIssueRequest"] | components["schemas"]["GeoOpportunityCreateRepairRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoOpportunityActionResult"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    previewGeoOpportunityRetest: {
+        parameters: {
+            query: {
+                baseline_batch_id: string;
+            };
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                opportunity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoRetestPreview"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    createGeoOpportunityRetest: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "Idempotency-Key": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                opportunity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoRetestRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoRetestCreated"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getGeoOpportunityComparison: {
+        parameters: {
+            query?: {
+                retest_batch_id?: string | null;
+            };
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                opportunity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoOpportunityComparisonRead"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    resolveGeoOpportunity: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                opportunity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoOpportunityResolveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoOpportunityDecisionResult"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    continueGeoOpportunity: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                opportunity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoOpportunityContinueRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoOpportunityDecisionResult"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getGeoBrowserSession: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoBrowserSessionContext"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    importGeoBrowserSession: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoBrowserSessionImport"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoBrowserSessionContext"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    checkGeoBrowserSessionHealth: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoBrowserSessionCommand"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoBrowserSessionContext"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    revokeGeoBrowserSession: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoBrowserSessionCommand"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoBrowserSessionContext"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    purgeGeoBrowserSessions: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoBrowserSessionPurge"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoBrowserSessionContext"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    accessGeoBrowserSession: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                session_reference: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoBrowserSessionAccessRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoBrowserSessionEnvelope"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
         };
     };
 }

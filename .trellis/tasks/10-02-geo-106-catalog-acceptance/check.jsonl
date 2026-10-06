@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "前端验收与真实 API 边界"}
+{"file": ".trellis/spec/infra/e2e-isolation.md", "reason": "真实 E2E 数据库/Redis/storage/秘密扫描及清理合同"}
+{"file": "docs/geo-monitoring/04-delivery/05-task-template.md", "reason": "GEO 单任务 19 节 Task Brief"}
+{"file": "docs/geo-monitoring/03-technical/07-testing-and-quality.md", "reason": "Catalog 定向和阶段质量门禁"}
+{"file": "contracts/database.md", "reason": "Product 事实所有权及 Catalog 唯一性、revision 和锁序"}
+{"file": "contracts/openapi.yaml", "reason": "当前 Catalog/Product/事实公共协议"}

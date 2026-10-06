@@ -1,0 +1,15 @@
+{
+  "seeded_runs": 100000,
+  "total_runs": 100021,
+  "days": 365,
+  "products": 20,
+  "repeat_count": 10,
+  "status_counts": {
+    "COMPLETED": 52515,
+    "FAILED": 20000,
+    "NEEDS_REVIEW": 17505,
+    "PENDING": 10001
+  },
+  "constraints_enabled": true,
+  "external_provider_calls": 0
+}

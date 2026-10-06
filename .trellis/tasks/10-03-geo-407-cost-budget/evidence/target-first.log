@@ -1,0 +1,31 @@
+ Container partsignal-geo407-postgres-1 Running 
+ Container partsignal-geo407-redis-1 Running 
+ Container partsignal-geo407-fake-oss-1 Running 
+ Container partsignal-geo407-postgres-1 Waiting 
+ Container partsignal-geo407-postgres-1 Healthy 
+ Container partsignal-geo407-backend-test-run-5b91a1bce190 Creating 
+ Container partsignal-geo407-backend-test-run-5b91a1bce190 Created 
+ImportError while loading conftest '/app/tests/conftest.py'.
+/Users/sc/PycharmProjects/partsignal/backend/tests/conftest.py:5: in <module>
+    ???
+app/config.py:17: in <module>
+    class Settings(BaseSettings):
+/opt/venv/lib/python3.12/site-packages/pydantic/_internal/_model_construction.py:256: in __new__
+    complete_model_class(
+/opt/venv/lib/python3.12/site-packages/pydantic/_internal/_model_construction.py:690: in complete_model_class
+    cls.__pydantic_validator__ = create_schema_validator(
+/opt/venv/lib/python3.12/site-packages/pydantic/plugin/_schema_validator.py:53: in create_schema_validator
+    return SchemaValidator(schema, config, _use_prebuilt=_use_prebuilt)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   pydantic_core._pydantic_core.SchemaError: Error building "function-after" validator:
+E     SchemaError: Error building "function-after" validator:
+E     SchemaError: Error building "model" validator:
+E     SchemaError: Error building "model-fields" validator:
+E     SchemaError: Field "geo_daily_budget_currency":
+E     SchemaError: Error building "default" validator:
+E     SchemaError: Error building "str" validator:
+E     SchemaError: regex parse error:
+E       ^[A-Z]{3}$(?![\s\S])
+E                 ^^^
+E   error: look-around, including look-ahead and look-behind, is not supported
+

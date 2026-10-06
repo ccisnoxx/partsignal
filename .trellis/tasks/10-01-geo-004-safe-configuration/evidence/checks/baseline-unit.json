@@ -1,0 +1,16 @@
+{
+  "command": [
+    "UV_CACHE_DIR=.cache/uv",
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "pytest",
+    "backend/tests/unit/test_generation_runtime_mode.py",
+    "backend/tests/unit/test_security_and_publication.py",
+    "backend/tests/unit/test_geo_insights.py"
+  ],
+  "exit_code": 0,
+  "result": "49 passed in 0.58s",
+  "evidence": "本会话实际工具返回；未重复执行已成功且输入未变的检查"
+}

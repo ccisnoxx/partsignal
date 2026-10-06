@@ -1,0 +1,13 @@
+[0;34m=== Validating Context Files ===[0m
+Target dir: /Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-02-geo-209-plan-ui
+
+  [1;33mimplement.jsonl:3: Warning: .trellis/spec/frontend/state-management.md is 99191 bytes, exceeds context_injection.max_file_bytes (32768); injection will truncate it[0m
+  [1;33mimplement.jsonl:5: Warning: contracts/openapi.yaml is 541773 bytes, exceeds context_injection.max_file_bytes (32768); injection will truncate it[0m
+  [1;33mimplement.jsonl:7: Warning: docs/geo-monitoring/04-delivery/task-manifest.yaml is 55986 bytes, exceeds context_injection.max_file_bytes (32768); injection will truncate it[0m
+  [0;32mimplement.jsonl: ✓ (7 entries)[0m
+  [1;33mcheck.jsonl:3: Warning: .trellis/spec/frontend/state-management.md is 99191 bytes, exceeds context_injection.max_file_bytes (32768); injection will truncate it[0m
+  [1;33mcheck.jsonl:5: Warning: contracts/openapi.yaml is 541773 bytes, exceeds context_injection.max_file_bytes (32768); injection will truncate it[0m
+  [1;33mcheck.jsonl:7: Warning: docs/geo-monitoring/04-delivery/task-manifest.yaml is 55986 bytes, exceeds context_injection.max_file_bytes (32768); injection will truncate it[0m
+  [0;32mcheck.jsonl: ✓ (7 entries)[0m
+
+[0;32m✓ All validations passed[0m

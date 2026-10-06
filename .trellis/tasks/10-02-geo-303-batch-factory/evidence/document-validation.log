@@ -1,0 +1,3 @@
+manifest仅GEO-303改变：planned→in_progress→review；GEO-207/GEO-302保持done。
+文档SHA256SUMS全部匹配；新导航和完整修改文件列表的本地文件链接验证通过。
+当前Docker context=default；colima stop成功，status提示not running（状态命令exit1为预期停止诊断）。

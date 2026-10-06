@@ -110,3 +110,12 @@ fresh critical_reviewer 已发现并推动修复：failed镜像证明遗漏；�
 中间失败与诊断保留：macOS zombie EPERM；部署校验顺序V1错误提示漂移；入场image probe原validation exit2改变；新增迁移后strict检查使旧AWK混用pre/post时序。逐项根因修正，最终成功没有覆盖历史失败。新SHA固定后验证、fresh独立复审与接受决定另行记录。本轮仍review，task.commit中的d431e518是上一轮历史实施提交；新审查以实际新提交SHA为准。
 
 未运行无关frontend/GEO/E2E全门禁；未验证真实服务器、公网maintenance、生产备份/registry/AI/OSS、丰富业务不可变历史、远端CI、clean main/RC。合成MET与稀疏69表摘要不代表生产验收。用户GEO-1007对应delivery GEO-1008，原页面GEO-1007不重编号。
+
+
+## 新固定提交复审与单项接受
+
+修复提交 `baea420fb8a479d66d578d3f4fd91d38086b8c29` 已推送 origin/geo/GEO-906。clean固定SHA下重新运行定向恢复51项+7个监督信号场景、真实PG16/Compose及runtime镜像、生产harness、backend20unit，全部exit0。记录含命令、SHA、dirty=false、UTC开始结束、退出码、日志SHA256；见本轮evidence下fixed-sha-*。
+
+fresh只读critical_reviewer对该SHA返回APPROVE，监督旁路、失败事实来源、严格缺表与原runtime合同均RESOLVED；见independent-review-baea420f.md。审前/后全tracked源码快照无变化。按用户第五项条件授权，单项接受记录acceptance.json绑定该受审SHA，task状态completed（项目done约定）/completedAt为实际2026-10-06。保留历史，不归档其他任务；GEO-1007仍对应delivery1008，原页面任务编号不变。
+
+此接受不表示geo/GEO-906整分支通过、生产恢复在真实服务器演练或v1.0.0-rc1冻结。下一阶段重新审计Browser/Catalog/CRON/Opportunity/文档/候选完整门禁矩阵，再由全分支PR/main/RC各自门禁裁决。PR已存在#1；固定受审SHA没有远端CI，不宣称CI通过。

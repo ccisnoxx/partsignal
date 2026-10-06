@@ -1824,7 +1824,7 @@ tasks:
   phase: R9A
   release: V1.0-manual-first
   title: 闭合升级候选 artifact 失败安全恢复
-  status: review
+  status: done
   dependencies:
   - GEO-1002
   - GEO-903
@@ -1847,7 +1847,7 @@ tasks:
   - 06-reviews/GEO-1001-release-readiness-audit.md
   audit_source: 06-reviews/GEO-1001-release-readiness-audit.md
   scope_note: "用户以 GEO-1007 明确执行本恢复范围；记录在 .trellis/tasks/10-05-geo-1007-upgrade-recovery，保留本条 GEO-1008 身份及原 GEO-1007 页面任务，不重编号。任务本地完成后按该 Trellis 记录 review；生产候选/现场 1009/1010 未执行。"
-  review_note: "2026-10-06：固定137a9fc6独立复审CHANGES_REQUESTED；迁移运行时闭包已RESOLVED。本轮修复公开recover监督FD绕过、部署owner失败事实来源和迁移后缺核心表误判，取消公开recorder/begin/prepared marker；新增正确锁FD双信号、真实owner失败/信号及PG16正确head缺表反例。定向恢复、真实Compose/runtime镜像、部署/cleanup通过。新固定SHA待fresh复审，仍review，未人工接受或生产验收；GEO-1009/1010未执行。详见Trellis implement/evidence。"
+  review_note: "2026-10-06：新固定baea420fb8a479d66d578d3f4fd91d38086b8c29 fresh独立复审APPROVE，监督FD旁路/失败事实来源/严格缺表/runtime约束均RESOLVED；clean固定SHA定向51项+7信号、backend20、真实PG16/Compose/runtime镜像及部署harness通过。依据用户条件授权单项接受；accepted_commit/复审记录/限制见Trellis acceptance.json。仅用户GEO-1007恢复范围，不代表整个分支、生产恢复或RC通过；1009/1010仍未执行。"
 - id: GEO-1009
   phase: R9A
   release: V1.0-manual-first

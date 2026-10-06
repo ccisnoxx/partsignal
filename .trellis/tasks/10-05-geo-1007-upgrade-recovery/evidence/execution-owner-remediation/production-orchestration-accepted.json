@@ -1,0 +1,14 @@
+{
+  "name": "production-orchestration-accepted",
+  "command": [
+    "deploy/scripts/test-deploy-production.sh"
+  ],
+  "cwd": "/Users/sc/PycharmProjects/partsignal",
+  "sha": "137a9fc6b9a47ca980eb9265ac57be6b96a47b1f",
+  "dirty": true,
+  "started_at": "2026-10-06T19:08:05.588211+00:00",
+  "ended_at": "2026-10-06T19:08:20.413134+00:00",
+  "exit_code": 1,
+  "log": "/Users/sc/.codex/reviews/partsignal/geo1007-owner-remediation-20261006T190127Z/logs/production-orchestration-accepted.log",
+  "log_sha256": "3940405990408d665b252258549fd6d961c750ccfaa2a43e87c82a0f94aef890"
+}

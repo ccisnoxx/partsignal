@@ -95,3 +95,18 @@ fresh critical_reviewer 已发现并推动修复：failed镜像证明遗漏；�
 提交前确认全部58个变更归属本修复，维护文件与最终验证快照一致；代码/维护文档staged diff检查通过。原始patch证据中的context空白与失败日志中两处原始输出行尾空白按证据语法保留，不篡改历史输出。49项、两个SIGTERM场景及真实Docker/PG Compose等既有有效证据复用，没有因提交重复运行无关全门禁。
 
 会话收尾清除本会话任务指针并记录journal；任务继续review，保留所有资料和人工验收入口，不归档或修改其他任务。用户提交推送授权未扩大为整个geo/GEO-906分支接受、生产恢复/发布或GEO-1009/1010执行。提交后的精确commit远端CI未在本次收尾中验证。
+
+
+## 2026-10-06：137a9fc6 独立复审后的执行所有权修复
+
+固定137a9fc6的独立审查为CHANGES_REQUESTED，迁移运行时闭包RESOLVED，监督FD绕过、公开失败recorder来源和post-migration缺表仍阻断。旧日志/审查保留为历史，本轮未沿用APPROVE。用户明确授权按顺序修复、验证、提交推送、固定新SHA fresh独立复审，再按结果决定单项接受。
+
+公开 recover-upgrade/deploy-production 无条件持锁 supervisor + 私有 fork worker；继承FD只复用锁。SIGINT/SIGTERM、10秒SIGKILL、OS子孙停止证明由 production_maintenance_execution.py 拥有，嵌套私有进程组也受治理，macOS zombie EPERM不当作错误解锁。部署编排由 production_deployment.py 执行；worker创建attempt、通过外部CLI不继承的私有pipe报告attempt/stage，父级依据实际waitpid/信号及已冻结状态写失败事实。删除公开begin-upgrade、mark-upgrade-prepared和record-upgrade-failure入口，不增加env监督豁免。prepared后独立批准声明仍保留其明确人工语义。
+
+迁移前默认integrity允许未建表；所有部署迁移后与恢复prepared证明使用--require-schema，四张核心发布表缺任一张显式REQUIRED_TABLE_MISSING。保留精确head、行完整性、同冻结migration image/rootfs/source约束，正确head不能替代表结构。两个执行模块纳入13项producer/consumer权威allowlist，Runbook/spec/template同步。
+
+预提交验证命令、HEAD、dirty标识、UTC开始结束、退出码和完整日志保存在evidence/execution-owner-remediation。targeted-recovery-final为50项（新source信号单独4项，其中3为既有），实际recovery/监督信号7场景通过；backend debugger定向unit20通过。真实PG16/Compose保留正确0066head、临时改名published_articles且保留行/OID：recover后实际deploy退出1，仍UPGRADE_DEPLOYING/current attempt FAILED/candidate不变；还原后完整deploy→activate，69表行摘要相同，owned资源清零。真实迁移运行时镜像负例保持通过。production-regression-final和production-cleanup通过。
+
+中间失败与诊断保留：macOS zombie EPERM；部署校验顺序V1错误提示漂移；入场image probe原validation exit2改变；新增迁移后strict检查使旧AWK混用pre/post时序。逐项根因修正，最终成功没有覆盖历史失败。新SHA固定后验证、fresh独立复审与接受决定另行记录。本轮仍review，task.commit中的d431e518是上一轮历史实施提交；新审查以实际新提交SHA为准。
+
+未运行无关frontend/GEO/E2E全门禁；未验证真实服务器、公网maintenance、生产备份/registry/AI/OSS、丰富业务不可变历史、远端CI、clean main/RC。合成MET与稀疏69表摘要不代表生产验收。用户GEO-1007对应delivery GEO-1008，原页面GEO-1007不重编号。

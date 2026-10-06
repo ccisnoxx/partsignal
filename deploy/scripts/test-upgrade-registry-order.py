@@ -4,7 +4,9 @@
 import importlib.util
 import json
 import os
+import signal
 import subprocess
+import time
 import unittest
 from pathlib import Path
 
@@ -49,8 +51,14 @@ elif args[0] == 'compose' and any(c in args for c in ('run','up')):
     current=state()
     assert marker.exists() and current['phase'] == 'UPGRADE_DEPLOYING'
     assert current['upgrade_migration_cache_policy']['candidate'] == current['candidate']
-    if os.environ.get('ORDER_FAIL_STAGE') == 'migration' and 'run' in args and 'migrate' in args:
-        sys.exit(23)
+    if 'run' in args and 'migrate' in args:
+        if os.environ.get('ORDER_FAIL_STAGE') == 'migration':
+            sys.exit(23)
+        if os.environ.get('ORDER_FAIL_STAGE') == 'signal':
+            import signal, time
+            signal.signal(signal.SIGTERM, signal.SIG_IGN)
+            marker.with_suffix('.running').touch()
+            time.sleep(60)
 ''')
         docker.chmod(0o700)
         curl = self.bin / 'curl'
@@ -101,6 +109,37 @@ elif args[0] == 'compose' and any(c in args for c in ('run','up')):
         self.assertFalse(self.marker.exists())
         self.assertFalse(self.log.exists())
         self.assertEqual(fixture.owner.read_state(self.data.live), before)
+
+    def test_deploy_owner_observes_signal_and_persists_failure_after_stop(self):
+        os.environ['ORDER_FAIL_STAGE'] = 'signal'
+        process = subprocess.Popen([str(self.deploy)], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        try:
+            deadline = time.monotonic() + 8
+            while not self.marker.with_suffix('.running').exists():
+                self.assertIsNone(process.poll(), '真实 deploy 未进入阻塞迁移命令')
+                self.assertLess(time.monotonic(), deadline)
+                time.sleep(0.01)
+            state = fixture.owner.read_state(self.data.live)
+            self.assertEqual(state['upgrade_attempt']['status'], 'RUNNING')
+            self.assertNotIn('current_upgrade_failure_id', state)
+            process.send_signal(signal.SIGTERM)
+            output = process.communicate(timeout=13)
+            self.assertEqual(process.returncode, 143, output)
+            state = fixture.owner.read_state(self.data.live)
+            record = state['upgrade_failures'][-1]
+            self.assertEqual(state['phase'], 'UPGRADE_DEPLOYING')
+            self.assertEqual(state['upgrade_attempt']['status'], 'FAILED')
+            self.assertEqual(record['attempt_id'], state['upgrade_attempt']['attempt_id'])
+            self.assertEqual(record['candidate'], self.data.fixed)
+            self.assertEqual(record['signal'], signal.SIGTERM)
+            self.assertEqual(record['exit_code'], 143)
+            self.assertEqual(record['worker_exit_code'], 137)
+            self.assertEqual(record['failure_kind'], 'DEPLOYMENT_SIGNALLED')
+            self.assertEqual(record['stage'], 'migration')
+        finally:
+            if process.poll() is None:
+                process.send_signal(signal.SIGTERM)
+                process.communicate(timeout=13)
 
     def test_real_deploy_exit_records_candidate_bound_failure(self):
         os.environ['ORDER_FAIL_STAGE'] = 'migration'

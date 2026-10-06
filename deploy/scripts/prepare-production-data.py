@@ -10,12 +10,10 @@ import hashlib
 import json
 import os
 import re
-import signal
 import stat
 import subprocess
 import sys
 import tempfile
-import time
 import uuid
 import warnings
 from collections.abc import Callable, Iterator
@@ -24,6 +22,8 @@ from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from production_deployment import execute as execute_deployment
+from production_maintenance_execution import ExecutionResult, exit_code, supervise
 from production_upgrade_recovery import verify_archives
 from production_migration_runtime import image_runtime_fingerprint, source_digest, validate_fingerprint
 
@@ -65,6 +65,8 @@ REQUIRED_TRACKED_FILES = {
     "deploy/scripts/prepare-production-data.py",
     "deploy/scripts/production_upgrade_recovery.py",
     "deploy/scripts/production_migration_runtime.py",
+    "deploy/scripts/production_maintenance_execution.py",
+    "deploy/scripts/production_deployment.py",
     "deploy/scripts/rollback-production-frontend.sh",
 }
 rename_count = 0
@@ -426,81 +428,33 @@ def maintenance_lock() -> Iterator[int]:
 
 
 def run_locked(child_command: list[str]) -> int:
-    """持有同一锁执行完整部署或激活脚本，并把锁身份安全传给子进程。"""
+    """继承 FD 只复用锁；公开 run-locked 始终创建本次 supervisor。"""
     if not child_command:
         raise DataStateError("run-locked 必须指定子命令")
     with maintenance_lock() as descriptor:
-        os.set_inheritable(descriptor, True)
-        environment = os.environ.copy()
-        environment["PARTSIGNAL_MAINTENANCE_LOCK_FD"] = str(descriptor)
-        child = None
-        interrupted = 0
-        deadline = 0.0
+        def operation(publish: Callable[[dict[str, Any]], None]) -> int:
+            publish({})
+            environment = {**os.environ, "PARTSIGNAL_MAINTENANCE_LOCK_FD": str(descriptor)}
+            result = subprocess.run(child_command, env=environment, pass_fds=(descriptor,))
+            return exit_code(result.returncode)
+        return supervise(operation).exit_code
 
-        def forward(signum: int, _frame: Any) -> None:
-            nonlocal interrupted, deadline
-            if not interrupted:
-                interrupted = signum
-                deadline = time.monotonic() + 10
-            if child is not None:
-                try:
-                    os.killpg(child.pid, signum)
-                except ProcessLookupError:
-                    pass
 
-        handlers = {s: signal.signal(s, forward) for s in (signal.SIGINT, signal.SIGTERM)}
+def supervised_operation(operation: Callable[[Callable[[dict[str, Any]], None]], int]) -> ExecutionResult:
+    """在 worker 内保留具体错误；父级只依据自己的真实退出观测。"""
+    def worker(publish: Callable[[dict[str, Any]], None]) -> int:
         try:
-            child = subprocess.Popen(
-                child_command, env=environment, pass_fds=(descriptor,),
-                start_new_session=True,
-            )
-            if interrupted:
-                forward(interrupted, None)
-            while True:
-                try:
-                    status = child.wait(timeout=0.2)
-                    break
-                except subprocess.TimeoutExpired:
-                    if interrupted and time.monotonic() >= deadline:
-                        os.killpg(child.pid, signal.SIGKILL)
-                        status = child.wait()
-                        break
-            if interrupted:
-                # 父脚本退出不证明子孙已退出；锁释放前结束整个维护进程组。
-                try:
-                    os.killpg(child.pid, signal.SIGKILL)
-                except ProcessLookupError:
-                    pass
-                wait_maintenance_group_stopped(child.pid)
-        finally:
-            for signum, handler in handlers.items():
-                signal.signal(signum, handler)
-            os.set_inheritable(descriptor, False)
-    return 128 + interrupted if interrupted else status
-
-
-def wait_maintenance_group_stopped(group: int) -> None:
-    """SIGKILL 投递不等于停止；僵尸不能再执行，其他子孙结束前保持锁。"""
-    reported = False
-    while True:
-        try:
-            os.killpg(group, 0)
-        except ProcessLookupError:
-            return
-        try:
-            result = subprocess.run(["ps", "-eo", "pgid=,stat="], check=True,
-                                    capture_output=True, text=True, timeout=5)
-            rows = [line.split() for line in result.stdout.splitlines()]
-            if any(len(row) != 2 or not row[0].isdigit() for row in rows):
-                raise ValueError("进程状态格式无效")
-            if not any(int(pid_group) == group and not status.startswith("Z") for pid_group, status in rows):
-                return
-        except (OSError, subprocess.SubprocessError, ValueError):
-            # 未知状态不能解除排他性；保留 supervisor 和锁等待 OS 提供停止证明。
-            if not reported:
-                print("维护子孙停止状态不可读；持续持锁，等待系统状态恢复。", file=sys.stderr)
-                reported = True
-        time.sleep(0.05)
+            return operation(publish)
+        except subprocess.CalledProcessError as error:
+            if isinstance(error.cmd, list) and error.cmd[:3] == ["docker", "image", "inspect"]:
+                print(f"Production 镜像身份检查失败：{error.cmd[-1]}", file=sys.stderr)
+            else:
+                print("Production 维护命令失败；保留未初始化状态。", file=sys.stderr)
+            return exit_code(error.returncode)
+        except (DataStateError, OSError, ValueError) as error:
+            print(f"Production 数据状态操作失败：{error}", file=sys.stderr)
+            return 2
+    return supervise(worker)
 
 
 def read_bootstrap_credential(
@@ -1149,7 +1103,7 @@ def prove_upgrade_runtime(candidate: dict[str, Any]) -> dict[str, Any]:
 
 UPGRADE_FAILURE_STAGES = (
     "data_services", "configuration_preflight", "integrity_preflight",
-    "stop_application", "migration", "account_initialization", "application_start",
+    "stop_application", "migration", "integrity_post_migration", "account_initialization", "application_start",
     "status", "api_readiness", "frontend_readiness", "prepared_proof",
 )
 
@@ -1194,17 +1148,28 @@ def persist_upgrade_failure(candidate: dict[str, Any], fields: dict[str, Any], p
     return record
 
 
-def record_upgrade_failure(candidate: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
-    """由 deploy.sh 的明确非零退出路径记录部署失败，不从阶段推断失败。"""
-    if args.stage not in UPGRADE_FAILURE_STAGES or type(args.exit_code) is not int or not 1 <= args.exit_code <= 255:
-        raise DataStateError("升级失败必须提供实际失败阶段和非零退出码")
-    if args.signal not in (0, signal.SIGINT, signal.SIGTERM) or (args.signal and args.exit_code != 128 + args.signal):
-        raise DataStateError("升级失败信号与退出码不一致")
+def record_observed_upgrade_failure(candidate: dict[str, Any], result: ExecutionResult) -> dict[str, Any] | None:
+    """持锁 supervisor 在全部子孙停止后记录自己观察到的本次退出。"""
+    attempt_id, stage = result.progress.get("attempt_id"), result.progress.get("stage")
+    if not result.exit_code or not attempt_id:
+        return
+    if stage not in UPGRADE_FAILURE_STAGES:
+        raise DataStateError("部署退出缺少本次执行阶段，保持维护且不补造失败")
+    data_root, _ = configured_roots()
+    state = read_state(data_root)
+    attempt = state.get("upgrade_attempt")
+    if not isinstance(attempt, dict) or attempt.get("attempt_id") != attempt_id:
+        raise DataStateError("部署退出不属于当前 attempt，拒绝记录失败")
+    runtime = state.get("upgrade_migration_runtime")
+    if runtime != {"candidate": candidate, "fingerprint": candidate["migration_runtime"]}:
+        raise DataStateError("部署失败缺少迁移前冻结证明")
     return persist_upgrade_failure(candidate, {
-        "stage": args.stage, "exit_code": args.exit_code, "signal": args.signal or None,
-        "failure_kind": "DEPLOYMENT_SIGNALLED" if args.signal else "DEPLOYMENT_COMMAND_FAILED",
-        "evidence_ref": require_low_sensitive_ref(args.evidence_ref),
-    }, "UPGRADE_DEPLOYING")
+        "stage": stage, "exit_code": result.exit_code, "signal": result.signal or None,
+        "worker_exit_code": result.worker_exit_code,
+        "failure_kind": "DEPLOYMENT_SIGNALLED" if result.signal else "DEPLOYMENT_COMMAND_FAILED",
+        "evidence_ref": f"deploy-owner/{attempt_id}/{stage}",
+        "migration_runtime_proof": runtime,
+    }, state["phase"])
 
 
 def declare_pre_activation_failure(candidate: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
@@ -1281,7 +1246,7 @@ def require_upgrade_attempt(state: dict[str, Any], candidate: dict[str, Any], st
         raise DataStateError(f"upgrade 要求当前有效且未失败的 {status} 部署 attempt")
 
 
-def recover_upgrade(args: argparse.Namespace) -> None:
+def recover_upgrade(args: argparse.Namespace, *, checkpoint: Callable[[], None] = lambda: None) -> None:
     """显式 CAS 前向接管；完整证明后仅原子写状态，不换镜像或触碰数据。"""
     validate_recovery_boundary()
     data_root, _ = configured_roots()
@@ -1370,6 +1335,7 @@ def recover_upgrade(args: argparse.Namespace) -> None:
             raise DataStateError("升级恢复重复请求与持久回执或当前阶段冲突")
         print("升级恢复已记录；重放同一回执，不重新切换候选。")
         return
+    checkpoint()
     state["candidate"] = fixed
     state["upgrade_migration_cache_policy"] = {"policy": "DEFAULT_PYTHON_CACHE_V1", "candidate": fixed}
     state["upgrade_migration_runtime"] = {"candidate": fixed, "fingerprint": fixed["migration_runtime"]}
@@ -1411,7 +1377,7 @@ def verify_recovery_database(candidate: dict[str, Any]) -> None:
         "--env-file", runtime, "-f", str(REPOSITORY_ROOT / "deploy/compose.prod.yaml"),
         "run", "--rm", "--pull", "never", "--no-deps", "api",
     ]
-    subprocess.run([*command, "python", "-m", "app.cli", "preflight-integrity"], check=True)
+    subprocess.run([*command, "python", "-m", "app.cli", "preflight-integrity", "--require-schema"], check=True)
     probe = (
         "import json; from sqlalchemy import text; from app.db import engine; "
         "connection=engine.connect(); "
@@ -1543,10 +1509,8 @@ def parse_args() -> argparse.Namespace:
         command_parser.add_argument("run_id")
         command_parser.add_argument("manifest")
     for command in (
-        "begin-upgrade",
         "verify-upgrade-entry",
         "verify-candidate-images",
-        "mark-upgrade-prepared",
         "verify-upgrade-prepared",
         "mark-upgrade-initialized",
         "verify-rollback-frontend",
@@ -1561,12 +1525,6 @@ def parse_args() -> argparse.Namespace:
         "failed-release-id", "failed-manifest-sha256", "recovery-id", "approval-ref", "failure-id",
     ):
         recovery_parser.add_argument(f"--{field}", required=True)
-    failure_parser = subparsers.add_parser("record-upgrade-failure")
-    failure_parser.add_argument("manifest")
-    failure_parser.add_argument("--stage", choices=UPGRADE_FAILURE_STAGES, required=True)
-    failure_parser.add_argument("--exit-code", type=int, required=True)
-    failure_parser.add_argument("--signal", type=int, default=0)
-    failure_parser.add_argument("--evidence-ref", required=True)
     declaration_parser = subparsers.add_parser("declare-pre-activation-failure")
     declaration_parser.add_argument("manifest")
     declaration_parser.add_argument("--approval-ref", required=True)
@@ -1601,6 +1559,7 @@ def parse_args() -> argparse.Namespace:
     bootstrap_parser.add_argument("--model-display-name", required=True)
     bootstrap_parser.add_argument("--model-id", required=True)
     bootstrap_parser.add_argument("--request-parameters-json", required=True)
+    subparsers.add_parser("deploy-production")
     locked_parser = subparsers.add_parser("run-locked")
     locked_parser.add_argument("child_command", nargs=argparse.REMAINDER)
     return parser.parse_args()
@@ -1612,9 +1571,6 @@ def main() -> None:
     try:
         if args.command == "run-locked":
             raise SystemExit(run_locked(args.child_command))
-        if args.command == "recover-upgrade" and not os.getenv("PARTSIGNAL_MAINTENANCE_LOCK_FD"):
-            # 正式入口自身建立 supervisor；内层仍须校验继承 FD 的 inode/device。
-            raise SystemExit(run_locked([sys.executable, str(Path(__file__).resolve()), *sys.argv[1:]]))
         with maintenance_lock():
             if args.command == "quarantine":
                 quarantine(require_run_id(args.run_id))
@@ -1643,25 +1599,26 @@ def main() -> None:
                     "PRODUCTION_INITIALIZED",
                     candidate_from_manifest(args.manifest),
                 )
-            elif args.command == "begin-upgrade":
-                begin_upgrade(candidate_from_manifest(args.manifest))
             elif args.command == "verify-upgrade-entry":
                 upgrade_entry_state(candidate_from_manifest(args.manifest))
                 print("Production upgrade 只读入场资格校验通过。")
             elif args.command == "recover-upgrade":
-                recover_upgrade(args)
-            elif args.command == "record-upgrade-failure":
-                record_upgrade_failure(candidate_from_manifest(args.manifest), args)
+                result = supervised_operation(lambda publish: (
+                    recover_upgrade(args, checkpoint=lambda: publish({})) or 0
+                ))
+                raise SystemExit(result.exit_code)
+            elif args.command == "deploy-production":
+                result = supervised_operation(lambda publish: execute_deployment(sys.modules[__name__], publish))
+                if (os.getenv("PARTSIGNAL_DEPLOY_MODE") or "upgrade") == "upgrade" and result.progress.get("attempt_id"):
+                    data_root, _ = configured_roots()
+                    # 身份已由本次 worker 冻结在 state；父级依据私有 pipe 的 attempt 关联。
+                    candidate = read_state(data_root)["candidate"]
+                    record_observed_upgrade_failure(candidate, result)
+                raise SystemExit(result.exit_code)
             elif args.command == "declare-pre-activation-failure":
                 declare_pre_activation_failure(candidate_from_manifest(args.manifest), args)
             elif args.command == "verify-candidate-images":
                 verify_candidate_images(candidate_from_manifest(args.manifest))
-            elif args.command == "mark-upgrade-prepared":
-                transition_upgrade(
-                    "UPGRADE_DEPLOYING",
-                    "UPGRADE_PREPARED",
-                    candidate_from_manifest(args.manifest),
-                )
             elif args.command == "verify-upgrade-prepared":
                 verify_upgrade_prepared(candidate_from_manifest(args.manifest))
             elif args.command == "mark-upgrade-initialized":

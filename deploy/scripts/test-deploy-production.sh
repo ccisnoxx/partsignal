@@ -1024,6 +1024,8 @@ tracked_names = {
     "deploy/scripts/prepare-production-data.py",
     "deploy/scripts/production_upgrade_recovery.py",
     "deploy/scripts/production_migration_runtime.py",
+    "deploy/scripts/production_maintenance_execution.py",
+    "deploy/scripts/production_deployment.py",
     "deploy/scripts/rollback-production-frontend.sh",
 }
 manifest = suite_root / "release-manifest.json"
@@ -1648,6 +1650,8 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/manifest.log" \
   --tracked-file "$root/deploy/scripts/prepare-production-data.py" \
   --tracked-file "$root/deploy/scripts/production_upgrade_recovery.py" \
   --tracked-file "$root/deploy/scripts/production_migration_runtime.py" \
+  --tracked-file "$root/deploy/scripts/production_maintenance_execution.py" \
+  --tracked-file "$root/deploy/scripts/production_deployment.py" \
   --tracked-file "$root/deploy/scripts/rollback-production-frontend.sh" \
   --output "$test_dir/v1-manifest.json" >/dev/null 2>"$test_dir/v1-manifest.err"
 v1_manifest_status=$?
@@ -1676,6 +1680,8 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/manifest.log" \
   --tracked-file "$root/deploy/scripts/prepare-production-data.py" \
   --tracked-file "$root/deploy/scripts/production_upgrade_recovery.py" \
   --tracked-file "$root/deploy/scripts/production_migration_runtime.py" \
+  --tracked-file "$root/deploy/scripts/production_maintenance_execution.py" \
+  --tracked-file "$root/deploy/scripts/production_deployment.py" \
   --tracked-file "$root/deploy/scripts/rollback-production-frontend.sh" \
   --output "$test_dir/release-manifest.json" >/dev/null
 PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/manifest.log" \
@@ -1698,6 +1704,8 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/manifest.log" \
   --tracked-file "$root/deploy/scripts/prepare-production-data.py" \
   --tracked-file "$root/deploy/scripts/production_upgrade_recovery.py" \
   --tracked-file "$root/deploy/scripts/production_migration_runtime.py" \
+  --tracked-file "$root/deploy/scripts/production_maintenance_execution.py" \
+  --tracked-file "$root/deploy/scripts/production_deployment.py" \
   --tracked-file "$root/deploy/scripts/rollback-production-frontend.sh" \
   --output "$test_dir/release-manifest-next.json" >/dev/null
 
@@ -1961,7 +1969,7 @@ awk '
   /up -d --wait postgres redis/ { data = NR }
   /preflight-production-config/ { production = NR }
   /run --rm migrate/ { migrate = NR }
-  /preflight-integrity/ { integrity = NR }
+  /preflight-integrity --require-schema$/ { integrity = NR }
   /initialize-accounts/ { accounts = NR }
   /up -d --wait api frontend/ { application = NR }
   / compose .* ps$/ { status = NR }
@@ -2264,11 +2272,12 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/upgrade.log" \
   ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
   "$root/deploy/scripts/deploy.sh" >/dev/null
 awk '
-  /preflight-integrity/ { integrity = NR }
+  /preflight-integrity$/ { before = NR }
+  /preflight-integrity --require-schema$/ { after = NR }
   /stop api worker scheduler/ { stop = NR }
   /run --rm migrate/ { migrate = NR }
   /initialize-accounts/ { accounts = NR }
-  END { exit !(integrity < stop && stop < migrate && migrate < accounts) }
+  END { exit !(before < stop && stop < migrate && migrate < after && after < accounts) }
 ' "$test_dir/upgrade.log"
 ! grep -q 'up -d --wait worker scheduler' "$test_dir/upgrade.log"
 
@@ -2513,6 +2522,8 @@ assert set(manifest["tracked_files"]) == {
     "deploy/scripts/prepare-production-data.py",
     "deploy/scripts/production_upgrade_recovery.py",
     "deploy/scripts/production_migration_runtime.py",
+    "deploy/scripts/production_maintenance_execution.py",
+    "deploy/scripts/production_deployment.py",
     "deploy/scripts/rollback-production-frontend.sh",
 }
 PY

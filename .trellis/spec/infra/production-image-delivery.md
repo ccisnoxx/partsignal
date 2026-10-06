@@ -138,7 +138,7 @@ PartSignal maintenance
 
 - maintenance template 精确包含 host、HTTP/HTTPS listen、ACME、TLS、安全 snippet、`add_header_inherit merge`、固定状态/正文/cache/retry 响应；
 - maintenance template 不包含 upstream、`proxy_pass`、静态 root、三个应用端口或 `/object-storage/`；
-- producer、consumer、三组 manifest producer test input 与 manifest exact-set assertion 均包含相同 11 项 tracked files（包含 `check-production-inputs.py`）；
+- producer、consumer、三组 manifest producer test input 与 manifest exact-set assertion 均包含相同 13 项 tracked files（包含 `check-production-inputs.py` 及两个执行模块）；
 - `check-nginx-security.mjs` 把 maintenance template 与 Production/Staging template 一起检查，拒绝缺少安全 snippet、缺少 header inheritance 或重复安全头。
 
 ### 7. Wrong vs Correct
@@ -163,16 +163,16 @@ manifest 固定 maintenance template → atomic write → nginx -t
 
 `prepare-production-data.py recover-upgrade` 是唯一显式失败恢复入口。接受 UPGRADE_DEPLOYING/UPGRADE_PREPARED，但阶段本身不能证明失败；必须消费匹配当前 candidate/attempt 的未消费 failure record。完整命令、批准及维护顺序由 Hostdzire 部署附录拥有；GEO-1007 用户任务对应 delivery GEO-1008 范围。
 
-- 原子状态 owner 仍为 prepare-production-data.py。每次 begin-upgrade 创建独立 upgrade_attempt；重试使旧失败不可消费，历史 upgrade_failures 不可覆盖。deploy.sh 在 begin 成功后的明确非零退出路径记录 candidate、attempt、stage、exit_code/signal、failed_at、failure_kind 和低敏 evidence_ref。未写成事实即安全停止，不补造。
+- 原子状态 owner 仍为 prepare-production-data.py，公开 deploy-production 持锁并监督私有执行 worker。worker 内部创建 upgrade_attempt，使用本次 fork 私有 pipe 交付 attempt/stage；pipe 不交给外部命令。父级观察真实退出，确认全部子孙停止后才持久化 candidate、attempt、stage、exit_code/signal、worker_exit_code、failed_at、failure_kind 和 owner evidence_ref。不提供公开 begin-upgrade、mark-upgrade-prepared 或调用者自报退出码的 recorder。重试使旧失败不可消费，历史 upgrade_failures 不可覆盖；未写成事实即安全停止，不补造。
 - prepared 后的问题须独立批准的 declare-pre-activation-failure；标为 OPERATOR_DECLARED_PRE_ACTIVATION_FAILURE，不声称部署退出。已声明失败的 prepared attempt 禁止激活。
 - manifest 的 images.migration 单独冻结 reference/image ID/RepoDigest；首次默认 backend。Compose migrate 消费 PARTSIGNAL_MIGRATION_IMAGE（完整 reference，默认当前 backend），应用 API/CLI 使用 backend。恢复必须保留失败执行的 migration image ID，不能回退到修复 backend；缺旧身份或首次运行时证明停止。
 - MIGRATION_RUNTIME_V1 指纹由 production_migration_runtime.py 唯一拥有。冻结 migration image 全部 rootfs：所有 app、配置、模型、动态 helper/数据文件、Python、依赖、startup/字节码、共享库、基础系统及执行配置，含 Python 缓存选择所需 mtime。不得把局部 AST 或外部文件哈希相同宣称为完整闭包；可变 backend 与完整冻结迁移程序分离。
 - 环境证明使用冻结 ID 的 stopped container 静态 export，不启动、不执行镜像 Python、无网络/数据挂载；/app 的 pyc/pyo 拒绝，非空 Entrypoint/非 /app WorkingDir/隐式 Volumes 拒绝。临时资源按唯一归属精确清理。Cmd 被权威 Compose 覆盖，不参与迁移程序身份；恢复仍严格保持原迁移 image ID。
 - 首次 begin-upgrade 在迁移前验证 manifest/实际 migration image/当前 Alembic tree，并原子冻结 candidate-bound runtime。失败、新 manifest 指纹及两个 migration image 全部相同；认证 archive 与 checkout 的 Alembic Python/SQL/ini 单独比较。app 运行时已由完整迁移镜像冻结，允许修复 backend 的独立 artifact。历史缺证、未知版本、迁移镜像/程序/schema/Alembic变化均停止。
-- producer/consumer/已知调用者使用相同 11 项 tracked-file allowlist，包含两个证明模块。旧 manifest 只按 state 冻结 sha 认证；新 manifest 不豁免 tracked hash、所有镜像 ID 或 RepoDigest。runtime.env 允许键由 manifest 已认证的 check-production-inputs.py 静态声明拥有，包含合法可选日预算；可编辑模板不能授权额外加载环境覆盖；默认缓存策略仍在首次迁移前证明。
-- 维护锁内验证整个 project/活动数据 mount stopped。正式 recover 自动进入 run-locked，内层验证继承 FD；SIGINT/SIGTERM 转发整组，10秒后必要时 SIGKILL，再确认全部子孙不可执行才释放锁。OS 状态不可读则持续持锁；SIGKILL/断电须现场核对 Engine 资源。
-- 一次原子写只绑定新 candidate、phase=UPGRADE_DEPLOYING 和完整 failure/runtime receipt；previous_candidate/历史保留，不 pull/up、不修改DB、不 initialized。相同请求仅在未开始新 attempt、仍 deploying 且全服务 stopped 时重放。完整 redeploy/readiness、backend integrity/schema 证明、外部 Gate/activation 仍必须执行。
+- producer/consumer/已知调用者使用相同 13 项 tracked-file allowlist，包含两个证明模块和两个执行模块。旧 manifest 只按 state 冻结 sha 认证；新 manifest 不豁免 tracked hash、所有镜像 ID 或 RepoDigest。runtime.env 允许键由 manifest 已认证的 check-production-inputs.py 静态声明拥有，包含合法可选日预算；可编辑模板不能授权额外加载环境覆盖；默认缓存策略仍在首次迁移前证明。
+- 维护锁内验证整个 project/活动数据 mount stopped。公开 recover/deploy 无条件经过 supervisor；继承 FD 只用于复用锁，不能证明或绕过监督。SIGINT/SIGTERM 转发私有组，嵌套 supervisor 的子孙组同时治理，10秒后必要时 SIGKILL，再确认全部子孙不可执行才释放锁；macOS zombie 组的 EPERM 必须继续读取执行状态。OS 状态不可读则持续持锁；SIGKILL/断电须现场核对 Engine 资源。
+- 一次原子写只绑定新 candidate、phase=UPGRADE_DEPLOYING 和完整 failure/runtime receipt；previous_candidate/历史保留，不 pull/up、不修改DB、不 initialized。相同请求仅在未开始新 attempt、仍 deploying 且全服务 stopped 时重放。完整 redeploy/readiness、backend integrity/schema 证明、外部 Gate/activation 仍必须执行。迁移前默认 integrity 可以允许未建表；迁移后与恢复 prepared 的检查必须传 --require-schema，四张核心发布表缺任一张即 REQUIRED_TABLE_MISSING，不由 Alembic head 代替。
 
-定向验证：make test-upgrade-recovery；固定本地 project/network 空闲时 make test-upgrade-recovery-compose。真实 recovery SIGTERM 在阻塞 fake docker ps 期间注入；Compose 的失败后信号只证明演练清理，不能扩大到进行中 Engine。Production 编排/manifest 消费者使用 test-deploy-production.sh；合成 AI/OSS MET 不是生产门禁。
+定向验证：make test-upgrade-recovery；固定本地 project/network 空闲时 make test-upgrade-recovery-compose。真实 recovery SIGTERM/SIGINT 在阻塞 fake docker ps 期间注入，并覆盖自行打开与已持有正确锁 FD；真实 PG16 正确 head/缺核心表反例须阻断 prepared；Compose 的失败后信号只证明演练清理，不能扩大到进行中 Engine。Production 编排/manifest 消费者使用 test-deploy-production.sh；合成 AI/OSS MET 不是生产门禁。
 
 registry 交付顺序：verify-upgrade-entry → Compose config → pull api/worker/scheduler/frontend/migrate → 全镜像 ID/RepoDigest → begin-upgrade 验证/冻结 → run/up。local 不 pull；错误 manifest/另一候选在 pull 前拒绝。

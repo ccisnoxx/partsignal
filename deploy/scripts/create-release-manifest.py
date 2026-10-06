@@ -26,6 +26,8 @@ REQUIRED_TRACKED_FILES = {
     "deploy/scripts/prepare-production-data.py",
     "deploy/scripts/production_upgrade_recovery.py",
     "deploy/scripts/production_migration_runtime.py",
+    "deploy/scripts/production_maintenance_execution.py",
+    "deploy/scripts/production_deployment.py",
     "deploy/scripts/rollback-production-frontend.sh",
 }
 REPO_DIGEST_PATTERN = re.compile(r"[^@\s]+@sha256:[0-9a-f]{64}")

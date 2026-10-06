@@ -367,7 +367,7 @@ def main():
         if "--sigterm-after-failure" in sys.argv:
             os.kill(os.getpid(), signal.SIGTERM)
         environment["PARTSIGNAL_VERSION"] = fixed_release
-        cli("begin-upgrade", fixed_manifest, expected=2, reason="候选不一致")
+        cli("verify-upgrade-entry", fixed_manifest, expected=2, reason="候选不一致")
         environment["PARTSIGNAL_VERSION"] = failed_release
         cli(
             "verify-rollback-frontend",
@@ -426,6 +426,20 @@ def main():
         first_receipt = state()
         cli("recover-upgrade", fixed_manifest, extra=extra)
         assert state() == first_receipt and state()["phase"] == "UPGRADE_DEPLOYING"
+        # PostgreSQL 16 真实反例：保留 head 和所有行/OID，临时移走核心表名。
+        run([*compose, "up", "--pull", "never", "-d", "--wait", "postgres", "redis"])
+        sql("ALTER TABLE published_articles RENAME TO geo1007_saved_published_articles")
+        assert sql("SELECT version_num FROM alembic_version") == "0066_geo_manual_evaluation"
+        assert sql("SELECT to_regclass('public.published_articles') IS NULL") == "t"
+        result = run([str(SCRIPTS / "deploy.sh")], expected=1)
+        assert "REQUIRED_TABLE_MISSING" in result.stdout and "published_articles" in result.stdout
+        assert state()["phase"] == "UPGRADE_DEPLOYING"
+        assert state()["upgrade_attempt"]["status"] == "FAILED"
+        assert state()["upgrade_failures"][-1]["stage"] == "integrity_post_migration"
+        assert state()["candidate"] == first_receipt["candidate"]
+        print("PG16 正确 head + 缺 published_articles：实际恢复 deploy 退出1，未推进 PREPARED", flush=True)
+        sql("ALTER TABLE geo1007_saved_published_articles RENAME TO published_articles")
+        assert data_hashes(list(before)) == before
         run([str(SCRIPTS / "deploy.sh")])
         assert state()["phase"] == "UPGRADE_PREPARED"
         assert data_hashes(list(before)) == before, [table for table in before if data_hashes([table]) != {table: before[table]}]

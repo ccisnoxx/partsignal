@@ -74,3 +74,15 @@ runtime.env 在首次升级与恢复的部署边界沿用既有 runtime 字段�
 
 
 最终配置信任边界：允许的 runtime.env 键由已纳入 manifest tracked allowlist 的 check-production-inputs.py 静态声明拥有；模板只提供 required/default，不得通过新增 PATH/LD_PRELOAD 等字段改变授权集合。包含既有合法可选 GEO_DAILY_BUDGET_LIMIT。该决策避免把未认证模板变成迁移加载输入的权限所有者，变更生产配置键须同步脚本合同、模板及应用Settings。
+
+## 2026-10-06 第二轮复审后的执行所有权修正
+
+137a9fc6 的独立复审确认：正确 inode/可获得 flock 的 FD 不能证明 supervisor 存在；公开 recorder 的非零参数不能证明命令失败；迁移前缺表跳过不能作为迁移完成后的证明。以下取代上述 shell exit trap、recover 继承 FD 跳过监督及宽松 post-migration preflight 的设计。
+
+公开 recover-upgrade 和 deploy-production 每次都在同一维护锁内 fork 一个私有、独立进程组的操作 worker；父 supervisor 不以环境标志决定是否建立监督。继承 FD 仅共享锁的 open-file-description。worker 不是公开内部 CLI，不能通过伪造 argv/env 进入无监督路径；父级转发 SIGINT/SIGTERM、限时停止整组、确认子孙结束后才释放锁。嵌套 supervisor 的私有子孙组在父进程退出前依据真实进程树纳入清理；不能先杀内层 owner 而留下它监督的组。macOS 对 zombie 组返回 EPERM 时须继续读取进程执行状态，未知 OS 状态维持锁占用。
+
+部署编排移入状态所有者调用的 production_deployment.py；deploy.sh 只校验生产边界后 exec 公开 deploy-production。原 registry/local、clean-init、顺序、readiness/激活边界保持。当前 worker 调用 begin_upgrade 建立 attempt，随后经 fork 时创建的私有 pipe 报告 attempt ID 与即将执行的固定 stage；外部 CLI 不继承此 pipe。父 supervisor 从自己的 waitpid 观察 worker 真实退出，在全部子孙停止后且 candidate/attempt 仍匹配时记录不可变失败。非零 Compose/curl 被 worker 原样传播；OS 信号由父观测。缺少 attempt/stage 或未知退出不补造失败，保持维护并拒绝恢复。移除公开 record-upgrade-failure、begin-upgrade 与 mark-upgrade-prepared CLI；内部函数仍由状态 owner 使用，测试夹具可以直接构造事实，但不代表部署退出证据。
+
+迁移前默认 preflight-integrity 继续允许未建核心表的旧语义。迁移后明确使用 preflight-integrity --require-schema；任意核心发布表缺失返回错误，而不是空成功。恢复 prepared 证明采用同一严格模式并继续验证精确 schema head。PG16 反例在本次专有隔离数据库中保留正确 head、临时改名 published_articles（保留所有行与 OID），实际重新 deploy 必须退出且不推进 PREPARED；恢复表后再证明正常 deploy/activate。运行时闭包及原独立迁移镜像约束保持。
+
+新增两个执行模块纳入 producer/consumer 相同 tracked-file allowlist，避免未认证的 owner 代码影响维护/失败合同。公开 recorder 的拒绝、自开锁 FD（SIGINT/SIGTERM）、真实 owner 命令失败及严格 PG 缺表为本轮定向证据。新提交固定 SHA 后 fresh 只读复审；APPROVE 才能记录单项接受，不等同分支/生产接受。

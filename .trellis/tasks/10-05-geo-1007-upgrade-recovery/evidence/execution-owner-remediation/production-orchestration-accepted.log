@@ -1,0 +1,16 @@
+canonical Frontend Nginx 安全头、Markdown、HTML 与 DOM sink 校验通过
+Production network identity static: 3 networks / 7 services passed
+Production migration binding: frozen migration image / repaired backend / fixed command passed
+Engine existing-label reuse: api passed
+Engine existing-label reuse: migrate passed
+Engine existing-label reuse: postgres passed
+Engine existing-label reuse: redis passed
+Engine existing-label reuse: worker passed
+Engine existing-label reuse: scheduler passed
+Engine existing-label reuse: frontend passed
+Engine old-label rejection: partsignal-staging-internal passed
+Engine old-label rejection: partsignal-staging-egress passed
+Engine old-label rejection: partsignal-staging-edge passed
+Production Engine network compatibility: 7 positive / 3 negative; containers=0 networks=0
+Production input readiness: 2 positive / 37 negative; substitution rejected before deployment; secrets not echoed
+deploy/activate/rollback identity: 3 paths / 8 local operations / manifest-first passed

@@ -2,6 +2,8 @@
 """验证部署失败事实由状态所有者记录并且只能消费一次。"""
 
 import importlib.util
+import subprocess
+import sys
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -23,10 +25,9 @@ class UpgradeFailureTests(unittest.TestCase):
         self.data.tearDown()
 
     def failure(self, **changes):
-        values = dict(stage="migration", exit_code=23, signal=0,
-                      evidence_ref="local-fixture/migration-exit23")
+        values = dict(stage="migration", exit_code=23, signal=0)
         values.update(changes)
-        return owner.record_upgrade_failure(self.data.failed, SimpleNamespace(**values))
+        return self.data.observed_failure(self.data.failed, **values)
 
     def test_running_candidate_cannot_be_recovered(self):
         owner.begin_upgrade(self.data.failed)
@@ -65,13 +66,30 @@ class UpgradeFailureTests(unittest.TestCase):
     def test_zero_exit_or_wrong_candidate_cannot_create_failure(self):
         owner.begin_upgrade(self.data.failed)
         before = owner.read_state(self.data.live)
+        self.assertIsNone(self.failure(exit_code=0))
         with self.assertRaises(owner.DataStateError):
-            self.failure(exit_code=0)
-        with self.assertRaises(owner.DataStateError):
-            owner.record_upgrade_failure(self.data.fixed, SimpleNamespace(
-                stage="migration", exit_code=23, signal=0, evidence_ref="local/failure"
-            ))
+            self.data.observed_failure(self.data.fixed)
         self.assertEqual(owner.read_state(self.data.live), before)
+
+    def test_public_recorder_cannot_fabricate_running_failure(self):
+        owner.begin_upgrade(self.data.failed)
+        before = (self.data.live / owner.STATE_FILE_NAME).read_bytes()
+        result = subprocess.run([
+            sys.executable, str(self.data.repository / "deploy/scripts/prepare-production-data.py"),
+            "record-upgrade-failure", str(self.data.failed_manifest), "--stage", "migration",
+            "--exit-code", "23", "--evidence-ref", "fabricated/migration-exit23",
+        ], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("invalid choice", result.stderr)
+        for command in ("begin-upgrade", "mark-upgrade-prepared"):
+            rejected = subprocess.run([
+                sys.executable, str(self.data.repository / "deploy/scripts/prepare-production-data.py"),
+                command, str(self.data.failed_manifest),
+            ], capture_output=True, text=True)
+            self.assertEqual(rejected.returncode, 2, rejected.stderr)
+            self.assertIn("invalid choice", rejected.stderr)
+        self.assertEqual((self.data.live / owner.STATE_FILE_NAME).read_bytes(), before)
+        self.assertEqual(owner.read_state(self.data.live)["upgrade_attempt"]["status"], "RUNNING")
 
     def test_prepared_requires_explicit_approved_failure_declaration(self):
         owner.begin_upgrade(self.data.failed)

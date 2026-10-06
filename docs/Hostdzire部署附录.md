@@ -210,7 +210,7 @@ COMPOSE_FILE=deploy/compose.prod.yaml \
 只适用于旧版本已 initialized 后的 upgrade，当前 phase 为 UPGRADE_DEPLOYING 或 UPGRADE_PREPARED，且存在与当前 candidate/attempt 匹配、尚未消费的持久化失败记录。clean-init、跨 schema、冻结迁移镜像程序变化、无完整归档或无法证明静默均停止，由负责人另行设计备份恢复；不把 previous_candidate 直接恢复成 initialized。
 
 1. 保持已验证的公网 maintenance 503。取得绑定目标、失败 release/manifest SHA、新 release/manifest/image、维护窗口、停止/恢复负责人和具体操作的批准。`approval_ref` 只是批准记录引用，不是批准本身；本附录不授予远端操作权限。
-2. 保留失败状态、manifest、archive、迁移/启动日志和容器身份。`deploy.sh` 在成功 begin-upgrade 后的明确非零退出路径，由状态所有者记录 candidate、attempt、stage、exit_code/signal、failed_at、failure_kind 和低敏 evidence_ref；从状态的 `current_upgrade_failure_id` 取得当次 `failure_id`。中断导致该原子记录未完成时不得补造，继续保持维护。修正版使用新不可变 release ID 和镜像，走 clean main 候选生产者；不要覆盖旧 tag/manifest/archive。registry 镜像交付如需 pull，须先按本次新身份交付并核对；恢复入口不隐式 pull，也不启动业务服务。
+2. 保留失败状态、manifest、archive、迁移/启动日志和容器身份。`deploy.sh` 调用状态所有者的 `deploy-production`。持锁 supervisor 启动私有 worker，由 worker 创建 attempt、通过私有 pipe 报告实际执行阶段；外部命令不继承 pipe。supervisor 观察真实退出并确认全部子孙停止后，原子记录 candidate、attempt、stage、exit_code/signal、worker_exit_code、failed_at、failure_kind 和 owner evidence_ref；公开入口不接受调用者提供退出码，也不能单独创建 upgrade attempt 或推进 prepared。从状态的 `current_upgrade_failure_id` 取得当次 `failure_id`。中断导致该原子记录未完成时不得补造，继续保持维护。修正版使用新不可变 release ID 和镜像，走 clean main 候选生产者；不要覆盖旧 tag/manifest/archive。registry 镜像交付如需 pull，须先按本次新身份交付并核对；恢复入口不隐式 pull，也不启动业务服务。
 
    若问题是在 UPGRADE_PREPARED 后发现，必须另行取得明确声明“该候选不可继续激活”的批准与问题证据，再以失败候选变量执行 `python3 ./deploy/scripts/prepare-production-data.py declare-pre-activation-failure "$failed_manifest_path" --approval-ref "$approved_declaration_ref" --evidence-ref "$pre_activation_failure_evidence_ref"`。该记录明确标为操作员批准声明，exit_code/signal 为 null，不声称部署命令失败；声明批准与恢复批准分别保存。未记录失败的正常 deploying/prepared 候选不能走恢复入口。
 3. 在原维护窗口和维护锁下，使用**已绑定失败版本**的权威 Compose/runtime 停止 api、worker、scheduler、frontend、postgres、redis 和实际遗留 service，等待在途写入结束。恢复入口会核对完整固定 project 及其他运行容器的数据挂载；任一检查不确定即拒绝，不提供 force。
@@ -234,7 +234,7 @@ PARTSIGNAL_MIGRATION_IMAGE="$frozen_migration_reference" \
   --approval-ref "$approved_recovery_record_ref"
 ```
 
-正式 `recover-upgrade` 入口自动进入 signal-managed run-locked，内层验证继承锁 FD。旧 state manifest SHA 认证失败材料，新 consumer 认证修正版并消费 failure_id。
+正式 `recover-upgrade` 和 `deploy-production` 入口始终在持锁 supervisor 下执行私有 worker。继承锁 FD 只用于复用同一锁，不证明调用者已经受到监督，不能跳过 supervisor。旧 state manifest SHA 认证失败材料，新 consumer 认证修正版并消费 failure_id。
 
 manifest 单列 `images.migration` 的 reference/image ID/RepoDigest。首次候选默认与 backend 相同；修正版生成 manifest 时必须传 `--migration-image "$frozen_migration_reference"`，保留失败执行绑定的原迁移镜像。每次恢复、deploy、activate 或后续 rollback 都显式传 `PARTSIGNAL_MIGRATION_IMAGE="$frozen_migration_reference"`。权威 Compose 的 migrate 只执行该镜像；修复 backend 负责应用启动、CLI、完整性/readiness。
 
@@ -244,10 +244,10 @@ MIGRATION_RUNTIME_V1 使用冻结 migration image ID 创建无网络/数据挂�
 
 成功仅一次原子写固定候选与完整 failure/runtime receipt，仍 UPGRADE_DEPLOYING；previous_candidate/失败历史保留，不直接初始化。
 
-5. 执行既有 `deploy.sh`，全部正常后才 UPGRADE_PREPARED；该恢复候选 prepared 前还须以权威 Compose 的 `--pull never --no-deps` backend 通过既有 preflight-integrity 和真实 alembic_version 检查。然后重新完成真实 AI/OSS Gate、身份、health 及单独 activation 批准，再执行 `activate-production.sh`。最后按独立授权恢复公网 Nginx；恢复入口不自动开放流量。
+5. 执行既有 `deploy.sh`，全部正常后才 UPGRADE_PREPARED；该恢复候选 prepared 前还须以权威 Compose 的 `--pull never --no-deps` backend 通过 `preflight-integrity --require-schema` 和真实 alembic_version 检查。迁移前的默认完整性预检允许尚未建立发布表；迁移后必须显式要求 content_tasks、content_versions、publication_works、published_articles 全部存在，缺表返回 REQUIRED_TABLE_MISSING 并阻断 prepared，正确 head 不能替代表结构证明。然后重新完成真实 AI/OSS Gate、身份、health 及单独 activation 批准，再执行 `activate-production.sh`。最后按独立授权恢复公网 Nginx；恢复入口不自动开放流量。
 6. 再次失败维持 maintenance，保存新失败候选和阶段。每次同候选 deploy 重入建立新 attempt，旧失败记录不再可消费；修正版失败须新 failure_id。完全相同 recovery_id/输入仅在仍 deploying、尚未开始新的部署 attempt 且全服务停止时重放回执；不同输入、prepared/initialized 或旧请求均拒绝。再次修 artifact 必须新 release、新恢复 ID 与新批准，不能改旧回执。状态原子写前中断仍旧候选、写后中断固定新候选；读取状态后按唯一候选续跑，不手改或删除状态。
 
-直接调用上述恢复命令与部署/激活使用相同 run-locked 生命周期。SIGTERM/SIGINT 转发整个子进程组，有限等待并必要时 SIGKILL，子孙结束后才释放维护锁；实际恢复 probe 期间向父 PID 发 SIGTERM 的定向测试保护这一入口。中断不等于 Engine 操作已回滚；核对实际容器、schema、临时停止容器与持久阶段，保留 maintenance。SIGKILL/断电不能运行清理，必须现场确认静默。
+直接恢复、部署与 run-locked 均由相同 supervisor 生命周期治理。SIGTERM/SIGINT 转发本次私有进程组；嵌套 supervisor 的子孙组也纳入清理，10 秒后必要时 SIGKILL，确认全部子孙不可执行后才释放维护锁。进程组仅有 zombie 时的 EPERM 仍须核对 OS 执行状态；状态不可读则持续持锁。定向测试在实际 recovery probe 阻塞期间，使用自行打开或预先持有的正确锁 FD，分别向公开父 PID 注入 SIGTERM/SIGINT。中断不等于 Engine 操作已回滚；核对实际容器、schema、临时停止容器与持久阶段，保留 maintenance。SIGKILL/断电不能运行清理，必须现场确认静默。
 
 恢复证据使用[升级恢复模板](./geo-monitoring/04-delivery/geo-1007-upgrade-recovery.template.yaml)，未知保持 null/NOT_VERIFIED。本地测试不证明目标服务器、公网 maintenance、备份、外部服务或批准已就绪。
 

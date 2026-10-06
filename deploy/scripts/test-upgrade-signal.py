@@ -21,7 +21,7 @@ def executable(pid):
     return bool(status) and not status.startswith("Z")
 
 
-def recovery_entry_signal():
+def recovery_entry_signal(signum=signal.SIGTERM, inherited=None, *, wrapped=False):
     """直接调用 Runbook 的恢复入口，在真实子命令阻塞期间中断父 PID。"""
     spec = importlib.util.spec_from_file_location("recovery_fixture", SCRIPT.with_name("test-upgrade-recovery.py"))
     fixture = importlib.util.module_from_spec(spec)
@@ -45,7 +45,8 @@ from pathlib import Path
 assert sys.argv[1] == 'ps', sys.argv[1:]
 root=Path(os.environ['SIGNAL_FIXTURE_ROOT'])
 signal.signal(signal.SIGTERM, signal.SIG_IGN)
-grand=subprocess.Popen([sys.executable, '-c', "import signal,time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(60)"])
+signal.signal(signal.SIGINT, signal.SIG_IGN)
+grand=subprocess.Popen([sys.executable, '-c', "import signal,time; signal.signal(signal.SIGTERM, signal.SIG_IGN); signal.signal(signal.SIGINT, signal.SIG_IGN); time.sleep(60)"])
 (root/'probe-ready').write_text(json.dumps([os.getpid(), grand.pid]))
 while True: time.sleep(0.02)
 """)
@@ -55,11 +56,24 @@ while True: time.sleep(0.02)
         for name, value in vars(data.args).items():
             if name != "manifest":
                 command.extend(["--" + name.replace("_", "-"), value])
+        if wrapped:
+            command = [sys.executable, str(SCRIPT), "run-locked", *command]
         environment = {**os.environ, "SIGNAL_FIXTURE_ROOT": str(data.root),
                        "PARTSIGNAL_RUNTIME_ENV_FILE": str(runtime),
                        "PATH": str(binary) + os.pathsep + os.environ["PATH"]}
         environment.pop("PARTSIGNAL_MAINTENANCE_LOCK_FD", None)
-        process = subprocess.Popen(command, env=environment, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        descriptor = None
+        if inherited:
+            descriptor = os.open(data.root / "lock", os.O_RDWR | os.O_CREAT, 0o600)
+            if inherited == "locked":
+                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            environment["PARTSIGNAL_MAINTENANCE_LOCK_FD"] = str(descriptor)
+        try:
+            process = subprocess.Popen(command, env=environment, pass_fds=(() if descriptor is None else (descriptor,)),
+                                       stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        finally:
+            if descriptor is not None:
+                os.close(descriptor)
         deadline = time.monotonic() + 8
         ready = data.root / "probe-ready"
         while not ready.exists():
@@ -75,7 +89,7 @@ while True: time.sleep(0.02)
                 pass
             else:
                 raise AssertionError("真实恢复 probe 运行时锁未占用")
-            process.send_signal(signal.SIGTERM)
+            process.send_signal(signum)
             deadline = time.monotonic() + 13
             while True:
                 try:
@@ -87,9 +101,9 @@ while True: time.sleep(0.02)
                     assert not any(executable(pid) for pid in descendants), "真实恢复子孙仍可执行时锁提前释放"
                     break
         output = process.communicate(timeout=1)
-        assert process.returncode == 143, (process.returncode, output)
+        assert process.returncode == 128 + signum, (process.returncode, output)
         assert (data.live / fixture.owner.STATE_FILE_NAME).read_bytes() == before
-        print("真实 recover-upgrade：阻塞 docker ps 时向父 PID 发 SIGTERM；子孙结束后才释放锁，原子状态字节不变")
+        print(f"真实 recover-upgrade：inherited={inherited} wrapped={wrapped} signal={signum}；子孙结束后才释放锁，原子状态字节不变")
     finally:
         if process is not None and process.poll() is None:
             process.send_signal(signal.SIGTERM)
@@ -102,6 +116,10 @@ while True: time.sleep(0.02)
 
 def main():
     recovery_entry_signal()
+    for inherited in ("self-opened", "locked"):
+        for signum in (signal.SIGTERM, signal.SIGINT):
+            recovery_entry_signal(signum, inherited)
+    recovery_entry_signal(wrapped=True)
     with tempfile.TemporaryDirectory(prefix="geo1007-signal-") as temporary:
         root = Path(temporary).resolve()
         lock = root / "maintenance.lock"
@@ -112,6 +130,7 @@ def main():
 from pathlib import Path
 root=Path(os.environ['SIGNAL_FIXTURE_ROOT'])
 signal.signal(signal.SIGTERM, signal.SIG_IGN)
+signal.signal(signal.SIGINT, signal.SIG_IGN)
 grand=subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'])
 (root/'ready').write_text(json.dumps([os.getpid(), grand.pid]))
 while True: time.sleep(0.1)

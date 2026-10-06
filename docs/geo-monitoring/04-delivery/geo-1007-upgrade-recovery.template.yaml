@@ -26,6 +26,8 @@ failed_candidate:
   attempt_id: null
   stage: null
   exit_code: null
+  worker_exit_code: null
+  supervisor_observed_exit_evidence_ref: null
   signal: null
   failed_at: null
   failure_kind: null
@@ -67,6 +69,7 @@ execution:
   phase_after_recovery: null # 必须 UPGRADE_DEPLOYING；此处不代表 initialized
   repeat_or_interruption_result: NOT_VERIFIED
   deploy_integrity_and_schema_probe: NOT_VERIFIED
+  post_migration_required_tables_evidence_ref: null
   deploy_readiness: NOT_VERIFIED
   external_services_gate_ref: null
   activation_approval_ref: null
@@ -88,6 +91,8 @@ counterexamples:
   app_unchecked_hash_cache: NOT_VERIFIED
   missing_pre_migration_runtime_proof: NOT_VERIFIED
   healthy_candidate_without_failure: NOT_VERIFIED
+  public_failure_recorder_fabrication: NOT_VERIFIED
+  correct_head_missing_core_table: NOT_VERIFIED
   retry_invalidates_previous_failure: NOT_VERIFIED
   prepared_failure_blocks_activation: NOT_VERIFIED
   migration_cache_inside_or_outside_tree: NOT_VERIFIED
@@ -98,6 +103,8 @@ counterexamples:
   before_and_after_atomic_interruption: NOT_VERIFIED
   conflicting_repeat: NOT_VERIFIED
   sigterm_and_child_lifecycle: NOT_VERIFIED
+  sigint_and_child_lifecycle: NOT_VERIFIED
+  self_opened_or_locked_fd_cannot_bypass_supervisor: NOT_VERIFIED
   recovery_failure_remains_maintenance: NOT_VERIFIED
 isolation:
   postgres_and_compose_owner_ref: null

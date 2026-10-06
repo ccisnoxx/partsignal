@@ -246,9 +246,14 @@ def main() -> None:
         "generation-diagnostics",
         help="输出生成作业积压、近期失败和供应商耗时摘要",
     )
-    subparsers.add_parser(
+    integrity_parser = subparsers.add_parser(
         "preflight-integrity",
         help="只读检查阻断上线的历史业务完整性问题",
+    )
+    integrity_parser.add_argument(
+        "--require-schema",
+        action="store_true",
+        help="迁移后要求核心发布表完整存在",
     )
     subparsers.add_parser(
         "preflight-production-config",
@@ -274,7 +279,7 @@ def main() -> None:
         print(json.dumps(generation_diagnostics(), ensure_ascii=False, sort_keys=True))
     elif args.command == "preflight-integrity":
         with SessionLocal() as db:
-            issues = publication_integrity_issues(db)
+            issues = publication_integrity_issues(db, require_schema=args.require_schema)
         print(json.dumps(issues, ensure_ascii=False, sort_keys=True))
         if issues:
             raise SystemExit(1)

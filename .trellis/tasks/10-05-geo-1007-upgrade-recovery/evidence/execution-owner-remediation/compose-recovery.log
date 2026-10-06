@@ -1,0 +1,9 @@
+python3 deploy/scripts/test-upgrade-recovery-compose.py
+真实迁移提交后 artifact exit23：UPGRADE_DEPLOYING；既有表完整行摘要不变
+真实启动 artifact exit24；新候选和 frontend rollback 原路径均拒绝
+PG16 正确 head + 缺 published_articles：实际恢复 deploy 退出1，未推进 PREPARED
+显式接管/重复回执/完整 deploy→activate 通过；69 张既有表逐行摘要不变
+清理确认：本次 container/network/image/temp=0；共享开发 PG 未访问
+python3 deploy/scripts/test-upgrade-image-cache.py
+真实镜像 PASS：同Alembic而schema/db/models/传递helper变化被识别；app unchecked-hash缓存拒绝；实际依赖/Python/base与timestamp pyc选择变化被识别；同镜像重复导出稳定；完整迁移镜像含app全部artifact；仅Cmd变化通过；不启动探针容器或访问数据库
+本次镜像、停止探针容器与临时导出已精确清理

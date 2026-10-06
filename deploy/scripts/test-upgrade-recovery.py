@@ -192,10 +192,15 @@ class UpgradeRecoveryTests(unittest.TestCase):
                 approval_ref="local-test/declare-unusable", evidence_ref="local-test/pre-activation-failure"
             ))
         else:
-            record = owner.record_upgrade_failure(self.failed, SimpleNamespace(
-                stage="migration", exit_code=23, signal=0, evidence_ref="local-test/migration-exit23"
-            ))
+            record = self.observed_failure(self.failed)
         self.args.failure_id = record["failure_id"]
+
+    def observed_failure(self, candidate, *, stage="migration", exit_code=23, signal=0):
+        # 单元夹具模拟 supervisor 观测；真实退出来源由 registry/Compose 演练证明。
+        attempt = owner.read_state(self.live)["upgrade_attempt"]
+        return owner.record_observed_upgrade_failure(candidate, owner.ExecutionResult(
+            exit_code, exit_code, signal, {"attempt_id": attempt["attempt_id"], "stage": stage}
+        ))
 
     def assert_rejected(self, reason):
         before = (self.live / owner.STATE_FILE_NAME).read_bytes()

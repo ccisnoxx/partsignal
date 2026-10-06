@@ -63,7 +63,8 @@ jobs:
       - run: make typecheck
       - run: uv run --project backend pytest backend/tests/unit
       - run: npm --prefix frontend run test
-      - run: uv run --project backend pytest backend/tests/integration
+      # 复用权威入口：容器提供合同挂载和对象存储，恢复测试必跑显式 PG16 工具。
+      - run: make test-integration
       - run: npm --prefix frontend exec -- playwright install --with-deps chromium
       - run: make build test-deploy-scripts
       - run: make e2e

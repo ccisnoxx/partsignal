@@ -17,7 +17,7 @@ export function AnswerInsightsPage(props: InsightPageProps) {
       {query.data.data_quality.overview.candidate_run_count === 0 && <p role="status" className="rounded-md border border-border-subtle p-4">当前筛选没有运行样本。调整筛选后重新读取；空值不会展示为零。</p>}
       <PerformanceSections insights={query.data} onDrilldown={onDrilldown} />
       <CitationInsights insights={query.data} onDrilldown={onDrilldown} /><FactRisks insights={query.data} onDrilldown={onDrilldown} /><InsightDataQuality insights={query.data} onDrilldown={onDrilldown} />
-      <p className="text-sm text-text-secondary">机会行动闭环尚未实现。当前仅展示回答级分析与证据，不提供机会计数或业务动作。</p>
+      <p className="text-sm text-text-secondary">本页面尚未整合机会计数或业务动作，当前仅展示回答级分析与证据。请进入 <a className="text-primary underline underline-offset-4" href="/geo/opportunities">GEO 机会工作台</a> 查看证据、比较复测结果并处理机会；行动创建与复测批次创建可通过现有 Action/Retest API 完成。</p>
     </div>}
   </InsightPageFrame>;
 }

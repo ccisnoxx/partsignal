@@ -24,7 +24,7 @@ def test_empty_database_installs_0062():
         run_alembic(env, backend_dir, "head")
         with psycopg.connect(url) as conn:
             assert conn.execute("SELECT version_num FROM alembic_version").fetchone() == (
-                "0065_geo_observability",
+                "0066_geo_manual_evaluation",
             )
             assert conn.execute("SELECT count(*) FROM geo_opportunity_decisions").fetchone() == (0,)
             assert conn.execute(
@@ -81,10 +81,10 @@ def test_nonempty_0061_upgrade_keeps_every_history_and_matches_metadata(run_data
         capture_output=True,
         text=True,
     )
-    assert stopped.returncode != 0 and "0065 运维故障事实须保留" in stopped.stderr
+    assert stopped.returncode != 0 and "0066 管理员评估回执须保留" in stopped.stderr
     with psycopg.connect(db.url) as conn:
         assert conn.execute("SELECT version_num FROM alembic_version").fetchone() == (
-            "0065_geo_observability",
+            "0066_geo_manual_evaluation",
         )
         assert conn.execute(
             "SELECT id FROM geo_retest_baselines WHERE id=%s", (baseline_id,)

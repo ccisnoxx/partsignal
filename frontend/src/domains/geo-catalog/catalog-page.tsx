@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { capturePrincipalContinuation, type PrincipalContinuation } from '@/app/auth/principal-epoch';
+import type { components } from '@/shared/api/generated/schema';
 import { Button } from '@/design-system/primitives/button';
 import { catalogDetailQueryOptions, catalogKeys } from './catalog.api';
 import { catalogEditorIdentity, catalogSearchSchema, type CatalogSearch, type Subject } from './catalog.model';
@@ -27,8 +28,11 @@ function CatalogPage({ search, csrfToken, isAdmin, onSearchChange, onConsumersCh
     setRefreshError(undefined);
     try {
       continuation = capturePrincipalContinuation(client);
+      // 首个无缓存 GET 不会被 invalidate 自动替换，必须先取消提交前的读取。
+      await client.cancelQueries({ queryKey: catalogKeys.lists() });
+      if (!continuation.isCurrent() || !mounted.current) return;
       await client.invalidateQueries({ queryKey: catalogKeys.root(), refetchType: 'none' });
-      if (!continuation.isCurrent()) return;
+      if (!continuation.isCurrent() || !mounted.current) return;
       await Promise.all([client.invalidateQueries({ queryKey: catalogKeys.lists() }, { throwOnError: true }), onConsumersChanged()]);
     } catch (error) { if ((!continuation || continuation.isCurrent()) && mounted.current) setRefreshError(error); }
   }
@@ -36,6 +40,15 @@ function CatalogPage({ search, csrfToken, isAdmin, onSearchChange, onConsumersCh
     void refreshConsumers();
     const current = latestSearch.current;
     if (current.new) onSearchChange(catalogSearchSchema.parse({ ...current, new: undefined, subject_id: subject.id }), true, true);
+  }
+  function deleted() {
+    const id = search.subject_id;
+    if (!id) return;
+    // URL 与详情 observer 尚未切换时保留 query，只撤销详情新鲜度并移除已删除行。
+    client.setQueriesData<components['schemas']['GeoSubjectListPage']>({ queryKey: catalogKeys.lists() }, (current) => current ? { ...current, items: current.items.filter((item) => item.id !== id) } : current);
+    void client.invalidateQueries({ queryKey: catalogKeys.detail(id), refetchType: 'none' });
+    onSearchChange(catalogSearchSchema.parse({ ...latestSearch.current, subject_id: undefined }), true, true);
+    void refreshConsumers();
   }
   async function reload() {
     if (!search.subject_id) throw new Error('没有可读取的监测对象');
@@ -59,7 +72,7 @@ function CatalogPage({ search, csrfToken, isAdmin, onSearchChange, onConsumersCh
         {detail.error && <CatalogNotice error>后台详情刷新失败，当前编辑输入已保留：{catalogErrorMessage(detail.error)}<Button onClick={() => void detail.refetch()} type="button" variant="outline">重试详情刷新</Button></CatalogNotice>}
         {detail.isFetching && <p role="status">正在刷新对象详情…</p>}
         <CatalogDetail csrfToken={csrfToken} key={identity}
-          onDeleted={() => { client.removeQueries({ queryKey: catalogKeys.detail(search.subject_id!) }); void refreshConsumers(); onSearchChange(catalogSearchSchema.parse({ ...latestSearch.current, subject_id: undefined }), true, true); }}
+          onDeleted={deleted}
           onParentFilter={() => onSearchChange(catalogSearchSchema.parse({ ...search, q: undefined, subject_type: undefined, product_id: undefined, is_active: undefined, parent_subject_id: search.subject_id, page: 1 }))}
           onReload={reload} onSaved={saved} subject={detail.data} />
       </> : detail.isPending ? <CatalogNotice>正在读取对象详情…</CatalogNotice> : <CatalogNotice error>{catalogErrorMessage(detail.error)}<div className="flex flex-wrap gap-2"><Button onClick={() => void detail.refetch()} type="button" variant="outline">重试详情</Button><Button onClick={() => onSearchChange(catalogSearchSchema.parse({ ...search, subject_id: undefined }))} type="button" variant="outline">关闭详情</Button></div></CatalogNotice>}

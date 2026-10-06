@@ -71,7 +71,7 @@ export function OpportunityDecisions({ opportunityId, opportunity, comparisonRea
       continuation = capturePrincipalContinuation(client);
       const result = await mutation.mutateAsync({ selection, values, revision: baseline.revision, continuation, signal: controller.current.signal });
       if (!mounted.current || !continuation.isCurrent()) return;
-      await Promise.all([client.cancelQueries({ queryKey: opportunityKeys.details(opportunityId) }), client.cancelQueries({ queryKey: opportunityKeys.comparisons(opportunityId) })]);
+      await Promise.all([client.cancelQueries({ queryKey: opportunityKeys.lists() }), client.cancelQueries({ queryKey: opportunityKeys.details(opportunityId) }), client.cancelQueries({ queryKey: opportunityKeys.comparisons(opportunityId) })]);
       if (!mounted.current || !continuation.isCurrent()) return;
       client.setQueriesData<OpportunityDetail>({ queryKey: opportunityKeys.details(opportunityId) }, (current) => current ? { ...current, opportunity: result.opportunity } : current);
       client.setQueriesData<OpportunityList>({ queryKey: opportunityKeys.lists() }, (current) => current ? { ...current, items: current.items.map((item) => item.id === opportunityId ? result.opportunity : item) } : current);

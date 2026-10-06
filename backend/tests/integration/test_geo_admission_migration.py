@@ -156,9 +156,9 @@ def test_0053_preserves_run_history_and_backfills_unknown(run_database):
         text=True,
     )
     assert stopped.returncode != 0
-    assert "0065 运维故障事实须保留" in stopped.stdout + stopped.stderr
+    assert "0066 管理员评估回执须保留" in stopped.stdout + stopped.stderr
     with psycopg.connect(db.url) as conn:
         assert (
             conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
-            == "0065_geo_observability"
+            == "0066_geo_manual_evaluation"
         )

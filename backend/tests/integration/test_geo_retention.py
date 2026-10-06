@@ -50,7 +50,7 @@ def retention_database(run_database):
         after = conn.execute("SELECT * FROM geo_answer_snapshots WHERE id=%s", (answer,)).fetchone()
         assert after == before
         assert conn.execute("SELECT version_num FROM alembic_version").fetchone() == (
-            "0065_geo_observability",
+            "0066_geo_manual_evaluation",
         )
     yield value
 

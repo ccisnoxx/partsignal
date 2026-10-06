@@ -49,7 +49,7 @@ export function OpportunityCommands({ opportunityId, opportunity, csrfToken, blo
       continuation = capturePrincipalContinuation(client);
       const canonical = await mutation.mutateAsync({ action, values, continuation, signal: controller.current.signal });
       if (!mounted.current || !continuation.isCurrent()) return;
-      await Promise.all([client.cancelQueries({ queryKey: opportunityKeys.details(canonical.id) }), client.cancelQueries({ queryKey: opportunityKeys.comparisons(canonical.id) })]);
+      await Promise.all([client.cancelQueries({ queryKey: opportunityKeys.lists() }), client.cancelQueries({ queryKey: opportunityKeys.details(canonical.id) }), client.cancelQueries({ queryKey: opportunityKeys.comparisons(canonical.id) })]);
       if (!mounted.current || !continuation.isCurrent()) return;
       client.setQueriesData<OpportunityDetail>({ queryKey: opportunityKeys.details(canonical.id) }, (current) => current ? { ...current, opportunity: canonical } : current);
       client.setQueriesData<OpportunityList>({ queryKey: opportunityKeys.lists() }, (current) => current ? { ...current, items: current.items.map((item) => item.id === canonical.id ? canonical : item) } : current);

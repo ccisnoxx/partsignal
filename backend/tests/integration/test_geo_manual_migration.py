@@ -82,12 +82,12 @@ def test_0051_preserves_nonempty_0050_evidence_and_safe_stop(run_database):
     )
     assert (
         stopped.returncode != 0
-        and "0065 运维故障事实须保留" in stopped.stdout + stopped.stderr
+        and "0066 管理员评估回执须保留" in stopped.stdout + stopped.stderr
     )
     with psycopg.connect(db.url) as conn:
         assert (
             conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
-            == "0065_geo_observability"
+            == "0066_geo_manual_evaluation"
         )
         assert (
             conn.execute(

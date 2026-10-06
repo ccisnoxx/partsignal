@@ -40,7 +40,12 @@ function QuestionsPage({ search, csrfToken, onSearchChange }: {
   async function refreshLists() {
     let continuation: PrincipalContinuation | undefined;
     setRefreshError(undefined);
-    try { continuation = capturePrincipalContinuation(client); await client.invalidateQueries({ queryKey: questionKeys.lists() }, { throwOnError: true }); }
+    try {
+      continuation = capturePrincipalContinuation(client);
+      await client.cancelQueries({ queryKey: questionKeys.lists() });
+      if (!continuation.isCurrent() || !mounted.current) return;
+      await client.invalidateQueries({ queryKey: questionKeys.lists() }, { throwOnError: true });
+    }
     catch (error) { if ((!continuation || continuation.isCurrent()) && mounted.current) setRefreshError(error); }
   }
   function saved(variant: PromptVariant) {

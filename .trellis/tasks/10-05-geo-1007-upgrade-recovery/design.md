@@ -51,3 +51,26 @@ run-locked 对 SIGINT/SIGTERM 转发整个子进程组并等待退出，必要�
 首次 initialized→upgrade 在迁移之前由状态所有者验证 runtime/host 与冻结镜像默认环境不指定非空 PYTHONPYCACHEPREFIX，原子记录与完整 candidate 绑定的 DEFAULT_PYTHON_CACHE_V1 执行策略。恢复必须验证失败执行的既有策略；仅当前配置正常不足以证明历史。历史缺失、unknown 或候选错配均拒绝，不能在同候选重入或恢复时补造历史证明；保留 maintenance，另行设计显式备份 abort/recover。成功恢复绑定新策略，回执保留旧策略。历史 runtime 清除反例已用真实 Docker loader 与接管前状态测试验证。
 
 upgrade 镜像交付顺序：verify-upgrade-entry 通过完整 manifest consumer 并只读判定 phase/candidate → Compose config → registry pull（local不pull）→ frozen image ID/RepoDigest验证 → begin-upgrade 原子证明cache policy与绑定candidate → run/up。入场判定与begin共用状态所有者规则；错误manifest/另一候选在pull前拒绝，registry未缓存镜像不能要求先inspect；pull/identity/policy失败均不开始首次upgrade。clean-init时序保持原合同。
+
+## 2026-10-06 独立 Review 后的合同修正（当前设计）
+
+固定 8162f580 的 CHANGES_REQUESTED 指出：原 Alembic 树不是实际迁移运行时闭包；正式 recover 入口未使用 signal supervisor；phase 不能证明失败。用户明确要求直接修复并保持严格失败恢复语义。以下覆盖上文仅迁移树/无需新 manifest 字段的旧设计。
+
+Migration Runtime Fingerprint 使用 MIGRATION_RUNTIME_V1，唯一无状态 owner 为 production_migration_runtime.py。源码闭包由共同静态 import 选择器处理 archive、checkout、image；包含配置、db、冻结元数据、models及传递 helper。未知动态加载及链接显式拒绝。镜像不启动、不执行Python，使用静态rootfs export测量Python、完整依赖（含缓存）、共享库、实际base文件与执行配置；/app缓存全部拒绝。允许非迁移应用源码或Cmd修正，不允许Entrypoint、工作目录、闭包或环境变化。指纹在manifest中认证，首次begin-upgrade在迁移前原子冻结；历史缺失不补造。
+
+runtime.env 在首次升级与恢复的部署边界沿用既有 runtime 字段白名单，禁止额外 PATH/PYTHONPATH/LD_PRELOAD 等加载输入覆盖镜像。业务配置修正仍由既有生产输入/应用预检拥有，不把包含密钥的 runtime 内容放入低敏回执。
+
+每次 begin-upgrade 建立独立 RUNNING attempt。deploy.sh 的明确非零退出路径调用状态 owner 记录完整不可变failure fact；重入使旧failure不可消费。PREPARED后的问题通过独立批准声明记录，标识声明来源而非虚构exit；FAILED prepared attempt不能激活。recover要求 failure_id、匹配当前attempt/candidate的终态失败和未消费记录，回执嵌入完整record与runtime；原子切换仍不 initialized、不改DB。
+
+正式 recover-upgrade 无继承锁FD时自动run-locked self-wrap，内层验证FD。真实入口测试在阻塞docker ps时只向父PID发SIGTERM，观察子孙不可执行前锁不可取、退出后可取且state字节不变。Compose旧自定义Entrypoint故障fixture不再满足等价runtime，改为仅修改app.cli/app.main artifact，在真实migration提交后失败；完整固定项目和资源仍精确隔离清理。
+
+验收采用真实缺失failure反例red→green、runtime/source/cache负例、状态冻结与重放、真实入口signal、Compose/PG16历史摘要及既有production manifest消费者自检。当前生产现场、真实备份/外部Gate/registry、精确新commit远端CI不因这些本地结果自动通过。
+
+## 2026-10-06 完整闭包复核后的目标修正
+
+静态 AST 无法证明任意依赖或 startup/cache 不会反向加载应用 artifact；固定源码 hash 或增加 loader 黑名单也不足。最终改为独立冻结 migration image：首次候选默认与 backend 相同，修复候选明确保留旧 migration image 身份；Compose migrate 只用此镜像，API/CLI/integrity/readiness 用修复 backend。manifest 单列 migration reference/ID/RepoDigest；首次迁移前冻结完整 migration image fingerprint，恢复比较两端该完整程序，不能用当前证明补造历史。
+
+完整指纹包含 migration image 全部 rootfs 路径、文件内容/权限/归属/链接、Python 源码及缓存 mtime 和执行配置；Alembic tree 单独用于认证两份 source archive 与当前 checkout。应用模块、外部 loader、依赖、Python、基础系统及字节码均位于同一个冻结程序内，即使依赖动态加载 app，也会加载原 migration image 中相同的 app 文件。恢复 backend 的模型/配置/CLI/main 修正不改变该迁移程序。未知 migration image、指纹变化、schema/Alembic变化仍拒绝。移除对任意 Python 静态闭包完整性的承诺与临时精确源码 allowlist。
+
+
+最终配置信任边界：允许的 runtime.env 键由已纳入 manifest tracked allowlist 的 check-production-inputs.py 静态声明拥有；模板只提供 required/default，不得通过新增 PATH/LD_PRELOAD 等字段改变授权集合。包含既有合法可选 GEO_DAILY_BUDGET_LIMIT。该决策避免把未认证模板变成迁移加载输入的权限所有者，变更生产配置键须同步脚本合同、模板及应用Settings。

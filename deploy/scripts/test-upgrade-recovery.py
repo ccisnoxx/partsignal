@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import importlib.util
 import io
 import json
@@ -18,6 +17,7 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
+
 
 SCRIPTS = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPTS))
@@ -52,8 +52,14 @@ class UpgradeRecoveryTests(unittest.TestCase):
         self.image_probe.start()
         self.cache_policy = patch.object(owner, "prove_upgrade_cache_policy", side_effect=lambda candidate: {"policy": "DEFAULT_PYTHON_CACHE_V1", "candidate": candidate})
         self.cache_policy.start()
+        self.runtime_proof = patch.object(owner, "prove_upgrade_runtime", side_effect=lambda candidate: {
+            "candidate": candidate, "fingerprint": candidate["migration_runtime"]
+        })
+        self.runtime_proof.start()
         self.previous = {"release_id": "previous"}
         self.repository = self.root / "repository"
+        self.repository.mkdir()
+        (self.repository / ".env.production.example").write_bytes((owner.REPOSITORY_ROOT / ".env.production.example").read_bytes())
         for name in owner.REQUIRED_TRACKED_FILES:
             path = self.repository / name
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -63,6 +69,11 @@ class UpgradeRecoveryTests(unittest.TestCase):
             "backend/alembic/env.py": b"# fixture\n",
             "backend/alembic/versions/one.py": b"revision='test_head'\n",
             "backend/alembic/sql/one.sql": b"SELECT 1;\n",
+            "backend/app/__init__.py": b"",
+            "backend/app/config.py": b"# fixture\n",
+            "backend/app/db.py": b"# fixture\n",
+            "backend/app/migration_schema_v1.py": b"# fixture\n",
+            "backend/app/models/__init__.py": b"# fixture\n",
         }
         for name, data in self.migrations.items():
             path = self.repository / name
@@ -95,6 +106,7 @@ class UpgradeRecoveryTests(unittest.TestCase):
         )
 
     def tearDown(self):
+        self.runtime_proof.stop()
         self.cache_policy.stop()
         self.image_probe.stop()
         self.boundary.stop()
@@ -114,12 +126,14 @@ class UpgradeRecoveryTests(unittest.TestCase):
         self.assertEqual((self.live / "postgres/history").read_text(), "不可变历史")
 
     def manifest(self, release, identity):
+        from production_migration_runtime import _fingerprint, source_digest
         archive = self.root / f"{release}.tar.gz"
         self.write_archive(archive, self.migrations)
         payload = {
             "release_id": release,
             "commit": identity * 40,
             "schema_head": "test_head",
+            "migration_runtime": _fingerprint(source_digest(self.repository / "backend"), "e" * 64),
             "source_archive": {
                 "name": archive.name,
                 "sha256": owner.file_sha256(archive),
@@ -130,12 +144,16 @@ class UpgradeRecoveryTests(unittest.TestCase):
                     "image_id": f"sha256:{identity * 64}",
                     "repo_digests": [f"test/{role}@sha256:{identity * 64}"],
                 }
-                for role in ("backend", "frontend", "rollback_frontend")
+                for role in ("backend", "migration", "frontend", "rollback_frontend")
             },
             "tracked_files": {
                 name: owner.file_sha256(self.repository / name)
                 for name in owner.REQUIRED_TRACKED_FILES
             },
+        }
+        payload["images"]["migration"] = {
+            "reference": "test/migration:failed", "image_id": "sha256:" + "a" * 64,
+            "repo_digests": ["test/migration@sha256:" + "a" * 64],
         }
         path = self.root / f"{release}.json"
         path.write_text(json.dumps(payload))
@@ -154,6 +172,7 @@ class UpgradeRecoveryTests(unittest.TestCase):
             PARTSIGNAL_VERSION=payload["release_id"],
             PARTSIGNAL_BACKEND_IMAGE="test/backend",
             PARTSIGNAL_FRONTEND_IMAGE="test/frontend",
+            PARTSIGNAL_MIGRATION_IMAGE=payload["images"]["migration"]["reference"],
         )
         return owner.candidate_from_manifest(str(path))
 
@@ -167,9 +186,16 @@ class UpgradeRecoveryTests(unittest.TestCase):
 
     def deploying(self, phase="UPGRADE_DEPLOYING"):
         owner.begin_upgrade(self.failed)
-        state = owner.read_state(self.live)
-        state["phase"] = phase
-        owner.atomic_write_state(self.live, state)
+        if phase == "UPGRADE_PREPARED":
+            owner.transition_upgrade("UPGRADE_DEPLOYING", phase, self.failed)
+            record = owner.declare_pre_activation_failure(self.failed, SimpleNamespace(
+                approval_ref="local-test/declare-unusable", evidence_ref="local-test/pre-activation-failure"
+            ))
+        else:
+            record = owner.record_upgrade_failure(self.failed, SimpleNamespace(
+                stage="migration", exit_code=23, signal=0, evidence_ref="local-test/migration-exit23"
+            ))
+        self.args.failure_id = record["failure_id"]
 
     def assert_rejected(self, reason):
         before = (self.live / owner.STATE_FILE_NAME).read_bytes()
@@ -328,6 +354,7 @@ class UpgradeRecoveryTests(unittest.TestCase):
     def test_prepared_requires_database_proof_and_failure_keeps_deploying(self):
         self.deploying()
         self.recover()
+        owner.begin_upgrade(self.fixed)
         with patch.object(
             owner,
             "verify_recovery_database",
@@ -478,15 +505,9 @@ while True: time.sleep(0.01)
         before = owner.read_state(self.live)
         self.image_probe.stop()
         try:
-            def probe(command, **kwargs):
-                expected = hashlib.sha256(json.dumps({
-                    name: hashlib.sha256(data).hexdigest()
-                    for name, data in self.migrations.items()
-                }, sort_keys=True).encode()).hexdigest()
-                actual = failure if self.failed["backend_image_id"] in command else expected
-                return subprocess.CompletedProcess(command, 0, actual)
-            for failure, error in (("wrong", "镜像内迁移树"), ("MIGRATION_CACHE_PREFIX_FORBIDDEN", "树外迁移编译缓存")):
-                with patch.object(owner.subprocess, "run", side_effect=probe):
+            for failure, error in (({**self.failed["migration_runtime"], "source_sha256": "0" * 64}, "镜像内迁移源码闭包"),
+                                   ({**self.failed["migration_runtime"], "environment_sha256": "0" * 64}, "镜像迁移运行时")):
+                with patch.object(owner, "image_runtime_fingerprint", return_value=failure):
                     with self.assertRaisesRegex(owner.DataStateError, error):
                         self.recover()
                 self.assertEqual(owner.read_state(self.live), before)

@@ -2,6 +2,7 @@
 """验证忽略 SIGTERM 的维护子孙会在有限期限内被结束。"""
 
 import fcntl
+import importlib.util
 import json
 import os
 import signal
@@ -14,7 +15,93 @@ from pathlib import Path
 SCRIPT = Path(__file__).resolve().with_name("prepare-production-data.py")
 
 
+def executable(pid):
+    status = subprocess.run(["ps", "-p", str(pid), "-o", "stat="],
+                            capture_output=True, text=True).stdout.strip()
+    return bool(status) and not status.startswith("Z")
+
+
+def recovery_entry_signal():
+    """直接调用 Runbook 的恢复入口，在真实子命令阻塞期间中断父 PID。"""
+    spec = importlib.util.spec_from_file_location("recovery_fixture", SCRIPT.with_name("test-upgrade-recovery.py"))
+    fixture = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fixture)
+    data = fixture.UpgradeRecoveryTests("runTest")
+    data.setUp()
+    process = None
+    descendants = []
+    try:
+        data.deploying()
+        before = (data.live / fixture.owner.STATE_FILE_NAME).read_bytes()
+        runtime = data.root / "runtime.env"
+        runtime.write_text("APP_ENV=production\n")
+        runtime.chmod(0o600)
+        binary = data.root / "bin"
+        binary.mkdir()
+        docker = binary / "docker"
+        docker.write_text("""#!/usr/bin/env python3
+import json, os, signal, subprocess, sys, time
+from pathlib import Path
+assert sys.argv[1] == 'ps', sys.argv[1:]
+root=Path(os.environ['SIGNAL_FIXTURE_ROOT'])
+signal.signal(signal.SIGTERM, signal.SIG_IGN)
+grand=subprocess.Popen([sys.executable, '-c', "import signal,time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(60)"])
+(root/'probe-ready').write_text(json.dumps([os.getpid(), grand.pid]))
+while True: time.sleep(0.02)
+""")
+        docker.chmod(0o700)
+        command = [sys.executable, str(data.repository / "deploy/scripts/prepare-production-data.py"),
+                   "recover-upgrade", data.args.manifest]
+        for name, value in vars(data.args).items():
+            if name != "manifest":
+                command.extend(["--" + name.replace("_", "-"), value])
+        environment = {**os.environ, "SIGNAL_FIXTURE_ROOT": str(data.root),
+                       "PARTSIGNAL_RUNTIME_ENV_FILE": str(runtime),
+                       "PATH": str(binary) + os.pathsep + os.environ["PATH"]}
+        environment.pop("PARTSIGNAL_MAINTENANCE_LOCK_FD", None)
+        process = subprocess.Popen(command, env=environment, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        deadline = time.monotonic() + 8
+        ready = data.root / "probe-ready"
+        while not ready.exists():
+            if process.poll() is not None or time.monotonic() > deadline:
+                output = process.communicate(timeout=1)
+                raise AssertionError(f"真实恢复 probe 未就绪：{output!r}")
+            time.sleep(0.01)
+        descendants = json.loads(ready.read_text())
+        with data.root.joinpath("lock").open("r+") as lock:
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                pass
+            else:
+                raise AssertionError("真实恢复 probe 运行时锁未占用")
+            process.send_signal(signal.SIGTERM)
+            deadline = time.monotonic() + 13
+            while True:
+                try:
+                    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except BlockingIOError:
+                    assert time.monotonic() < deadline, "真实恢复中断后锁未释放"
+                    time.sleep(0.01)
+                else:
+                    assert not any(executable(pid) for pid in descendants), "真实恢复子孙仍可执行时锁提前释放"
+                    break
+        output = process.communicate(timeout=1)
+        assert process.returncode == 143, (process.returncode, output)
+        assert (data.live / fixture.owner.STATE_FILE_NAME).read_bytes() == before
+        print("真实 recover-upgrade：阻塞 docker ps 时向父 PID 发 SIGTERM；子孙结束后才释放锁，原子状态字节不变")
+    finally:
+        if process is not None and process.poll() is None:
+            process.send_signal(signal.SIGTERM)
+            process.communicate(timeout=13)
+        for pid in descendants:
+            if executable(pid):
+                os.kill(pid, signal.SIGKILL)
+        data.tearDown()
+
+
 def main():
+    recovery_entry_signal()
     with tempfile.TemporaryDirectory(prefix="geo1007-signal-") as temporary:
         root = Path(temporary).resolve()
         lock = root / "maintenance.lock"

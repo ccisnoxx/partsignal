@@ -108,7 +108,7 @@ PartSignal maintenance
 
 ### 3. Contracts
 
-- manifest producer 与 consumer 的 `REQUIRED_TRACKED_FILES` 必须同时包含 maintenance template 和生产输入检查脚本；Production 自检的全部 manifest 创建路径和 exact-set 断言必须使用相同 10 项集合。
+- manifest producer 与 consumer 的 `REQUIRED_TRACKED_FILES` 必须同时包含 maintenance template 和生产输入检查脚本；Production 自检的全部 manifest 创建路径和 exact-set 断言必须使用相同 11 项集合。
 - maintenance template 保留 `geo.962850.xyz`、`<HOSTDZIRE_WG_ADDRESS>`、HTTP 到 HTTPS、ACME、TLS、PartSignal security snippet 和 `add_header_inherit merge`。
 - maintenance template 不得声明 upstream、`proxy_pass`、静态 `root`、`19000`、`19001`、`19080` 或 `/object-storage/`；API/frontend 即使已在同一 loopback 端口启动，也不能通过公网访问。
 - 停止任何 PartSignal 容器前必须先完成 maintenance write、`nginx -t`、独立 maintenance reload 和公网 `503` 验证；首次验证时间是 60 分钟硬窗口的 T0。
@@ -138,7 +138,7 @@ PartSignal maintenance
 
 - maintenance template 精确包含 host、HTTP/HTTPS listen、ACME、TLS、安全 snippet、`add_header_inherit merge`、固定状态/正文/cache/retry 响应；
 - maintenance template 不包含 upstream、`proxy_pass`、静态 root、三个应用端口或 `/object-storage/`；
-- producer、consumer、三组 manifest producer test input 与 manifest exact-set assertion 均包含相同 10 项 tracked files（包含 `check-production-inputs.py`）；
+- producer、consumer、三组 manifest producer test input 与 manifest exact-set assertion 均包含相同 11 项 tracked files（包含 `check-production-inputs.py`）；
 - `check-nginx-security.mjs` 把 maintenance template 与 Production/Staging template 一起检查，拒绝缺少安全 snippet、缺少 header inheritance 或重复安全头。
 
 ### 7. Wrong vs Correct
@@ -161,20 +161,18 @@ manifest 固定 maintenance template → atomic write → nginx -t
 
 ## Scenario：未 initialized 的升级 artifact 前向恢复
 
-`prepare-production-data.py recover-upgrade` 是唯一显式接管入口，只接受 UPGRADE_DEPLOYING/UPGRADE_PREPARED。完整命令、批准及维护顺序由 Hostdzire 部署附录拥有；GEO-1007 用户任务对应 delivery GEO-1008 范围。
+`prepare-production-data.py recover-upgrade` 是唯一显式失败恢复入口。接受 UPGRADE_DEPLOYING/UPGRADE_PREPARED，但阶段本身不能证明失败；必须消费匹配当前 candidate/attempt 的未消费 failure record。完整命令、批准及维护顺序由 Hostdzire 部署附录拥有；GEO-1007 用户任务对应 delivery GEO-1008 范围。
 
-- 同一维护锁内验证 production runtime/Compose/Browser 边界、失败 release/manifest sha、新 candidate consumer、镜像 ID/RepoDigest；全 project 和全部活动数据 mount 必须停止，Docker 检查失败不能当静默。
-- 固定 allowlist 增加 `deploy/scripts/production_upgrade_recovery.py`（共 10 项），producer/consumer/全部已知调用者一致；旧失败 manifest 通过 state 冻结 sha 认证，不重新按新 checkout 校验旧 tracked files；新 manifest 不能豁免任何检查。
-- 两份 manifest 认证 archive 字节；schema_head 相同，backend/alembic/ 全树（含 SQL）与 alembic.ini 相同，当前迁移树、失败镜像及恢复镜像内迁移树也必须匹配。拒绝链接、路径别名、重复成员；不接受以同名 head 隐藏迁移内容变化。
-- recovery_id 和 approval_ref 必须显式；新 release、实际 artifact 改变，拒绝退回旧/已失败镜像。回执保存 failed/new 全身份与迁移树 digest，不执行 pull/up、不修改数据、不 initialized。
-- 一次原子写把 candidate 绑定修正版、phase=UPGRADE_DEPLOYING，并追加 upgrade_recoveries；previous_candidate 不变。同 ID/同输入在仍 deploying 且全服务 stopped 时只重放，冲突、旧请求或 initialized 阶段拒绝。
-- 完整 deploy 重新通过迁移、readiness；恢复候选 prepared 前权威 Compose/backend 验证既有完整性服务及真实单一 schema head。失败仍 deploying；外部 Gate、activation、bootstrap unknown/failed 不可绕过。历史无 bootstrap attempt 的正常 upgrade 仍兼容。
-- run-locked 的 SIGINT/SIGTERM 转发整个子进程组；有限期限内等退出，必要时 SIGKILL，结束子孙后才释放锁。信号不推进 initialized；突然断电/SIGKILL 仍需现场核对精确进程、容器和状态。
+- 原子状态 owner 仍为 prepare-production-data.py。每次 begin-upgrade 创建独立 upgrade_attempt；重试使旧失败不可消费，历史 upgrade_failures 不可覆盖。deploy.sh 在 begin 成功后的明确非零退出路径记录 candidate、attempt、stage、exit_code/signal、failed_at、failure_kind 和低敏 evidence_ref。未写成事实即安全停止，不补造。
+- prepared 后的问题须独立批准的 declare-pre-activation-failure；标为 OPERATOR_DECLARED_PRE_ACTIVATION_FAILURE，不声称部署退出。已声明失败的 prepared attempt 禁止激活。
+- manifest 的 images.migration 单独冻结 reference/image ID/RepoDigest；首次默认 backend。Compose migrate 消费 PARTSIGNAL_MIGRATION_IMAGE（完整 reference，默认当前 backend），应用 API/CLI 使用 backend。恢复必须保留失败执行的 migration image ID，不能回退到修复 backend；缺旧身份或首次运行时证明停止。
+- MIGRATION_RUNTIME_V1 指纹由 production_migration_runtime.py 唯一拥有。冻结 migration image 全部 rootfs：所有 app、配置、模型、动态 helper/数据文件、Python、依赖、startup/字节码、共享库、基础系统及执行配置，含 Python 缓存选择所需 mtime。不得把局部 AST 或外部文件哈希相同宣称为完整闭包；可变 backend 与完整冻结迁移程序分离。
+- 环境证明使用冻结 ID 的 stopped container 静态 export，不启动、不执行镜像 Python、无网络/数据挂载；/app 的 pyc/pyo 拒绝，非空 Entrypoint/非 /app WorkingDir/隐式 Volumes 拒绝。临时资源按唯一归属精确清理。Cmd 被权威 Compose 覆盖，不参与迁移程序身份；恢复仍严格保持原迁移 image ID。
+- 首次 begin-upgrade 在迁移前验证 manifest/实际 migration image/当前 Alembic tree，并原子冻结 candidate-bound runtime。失败、新 manifest 指纹及两个 migration image 全部相同；认证 archive 与 checkout 的 Alembic Python/SQL/ini 单独比较。app 运行时已由完整迁移镜像冻结，允许修复 backend 的独立 artifact。历史缺证、未知版本、迁移镜像/程序/schema/Alembic变化均停止。
+- producer/consumer/已知调用者使用相同 11 项 tracked-file allowlist，包含两个证明模块。旧 manifest 只按 state 冻结 sha 认证；新 manifest 不豁免 tracked hash、所有镜像 ID 或 RepoDigest。runtime.env 允许键由 manifest 已认证的 check-production-inputs.py 静态声明拥有，包含合法可选日预算；可编辑模板不能授权额外加载环境覆盖；默认缓存策略仍在首次迁移前证明。
+- 维护锁内验证整个 project/活动数据 mount stopped。正式 recover 自动进入 run-locked，内层验证继承 FD；SIGINT/SIGTERM 转发整组，10秒后必要时 SIGKILL，再确认全部子孙不可执行才释放锁。OS 状态不可读则持续持锁；SIGKILL/断电须现场核对 Engine 资源。
+- 一次原子写只绑定新 candidate、phase=UPGRADE_DEPLOYING 和完整 failure/runtime receipt；previous_candidate/历史保留，不 pull/up、不修改DB、不 initialized。相同请求仅在未开始新 attempt、仍 deploying 且全服务 stopped 时重放。完整 redeploy/readiness、backend integrity/schema 证明、外部 Gate/activation 仍必须执行。
 
-定向验证：`make test-upgrade-recovery`；真实本地且固定 project/network 空闲时 `make test-upgrade-recovery-compose`，信号演练 `python3 deploy/scripts/test-upgrade-recovery-compose.py --sigterm-after-failure`。本地合成运行配置/AI/OSS Gate 不代表生产门禁。
+定向验证：make test-upgrade-recovery；固定本地 project/network 空闲时 make test-upgrade-recovery-compose。真实 recovery SIGTERM 在阻塞 fake docker ps 期间注入；Compose 的失败后信号只证明演练清理，不能扩大到进行中 Engine。Production 编排/manifest 消费者使用 test-deploy-production.sh；合成 AI/OSS MET 不是生产门禁。
 
-迁移镜像证明明确拒绝 Alembic 树中的 `.pyc/.pyo`，并拒绝两个冻结镜像、runtime 和宿主机环境中的非空 `PYTHONPYCACHEPREFIX`，防止树外 unchecked-hash 缓存改变实际 DDL；隔离探针仍读取原始环境键，不能因 `python -I` 忽略配置而漏检。禁写缓存不等于禁止读取缓存。canonical backend/Dockerfile 在 runtime/test 的 uv sync 后仅清理迁移缓存；历史含缓存镜像保持安全停止，不覆盖旧镜像。真实错误 unchecked-hash 缓存反例由 `test-upgrade-image-cache.py` 验证。
-
-首次 initialized→upgrade 在迁移之前由状态所有者验证 runtime/host 与冻结镜像默认环境不指定非空 PYTHONPYCACHEPREFIX，原子记录与完整 candidate 绑定的 DEFAULT_PYTHON_CACHE_V1 执行策略。恢复必须验证失败执行的既有策略；仅当前配置正常不足以证明历史。历史缺失、unknown 或候选错配均拒绝，不能在同候选重入或恢复时补造历史证明；保留 maintenance，另行设计显式备份 abort/recover。成功恢复绑定新策略，回执保留旧策略。历史 runtime 清除反例已用真实 Docker loader 与接管前状态测试验证。
-
-upgrade 镜像交付顺序：verify-upgrade-entry 通过完整 manifest consumer 并只读判定 phase/candidate → Compose config → registry pull（local不pull）→ frozen image ID/RepoDigest验证 → begin-upgrade 原子证明cache policy与绑定candidate → run/up。入场判定与begin共用状态所有者规则；错误manifest/另一候选在pull前拒绝，registry未缓存镜像不能要求先inspect；pull/identity/policy失败均不开始首次upgrade。clean-init时序保持原合同。
+registry 交付顺序：verify-upgrade-entry → Compose config → pull api/worker/scheduler/frontend/migrate → 全镜像 ID/RepoDigest → begin-upgrade 验证/冻结 → run/up。local 不 pull；错误 manifest/另一候选在 pull 前拒绝。

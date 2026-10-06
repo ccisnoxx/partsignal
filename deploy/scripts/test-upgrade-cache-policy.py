@@ -7,6 +7,7 @@ import subprocess
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+from types import SimpleNamespace
 
 spec = importlib.util.spec_from_file_location(
     "recovery_fixture", Path(__file__).with_name("test-upgrade-recovery.py")
@@ -69,6 +70,10 @@ class CachePolicyTests(unittest.TestCase):
         owner.atomic_write_state(self.data.live, state)
         owner.begin_upgrade(self.data.failed)
         self.assertNotIn("upgrade_migration_cache_policy", owner.read_state(self.data.live))
+        record = owner.record_upgrade_failure(self.data.failed, SimpleNamespace(
+            stage="migration", exit_code=23, signal=0, evidence_ref="local/retry-failed"
+        ))
+        self.data.args.failure_id = record["failure_id"]
         self.data.assert_rejected("失败执行缺少绑定候选的迁移缓存策略证明")
 
     def test_recovery_binds_new_policy_and_keeps_failed_policy_in_receipt(self):

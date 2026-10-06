@@ -13,6 +13,8 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from production_migration_runtime import image_runtime_fingerprint, source_digest
+
 REQUIRED_TRACKED_FILES = {
     "deploy/compose.prod.yaml",
     "deploy/nginx/partsignal-maintenance.conf.template",
@@ -23,6 +25,7 @@ REQUIRED_TRACKED_FILES = {
     "deploy/scripts/deploy.sh",
     "deploy/scripts/prepare-production-data.py",
     "deploy/scripts/production_upgrade_recovery.py",
+    "deploy/scripts/production_migration_runtime.py",
     "deploy/scripts/rollback-production-frontend.sh",
 }
 REPO_DIGEST_PATTERN = re.compile(r"[^@\s]+@sha256:[0-9a-f]{64}")
@@ -82,6 +85,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--commit", required=True)
     parser.add_argument("--source-archive", type=Path, required=True)
     parser.add_argument("--backend-image", required=True)
+    parser.add_argument("--migration-image", help="完整迁移程序镜像；首次默认 backend，恢复时保留失败版本")
     parser.add_argument("--frontend-image", required=True)
     parser.add_argument("--rollback-frontend-image", required=True)
     parser.add_argument("--schema-head", required=True)
@@ -174,6 +178,7 @@ def main() -> None:
         },
         "images": {
             "backend": inspect_image(args.backend_image),
+            "migration": inspect_image(args.migration_image or args.backend_image),
             "frontend": inspect_image(args.frontend_image),
             "rollback_frontend": inspect_image(args.rollback_frontend_image),
         },
@@ -182,6 +187,10 @@ def main() -> None:
             for relative, path in sorted(tracked_files.items())
         },
     }
+    fingerprint = image_runtime_fingerprint(manifest["images"]["migration"]["image_id"])
+    if fingerprint["source_sha256"] != source_digest(REPOSITORY_ROOT / "backend"):
+        raise ValueError("候选镜像 Alembic 源码树与当前 checkout 不一致")
+    manifest["migration_runtime"] = fingerprint
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
     descriptor = os.open(args.output, flags, 0o600)
     with os.fdopen(descriptor, "w", encoding="utf-8") as output:

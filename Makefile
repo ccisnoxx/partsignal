@@ -97,6 +97,9 @@ test-geo-recovery:
 
 test-upgrade-recovery:
 	python3 deploy/scripts/test-upgrade-recovery.py
+	python3 deploy/scripts/test-upgrade-failure.py
+	python3 deploy/scripts/test-upgrade-runtime-policy.py
+	python3 deploy/scripts/test-migration-runtime.py
 	python3 deploy/scripts/test-upgrade-cache-policy.py
 	python3 deploy/scripts/test-upgrade-registry-order.py
 	python3 deploy/scripts/test-upgrade-signal.py

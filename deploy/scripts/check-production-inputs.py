@@ -37,6 +37,24 @@ OPTIONAL_GEO_SETTINGS = {
     "GEO_RAW_PAYLOAD_RETENTION_DAYS",
     "GEO_TERMINAL_DRAFT_RETENTION_DAYS",
     "GEO_UNREFERENCED_FILE_RETENTION_DAYS",
+    "GEO_DAILY_BUDGET_LIMIT",
+}
+# 允许的执行环境由 manifest 已认证的脚本拥有；可编辑模板不能授权 loader 覆盖。
+# 新生产配置键必须同时更新此合同、模板及对应应用 Settings。
+PRODUCTION_RUNTIME_KEYS = OPTIONAL_GEO_SETTINGS | {
+    "AI_ALLOW_LOCAL_HTTP", "AI_CREDENTIAL_ENCRYPTION_KEY", "API_BASE_URL",
+    "APP_BASE_URL", "APP_ENV", "CELERY_CONCURRENCY", "CONTENT_GENERATOR",
+    "CORS_ALLOWED_ORIGINS", "CSRF_COOKIE_NAME", "DATABASE_URL",
+    "DOWNLOAD_URL_TTL_SECONDS", "GENERATION_EAGER",
+    "GENERATION_FINALIZE_GRACE_SECONDS", "GENERATION_PENDING_REDISPATCH_SECONDS",
+    "GENERATION_RECOVERY_BATCH_SIZE", "GENERATION_RECOVERY_SCAN_SECONDS",
+    "GEO_DAILY_BUDGET_CURRENCY", "LOG_LEVEL", "OBJECT_STORAGE_BACKEND",
+    "OSS_ACCESS_KEY_ID", "OSS_ACCESS_KEY_SECRET", "OSS_BUCKET", "OSS_ENDPOINT",
+    "PARTSIGNAL_SEED_ADMIN_PASSWORD", "PARTSIGNAL_SEED_ENGINEER_PASSWORD",
+    "POSTGRES_DB", "POSTGRES_PASSWORD", "POSTGRES_USER", "REDIS_URL",
+    "SESSION_COOKIE_NAME", "SESSION_COOKIE_SECURE", "SESSION_SECRET",
+    "SESSION_TTL_SECONDS", "UPLOAD_INTENT_TTL_SECONDS", "UPLOAD_SIGNING_SECRET",
+    "VITE_API_BASE_URL",
 }
 
 
@@ -84,7 +102,7 @@ def parse_runtime(text: str) -> dict[str, str]:
 def check_runtime(values: dict[str, str]) -> list[str]:
     """补足 Compose 消费前的输入合同；应用类型和边界继续由真实 backend 预检拥有。"""
     template = parse_runtime((ROOT / ".env.production.example").read_text())
-    if not set(template) - OPTIONAL_GEO_SETTINGS <= set(values) <= set(template) | OPTIONAL_GEO_SETTINGS:
+    if not set(template) - OPTIONAL_GEO_SETTINGS <= set(values) <= PRODUCTION_RUNTIME_KEYS:
         raise InputError("ENV_KEY_SET_MISMATCH")
     # Browser 是生产固定边界；不能因 Monitoring 开启或模板被改写而放行。
     if values.get("GEO_BROWSER_COLLECTION_ENABLED", "false") != "false":
@@ -165,6 +183,9 @@ def check_deployment_boundary(values: dict[str, str], environment: dict[str, str
             raise InputError("PRODUCTION_BROWSER_SESSION_FORBIDDEN")
     if values.get("APP_ENV") != "production":
         raise InputError("PRODUCTION_FIXED_VALUE_REQUIRED:APP_ENV")
+    # env_file 会覆盖镜像配置；沿用 runtime 合同拒绝加载路径等未声明输入。
+    if not set(values) <= PRODUCTION_RUNTIME_KEYS:
+        raise InputError("ENV_KEY_SET_MISMATCH")
 
 
 def strict_object(pairs: list[tuple[str, object]]) -> dict[str, object]:

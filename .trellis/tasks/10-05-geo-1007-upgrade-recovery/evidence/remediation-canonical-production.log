@@ -1,0 +1,73 @@
+#0 building with "colima" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 839B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python:3.12-slim
+#2 ...
+
+#3 [auth] astral-sh/uv:pull token for ghcr.io
+#3 DONE 0.0s
+
+#4 [internal] load metadata for ghcr.io/astral-sh/uv:0.7.13
+#4 DONE 1.8s
+
+#2 [internal] load metadata for docker.io/library/python:3.12-slim
+#2 DONE 2.0s
+
+#5 [internal] load .dockerignore
+#5 transferring context: 152B done
+#5 DONE 0.0s
+
+#6 [runtime 1/8] FROM docker.io/library/python:3.12-slim@sha256:05cda9777409a9c3ffddd94a4c476b79f0769a0b4857f0c7ed9226b6800b0d6f
+#6 resolve docker.io/library/python:3.12-slim@sha256:05cda9777409a9c3ffddd94a4c476b79f0769a0b4857f0c7ed9226b6800b0d6f 0.0s done
+#6 DONE 0.0s
+
+#7 FROM ghcr.io/astral-sh/uv:0.7.13@sha256:6c1e19020ec221986a210027040044a5df8de762eb36d5240e382bc41d7a9043
+#7 resolve ghcr.io/astral-sh/uv:0.7.13@sha256:6c1e19020ec221986a210027040044a5df8de762eb36d5240e382bc41d7a9043 0.0s done
+#7 DONE 0.0s
+
+#8 [internal] load build context
+#8 transferring context: 93.88kB 0.0s done
+#8 DONE 0.0s
+
+#9 [runtime 3/8] COPY --from=ghcr.io/astral-sh/uv:0.7.13 /uv /uvx /bin/
+#9 CACHED
+
+#10 [runtime 2/8] WORKDIR /app
+#10 CACHED
+
+#11 [runtime 4/8] COPY pyproject.toml uv.lock* ./
+#11 CACHED
+
+#12 [runtime 5/8] RUN uv sync --no-dev --no-install-project
+#12 CACHED
+
+#13 [runtime 6/8] COPY . .
+#13 DONE 0.3s
+
+#14 [runtime 7/8] RUN uv sync --no-dev
+#14 0.312 Resolved 88 packages in 6ms
+#14 0.337    Building partsignal-backend @ file:///app
+#14 3.808       Built partsignal-backend @ file:///app
+#14 3.808 Prepared 1 package in 3.47s
+#14 3.821 Installed 1 package in 3ms
+#14 4.212 Bytecode compiled 2466 files in 400ms
+#14 4.212  + partsignal-backend==0.1.0 (from file:///app)
+#14 DONE 4.2s
+
+#15 [runtime 8/8] RUN find /app -type f ( -name '*.pyc' -o -name '*.pyo' ) -delete
+#15 DONE 0.1s
+
+#16 exporting to image
+#16 exporting layers
+#16 exporting layers 1.0s done
+#16 exporting manifest sha256:f73532b7127f2f766c5a14b8a5d5cd73f78bdd7ae2297d589938a5e64b588b23 done
+#16 exporting config sha256:9bc85b4445d322d7b123ce5610027ebbdfd0c0cc0c4bc0f3ee41d828dbef5e36 done
+#16 exporting attestation manifest sha256:0ac9928e001068030b662dfe70368ccd908a580db86984fedb5438d65b619d52 done
+#16 exporting manifest list sha256:c36a954f95e610635510a9f2208be5ec9d1a7a91f1172388cd4bfd2952eefbc7 done
+#16 naming to docker.io/library/geo1007-remediation-canonical:production done
+#16 unpacking to docker.io/library/geo1007-remediation-canonical:production
+#16 unpacking to docker.io/library/geo1007-remediation-canonical:production 2.1s done
+#16 DONE 3.2s

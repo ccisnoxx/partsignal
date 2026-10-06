@@ -11,9 +11,12 @@
 ## 验收
 
 - 复现证据与至少两个方案比较见 design.md。
-- 选择同 schema/同迁移内容的受控前向修复；不能证明即停止。
+- 选择同 schema/原 migration image ID/同 Migration Runtime Fingerprint 的受控前向修复；独立迁移镜像冻结所有应用文件、动态加载内容、Python/依赖/基础系统与执行配置，修复 backend 独立变化。不能证明即停止。
+- 严格失败恢复：消费绑定当前 candidate/attempt 的不可变失败事实；正常 deploying/prepared 和已开始新 attempt 的旧失败不能恢复。prepared 后的问题必须独立批准声明，不能伪造部署退出。
+- 首次迁移前冻结运行时证明；旧状态缺失证明或失败事实不能在恢复时补造。
 - 前向接管是状态所有者单个原子写；保留 previous_candidate 和每次失败候选历史。
 - 必须停止整个项目和所有活动数据挂载；不提供 force。
+- 正式 recover-upgrade 入口自动进入信号治理，子孙结束前持续持有维护锁；实际入口的 SIGTERM 反例必须通过。
 - 修正版再次失败仍 UPGRADE_DEPLOYING；只有完整 deploy/activate 才 initialized。
 - 隔离演练保持历史记录/摘要，正常、故障与 SIGTERM 退出清理本次所有资源。
 - review 不是人工接受、candidate 冻结或生产发布；不提交/推送/操作远端。

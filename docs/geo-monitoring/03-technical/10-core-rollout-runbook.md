@@ -61,7 +61,7 @@ dirty GEO 分支只用于实现，不能生成正式 candidate。生成 candidat
 
 “渐进”以已批准的操作者、计划与批次范围、时间窗口和人工放量控制。仓库没有租户灰度百分比/白名单 feature flag；本任务不声称具有这些机制。若现有维护入口/访问控制无法限制获准人群，先解决批准范围与现有能力的差异，不能开放给所有用户代替内部试用。
 
-阶段使用批准包在受保护通道配置 `ENV_FILE`、`PARTSIGNAL_VERSION`、backend/frontend image、`PARTSIGNAL_DATA_ROOT`、`PARTSIGNAL_RELEASE_MANIFEST` 与 `PARTSIGNAL_IMAGE_DELIVERY_MODE`。不把 .env/DSN/密钥写到工单或命令记录。project 固定 `partsignal-staging`，名称不等于环境语义；权威 Compose 为 `deploy/compose.prod.yaml`，不追加 Browser/session overlay。
+阶段使用批准包在受保护通道配置 `ENV_FILE`、`PARTSIGNAL_VERSION`、backend/frontend image、`PARTSIGNAL_MIGRATION_IMAGE`（完整冻结 reference）、`PARTSIGNAL_DATA_ROOT`、`PARTSIGNAL_RELEASE_MANIFEST` 与 `PARTSIGNAL_IMAGE_DELIVERY_MODE`。不把 .env/DSN/密钥写到工单或命令记录。project 固定 `partsignal-staging`，名称不等于环境语义；权威 Compose 为 `deploy/compose.prod.yaml`，不追加 Browser/session overlay。
 
 批准和检查完成后，唯一应用入口为：
 
@@ -212,7 +212,7 @@ python -m app.geo_observability health scheduler
 
 旧镜像只有明确支持当前 schema 和安全合同才可恢复；单纯切 tag 或 current 链接不等于恢复。Frontend 仅在 **PRODUCTION_INITIALIZED** 使用既有 `rollback-production-frontend.sh`（内部 verify-rollback-frontend/mark-frontend-rollback）与已冻结 V2 镜像的正式流程；backend 不兼容则保留维护并前向修复。
 
-**前滚/部署尚处 UPGRADE_DEPLOYING 或 UPGRADE_PREPARED 时，frontend-only 回滚仍不可用，另一候选 begin-upgrade 仍拒绝。** 环境问题可批准同一 immutable candidate 重入；artifact 修复须按[部署附录显式前向恢复](../../Hostdzire部署附录.md#未初始化升级的显式前向恢复)执行 recover-upgrade。同 schema/全部迁移树（含镜像内内容）一致，全服务停止，旧/新 manifest、archive 和 image 身份完整验证，记录批准和原子候选接管；仍 deploying，重新通过完整 deploy/验收/activate，失败保持 maintenance。跨 schema/修改迁移或证据缺失继续停止。使用[升级恢复证据模板](../04-delivery/geo-1007-upgrade-recovery.template.yaml)；本地演练不代表现场恢复或首发 Go。用户本次称 GEO-1007，delivery 中同范围仍为 GEO-1008，不重编号。
+**前滚/部署尚处 UPGRADE_DEPLOYING 或 UPGRADE_PREPARED 时，frontend-only 回滚仍不可用，另一候选 begin-upgrade 仍拒绝。** 环境问题可批准同一 immutable candidate 重入；artifact 修复须按[部署附录显式前向恢复](../../Hostdzire部署附录.md#未初始化升级的显式前向恢复)执行 recover-upgrade。要求当前 attempt 的未消费失败记录、迁移前冻结证明、同 schema 与原迁移镜像 ID/完整运行时指纹一致，全服务停止，旧/新 manifest、archive 和 image 身份完整验证，记录批准和原子候选接管；仍 deploying，重新通过完整 deploy/验收/activate，失败保持 maintenance。跨 schema/修改迁移程序或证据缺失继续停止。使用[升级恢复证据模板](../04-delivery/geo-1007-upgrade-recovery.template.yaml)；本地演练不代表现场恢复或首发 Go。用户本次称 GEO-1007，delivery 中同范围仍为 GEO-1008，不重编号。
 
 GEO upgrade 不能误用 clean-init 的 quarantine restore。默认不 Alembic downgrade，不删除 tombstone/发送账本/审计历史，不恢复 Redis/Beat 文件冒充业务重放。
 

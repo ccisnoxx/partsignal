@@ -26,6 +26,8 @@ x-backend: &backend
 services:
   migrate:
     <<: *backend
+    # 恢复候选显式保留已冻结的迁移程序；应用 artifact 独立修复。
+    image: ${PARTSIGNAL_MIGRATION_IMAGE:-${PARTSIGNAL_BACKEND_IMAGE}:${PARTSIGNAL_VERSION}}
     command: [alembic, upgrade, head]
     restart: 'no'
 

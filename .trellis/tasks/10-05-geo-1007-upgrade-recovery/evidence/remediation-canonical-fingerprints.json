@@ -1,0 +1,22 @@
+{
+  "production": {
+    "image_id": "sha256:c36a954f95e610635510a9f2208be5ec9d1a7a91f1172388cd4bfd2952eefbc7",
+    "alembic_source_matches": true,
+    "fingerprint": {
+      "version": "MIGRATION_RUNTIME_V1",
+      "source_sha256": "2d73cc9a83e50593a07c193730d5e2f8bf0078be79139cd28a8b3ac57b20c549",
+      "environment_sha256": "d1d8b1df3c796795a5a2a4f17768db083595462bd452d37450d844f17ec02d71",
+      "migration_runtime_sha256": "5a7c8915a2db5e2c8a2b342782c6a3087349633ab0a8f1a24b52c353b63448f7"
+    }
+  },
+  "test": {
+    "image_id": "sha256:53abafb9a210d1d91e75408cb77bd7c504a986dd2677d7e3cdc421e76fed554d",
+    "alembic_source_matches": true,
+    "fingerprint": {
+      "version": "MIGRATION_RUNTIME_V1",
+      "source_sha256": "2d73cc9a83e50593a07c193730d5e2f8bf0078be79139cd28a8b3ac57b20c549",
+      "environment_sha256": "a5d7d1148de698ef83d997da4ca4324f05858aaabf3be884ce5628bba21aff48",
+      "migration_runtime_sha256": "dd956f23424b5db5c26d7bc08d3f0fc534e83f0f4c1fde56c656c0ad66f09b13"
+    }
+  }
+}

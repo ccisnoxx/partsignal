@@ -64,10 +64,15 @@ if ! test -d "$temporary_root"; then
 fi
 test_dir=$(mktemp -d "$temporary_root/partsignal-production-test.XXXXXX")
 # 部署脚本 mock 仍使用明确的 production runtime；不借开发 env 绕过生产入口。
-python3 - "$root/.env.example" "$test_dir/deployment-runtime.env" <<'PYCONFIG'
+python3 - "$root/.env.example" "$test_dir/deployment-runtime.env" \
+  "$root/.env.production.example" <<'PYCONFIG'
 from pathlib import Path
 import sys
-source = Path(sys.argv[1]).read_text().replace("APP_ENV=development", "APP_ENV=production")
+allowed = {line.split("=", 1)[0] for line in Path(sys.argv[3]).read_text().splitlines()
+           if line and not line.startswith("#") and "=" in line}
+source = "\n".join(line for line in Path(sys.argv[1]).read_text().splitlines()
+                   if "=" in line and line.split("=", 1)[0] in allowed)
+source = source.replace("APP_ENV=development", "APP_ENV=production") + "\n"
 target = Path(sys.argv[2])
 target.write_text(source)
 target.chmod(0o600)
@@ -113,10 +118,19 @@ PARTSIGNAL_DATA_ROOT="$test_dir/live" \
   docker compose --profile production-async --env-file "$root/.env.example" \
   -f "$root/deploy/compose.prod.yaml" \
   config --no-env-resolution --format json >"$test_dir/compose-async.json"
+PARTSIGNAL_BACKEND_IMAGE=partsignal-backend \
+PARTSIGNAL_MIGRATION_IMAGE=partsignal-migration:frozen-failed \
+PARTSIGNAL_FRONTEND_IMAGE=partsignal-frontend-v2 \
+PARTSIGNAL_VERSION=test \
+PARTSIGNAL_RUNTIME_ENV_FILE="$test_dir/deployment-runtime.env" \
+PARTSIGNAL_DATA_ROOT="$test_dir/live" \
+  docker compose --env-file "$root/.env.example" -f "$root/deploy/compose.prod.yaml" \
+  config --no-env-resolution --format json >"$test_dir/compose-frozen-migration.json"
 
 if test "${PARTSIGNAL_PRODUCTION_HARNESS_TEST_MODE:-}" != network-compatibility; then
 python3 - "$test_dir/compose.json" "$test_dir/live" "$test_dir/deployment-runtime.env" \
-  "$test_dir/compose-async.json" "$root/deploy/compose.prod.yaml" <<'PY'
+  "$test_dir/compose-async.json" "$root/deploy/compose.prod.yaml" \
+  "$test_dir/compose-frozen-migration.json" <<'PY'
 import json
 import sys
 
@@ -143,6 +157,12 @@ assert services["api"]["env_file"] == [{"path": sys.argv[3]}]
 assert services["frontend"]["networks"] == {"partsignal-staging-edge": None}
 assert "worker" not in services
 assert "scheduler" not in services
+assert services["migrate"]["image"] == services["api"]["image"] == "partsignal-backend:test"
+with open(sys.argv[6], encoding="utf-8") as config_file:
+    frozen_services = json.load(config_file)["services"]
+assert frozen_services["api"]["image"] == "partsignal-backend:test"
+assert frozen_services["migrate"]["image"] == "partsignal-migration:frozen-failed"
+assert frozen_services["migrate"]["command"] == ["alembic", "upgrade", "head"]
 with open(sys.argv[4], encoding="utf-8") as config_file:
     async_config = json.load(config_file)
 expected_networks = {"partsignal-staging-" + suffix for suffix in ("internal", "egress", "edge")}
@@ -172,6 +192,7 @@ with open(sys.argv[5], encoding="utf-8") as source:
 assert all("partsignal-" + suffix not in text for suffix in ("internal", "egress", "edge"))
 assert "19001" not in text and "/object-storage/" not in text
 print("Production network identity static: 3 networks / 7 services passed")
+print("Production migration binding: frozen migration image / repaired backend / fixed command passed")
 PY
 fi
 
@@ -465,13 +486,17 @@ grep -q 'return 503 "PartSignal maintenance\\n";' "$maintenance_template"
 ! grep -q '/object-storage/' "$maintenance_template"
 
 mkdir "$test_dir/bin"
+export PARTSIGNAL_TEST_RUNTIME_BACKEND="$root/backend"
+export PARTSIGNAL_TEST_RUNTIME_ADAPTER="$root/deploy/scripts/test-migration-runtime-docker.py"
+export PARTSIGNAL_TEST_RUNTIME_STATE="$test_dir/runtime-fixtures"
 printf '%s\n' \
   '#!/bin/sh' \
+  'case "$1" in create | export | container) exec python3 "$PARTSIGNAL_TEST_RUNTIME_ADAPTER" "$PARTSIGNAL_TEST_RUNTIME_BACKEND" "$PARTSIGNAL_TEST_RUNTIME_STATE" "$@" ;; esac' \
   'case "$*" in' \
   '  "image inspect "*)' \
   '    printf "docker %s\n" "$*" >>"${COMMAND_LOG:-/dev/null}"' \
   '    case "$*" in *"${MISSING_IMAGE_REFERENCE:-__never__}"*) exit 1 ;; esac' \
-  '    printf '\''[{"Id":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","RepoDigests":["example@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"],"Config":{"Env":[]}}]\n'\''' \
+  '    printf '\''[{"Id":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","RepoDigests":["example@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"],"Config":{"Env":[],"WorkingDir":"/app","Entrypoint":null}}]\n'\''' \
   '    ;;' \
   '  "ps -q --filter label=com.docker.compose.project="*) printf "%s\n" "${DOCKER_PROJECT_IDS:-}" ;;' \
   '  "ps -q") printf "%s\n" "${DOCKER_RUNNING_IDS:-}" ;;' \
@@ -998,10 +1023,14 @@ tracked_names = {
     "deploy/scripts/deploy.sh",
     "deploy/scripts/prepare-production-data.py",
     "deploy/scripts/production_upgrade_recovery.py",
+    "deploy/scripts/production_migration_runtime.py",
     "deploy/scripts/rollback-production-frontend.sh",
 }
 manifest = suite_root / "release-manifest.json"
+sys.path.insert(0, str(root / "deploy/scripts"))
+from production_migration_runtime import _fingerprint
 manifest_payload = {
+    "migration_runtime": _fingerprint("a" * 64, "b" * 64),
     "release_id": release_id,
     "commit": "e" * 40,
     "schema_head": "0043_geo_platform_identity",
@@ -1024,9 +1053,11 @@ manifest_payload = {
     },
     "tracked_files": {name: sha256(root / name) for name in sorted(tracked_names)},
 }
+manifest_payload["images"]["migration"] = dict(manifest_payload["images"]["backend"])
 manifest.write_text(json.dumps(manifest_payload, sort_keys=True), encoding="utf-8")
 candidate = {
     "manifest_sha256": sha256(manifest),
+    "migration_runtime": manifest_payload["migration_runtime"],
     "release_id": release_id,
     "commit": "e" * 40,
     "schema_head": "0043_geo_platform_identity",
@@ -1042,6 +1073,8 @@ candidate = {
         "registry.example/frontend@sha256:" + "5" * 64
     ],
 }
+
+candidate.update({"migration_reference": candidate["backend_reference"], "migration_image_id": candidate["backend_image_id"], "migration_repo_digests": candidate["backend_repo_digests"]})
 
 docker_script = fake_bin / "docker"
 docker_script.write_text(
@@ -1614,6 +1647,7 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/manifest.log" \
   --tracked-file "$root/deploy/scripts/deploy.sh" \
   --tracked-file "$root/deploy/scripts/prepare-production-data.py" \
   --tracked-file "$root/deploy/scripts/production_upgrade_recovery.py" \
+  --tracked-file "$root/deploy/scripts/production_migration_runtime.py" \
   --tracked-file "$root/deploy/scripts/rollback-production-frontend.sh" \
   --output "$test_dir/v1-manifest.json" >/dev/null 2>"$test_dir/v1-manifest.err"
 v1_manifest_status=$?
@@ -1641,6 +1675,7 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/manifest.log" \
   --tracked-file "$root/deploy/scripts/deploy.sh" \
   --tracked-file "$root/deploy/scripts/prepare-production-data.py" \
   --tracked-file "$root/deploy/scripts/production_upgrade_recovery.py" \
+  --tracked-file "$root/deploy/scripts/production_migration_runtime.py" \
   --tracked-file "$root/deploy/scripts/rollback-production-frontend.sh" \
   --output "$test_dir/release-manifest.json" >/dev/null
 PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/manifest.log" \
@@ -1662,6 +1697,7 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/manifest.log" \
   --tracked-file "$root/deploy/scripts/deploy.sh" \
   --tracked-file "$root/deploy/scripts/prepare-production-data.py" \
   --tracked-file "$root/deploy/scripts/production_upgrade_recovery.py" \
+  --tracked-file "$root/deploy/scripts/production_migration_runtime.py" \
   --tracked-file "$root/deploy/scripts/rollback-production-frontend.sh" \
   --output "$test_dir/release-manifest-next.json" >/dev/null
 
@@ -1920,7 +1956,7 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/clean.log" \
 
 awk '
   /config --quiet/ { config = NR }
-  /pull api worker scheduler frontend/ { pull = NR }
+  /pull api worker scheduler frontend migrate/ { pull = NR }
   /image inspect/ { verify = NR }
   /up -d --wait postgres redis/ { data = NR }
   /preflight-production-config/ { production = NR }
@@ -2476,6 +2512,7 @@ assert set(manifest["tracked_files"]) == {
     "deploy/scripts/deploy.sh",
     "deploy/scripts/prepare-production-data.py",
     "deploy/scripts/production_upgrade_recovery.py",
+    "deploy/scripts/production_migration_runtime.py",
     "deploy/scripts/rollback-production-frontend.sh",
 }
 PY

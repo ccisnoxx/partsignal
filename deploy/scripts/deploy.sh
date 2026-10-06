@@ -86,6 +86,26 @@ compose_up() {
   fi
 }
 
+upgrade_started=0
+deployment_stage=data_services
+deployment_signal=0
+finish_deployment() {
+  deployment_status=$?
+  trap - 0 INT TERM
+  if test "$upgrade_started" = 1 && test "$deployment_status" -ne 0; then
+    if ! python3 "$script_dir/prepare-production-data.py" record-upgrade-failure \
+      "$PARTSIGNAL_RELEASE_MANIFEST" --stage "$deployment_stage" \
+      --exit-code "$deployment_status" --signal "$deployment_signal" \
+      --evidence-ref "deploy-exit/$deployment_stage"; then
+      printf '%s\n' "部署失败记录未完成；保持维护，禁止用阶段或当前配置补造失败证明。" >&2
+    fi
+  fi
+  exit "$deployment_status"
+}
+trap finish_deployment 0
+trap 'deployment_signal=2; exit 130' INT
+trap 'deployment_signal=15; exit 143' TERM
+
 if test "$deploy_mode" = clean-init; then
   : "${PARTSIGNAL_CUTOVER_RUN_ID:?clean-init 必须指定 PARTSIGNAL_CUTOVER_RUN_ID}"
   python3 "$script_dir/prepare-production-data.py" \
@@ -97,7 +117,7 @@ fi
 
 docker compose --env-file "$env_file" -f "$compose_file" config --quiet
 if test "$image_delivery_mode" = registry; then
-  docker compose --env-file "$env_file" -f "$compose_file" pull api worker scheduler frontend
+  docker compose --env-file "$env_file" -f "$compose_file" pull api worker scheduler frontend migrate
 fi
 python3 "$script_dir/prepare-production-data.py" \
   verify-candidate-images "$PARTSIGNAL_RELEASE_MANIFEST"
@@ -105,17 +125,22 @@ if test "$deploy_mode" = upgrade; then
   # registry 先交付并核对，再证明执行策略/绑定候选，始终早于 run/up。
   python3 "$script_dir/prepare-production-data.py" \
     begin-upgrade "$PARTSIGNAL_RELEASE_MANIFEST"
+  upgrade_started=1
 fi
 compose_up -d --wait postgres redis
+deployment_stage=configuration_preflight
 compose_run --rm api \
   python -m app.cli preflight-production-config
 
 if test "$deploy_mode" = upgrade; then
+  deployment_stage=integrity_preflight
   compose_run --rm api \
     python -m app.cli preflight-integrity
+  deployment_stage=stop_application
   docker compose --env-file "$env_file" -f "$compose_file" stop api worker scheduler
 fi
 
+deployment_stage=migration
 compose_run --rm migrate
 
 if test "$deploy_mode" = clean-init; then
@@ -123,15 +148,21 @@ if test "$deploy_mode" = clean-init; then
     python -m app.cli preflight-integrity
 fi
 
+deployment_stage=account_initialization
 compose_run --rm api \
   python -m app.cli initialize-accounts
+deployment_stage=application_start
 compose_up -d --wait api frontend
+deployment_stage=status
 docker compose --env-file "$env_file" -f "$compose_file" ps
 
+deployment_stage=api_readiness
 curl --fail --silent --show-error --retry 12 --retry-delay 2 \
   http://127.0.0.1:19000/api/health/ready >/dev/null
+deployment_stage=frontend_readiness
 curl --fail --silent --show-error --retry 12 --retry-delay 2 \
   http://127.0.0.1:19080/ >/dev/null
+deployment_stage=prepared_proof
 if test "$deploy_mode" = clean-init; then
   python3 "$script_dir/prepare-production-data.py" \
     mark-prepared "$PARTSIGNAL_CUTOVER_RUN_ID" "$PARTSIGNAL_RELEASE_MANIFEST"

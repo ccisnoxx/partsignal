@@ -1847,7 +1847,7 @@ tasks:
   - 06-reviews/GEO-1001-release-readiness-audit.md
   audit_source: 06-reviews/GEO-1001-release-readiness-audit.md
   scope_note: "用户以 GEO-1007 明确执行本恢复范围；记录在 .trellis/tasks/10-05-geo-1007-upgrade-recovery，保留本条 GEO-1008 身份及原 GEO-1007 页面任务，不重编号。任务本地完成后按该 Trellis 记录 review；生产候选/现场 1009/1010 未执行。"
-  review_note: "2026-10-05：用户GEO-1007恢复范围交付review；先状态机/方案与计划，再受控同schema/相同迁移CAS。27项定向测试、真实PG/Compose/镜像缓存/历史runtime反例、两目标构建与串行部署自检通过；5项fresh独立审查推动修复，最后无确认阻断。历史缺失败执行cache-policy证明继续停止，不补造；人工接受、真实registry/历史样本/进行中EngineSIGTERM/目标及1009/1010未验证。详见Trellis implement/evidence。"
+  review_note: "2026-10-06：按用户CHANGES_REQUESTED保持严格失败恢复语义修复：原migration image ID/全rootfs指纹、迁移前历史证明、current attempt不可变失败记录、正式recover信号治理。49项定向测试、实际入口SIGTERM、真实Docker/PG Compose、canonical两目标及部署编排自检通过；最终fresh独立复核无未解除确认问题；合法预算/模板loader授权缺口已修复。历史缺证不补造；人工接受、真实registry/丰富历史样本/目标服务器/1009/1010未验证。详见Trellis implement/evidence。"
 - id: GEO-1009
   phase: R9A
   release: V1.0-manual-first

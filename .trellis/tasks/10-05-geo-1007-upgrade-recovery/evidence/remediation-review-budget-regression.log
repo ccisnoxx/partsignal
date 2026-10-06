@@ -1,0 +1,12 @@
+......
+----------------------------------------------------------------------
+Ran 6 tests in 0.059s
+
+OK
+Production upgrade 数据所有权与候选绑定校验通过。
+升级失败事实已记录：upf_4d7aceefa68a43668aab70c6c14e5139；候选与阶段保持。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+升级失败事实已记录：upf_7a2a98d9ad8444ccaebd5705f9fe3c59；候选与阶段保持。
+Production upgrade 数据所有权与候选绑定校验通过。
+升级失败事实已记录：upf_8685612ef29b4fceb6563e4775cfffdf；候选与阶段保持。

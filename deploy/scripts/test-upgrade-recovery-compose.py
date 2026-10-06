@@ -200,18 +200,11 @@ def main():
         }
 
     def snapshot_archive(release):
+        from production_migration_runtime import checkout_source_files
         archive = root / f"{release}.tar.gz"
         with tarfile.open(archive, "w:gz") as output:
-            for path in sorted((ROOT / "backend/alembic").rglob("*")):
-                if (
-                    path.is_file()
-                    and "__pycache__" not in path.parts
-                    and path.suffix != ".pyc"
-                ):
-                    output.add(
-                        path, arcname=path.relative_to(ROOT).as_posix(), recursive=False
-                    )
-            output.add(ROOT / "backend/alembic.ini", arcname="backend/alembic.ini")
+            for name in sorted(checkout_source_files(ROOT / "backend")):
+                output.add(ROOT / "backend" / name, arcname="backend/" + name, recursive=False)
         return archive
 
     def manifest(release, archive):
@@ -228,6 +221,8 @@ def main():
             str(archive),
             "--backend-image",
             backend + ":" + release,
+            "--migration-image",
+            failed_ref,
             "--frontend-image",
             frontend + ":" + release,
             "--rollback-frontend-image",
@@ -281,19 +276,15 @@ def main():
                 "*.egg-info",
             ),
         )
-        (build / "Dockerfile").write_text("FROM partsignal-backend:test\nCOPY . /app\nRUN find alembic -type f \\( -name '*.pyc' -o -name '*.pyo' \\) -delete\n")
+        (build / "Dockerfile").write_text("FROM partsignal-backend:test\nCOPY . /app\nRUN find /app -type f \\( -name '*.pyc' -o -name '*.pyo' \\) -delete\n")
         run(["docker", "build", "--pull=false", "-t", fixed_ref, str(build)])
-        (build / "Dockerfile").write_text(
-            f'FROM {fixed_ref}\nCOPY failure.sh /failure.sh\nENTRYPOINT ["/bin/sh", "/failure.sh"]\n'
-        )
-        (build / "failure.sh").write_text("""#!/bin/sh
-if test "$1" = alembic; then
-  "$@" || exit "$?"
-  exit 23
-fi
-if test "$1" = uvicorn; then exit 24; fi
-exec "$@"
-""")
+        # 只改变非迁移应用 artifact；不能用不同 Entrypoint/基础环境伪装等价 runtime。
+        failure = build / "failure-artifact"
+        failure.mkdir()
+        (failure / "cli.py").write_text((ROOT / "backend/app/cli.py").read_text() +
+                                      "\nif __name__ == '__main__' and 'initialize-accounts' in __import__('sys').argv:\n    raise SystemExit(23)\n")
+        (failure / "main.py").write_text((ROOT / "backend/app/main.py").read_text() + "\nraise SystemExit(24)\n")
+        (build / "Dockerfile").write_text(f"FROM {fixed_ref}\nCOPY failure-artifact/ /app/app/\n")
         run(["docker", "build", "--pull=false", "-t", failed_ref, str(build)])
         for release in (failed_release, fixed_release):
             run(
@@ -312,6 +303,7 @@ exec "$@"
             manifest(failed_release, failed_archive),
             manifest(fixed_release, fixed_archive),
         )
+        environment["PARTSIGNAL_MIGRATION_IMAGE"] = failed_ref
         run([*compose, "config", "--quiet"])
         started = True
         run([*compose, "up", "--pull", "never", "-d", "--wait", "postgres", "redis"])
@@ -369,6 +361,9 @@ exec "$@"
             flush=True,
         )
         failed_candidate = state()["candidate"]
+        failure_record = state()["upgrade_failures"][-1]
+        assert failure_record["candidate"] == failed_candidate
+        assert failure_record["stage"] == "account_initialization" and failure_record["exit_code"] == 23
         if "--sigterm-after-failure" in sys.argv:
             os.kill(os.getpid(), signal.SIGTERM)
         environment["PARTSIGNAL_VERSION"] = fixed_release
@@ -380,9 +375,8 @@ exec "$@"
             expected=2,
             reason="要求 PRODUCTION_INITIALIZED",
         )
-        run([*compose, "up", "--pull", "never", "-d", "api"])
-        api_id = run([*compose, "ps", "-aq", "api"]).stdout.strip()
-        assert run(["docker", "wait", api_id]).stdout.strip() == "24"
+        # 正式 API 有两个 uvicorn worker，会重启失败子进程；直接验证同镜像入口导入失败。
+        run([*compose, "run", "--rm", "--pull", "never", "--no-deps", "api", "python", "-c", "import app.main"], expected=24)
         print(
             "真实启动 artifact exit24；新候选和 frontend rollback 原路径均拒绝",
             flush=True,
@@ -402,6 +396,8 @@ exec "$@"
             "upr_20261005_120000",
             "--approval-ref",
             "local-fixture/approval",
+            "--failure-id",
+            failure_record["failure_id"],
         ]
         environment.update(
             PARTSIGNAL_VERSION=fixed_release,

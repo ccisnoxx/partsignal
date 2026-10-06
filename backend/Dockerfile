@@ -12,15 +12,15 @@ COPY pyproject.toml uv.lock* ./
 RUN uv sync --no-dev --no-install-project
 COPY . .
 RUN uv sync --no-dev
-# Alembic 必须从冻结源码加载，避免同名 revision 的编译缓存改变实际 DDL。
-RUN find alembic -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
+# 迁移会导入 app 模块；整个应用目录必须从冻结源码加载，避免缓存改变实际 DDL。
+RUN find /app -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
 
 ENV PATH="/opt/venv/bin:$PATH"
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
 FROM runtime AS test
 RUN uv sync --all-extras
-RUN find alembic -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
+RUN find /app -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
 CMD ["pytest", "tests"]
 
 FROM runtime AS production

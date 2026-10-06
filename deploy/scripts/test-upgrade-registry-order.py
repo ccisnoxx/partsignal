@@ -37,14 +37,20 @@ marker=Path(os.environ['ORDER_PULL_MARKER'])
 with open(os.environ['ORDER_LOG'], 'a') as output: output.write(json.dumps(args)+'\\n')
 if args[:2] == ['image','inspect']:
     if not marker.exists(): sys.exit(81)
-    print(json.dumps([{'Id':'sha256:'+'b'*64,'Config':{'Env':[]},'RepoDigests':['test/backend@sha256:'+'b'*64,'test/frontend@sha256:'+'b'*64]}]))
+    print(json.dumps([{'Id':'sha256:'+'b'*64,'Config':{'Env':[],'WorkingDir':'/app','Entrypoint':None},'RepoDigests':['test/backend@sha256:'+'b'*64,'test/migration@sha256:'+'b'*64,'test/frontend@sha256:'+'b'*64]}]))
 elif args[0] == 'compose' and 'pull' in args:
     assert state()['phase'] == 'PRODUCTION_INITIALIZED'
     marker.touch()
+elif args[0] in ('create', 'export', 'container'):
+    import subprocess
+    subprocess.run([sys.executable, os.environ['RUNTIME_FIXTURE_ADAPTER'],
+                    os.environ['RUNTIME_FIXTURE_BACKEND'], os.environ['RUNTIME_FIXTURE_STATE'], *args], check=True)
 elif args[0] == 'compose' and any(c in args for c in ('run','up')):
     current=state()
     assert marker.exists() and current['phase'] == 'UPGRADE_DEPLOYING'
     assert current['upgrade_migration_cache_policy']['candidate'] == current['candidate']
+    if os.environ.get('ORDER_FAIL_STAGE') == 'migration' and 'run' in args and 'migrate' in args:
+        sys.exit(23)
 ''')
         docker.chmod(0o700)
         curl = self.bin / 'curl'
@@ -56,7 +62,22 @@ elif args[0] == 'compose' and any(c in args for c in ('run','up')):
             PARTSIGNAL_IMAGE_DELIVERY_MODE='registry', PARTSIGNAL_DEPLOY_MODE='upgrade',
             ORDER_LOG=str(self.log), ORDER_PULL_MARKER=str(self.marker),
             PATH=str(self.bin) + os.pathsep + os.environ['PATH'],
+            RUNTIME_FIXTURE_ADAPTER=str(Path(__file__).with_name('test-migration-runtime-docker.py')),
+            RUNTIME_FIXTURE_BACKEND=str(self.data.repository / 'backend'),
+            RUNTIME_FIXTURE_STATE=str(self.data.root / 'runtime-fixtures'),
         )
+        from production_migration_runtime import image_runtime_fingerprint
+        self.marker.touch()
+        for path in (self.data.failed_manifest, self.data.fixed_manifest):
+            payload = json.loads(path.read_text())
+            payload['images']['migration'] = {'reference': 'test/migration:fixed', 'image_id': 'sha256:'+'b'*64,
+                                               'repo_digests':['test/migration@sha256:'+'b'*64]}
+            # 合成Engine输出用于真实shell顺序测试，不作为迁移环境等价性的证据。
+            payload['migration_runtime'] = image_runtime_fingerprint('sha256:' + 'b' * 64)
+            path.write_text(json.dumps(payload))
+        self.marker.unlink()
+        self.log.unlink()
+        self.data.fixed = self.data.candidate(self.data.fixed_manifest)
         self.deploy = self.data.repository / 'deploy/scripts/deploy.sh'
         self.deploy.chmod(0o700)
 
@@ -80,6 +101,19 @@ elif args[0] == 'compose' and any(c in args for c in ('run','up')):
         self.assertFalse(self.marker.exists())
         self.assertFalse(self.log.exists())
         self.assertEqual(fixture.owner.read_state(self.data.live), before)
+
+    def test_real_deploy_exit_records_candidate_bound_failure(self):
+        os.environ['ORDER_FAIL_STAGE'] = 'migration'
+        result = subprocess.run([str(self.deploy)], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 23, result.stderr)
+        state = fixture.owner.read_state(self.data.live)
+        self.assertEqual(state['phase'], 'UPGRADE_DEPLOYING')
+        record = state['upgrade_failures'][-1]
+        self.assertEqual(record['candidate'], self.data.fixed)
+        self.assertEqual(record['attempt_id'], state['upgrade_attempt']['attempt_id'])
+        self.assertEqual(record['failure_id'], state['current_upgrade_failure_id'])
+        self.assertEqual(record['exit_code'], 23)
+        self.assertEqual(record['stage'], 'migration')
 
 
 if __name__ == '__main__':

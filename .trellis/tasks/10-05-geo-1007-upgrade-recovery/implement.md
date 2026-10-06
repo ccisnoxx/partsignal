@@ -86,3 +86,12 @@ fresh critical_reviewer 已发现并推动修复：failed镜像证明遗漏；�
 本地Compose使用合成账号和稀疏业务表；69表摘要不证明丰富Content/Publishing/GEO不可变业务历史。AI/OSS MET为明确合成夹具，非真实Gate。目标服务器、公网maintenance503、真实备份/registry/AI/OSS、精确新commit远端CI及正式clean main候选未验证；未执行make test-deploy-scripts整体（其无关Frontend/GEO/E2E门禁未因本修复改变）。实际recovery信号证据来自fake Docker阻塞边界；没有声称真实Engine操作进行中SIGTERM已覆盖。仍review，人工接受与生产发布未执行。
 
 最终49项与Production harness均确认退出0；审查后仅文档/记录/校验清单收尾，未更改执行行为。审计Bundle已closed且audit-verify通过，六列Digest见 evidence/remediation-subagent-digest.md，验证记录见 remediation-audit-verify.log。两个canonical专有标签按已冻结image ID核对后移除；不清理共享镜像、开发资源或Engine。最终资源库存和源码摘要见 remediation-final-resources.json、remediation-final-source-hashes.json。
+
+
+## 提交、推送与会话收尾
+
+用户在修复交付后明确要求“请提交并推送，然后收尾”。修复及对应证据已提交为 `d431e51894c0574928fee3bcc25bce9fec0725d1`（fix(deploy): enforce strict upgrade failure recovery），推送到 origin/geo/GEO-906，未合并main。收尾记录引用这一真实提交，不更改已验运行行为。
+
+提交前确认全部58个变更归属本修复，维护文件与最终验证快照一致；代码/维护文档staged diff检查通过。原始patch证据中的context空白与失败日志中两处原始输出行尾空白按证据语法保留，不篡改历史输出。49项、两个SIGTERM场景及真实Docker/PG Compose等既有有效证据复用，没有因提交重复运行无关全门禁。
+
+会话收尾清除本会话任务指针并记录journal；任务继续review，保留所有资料和人工验收入口，不归档或修改其他任务。用户提交推送授权未扩大为整个geo/GEO-906分支接受、生产恢复/发布或GEO-1009/1010执行。提交后的精确commit远端CI未在本次收尾中验证。

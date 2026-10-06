@@ -1851,3 +1851,36 @@ L8 principal mutation pre-send fence 完成；新候选唯一完整 make verify 
 ### Next Steps
 
 - 下一阶段仅记录为 I04 发布准备与实际部署；本会话未创建或实施 I04，需另行授权。
+
+
+## Session 234: GEO-1007 严格失败恢复修复提交与收尾
+
+**Date**: 2026-10-06
+**Task**: GEO-1007 严格失败恢复修复提交与收尾
+**Branch**: `geo/GEO-906`
+
+### Summary
+
+严格失败恢复修复与证据已推送origin/geo/GEO-906；会话收尾，保留review与生产未知。
+
+### Main Changes
+
+- 冻结原迁移镜像全rootfs指纹、持久化current attempt失败事实、正式recover信号治理；预算与模板loader授权缺口修复。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `d431e51894c0574928fee3bcc25bce9fec0725d1` | (see git log) |
+
+### Testing
+
+- [OK] 49项定向测试、两个SIGTERM场景、真实Docker/PG Compose69表、canonical两目标、Production编排、Ruff和文档校验通过；最终fresh独立复核无未解除问题。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 保留review供人工验收；生产服务器/maintenance/备份/真实AI-OSS/registry与正式候选远端CI仍未验证。

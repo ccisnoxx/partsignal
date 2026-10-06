@@ -1,0 +1,30 @@
+{
+  "review_result": "APPROVE (remediation delta)",
+  "reviewed_commit": "aa7f3db8c222cd8b9a48bffbf24884c4c34e8151",
+  "local_full_gate": "PASS",
+  "local_gate_exit_code": 0,
+  "local_gate_seconds": 2287.522325,
+  "local_gate_runs": 1,
+  "ci_dispatch_count": 1,
+  "ci_run_id": 37525885249,
+  "ci_status_at_closeout": "completed",
+  "ci_conclusion_at_closeout": "failure",
+  "remote_ci_cancelled": false,
+  "prior_six_findings": "RESOLVED",
+  "main_merged": false,
+  "rc_frozen": false,
+  "production_accepted": false,
+  "subagent_audit_id": "20261006T200815Z-branch-blocker-remediation-527b7174",
+  "remaining": "CI入口修复后新SHA远端门禁未执行；其他task人工接受、clean main与候选/现场准入另行完成",
+  "ci_remediation_commit": "d43695e5e5eac3ba8babdea22092cfcb2097144c",
+  "ci_remediation_remote_verified": false,
+  "ci_failed_groups": {
+    "object_storage_service_not_started": 54,
+    "container_contract_mount_missing": 6,
+    "recovery_pg16_tools_not_configured": 6
+  },
+  "latest_code_commit": "d43695e5e5eac3ba8babdea22092cfcb2097144c",
+  "ci_remediation_review": "APPROVE (CI entrypoint delta)",
+  "ci_review_ref": "evidence/independent-review-d43695e5.md",
+  "ci_review_audit_id": "20261006T210337Z-branch-ci-entrypoint-review-614429bf"
+}

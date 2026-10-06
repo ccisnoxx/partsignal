@@ -1,0 +1,17 @@
+{
+  "name": "ci-entrypoint-dry-run",
+  "command": [
+    "make",
+    "-n",
+    "test-integration"
+  ],
+  "cwd": "/Users/sc/PycharmProjects/partsignal",
+  "process_umask": "0o22",
+  "sha": "d43695e5e5eac3ba8babdea22092cfcb2097144c",
+  "dirty": true,
+  "started_at": "2026-10-06T21:03:52.484444+00:00",
+  "ended_at": "2026-10-06T21:03:52.494449+00:00",
+  "exit_code": 0,
+  "log": "/Users/sc/.codex/reviews/partsignal/branch-blocker-remediation-20261006/logs/ci-entrypoint-dry-run.log",
+  "log_sha256": "b1fd1b8e7815efa25838517e4b88be9ec3b169d8eb46519fc895e7ffc91f713e"
+}

@@ -1,0 +1,22 @@
+{
+  "name": "fixed-full-verify",
+  "command": [
+    "env",
+    "UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv",
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "python",
+    ".trellis/tasks/10-05-verify-entrypoint/run-verify.py"
+  ],
+  "cwd": "/Users/sc/PycharmProjects/partsignal",
+  "process_umask": "0o22",
+  "sha": "aa7f3db8c222cd8b9a48bffbf24884c4c34e8151",
+  "dirty": false,
+  "started_at": "2026-10-06T20:21:24.653381+00:00",
+  "ended_at": "2026-10-06T20:59:32.175706+00:00",
+  "exit_code": 0,
+  "log": "/Users/sc/.codex/reviews/partsignal/branch-blocker-remediation-20261006/logs/fixed-full-verify.log",
+  "log_sha256": "492e001f035561babd4b64c07e9ad814558f84e7f6135793d85f4fe1d3028f4c"
+}

@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-4.md`
-- **Total Sessions**: 235
+- **Total Sessions**: 236
 - **Last Active**: 2026-10-06
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-4.md` | ~1924 | Active |
+| `journal-4.md` | ~1961 | Active |
 | `journal-3.md` | ~1983 | Archived |
 | `journal-2.md` | ~1986 | Archived |
 | `journal-1.md` | ~1990 | Archived |
@@ -32,6 +32,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 236 | 2026-10-06 | 整分支阻断修复、本地单次完整门禁与CI入口纠正 | `aa7f3db8`, `d43695e5` | `geo/GEO-906` |
 | 235 | 2026-10-06 | GEO-1007严格恢复修复接受与整分支待修复收尾 | `baea420fb8a479d66d578d3f4fd91d38086b8c29`, `d2aefec7ced564d70d2961f7855755a6f17b6b2d` | `geo/GEO-906` |
 | 234 | 2026-10-06 | GEO-1007 严格失败恢复修复提交与收尾 | `d431e51894c0574928fee3bcc25bce9fec0725d1` | `geo/GEO-906` |
 | 233 | 2026-09-26 | I03 L8 修复、完整门禁与 I03 阻断链收尾 | `387b802d28b539baabfce7229097f333bad26b6b` | `codex/frontend-redevelopment-candidate` |

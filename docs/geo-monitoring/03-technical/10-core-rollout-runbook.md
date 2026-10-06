@@ -25,7 +25,7 @@
 | 正式 MANUAL 与内部试运行 | 真实批准样本→原文/引用/证据→确定性分析→必要复核→指标/现有报告→管理员显式评估→Action/Retest API→严格比较/显式解决；人群/时长/反馈与业务签署 | NOT_VERIFIED；1010；不把 API 操作写成全程页面 |
 | 阶段批准与最终签署 | 同候选/目标 expand/deploy/enable、访问开放及停止/恢复所需批准；GEO-1010 必需门禁全部 MET，业务/运维签署 | NOT_VERIFIED；当前 NO-GO；未具名者不得补造 |
 
-2026-10-06 [接受后发布阻断复审](../06-reviews/2026-10-06-v1-post-recovery-blocker-audit.md)确认本地实现与现场门禁分别判断：整PR门禁/前端竞态仍待修复，GEO-1007恢复接受不改变整分支、clean main/RC或生产NO-GO。
+2026-10-06 [接受后发布阻断复审](../06-reviews/2026-10-06-v1-post-recovery-blocker-audit.md)所列六类问题已由[固定修复与验证](../06-reviews/2026-10-06-v1-branch-blocker-remediation.md)收口：aa增量APPROVE、本地完整门禁exit0；aa远端CI失败，d43695e5已改接权威集成入口，新SHA远端尚未复验。其他任务人工接受与候选/现场门禁保留，clean main/RC及生产仍NO-GO。
 
 任何必需项 NOT_MET、NOT_VERIFIED、缺失、失败或缺批准均 No-Go，并保存失败/未知和具体恢复输入。Go 不授权超出已批准范围的公开流量、API 启用、实际材料删除或 Browser 试点。GEO-1010 完成先 review；done 需用户接受，阶段操作仍遵守相应授权。
 

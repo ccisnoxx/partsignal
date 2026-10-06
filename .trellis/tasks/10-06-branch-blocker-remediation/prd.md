@@ -9,3 +9,5 @@
 授权：用户已要求修整分支阻断，并要求避免反复验证花费一两个小时。此前提交推送授权沿用。不合并 main、不冻结 RC、不生产部署；这些需实际准入满足。
 
 依据：docs/geo-monitoring/06-reviews/2026-10-06-v1-post-recovery-blocker-audit.md 与其 evidence/independent-pr-review-d2aefec7.md。其他任务 review 不自动接受。
+
+CI失败后必要修复：宿主直接pytest缺对象存储、容器合同挂载和PG16工具，改接已有make test-integration；其执行源码和测试未变，复用已通过本地完整门禁，仅检查新增CI调用与固定SHA独立复审。不再次触发小时级全量；远端未验证如实保留。
